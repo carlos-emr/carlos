@@ -3848,6 +3848,21 @@ class TestTheRunningWebappGuard(unittest.TestCase):
         self.assertIsNone(self.refusal("active", env_file=missing))
         self.assertEqual(self.argv, [])
 
+    def test_a_start_during_bundle_intake_prevents_every_import_phase(self):
+        with mock.patch.object(o19import.os, "geteuid", return_value=0), \
+                mock.patch.object(o19import, "load_state", return_value={}), \
+                mock.patch.object(o19import, "etl_started",
+                                  return_value=False), \
+                mock.patch.object(o19import, "_make_ctx",
+                                  return_value={}) as intake, \
+                mock.patch.object(o19import, "webapp_running_refusal",
+                                  side_effect=[None, "service started"]), \
+                mock.patch.object(o19import, "run_p0") as first_phase:
+            with self.assertRaises(SystemExit):
+                o19import.cmd_import_o19(["--admin-user", "MigrationAdmin"])
+        intake.assert_called_once()
+        first_phase.assert_not_called()
+
 
 class TestProcessGrantState(unittest.TestCase):
     """The replica gate's PROCESS-privilege determination.

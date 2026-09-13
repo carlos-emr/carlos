@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -80,8 +81,29 @@ class MigrationColumnListContractUnitTest {
                     // itself writes schema-qualified SQL, so that is the
                     // style a migration author is most likely to copy, and
                     // an unqualified-only pattern would not see it.
-                    + "(?:`?\\w+`?\\s*\\.\\s*)?`?\\w+`?\\s+VALUES\\b",
+                    + "((?:`?\\w+`?\\s*\\.\\s*)?`?\\w+`?)\\s+VALUES\\b",
             Pattern.CASE_INSENSITIVE);
+
+    /** Only a newly defined temporary table has a shape the importer cannot widen. */
+    private static boolean targetsLocalTemporaryTable(String sql, Matcher insert) {
+        String table = insert.group(1).replace("`", "").toLowerCase(Locale.ROOT);
+        // Qualified names are deliberately not inferred from an unqualified CREATE.
+        if (table.contains(".")) {
+            return false;
+        }
+        String identifier = "`?" + Pattern.quote(table) + "`?";
+        Pattern lifecycle = Pattern.compile(
+                "\\b(CREATE\\s+TEMPORARY\\s+TABLE)\\s+" + identifier + "\\s*\\("
+                // Conservatively end the exemption at any DROP TABLE: a
+                // multi-table DROP may name this helper after another table.
+                + "|\\bDROP\\s+(?:TEMPORARY\\s+)?TABLE\\b", Pattern.CASE_INSENSITIVE);
+        Matcher change = lifecycle.matcher(sql.substring(0, insert.start()));
+        boolean temporary = false;
+        while (change.find()) {
+            temporary = change.group(1) != null;
+        }
+        return temporary;
+    }
 
     /**
      * Comment forms stripped before matching, and the whitespace run collapsed when an offender is
@@ -194,9 +216,12 @@ class MigrationColumnListContractUnitTest {
             if (GRANDFATHERED.contains(name)) {
                 continue;
             }
-            Matcher m = POSITIONAL_INSERT.matcher(
-                    withoutComments(Files.readString(migration, StandardCharsets.UTF_8)));
+            String sql = withoutComments(Files.readString(migration, StandardCharsets.UTF_8));
+            Matcher m = POSITIONAL_INSERT.matcher(sql);
             while (m.find()) {
+                if (targetsLocalTemporaryTable(sql, m)) {
+                    continue;
+                }
                 offenders.add(name + ": "
                         + WHITESPACE_RUN.matcher(m.group()).replaceAll(" "));
             }
@@ -208,6 +233,26 @@ class MigrationColumnListContractUnitTest {
                         + "because import-o19 preserves unmapped OSCAR 19 columns as "
                         + "import_archived_<column> on the live table. Name the columns.")
                 .isEmpty();
+    }
+
+    @Test
+    @DisplayName("Temporary seed helpers do not exempt persistent clinical tables")
+    void shouldExemptOnlyFreshTemporaryTables_beforeTheyAreDropped() {
+        String sql = "CREATE TEMPORARY TABLE helper (id INT); "
+                + "INSERT INTO helper VALUES (1); "
+                + "INSERT INTO property VALUES ('a', 'b'); "
+                + "DROP TEMPORARY TABLE helper; "
+                + "INSERT INTO helper VALUES (2); "
+                + "CREATE TEMPORARY TABLE IF NOT EXISTS inherited (id INT); "
+                + "INSERT INTO inherited VALUES (3); "
+                + "CREATE TEMPORARY TABLE helper (id INT); "
+                + "DROP TABLE unrelated, helper; INSERT INTO helper VALUES (4);";
+        Matcher inserts = POSITIONAL_INSERT.matcher(sql);
+        List<Boolean> exemptions = new ArrayList<>();
+        while (inserts.find()) {
+            exemptions.add(targetsLocalTemporaryTable(sql, inserts));
+        }
+        assertThat(exemptions).containsExactly(true, false, false, false, false);
     }
 
     @Test

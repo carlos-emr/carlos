@@ -285,6 +285,16 @@ class TestTheSkipPath(DocsDriverBase):
                 FakeDb(), documents=None, accepted={"no-documents"},
                 state=ctx["state"]))
 
+    def test_skipping_documents_still_exports_archive_only_records(self):
+        db = FakeDb(archive={"legacy": (
+            ["id", "value"], [["1", "synthetic record"]])})
+        self.run_docs(db=db, documents=None, accepted={"no-documents"})
+        path = os.path.join(self.state_dir, "o19-archive-export",
+                            "legacy.csv")
+        with open(path, encoding="utf-8", newline="") as fh:
+            self.assertIn("synthetic record", fh.read())
+        self.assertIn("legacy.csv: 1 row(s)", self.report())
+
 
 class TestTheRefusals(DocsDriverBase):
     """Every refusal, and what it must not have touched first."""

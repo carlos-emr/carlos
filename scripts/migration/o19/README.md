@@ -54,9 +54,16 @@ use only, never a clinic handoff.
 ```bash
 git clone --branch OSCAR_19_RC1 --depth 1 \
     https://bitbucket.org/oscaremr/oscar.git /tmp/oscar19
+git -C /tmp/oscar19 fetch --depth 1 origin \
+    a7900d569d3faf741993e5e1da8c14021bbefede
+git -C /tmp/oscar19 checkout --detach FETCH_HEAD
 python3 scripts/migration/o19/generate_manifests.py --oscar-src /tmp/oscar19
 cd debian/assets && python3 -m unittest discover -s carlos_ctl/tests -t .
 ```
+
+Use the exact source commit recorded in `fixtures/PROVENANCE.md`: the
+`OSCAR_19_RC1` tag alone points to a different tree and does not reproduce
+the shipped manifests. For verification, add `--check` to generation.
 
 Outputs (generated — never hand-edit): `debian/assets/carlos_ctl/
 o19map_schema.py`, `o19map_props.py`, and the marker-delimited data block in
@@ -132,6 +139,22 @@ at all. The reader stays; this script is what makes it checkable, and is also
 how you would prove a future library good enough to replace it.
 
 ## Verifying the ETL's SQL semantics
+
+The subprocess boundary has a separate check against a disposable local
+MariaDB server (root socket access, no password):
+
+```bash
+python3 scripts/migration/o19/verify_client_transport.py \
+    --socket=/tmp/disposable-mariadb.sock
+```
+
+It refuses an existing `o19_import` schema/account, creates its own and
+removes them afterwards. It checks carriage-return preservation, refusal
+of local commands embedded in a dump, SQL failures despite inherited
+`force`, ordinary dump syntax, and oversized binary CSV export with a
+successful retry. Controls reproduce the previous failures with synthetic
+data only. The packet-limit check temporarily changes the server's global
+`max_allowed_packet`; use an isolated server, never a clinic's.
 
 `o19etl.merge_statement` is an anti-join that reads the table it inserts into,
 so whether the `NOT EXISTS` sees rows the same statement just added is an

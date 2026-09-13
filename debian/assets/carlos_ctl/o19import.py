@@ -348,8 +348,7 @@ def make_query(mariadb_args: Optional[List[str]],
             argv.append(db)
         # statements go through STDIN, never argv: /proc/<pid>/cmdline is
         # world-readable and some statements carry credentials
-        cp = run(argv, input=sql, capture_output=True, errors="replace",
-                 env=_client_env())
+        cp = run_sql_client(argv, sql)
         if cp.returncode != 0:
             raise o19etl.QueryError("SQL failed ({0}): {1}".format(
                 redact_statement(sql), cp.stderr.strip()), cp.stderr)
@@ -359,11 +358,35 @@ def make_query(mariadb_args: Optional[List[str]],
     return query
 
 
+def run_sql_client(argv: List[str], sql: str):
+    """Decode batch output without Python's universal-newline conversion.
+
+    MariaDB escapes LF but emits CR literally inside a value. Text-mode
+    subprocess output turns that CR into LF before batch_rows can split
+    the records, inventing rows and corrupting role names or eForm HTML.
+    Keep the pipes binary and decode only after communicate has drained
+    both streams. Invalid UTF-8 must fail instead of changing clinic data.
+    """
+    cp = run(argv, input=sql.encode("utf-8"), capture_output=True,
+             text=False, env=_client_env())
+    cp.stderr = cp.stderr.decode("utf-8", "replace")
+    try:
+        cp.stdout = cp.stdout.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise o19etl.QueryError(
+            "database client returned invalid UTF-8; refusing to alter "
+            "clinic values. Check the source encoding before resuming.",
+            "invalid UTF-8 in database client output") from exc
+    return cp
+
+
 # batch mode escapes \0 \t \n \\ inside values, so a bare "\r" (a CRLF
 # eForm) is DATA; only "\n" separates rows — never str.splitlines(). The
 # escapes are decoded per value AFTER splitting, so a role name carrying a
 # backslash or tab reaches the callers (and their _sql_str) as stored.
-CLIENT_COMMON_ARGS = ("--default-character-set=utf8mb4", "-N", "-B")
+CLIENT_COMMON_ARGS = ("--default-character-set=utf8mb4", "--binary-mode",
+                      "--skip-force", "--skip-raw", "--max-allowed-packet=1G",
+                      "-N", "-B")
 
 # the ONE place batch escapes are decoded (o19docs.unescape_batch_field is
 # the implementation); callers must not decode a second time — a literal
@@ -2033,8 +2056,7 @@ def make_etl_query(base_argv: List[str],
             + list(CLIENT_COMMON_ARGS)
         if db:
             argv.append(db)
-        cp = run(argv, input=sql, capture_output=True, errors="replace",
-                 env=_client_env())
+        cp = run_sql_client(argv, sql)
         if cp.returncode != 0:
             raise o19etl.QueryError(
                 "ETL statement failed ({0} ...): {1}".format(
@@ -4069,6 +4091,14 @@ def _cmd_import_o19(argv) -> int:
             die(refusal)
 
     ctx = _make_ctx(args, import_mode=True)
+    if not args.dry_run:
+        # Bundle extraction may take minutes. A start could pass the
+        # first service check before _make_ctx publishes the run ledger.
+        # The ledger now blocks subsequent starts; check again before
+        # any phase so a start during intake cannot overlap the import.
+        refusal = webapp_running_refusal()
+        if refusal:
+            die(refusal)
     log("import-o19 (experimental) — manifest {0}, province {1}{2}".format(
         o19map_schema.SCHEMA_MAP_VERSION, ctx["province"],
         ", DEV TARGET" if ctx["dev_target"] else ""))

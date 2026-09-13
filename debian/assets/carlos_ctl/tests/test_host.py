@@ -165,7 +165,7 @@ class TestEverySubstrateQuestionIsAsked(unittest.TestCase):
         def fake_run(argv, **kw):
             recorded["argv"] = argv
             recorded["env"] = kw.get("env")
-            return mock.Mock(returncode=0, stdout="", stderr="")
+            return mock.Mock(returncode=0, stdout=b"", stderr=b"")
 
         with mock.patch.object(o19import, "run", fake_run):
             o19import.make_query(None)("SELECT 1")

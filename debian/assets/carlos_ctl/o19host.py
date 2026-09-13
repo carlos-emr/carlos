@@ -180,14 +180,17 @@ class Host(object):
         function exists for -- the schema-scoped grants, --one-database --
         would be gone. A command-line option outranks every option file.
         --local-infile=0 closes the same class for a system defaults file
-        that enables it."""
+        that enables it. --binary-mode disables client-side commands in
+        the dump (notably system/source, which run outside SQL grants).
+        --skip-force ensures an inherited force option cannot turn a
+        partially failed restore into a successful client exit."""
         from .o19import import (STAGING_SCHEMA, staging_init_command,
                                 strip_client_identity)
         tail = strip_client_identity(list(base_argv)[1:])
         return (["mariadb", "--defaults-extra-file=" + client_cnf,
                  "--user=" + STAGING_USER, "--local-infile=0",
                  "--max-allowed-packet=1G"] + tail
-                + ["--one-database",
+                + ["--binary-mode", "--skip-force", "--one-database",
                    "--init-command=" + staging_init_command(
                        statement_timeout),
                    STAGING_SCHEMA])

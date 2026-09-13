@@ -1107,6 +1107,22 @@ def export_archive_csv(query, archive_schema: str, out_dir: str,
                         "cannot be trusted; re-run P5 with --resume once "
                         "the archive schema is readable".format(
                             table, len(r), width))
+                for i, col in enumerate(cols):
+                    if col in hexed and r[2 * i + 1] == "0" \
+                            and r[2 * i] == "NULL":
+                        # MariaDB 11.8 returns SQL NULL with a warning
+                        # when HEX exceeds max_allowed_packet. The
+                        # companion flag proves the stored value is NOT
+                        # NULL: exporting the word would lose the blob
+                        # while P7 still verifies its database copies.
+                        die("archive table {0}, column {1}: HEX could not "
+                            "render a non-NULL binary value. The CSV "
+                            "export is incomplete. Have the database "
+                            "administrator increase max_allowed_packet "
+                            "above twice the largest binary value in "
+                            "this column, then re-run --resume; do not "
+                            "hand off this export or run --cleanup."
+                            .format(table, col))
                 out = [None if r[i + 1] == "1" else r[i]
                        for i in range(0, width, 2)]
                 writer.writerow(out)
@@ -1128,6 +1144,14 @@ def export_archive_csv(query, archive_schema: str, out_dir: str,
 # --------------------------------------------------------------------------
 # P5 driver
 # --------------------------------------------------------------------------
+
+def _export_archives(ctx) -> List[str]:
+    """Archive-only records need an export even without a documents tar."""
+    return export_archive_csv(
+        ctx["query"], ctx.get("archive_schema", "o19_archive"),
+        os.path.join(ctx["state_dir"], "o19-archive-export"),
+        stream=ctx.get("row_stream"))
+
 
 def run_docs(ctx) -> None:
     """Execute P5. Expects ctx keys: state_dir, state, query, documents
@@ -1158,8 +1182,11 @@ def run_docs(ctx) -> None:
             die("no documents tar and no --accept no-documents sign-off")
         warn("importing WITHOUT documents (acknowledged) — document rows "
              "will reference files that are not there")
+        csv_lines = _export_archives(ctx)
         o19import.report_append(state_dir, "P5 documents",
-                                "SKIPPED (no-documents acknowledged)")
+                                "SKIPPED (no-documents acknowledged)\n"
+                                "archive CSV export:\n  "
+                                + "\n  ".join(csv_lines))
         o19import.mark_done(state_dir, state, "documents",
                             skipped="no-documents")
         return
@@ -1306,10 +1333,7 @@ def run_docs(ctx) -> None:
                                                ctx_root)
     if private_lines:
         private(["P5 reconciliation notes:"] + private_lines)
-    csv_lines = export_archive_csv(
-        query, ctx.get("archive_schema", "o19_archive"),
-        os.path.join(state_dir, "o19-archive-export"),
-        stream=ctx.get("row_stream"))
+    csv_lines = _export_archives(ctx)
     o19import.report_append(
         state_dir, "P5 reconciliation",
         "\n".join(lines + ["archive CSV export:"]

@@ -1225,6 +1225,22 @@ class TestArchiveCsvRowShape(unittest.TestCase):
 
     A row of the wrong width is a refusal: a silently ragged CSV is a
     file the clinic cannot trust and cannot check."""
+    def test_a_failed_hex_rendering_is_not_exported_as_null_text(self):
+        out = tempfile.mkdtemp(prefix="o19docs-csvhex-")
+        self.addCleanup(shutil.rmtree, out)
+
+        def query(sql):
+            if "information_schema.TABLES" in sql:
+                return [["payload"]]
+            if "information_schema.COLUMNS" in sql:
+                return [["value", "longblob"]]
+            return [["NULL", "0"]]  # HEX failed; stored value is not NULL
+
+        with self.assertRaises(SystemExit):
+            o19docs.export_archive_csv(query, "arch", out)
+        with open(os.path.join(out, "payload.csv"), encoding="utf-8") as fh:
+            self.assertNotIn("NULL", fh.read())
+
     def test_a_row_of_the_wrong_width_is_refused(self):
         # padding a short row or dropping a long row's tail writes a
         # plausible but wrong archive, and for an archive-only table the

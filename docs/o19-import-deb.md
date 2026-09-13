@@ -9,6 +9,30 @@ Design and rationale: `docs/oscar19-to-carlos-migration-plan.md`.
 Development tooling (manifest generator, rehearsal fixtures):
 `scripts/migration/o19/README.md`.
 
+## Technician handoff checklist
+
+Use the detailed steps below with a senior technician responsible for the
+cutover. Record the source server, target server, province, installed
+package version, backup snapshot identifier and the person approving each
+`--accept` flag. Rehearse the complete import and rollback on a disposable
+copy before scheduling the clinic's cutover.
+
+| checkpoint | proceed only when |
+|---|---|
+| Source assessment | No unresolved no-go finding; the clinic has reviewed every requested acknowledgement. |
+| Final export | Source Tomcat and other database writers are stopped; dump, documents and fresh content digests describe that same frozen state. |
+| Target preparation | Correct province, unused stock schema, service stopped, backup configured and a tested restore procedure available. |
+| Import | Command exits 0 and `import-report.txt` records verification passed. On failure, keep the workspace and follow the named remedy; do not delete ledgers or add acceptance flags merely to get past an error. |
+| Before clinical use | Senior technician reviews the reports, properties, access privileges, migrated charts and document readability; clinic approves cutover. |
+| Cleanup | Post-import backup succeeds, review is complete, and the archive handoff is retained securely. |
+
+Commands containing `<...>`, `PASSFILE` or `/path/to/...` require your own
+values. Run target administration commands with `sudo` or from a root
+shell. Source database commands need a database account able to read the
+whole schema, and source file commands need access to the document tree.
+Keep the old server stopped and its original data intact until cutover
+and rollback decisions are complete.
+
 **On the podman deployment** (`carlos-emr/carlos-podman`) the same two verbs
 exist and run the SAME engine: that repository supplies a `Host`
 (`carlos_ctl/o19runtime.py`) and loads the importer from the CARLOS tree it
@@ -25,11 +49,17 @@ Copy ONE file to the OSCAR 19 server and run it against the live database:
 
 ```bash
 scp /usr/lib/carlos-emr/carlos_ctl/o19_preflight.py o19-server:
-ssh o19-server python3 o19_preflight.py --db oscar \
+ssh o19-server python3 o19_preflight.py --db oscar --province on \
     --mysql-cmd mysql --mysql-arg=-uroot --mysql-password-file /root/.o19pw \
     --properties /path/to/oscar.properties --json preflight.json \
     --digests o19-digests.json
 ```
+
+Set `--province on` for Ontario or `--province bc` for British Columbia
+on **every standalone assessment**, including the final digest refresh.
+The standalone file defaults to Ontario; it cannot read the target host's
+configuration. The source assessment and target package must use the same
+province.
 
 `--digests` takes a content digest of every table — a SHA-256 per row,
 aggregated two independent ways, with values that can reach megabytes
@@ -106,9 +136,18 @@ either: it returns after P2 and never reaches P4.
 
 ## 2. Produce the three inputs on the OSCAR 19 server
 
-During the cutover window, with Tomcat stopped on the OSCAR 19 server:
+During the cutover window, with Tomcat and all other database writers
+stopped on the OSCAR 19 server, run the export as a Bash script with the
+following failure settings. Work in a private directory: the dump,
+documents and properties contain patient data or credentials. If any
+command fails, stop and fix it before building or sending a bundle.
 
 ```bash
+set -euo pipefail
+umask 077
+mkdir -p /srv/o19-export
+chmod 700 /srv/o19-export
+cd /srv/o19-export
 mysqldump --single-transaction --quick --skip-triggers oscar \
     | gzip > o19.sql.gz
 # Tomcat MUST already be stopped: OSCAR 19 tables are usually MyISAM, and
@@ -128,14 +167,32 @@ tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz <context-dir>
 # context-dir is the directory holding document/, eform/images/, ... —
 # often oscar, oscar_mcmaster, or the database name
 cp /path/to/oscar.properties .
-# and the content digests from step 1, if they were not taken then:
-python3 o19_preflight.py --db oscar --mysql-cmd mysql --mysql-arg=-uroot \
-    --mysql-password-file /root/.o19pw --digests o19-digests.json
+# Always refresh the digests while the source is still frozen.
+# The assessment uses exit 1 for acknowledgements, not a tool crash.
+assessment_rc=0
+python3 /path/to/o19_preflight.py --db oscar --mysql-cmd mysql \
+    --province on --mysql-arg=-uroot --mysql-password-file /root/.o19pw \
+    --properties oscar.properties --digests o19-digests.json \
+    || assessment_rc=$?
+if [ "$assessment_rc" -ne 0 ]; then
+    echo "Assessment exit $assessment_rc: review its findings before bundling." >&2
+    exit "$assessment_rc"
+fi
+gzip -t o19.sql.gz
+tar -tzf o19-documents.tar.gz > /dev/null
 ```
+
+For an assessment exit 1, obtain the clinic's approval and repeat the
+assessment with exactly its approved `--accept` flags. Exit 2 is a no-go;
+exit 3 is a tool failure. Never bundle after either. `pipefail` is required:
+without it, `gzip` or `openssl` can succeed after the producer failed.
 
 Bundle them (recommended single-file handoff, encrypted):
 
 ```bash
+set -euo pipefail
+umask 077
+cd /srv/o19-export
 tar -czf - o19.sql.gz o19-documents.tar.gz oscar.properties \
       o19-digests.json \
   | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
@@ -299,8 +356,10 @@ switch on, and a dump carrying `USE` / `CREATE DATABASE` statements (a
 `mysqldump --databases` dump) is refused: the head of the stream is
 checked before the client starts, and the rest is scanned as it is fed,
 with the staging schema dropped on a hit. The account's grants and
-`--one-database` are the backstops, so nothing in the dump can address the
-live schema either way. A rerun over existing
+`--one-database` limit SQL to staging. The client's `--binary-mode`
+disables local commands such as `system` and `source`, which database
+grants cannot restrict, and `--skip-force` stops on a SQL error even if a
+local defaults file enables `force`. A rerun over existing
 state requires `--resume` (a staged dump left behind by a dry run or an
 assessment does not count); it is never continued implicitly. Once the
 data copy has started, a resumed run re-checks the schema, replica and
@@ -910,6 +969,16 @@ clinic's sign-off.
   of the stored bytes -- a byte sequence that is not valid UTF-8 has no
   verbatim text form -- and `o19-archive-export/README.txt` lists which
   `table.column` cells are hex.
+- *HEX could not render a non-NULL binary value* — MariaDB can return
+  NULL with only a warning when a binary value's hexadecimal rendering
+  exceeds `max_allowed_packet`. The importer refuses this incomplete
+  CSV export. Ask the database administrator to raise the server's
+  `max_allowed_packet` above twice the largest stored binary value in
+  the named column, within MariaDB's supported limit, then repeat the
+  import command with `--resume`. Do not hand off the partial export or
+  run `--cleanup`. The database copies remain intact. The archive CSV
+  export also runs when document restore is skipped with an approved
+  `--accept no-documents`; that flag never skips archive-only records.
 - *the two ledgers in /var/lib/carlos-emr/o19-import describe different
   runs* — the snapshot restore rewound `state.json` past an ETL ledger
   that survived it (the snapshot is taken before the dump is staged, so it

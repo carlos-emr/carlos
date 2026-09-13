@@ -1952,7 +1952,7 @@ def make_cli_query(mysql_cmd, mysql_args, db, env=None):
     (never the argv, which may hold credentials)."""
     def query(sql):
         argv = [mysql_cmd] + list(mysql_args) + \
-            ["--default-character-set=utf8mb4", "-N", "-B", db]
+            ["--default-character-set=utf8mb4", "--skip-raw", "-N", "-B", db]
         proc = subprocess.Popen(argv, stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, env=env)
@@ -3747,6 +3747,10 @@ def render_text(report):
                  "MyISAM, for which")
     lines.append("  # --single-transaction gives no consistency at all "
                  "against a live database")
+    lines.append("  # Run as a Bash script in a private export directory; "
+                 "stop on any failed command.")
+    lines.append("  set -euo pipefail")
+    lines.append("  umask 077")
     # the flags are built from THIS schema's views, so the operator
     # copies a command that works here rather than the generic one,
     # which would die at P1 on the first view's DEFINER clause
@@ -3767,8 +3771,8 @@ def render_text(report):
         lines.append("     none of them — it migrates base tables only)")
     lines.append("  tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz "
                  "<context-dir>")
-    lines.append("  # run this check again with --digests "
-                 "o19-digests.json if you have not; the")
+    lines.append("  # refresh this check with --digests "
+                 "o19-digests.json while all source writers remain stopped;")
     lines.append("  # CARLOS host uses it to prove the transfer carried "
                  "every value")
     lines.append("  tar -czf - o19.sql.gz o19-documents.tar.gz "
