@@ -458,6 +458,7 @@
         function onChangePrivate() {
             var n = document.forms[0].xml_billtype.selectedIndex;
             var val = document.forms[0].xml_billtype[n].value;
+            var physicianQuery = "&providerview=" + encodeURIComponent(document.forms[0].xml_provider.value.split("|")[0]);
             <%-- Pre-encoded URL components precomputed in the assembler.
                  demoNameUrlEncoded uses URLEncoder.encode(...UTF-8); the others
                  round-trip via <carlos:encode context="uriComponent">. --%>
@@ -477,14 +478,14 @@
                  "CARLOS Error: 500". This page is the Ontario bill-entry form,
                  so the region is unconditionally ON. --%>
             <c:set var="__commonQs">&billRegion=ON&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
-            <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&providerview=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
+            <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
-                self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}" + physicianQuery;
             } else if (val.substring(0, 3) == "BON") {
-                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.primaryCareIncentive}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.primaryCareIncentive}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}" + physicianQuery;
             } else {
                 <c:if test="${formModel.requestContext.ctlBillForm eq 'PRI'}">
-                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.defaultView}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.defaultView}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}" + physicianQuery;
                 </c:if>
             }
         }

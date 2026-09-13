@@ -512,6 +512,7 @@
                     fetch('<%=request.getContextPath()%>/cvc', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest',
                             'CSRF-TOKEN': (document.querySelector('input[name="CSRF-TOKEN"]') || {}).value || ''},
                         body: formData.toString()
                     })

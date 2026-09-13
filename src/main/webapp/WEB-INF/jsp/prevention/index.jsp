@@ -1507,6 +1507,9 @@
             input.addEventListener('input', function() {
                 var q = this.value.trim();
                 if (q.length < 3) {
+                    clearTimeout(debounceTimer);
+                    ++requestSeq;
+                    dropdown.innerHTML = '';
                     dropdown.style.display = 'none';
                     input.setAttribute('aria-expanded', 'false');
                     dropdown.setAttribute('aria-hidden', 'true');
@@ -1533,6 +1536,8 @@
                         div.innerHTML = item.generic ? escHtml(item.name) : '<strong>' + escHtml(item.name) + '</strong>';
                         div.addEventListener('mousedown', function(e) {
                             e.preventDefault();
+                            clearTimeout(debounceTimer);
+                            ++requestSeq;
                             input.value = '';
                             dropdown.style.display = 'none';
                             input.setAttribute('aria-expanded', 'false');

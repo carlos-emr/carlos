@@ -67,7 +67,12 @@ class VaccineCatalogue2ActionUnitTest extends CarlosUnitTestBase {
         vaccine.setDisplayName("Synthetic vaccine");
         vaccine.setSnomedConceptId("123456");
         vaccine.setParentConceptId("123450");
-        when(catalogue.query(eq("DEMO"), eq(false), eq(false), eq(true), eq(false), any())).thenAnswer(call -> {
+        CVCMedication medication = mock(CVCMedication.class);
+        CVCMedicationLotNumber lot = mock(CVCMedicationLotNumber.class);
+        when(lot.getMedication()).thenReturn(medication);
+        when(medication.getSnomedCode()).thenReturn("123456");
+        when(catalogue.findByLotNumber(user, "DEMO123")).thenReturn(lot);
+        when(catalogue.query(eq("DEMO"), eq(true), eq(true), eq(true), eq(false), any())).thenAnswer(call -> {
             ((StringBuilder) call.getArgument(5)).append("DEMO123");
             return List.of(vaccine);
         });
@@ -80,6 +85,36 @@ class VaccineCatalogue2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result.get("generic").asBoolean()).isFalse();
         assertThat(response.getContentType()).contains("application/json");
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+    }
+
+    @Test
+    void shouldKeepLotBoundToItsVaccine_whenBrandAndLotSearchesOverlap() throws Exception {
+        request.setParameter("method", "query");
+        request.setParameter("query", "DEMO");
+        CVCImmunization brand = new CVCImmunization();
+        brand.setGeneric(false);
+        brand.setSnomedConceptId("111111");
+        brand.setDisplayName("DEMO brand");
+        CVCImmunization generic = new CVCImmunization();
+        generic.setGeneric(true);
+        generic.setSnomedConceptId("222222");
+        generic.setDisplayName("DEMO generic");
+        CVCMedication medication = mock(CVCMedication.class);
+        CVCMedicationLotNumber lot = mock(CVCMedicationLotNumber.class);
+        when(lot.getMedication()).thenReturn(medication);
+        when(medication.getSnomedCode()).thenReturn("222222");
+        when(catalogue.findByLotNumber(user, "DEMO123")).thenReturn(lot);
+        when(catalogue.query(eq("DEMO"), eq(true), eq(true), eq(true), eq(false), any())).thenAnswer(call -> {
+            ((StringBuilder) call.getArgument(5)).append("DEMO123");
+            return List.of(brand, generic);
+        });
+        action.execute();
+        JsonNode results = new ObjectMapper().readTree(response.getContentAsString()).get("results");
+        assertThat(results.size()).isEqualTo(2);
+        assertThat(results.get(0).get("name").asText()).isEqualTo("DEMO brand");
+        assertThat(results.get(0).get("lotNumber").asText()).isEmpty();
+        assertThat(results.get(1).get("genericSnomedId").asText()).isEqualTo("222222");
+        assertThat(results.get(1).get("lotNumber").asText()).isEqualTo("DEMO123");
     }
 
     @Test

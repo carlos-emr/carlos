@@ -179,6 +179,23 @@ async function openBillForm(context, recorder, label, appointmentNo, startTime) 
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(page, `${label} bill form`);
   await page.locator('select[name="xml_billtype"]').waitFor({ state: 'visible', timeout: 30000 });
+  const physician = page.locator('select[name="xml_provider"]');
+  const options = await physician.locator('option').evaluateAll((entries) => entries.map((entry) => entry.value));
+  const appointmentPhysician = options.find((value) => value.split('|')[0] === providerNo);
+  assert((await physician.inputValue()) === (appointmentPhysician || '000000'),
+    `${label}: billing physician did not default to the appointment provider or require an explicit selection`);
+  if (!appointmentPhysician) {
+    const selected = options.find((value) => /^-?\d+\|\d+$/.test(value));
+    assert(selected, `${label}: no billable fixture physician is available`);
+    await physician.selectOption(selected);
+  }
+  if (sql("SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype='GP'") === '0'
+      && sql("SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype='MFP'") !== '0') {
+    assert((await page.locator('#billForm').inputValue()) === 'MFP',
+      `${label}: missing GP default did not fall back to the available MFP form`);
+    assert(await page.locator(`input[name="xml_${ohipCode}"]:visible`).count(),
+      `${label}: default favourite-code grid was not visible`);
+  }
   return page;
 }
 
@@ -190,6 +207,7 @@ async function selectBillType(page, prefix) {
   }, prefix);
   assert(value, `bill form did not offer bill type ${prefix}`);
   const navigates = ['PAT', 'OCF', 'ODS', 'CPP', 'STD', 'BON'].includes(prefix);
+  const physicianBefore = await page.locator('select[name="xml_provider"]').inputValue();
   if (navigates) {
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
@@ -200,6 +218,8 @@ async function selectBillType(page, prefix) {
     const url = new URL(page.url());
     assert(url.searchParams.get('billRegion') === 'ON', `bill-type switch to ${prefix} dropped billRegion=ON`);
     assert((url.searchParams.get('xml_billtype') || '').startsWith(prefix), `bill-type switch did not carry xml_billtype=${prefix}`);
+    assert((await page.locator('select[name="xml_provider"]').inputValue()) === physicianBefore,
+      `bill-type switch to ${prefix} lost the selected billing physician`);
   } else {
     await select.selectOption(value);
   }

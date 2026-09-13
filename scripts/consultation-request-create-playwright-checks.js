@@ -255,6 +255,19 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       'reopened request did not show the consultant name');
     assert((await viewPage.locator('textarea[name="reasonForConsultation"]').inputValue()) === reasonText,
       'reopened request did not restore the reason text');
+    const updatedReason = `${reasonText} updated`;
+    await viewPage.locator('textarea[name="reasonForConsultation"]').fill(updatedReason);
+    await Promise.all([
+      viewPage.waitForResponse((response) => response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/encounter/RequestConsultation'), { timeout: 30000 }),
+      viewPage.locator('input[name="update"]').click(),
+    ]);
+    await viewPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    assert(/Consultation Request Form has been\s+Updated/i.test(await viewPage.locator('body').innerText()),
+      'confirmation did not show the successful update message');
+    const updatedRows = findRequestRows();
+    assert(updatedRows.length === 1 && updatedRows[0].requestId === row.requestId
+      && updatedRows[0].reason === updatedReason, 'update did not persist on the original consultation');
     await viewPage.close();
 
     // 6. It shows in the patient's list. The confirmation popup refreshes its

@@ -48,7 +48,11 @@ public class VaccineCatalogue2Action extends ActionSupport {
                 return error(response, HttpServletResponse.SC_BAD_REQUEST, "Enter 3 to 100 characters");
             }
             StringBuilder matchedLot = new StringBuilder();
-            List<CVCImmunization> matches = catalogue.query(query.trim(), false, false, true, false, matchedLot);
+            List<CVCImmunization> matches = catalogue.query(query.trim(), true, true, true, false, matchedLot);
+            CVCMedicationLotNumber selectedLot = matchedLot.length() == 0 ? null
+                    : catalogue.findByLotNumber(user, matchedLot.toString());
+            String lotConcept = selectedLot == null || selectedLot.getMedication() == null ? null
+                    : selectedLot.getMedication().getSnomedCode();
             List<Map<String, Object>> results = new ArrayList<>();
             for (CVCImmunization item : matches) {
                 if (item == null) continue;
@@ -57,7 +61,10 @@ public class VaccineCatalogue2Action extends ActionSupport {
                 result.put("generic", item.isGeneric());
                 result.put("snomedId", item.getSnomedConceptId());
                 result.put("genericSnomedId", item.isGeneric() ? item.getSnomedConceptId() : item.getParentConceptId());
-                result.put("lotNumber", matchedLot.toString());
+                // A name match can accompany a lot match for a different vaccine.
+                // Carry the lot only on the vaccine it actually belongs to.
+                result.put("lotNumber", lotConcept != null && lotConcept.equals(item.getSnomedConceptId())
+                        ? matchedLot.toString() : "");
                 results.add(result);
                 if (results.size() == 25) break;
             }

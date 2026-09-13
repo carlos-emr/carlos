@@ -81,6 +81,7 @@ assert(/^\d+$/.test(demographicNo) && /^\d+$/.test(providerNo), 'NOTE_DEMOGRAPHI
 const stamp = `PW_NOTE_${Date.now()}`;
 const savedText = `${stamp} saved note`;
 const billedText = `${stamp} billed note`;
+let browserSessionId = null;
 
 let mysqlDefaults = null;
 function initMysqlDefaults() {
@@ -141,7 +142,10 @@ function cleanupRows() {
     sql(`DELETE FROM casemgmt_note_ext WHERE note_id=${Number(id)}`);
     sql(`DELETE FROM casemgmt_note WHERE note_id=${Number(id)}`);
   }
-  sql(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${Number(demographicNo)} AND provider_no='${escapeSql(providerNo)}'`);
+  if (browserSessionId) {
+    sql(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${Number(demographicNo)} AND provider_no='${escapeSql(providerNo)}' AND session_id='${escapeSql(browserSessionId)}'`);
+  }
+  sql(`DELETE FROM casemgmt_tmpsave WHERE demographic_no=${Number(demographicNo)} AND provider_no='${escapeSql(providerNo)}' AND note LIKE '%${escapeSql(stamp)}%'`);
   sql(`DELETE FROM appointment WHERE notes='${escapeSql(stamp)}'`);
 }
 
@@ -253,6 +257,8 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 1100 } });
     await login(context, config, recorder);
+    browserSessionId = (await context.cookies()).find((cookie) => cookie.name === 'JSESSIONID')?.value || null;
+    assert(browserSessionId, 'authenticated browser session cookie is missing');
     const daySheet = await openDaySheet(context, recorder);
 
     // 1-3. Timer, Save, Sign & Save.

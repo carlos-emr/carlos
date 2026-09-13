@@ -32,7 +32,9 @@
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: PREVENTION_DEMOGRAPHIC_NO (1), PREVENTION_BRAND_QUERY (Tdap).
+ * Optional: PREVENTION_DEMOGRAPHIC_NO (1), PREVENTION_BRAND_QUERY (Tdap),
+ * PREVENTION_CVC_UI=true (requires the configured CVC picker; exercises its
+ * brand/generic/lot suggestions and saves a vaccine with an undated lot).
  */
 
 const { chromium } = require('playwright');
@@ -70,7 +72,10 @@ const brandQuery = process.env.PREVENTION_BRAND_QUERY || 'Tdap';
 assert(/^\d+$/.test(demographicNo), 'PREVENTION_DEMOGRAPHIC_NO must be numeric');
 const lotNumber = `PWLOT${String(Date.now()).slice(-8)}`;
 const catalogueConcept = `9${Date.now()}`;
+const genericConcept = `${catalogueConcept}1`;
+const catalogueName = `PWV${Date.now()}`;
 const catalogueLot = `${lotNumber}CVC`;
+const cvcUi = process.env.PREVENTION_CVC_UI === 'true';
 
 let mysqlDefaults = null;
 function initMysqlDefaults() {
@@ -104,12 +109,13 @@ function escapeSql(value) {
 }
 
 function preventionIds() {
-  return sqlRows(`SELECT p.id FROM preventions p JOIN preventionsExt e ON e.prevention_id=p.id WHERE p.demographic_no=${Number(demographicNo)} AND e.keyval='lot' AND e.val='${escapeSql(lotNumber)}'`).map((row) => row[0]);
+  return sqlRows(`SELECT p.id FROM preventions p JOIN preventionsExt e ON e.prevention_id=p.id WHERE p.demographic_no=${Number(demographicNo)} AND e.keyval='lot' AND e.val IN ('${escapeSql(lotNumber)}','${escapeSql(catalogueLot)}')`).map((row) => row[0]);
 }
 function cleanupRows() {
   sql(`DELETE l FROM CVCMedicationLotNumber l JOIN CVCMedication m ON m.id=l.cvcMedicationId WHERE m.snomedCode='${catalogueConcept}'`);
   sql(`DELETE FROM CVCMedication WHERE snomedCode='${catalogueConcept}'`);
-  sql(`DELETE FROM CVCImmunization WHERE snomedConceptId='${catalogueConcept}'`);
+  sql(`DELETE FROM CVCMapping WHERE cvcSnomedId='${genericConcept}'`);
+  sql(`DELETE FROM CVCImmunization WHERE snomedConceptId IN ('${catalogueConcept}','${genericConcept}')`);
   for (const id of preventionIds()) {
     sql(`DELETE FROM preventionsExt WHERE prevention_id=${Number(id)}`);
     sql(`DELETE FROM preventions WHERE id=${Number(id)}`);
@@ -172,28 +178,72 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await assertNotErrorPage(index, 'preventions page');
     // Exercise the local catalogue route with a synthetic lot, including a
     // missing expiry date. Never depend on an external catalogue service.
-    sql(`INSERT INTO CVCImmunization (snomedConceptId,displayName,picklistName,generic,parentConceptId,ispa) VALUES ('${catalogueConcept}','Synthetic Playwright vaccine','Synthetic Playwright vaccine',0,'${catalogueConcept}',0)`);
-    sql(`INSERT INTO CVCMedication (snomedCode,snomedDisplay,status) VALUES ('${catalogueConcept}','Synthetic Playwright vaccine','active')`);
+    sql(`INSERT INTO CVCImmunization (versionId,snomedConceptId,displayName,picklistName,generic,parentConceptId,ispa) VALUES (0,'${genericConcept}','${catalogueName} generic','${catalogueName} generic',1,NULL,0),(0,'${catalogueConcept}','${catalogueName} brand','${catalogueName} brand',0,'${genericConcept}',0)`);
+    sql(`INSERT INTO CVCMapping (oscarName,cvcSnomedId,preferCVC) VALUES ('Tdap','${genericConcept}',1)`);
+    sql(`INSERT INTO CVCMedication (versionId,snomedCode,snomedDisplay,status,isBrand) VALUES (0,'${catalogueConcept}','Synthetic Playwright vaccine','active',1)`);
     sql(`INSERT INTO CVCMedicationLotNumber (cvcMedicationId,lotNumber,expiryDate) SELECT id,'${catalogueLot}',NULL FROM CVCMedication WHERE snomedCode='${catalogueConcept}'`);
     const csrfToken = await index.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const cvcQuery = await context.request.post(`${config.baseUrl.href}/cvc?method=query`, {
-      headers: {'CSRF-TOKEN': csrfToken}, form: {query: catalogueLot}
+      headers: {'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'}, form: {query: catalogueLot}
     });
     assert(cvcQuery.status() === 200, `CVC query returned HTTP ${cvcQuery.status()}`);
     const cvcResults = (await cvcQuery.json()).results;
     assert(cvcResults.length === 1 && cvcResults[0].lotNumber === catalogueLot
       && cvcResults[0].snomedId === catalogueConcept, 'CVC query lost the selected lot or vaccine');
     const cvcLots = await context.request.post(`${config.baseUrl.href}/cvc`, {
-      headers: {'CSRF-TOKEN': csrfToken}, form: {method: 'getLotNumberAndExpiryDates', snomedConceptId: catalogueConcept}
+      headers: {'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'}, form: {method: 'getLotNumberAndExpiryDates', snomedConceptId: catalogueConcept}
     });
     assert(cvcLots.status() === 200, `CVC lot lookup returned HTTP ${cvcLots.status()}`);
     const lots = await cvcLots.json();
     assert(lots.length === 1 && lots[0].lotNumber === catalogueLot && lots[0].expiryDate === null,
       'CVC lot lookup invented an expiry date or dropped the lot');
-    if (await index.locator('#lotNumberToAdd2').count()) {
-      await index.locator('#lotNumberToAdd2').fill(catalogueLot);
-      await index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: 'Synthetic Playwright vaccine'}).waitFor({state: 'visible'});
-      await index.locator('#lotNumberToAdd2').fill('');
+    const namesResponse = await context.request.post(`${config.baseUrl.href}/cvc?method=query`, {
+      headers: {'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'}, form: {query: catalogueName}
+    });
+    assert(namesResponse.status() === 200, `CVC name query returned HTTP ${namesResponse.status()}`);
+    const names = (await namesResponse.json()).results;
+    assert(names.length === 2 && names.some((item) => item.generic && item.snomedId === genericConcept)
+      && names.some((item) => !item.generic && item.snomedId === catalogueConcept)
+      && names.every((item) => item.lotNumber === ''), 'CVC name query did not preserve brand/generic choices without inventing a lot');
+    if (cvcUi) {
+      const input = index.locator('#lotNumberToAdd2');
+      await input.waitFor({state: 'visible', timeout: 10000});
+      await input.fill(catalogueName);
+      await index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} generic`}).waitFor({state: 'visible'});
+      await index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} brand`}).waitFor({state: 'visible'});
+      const lotQuery = index.waitForResponse((response) => response.url().includes('/cvc?method=query')
+        && (response.request().postData() || '').includes(catalogueLot));
+      await input.fill(catalogueLot);
+      assert((await lotQuery).ok(), 'CVC lot autocomplete request failed');
+      await index.waitForFunction(() => document.querySelectorAll('#lotNumberToAdd2_choices .ac-item').length === 1);
+      const lotChoice = index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} brand`});
+      const popupPromise = context.waitForEvent('page');
+      await lotChoice.click();
+      const popup = await popupPromise;
+      wirePage(popup, 'cvc-prevention', recorder);
+      await popup.waitForURL(/\/prevention\/ViewAddPreventionData\?/, {waitUntil: 'domcontentloaded'});
+      await assertNotErrorPage(popup, 'CVC add-prevention popup');
+      await popup.waitForFunction((lot) => document.getElementById('cvcLot')?.value === lot, catalogueLot);
+      assert(await popup.locator('#cvcName').inputValue() === catalogueConcept, 'CVC popup selected another vaccine');
+      assert(await popup.locator('#expiryDate').inputValue() === '', 'undated CVC lot acquired an invented expiry date');
+      assert(await popup.locator('input[name="prevention"]').inputValue() === 'Tdap', 'CVC mapping did not select Tdap');
+      await popup.locator('input[name="given"][value="given"]').check();
+      const saved = popup.waitForResponse((response) => response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/prevention/AddPrevention'));
+      await popup.locator('form[action$="/prevention/AddPrevention"] input[type="submit"], form[action$="/prevention/AddPrevention"] button[type="submit"]').first().click();
+      assert((await saved).ok(), 'CVC prevention save failed');
+      const ids = preventionIds();
+      assert(ids.length === 1, 'CVC prevention was not saved exactly once');
+      const ext = Object.fromEntries(sqlRows(`SELECT keyval,val FROM preventionsExt WHERE prevention_id=${Number(ids[0])}`));
+      assert(ext.lot === catalogueLot && ext.brandSnomedId === catalogueConcept
+        && !ext.expiryDate, 'CVC save lost the selected vaccine/lot or invented an expiry date');
+      assertNoPageErrors(recorder);
+      const unexpected = recorder.badResponses.filter((entry) => !(entry.status === 404 && /displayImage\?imagefile=vaccine-brands\.json/.test(entry.url)));
+      assert(unexpected.length === 0, JSON.stringify(unexpected));
+      const consoleIssues = recorder.consoleIssues.filter((entry) => !/displayImage\?imagefile=vaccine-brands\.json/.test(entry.url || entry.location?.url || ''));
+      assert(consoleIssues.length === 0, JSON.stringify(consoleIssues));
+      console.log('PASS configured CVC brand/generic/lot picker and saved vaccine with missing expiry date');
+      return;
     }
 
     await index.locator('#immunization').click();
