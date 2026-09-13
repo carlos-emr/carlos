@@ -121,9 +121,16 @@ function initMysqlDefaults() {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'appt-lifecycle-'));
-  const file = path.join(dir, 'mysql-defaults.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
-  mysqlDefaults = { dir, file };
+  // A throw between mkdtemp and the assignment below would leave the directory --
+  // and possibly a written password file -- with nothing tracking it for cleanup.
+  try {
+    const file = path.join(dir, 'mysql-defaults.cnf');
+    fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
+    mysqlDefaults = { dir, file };
+  } catch (error) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    throw error;
+  }
 }
 function cleanupMysqlDefaults() {
   if (mysqlDefaults) {
