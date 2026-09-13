@@ -128,7 +128,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "debian" / "assets"))
 
 from carlos_ctl import (o19_preflight, o19digest,               # noqa: E402
-                        o19etl, o19map_schema)
+                        o19etl, o19map_schema, o19roles)
 
 # One merge table, shaped as the manifest describes it: a surrogate integer
 # PK, one natural key, one payload column. consultationServices is the
@@ -369,11 +369,29 @@ def check_charset_repair(client: Client, db: str) -> List[str]:
 
 
 def _charset_repair_body(client: Client, db: str) -> List[str]:
-    """The repair checks themselves; the caller owns the teardown."""
+    """The repair checks themselves; the caller owns the teardown.
+
+    Run over BOTH staging shapes. A restored dump carries each table's
+    resolved charset, and an OSCAR 19 table is almost always latin1 --
+    which is the shape that failed on MariaDB 11.8: `repair_expr`'s
+    untouched branch handed the CASE a raw latin1 column beside a utf8mb4
+    CAST, and 11.8 (utf8mb4 default utf8mb4_uca1400_ai_ci) refuses the
+    mix with ERROR 1267 where 10.11 resolved it. The first rehearsal on
+    Ubuntu 26.04 aborted at P4's first overlength pre-check on exactly
+    that statement, so the latin1 pass also runs the real pre-check
+    builder's statement over the repaired text."""
+    failures: List[str] = []
+    for charset in ("utf8mb4", "latin1"):
+        failures += _charset_repair_on(client, db, charset)
+    return failures
+
+
+def _charset_repair_on(client: Client, db: str, charset: str) -> List[str]:
+    """One charset's pass of `_charset_repair_body`."""
     client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
                  .format(db))
     client.setup("CREATE TABLE t (id int, v varchar(255)) "
-                 "DEFAULT CHARSET=utf8mb4;", db)
+                 "DEFAULT CHARSET={0};".format(charset), db)
 
     cases = []          # (id, stored, expected_after_repair, label)
     for good in CHARSET_SAMPLES:
@@ -391,7 +409,7 @@ def _charset_repair_body(client: Client, db: str) -> List[str]:
                        .format(o19etl.repair_expr("s.`v`")), db)
     got = dict((int(r[0]), r[1]) for r in rows)
     failures = []
-    print("\n  charset repair")
+    print("\n  charset repair (staging table {0})".format(charset))
     for n, stored, want, label in cases:
         ok = got.get(n) == want
         print("    {0:<16} {1!r:<26} -> {2!r:<18} {3}".format(
@@ -400,6 +418,43 @@ def _charset_repair_body(client: Client, db: str) -> List[str]:
             failures.append(
                 "{0} {1!r} became {2!r}, expected {3!r}".format(
                     label, stored, got.get(n), want))
+    if charset != "latin1":
+        return failures
+    # the statement the first 26.04 rehearsal died on: P4's overlength
+    # pre-check, built by the shipped builder, over the repaired text of
+    # a latin1 staging column
+    checks = o19etl.overlength_precheck_sql(
+        "t", {"cols": ["v"]}, db,
+        {"v": {"type": "text", "octet_len": 65535, "char_len": 65535}},
+        {"v": {"type": "varchar", "char_len": 255}}, repaired={"v"})
+    if len(checks) != 1:
+        failures.append("the overlength pre-check builder returned {0} "
+                        "statement(s) for one repaired text column"
+                        .format(len(checks)))
+        return failures
+    rc, out, err = client.run(checks[0][1] + ";", db)
+    ran = rc == 0 and out.strip().splitlines()[-1:] == ["0"]
+    print("    {0:<44} {1}".format(
+        "the overlength pre-check runs over the repair",
+        "ok" if ran else "REFUSED ({0})".format(
+            (err or out).strip().splitlines()[-1:] or "no output")))
+    if not ran:
+        failures.append("the overlength pre-check over a repaired latin1 "
+                        "column did not run: {0}".format(err[:200]))
+    # control: the pre-fix spelling, a raw latin1 ELSE branch beside the
+    # utf8mb4 CAST. 11.8 refuses it (the defect); 10.11 accepts it.
+    raw_else = checks[0][1].replace(
+        "ELSE CONVERT(s.`v` USING utf8mb4) END", "ELSE s.`v` END")
+    if raw_else == checks[0][1]:
+        failures.append("the shipped repair no longer spells the converted "
+                        "ELSE branch; the collation control cannot be built")
+        return failures
+    rc, _out, err = client.run(raw_else + ";", db)
+    print("    {0:<44} {1}".format(
+        "control: a raw latin1 ELSE branch",
+        "refused here (ERROR 1267), as on 11.8" if rc != 0
+        and "1267" in err else
+        "accepted on this server (MariaDB 11.8 refuses it)"))
     return failures
 
 
@@ -2482,6 +2537,134 @@ def main(argv: Optional[List[str]] = None) -> int:
                        dst, src, arch))
 
 
+def check_archive_collation(client: Client, dst: str, arch: str
+                            ) -> List[str]:
+    """The archive schema's tables compare with the target's columns.
+
+    The target is created as the deb creates it (dbops.py: utf8mb4,
+    utf8mb4_general_ci). The archive schema and the pruned encounter-form
+    table are built by the shipped builders from the target's pair, and
+    the real backfill UPDATE -- which compares the archive table's
+    columns with `encounterForm`'s -- must run. On MariaDB 11.8, whose
+    `character_set_collations` remaps utf8mb4's default collation to
+    utf8mb4_uca1400_ai_ci, the pre-fix DDL (`CHARSET=utf8mb4` alone)
+    took that collation and the same UPDATE was ERROR 1267; that
+    spelling is run as the control, and so is the resume repair: a
+    table created the old way must be CONVERTed by the upgrade builder,
+    after which the backfill runs.
+    """
+    try:
+        return _archive_collation_body(client, dst, arch)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`;".format(dst, arch))
+
+
+def _archive_collation_body(client: Client, dst: str, arch: str
+                            ) -> List[str]:
+    """The archive-collation checks; the caller owns the teardown."""
+    failures: List[str] = []
+    print("\n  archive collation (target utf8mb4_general_ci)")
+    client.setup("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
+                 "`{1}`; CREATE DATABASE `{0}` CHARACTER SET utf8mb4 COLLATE "
+                 "utf8mb4_general_ci;".format(dst, arch))
+    client.setup(
+        "CREATE TABLE encounterForm (form_table varchar(30), form_name "
+        "varchar(255), form_value varchar(50), hidden int(5)); "
+        "INSERT INTO encounterForm VALUES ('formAdf', 'ADF', "
+        "'/form/formadf.jsp', 0), ('formONAR', 'ONAR', '/form/onar.jsp', "
+        "1);", dst)
+    pair = o19etl.schema_collation(lambda sql: client.rows(sql, dst), dst)
+    print("    {0:<44} {1}".format(
+        "the target's pair is read back",
+        "ok" if pair == ("utf8mb4", "utf8mb4_general_ci")
+        else "UNEXPECTED ({0!r})".format(pair)))
+    if pair != ("utf8mb4", "utf8mb4_general_ci"):
+        return ["schema_collation read {0!r} for a schema created "
+                "utf8mb4_general_ci".format(pair)]
+    for statement in o19etl.archive_schema_statements(arch, pair):
+        client.setup(statement + ";", dst)
+    got = client.rows("SELECT DEFAULT_COLLATION_NAME FROM information_"
+                      "schema.SCHEMATA WHERE SCHEMA_NAME = '{0}'"
+                      .format(arch), dst)[0][0]
+    print("    {0:<44} {1}".format(
+        "the archive schema takes the target's collation",
+        "ok" if got == "utf8mb4_general_ci" else "NOT ({0})".format(got)))
+    if got != "utf8mb4_general_ci":
+        failures.append("the archive schema was created with {0}"
+                        .format(got))
+    # a legacy archive row (form_value NULL) beside a current one
+    legacy = ("INSERT INTO `{0}`.encounterForm__pruned VALUES "
+              "('formAdf', 'ADF', NULL, NULL), ('formONAR', 'ONAR', "
+              "'/form/onar.jsp', 1);".format(arch))
+    backfill = o19roles.encounter_form_backfill_statement(dst, arch) + ";"
+
+    def run_backfill(label: str, expect_ok: bool) -> Tuple[bool, str]:
+        rc, _out, err = client.run(backfill, dst)
+        ran = rc == 0
+        detail = "" if ran else (err.strip().splitlines() or ["?"])[-1]
+        if expect_ok:
+            print("    {0:<44} {1}".format(label, "ok" if ran else
+                                           "REFUSED ({0})".format(detail)))
+        return ran, detail
+
+    # the shipped DDL, with the target's pair
+    client.setup(o19roles.encounter_form_archive_ddl(arch, pair) + ";",
+                 dst)
+    client.setup(legacy, dst)
+    ran, detail = run_backfill("the backfill runs against the target", True)
+    if not ran:
+        failures.append("the backfill over the pruned table (target "
+                        "collation) did not run: {0}".format(detail))
+    filled = client.rows("SELECT form_value FROM `{0}`.encounterForm__"
+                         "pruned WHERE form_table = 'formAdf'".format(arch),
+                         dst)[0][0]
+    print("    {0:<44} {1}".format(
+        "and restores the legacy row's value",
+        "ok" if filled == "/form/formadf.jsp" else "NOT ({0!r})"
+        .format(filled)))
+    if filled != "/form/formadf.jsp":
+        failures.append("the backfill left form_value {0!r}".format(filled))
+    # control: the pre-fix DDL (CHARSET alone). Refused on a server that
+    # remaps utf8mb4's default collation away from the target's; accepted
+    # on one that does not (10.11 with collation-server general_ci).
+    client.setup("DROP TABLE `{0}`.encounterForm__pruned;".format(arch), dst)
+    client.setup(o19roles.encounter_form_archive_ddl(arch) + ";", dst)
+    client.setup(legacy, dst)
+    old_coll = client.rows("SELECT TABLE_COLLATION FROM information_schema."
+                           "TABLES WHERE TABLE_SCHEMA = '{0}' AND TABLE_NAME"
+                           " = 'encounterForm__pruned'".format(arch),
+                           dst)[0][0]
+    rc, _out, err = client.run(backfill, dst)
+    refused = rc != 0 and "1267" in err
+    print("    {0:<44} {1}".format(
+        "control: CHARSET alone gives " + old_coll,
+        "refused (ERROR 1267), as on 11.8" if refused else
+        "accepted on this server (MariaDB 11.8 refuses it)"))
+    # the resume repair: whatever the old DDL produced, the upgrade
+    # builder converts it to the target's pair when they differ, and
+    # the backfill then runs
+    upgrades = o19roles.encounter_form_archive_upgrades(
+        lambda sql: client.rows(sql, dst), arch, pair)
+    converts = [u for u in upgrades if "CONVERT TO" in u]
+    needs = old_coll.lower() != pair[1].lower()
+    print("    {0:<44} {1}".format(
+        "the upgrade converts a legacy table" if needs else
+        "no conversion needed on this server",
+        "ok" if len(converts) == (1 if needs else 0) else
+        "NOT ({0})".format(upgrades)))
+    if len(converts) != (1 if needs else 0):
+        failures.append("the upgrade builder emitted {0!r} for a table "
+                        "collated {1}".format(upgrades, old_coll))
+    for u in upgrades:
+        client.setup(u + ";", dst)
+    ran, detail = run_backfill("the backfill runs after the repair", True)
+    if not ran:
+        failures.append("the backfill did not run after the collation "
+                        "repair: {0}".format(detail))
+    return failures
+
+
 def _run_checks(client: Client, args, failures: Dict[str, List[str]],
                 dst: str, src: str, arch: str) -> int:
     """Every check in turn; `main` owns the shared-schema teardown."""
@@ -2536,6 +2719,10 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
                                            args.prefix + "_ptd")
     if typed:
         failures["primitive fallback types"] = typed
+    collated = check_archive_collation(client, args.prefix + "_cld",
+                                       args.prefix + "_cla")
+    if collated:
+        failures["archive collation"] = collated
 
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))

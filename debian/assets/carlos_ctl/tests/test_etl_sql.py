@@ -1103,7 +1103,13 @@ class TestCharsetRepairPredicate(unittest.TestCase):
         self.assertNotIn("REGEXP", expr)
         self.assertIn("CONVERT(BINARY CONVERT(s.`note` USING latin1) USING "
                       "utf8mb4)", expr)
-        self.assertTrue(expr.endswith("ELSE s.`note` END"))
+        # the untouched branch is converted too: a raw latin1 column
+        # beside a utf8mb4 CAST is an "Illegal mix of collations" CASE
+        # on MariaDB 11.8 (measured on Ubuntu 26.04's 11.8.6, whose
+        # utf8mb4 default is uca1400_ai_ci); 10.11 resolved it silently
+        self.assertTrue(
+            expr.endswith("ELSE CONVERT(s.`note` USING utf8mb4) END"), expr)
+        self.assertNotIn("ELSE s.`note` END", expr)
 
     def test_marker_regex_targets_utf8_lead_bytes_only(self):
         # 'Ã©' (double-encoded é) matches; 'São' (legit) does not: the
@@ -2890,6 +2896,79 @@ class TestAbsentTableDisposition(unittest.TestCase):
         self.assertEqual(
             o19etl.absent_table_disposition("zzz_nope", "copy", (), True),
             (False, ""))
+
+
+class TestArchiveSchemaCollation(unittest.TestCase):
+
+    """The archive schema and the tables the import builds in it carry
+    the TARGET's character set and collation.
+
+    A `CHARSET=utf8mb4` clause with no COLLATE, and a bare `CREATE
+    DATABASE`, take the SERVER's default collation for utf8mb4 -- which
+    on MariaDB 11.8 (Ubuntu 26.04) `character_set_collations` remaps to
+    utf8mb4_uca1400_ai_ci even where collation-server is
+    utf8mb4_general_ci. A table built that way then compares with a
+    CARLOS column (declared utf8mb4_general_ci) as ERROR 1267 "Illegal
+    mix of collations". Measured on the first 26.04 rehearsal: the roles
+    step's backfill of encounterForm__pruned against carlos.encounterForm
+    stopped the import."""
+
+    def test_the_targets_pair_is_read_from_information_schema(self):
+        seen = []
+
+        def plain(sql):
+            seen.append(sql)
+            return [["utf8mb4", "utf8mb4_general_ci"]]
+        self.assertEqual(o19etl.schema_collation(plain, "carlos"),
+                         ("utf8mb4", "utf8mb4_general_ci"))
+        self.assertEqual(len(seen), 1)
+        self.assertIn("information_schema.SCHEMATA", seen[0])
+        self.assertIn("DEFAULT_CHARACTER_SET_NAME", seen[0])
+        self.assertIn("DEFAULT_COLLATION_NAME", seen[0])
+        self.assertIn("SCHEMA_NAME = 'carlos'", seen[0])
+
+    def test_the_schema_name_is_escaped_in_the_lookup(self):
+        seen = []
+
+        def plain(sql):
+            seen.append(sql)
+            return []
+        o19etl.schema_collation(plain, "car'los")
+        self.assertIn("SCHEMA_NAME = 'car\\'los'", seen[0])
+
+    def test_a_silent_or_odd_answer_yields_no_pair(self):
+        # the names go back into DDL unquoted, so anything that is not
+        # a plain identifier is refused rather than interpolated
+        for answer in ([], [[]], [["utf8mb4"]], [["", ""]],
+                       [["utf8mb4", "utf8mb4_general_ci; DROP"]],
+                       [[None, None]]):
+            self.assertIsNone(
+                o19etl.schema_collation(lambda _sql: answer, "carlos"),
+                answer)
+
+    def test_the_archive_schema_is_created_and_altered_to_the_pair(self):
+        statements = o19etl.archive_schema_statements(
+            "o19_archive", ("utf8mb4", "utf8mb4_general_ci"))
+        self.assertEqual(statements, [
+            "CREATE DATABASE IF NOT EXISTS `o19_archive` DEFAULT CHARACTER "
+            "SET utf8mb4 COLLATE utf8mb4_general_ci",
+            "ALTER DATABASE `o19_archive` DEFAULT CHARACTER SET utf8mb4 "
+            "COLLATE utf8mb4_general_ci"])
+
+    def test_without_a_pair_the_archive_schema_is_created_bare(self):
+        # as before: a server whose information_schema is silent about
+        # the target gets the old statement, not a guessed collation
+        self.assertEqual(
+            o19etl.archive_schema_statements("o19_archive", None),
+            ["CREATE DATABASE IF NOT EXISTS `o19_archive`"])
+
+    def test_run_etl_creates_the_archive_with_the_targets_pair(self):
+        # the driver's source: the archive schema statements come from
+        # the builder, fed by the target's lookup, not a bare CREATE
+        src = inspect.getsource(o19etl.run_etl)
+        self.assertIn("archive_schema_statements(", src)
+        self.assertIn("schema_collation(plain, dst)", src)
+        self.assertNotIn('plain("CREATE DATABASE IF NOT EXISTS', src)
 
 
 if __name__ == "__main__":

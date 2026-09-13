@@ -1983,18 +1983,32 @@ def encounter_form_prune_statements(dst_schema: str, archive_schema: str
     return archive, delete
 
 
-def encounter_form_archive_ddl(archive_schema: str) -> str:
+def encounter_form_archive_ddl(archive_schema: str,
+                               collation: Optional[Tuple[str, str]] = None
+                               ) -> str:
     """The archive table the prune writes into.
 
     One column per column of `encounterForm`, widened rather than copied
     exactly (the source is varchar(30)/varchar(255)/varchar(50)/int(5)):
     an archive that truncated a clinic's own value would defeat its own
     purpose, and a vendor fork with a wider column is not a reason to
-    lose the row."""
+    lose the row.
+
+    `collation` is the TARGET schema's (character set, collation) pair
+    from `o19etl.schema_collation`, and the table carries it explicitly:
+    the backfill compares this table's columns with `encounterForm`'s,
+    and a CHARSET with no COLLATE takes the server's default for the
+    charset -- utf8mb4_uca1400_ai_ci on MariaDB 11.8, which then refuses
+    the comparison with CARLOS's utf8mb4_general_ci as ERROR 1267
+    (measured on the first Ubuntu 26.04 rehearsal). Without a pair the
+    DDL is what it was, for a server that reports none."""
+    charset_clause = (
+        "DEFAULT CHARSET={0} COLLATE={1}".format(*collation) if collation
+        else "DEFAULT CHARSET=utf8mb4")
     return ("CREATE TABLE IF NOT EXISTS `{0}`.encounterForm__pruned ("
             "form_table VARCHAR(255), form_name VARCHAR(255), "
             "form_value VARCHAR(255), hidden INT) "
-            "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4".format(archive_schema))
+            "ENGINE=InnoDB {1}".format(archive_schema, charset_clause))
 
 
 #: Columns `encounter_form_prune_statements` writes, in the order the
@@ -2003,9 +2017,12 @@ ENCOUNTER_FORM_ARCHIVE_COLUMNS = ("form_table", "form_name",
                                   "form_value", "hidden")
 
 
-def encounter_form_archive_upgrades(plain, archive_schema: str) -> List[str]:
+def encounter_form_archive_upgrades(plain, archive_schema: str,
+                                    collation: Optional[Tuple[str, str]]
+                                    = None) -> List[str]:
     """`ALTER TABLE` statements bringing an EXISTING archive table up to
-    the current column set, or [] when there is nothing to add.
+    the current column set and collation, or [] when there is nothing
+    to change.
 
     `CREATE TABLE IF NOT EXISTS` is a no-op against a table that already
     exists, columns and all -- so a workspace whose archive table was
@@ -2014,7 +2031,15 @@ def encounter_form_archive_upgrades(plain, archive_schema: str) -> List[str]:
     would stop, mid-roles, with no way forward but a restore. Adding the
     missing columns is safe in both directions: the rows already archived
     keep their values and gain NULLs, which is honest -- that run did not
-    record them."""
+    record them.
+
+    The same applies to the collation: a table an earlier carlos-ctl
+    declared with `CHARSET=utf8mb4` alone carries the SERVER's default
+    for utf8mb4, and on a MariaDB 11.8 host that is not the target's
+    utf8mb4_general_ci -- the backfill's comparison with `encounterForm`
+    is then ERROR 1267 on every resume until the table is converted.
+    `CONVERT TO` rewrites the character set and collation of every text
+    column; the values are unchanged (both are utf8mb4)."""
     # the READ channel: `query` is the driver's write path and every SQL
     # it issues has to be idempotent (test_roles_driver pins that), while
     # this is an introspection whose answer decides whether a write is
@@ -2028,10 +2053,21 @@ def encounter_form_archive_upgrades(plain, archive_schema: str) -> List[str]:
     have = {str(r[0]).lower() for r in rows}
     types = {"form_table": "VARCHAR(255)", "form_name": "VARCHAR(255)",
              "form_value": "VARCHAR(255)", "hidden": "INT"}
-    return ["ALTER TABLE `{0}`.encounterForm__pruned ADD COLUMN `{1}` {2}"
-            .format(archive_schema, col, types[col])
-            for col in ENCOUNTER_FORM_ARCHIVE_COLUMNS
-            if col.lower() not in have]
+    out = ["ALTER TABLE `{0}`.encounterForm__pruned ADD COLUMN `{1}` {2}"
+           .format(archive_schema, col, types[col])
+           for col in ENCOUNTER_FORM_ARCHIVE_COLUMNS
+           if col.lower() not in have]
+    if collation:
+        current = plain(
+            "SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE "
+            "TABLE_SCHEMA = '{0}' AND TABLE_NAME = 'encounterForm__pruned'"
+            .format(_sql_str(archive_schema)))
+        if current and str(current[0][0] or "").lower() \
+                != collation[1].lower():
+            out.append("ALTER TABLE `{0}`.encounterForm__pruned CONVERT TO "
+                       "CHARACTER SET {1} COLLATE {2}"
+                       .format(archive_schema, *collation))
+    return out
 
 
 def encounter_form_backfill_statement(dst_schema: str,
@@ -2091,8 +2127,12 @@ def roles_prune_encounter_forms(run: 'RolesRun') -> None:
     pruned = plan("encounter_forms", lambda: [
         [r[0], r[1]] for r in plain(encounter_forms_missing_tables_sql(dst))])
     if pruned:
-        query(encounter_form_archive_ddl(arch))
-        for upgrade in encounter_form_archive_upgrades(plain, arch):
+        # the target's charset and collation, so the archive table's
+        # columns compare with encounterForm's (see the DDL's docstring)
+        collation = o19etl.schema_collation(plain, dst)
+        query(encounter_form_archive_ddl(arch, collation))
+        for upgrade in encounter_form_archive_upgrades(plain, arch,
+                                                       collation):
             query(upgrade)
         # after the widening and BEFORE the guard reads form_value
         query(encounter_form_backfill_statement(dst, arch))

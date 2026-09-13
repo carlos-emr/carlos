@@ -191,6 +191,18 @@ class FakeDb(object):
             # so a clean run issues no ALTER; `archive_columns` narrows it
             # to model a workspace an older carlos-ctl created.
             return [[c] for c in a["archive_columns"]]
+        if ("information_schema.SCHEMATA" in sql
+                and "SCHEMA_NAME = '{0}'".format(DST) in sql):
+            # the target schema as the deb creates it (dbops.py):
+            # utf8mb4_general_ci, whatever the server's own default is
+            return [["utf8mb4", "utf8mb4_general_ci"]]
+        if ("information_schema.TABLES" in sql
+                and "encounterForm__pruned" in sql):
+            # the archive table's current collation. Default: the
+            # target's, so a clean run issues no CONVERT;
+            # `archive_collation` models a table an older carlos-ctl
+            # declared with CHARSET alone on a MariaDB 11.8 host.
+            return [[a.get("archive_collation", "utf8mb4_general_ci")]]
         if sql == o19roles.rtl_rows_sql(DST):
             if len(self.rtl_sequence) > 1:
                 return self.rtl_sequence.pop(0)
@@ -829,11 +841,43 @@ class TestEncounterFormsPointingAtRemovedForms(RunRolesBase):
         db = FakeDb()
         self.run_roles(db)
         archive, delete = o19roles.encounter_form_prune_statements(DST, ARCH)
-        self.assertIn(o19roles.encounter_form_archive_ddl(ARCH), db.writes)
+        # the archive table carries the TARGET's collation (the fake
+        # describes the target as the deb creates it), never the
+        # server's default for utf8mb4
+        ddl = o19roles.encounter_form_archive_ddl(
+            ARCH, ("utf8mb4", "utf8mb4_general_ci"))
+        self.assertIn(ddl, db.writes)
+        self.assertIn("COLLATE=utf8mb4_general_ci", ddl)
+        self.assertNotIn(o19roles.encounter_form_archive_ddl(ARCH),
+                         db.writes)
         self.assertIn(archive, db.writes)
         self.assertIn(delete, db.writes)
         # the archive is written BEFORE the delete, or the rows are gone
         self.assertLess(db.writes.index(archive), db.writes.index(delete))
+        # a clean workspace: the table already has the target's
+        # collation, so no CONVERT is issued
+        self.assertFalse([w for w in db.writes if "CONVERT TO" in w])
+
+    def test_a_legacy_archive_table_is_converted_to_the_targets_collation(
+            self):
+        """A resume against a workspace whose `encounterForm__pruned` an
+        earlier carlos-ctl declared with CHARSET alone on a MariaDB 11.8
+        host: the server gave it utf8mb4_uca1400_ai_ci, the target is
+        utf8mb4_general_ci, and the backfill's comparison with
+        `encounterForm` was ERROR 1267 on every resume (measured on the
+        first Ubuntu 26.04 rehearsal). The table is converted BEFORE the
+        backfill reads it."""
+        db = FakeDb(archive_collation="utf8mb4_uca1400_ai_ci")
+        self.run_roles(db)
+        converts = [w for w in db.writes if "CONVERT TO" in w]
+        self.assertEqual(len(converts), 1, db.writes)
+        self.assertEqual(
+            converts[0],
+            "ALTER TABLE `{0}`.encounterForm__pruned CONVERT TO CHARACTER "
+            "SET utf8mb4 COLLATE utf8mb4_general_ci".format(ARCH))
+        backfill = o19roles.encounter_form_backfill_statement(DST, ARCH)
+        self.assertLess(db.writes.index(converts[0]),
+                        db.writes.index(backfill))
 
     def test_an_older_workspaces_archive_table_is_widened_first(self):
         """A resume against a workspace an earlier carlos-ctl created.

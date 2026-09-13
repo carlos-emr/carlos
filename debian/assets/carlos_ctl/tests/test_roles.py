@@ -298,6 +298,59 @@ class TestStatementShapes(unittest.TestCase):
                 lambda _sql: [], "o19_archive"),
             [])
 
+    def test_the_archive_table_carries_the_targets_collation(self):
+        """A `CHARSET=utf8mb4` clause with no COLLATE takes the SERVER's
+        default for utf8mb4 -- utf8mb4_uca1400_ai_ci on MariaDB 11.8, via
+        character_set_collations -- and the backfill's comparison with
+        `encounterForm` (utf8mb4_general_ci) is then ERROR 1267. Measured
+        on the first Ubuntu 26.04 rehearsal. With the target's pair the
+        DDL names both."""
+        ddl = o19roles.encounter_form_archive_ddl(
+            "o19_archive", ("utf8mb4", "utf8mb4_general_ci"))
+        self.assertIn("DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+                      ddl)
+        self.assertTrue(ddl.startswith("CREATE TABLE IF NOT EXISTS"))
+        # without a pair (information_schema silent) the DDL is unchanged
+        bare = o19roles.encounter_form_archive_ddl("o19_archive")
+        self.assertIn("DEFAULT CHARSET=utf8mb4", bare)
+        self.assertNotIn("COLLATE", bare)
+
+    def test_a_legacy_archive_table_is_converted_to_the_targets_collation(
+            self):
+        # the table a MariaDB 11.8 host gave the earlier DDL: every
+        # column present, the collation the server's rather than the
+        # target's
+        def plain(sql):
+            if "information_schema.COLUMNS" in sql:
+                return [["form_table"], ["form_name"], ["form_value"],
+                        ["hidden"]]
+            self.assertIn("information_schema.TABLES", sql)
+            self.assertIn("encounterForm__pruned", sql)
+            return [["utf8mb4_uca1400_ai_ci"]]
+        upgrades = o19roles.encounter_form_archive_upgrades(
+            plain, "o19_archive", ("utf8mb4", "utf8mb4_general_ci"))
+        self.assertEqual(upgrades, [
+            "ALTER TABLE `o19_archive`.encounterForm__pruned CONVERT TO "
+            "CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"])
+
+    def test_an_archive_table_on_the_targets_collation_is_not_converted(
+            self):
+        def plain(sql):
+            if "information_schema.COLUMNS" in sql:
+                return [["form_table"], ["form_name"], ["form_value"],
+                        ["hidden"]]
+            return [["utf8mb4_general_ci"]]
+        self.assertEqual(
+            o19roles.encounter_form_archive_upgrades(
+                plain, "o19_archive", ("utf8mb4", "utf8mb4_general_ci")),
+            [])
+        # the collation is compared case-insensitively, as the server
+        # reports it either way
+        self.assertEqual(
+            o19roles.encounter_form_archive_upgrades(
+                plain, "o19_archive", ("utf8mb4", "UTF8MB4_GENERAL_CI")),
+            [])
+
     def test_two_entries_sharing_a_table_and_name_both_archive(self):
         """The guard is on `form_value`, `encounterForm`'s PRIMARY KEY.
 

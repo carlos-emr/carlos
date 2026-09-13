@@ -160,8 +160,19 @@ MOJIBAKE_MARKER_RE = "'[\\\\x{C3}\\\\x{C2}][\\\\x{80}-\\\\x{BF}]'"
 
 def repair_expr(expr: str) -> str:
     """Per-row conditional latin1->utf8mb4 repair: rows that are not
-    provably double-encoded pass through untouched."""
-    return "CASE WHEN {0} THEN {1} ELSE {2} END".format(
+    provably double-encoded pass through untouched.
+
+    Both branches are utf8mb4. The repaired branch is a utf8mb4 CAST,
+    and a raw latin1 column in the ELSE branch is a different character
+    set with a different collation derivation: MariaDB 11.8 (Ubuntu
+    26.04's server, whose utf8mb4 default is utf8mb4_uca1400_ai_ci)
+    refuses that CASE outright -- ERROR 1267 "Illegal mix of collations
+    (utf8mb4_uca1400_ai_ci,CAST) and (latin1_swedish_ci,IMPLICIT) for
+    operation 'case'" -- where 10.11 resolved it to the utf8mb4 side.
+    Converting the untouched branch too costs nothing (the target column
+    is utf8mb4 and a latin1 value converts losslessly) and gives the
+    CASE one character set and one derivation on every server."""
+    return "CASE WHEN {0} THEN {1} ELSE CONVERT({2} USING utf8mb4) END".format(
         double_encoded_predicate(expr), REPAIR_TEMPLATE.format(expr), expr)
 
 
@@ -3387,7 +3398,13 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         report("columns CARLOS added after the fork, supplied by the "
                "import:\n  " + "\n  ".join(supplied_lines))
 
-    plain("CREATE DATABASE IF NOT EXISTS `{0}`".format(arch))
+    # the target's own charset and collation (see schema_collation): the
+    # id maps, snapshots and pruned tables built here are compared with
+    # live CARLOS columns, and a server whose utf8mb4 default differs
+    # from CARLOS's declared utf8mb4_general_ci refuses that comparison
+    for statement in archive_schema_statements(
+            arch, schema_collation(plain, dst)):
+        plain(statement)
     progress = load_progress(state_dir, ctx.get("dump_sha256"),
                              o19map_schema.SCHEMA_MAP_VERSION)
     # The repair set goes in the ledger because P7's value-level check
@@ -3624,6 +3641,62 @@ def schema_tables(plain_query, schema: str) -> set:
         "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
         "TABLE_SCHEMA = '{0}' AND TABLE_TYPE = 'BASE TABLE'"
         .format(schema))}
+
+
+#: A character set or collation name as information_schema reports it.
+#: Both go back into DDL unquoted, so anything else is refused rather
+#: than interpolated.
+_CHARSET_NAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
+
+
+def schema_collation(plain_query, schema: str
+                     ) -> Optional[Tuple[str, str]]:
+    """The (character set, collation) `schema` was created with, or None
+    when information_schema does not describe it.
+
+    The target's pair is what every table the import builds for itself
+    must carry. A `CHARSET=utf8mb4` clause with no COLLATE takes the
+    SERVER's default collation for utf8mb4, and on MariaDB 11.8 (Ubuntu
+    26.04) `character_set_collations` remaps that to utf8mb4_uca1400_ai_ci
+    even where collation-server says utf8mb4_general_ci -- so a table
+    declared that way compares with a CARLOS column (declared
+    utf8mb4_general_ci) as an "Illegal mix of collations", ERROR 1267.
+    Measured on the first 26.04 rehearsal: the roles step's backfill of
+    `encounterForm__pruned` against `carlos.encounterForm`."""
+    rows = plain_query(
+        "SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME "
+        "FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '{0}'"
+        .format(_sql_str(schema)))
+    if not rows or len(rows[0]) < 2:
+        return None
+    charset, collation = str(rows[0][0] or ""), str(rows[0][1] or "")
+    if not (_CHARSET_NAME_RE.match(charset)
+            and _CHARSET_NAME_RE.match(collation)):
+        return None
+    return charset, collation
+
+
+def archive_schema_statements(archive_schema: str,
+                              collation: Optional[Tuple[str, str]]
+                              ) -> List[str]:
+    """Create the archive schema with the TARGET's character set and
+    collation, and bring an archive that already exists (a resumed
+    workspace, or one an earlier carlos-ctl created bare) to the same.
+
+    Every table the import creates in the archive without a charset of
+    its own -- id maps, pre-merge snapshots, the pruned encounter forms
+    -- inherits this default, and those are exactly the tables later
+    compared with live CARLOS columns. `ALTER DATABASE` changes only the
+    default for tables created afterwards; the tables the archive already
+    holds keep theirs, which is what the `CREATE TABLE ... LIKE` copies
+    of latin1 staging tables need. Without a target pair (information_
+    schema silent) the schema is created bare, as before."""
+    if not collation:
+        return ["CREATE DATABASE IF NOT EXISTS `{0}`".format(archive_schema)]
+    clause = " DEFAULT CHARACTER SET {0} COLLATE {1}".format(*collation)
+    return ["CREATE DATABASE IF NOT EXISTS `{0}`{1}".format(
+                archive_schema, clause),
+            "ALTER DATABASE `{0}`{1}".format(archive_schema, clause)]
 
 
 #: Manifest classes whose rows CARLOS itself never stores, and so are
