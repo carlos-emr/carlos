@@ -607,7 +607,10 @@ export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
 # property ships false and the module is simply absent from the master record without it.
 # The community <option> half is skipped, and says so in its PASS line, on an install that
 # already has a firstNationCommunity lookup list (the DAO caches it) or that runs
-# showBandNumberOnly=true (the control is not rendered at all).
+# showBandNumberOnly=true (the control is not rendered at all). Because the fixture deletes its
+# seeded list with direct SQL, it cannot fire the DAO's @CacheEvict: a running CARLOS can keep
+# serving that deleted list until a lookup-list write or cache expiry, so run the community half
+# at most once per application start and `carlos-ctl restart` before repeating it.
 export FIRST_NATIONS_DEMOGRAPHIC_NO=1
 # A browser failure may be the first symptom of the JVM being killed and
 # restarted. Record the service counter so the suite cannot finish green after

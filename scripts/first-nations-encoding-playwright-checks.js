@@ -53,7 +53,23 @@
  *     showBandNumberOnly is active in carlos.properties.
  *
  * Everything it writes -- the demographicExt rows and, when it seeds them, the
- * LookupList/LookupListItem rows -- is restored or deleted in the finally.
+ * LookupList/LookupListItem rows -- is restored or deleted in the finally, and
+ * also from the signal handlers, since the runbook drives checks under
+ * `timeout --foreground`.
+ *
+ * KNOWN LIMIT, cleanup side of that same cache. LookupListDaoImpl evicts
+ * CacheConfig.LOOKUP_LISTS only from persist/merge/remove; this fixture deletes
+ * the seeded list with direct SQL, which bypasses all three. So a CARLOS
+ * instance that rendered the page during the run keeps the deleted list cached
+ * until a lookup-list write or cache expiry. Consequences to expect, none of
+ * which the fixture can fix from SQL:
+ *   - a second run inside that window sees no list in the database, seeds a new
+ *     one, and can then mis-report or skip the community half, and
+ *   - the stale list -- including the payload option -- can still be served to
+ *     the browser after this check reports PASS.
+ * `carlos-ctl restart` clears it. Prefer one run per application start when the
+ * community half matters; the demographicExt half is unaffected, as those
+ * values are not cached.
  *
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
@@ -114,6 +130,9 @@ const SEEDED_KEYS = Object.keys(PAYLOADS);
 
 let mysqlDefaults = null;
 function initMysqlDefaults() {
+  if (/[\r\n]/.test(mysqlPassword)) {
+    throw new Error('MYSQL_PASSWORD must not contain newline characters');
+  }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'first-nations-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
   fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
@@ -268,6 +287,10 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
 let demographicNo = null;
 let originalExt = null;
 let seededLookupListId = null;
+// Set before the INSERT, not after: if the process dies between the insert and
+// the id SELECT, cleanup still knows a list of ours may exist and can find it
+// by name. Safe because the seed only runs when no list of that name existed.
+let lookupListSeedAttempted = false;
 let restoreDone = false;
 
 /**
@@ -278,29 +301,51 @@ function restoreSeededRows() {
   if (restoreDone) {
     return;
   }
-  restoreDone = true;
   if (demographicNo && originalExt) {
     const restored = new Map(originalExt.map((row) => [row.key, row]));
     for (const key of SEEDED_KEYS) {
       const row = restored.get(key);
+      // Every write is conditional on the column still holding THIS run's
+      // payload. Two overlapping runs would otherwise have the second restore
+      // its snapshot of the first run's payload back over the first run's
+      // cleanup, and an edit made by someone using the app mid-run would be
+      // silently reverted. If the value is no longer ours, leaving it alone is
+      // the correct outcome.
+      const stillOurs = `AND value=${sqlString(PAYLOADS[key])}`;
       if (row) {
         // UNHEX('') is the empty string, not NULL, so the two cases stay
         // distinct all the way back into the column.
         const literal = row.isNull ? 'NULL' : `UNHEX(${sqlString(row.hex)})`;
         sql(
           `UPDATE demographicExt SET value=${literal}`
-            + ` WHERE demographic_no=${demographicNo} AND key_val=${sqlString(key)}`,
+            + ` WHERE demographic_no=${demographicNo} AND key_val=${sqlString(key)} ${stillOurs}`,
         );
       } else {
-        sql(`DELETE FROM demographicExt WHERE demographic_no=${demographicNo} AND key_val=${sqlString(key)}`);
+        sql(
+          `DELETE FROM demographicExt WHERE demographic_no=${demographicNo}`
+            + ` AND key_val=${sqlString(key)} ${stillOurs}`,
+        );
       }
+    }
+  }
+  if (!seededLookupListId && lookupListSeedAttempted) {
+    // The insert ran but the id never came back. This name had no list before
+    // the seed, so any row carrying it now is ours to remove.
+    const recovered = sql(`SELECT id FROM LookupList WHERE name=${sqlString(LOOKUP_LIST_NAME)}`);
+    if (/^\d+$/.test(recovered)) {
+      seededLookupListId = recovered;
     }
   }
   if (seededLookupListId) {
     sql(`DELETE FROM LookupListItem WHERE lookupListId=${seededLookupListId}`);
     sql(`DELETE FROM LookupList WHERE id=${seededLookupListId}`);
     seededLookupListId = null;
+    lookupListSeedAttempted = false;
   }
+  // Only now. Setting this up front meant a restore that threw half way through
+  // left the flag true, so the signal handler's retry returned immediately and
+  // the remaining rows kept the payload.
+  restoreDone = true;
 }
 
 // The deb-install runbook drives every check under `timeout --foreground`, and a
@@ -349,6 +394,7 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
     // findByName caches a hit, so an existing list would not pick the item up.
     const existingList = sql(`SELECT id FROM LookupList WHERE name=${sqlString(LOOKUP_LIST_NAME)}`);
     if (!existingList) {
+      lookupListSeedAttempted = true;
       sql(
         'INSERT INTO LookupList (name, listTitle, description, active, createdBy)'
           + ` VALUES (${sqlString(LOOKUP_LIST_NAME)}, 'First Nation Community',`
