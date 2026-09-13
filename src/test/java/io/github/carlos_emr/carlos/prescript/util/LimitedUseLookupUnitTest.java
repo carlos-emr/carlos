@@ -122,7 +122,7 @@ class LimitedUseLookupUnitTest extends CarlosUnitTestBase {
         Path workingDirFile = new File(relativeName).toPath();
         Files.writeString(workingDirFile, minimalLimitedUseXml("99000003"));
         try {
-            assertThat(new File(relativeName).getParentFile()).isNull();
+            assertThat(new File(relativeName)).hasNoParent();
             CarlosProperties.getInstance().setProperty(FORMULARY_PROPERTY, relativeName);
 
             ArrayList<LimitedUseCode> result = LimitedUseLookup.getLUInfoForDin("99000003");

@@ -75,7 +75,7 @@ public class LimitedUseLookup {
 
     private static Logger log = MiscUtils.getLogger();
 
-    static final String BUNDLED_FORMULARY_RESOURCE = "oscar/oscarRx/data_extract_20250730.xml";
+    private static final String BUNDLED_FORMULARY_RESOURCE = "oscar/oscarRx/data_extract_20250730.xml";
 
     static Hashtable<String, ArrayList<LimitedUseCode>> luLookup = new Hashtable<String, ArrayList<LimitedUseCode>>();
     /**
@@ -120,7 +120,7 @@ public class LimitedUseLookup {
      * Synchronized on the same monitor as the lazy loader so a reload cannot race a concurrent
      * first-use load and leave the table half populated.
      */
-    static public synchronized void reLoadLookupInformation() {
+    public static synchronized void reLoadLookupInformation() {
         loaded = false;
         luLookup.clear();
         loadLULookupInformation();
@@ -146,7 +146,7 @@ public class LimitedUseLookup {
         if (fileName != null && !fileName.isEmpty()) {
             try {
                 File formularyFile = PathValidationUtils.validateConfiguredFile(fileName, "odb_formulary_file");
-                log.info("loading odb file from property {}", LogSafe.sanitize(fileName, 1024));
+                log.info("loading odb file from property {}", () -> LogSafe.sanitize(fileName, 1024));
                 return new BufferedInputStream(new FileInputStream(formularyFile));
             } catch (SecurityException e) {
                 log.error("Formulary file path validation failed, skipping property source: {}",
