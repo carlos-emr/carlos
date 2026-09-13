@@ -100,13 +100,15 @@ override_dh_auto_configure:
 	mkdir -p $(BUILDDIR) $(MVN_REPO)
 
 override_dh_auto_build:
+	# Clean source builds so stale versioned WARs cannot make the output glob ambiguous.
 	set -e; \
 	if [ -n "$$CARLOS_WAR" ]; then \
 	  echo "using prebuilt CARLOS WAR: $$CARLOS_WAR"; \
 	  cp -f "$$CARLOS_WAR" $(BUILDDIR)/carlos.war; \
+	  $(CURDIR)/debian/stamp-war-build-identity.sh $(BUILDDIR)/carlos.war carlos-emr-deb "$$(dpkg-parsechangelog -SVersion)"; \
 	else \
 	  JOB_NAME=carlos-emr-deb BUILD_NUMBER="$$(dpkg-parsechangelog -SVersion)" \
-	    $(MVN) $(MVN_FLAGS) package; \
+	    $(MVN) $(MVN_FLAGS) clean package; \
 	  cp -f target/carlos-*.war $(BUILDDIR)/carlos.war; \
 	fi
 	# The Flyway migration runner: a ~100-line launcher compiled against the
@@ -125,7 +127,7 @@ ifeq ($(SKIP_DRUGREF),)
 	    $(CURDIR)/debian/fetch-drugref.sh "$(DRUGREF_REF)" $(BUILDDIR)/drugref-src; \
 	    src=$(BUILDDIR)/drugref-src; \
 	  fi; \
-	  $(MVN) -f "$$src/pom.xml" $(MVN_FLAGS) -Dmaven.test.skip=true package; \
+	  $(MVN) -f "$$src/pom.xml" $(MVN_FLAGS) -Dmaven.test.skip=true clean package; \
 	  cp -f "$$src"/target/drugref2*.war $(BUILDDIR)/drugref2.war; \
 	fi
 endif
@@ -158,7 +160,19 @@ override_dh_clean:
 
 override_dh_auto_test:
 	# Application tests are the app repo's own CI concern; a package build
-	# must not require a live database.
+	# must not require a live database. The man page is checked separately
+	# because Ubuntu 26.04's lintian/man-db pipeline itself exits non-zero even
+	# for known-good compressed system pages. groff returns zero for warnings,
+	# so capture diagnostics and explicitly make any warning a package failure.
+	set -e; \
+	if ! warnings="$$(groff -ww -z -Tutf8 -man debian/carlos-ctl.8 2>&1)"; then \
+		printf '%s\n' "$$warnings" >&2; \
+		exit 1; \
+	fi; \
+	if [ -n "$$warnings" ]; then \
+		printf '%s\n' "$$warnings" >&2; \
+		exit 1; \
+	fi
 
 override_dh_auto_clean:
 	rm -rf $(BUILDDIR)
@@ -171,6 +185,19 @@ override_dh_auto_install:
 	# diff the SQL that carlos-ctl applies without unpacking a webapp.
 	install -d $(STAGE)/$(SHAREDIR)/schema
 	cp -a database/mysql/migration $(STAGE)/$(SHAREDIR)/schema/
+	# Data-fixup scripts for IMPORTED rows: Flyway runs on the empty deploy
+	# before an import and never sees clinic data, so carlos-ctl import-o19
+	# replays the Rich Text Letter seed + 2026.3.0 scripts itself. The
+	# prevention-type script is shipped for reference only — the importer
+	# applies the same mappings from its generated manifest (binary
+	# compare), not by running the file.
+	install -d $(STAGE)/$(SHAREDIR)/schema/o19-fixups
+	install -m 0644 database/mysql/updates/update-2012-07-12.sql \
+	  database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
+	  database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
+	  database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
+	  database/mysql/updates/update-2026-03-10-standardize-prevention-types.sql \
+	  $(STAGE)/$(SHAREDIR)/schema/o19-fixups/
 	install -d $(STAGE)/$(SHAREDIR)/lib
 	install -m 0644 $(BUILDDIR)/carlos-flyway-runner.jar $(STAGE)/$(SHAREDIR)/lib/
 	# Optional fictitious demonstration dataset (loaded only when the operator
@@ -202,13 +229,13 @@ override_dh_auto_install:
 	    .devcontainer/db/scripts/demo-hrm-report.sql \
 	    $(STAGE)/$(SHAREDIR)/demo/
 	# Demo document FILES. The snapshot's document rows reference these PDFs and
-	# its HRM rows are retargeted (demo-hrm-report.sql) at the fictitious HRM
-	# report; without the files every attachment render fails "could not be
+	# synthetic HRM files cover the snapshot's original .xml.<timestamp> names
+	# as well as the canonical attachment fixture. Missing files make attachments fail "could not be
 	# converted into a PDF" and the HRM lists stay empty. carlos-ctl demo-data
 	# copies them into the document store after the SQL load.
 	install -d $(STAGE)/$(SHAREDIR)/demo/documents
 	install -m 0644 .devcontainer/db/db_data/documents/*.pdf \
-	    .devcontainer/db/db_data/hrm/*.xml \
+	    .devcontainer/db/db_data/hrm/*.xml* \
 	    $(STAGE)/$(SHAREDIR)/demo/documents/
 	# Tomcat's global web.xml and catalina.properties come from the
 	# distribution's own tomcat11 package (a build dependency) rather than
@@ -263,6 +290,9 @@ override_dh_auto_install:
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
+	# The OSCAR 19 import-in-progress predicate, consulted by the unit's
+	# ExecCondition= and by the postinst (see the file's header).
+	install -m 0755 debian/assets/bin/carlos-emr-o19-guard $(STAGE)/$(LIBDIR)/carlos-emr-o19-guard
 	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlos-ctl
 	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlosctl
 	install -d $(STAGE)/usr/share/man/man8

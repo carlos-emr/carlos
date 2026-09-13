@@ -20,6 +20,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
@@ -27,12 +28,15 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
-import io.github.carlos_emr.carlos.prescript.data.RxSatelliteClinicAddress;
-import io.github.carlos_emr.carlos.prescript.util.RxUtil;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
+import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxSatelliteClinicAddress;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -48,6 +52,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.pdf.PdfWriter;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -70,6 +79,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -78,6 +88,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 
 @DisplayName("FrmCustomedPDFServlet path validation")
 @Tag("unit")
@@ -85,12 +96,40 @@ import static org.mockito.ArgumentMatchers.eq;
 @Tag("security")
 class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should report fixed fax errors without logging clinical exception messages or causes")
+    void shouldKeepClinicalExceptionsPrivate_whenReportingFaxFailure(boolean uncertain) throws Exception {
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        var failure = new IllegalStateException("PRIVATE_CLINICAL_MESSAGE",
+                new IllegalArgumentException("PRIVATE_CLINICAL_CAUSE"));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FrmCustomedPDFServlet.class)) {
+            var servlet = new FrmCustomedPDFServlet();
+            if (uncertain) {
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(servlet,
+                        "reportFaxUncertain", response, response.getWriter(), failure);
+            } else {
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(servlet,
+                        "reportFaxFailure", response, response.getWriter(), "Preparing prescription fax", failure);
+            }
+            assertThat(response.getStatus()).isEqualTo(uncertain ? 503 : 500);
+            assertThat(response.getContentAsString()).contains(uncertain ? "fax-uncertain" : "fax-failure")
+                    .doesNotContain("PRIVATE_CLINICAL");
+            assertThat(logs.events()).isNotEmpty().allSatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).contains("IllegalStateException")
+                        .doesNotContain("PRIVATE_CLINICAL");
+                assertThat(event.getThrown()).isNull();
+            });
+        }
+    }
+
     private static final int SCRIPT_ID = 1;
     private static final int DEMOGRAPHIC_NO = 1;
     private static final int SIGNATURE_ID = 77;
 
     private FaxConfigDao faxConfigDao;
     private FaxJobDao faxJobDao;
+    private FaxManager faxManager;
     private PrescriptionDao prescriptionDao;
     private DigitalSignatureManager digitalSignatureManager;
     private SecurityInfoManager securityInfoManager;
@@ -106,14 +145,15 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     void setUp() {
         faxConfigDao = mock(FaxConfigDao.class);
         faxJobDao = mock(FaxJobDao.class);
+        registerMock(FaxJobDao.class, faxJobDao);
         prescriptionDao = mock(PrescriptionDao.class);
         digitalSignatureManager = mock(DigitalSignatureManager.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         registerMock(FaxConfigDao.class, faxConfigDao);
-        registerMock(FaxJobDao.class, faxJobDao);
         registerMock(DigitalSignatureManager.class, digitalSignatureManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
-        registerMock(FaxManager.class, mock(FaxManager.class));
+        faxManager = mock(FaxManager.class);
+        registerMock(FaxManager.class, faxManager);
         clinicDao = mock(ClinicDAO.class);
         registerMock(ClinicDAO.class, clinicDao);
         providerDao = mock(ProviderDao.class);
@@ -170,6 +210,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
      */
     private void stubStoredSignature(String prescriberNo) throws Exception {
         Prescription prescription = new Prescription();
+        org.springframework.test.util.ReflectionTestUtils.setField(prescription, "id", SCRIPT_ID);
         prescription.setDemographicId(DEMOGRAPHIC_NO);
         prescription.setProviderNo(prescriberNo);
         prescription.setDigitalSignatureId(SIGNATURE_ID);
@@ -178,11 +219,13 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         stubRecordDrugs(prescription, drugRow(5, RECORD_DRUG_LINE));
 
         DigitalSignature metadata = new DigitalSignature();
+        metadata.setProviderNo(prescriberNo);
         metadata.setDemographicId(DEMOGRAPHIC_NO);
         metadata.setModuleType(ModuleType.PRESCRIPTION);
         when(digitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID)).thenReturn(metadata);
 
         DigitalSignature signature = new DigitalSignature();
+        signature.setProviderNo(prescriberNo);
         signature.setDemographicId(DEMOGRAPHIC_NO);
         signature.setModuleType(ModuleType.PRESCRIPTION);
         signature.setSignatureImage(tinyPng());
@@ -191,9 +234,39 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // Grant both READ and WRITE for the patient; the fax path requires WRITE, a preview READ.
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.WRITE), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenReturn(true);
         // The fax also heads the page with the demographic record, so faxing needs _demographic READ.
         when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull()))
+                .thenReturn(true);
+    }
+
+    private void stubActiveFaxConfig() {
+        FaxConfig config = new FaxConfig();
+        config.setFaxNumber("4165553434");
+        config.setFaxUser("fax-user");
+        config.setSenderEmail("fax@example.invalid");
+        config.setActive(true);
+        when(faxConfigDao.getActiveConfigByNumber("4165553434")).thenReturn(config);
+    }
+
+    private void verifyFaxWasNotQueued() {
+        verify(faxManager, never()).persistAndLogFaxJob(
+                any(), any(), any(), anyInt());
+    }
+
+    private void serviceAs(FrmCustomedPDFServlet servlet, MockHttpServletRequest request,
+            MockHttpServletResponse response, LoggedInInfo loggedInInfo) throws Exception {
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<PrescriptionQrCodeUIBean> qrCodeMock = mockStatic(PrescriptionQrCodeUIBean.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            qrCodeMock.when(() -> PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider("999998"))
+                    .thenReturn(false);
+            servlet.service(request, response);
+        }
     }
 
     /** A 13-digit-suffix pad file name for the given provider, matching generateSignatureRequestId. */
@@ -228,6 +301,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = createFaxRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
@@ -246,25 +321,28 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             assertThat(response.getContentAsString()).contains("Unable to generate fax");
-            verify(faxConfigDao, never()).findAll(any(), any());
+            verify(faxConfigDao).getActiveConfigByNumber("4165553434");
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
         }
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @DisplayName("should write fax files when configured directories are valid")
-    void shouldWriteValidatedFaxFiles_whenConfiguredDirectoriesAreValid(@TempDir Path tempDir) throws Exception {
+    void shouldWriteValidatedFaxFiles_whenConfiguredDirectoriesAreValid(boolean omitPharmacyName, @TempDir Path tempDir) throws Exception {
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
         Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
         Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
         MockHttpServletRequest request = createFaxRequest();
+        if (omitPharmacyName) request.removeParameter("pharmaName");
         MockHttpServletResponse response = new MockHttpServletResponse();
         stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        when(faxConfigDao.findAll(any(), any())).thenReturn(Collections.emptyList());
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
              MockedStatic<PrescriptionQrCodeUIBean> qrCodeMock = mockStatic(PrescriptionQrCodeUIBean.class)) {
@@ -281,11 +359,153 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             servlet.service(request, response);
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString()).contains("fax-success").doesNotContain("<p>null (");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
-            verify(faxConfigDao).findAll(any(), any());
-            verify(faxJobDao, never()).persist(any());
+            verify(faxConfigDao).getActiveConfigByNumber("4165553434");
+            ArgumentCaptor<FaxJob> faxJobCaptor = ArgumentCaptor.forClass(FaxJob.class);
+            verify(faxManager).persistAndLogFaxJob(any(), faxJobCaptor.capture(), eq(TransactionType.RX), eq(SCRIPT_ID));
+            assertThat(faxJobCaptor.getValue().getDemographicNo()).isEqualTo(DEMOGRAPHIC_NO);
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"document", "missing-file", "io", "runtime"})
+    @DisplayName("should report a definite fax failure when PDF generation fails before persistence")
+    void shouldReportDefiniteFaxFailure_whenPdfGenerationFails(String failureType) throws Exception {
+        Exception failure = switch (failureType) {
+            case "document" -> new DocumentException("fixture rendering failure");
+            case "missing-file" -> new java.io.FileNotFoundException("fixture missing file");
+            case "io" -> new java.io.IOException("fixture read failure");
+            default -> new IllegalStateException("fixture rendering state");
+        };
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubRecordDemographic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try (MockedStatic<LoggedInInfo> loginMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<PdfWriter> pdfWriterMock = mockStatic(PdfWriter.class)) {
+            loginMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            pdfWriterMock.when(() -> PdfWriter.getInstance(any(), any())).thenAnswer(invocation -> { throw failure; });
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(response.getContentAsString()).contains("fax-failure")
+                    .doesNotContain("fax-uncertain", "fax-success", "fixture");
+            verifyFaxWasNotQueued();
+            verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"prescription", "privilege", "binding", "config"})
+    @DisplayName("should report definite failure for pre-persistence record preparation exceptions")
+    void shouldReportDefiniteFaxFailure_whenRecordPreparationFails(String stage) throws Exception {
+        stubStoredSignature();
+        stubRecordDemographic();
+        IllegalStateException failure = new IllegalStateException("fixture private diagnostic");
+        if ("prescription".equals(stage)) {
+            when(prescriptionDao.find(SCRIPT_ID)).thenThrow(failure);
+        } else if ("privilege".equals(stage)) {
+            when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                    .thenThrow(failure);
+        } else if ("binding".equals(stage)) {
+            when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(failure);
+        } else {
+            when(faxConfigDao.getActiveConfigByNumber(anyString())).thenThrow(failure);
+        }
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        serviceAs(servlet, createFaxRequest(), response, mock(LoggedInInfo.class));
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentAsString()).contains("fax-failure")
+                .doesNotContain("fax-uncertain", "fax-success", "fixture", "private diagnostic");
+        verifyFaxWasNotQueued();
+        if (!"config".equals(stage)) {
+            verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should reserve spool artifacts before publishing the sender-visible document")
+    void shouldReserveSpoolArtifacts_whenPublishingDocument(boolean sharedDirectory, @TempDir Path tempDir) throws Exception {
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = sharedDirectory ? documentDir : Files.createDirectory(tempDir.resolve("fax"));
+        Path documentPdf = documentDir.resolve("prescription_rx-123.pdf");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream() {
+            @Override
+            public synchronized void writeTo(java.io.OutputStream output) throws java.io.IOException {
+                // Observe the publication boundary itself, not just final cleanup. The
+                // background sender can open DOCUMENT_DIR as soon as this path exists.
+                if (Files.exists(documentPdf)) {
+                    assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
+                    assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
+                }
+                super.writeTo(output);
+            }
+        };
+        bytes.write("test pdf".getBytes(StandardCharsets.UTF_8));
+        try {
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(new FrmCustomedPDFServlet(),
+                    "prepareValidatedFaxFiles", documentDir.toString(), "rx-123", "prescription_rx-123.pdf",
+                    "4165551212", bytes);
+            assertThat(documentPdf).hasContent("test pdf");
+        } finally {
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should not republish a filename when existing fax ownership cannot be ruled out")
+    void shouldRejectPublication_whenFaxOwnershipIsExistingOrUnknown(boolean lookupFails, @TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        if (lookupFails) {
+            when(faxJobDao.findByFileName("prescription_rx-123.pdf"))
+                    .thenThrow(new IllegalStateException("fixture lookup failure"));
+        } else {
+            FaxJob existing = new FaxJob();
+            existing.setFile_name("prescription_rx-123.pdf");
+            existing.setStatus(FaxJob.STATUS.WAITING);
+            when(faxJobDao.findByFileName("prescription_rx-123.pdf")).thenReturn(List.of(existing));
+        }
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            serviceAs(servlet, createFaxRequest(), response, loggedInInfo);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success", "fixture");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).doesNotExist();
+            verifyFaxWasNotQueued();
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);
@@ -293,8 +513,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should preserve existing prescription PDF when document file already exists")
-    void shouldPreserveExistingPrescriptionPdf_whenDocumentFileAlreadyExists(@TempDir Path tempDir) throws Exception {
+    @DisplayName("should reject a fax identifier collision without reusing the existing prescription PDF")
+    void shouldRejectFax_whenDocumentFileAlreadyExists(@TempDir Path tempDir) throws Exception {
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
         Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
@@ -304,9 +524,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = createFaxRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        when(faxConfigDao.findAll(any(), any())).thenReturn(Collections.emptyList());
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
              MockedStatic<PrescriptionQrCodeUIBean> qrCodeMock = mockStatic(PrescriptionQrCodeUIBean.class)) {
@@ -322,12 +543,14 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             servlet.service(request, response);
 
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
             assertThat(existingPdf).hasContent("existing pdf");
-            assertThat(faxDir.resolve("prescription_rx-123.pdf")).hasContent("existing pdf");
-            assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
-            verify(faxConfigDao).findAll(any(), any());
-            verify(faxJobDao, never()).persist(any());
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).doesNotExist();
+            verify(faxConfigDao).getActiveConfigByNumber("4165553434");
+            verifyFaxWasNotQueued();
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);
@@ -335,8 +558,116 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return server error when fax tracking write fails")
-    void shouldReturnServerError_whenFaxTrackingWriteFails(@TempDir Path tempDir) throws Exception {
+    @DisplayName("should reject an existing spool PDF without reusing or changing it")
+    void shouldRejectFax_whenSpoolPdfAlreadyExists(@TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        Path existingSpoolPdf = faxDir.resolve("prescription_rx-123.pdf");
+        Files.writeString(existingSpoolPdf, "existing spool pdf", StandardCharsets.UTF_8);
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            serviceAs(servlet, request, response, loggedInInfo);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
+            assertThat(existingSpoolPdf).hasContent("existing spool pdf");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).doesNotExist();
+            verifyFaxWasNotQueued();
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject an existing tracking file without truncating it")
+    void shouldRejectFax_whenTrackingFileAlreadyExists(@TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        Path existingTrackingFile = faxDir.resolve("prescription_rx-123.txt");
+        Files.writeString(existingTrackingFile, "9055550100", StandardCharsets.UTF_8);
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            serviceAs(servlet, request, response, loggedInInfo);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
+            assertThat(existingTrackingFile).hasContent("9055550100");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            verifyFaxWasNotQueued();
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @Test
+    @DisplayName("should validate the spool directory before creating the document PDF")
+    void shouldLeaveNoDocument_whenFaxDirectoryIsInvalid(@TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", " ");
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            serviceAs(servlet, request, response, loggedInInfo);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(response.getContentAsString()).contains("fax-failure").contains("Unable to generate fax");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            verifyFaxWasNotQueued();
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve uncertainty until an operator clears a tracking path collision")
+    void shouldReportUncertainty_whenFaxTrackingPathAlreadyExists(@TempDir Path tempDir) throws Exception {
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
         Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
@@ -345,6 +676,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = createFaxRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
@@ -362,10 +695,162 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             servlet.service(request, response);
 
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            assertThat(response.getContentAsString()).contains("Unable to generate fax");
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).isDirectory();
-            verify(faxConfigDao, never()).findAll(any(), any());
+            verify(faxConfigDao).getActiveConfigByNumber("4165553434");
+            verifyFaxWasNotQueued();
+
+            // Removing the operator-side blocker and submitting the SAME attempt id must work.
+            // A leaked DOCUMENT_DIR PDF used to make this retry collide forever.
+            Files.delete(faxDir.resolve("prescription_rx-123.txt"));
+            MockHttpServletResponse retryResponse = new MockHttpServletResponse();
+            servlet.service(request, retryResponse);
+
+            assertThat(retryResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(retryResponse.getContentAsString()).contains("fax-success");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
+            verify(faxManager).persistAndLogFaxJob(any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve fax files and reject replay when persistence outcome is uncertain")
+    void shouldKeepFilesAndRejectReplay_whenPersistenceOutcomeIsUncertain(@TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse failedResponse = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        doThrow(new IllegalStateException("commit acknowledgement lost")).when(faxManager)
+                .persistAndLogFaxJob(any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
+
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            serviceAs(servlet, request, failedResponse, loggedInInfo);
+
+            assertThat(failedResponse.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(failedResponse.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
+
+            MockHttpServletResponse retryResponse = new MockHttpServletResponse();
+            serviceAs(servlet, request, retryResponse, loggedInInfo);
+
+            assertThat(retryResponse.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(retryResponse.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
+            verify(faxManager).persistAndLogFaxJob(
+                    any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @Test
+    @DisplayName("should keep committed fax files and report success when the secondary audit fails")
+    void shouldKeepCommittedFiles_whenLegacyAuditFails(@TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+            logActionMock.when(() -> LogAction.addLog("999998", LogConst.SENT, LogConst.CON_FAX,
+                            "PRESCRIPTION prescription_rx-123.pdf"))
+                    .thenThrow(new IllegalStateException("PRIVATE_AUDIT_MESSAGE", new IllegalArgumentException("PRIVATE_AUDIT_CAUSE")));
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FrmCustomedPDFServlet.class)) {
+                serviceAs(servlet, request, response, loggedInInfo);
+                assertThat(logs.messages()).anyMatch(message -> message.contains("legacy SENT audit entry failed"));
+                assertThat(logs.messages().toString()).doesNotContain("PRIVATE_AUDIT", "prescription_rx-123.pdf", documentDir.toString());
+                assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            }
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString()).contains("fax-success").doesNotContain("fax-failure");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
+            verify(faxManager).persistAndLogFaxJob(
+                    any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
+            logActionMock.verify(() -> LogAction.addLog("999998", LogConst.SENT, LogConst.CON_FAX,
+                    "PRESCRIPTION prescription_rx-123.pdf"));
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MIDDLEWARE", "SRFAX"})
+    @DisplayName("should reject an undialable destination before writing files")
+    void shouldRejectFaxBeforeWriting_whenDestinationIsInvalidForProvider(String providerType, @TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("pharmaFax", "SRFAX".equals(providerType) ? "12345678" : "123456789012");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubRecordDemographic();
+        stubActiveFaxConfig();
+        faxConfigDao.getActiveConfigByNumber("4165553434").setProviderType(FaxConfig.ProviderType.valueOf(providerType));
+        org.mockito.Mockito.clearInvocations(faxConfigDao);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            serviceAs(servlet, request, response, loggedInInfo);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getContentAsString()).contains("fax-failure").contains("Valid fax number not found");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).doesNotExist();
+            verify(faxConfigDao, org.mockito.Mockito.atLeastOnce()).getActiveConfigByNumber("4165553434");
+            verifyFaxWasNotQueued();
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);
@@ -397,7 +882,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getContentAsString()).contains("fax-failure").contains("not signed");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             verify(faxConfigDao, never()).findAll(any(), any());
-            verify(faxJobDao, never()).persist(any());
+            verifyFaxWasNotQueued();
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
         }
@@ -423,8 +908,35 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentAsString()).contains("fax-failure").contains("permission").doesNotContain("not signed");
-            verify(faxJobDao, never()).persist(any());
+            verifyFaxWasNotQueued();
             verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse a fax from a caller without global _fax write")
+    void shouldRefuseFaxAsPermissionError_whenCallerLacksFaxWrite() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull()))
+                .thenReturn(false);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString()).contains("fax-failure").contains("permission");
+            verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+            verify(faxConfigDao, never()).findAll(any(), any());
+            verifyFaxWasNotQueued();
         }
     }
 
@@ -437,11 +949,13 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         request.setParameter("rx", "Oxycodone 80 mg tablet" + System.lineSeparator() + "#100, refills x 5" + System.lineSeparator() + System.lineSeparator());
         request.setParameter("sigDoctorName", "Dr Somebody Else");
         stubStoredSignature();
+        stubRecordDemographic();
         ProviderExt ext = new ProviderExt();
         ext.setSignature("Dr A. Prescriber");
         when(providerExtDao.find("999998")).thenReturn(ext);
 
-        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(
+                request, prescriptionDao.find(SCRIPT_ID));
 
         assertThat(bound).isNotNull();
         assertThat(bound.getParameter("rx")).contains("Amoxicillin 500 mg capsule").contains("1 cap PO TID x 7 days").doesNotContain("Oxycodone");
@@ -455,6 +969,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     void shouldKeepPreviewOrder_whenRequestBodyMatchesRecord() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
         stubStoredSignature();
+        stubRecordDemographic();
         Prescription prescription = prescriptionDao.find(SCRIPT_ID);
         stubRecordDrugs(prescription, drugRow(5, RECORD_DRUG_LINE), drugRow(6, SECOND_DRUG_LINE));
         String nl = System.lineSeparator();
@@ -463,7 +978,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         String posted = (SECOND_DRUG_LINE.replace("\n", "; ") + ";;" + RECORD_DRUG_LINE.replace("\n", "; ") + ";;").replace(";", nl);
         request.setParameter("rx", posted);
 
-        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(
+                request, prescriptionDao.find(SCRIPT_ID));
 
         String rx = bound.getParameter("rx");
         assertThat(rx.indexOf("Ibuprofen")).isLessThan(rx.indexOf("Amoxicillin"));
@@ -475,6 +991,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     void shouldUseRecordOrder_whenRequestBodyPartlyMatchesRecord() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
         stubStoredSignature();
+        stubRecordDemographic();
         Prescription prescription = prescriptionDao.find(SCRIPT_ID);
         stubRecordDrugs(prescription, drugRow(5, RECORD_DRUG_LINE), drugRow(6, SECOND_DRUG_LINE));
         String nl = System.lineSeparator();
@@ -483,7 +1000,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         String posted = (SECOND_DRUG_LINE.replace("\n", "; ") + ";;Oxycodone 80 mg; #100;;").replace(";", nl);
         request.setParameter("rx", posted);
 
-        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(
+                request, prescriptionDao.find(SCRIPT_ID));
 
         String rx = bound.getParameter("rx");
         assertThat(rx).doesNotContain("Oxycodone");
@@ -495,6 +1013,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     void shouldRestoreRecordLineBreaks_whenBindingFaxContentToRecord() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
         stubStoredSignature();
+        stubRecordDemographic();
         Prescription prescription = prescriptionDao.find(SCRIPT_ID);
         // Both properties at once: the drug's own line breaks must survive to the fax, AND the
         // semicolon inside the second line must not be mistaken for one of them. Decoding the
@@ -503,7 +1022,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         stubRecordDrugs(prescription, drugRow(8, multiLineSig));
         String nl = System.lineSeparator();
 
-        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(
+                request, prescriptionDao.find(SCRIPT_ID));
 
         String rx = bound.getParameter("rx");
         assertThat(rx).contains("Metoprolol 25 mg tablet" + nl + "1 tab PO BID; hold if SBP<100");
@@ -599,39 +1119,34 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should blank the patient heading when the prescription's demographic row is missing")
-    void shouldBlankPatientIdentity_whenDemographicRowMissing() throws Exception {
+    @DisplayName("should reject the fax when the prescription's demographic row is missing")
+    void shouldRejectFaxBinding_whenDemographicRowMissing() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
         request.setParameter("patientName", "Someone Else");
         request.setParameter("patientHIN", "9999999999");
         stubStoredSignature();
         when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenReturn(null);
 
-        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(
+                request, prescriptionDao.find(SCRIPT_ID));
 
-        assertThat(bound).isNotNull();
-        // Absent data prints as absent. Falling back to the request would be the very bypass.
-        assertThat(bound.getParameter("patientName")).isEmpty();
-        assertThat(bound.getParameter("patientHIN")).isEmpty();
-        assertThat(bound.getParameter("patientAddress")).isEmpty();
-        assertThat(bound.getParameter("patientCityPostal")).isEmpty();
+        assertThat(bound).isNull();
     }
 
     @Test
-    @DisplayName("should blank the patient heading, not fail the fax, when a directive refuses the demographic read")
-    void shouldBlankPatientIdentity_whenDirectiveRefusesDemographicRead() throws Exception {
+    @DisplayName("should reject the fax when a directive refuses the demographic read")
+    void shouldRejectFaxBinding_whenDirectiveRefusesDemographicRead() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
         request.setParameter("patientName", "Someone Else");
         stubStoredSignature();
-        // getDemographic declares PatientDirectiveException from its own privilege check. After the
-        // signature gate has passed that must not surface as a 500 -- and must not fall back to the request.
+        // getDemographic declares PatientDirectiveException from its own privilege check. It must
+        // fail closed without falling back to the caller-supplied identity.
         when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(new PatientDirectiveException("directive"));
 
-        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(
+                request, prescriptionDao.find(SCRIPT_ID));
 
-        assertThat(bound).isNotNull();
-        assertThat(bound.getParameter("patientName")).isEmpty();
-        assertThat(bound.getParameter("rx")).contains("Amoxicillin 500 mg capsule");
+        assertThat(bound).isNull();
     }
 
     @Test
@@ -721,8 +1236,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             servlet.service(request, response);
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-            assertThat(response.getContentAsString()).contains("fax-failure").contains("no drugs");
-            verify(faxJobDao, never()).persist(any());
+            assertThat(response.getContentAsString()).contains("fax-failure").contains("incomplete");
+            verifyFaxWasNotQueued();
         }
     }
 
@@ -744,6 +1259,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull()))
+                .thenReturn(true);
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
             loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -759,7 +1276,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getContentAsString()).contains("fax-failure").contains("not signed");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             verify(faxConfigDao, never()).findAll(any(), any());
-            verify(faxJobDao, never()).persist(any());
+            verifyFaxWasNotQueued();
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
         }
@@ -778,6 +1295,25 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
         assertThat(resolved).isEqualTo(tinyPng());
         verify(digitalSignatureManager).getDigitalSignature(SIGNATURE_ID);
+    }
+
+    @Test
+    @DisplayName("should reject a stored signature captured by another provider")
+    void shouldRejectStoredSignature_whenProviderDoesNotMatchPrescription() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        DigitalSignature foreignMetadata = new DigitalSignature();
+        foreignMetadata.setProviderNo("888888");
+        foreignMetadata.setDemographicId(DEMOGRAPHIC_NO);
+        foreignMetadata.setModuleType(ModuleType.PRESCRIPTION);
+        when(digitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID))
+                .thenReturn(foreignMetadata);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        assertThat(new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo)).isNull();
+
+        verify(digitalSignatureManager, never()).getDigitalSignature(SIGNATURE_ID);
     }
 
     @Test
@@ -999,6 +1535,20 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should withhold stored signatures when both ownership values are missing")
+    void shouldWithholdStoredSignature_whenPrescriberIsUnknown() throws Exception {
+        for (String providerNo : new String[] {null, "", " "}) {
+            MockHttpServletRequest request = createFaxRequest();
+            stubStoredSignature(providerNo);
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+            assertThat(new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo)).isNull();
+            verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+        }
+    }
+
+    @Test
     @DisplayName("should withhold a stored signature from a print/preview when the caller lacks _rx read for the patient")
     void shouldWithholdStoredSignature_whenPreviewCallerLacksRxRead() throws Exception {
         MockHttpServletRequest request = createPreviewRequest(); // no __method → READ gate
@@ -1216,7 +1766,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getHeader("Allow")).isEqualTo("POST");
             verify(prescriptionDao, never()).find(anyInt());
             verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
-            verify(faxJobDao, never()).persist(any());
+            verifyFaxWasNotQueued();
         }
     }
 
@@ -1245,7 +1795,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentAsString()).contains("fax-failure").contains("permission").doesNotContain("not signed");
             verify(demographicManager, never()).getDemographic(any(), anyInt());
-            verify(faxJobDao, never()).persist(any());
+            verifyFaxWasNotQueued();
         }
     }
 
@@ -1335,6 +1885,38 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should validate a satellite clinic against the persisted prescriber, not the faxing provider")
+    void shouldBindSatelliteClinic_toPersistedPrescriber() throws Exception {
+        String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature("111111");
+        stubPrescriberClinic();
+        io.github.carlos_emr.carlos.commn.model.Provider prescriber =
+                new io.github.carlos_emr.carlos.commn.model.Provider();
+        prescriber.setProviderNo("111111");
+        prescriber.setFirstName("Pat");
+        prescriber.setLastName("Prescriber");
+        when(providerDao.getProvider("111111")).thenReturn(prescriber);
+        String offered = RxSatelliteClinicAddress.html("Dr A", "North Site", "2 North Ave", "Barrie", "ON", "L4M 1A1",
+                "7055551111", "7055552222", telLabel(request), faxLabel(request));
+        request.setParameter("useSC", "true");
+        request.setParameter("scAddress", offered);
+
+        try {
+            CarlosProperties.getInstance().setProperty("multisites", "true");
+            when(siteDao.getActiveSitesByProviderNo("111111")).thenReturn(List.of(northSite()));
+
+            HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+            assertThat(bound.getParameter("useSC")).isEqualTo("true");
+            verify(siteDao).getActiveSitesByProviderNo("111111");
+            verify(siteDao, never()).getActiveSitesByProviderNo("999998");
+        } finally {
+            restoreProperty("multisites", previousMultisites);
+        }
+    }
+
+    @Test
     @DisplayName("should print the clinic's official fax, never the outgoing line the request names")
     void shouldBindClinicFax_toClinicOfficialFax() throws Exception {
         MockHttpServletRequest request = createFaxRequest(); // clinicFax 4165553434 = the sending line
@@ -1363,7 +1945,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         Site site = northSite();
         site.setName("Smith & Jones");
-        // The page unescapes the block before it goes on the wire, so the request carries "&", not "&amp;".
+        // Also accept an already-open legacy page that posted raw text, but bind encoded fields.
         String posted = org.apache.commons.text.StringEscapeUtils.unescapeHtml4(RxSatelliteClinicAddress.html("Dr A",
                 "Smith & Jones", "2 North Ave", "Barrie", "ON", "L4M 1A1", "7055551111", "7055552222", telLabel(request), faxLabel(request)));
         request.setParameter("useSC", "true");
@@ -1378,8 +1960,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(RxSatelliteClinicAddress.clinicPart(bound.getParameter("scAddress")))
-                    .isEqualTo(RxSatelliteClinicAddress.clinicPart(posted));
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
+                    .isEqualTo("Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -1412,8 +1994,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(RxSatelliteClinicAddress.clinicPart(bound.getParameter("scAddress")))
-                    .isEqualTo(RxSatelliteClinicAddress.clinicPart(wire)).contains("Smith & Jones").doesNotContain("&#38;");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
+                    .isEqualTo("Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -1430,6 +2012,42 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(parsed.get("clinicTel")).isEqualTo("8195551111");
         assertThat(parsed.get("clinicFax")).isEqualTo("8195552222");
         assertThat(parsed.get("clinicName")).isEqualTo("Site Nord\n2 rue Nord\nGatineau, QC J8X 1A1");
+    }
+
+    @Test
+    void shouldDecodeSatelliteFieldsOnlyAfterSplittingStructure() {
+        String block = RxSatelliteClinicAddress.html("Dr &lt;/b&gt; A", "North <br> &amp; </b> Clinic",
+                "2 <br> North Ave", "City </b>", "ON", "P1P 1P1", "123<br>456", "789</b>012",
+                "T&eacute;l", "Fax");
+        java.util.HashMap<String, String> parsed = FrmCustomedPDFServlet.parseSCAddress(block);
+        assertThat(parsed.get("clinicName"))
+                .isEqualTo("North <br> &amp; </b> Clinic\n2 <br> North Ave\nCity </b>, ON P1P 1P1");
+        assertThat(parsed.get("clinicTel")).isEqualTo("123<br>456");
+        assertThat(parsed.get("clinicFax")).isEqualTo("789</b>012");
+    }
+
+    @Test
+    void shouldBindAndParseConfiguredSatelliteDelimiterTextWithoutInventingLines() throws Exception {
+        String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        stubPrescriberClinic();
+        Site site = northSite();
+        site.setName("North <br> &amp; </b> Clinic");
+        String offered = RxSatelliteClinicAddress.html("Dr A", site.getName(), site.getAddress(), site.getCity(),
+                site.getProvince(), site.getPostal(), site.getPhone(), site.getFax(), telLabel(request), faxLabel(request));
+        request.setParameter("useSC", "true");
+        request.setParameter("scAddress", offered);
+        try {
+            CarlosProperties.getInstance().setProperty("multisites", "true");
+            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(site));
+            HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+            assertThat(bound.getParameter("useSC")).isEqualTo("true");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
+                    .isEqualTo("North <br> &amp; </b> Clinic\n2 North Ave\nBarrie, ON L4M 1A1");
+        } finally {
+            restoreProperty("multisites", previousMultisites);
+        }
     }
 
     @Test

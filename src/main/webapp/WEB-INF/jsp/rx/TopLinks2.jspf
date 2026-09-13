@@ -34,10 +34,13 @@
 
 <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="oscarRx.drugrefUnavailable" var="msgDrugrefUnavailableText"/>
+<fmt:message key="oscarRx.drugrefUnavailableContact" var="msgDrugrefUnavailableContactText"/>
+<fmt:message key="oscarRx.drugrefUpdating" var="msgDrugrefUpdatingText"/>
 <script type="text/javascript">
-const msgDrugrefUnavailable = '<fmt:message key="oscarRx.drugrefUnavailable"/>';
-const msgDrugrefUnavailableContact = '<fmt:message key="oscarRx.drugrefUnavailableContact"/>';
-const msgDrugrefUpdating = '<fmt:message key="oscarRx.drugrefUpdating"/>';
+const msgDrugrefUnavailable = '${carlos:forJavaScript(msgDrugrefUnavailableText)}';
+const msgDrugrefUnavailableContact = '${carlos:forJavaScript(msgDrugrefUnavailableContactText)}';
+const msgDrugrefUpdating = '${carlos:forJavaScript(msgDrugrefUpdatingText)}';
 
 function newWindow(url) {
     var newwin = window.open(url, 'name', 'height=700,width=1000');
@@ -51,7 +54,7 @@ function getDrugRefStatus() {
 
 	var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
 	var csrfToken = csrfEl ? csrfEl.value : '';
-	fetch(url, {
+	return fetch(url, {
 		method: 'POST',
 		credentials: 'same-origin',
 		headers: {
@@ -61,7 +64,10 @@ function getDrugRefStatus() {
 		},
 		body: data
 	})
-		.then(response => response.json())
+		.then(response => {
+            if (!response.ok) throw new Error('DrugRef status request failed');
+            return response.json();
+        })
 		.then(json => {
 			// !json.lastUpdate, not === 'updating'. RxUpdateDrugref2Action.verify()
 			// answers HTTP 200 with lastUpdate null when the DrugRef lookup itself
@@ -73,13 +79,9 @@ function getDrugRefStatus() {
 			if (!json || !json.lastUpdate || json.lastUpdate === 'updating' ) {
 				// 'updating' is a rebuild in progress (Administration > Update Drugref), not an
 				// outage: say so, because the two call for different reactions from the desk.
-				let statusDisplay = document.getElementById('statusDisplay');
-				// textContent, not innerHTML: these are plain-text bundle strings, and a
-				// translation that ever picked up markup should render as text, not HTML.
-				statusDisplay.textContent = (json && json.lastUpdate === 'updating') ? msgDrugrefUpdating : msgDrugrefUnavailable;
-				statusDisplay.style.color = 'red';
-				statusDisplay.style.fontWeight = 'bold';
+				setDrugRefHeaderWarning((json && json.lastUpdate === 'updating') ? msgDrugrefUpdating : msgDrugrefUnavailable);
 			} else {
+				setDrugRefHeaderWarning('');
 				try {
 					const options = { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' };
 					const trimmedDate = new Intl.DateTimeFormat(undefined, options).format(new Date(json.lastUpdate));
@@ -92,12 +94,16 @@ function getDrugRefStatus() {
 			}
 		})
 		.catch(error => {
-			let statusDisplay = document.getElementById('statusDisplay');
-			statusDisplay.textContent = msgDrugrefUnavailableContact;
-			statusDisplay.style.color = 'red';
-			statusDisplay.style.fontWeight = 'bold';
+			setDrugRefHeaderWarning(msgDrugrefUnavailableContact);
 		});
     }
+
+function setDrugRefHeaderWarning(message) {
+    const alert = document.getElementById('drugrefHeaderAlert');
+    alert.textContent = message;
+    alert.hidden = !message;
+    document.getElementById('drugrefHeaderMetadata').hidden = Boolean(message);
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     getDrugRefStatus();
@@ -143,6 +149,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             </span>
             <div id="statusDisplay">
+                <div id="drugrefHeaderAlert" class="text-danger fw-bold" role="status" hidden></div>
+                <div id="drugrefHeaderMetadata">
                 <div>
                     <label for="drugDatabase"><fmt:message key="admin.admin.DrugRef.database"/>&colon; </label>
                     <span id="drugDatabase"></span></div>
@@ -152,6 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div>
                     <label for="dbDateTime"><fmt:message key="admin.admin.DrugRef.updateDate"/>&colon; </label>
                     <span id="dbDateTime"></span></div>
+                </div>
             </div>
 
 </div>

@@ -33,6 +33,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("documentManager")
 class DocumentReportJspRegressionTest {
 
+    @Test
+    @DisplayName("should JavaScript-encode the localized no-document-selected message")
+    void shouldEncodeNoDocumentMessage_whenRenderingScript() throws IOException {
+        String source = Files.readString(DOCUMENT_REPORT_JSP, StandardCharsets.UTF_8);
+        assertThat(source).contains("var msgNoDocSelected = '${carlos:forJavaScript(noDocSelectedText)}';")
+                .doesNotContain("var msgNoDocSelected = '<fmt:message");
+    }
+
     private static final Path DOCUMENT_REPORT_JSP =
             resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager",
                     "documentReport.jsp"));

@@ -79,6 +79,11 @@ public class ReportMacro2Action extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String execute() throws ServletException, IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         ObjectNode result = objectMapper.createObjectNode();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
@@ -93,7 +98,7 @@ public class ReportMacro2Action extends ActionSupport {
             result.put("success", false);
             result.put("error", "No macro name provided");
             response.getWriter().write(result.toString());
-            return null;
+            return NONE;
         }
 
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
@@ -121,7 +126,7 @@ public class ReportMacro2Action extends ActionSupport {
             result.put("success", false);
             result.put("error", "No macros defined in provider preferences");
             response.getWriter().write(result.toString());
-            return null;
+            return NONE;
         }
 
 
@@ -132,7 +137,7 @@ public class ReportMacro2Action extends ActionSupport {
         result.put("acknowledged", outcome.acknowledged());
         result.put("clearedCount", outcome.clearedCount());
         response.getWriter().write(result.toString());
-        return null;
+        return NONE;
     }
 
     /**
@@ -183,6 +188,15 @@ public class ReportMacro2Action extends ActionSupport {
         return runMacroOutcome(macro, request).success();
     }
 
+    /**
+     * Executes the configured macro effects for the session provider, including optional
+     * acknowledgement of the trusted report chain and creation of linked patient ticklers.
+     * The caller must have passed the POST and lab-write authorization checks.
+     * @param macro parsed macro configuration
+     * @param request authorized request containing the report and demographic identifiers
+     * @return success, acknowledgement flag, and actual cleared routing-row count
+     * @throws RuntimeException if malformed configuration or an underlying mutation fails
+     */
     protected MacroOutcome runMacroOutcome(ObjectNode macro, HttpServletRequest request) {
         logger.info("running macro {}", LogSafe.sanitize(macro.get("name").asText("")));
         String segmentID = request.getParameter("segmentID");
@@ -197,9 +211,7 @@ public class ReportMacro2Action extends ActionSupport {
         int clearedCount = 0;
 
         if (macro.has("acknowledge")) {
-            logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
-            String comment = jAck.get("comment").asText();
+            String comment = macro.path("acknowledge").path("comment").asText("");
             if (StringUtils.isBlank(segmentID)) {
                 logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return MacroOutcome.failed();
@@ -208,9 +220,10 @@ public class ReportMacro2Action extends ActionSupport {
             try {
                 segmentInt = Integer.parseInt(segmentID);
             } catch (NumberFormatException e) {
-                logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", LogSafe.sanitize(segmentID), LogSafe.sanitize(labType), e);
+                logger.error("Cannot acknowledge lab: invalid segment identifier ({})", e.getClass().getSimpleName());
                 return MacroOutcome.failed();
             }
+            logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), segmentInt);
             // Acknowledge the reviewed version AND file the older versions of the same lab.
             // Filing the older versions is what removes the collapsed row from the inbox: the
             // inbox shows one row per accession chain, so a macro that only stamped the newest
@@ -219,10 +232,16 @@ public class ReportMacro2Action extends ActionSupport {
             clearedCount = CommonLabResultData.acknowledgeReport(segmentInt, providerNo, comment, labType,
                     skipComment(providerNo), request.getParameter("multiID"));
 
-            // Audit log for lab acknowledgment
-            LogAction.addLogSynchronous(providerNo, LogConst.ACK,
-                "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
-                LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+            // The routing transaction has already completed. A separate audit failure
+            // must not hide the committed outcome or invite a duplicate macro retry.
+            try {
+                LogAction.addLogSynchronous(providerNo, LogConst.ACK,
+                    "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
+                    LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+            } catch (RuntimeException auditFailure) {
+                logger.error("Lab macro acknowledgement completed but audit logging failed ({})",
+                        auditFailure.getClass().getSimpleName());
+            }
             acknowledged = true;
         }
         if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
@@ -278,7 +297,7 @@ public class ReportMacro2Action extends ActionSupport {
                                 }
                             }
                         } catch (NumberFormatException e) {
-                            logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro", e);
+                            logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro ({})", e.getClass().getSimpleName());
                         }
                     } else {
                         logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");
@@ -286,10 +305,16 @@ public class ReportMacro2Action extends ActionSupport {
                 }
                 ticklerDao.persist(t);
 
-                // Audit log for tickler creation
-                LogAction.addLogSynchronous(providerNo, LogConst.ADD,
-                    "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
-                    LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+                // The tickler exists already; audit availability must not prevent its
+                // link from being created or mask the preceding acknowledgement.
+                try {
+                    LogAction.addLogSynchronous(providerNo, LogConst.ADD,
+                        "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
+                        LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+                } catch (RuntimeException auditFailure) {
+                    logger.error("Lab macro tickler created but audit logging failed ({})",
+                            auditFailure.getClass().getSimpleName());
+                }
 
                 TicklerLink tl = new TicklerLink();
                 tl.setTableId(Long.valueOf(segmentID));

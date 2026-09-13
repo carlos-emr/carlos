@@ -60,7 +60,11 @@ const expectFrontDoor = /^(1|true|yes)$/i.test(process.env.EXPECT_FRONT_DOOR || 
 // for several poll ticks. The overall cap keeps a legitimately long chart from hanging
 // the check while still failing the runaway-pagination regression.
 const NOTES_POLL_QUIET_MS = 4000;
-const NOTES_POLL_TIMEOUT_MS = 30000;
+const NOTES_POLL_TIMEOUT_MS = Number(process.env.ECHART_NOTES_POLL_TIMEOUT_MS || 90000);
+if (!Number.isSafeInteger(NOTES_POLL_TIMEOUT_MS) || NOTES_POLL_TIMEOUT_MS < 5000
+    || NOTES_POLL_TIMEOUT_MS > 240000) {
+  throw new Error('ECHART_NOTES_POLL_TIMEOUT_MS must be an integer from 5000 to 240000');
+}
 
 // Ordinary clinical prose that the OWASP CRS scores as an attack, twice over. The text
 // BEGINS with a pasted internal PACS link on an IP address: rule 931100 (RFI, URL parameter
@@ -98,6 +102,9 @@ function holdsClinicianText(noteText) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }

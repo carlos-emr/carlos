@@ -66,8 +66,9 @@ FIRST_RULE_ID = 1200
 CONTENT_ATTACK_TAGS = ("attack-sqli", "attack-rce", "attack-injection-php",
                        "attack-protocol", "attack-lfi", "attack-rfi")
 # Name fragments that mark a single-line text input as a narrative box on these forms.
+# "other" starts a token (or camel-case Other); it must not match mother/brother.
 PROSE_INPUT_NAME = re.compile(
-    r"comment|note|observ|remark|plan|reason|detail|finding|history|hx|other|desc|explain|"
+    r"comment|note|observ|remark|plan|reason|detail|finding|history|hx|(?:^|[^a-z])other|(?-i:Other)|desc|explain|"
     r"concern|summary|text|assess|impression|recommend|complaint|diagnos|problem|allerg|"
     r"medic|social|family|advice|counsel|consider", re.IGNORECASE)
 # ...unless the name also says it holds a date, an identifier, a phone number or a
@@ -196,7 +197,8 @@ def include_key(page_key, target):
 
 
 def analyse(path, page_key):
-    text = strip_comments(open(path, encoding="utf-8", errors="replace").read())
+    with open(path, encoding="utf-8", errors="replace") as source:
+        text = strip_comments(source.read())
     info = {"route": None, "form_class": None, "names": [], "dynamic": [], "has_form": False,
             "includes": [include_key(page_key, m.group(1) or m.group(2)) for m in INCLUDE_RE.finditer(text)]}
     for tag, raw in find_tags(text):
@@ -356,7 +358,10 @@ def main():
     groups, report = collect()
     content = render(groups)
     if "--check" in sys.argv:
-        current = open(OUTPUT, encoding="utf-8").read() if os.path.exists(OUTPUT) else ""
+        current = ""
+        if os.path.exists(OUTPUT):
+            with open(OUTPUT, encoding="utf-8") as generated:
+                current = generated.read()
         for line in report:
             print(line, file=sys.stderr)
         if current != content:

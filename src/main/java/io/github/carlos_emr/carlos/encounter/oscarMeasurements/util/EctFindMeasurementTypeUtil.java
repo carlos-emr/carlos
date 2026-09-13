@@ -67,7 +67,7 @@ public class EctFindMeasurementTypeUtil {
             SAXSource source = XmlUtils.createSecureJaxbSource(is);
             ret = (EctFormProp) unmarshaller.unmarshal(source);
         } catch (Exception exc) {
-            MiscUtils.getLogger().error("Error", exc);
+            MiscUtils.getLogger().error("Error ({})", exc.getClass().getSimpleName());
         }
         return ret;
     }

@@ -70,6 +70,16 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     private static final String DEMO_NO = "42";
     private static final Integer DEMO_ID = 42;
 
+    @Test
+    @DisplayName("should exclude missing and malformed patient identifiers from bulk ticklers")
+    void shouldExcludeInvalidPatients_whenBuildingBulkTicklers() {
+        assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic(null)).isFalse();
+        for (String value : List.of("", " ", "0", "-1", "unknown", "1&demo=2")) {
+            assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic(value)).as(value).isFalse();
+        }
+        assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic("42")).isTrue();
+    }
+
     private ConsultationRequestDao consultationRequestDao;
     private ConsultationRequestExtDao consultationRequestExtDao;
     private ProviderDao providerDao;
@@ -121,11 +131,41 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         consult.setServiceId(0);
         consult.setDemographicId(DEMO_ID);
         consult.setStatus("1");
-        consult.setUrgency("2");
+        consult.setUrgency(null);
         // The row the widened query newly returns: no ordering provider at all.
         consult.setProviderNo(null);
         consult.setReferralDate(null);
         return consult;
+    }
+
+    @Test
+    @DisplayName("should retain the inbox row when service and demographic IDs are null")
+    void shouldRetainInboxRow_whenServiceAndDemographicIdsAreNull() throws Exception {
+        ConsultationRequest consult = consultWithNoOrderingProvider();
+        consult.setServiceId(null);
+        consult.setDemographicId(null);
+        stubInboxQuery(consult);
+
+        assertThat(util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
+                null, null, null)).isTrue();
+        assertThat(util.ids).containsExactly("7");
+        assertThat(util.demographicNo).containsExactly("");
+        assertThat(util.patient).containsExactly("");
+        assertThat(util.service).containsExactly("");
+        assertThat(util.vSpecialist).containsExactly("N/A");
+    }
+
+    @Test
+    @DisplayName("should retain the patient consultation row when the service ID is null")
+    void shouldRetainPatientRow_whenServiceIdIsNull() throws Exception {
+        ConsultationRequest consult = consultWithNoOrderingProvider();
+        consult.setServiceId(null);
+        when(consultationRequestDao.getConsults(DEMO_ID)).thenReturn(List.of(consult));
+
+        assertThat(util.estConsultationVecByDemographic(loggedInInfo, DEMO_NO)).isTrue();
+        assertThat(util.ids).containsExactly("7");
+        assertThat(util.service).containsExactly("unknown");
+        assertThat(util.vSpecialist).containsExactly("N/A");
     }
 
     private Demographic demographicWithMrp(String providerNo) {
@@ -154,6 +194,7 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         // The row survives and degrades to "N/A" rather than taking the whole tab down with it.
         assertThat(util.provider).containsExactly("N/A");
         assertThat(util.patient).containsExactly("Doe, Jane");
+        assertThat(util.urgency).containsExactly("");
     }
 
     @Test
@@ -225,6 +266,9 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(util.patient).containsExactly("Doe, Jane");
         // A null referral date renders blank instead of NPE-ing the whole page.
         assertThat(util.date).containsExactly("");
+        // A null urgency likewise renders as an empty label, rather than reaching
+        // the JSP as null and blanking the complete consultation inbox.
+        assertThat(util.urgency).containsExactly("");
     }
 
     @Test

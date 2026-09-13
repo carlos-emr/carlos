@@ -297,6 +297,36 @@ CARLOS is a large application of OSCAR lineage and a clinical workflow you use
 may trip a rule the packaged exclusions do not cover. The package already ships
 clinical-workflow exclusions for the known free-text and base64 routes (see
 REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf, ids 1000-1999 — package-managed).
+
+Understand WHY that list exists, because it tells you what to expect. The CRS
+content signatures cannot distinguish a clinician's prose from an attack: at
+paranoia level 1 a sentence-ending semicolon ("Reviewed labs; find attached the
+CBC") scores 10 against a threshold of 5 on the Unix and Windows command-
+injection rules alone, and a note that simply BEGINS with a pasted internal
+PACS link scores on the RFI rule. The shipped exclusions unhook those signature
+families from the specific free-text arguments of the specific clinical
+workflows — encounter notes and the chart print, referrals, prescriptions,
+appointments, the patient Alert and Notes, preventions, lab-review comments,
+messages, ticklers and the rest of the survey in ids 1010 and 1100-1199 — and,
+through a GENERATED companion file, from the narrative cells of the encounter
+forms (Rourke, BCAR, the mental-health assessments and the rest:
+REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf, ids 1200-1399, one rule per
+save route and form class). Two things are left inspected ON PURPOSE. The
+survey rules (1100-1199) and the generated form rules (1200-1399) keep the XSS
+family ON every argument they exempt, so raw HTML markup pasted into a
+referral or a master-record note still answers 403: that layer is defence in
+depth for legacy views that render stored text. (The encounter note, 1010, and
+the routes whose argument IS an HTML document by design -- the Rich Text
+Letter and the eForm editors, 1045-1070 -- do unhook it; their comments say
+why.) And two groups of form cells stay fully inspected because the only way to
+exempt them would apply to every route: the Vascular Tracker's bracketed
+value(...) cells and the growth-chart and chart-checklist per-row cells
+(comment_<n>, descOther<n>). A 403 on one of those is this gap, not a defect;
+the reasoning is in docs/ui-tests/deb-install-validation.md. Decide
+deliberately whether your site needs them, and if so add the narrowest
+exclusion that works to your own local-exclusions-before-crs.conf and record
+why you made that trade.
+
 For anything else, the supported response is: reproduce it, read
 `carlos-ctl waf tail` for the rule id and the matched variable, and add the
 NARROWEST exclusion that works to one of YOUR OWN exclusion files:
@@ -706,9 +736,22 @@ eForm print, fax or archive fails
   application could not drive the browser, and the browser's own journal is
   where the reason will be.
 
-  Note the application logs at ERROR by default (LOG_VERBOSITY). The renderer's
-  own messages are exempted from that so the probe result is visible without
-  turning up logging everywhere; nothing else in the application is.
+  The application logs at WARN by default (LOG_VERBOSITY raises or lowers it;
+  DEBUG can put request parameters, which is to say PHI, into the journal, so
+  put it back afterwards). The renderer's startup probe reports at INFO and is
+  exempted from the default so its result is visible without turning up
+  logging everywhere. An action that dies in an exception its module maps to
+  the error page is logged at ERROR with its stack trace and an incident
+  reference, and the error page the clinician sees shows that same reference
+  (an authorization refusal is a WARN line and a 403, with its reference).
+  Earlier builds mapped these to the error page silently, which is why "it
+  just did nothing" reports had no trace to go with them. A failure in a
+  module with no such mapping (the provider module maps only authorization
+  refusals) still takes the container's error path: HTTP 500, logged with its
+  stack trace, but with no reference on the page. To find the entry behind a
+  reference:
+
+      carlos-ctl logs | grep '<reference>'
 
   If the renderer package is not installed at all, that is expected and the
   application says so once at startup rather than failing a print later.

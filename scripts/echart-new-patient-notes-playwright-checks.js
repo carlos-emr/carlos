@@ -219,11 +219,19 @@ async function bookAppointment(context, schedulePage, recorder, demographicNo) {
   const slotCount = await slots.count();
   assert(slotCount > 0, 'no bookable time slots on the schedule day sheet');
 
-  const apptPopup = context.waitForEvent('page');
-  await slots.nth(slotCount - 1).click();
-  const apptPage = await apptPopup;
+  const [apptPage] = await Promise.all([
+    schedulePage.waitForEvent('popup', { timeout: 30000 }),
+    slots.nth(slotCount - 1).click(),
+  ]);
   wirePage(apptPage, 'appointment', recorder);
-  await apptPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+  // A popup event can arrive while its URL is still about:blank. Wait for the
+  // actual privileged route and its form instead of treating a transient
+  // locator timeout as a blank application response.
+  await apptPage.waitForURL(
+    (url) => url.pathname.endsWith('/appointment/addappointment'),
+    { waitUntil: 'domcontentloaded', timeout: 30000 },
+  );
+  await apptPage.locator('form#addappt #keyword').waitFor({ state: 'visible', timeout: 30000 });
   await assertNotErrorPage(apptPage, 'add-appointment form');
 
   // Patient selection is the jQuery UI autocomplete on #keyword, which is what

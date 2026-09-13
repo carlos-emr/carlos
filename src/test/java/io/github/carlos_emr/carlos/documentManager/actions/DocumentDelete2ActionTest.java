@@ -92,12 +92,14 @@ class DocumentDelete2ActionTest extends CarlosUnitTestBase {
         assertThat(deletedDocNos).isEmpty();
     }
 
-    @Test
-    @DisplayName("should return methodNotAllowed on GET")
-    void shouldReturnMethodNotAllowed_onGet() throws Exception {
-        mockRequest.setMethod("GET");
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "POſT"})
+    @DisplayName("should return methodNotAllowed on every non-POST verb")
+    void shouldReturnMethodNotAllowed_onNonPost(String verb) throws Exception {
+        mockRequest.setMethod(verb);
         action.setDelDocumentNo("42");
         assertThat(action.execute()).isEqualTo("methodNotAllowed");
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         assertThat(deletedDocNos).isEmpty();
     }
 

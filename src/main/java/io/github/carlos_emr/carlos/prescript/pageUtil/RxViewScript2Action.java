@@ -66,7 +66,8 @@ public final class RxViewScript2Action extends ActionSupport {
     }
 
     /**
-     * Builds the prescription view, saving and stamping the script first when that is warranted.
+     * Builds a read-only prescription view for GET/HEAD. An explicit, CSRF-protected
+     * POST may first save and stamp the script, subject to prescription write permission.
      *
      * <p>Three paths, in order:</p>
      * <ul>
@@ -124,6 +125,12 @@ public final class RxViewScript2Action extends ActionSupport {
             return "viewScript";
         }
 
+        // Viewing an empty/new prescription is not a write. In particular, do not
+        // create an orphan prescription row or apply a stamp when there are no drugs.
+        if (bean.getStashSize() == 0) {
+            return "viewScript";
+        }
+
         RxPrescriptionData.Prescription rx;
         RxPrescriptionData prescription = new RxPrescriptionData();
 
@@ -133,6 +140,17 @@ public final class RxViewScript2Action extends ActionSupport {
         // again here created a SECOND prescription — and duplicate drugs rows — for a single
         // prescribing action. Only save when the stash is not yet persisted.
         String scriptId = persistedScriptId(bean);
+        if (!"POST".equals(request.getMethod())) {
+            // Preview navigation, reload and prefetch must never create a prescription or
+            // associate a signature. Do not render an unsaved re-prescription under the old
+            // script number carried in its stash or in an untrusted query parameter.
+            if (scriptId == null) {
+                response.sendError(HttpServletResponse.SC_CONFLICT, "Save the prescription before opening its preview.");
+                return NONE;
+            }
+            request.setAttribute("scriptId", scriptId);
+            return "viewScript";
+        }
         if (scriptId == null) {
             // Persisting a prescription and its drugs rows is a write. Every path that normally
             // feeds this page (updateSaveAllDrugs, updateAndPrint) already requires _rx write, so

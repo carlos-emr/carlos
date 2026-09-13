@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -40,7 +41,10 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -210,7 +214,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
                 try {
                     drugId = Integer.parseInt(drugArr[i]);
                 } catch (Exception e) {
-                    logger.error("Unexpected error.", e);
+                    logger.error("Unexpected error. ({})", e.getClass().getSimpleName());
                     break;
                 }
 
@@ -227,7 +231,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
                 request.setAttribute("BoxNoFillFirstLoad", "true");
             }
         } catch (Exception e) {
-            logger.error("Unexpected error occurred.", e);
+            logger.error("Unexpected error occurred. ({})", e.getClass().getSimpleName());
         }
 
         return SUCCESS;
@@ -240,7 +244,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
  * allowing prescriptions to be digitally signed by providers. The signature ID
  * can be null to remove an existing signature association.
  * 
- * @return null - indicating no specific view forward (Ajax-style call)
+ * @return NONE after a handled response; null only when the missing RxSessionBean
+ *         branch redirects to error.html
  * @throws IOException if there's an error redirecting to the error page
  * @throws RuntimeException if the user lacks write privileges for prescriptions
  * 
@@ -280,14 +285,14 @@ public String saveDigitalSignature() throws IOException {
     // ViewScript2's faxTargetSigned lights the Fax button, while resolveSignatureImage looks up
     // signature 0, finds no metadata, and refuses the fax as unsigned — after having overwritten
     // whatever stamp the row carried.
-    boolean signatureIdMalformed = digitalSignatureIdParam != null
-            && (!digitalSignatureIdParam.matches("\\d{1,9}") || Integer.parseInt(digitalSignatureIdParam) <= 0);
-    if (signatureIdMalformed) {
+    int parsedDigitalSignatureId = digitalSignatureIdParam == null
+            ? 0 : parsePositiveInt(digitalSignatureIdParam);
+    if (digitalSignatureIdParam != null && parsedDigitalSignatureId <= 0) {
         logger.warn("Invalid digitalSignatureId rejected");
         response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         return NONE;
     }
-    Integer digitalSignatureId = digitalSignatureIdParam == null ? null : Integer.valueOf(digitalSignatureIdParam);
+    Integer digitalSignatureId = digitalSignatureIdParam == null ? null : parsedDigitalSignatureId;
 
     // Extract and validate required script ID parameter.
     //
@@ -297,14 +302,7 @@ public String saveDigitalSignature() throws IOException {
     // defensively even so: 10 digits can still overflow an int (9999999999), and that must be a
     // 400 like any other malformed id, never a 500.
     String scriptId = request.getParameter("scriptId");
-    int scriptNo = 0;
-    if (scriptId != null && scriptId.matches("\\d{1,10}")) {
-        try {
-            scriptNo = Integer.parseInt(scriptId);
-        } catch (NumberFormatException ignored) {
-            scriptNo = 0;
-        }
-    }
+    int scriptNo = parsePositiveInt(scriptId);
     if (scriptNo <= 0) {
         logger.warn("Invalid scriptId rejected");
         response.sendError(HttpServletResponse.SC_BAD_REQUEST);
@@ -320,7 +318,8 @@ public String saveDigitalSignature() throws IOException {
     // scriptId is request-supplied, and the check above is a GLOBAL _rx write check (null target).
     // Without this, any user holding _rx write could attach or clear a signature on any patient's
     // prescription by walking script ids. Resolve the row first and re-check the right against the
-    // patient it actually belongs to. (Verifying the signature's own ownership is tracked in #3581.)
+    // patient it actually belongs to. The signature itself is bound to that patient and prescriber
+    // below before its id may be attached.
     // Fully qualified: this file's unqualified `Prescription` is RxPrescriptionData.Prescription,
     // while the manager returns the persisted model type.
     io.github.carlos_emr.carlos.commn.model.Prescription targetPrescription =
@@ -333,6 +332,23 @@ public String saveDigitalSignature() throws IOException {
     if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_WRITE,
             String.valueOf(targetPrescription.getDemographicId()))) {
         throw new SecurityException("missing required sec object (_rx)");
+    }
+    // Signing and clearing are prescriber acts, not merely patient-chart mutations. A covering
+    // provider with patient Rx write must not replay this prescriber's existing signature onto a
+    // different script, or clear the prescriber's signed link, even when the patient is the same.
+    if (!Objects.equals(loggedInInfo.getLoggedInProviderNo(), targetPrescription.getProviderNo())) {
+        throw new SecurityException("only the prescription's prescriber may change its signature");
+    }
+    if (digitalSignatureId != null) {
+        DigitalSignature signature = SpringUtils.getBean(DigitalSignatureManager.class)
+                .getDigitalSignatureMetadata(digitalSignatureId);
+        if (signature == null || signature.getModuleType() != ModuleType.PRESCRIPTION
+                || !Objects.equals(signature.getDemographicId(), targetPrescription.getDemographicId())
+                || !Objects.equals(signature.getProviderNo(), targetPrescription.getProviderNo())) {
+            logger.warn("Digital signature not linked: it does not belong to the prescription's patient and prescriber");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
     }
     // The link is what makes the script "signed" for the fax gate. If the row does not exist the
     // manager returns false; report that as a failure rather than a 200, otherwise the page would
@@ -356,8 +372,10 @@ public String saveDigitalSignature() throws IOException {
                       ip, 
                       String.valueOf(targetPrescription.getDemographicId()));
     
-    // Return null for Ajax-style calls that don't require a view forward
-    return null;
+    // A successful HTTP response alone could be a followed login/error redirect. Let the
+    // browser recognize this exact completed write before enabling outbound fax controls.
+    response.setHeader("X-Carlos-Signature-Write", "written");
+    return NONE;
 }
 
     public String saveReRxDrugIdToStash() throws IOException {
@@ -411,7 +429,7 @@ public String saveDigitalSignature() throws IOException {
 
             // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
         }
         MiscUtils.getLogger().debug("================end saveReRxDrugIdToStash of RxRePrescribe2Action.java=================");
         return null;
@@ -475,7 +493,7 @@ public String saveDigitalSignature() throws IOException {
             // RxUtil.printStashContent(beanRX);
             request.setAttribute("listRxDrugs", listReRx);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
         }
 
         return "represcribe";
@@ -651,6 +669,19 @@ public String saveDigitalSignature() throws IOException {
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
             throw new RuntimeException("missing required sec object (_rx)");
+        }
+    }
+
+    /** Parses a positive signed database identifier, returning -1 for malformed or overflow input. */
+    private static int parsePositiveInt(String value) {
+        if (value == null || !value.matches("\\d{1,10}")) {
+            return -1;
+        }
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed > 0 ? parsed : -1;
+        } catch (NumberFormatException ignored) {
+            return -1;
         }
     }
 

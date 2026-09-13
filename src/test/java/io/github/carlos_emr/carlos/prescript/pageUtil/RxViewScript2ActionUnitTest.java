@@ -128,6 +128,29 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         return new RxViewScript2Action(stampService);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"GET,true", "HEAD,true", "GET,false", "HEAD,false", "PUT,true", "PUT,false",
+            "post,true", "post,false", "PoSt,true", "PoSt,false", "PO\u017fT,true", "PO\u017fT,false"})
+    @DisplayName("should never save or stamp prescription state on preview navigation or non-POST requests")
+    void shouldKeepPreviewReadOnly_whenRequestIsNotPost(String method, boolean saved) throws Exception {
+        request.setMethod(method);
+        liveBean.getStashList().add(saved ? savedItem(5, "789") : rePrescribedItem("123"));
+        request.setParameter("scriptId", "123");
+        String result = newAction().execute();
+        if (saved) {
+            assertThat(result).isEqualTo("viewScript");
+            assertThat(request.getAttribute("scriptId")).isEqualTo("789");
+        } else {
+            assertThat(result).isEqualTo(RxViewScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(request.getAttribute("scriptId")).isNull();
+            assertThat(liveBean.getStashItem(0).getDrugId()).isZero();
+        }
+        verifyNoInteractions(stampService, prescriptionDao);
+        org.mockito.Mockito.verify(securityInfoManager, org.mockito.Mockito.never())
+                .hasPrivilege(any(), eq("_rx"), eq("w"), isNull());
+    }
+
     @Test
     @DisplayName("should reject a caller without _rx read before touching the stash")
     void shouldThrow_whenCallerLacksRxRead() {
@@ -151,8 +174,21 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should render an empty prescription without persisting or stamping for a read-only caller")
+    void shouldRenderEmptyStash_withoutCreatingPrescription() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
+
+        assertThat(newAction().execute()).isEqualTo("viewScript");
+        assertThat(request.getAttribute("scriptId")).isNull();
+        assertThat(request.getAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED)).isNull();
+        verifyNoInteractions(prescriptionDao, stampService);
+        verify(securityInfoManager, org.mockito.Mockito.never()).hasPrivilege(any(), eq("_rx"), eq("w"), isNull());
+    }
+
+    @Test
     @DisplayName("should reuse a fully persisted stash and stamp that script without saving again")
     void shouldReusePersistedScript_whenEveryStashItemIsSaved() throws Exception {
+        request.setMethod("POST");
         liveBean.getStashList().add(savedItem(5, "789"));
         liveBean.getStashList().add(savedItem(6, "789"));
         when(stampService.applyStampToScript(loggedInInfo, liveBean, "789")).thenReturn(77);
@@ -169,6 +205,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refuse to persist an unsaved stash for a caller with only _rx read")
     void shouldThrow_whenUnsavedStashAndCallerLacksRxWrite() {
+        request.setMethod("POST");
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
         liveBean.getStashList().add(rePrescribedItem("123")); // drugId 0: not yet persisted
 
@@ -182,6 +219,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should not stamp when the caller has only _rx read")
     void shouldSkipStamp_whenCallerLacksRxWrite() throws Exception {
+        request.setMethod("POST");
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
         liveBean.getStashList().add(savedItem(5, "789"));
 

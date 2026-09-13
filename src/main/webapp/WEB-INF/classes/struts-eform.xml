@@ -26,7 +26,7 @@
     Contains action mappings for electronic form creation, editing, and management.
 -->
 <struts>
-    <package name="eform" namespace="/" extends="struts-default" strict-method-invocation="true">
+    <package name="eform" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
         <action name="eform/attachDoc" class="io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action">
         </action>
@@ -97,6 +97,7 @@
             <result name="success">/WEB-INF/jsp/eform/partials/import.jsp</result>
         </action>
         <action name="eform/addEForm" class="io.github.carlos_emr.carlos.eform.actions.AddEForm2Action">
+            <result name="faxPreparation">/WEB-INF/jsp/eform/EFormFaxPreparation.jsp</result>
             <result name="close">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
             <result name="fax">/fax/faxAction</result>
             <result name="download">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>

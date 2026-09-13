@@ -731,6 +731,26 @@ function submitForward(searchProviderNo, status) {
     ForwardSelectedRows(files, searchProviderNo, status);
 }
 
+// Inboxhub uses type-qualified ids. Keep old inbox pages working through the legacy
+// selector, but never interpolate unchecked ids or pick arbitrarily among duplicates.
+function labDocumentRows(segmentId, labType) {
+    if (typeof inboxhubItemElement === 'function') return inboxhubItemElement(segmentId, labType);
+    if (!/^[A-Za-z0-9_-]+$/.test(String(segmentId || ''))) return jQuery();
+    const rows = jQuery('[id="labdoc_' + segmentId + '"]');
+    if (labType !== null && labType !== undefined) {
+        if (!/^[A-Za-z0-9_-]+$/.test(String(labType))) return jQuery();
+        const typed = rows.filter(function () {
+            return jQuery(this).attr('data-lab-type') === labType
+                    || jQuery(this).find('input[name="flaggedLabs"]').val() === segmentId + ':' + labType;
+        });
+        if (typed.length) return typed.length === 1 ? typed : jQuery();
+        if (rows.attr('data-lab-type') || String(rows.find('input[name="flaggedLabs"]').val() || '').includes(':')) {
+            return jQuery();
+        }
+    }
+    return rows.length === 1 ? rows : jQuery();
+}
+
 function bulkInboxAction(url, filelabs) {
 
     jQuery.ajax({
@@ -746,14 +766,15 @@ function bulkInboxAction(url, filelabs) {
                     // remove the filed lab from the DOM
                     file = files[i];
                     fileId = file.split(":")[0];
-                    jQuery("#labdoc_" + fileId + " input[name='flaggedLabs']").attr("checked", false)
+                    const row = labDocumentRows(fileId, file.split(":")[1]);
+                    row.find("input[name='flaggedLabs']").prop("checked", false);
 
                     if (url.includes("FileLabs")) {
-                        jQuery("#labdoc_" + fileId).remove();
+                        row.remove();
                     }
                 }
 
-                jQuery("input[name='checkA']").attr("checked", false);
+                jQuery("input[name='checkA']").prop("checked", false);
 
                 if (jQuery("input[name='isListView']").length) {
                     updateCategoryList();
@@ -1934,7 +1955,7 @@ function updateDocumentAndNext(eleId) {//save doc info
                 window.close();
             } else {
                 //Hide document with slide up animation
-                jQuery('#labdoc_' + num).slideUp();
+                labDocumentRows(num, 'DOC').slideUp();
                 const success = updateGlobalDataAndSideNav(num, patientId);
                 if (success) {
                     const innerSuccess = updatePatientDocLabNav(num, patientId);
@@ -2201,7 +2222,14 @@ function updateStatus(formid) {//acknowledge
             console.log(data);
 
             jQuery.post(url, data).done(function (responseBody) {
-                updateDocStatusInQueue(doclabid);
+                // Only a DOCUMENT has an inbox queue link. This handler serves lab (HL7) and
+                // document acknowledge forms alike, and doclabid is whichever id the form
+                // carries -- lab segment ids and document ids are separate sequences, so
+                // posting a lab id here inactivated the queue link of an unrelated document
+                // that happened to share the number.
+                if (data.labType === 'DOC') {
+                    updateDocStatusInQueue(doclabid);
+                }
 				// How many routing rows the server took out of NEW. Only it knows: it derives
 				// the HL7 version chain itself rather than trusting the posted multiID, and it
 				// alone can see which of those rows were still NEW. Absent — an older server,
@@ -2230,7 +2258,7 @@ function updateStatus(formid) {//acknowledge
                     window.close();
                 } else {
                     //Hide document
-                    jQuery('#labdoc_' + doclabid).slideUp();
+                    labDocumentRows(doclabid, data.labType).slideUp();
                     updateGlobalDataAndSideNav(doclabid, null);
                 }
             })
@@ -2268,7 +2296,7 @@ function fileDoc(docId) {
                                 window.close();
                             } else {
                                 // Slide up animation using jQuery
-                                jQuery('#labdoc_' + docId).slideUp();
+                                labDocumentRows(docId, type).slideUp();
                             }
                         })
                         .catch(error => console.error('Error:', error));

@@ -78,6 +78,27 @@ public final class ScheduleNav {
         int fragmentIndex = url.indexOf('#');
         String base = fragmentIndex >= 0 ? url.substring(0, fragmentIndex) : url;
         String fragment = fragmentIndex >= 0 ? url.substring(fragmentIndex) : "";
-        return base + (base.indexOf('?') >= 0 ? "&" : "?") + PARAM + "=" + ENABLED + fragment;
+        int queryIndex = base.indexOf('?');
+        String path = queryIndex >= 0 ? base.substring(0, queryIndex) : base;
+        java.util.List<String> parameters = new java.util.ArrayList<>();
+        if (queryIndex >= 0) {
+            for (String parameter : base.substring(queryIndex + 1).split("&")) {
+                if (!parameter.isEmpty() && !isScheduleNavParameter(parameter)) {
+                    parameters.add(parameter);
+                }
+            }
+        }
+        parameters.add(PARAM + "=" + ENABLED);
+        return path + "?" + String.join("&", parameters) + fragment;
+    }
+
+    private static boolean isScheduleNavParameter(String parameter) {
+        String name = parameter.split("=", 2)[0];
+        try {
+            return PARAM.equals(java.net.URLDecoder.decode(name, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IllegalArgumentException malformedEncoding) {
+            // Preserve unrelated malformed query text rather than changing its interpretation.
+            return false;
+        }
     }
 }

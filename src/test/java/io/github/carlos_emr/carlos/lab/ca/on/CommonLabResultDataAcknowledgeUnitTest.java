@@ -40,6 +40,7 @@ import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
@@ -57,6 +58,8 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
+import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetResultsData;
+import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -75,11 +78,34 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 @Tag("lab")
 class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
 
+    @Test
+    @DisplayName("should fail closed without logging HRM linkage exception details")
+    void shouldKeepHrmLinkDiagnosticsPrivate_whenLookupFails() {
+        registerStaticInitializerMocks();
+        var dao = createAndRegisterMock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class);
+        when(dao.findByHrmDocumentId(123)).thenThrow(new IllegalStateException("PRIVATE_HRM_MESSAGE",
+                new IllegalArgumentException("PRIVATE_HRM_CAUSE")));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(CommonLabResultData.class)) {
+            assertThat(new CommonLabResultData().isHRMLinkedWithPatient("123", "HRM")).isFalse();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalStateException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_HRM");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
     /**
      * CommonLabResultData and Hl7textResultsData both resolve DAOs in their static initializers;
      * register them so referencing either class does not blow up outside a Spring context.
      */
     private void registerStaticInitializerMocks() {
+        org.springframework.transaction.PlatformTransactionManager transactions =
+                createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenAnswer(call -> {
+            org.springframework.transaction.TransactionDefinition definition = call.getArgument(0);
+            assertThat(definition.getIsolationLevel()).isEqualTo(
+                    org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+            return new org.springframework.transaction.support.SimpleTransactionStatus();
+        });
         registerMock(OscarLogDao.class, mock(OscarLogDao.class));
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
@@ -94,6 +120,47 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         registerMock(Hl7TextInfoDao.class, mock(Hl7TextInfoDao.class));
         registerMock(Hl7TextMessageDao.class, mock(Hl7TextMessageDao.class));
         registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
+        Mockito.reset(staticRoutingDao());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should atomically commit the whole lab chain or roll it back on a later failure")
+    void shouldRollbackWholeChain_whenLaterVersionWriteFails(boolean fail) {
+        registerStaticInitializerMocks();
+        org.h2.jdbcx.JdbcDataSource dataSource = new org.h2.jdbcx.JdbcDataSource();
+        dataSource.setURL("jdbc:h2:mem:lab-chain-" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
+        org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class,
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource));
+        try (MockedStatic<CommonLabResultData> common = mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7 = mockStatic(Hl7textResultsData.class)) {
+            jdbc.execute("CREATE TABLE routing(id INT PRIMARY KEY, status CHAR(1))");
+            jdbc.execute("INSERT INTO routing VALUES(169,'N'),(170,'N'),(171,'N')");
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("171")).thenReturn("169,170,171");
+            when(staticRoutingDao().transitionNewRoutingRows(anyInt(), anyString(), anyString(), anyChar()))
+                    .thenAnswer(call -> jdbc.update("UPDATE routing SET status=? WHERE id=? AND status='N'",
+                            String.valueOf((char) call.getArgument(3)), call.getArgument(0, Integer.class)));
+            common.when(() -> CommonLabResultData.updateReportStatus(anyInt(), anyString(), anyChar(), any(), any(), anyBoolean()))
+                    .thenAnswer(call -> {
+                        int id = call.getArgument(0);
+                        jdbc.update("UPDATE routing SET status=? WHERE id=?", String.valueOf((char) call.getArgument(2)), id);
+                        if (fail && id == 170) {
+                            throw new IllegalStateException("injected mid-chain failure");
+                        }
+                        return true;
+                    });
+            if (fail) {
+                assertThatThrownBy(() -> CommonLabResultData.acknowledgeReport(171, "999998", "", "HL7", false, null))
+                        .isInstanceOf(IllegalStateException.class).hasMessage("injected mid-chain failure");
+                assertThat(jdbc.queryForList("SELECT status FROM routing ORDER BY id", String.class)).containsExactly("N", "N", "N");
+            } else {
+                assertThat(CommonLabResultData.acknowledgeReport(171, "999998", "", "HL7", false, null)).isEqualTo(3);
+                assertThat(jdbc.queryForList("SELECT status FROM routing ORDER BY id", String.class)).containsExactly("F", "F", "A");
+            }
+        } finally {
+            jdbc.execute("SHUTDOWN");
+        }
     }
 
     @Test
@@ -114,6 +181,12 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
                     anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
 
             CommonLabResultData.acknowledgeReport(171, "999998", "Reviewed", "HL7", false, "169,170,171");
+
+            org.mockito.InOrder locks = Mockito.inOrder(staticRoutingDao());
+            locks.verify(staticRoutingDao()).lockRoutingReport(169);
+            locks.verify(staticRoutingDao()).lockRoutingReport(170);
+            locks.verify(staticRoutingDao()).lockRoutingReport(171);
+            locks.verify(staticRoutingDao()).transitionNewRoutingRows(169, "HL7", "999998", 'F');
 
             commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
                     171, "999998", 'A', "Reviewed", "HL7", false));
@@ -142,13 +215,40 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
             // Every version of this chain is still sitting in the provider's inbox.
-            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
-                    anyInt(), anyString(), anyString())).thenReturn(1);
+            when(staticRoutingDao().transitionNewRoutingRows(
+                    anyInt(), anyString(), anyString(), anyChar())).thenReturn(1);
 
             int cleared = CommonLabResultData.acknowledgeReport(
                     171, "999998", "Reviewed", "HL7", false, "169,170,171");
 
             assertThat(cleared).isEqualTo(3);
+        }
+    }
+
+    @Test
+    void shouldNotSilentlyFileAReportThatArrivesWhileWaitingForRoutingLocks() {
+        registerStaticInitializerMocks();
+        java.util.concurrent.atomic.AtomicBoolean lateArrival = new java.util.concurrent.atomic.AtomicBoolean();
+        try (MockedStatic<CommonLabResultData> common = mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7 = mockStatic(Hl7textResultsData.class)) {
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("171"))
+                    .thenAnswer(call -> lateArrival.get() ? "169,172,171" : "169,171");
+            Mockito.doAnswer(call -> { lateArrival.set(true); return null; })
+                    .when(staticRoutingDao()).lockRoutingReport(169);
+            common.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
+            common.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
+            when(staticRoutingDao().transitionNewRoutingRows(anyInt(), anyString(), anyString(), anyChar()))
+                    .thenReturn(1);
+
+            assertThat(CommonLabResultData.acknowledgeReport(171, "999998", "Reviewed", "HL7", false, null))
+                    .isEqualTo(2);
+            assertThat(lateArrival.get()).isTrue();
+            hl7.verify(() -> Hl7textResultsData.getMatchingLabs("171"), Mockito.times(1));
+            Mockito.verify(staticRoutingDao(), Mockito.never()).lockRoutingReport(172);
+            Mockito.verify(staticRoutingDao(), Mockito.never()).transitionNewRoutingRows(172, "HL7", "999998", 'F');
+            common.verify(() -> CommonLabResultData.updateReportStatus(172, "999998", 'F', "", "HL7"), Mockito.never());
         }
     }
 
@@ -168,11 +268,11 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
                     anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
             commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
-            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
-                    anyInt(), anyString(), anyString())).thenReturn(1);
+            when(staticRoutingDao().transitionNewRoutingRows(
+                    anyInt(), anyString(), anyString(), anyChar())).thenReturn(1);
             // 169 was filed by hand earlier, so it is not in the badge's total any more.
-            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
-                    eq(169), anyString(), anyString())).thenReturn(0);
+            when(staticRoutingDao().transitionNewRoutingRows(
+                    eq(169), anyString(), anyString(), anyChar())).thenReturn(0);
 
             int cleared = CommonLabResultData.acknowledgeReport(
                     171, "999998", "Reviewed", "HL7", false, "169,170,171");
@@ -181,39 +281,174 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    @DisplayName("should count only the provider's routing rows still in the new state")
-    void shouldCountOnlyNewRows_whenInspectingOneLabVersion() {
-        registerStaticInitializerMocks();
-
-        // The heart of the cleared-row count: a row already filed by hand is not in a total
-        // the inbox badge is counting, so it must not be counted as cleared. The routing DAO
-        // is reached through a static field bound at class-initialisation, so the instance the
-        // production code actually holds is read back rather than assumed.
-        ProviderLabRoutingDao boundDao = staticRoutingDao();
-        Mockito.reset(boundDao);
-        when(boundDao.findByLabNoAndLabTypeAndProviderNo(170, "HL7", "999998"))
-                .thenReturn(List.of(routingRow("N"), routingRow("A"), routingRow("N")));
-        when(boundDao.findByLabNoAndLabTypeAndProviderNo(171, "HL7", "999998"))
-                .thenReturn(List.of(routingRow("F")));
-        when(boundDao.findByLabNoAndLabTypeAndProviderNo(172, "HL7", "999998"))
-                .thenReturn(null);
-
-        assertThat(CommonLabResultData.countNewRoutingRows(170, "HL7", "999998"))
-                .as("two of the three rows are new")
-                .isEqualTo(2);
-        assertThat(CommonLabResultData.countNewRoutingRows(171, "HL7", "999998"))
-                .as("a row somebody already filed is not a row this clears")
-                .isZero();
-        assertThat(CommonLabResultData.countNewRoutingRows(172, "HL7", "999998"))
-                .as("no rows at all is not an error")
-                .isZero();
-    }
-
     private static ProviderLabRoutingModel routingRow(String status) {
         ProviderLabRoutingModel row = new ProviderLabRoutingModel();
         row.setStatus(status);
         return row;
+    }
+
+    @Test
+    @DisplayName("should count a NEW routing row only once across simultaneous acknowledgements")
+    void shouldCountOnce_whenAcknowledgementsRace() throws Exception {
+        registerStaticInitializerMocks();
+        org.h2.jdbcx.JdbcDataSource source = new org.h2.jdbcx.JdbcDataSource();
+        source.setURL("jdbc:h2:mem:lab-race-" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000");
+        org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(source);
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class,
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(source));
+        jdbc.execute("CREATE TABLE routing(id INT PRIMARY KEY, status CHAR(1))");
+        jdbc.execute("INSERT INTO routing VALUES(170,'N')");
+        java.util.concurrent.CyclicBarrier bothReady = new java.util.concurrent.CyclicBarrier(2);
+        ProviderLabRoutingDao dao = staticRoutingDao();
+        when(dao.transitionNewRoutingRows(170, "DOC", "999998", 'A')).thenAnswer(call -> {
+            bothReady.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            return jdbc.update("UPDATE routing SET status='A' WHERE id=170 AND status='N'");
+        });
+        // Normal metadata writes follow the real atomic transition in each transaction.
+        when(dao.findRoutingForUpdate(170, "DOC", "999998"))
+                .thenAnswer(call -> List.of(routingRow(jdbc.queryForObject("SELECT status FROM routing WHERE id=170", String.class))));
+        var manager = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                org.springframework.transaction.PlatformTransactionManager.class);
+        java.util.concurrent.ExecutorService workers = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<Integer> acknowledge = () -> {
+                // SpringUtils mocking is thread-local; give each worker the same real manager.
+                try (MockedStatic<io.github.carlos_emr.carlos.utility.SpringUtils> spring =
+                             mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class)) {
+                    spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                            org.springframework.transaction.PlatformTransactionManager.class)).thenReturn(manager);
+                    return CommonLabResultData.acknowledgeReport(170, "999998", "", "DOC", false, null);
+                }
+            };
+            var first = workers.submit(acknowledge);
+            var second = workers.submit(acknowledge);
+            assertThat(List.of(first.get(15, java.util.concurrent.TimeUnit.SECONDS),
+                    second.get(15, java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(1, 0);
+            assertThat(jdbc.queryForObject("SELECT status FROM routing WHERE id=170", String.class)).isEqualTo("A");
+        } finally {
+            workers.shutdownNow();
+            workers.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS);
+            jdbc.execute("SHUTDOWN");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should create only one missing routing row across simultaneous acknowledgements")
+    void shouldCreateMissingRoutingOnce_whenAcknowledgementsRace(boolean wholeChain) throws Exception {
+        registerStaticInitializerMocks();
+        org.h2.jdbcx.JdbcDataSource source = new org.h2.jdbcx.JdbcDataSource();
+        source.setURL("jdbc:h2:mem:lab-missing-race-" + java.util.UUID.randomUUID()
+                + ";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000");
+        org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(source);
+        var manager = new org.springframework.jdbc.datasource.DataSourceTransactionManager(source);
+        jdbc.execute("CREATE TABLE routing(id INT AUTO_INCREMENT PRIMARY KEY, lab_no INT, status CHAR(1), comment VARCHAR(255))");
+        jdbc.execute("CREATE TABLE providerLabRoutingLock(lab_no INT PRIMARY KEY)");
+        java.util.concurrent.CountDownLatch missingReaders = new java.util.concurrent.CountDownLatch(2);
+        ProviderLabRoutingDao dao = staticRoutingDao();
+        Mockito.doAnswer(call -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            jdbc.update("INSERT INTO providerLabRoutingLock (lab_no) VALUES (?) ON DUPLICATE KEY UPDATE lab_no=VALUES(lab_no)",
+                    call.getArgument(0, Integer.class));
+            return null;
+        }).when(dao).lockRoutingReport(anyInt());
+        when(dao.findRoutingForUpdate(anyInt(), eq("DOC"), eq("999998"))).thenAnswer(call -> {
+            List<ProviderLabRoutingModel> rows = jdbc.query("SELECT id,status,comment FROM routing WHERE lab_no=? FOR UPDATE", (rs, index) -> {
+                ProviderLabRoutingModel row = routingRow(rs.getString("status"));
+                org.springframework.test.util.ReflectionTestUtils.setField(row, "id", rs.getInt("id"));
+                row.setComment(rs.getString("comment"));
+                return row;
+            }, call.getArgument(0, Integer.class));
+            if (rows.isEmpty()) {
+                missingReaders.countDown();
+                // Before serialization both readers observe absence. After serialization the
+                // first reader times out here; the next reader sees its committed insertion.
+                missingReaders.await(300, java.util.concurrent.TimeUnit.MILLISECONDS);
+            }
+            return rows;
+        });
+        Mockito.doAnswer(call -> {
+            ProviderLabRoutingModel row = call.getArgument(0);
+            jdbc.update("INSERT INTO routing(lab_no,status,comment) VALUES (?,?,?)", row.getLabNo(), row.getStatus(), row.getComment());
+            return null;
+        }).when(dao).persist(any(ProviderLabRoutingModel.class));
+        Mockito.doAnswer(call -> {
+            ProviderLabRoutingModel row = call.getArgument(0);
+            jdbc.update("UPDATE routing SET status=?,comment=? WHERE id=?", row.getStatus(), row.getComment(), row.getId());
+            return null;
+        }).when(dao).merge(any(ProviderLabRoutingModel.class));
+        java.util.concurrent.ExecutorService workers = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<Boolean> acknowledge = () -> {
+                try (MockedStatic<io.github.carlos_emr.carlos.utility.SpringUtils> spring =
+                             mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class);
+                     MockedStatic<CommonLabResultData> common = mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS)) {
+                    spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                            org.springframework.transaction.PlatformTransactionManager.class)).thenReturn(manager);
+                    if (wholeChain) {
+                        // Exercise materialization of an older routing row too, independently
+                        // of the already separately tested server-side version-chain lookup.
+                        common.when(() -> CommonLabResultData.olderVersionsOf(170, "DOC", null)).thenReturn(List.of(169));
+                        assertThat(CommonLabResultData.acknowledgeReport(170, "999998", "Keep [clinical] $1", "DOC", false, null))
+                                .isZero();
+                        return true;
+                    }
+                    return CommonLabResultData.updateReportStatus(170, "999998", 'A', "Keep [clinical] $1", "DOC");
+                }
+            };
+            var first = workers.submit(acknowledge);
+            var second = workers.submit(acknowledge);
+            assertThat(first.get(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(second.get(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM routing", Integer.class)).isEqualTo(wholeChain ? 2 : 1);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM routing WHERE lab_no=170", Integer.class)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT comment FROM routing WHERE lab_no=170", String.class)).isEqualTo("Keep [clinical] $1");
+            if (wholeChain) {
+                assertThat(jdbc.queryForObject("SELECT status FROM routing WHERE lab_no=169", String.class)).isEqualTo("F");
+            }
+        } finally {
+            workers.shutdownNow();
+            workers.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS);
+            jdbc.execute("SHUTDOWN");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldTreatCommentsAsLiteralText_andHonorSkipCommentOnUpdate(boolean skip) {
+        registerStaticInitializerMocks();
+        ProviderLabRoutingDao dao = staticRoutingDao();
+        Mockito.reset(dao);
+        ProviderLabRoutingModel row = routingRow("N");
+        row.setComment("Prior [review] $1 (");
+        when(dao.findRoutingForUpdate(42, "DOC", "999998"))
+                .thenReturn(List.of(row));
+        String revised = "  Updated [review] $2\n ";
+        CommonLabResultData.updateReportStatus(42, "999998", 'A', revised, "DOC", skip);
+        assertThat(row.getComment()).isEqualTo(skip ? "Prior [review] $1 (" : revised);
+        assertThat(row.getStatus()).isEqualTo("A");
+        Mockito.verify(dao).merge(row);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {" ", "\t\n", "  literal [text] $1  ", "literal", "\nliteral\n"})
+    @DisplayName("should preserve literal whitespace and case in both existing and newly created routing comments")
+    void shouldPreserveLiteralComments_inBothRoutingPaths(String comment) {
+        registerStaticInitializerMocks();
+        ProviderLabRoutingDao dao = staticRoutingDao();
+        ProviderLabRoutingModel row = routingRow("N");
+        row.setComment("LITERAL");
+        when(dao.findRoutingForUpdate(42, "DOC", "999998")).thenReturn(List.of(row));
+        CommonLabResultData.updateReportStatus(42, "999998", 'A', comment, "DOC", false);
+        assertThat(row.getComment()).isEqualTo(comment == null || comment.isBlank() ? "LITERAL" : comment);
+        Mockito.verify(dao).merge(row);
+
+        Mockito.reset(dao);
+        CommonLabResultData.updateReportStatus(42, "999998", 'A', comment, "DOC", false);
+        var created = org.mockito.ArgumentCaptor.forClass(ProviderLabRoutingModel.class);
+        Mockito.verify(dao).persist(created.capture());
+        assertThat(created.getValue().getComment()).isEqualTo(comment == null ? "" : comment);
     }
 
     /**
@@ -246,8 +481,8 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("170");
             commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
-            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
-                    anyInt(), anyString(), anyString())).thenReturn(1);
+            when(staticRoutingDao().transitionNewRoutingRows(
+                    anyInt(), anyString(), anyString(), anyChar())).thenReturn(1);
 
             int cleared = CommonLabResultData.acknowledgeReport(170, "999998", "", "HL7", true, "170");
 
@@ -369,6 +604,45 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("170");
 
             assertThat(CommonLabResultData.olderVersionsOf(170, "HL7", "170")).isEmpty();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"DOC", "HRM", "Epsilon", "unknown"})
+    void shouldNeverFilePostedUnrelatedRecords_forTypesWithoutVersionLookup(String type) {
+        registerStaticInitializerMocks();
+        assertThat(CommonLabResultData.olderVersionsOf(42, type, "900,901,42")).isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MDS", "CML"})
+    void shouldDeriveLegacyOntarioVersions_onTheServer(String type) {
+        registerStaticInitializerMocks();
+        try (MockedConstruction<MDSResultsData> constructed = Mockito.mockConstruction(
+                MDSResultsData.class, (mock, context) -> {
+                    when(mock.getMatchingLabs("42")).thenReturn("40,41,42,43");
+                    when(mock.getMatchingCMLLabs("42")).thenReturn("40,41,42,43");
+                })) {
+            assertThat(CommonLabResultData.olderVersionsOf(42, type, "900,901,42"))
+                    .containsExactly(40, 41);
+            assertThat(constructed.constructed()).hasSize(1);
+            if ("MDS".equals(type)) {
+                Mockito.verify(constructed.constructed().get(0)).getMatchingLabs("42");
+            } else {
+                Mockito.verify(constructed.constructed().get(0)).getMatchingCMLLabs("42");
+            }
+        }
+    }
+
+    @Test
+    void shouldDerivePathnetVersions_onTheServer() {
+        registerStaticInitializerMocks();
+        try (MockedConstruction<PathnetResultsData> constructed = Mockito.mockConstruction(
+                PathnetResultsData.class, (mock, context) ->
+                        when(mock.getMatchingLabs("42")).thenReturn("40,41,42,43"))) {
+            assertThat(CommonLabResultData.olderVersionsOf(42, "BCP", "900,901,42"))
+                    .containsExactly(40, 41);
+            Mockito.verify(constructed.constructed().get(0)).getMatchingLabs("42");
         }
     }
 }

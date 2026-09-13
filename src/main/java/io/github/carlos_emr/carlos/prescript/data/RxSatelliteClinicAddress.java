@@ -89,28 +89,34 @@ public final class RxSatelliteClinicAddress {
 
     /**
      * The offered block that {@code requestedBlock} names, in the form the page puts on the wire, or
-     * {@code null} when it names none. Blocks are matched on the clinic part with HTML entities
-     * decoded on both sides: the page unescapes the chosen block before it puts it on the wire
-     * ({@code StringEscapeUtils.unescapeHtml4} in {@code ViewScript2.jsp}), so a clinic named
-     * "Smith &amp; Jones" arrives with a bare ampersand while the composed block still carries
-     * {@code &amp;amp;}, and comparing the encoded text would reject every legitimately chosen clinic
-     * whose name or address needed encoding. The caller must then render the RETURNED block, never
-     * the requested one: decoded matching accepts {@code &amp;#38;} for {@code &amp;}, and the request's
-     * spelling would otherwise reach the parser and print as entity text.
+     * {@code null} when it names none. The page preserves the encoded field values on the wire.
+     * Match that representation first, including literal entity text in stored clinic values.
+     * Only then canonicalize BOTH values to accept alternate entity spellings; reject an
+     * ambiguous canonical match. Return the original encoded block so the PDF parser can split
+     * structural delimiters BEFORE decoding field values. Never parse the caller's spelling.
      */
     public static String offeredBlock(List<String> offeredBlocks, String requestedBlock) {
         String requested = clinicPart(requestedBlock);
         if (requested == null || offeredBlocks == null) {
             return null;
         }
+        for (String block : offeredBlocks) {
+            if (requested.equals(clinicPart(block))) {
+                return block;
+            }
+        }
         String wanted = StringEscapeUtils.unescapeHtml4(requested);
+        String match = null;
         for (String block : offeredBlocks) {
             String part = clinicPart(block);
             if (part != null && StringEscapeUtils.unescapeHtml4(part).equals(wanted)) {
-                return StringEscapeUtils.unescapeHtml4(block);
+                if (match != null && !clinicPart(match).equals(part)) {
+                    return null;
+                }
+                match = block;
             }
         }
-        return null;
+        return match;
     }
 
     /**

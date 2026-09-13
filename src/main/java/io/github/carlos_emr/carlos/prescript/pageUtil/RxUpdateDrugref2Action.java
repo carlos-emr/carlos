@@ -223,17 +223,14 @@ public class RxUpdateDrugref2Action extends ActionSupport {
 
     /**
      * Invokes a DrugRef call and returns its result, substituting {@code fallback}
-     * (and logging) when the call throws. Failures are logged at {@code WARN} as a
-     * compact one-liner and at {@code DEBUG} with the full stack trace, so that
-     * repeated calls during a DrugRef outage (UI polling, admin retries) don't
-     * flood the logs with stack traces at warn level.
+     * (and logging) when the call throws. Fixed operation names and exception classes
+     * preserve outage diagnostics without exposing endpoints or secret-bearing causes.
      */
     private <T> T runOrFallback(String operation, Callable<T> call, T fallback) {
         try {
             return call.call();
         } catch (Exception e) {
-            logger.warn("DrugRef {} failed; treating service as unavailable: {}", operation, e.toString());
-            logger.debug("DrugRef {} failure details", operation, e);
+            logger.warn("DrugRef {} failed; treating service as unavailable ({})", operation, e.getClass().getSimpleName());
             return fallback;
         }
     }

@@ -96,4 +96,17 @@ class ScheduleNavUnitTest {
         assertThat(ScheduleNav.paramValue(requestWith("1"))).isEqualTo("1");
         assertThat(ScheduleNav.paramValue(requestWith(null))).isNull();
     }
+
+    @Test
+    @DisplayName("should canonicalize existing and encoded flags and be idempotent")
+    void shouldCanonicalizeFlag_whenTargetAlreadyContainsIt() {
+        String target = "/carlos/doc?x=a%26b&scheduleNav=0&schedule%4Eav=1#section";
+        String expected = "/carlos/doc?x=a%26b&scheduleNav=1#section";
+        assertThat(ScheduleNav.append(target, requestWith("1"))).isEqualTo(expected);
+        assertThat(ScheduleNav.append(expected, requestWith("1"))).isEqualTo(expected);
+        assertThat(ScheduleNav.append("/carlos/doc?", requestWith("1"))).isEqualTo("/carlos/doc?scheduleNav=1");
+        assertThat(ScheduleNav.append("/carlos/doc?bad%=x#part", requestWith("1")))
+                .isEqualTo("/carlos/doc?bad%=x&scheduleNav=1#part");
+        assertThat(ScheduleNav.append(target, requestWith(null))).isEqualTo(target);
+    }
 }

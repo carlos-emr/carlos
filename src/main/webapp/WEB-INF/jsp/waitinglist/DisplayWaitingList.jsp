@@ -181,10 +181,12 @@
                                                    onClick="updateWaitingList('${carlos:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>
                                         <td class="${styleClass}">
-                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="<fmt:message key='oscarwaitinglist.displayWaitingList.note'/>" class="data3" onblur="setParameters(this);">${carlos:forHtmlContent(waitingListBean.note)}</textarea>
+                                            <fmt:message key="oscarwaitinglist.displayWaitingList.note" var="waitingListNoteLabel"/>
+                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListNoteLabel)}" class="data3" onblur="setParameters(this);">${carlos:forHtmlContent(waitingListBean.note)}</textarea>
                                         </td>
                                         <td class="${styleClass}">
-                                            <input type="text" name="waitingListBean[${ctr.index}].onListSince" value="${carlos:forHtmlAttribute(waitingListBean.onListSince)}" id="waitingListOnListSince_${ctr.index}" aria-label="<fmt:message key='oscarwaitinglist.displayWaitingList.dateOfRequest'/>" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
+                                            <fmt:message key="oscarwaitinglist.displayWaitingList.dateOfRequest" var="waitingListDateLabel"/>
+                                            <input type="text" name="waitingListBean[${ctr.index}].onListSince" value="${carlos:forHtmlAttribute(waitingListBean.onListSince)}" id="waitingListOnListSince_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListDateLabel)}" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="referral_date_cal_${ctr.index}">
                                             <script type="text/javascript">
                                                 Calendar.setup({

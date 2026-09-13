@@ -666,9 +666,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * Finds one inbox item's element, qualified by report type.
      *
      * A segment id is NOT unique across report types: documents, HRM reports and HL7 labs
-     * come from independent key sequences and all render as id="labdoc_&lt;id&gt;", so an
-     * inbox holding document 170 and lab 170 has two elements carrying that id and
-     * jQuery('#labdoc_170') would return whichever the browser reached first. Matching the
+     * come from independent key sequences. New markup has type-qualified DOM ids and a
+     * data-segment-id; cached older markup can still carry id="labdoc_&lt;id&gt;". Matching the
      * type as well is what stops an acknowledgement removing another type's row and, worse,
      * decrementing another type's total — which a list re-fetch does NOT repair, because the
      * totals are stored, not recomputed.
@@ -679,14 +678,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      */
     function inboxhubItemElement(segmentId, labType) {
         if (!isInboxhubItemToken(segmentId)) { return jQuery(); }
-        const candidates = jQuery('[id="labdoc_' + segmentId + '"]');
-        if (!isInboxhubItemToken(labType)) {
+        const candidates = jQuery('[data-segment-id="' + segmentId + '"], [id="labdoc_' + segmentId + '"]');
+        if (labType === null || labType === undefined) {
             // No type given (a popup running a cached older script). One match is
             // unambiguous; more than one means the id is shared across report types and
             // picking either would remove a row and decrement a total at random, so this
             // does nothing and leaves it to the list refresh.
             return candidates.length === 1 ? candidates : jQuery();
         }
+        if (!isInboxhubItemToken(labType)) { return jQuery(); }
         return candidates.filter('[data-lab-type="' + labType + '"]');
     }
 

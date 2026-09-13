@@ -38,7 +38,6 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -56,7 +55,6 @@ import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.fax.core.FaxImporter;
 import java.io.IOException;
 
@@ -77,13 +75,19 @@ public class ConfigureFax2Action extends ActionSupport {
     public static final String PASSWORD_MASK_SENTINEL = "**********";
     private static final String DEFAULT_ERROR_MESSAGE = "There was a problem saving your configuration. Check the logs for details.";
 
+    /** Only application-authored validation messages may be returned to the operator. */
+    private static final class ConfigurationValidationException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+        ConfigurationValidationException(String message) {
+            super(message);
+        }
+    }
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Dispatches request methods for configure/scheduler endpoints.
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity")
     public String execute() {
         String method = request.getParameter("method");
 
@@ -98,7 +102,7 @@ public class ConfigureFax2Action extends ActionSupport {
         boolean mutator = "configure".equals(method) || "restartFaxScheduler".equals(method)
                 || "testConnection".equals(method);
         String httpMethod = request.getMethod();
-        if (mutator && !"POST".equalsIgnoreCase(httpMethod)) {
+        if (mutator && !"POST".equals(httpMethod)) {
             response.setHeader("Allow", "POST");
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
             // Direct-response contract: NONE stops Struts result resolution after the
@@ -185,7 +189,7 @@ public class ConfigureFax2Action extends ActionSupport {
                         || inboxQueues == null || inboxQueues.length < expectedLength
                         || activeState == null || activeState.length < expectedLength
                         || downloadState == null || downloadState.length < expectedLength) {
-                    throw new IllegalArgumentException(
+                    throw new ConfigurationValidationException(
                             "Form submission is incomplete — some account fields are missing. "
                             + "Please reload the page and try again.");
                 }
@@ -197,7 +201,7 @@ public class ConfigureFax2Action extends ActionSupport {
                     try {
                         id = Integer.parseInt(faxConfigIds[idx]);
                     } catch (NumberFormatException e) {
-                        throw new IllegalArgumentException("Invalid fax configuration id.");
+                        throw new ConfigurationValidationException("Invalid fax configuration id.");
                     }
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
                     validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
@@ -312,28 +316,28 @@ public class ConfigureFax2Action extends ActionSupport {
                     faxManager.startFaxSchedulerIfNotRunning(loggedInInfo);
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Failed to auto-start fax scheduler after config save", e);
+                MiscUtils.getLogger().error("Failed to auto-start fax scheduler after config save ({})", e.getClass().getSimpleName());
                 jsonObject.put("message", "Configuration saved, but fax scheduler failed to start. "
                         + "Use the Restart button to start it manually.");
             }
-        } catch (IllegalArgumentException ex) {
-            // Validation errors - safe to expose message
+        } catch (ConfigurationValidationException ex) {
+            // Only messages authored by this action's validators are safe to expose.
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);
             jsonObject.put("message", ex.getMessage() == null ? DEFAULT_ERROR_MESSAGE : ex.getMessage());
-            MiscUtils.getLogger().error("Fax configuration validation failed: {}", ex.getMessage(), ex);
+            MiscUtils.getLogger().error("Fax configuration validation failed ({})", ex.getClass().getSimpleName());
         } catch (jakarta.persistence.PersistenceException ex) {
             // Database errors - do not leak details
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);
             jsonObject.put("message", DEFAULT_ERROR_MESSAGE);
-            MiscUtils.getLogger().error("Database error saving fax configuration", ex);
+            MiscUtils.getLogger().error("Database error saving fax configuration ({})", ex.getClass().getSimpleName());
         } catch (Exception ex) {
             // System errors - do not leak details
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);
             jsonObject.put("message", DEFAULT_ERROR_MESSAGE);
-            MiscUtils.getLogger().error("COULD NOT SAVE FAX CONFIGURATION", ex);
+            MiscUtils.getLogger().error("Could not save fax configuration ({})", ex.getClass().getSimpleName());
         }
 
         MiscUtils.getLogger().debug("Fax configuration response: success={}", jsonObject.get("success"));
@@ -349,8 +353,8 @@ public class ConfigureFax2Action extends ActionSupport {
      * as submitted so an admin can check a new account number/password before saving. When the
      * password field still carries the {@link #PASSWORD_MASK_SENTINEL} (the admin did not retype
      * it), the stored credential for the submitted config id is used instead. The response is
-     * {@code {success, message}} and never carries the credentials; provider failure messages
-     * are status strings (for example an SRFax "Invalid Access Code / Password" result).</p>
+     * {@code {success, message}} and never carries credentials or raw provider exceptions;
+     * failures expose only authored validation text or numeric provider HTTP status.</p>
      *
      * @return {@link #NONE}: the JSON response has been written and Struts result resolution
      *         must not run (the sibling JSON methods in this class still return {@code null}
@@ -405,18 +409,27 @@ public class ConfigureFax2Action extends ActionSupport {
             // Drop the request copy of the credential as soon as the probe carries it.
             faxPassword = null;
 
+            if (probe.getProviderType() == FaxConfig.ProviderType.MIDDLEWARE) {
+                sendJsonError(text("admin.configureFax.test.failed", "Connection failed: {0}",
+                        "Connection test is not supported for provider MIDDLEWARE"));
+                return NONE;
+            }
             FaxProviderClient client = SpringUtils.getBean(FaxProviderClientFactory.class).getClient(probe);
             client.verifyConnection(probe);
             sendJsonSuccess(text("admin.configureFax.test.success",
                     "Connection successful. SRFax accepted the account number and password."));
-        } catch (FaxProviderException | IllegalArgumentException e) {
-            // Provider status text / validation text only — never the submitted values.
-            // Provider-supplied text: strip control characters before it reaches the log.
-            MiscUtils.getLogger().warn("Fax connection test failed: {}", LogSafe.sanitize(e.getMessage()));
+        } catch (ConfigurationValidationException e) {
+            MiscUtils.getLogger().warn("Fax connection validation failed ({})", e.getClass().getSimpleName());
             sendJsonError(text("admin.configureFax.test.failed", "Connection failed: {0}",
-                    e.getMessage() == null ? "provider error" : e.getMessage()));
+                    e.getMessage()));
+        } catch (FaxProviderException e) {
+            MiscUtils.getLogger().warn("Fax connection test failed (HTTP {}, type={})",
+                    e.getHttpStatus(), e.getClass().getSimpleName());
+            String diagnostic = e.getHttpStatus() > 0 ? "Provider HTTP " + e.getHttpStatus()
+                    : "Unable to verify the provider connection; check the account configuration";
+            sendJsonError(text("admin.configureFax.test.failed", "Connection failed: {0}", diagnostic));
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().error("Fax connection test failed unexpectedly", e);
+            MiscUtils.getLogger().error("Fax connection test failed unexpectedly ({})", e.getClass().getSimpleName());
             sendJsonError(text("admin.configureFax.test.unexpected",
                     "Connection test failed unexpectedly. Check the logs for details."));
         }
@@ -517,7 +530,7 @@ public class ConfigureFax2Action extends ActionSupport {
         if (digits.length() != 10) {
             // Provider-neutral (a legacy MIDDLEWARE row goes through here too) and without a
             // row number: the page renders a single account.
-            throw new IllegalArgumentException("Fax number must be a 10-digit North American number.");
+            throw new ConfigurationValidationException("Fax number must be a 10-digit North American number.");
         }
         return digits;
     }
@@ -529,7 +542,7 @@ public class ConfigureFax2Action extends ActionSupport {
         try {
             response.sendError(statusCode, message);
         } catch (IOException ex) {
-            MiscUtils.getLogger().error("Error sending error response", ex);
+            MiscUtils.getLogger().error("Error sending error response ({})", ex.getClass().getSimpleName());
         }
     }
 
@@ -593,15 +606,13 @@ public class ConfigureFax2Action extends ActionSupport {
         try {
             return FaxConfig.ProviderType.valueOf(providerTypes[idx]);
         } catch (IllegalArgumentException ex) {
-            // Sanitize user input before including in error message to prevent XSS
-            String sanitizedInput = providerTypes[idx].replaceAll("[^a-zA-Z0-9_]", "");
             // faxConfigId is null for a row that has no stored id yet (the form posts -1).
-            String errorMsg = "Invalid provider type '" + sanitizedInput + "'"
+            String errorMsg = "Invalid provider type"
                     + (faxConfigId == null ? "" : " for fax config id " + faxConfigId)
                     + ". Valid values are: MIDDLEWARE, SRFAX";
-            MiscUtils.getLogger().error("Invalid provider type for fax config id {}: {}", faxConfigId,
-                    LogSafe.sanitize(providerTypes[idx]), ex);
-            throw new IllegalArgumentException(errorMsg);
+            MiscUtils.getLogger().error("Invalid provider type for fax config id {} ({})", faxConfigId,
+                    ex.getClass().getSimpleName());
+            throw new ConfigurationValidationException(errorMsg);
         }
     }
 
@@ -627,51 +638,51 @@ public class ConfigureFax2Action extends ActionSupport {
         // Middleware mode requires URL and credentials; SRFax mode can use default URL
         if (providerType == FaxConfig.ProviderType.MIDDLEWARE) {
             if (StringUtils.isBlank(faxUrl)) {
-                throw new IllegalArgumentException("Middleware relay URL is required for Middleware mode.");
+                throw new ConfigurationValidationException("Middleware relay URL is required for Middleware mode.");
             }
             if (StringUtils.isBlank(siteUser)) {
-                throw new IllegalArgumentException("Middleware server username is required for Middleware mode.");
+                throw new ConfigurationValidationException("Middleware server username is required for Middleware mode.");
             }
             // For new middleware configs, site password is required for Basic auth
             boolean isNewConfig = faxConfigId == null || faxConfigId <= 0;
             if (isNewConfig && StringUtils.isBlank(sitePasswd)) {
-                throw new IllegalArgumentException("Middleware site password is required for new Middleware accounts.");
+                throw new ConfigurationValidationException("Middleware site password is required for new Middleware accounts.");
             }
         }
         if (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx])) {
-            throw new IllegalArgumentException("SRFax account number is required.");
+            throw new ConfigurationValidationException("SRFax account number is required.");
         }
         if (providerType == FaxConfig.ProviderType.SRFAX && !isSrfaxAccountNumber(faxUsers[idx])) {
             // Same localized message the connection test shows, so save and test agree.
-            throw new IllegalArgumentException(
+            throw new ConfigurationValidationException(
                     text("admin.configureFax.test.accountNumberNotNumeric", ACCOUNT_NUMBER_NOT_NUMERIC_DEFAULT));
         }
         if (faxNumbers == null || idx >= faxNumbers.length || StringUtils.isBlank(faxNumbers[idx])) {
-            throw new IllegalArgumentException("Your SRFax fax number is required.");
+            throw new ConfigurationValidationException("Your SRFax fax number is required.");
         }
         if (senderEmails == null || idx >= senderEmails.length || StringUtils.isBlank(senderEmails[idx])) {
-            throw new IllegalArgumentException("Sender email is required.");
+            throw new ConfigurationValidationException("Sender email is required.");
         }
         if (inboxQueues == null || idx >= inboxQueues.length || StringUtils.isBlank(inboxQueues[idx])) {
-            throw new IllegalArgumentException("Inbox queue is required.");
+            throw new ConfigurationValidationException("Inbox queue is required.");
         }
 
         try {
             Integer.parseInt(inboxQueues[idx]);
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("Inbox queue must be a numeric value.");
+            throw new ConfigurationValidationException("Inbox queue must be a numeric value.");
         }
 
         // Basic format check to give immediate, actionable feedback in admin UX.
         if (!senderEmails[idx].contains("@")) {
-            throw new IllegalArgumentException("Sender email must be a valid email address (for example, you@clinic.example).");
+            throw new ConfigurationValidationException("Sender email must be a valid email address (for example, you@clinic.example).");
         }
 
         if (providerType == FaxConfig.ProviderType.SRFAX) {
             boolean missingPassword = faxPasswds == null || idx >= faxPasswds.length || StringUtils.isBlank(faxPasswds[idx]);
             boolean isNewConfigRow = faxConfigId == null || faxConfigId <= 0;
             if (isNewConfigRow && missingPassword) {
-                throw new IllegalArgumentException("SRFax password is required for a new SRFax account.");
+                throw new ConfigurationValidationException("SRFax password is required for a new SRFax account.");
             }
         }
     }
@@ -685,10 +696,10 @@ public class ConfigureFax2Action extends ActionSupport {
             faxManager.restartFaxScheduler(loggedInInfo);
             sendJsonSuccess(null);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Fax scheduler restart denied: {}", e.getMessage());
+            MiscUtils.getLogger().warn("Fax scheduler restart denied ({})", e.getClass().getSimpleName());
             sendJsonError("Insufficient privileges to restart fax scheduler.");
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().error("Fax scheduler restart failed: {}", e.getMessage(), e);
+            MiscUtils.getLogger().error("Fax scheduler restart failed ({})", e.getClass().getSimpleName());
             sendJsonError("Fax scheduler restart failed unexpectedly.");
         }
     }
@@ -711,10 +722,10 @@ public class ConfigureFax2Action extends ActionSupport {
             jsonObject.set("faxes", faxArray);
             JSONUtil.jsonResponse(response, jsonObject);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Pending faxes check denied: {}", e.getMessage());
+            MiscUtils.getLogger().warn("Pending faxes check denied ({})", e.getClass().getSimpleName());
             sendJsonError("Insufficient privileges.");
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().error("Failed to list pending incoming faxes: {}", e.getMessage(), e);
+            MiscUtils.getLogger().error("Failed to list pending incoming faxes ({})", e.getClass().getSimpleName());
             sendJsonError("Failed to list pending faxes.");
         }
     }
@@ -727,10 +738,10 @@ public class ConfigureFax2Action extends ActionSupport {
             LoggedInInfo loggedInInfo = requireLoggedInWithPrivilege("_admin.fax.restart", "r");
             JSONUtil.jsonResponse(response, faxManager.getFaxSchedularStatus(loggedInInfo));
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Fax scheduler status check denied: {}", e.getMessage());
+            MiscUtils.getLogger().warn("Fax scheduler status check denied ({})", e.getClass().getSimpleName());
             sendJsonError("Insufficient privileges to view fax scheduler status.");
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().error("Fax scheduler status check failed: {}", e.getMessage(), e);
+            MiscUtils.getLogger().error("Fax scheduler status check failed ({})", e.getClass().getSimpleName());
             sendJsonError("Fax scheduler status check failed unexpectedly.");
         }
     }

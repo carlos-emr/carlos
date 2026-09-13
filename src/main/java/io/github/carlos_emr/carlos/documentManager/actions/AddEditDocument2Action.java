@@ -168,7 +168,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Invalid uploaded document file", e);
+            MiscUtils.getLogger().error("Invalid uploaded document file ({})", e.getClass().getSimpleName());
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
         }
@@ -199,7 +199,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             expectedFileSize = validatedUploadSize(validatedSource);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to determine uploaded document file size", e);
+            MiscUtils.getLogger().error("Failed to determine uploaded document file size ({})", e.getClass().getSimpleName());
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
         }
@@ -235,7 +235,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             // global securityError mapping, and securityError.jsp sets no status. The XHR
             // client treats anything under 400 as success, so a rejected upload would be
             // reported to the user as "Upload complete".
-            MiscUtils.getLogger().error("Failed to write uploaded document file", e);
+            MiscUtils.getLogger().error("Failed to write uploaded document file ({})", e.getClass().getSimpleName());
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
         }
@@ -293,7 +293,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Invalid PDF page count file path", e);
+            MiscUtils.getLogger().error("Invalid PDF page count file path ({})", e.getClass().getSimpleName());
             return numOfPage;
         }
 
@@ -305,7 +305,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try (PdfReader reader = new PdfReader(filePath.toString())) {
             numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to count document pages", e);
+            MiscUtils.getLogger().error("Failed to count document pages ({})", e.getClass().getSimpleName());
         }
         return numOfPage;
     }
@@ -567,7 +567,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             request.setAttribute("docerrors", errors);
             return false;
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to add uploaded document", e);
+            MiscUtils.getLogger().error("Failed to add uploaded document ({})", e.getClass().getSimpleName());
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
             request.setAttribute("docerrors", errors);
             return false;
@@ -728,7 +728,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
-            MiscUtils.getLogger().error("Failed to edit document", e);
+            MiscUtils.getLogger().error("Failed to edit document ({})", e.getClass().getSimpleName());
             return "failEdit";
         }
         return "successEdit";
@@ -839,7 +839,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             documentStorageDao.persist(docStor);
             ret = docStor.getId();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to store document file in database", e);
+            MiscUtils.getLogger().error("Failed to store document file in database ({})", e.getClass().getSimpleName());
         } finally {
             IOUtils.closeQuietly(fin);
         }
@@ -892,7 +892,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             } catch (FileValidationException e) {
                 // Filename rejected at bind time. Store the error key so execute methods can
                 // surface a user-friendly form error rather than leaving docFile null silently.
-                MiscUtils.getLogger().warn("Rejected upload binding: invalid filename", e);
+                MiscUtils.getLogger().warn("Rejected upload binding: invalid filename ({})", e.getClass().getSimpleName());
                 this.docFileBindErrorKey = "filenameinvalid";
             }
             // SecurityException from validateUpload is intentionally not caught — a source file
@@ -974,7 +974,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             }
             return true;
         } catch (IOException e) {
-            MiscUtils.getLogger().warn("Failed to read validated upload for PDF header check", e);
+            MiscUtils.getLogger().warn("Failed to read validated upload for PDF header check ({})", e.getClass().getSimpleName());
             return false;
         }
     }

@@ -423,10 +423,11 @@
                 var name = document.getElementById('searchString').value;
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
-                    confirm("Adding custom allergy: " + name);
-                    sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
-                        "ID=0&type=0&name=" + encodeURIComponent(name), "#addAllergyDialogue");
-                    $("input[value='Custom Allergy']").addClass("highLightButton");
+                    if (confirm("Adding custom allergy: " + name)) {
+                        sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
+                            "ID=0&type=0&name=" + encodeURIComponent(name), "#addAllergyDialogue");
+                        $("input[value='Custom Allergy']").addClass("highLightButton");
+                    }
                 }
             }
 
