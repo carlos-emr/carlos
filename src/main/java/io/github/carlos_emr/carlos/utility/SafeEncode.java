@@ -22,6 +22,8 @@ import java.io.Writer;
 
 import org.owasp.encoder.Encode;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Null-safe wrapper around {@link org.owasp.encoder.Encode}.
  *
@@ -57,6 +59,16 @@ import org.owasp.encoder.Encode;
  * @since 2026-04-18
  */
 public final class SafeEncode {
+
+    /** Context name assumed when a tag omits {@code context}. */
+    private static final String DEFAULT_CONTEXT = "html";
+
+    /** Human-readable context list, reused by callers that report a bad context name. */
+    public static final String VALID_CONTEXTS =
+            "Valid contexts: html, htmlAttribute, htmlUnquotedAttribute, "
+                    + "javaScript, javaScriptAttribute, javaScriptBlock, javaScriptSource, "
+                    + "uri, uriComponent, cssString, cssUrl, "
+                    + "xml, xmlAttribute, xmlContent, xmlComment, cdata, java.";
 
     private SafeEncode() {
         // static-only
@@ -288,5 +300,93 @@ public final class SafeEncode {
 
     public static void forJavaScriptSource(Writer out, String value) throws IOException {
         Encode.forJavaScriptSource(out, nz(value));
+    }
+
+    // -------- Context dispatch --------
+
+    /**
+     * Encode {@code value} for the named output context and write it to {@code out}.
+     *
+     * <p>This is the single dispatch table shared by every CARLOS tag that renders a
+     * caller-selected context: {@code <carlos:encode context="...">} and
+     * {@code <oscar:nameage context="...">}. Keeping one table means a tag can never
+     * silently support a narrower context set than the encoder itself.
+     *
+     * <p>Context names are matched case-insensitively; {@code null} or blank means
+     * {@code html} (HTML body content), which is the safe default for the body-text
+     * call sites that dominate the JSP layer.
+     *
+     * @param out     writer to receive the encoded value
+     * @param context context name, e.g. {@code html}, {@code htmlAttribute}, {@code javaScript}
+     * @param value   raw value; {@code null} is rendered as empty
+     * @throws IOException              if {@code out} rejects the write
+     * @throws IllegalArgumentException if {@code context} is not a known context name
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (context name from a JSP tag attribute); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (context name from a JSP tag attribute); not a security or authorization decision")
+    public static void forContext(Writer out, String context, String value) throws IOException {
+        String ctx = (context == null || context.isBlank()) ? DEFAULT_CONTEXT : context;
+        // Lowercase compare makes "html", "Html", "HTML", "hTML" equivalent.
+        switch (ctx.toLowerCase()) {
+            case "html":
+            case "htmlcontent":
+                forHtmlContent(out, value);
+                return;
+            case "forhtml":
+                forHtml(out, value);
+                return;
+            case "htmlattribute":
+                forHtmlAttribute(out, value);
+                return;
+            case "htmlunquotedattribute":
+                forHtmlUnquotedAttribute(out, value);
+                return;
+            case "javascript":
+            case "js":
+                forJavaScript(out, value);
+                return;
+            case "javascriptattribute":
+                forJavaScriptAttribute(out, value);
+                return;
+            case "javascriptblock":
+                forJavaScriptBlock(out, value);
+                return;
+            case "javascriptsource":
+                forJavaScriptSource(out, value);
+                return;
+            case "uri":
+                forUri(out, value);
+                return;
+            case "uricomponent":
+                forUriComponent(out, value);
+                return;
+            case "cssstring":
+            case "css":
+                forCssString(out, value);
+                return;
+            case "cssurl":
+                forCssUrl(out, value);
+                return;
+            case "xml":
+                forXml(out, value);
+                return;
+            case "xmlattribute":
+                forXmlAttribute(out, value);
+                return;
+            case "xmlcontent":
+                forXmlContent(out, value);
+                return;
+            case "xmlcomment":
+                forXmlComment(out, value);
+                return;
+            case "cdata":
+                forCDATA(out, value);
+                return;
+            case "java":
+                forJava(out, value);
+                return;
+            default:
+                throw new IllegalArgumentException("unknown context '" + ctx + "'. " + VALID_CONTEXTS);
+        }
     }
 }
