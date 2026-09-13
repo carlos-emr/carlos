@@ -116,6 +116,17 @@ const SPOOFED_HOST = 'carlos-host-header-probe.invalid';
 // message we supplied, and carries markup so the encoding assertion is real.
 const ERROR_MESSAGE = 'Probe <b>message</b> for host header check';
 
+// Certificate verification is relaxed ONLY for loopback, where the packaged install
+// serves its own self-signed cert. A non-local target opted in through
+// ALLOW_NON_LOCAL_BASE_URL must still prove its certificate: this check reads a page
+// back and compares it byte for byte, so a silently accepted man-in-the-middle would
+// make every assertion below meaningless. This is the same rule allergy-rx-alert
+// and billing-on-third-party apply to their browser contexts.
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+const isLoopbackTarget = () => LOOPBACK_HOSTS.has(
+  config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase(),
+);
+
 /**
  * GET a path over a raw socket with a caller-chosen Host header.
  *
@@ -135,9 +146,10 @@ function rawGet(pathname, search, hostHeader) {
         method: 'GET',
         headers: { Host: hostHeader, Connection: 'close' },
         // The packaged install terminates TLS with a self-signed certificate by
-        // default; the other checks in this suite use ignoreHTTPSErrors for the
-        // same reason. Host-header behaviour is what is under test, not the cert.
-        rejectUnauthorized: false,
+        // default; the other checks in this suite relax verification for the same
+        // reason. Host-header behaviour is what is under test, not the cert -- but
+        // only loopback gets the exemption; see LOOPBACK_HOSTS.
+        rejectUnauthorized: !isLoopbackTarget(),
         // RFC 6066 forbids an IP literal as an SNI server name, and Node warns and will
         // eventually ignore one. BASE_URL is loopback by default, so send SNI only when the
         // host is a real name.
@@ -230,7 +242,7 @@ function describeFirstDifference(left, right) {
     }
 
     // --- 2-4: what a real browser parses -----------------------------------------
-    const context = await browser.newContext({ ignoreHTTPSErrors: true });
+    const context = await browser.newContext({ ignoreHTTPSErrors: isLoopbackTarget() });
     const page = await context.newPage();
     wirePage(page, 'loginfailed', recorder);
     // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
@@ -276,7 +288,7 @@ function describeFirstDifference(left, right) {
     // --- 4: the page still renders its message, encoded --------------------------
     const bodyText = await page.locator('body').innerText();
     assert(
-      bodyText.includes('Probe <b>message</b> for host header check'),
+      bodyText.includes(ERROR_MESSAGE),
       `The failed-login page did not render the errormsg it was given. Body text was: ${bodyText}`,
     );
     assert(
