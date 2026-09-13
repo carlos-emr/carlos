@@ -404,6 +404,74 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
     }
 
     /**
+     * Tests for {@link SecuserroleDao#findActiveByProviderNo(Object)}, the active-only
+     * role lookup used by authorization ({@code SecurityInfoManagerImpl.getRoles}).
+     *
+     * <p>Only assignments with {@code activeyn = 1} may grant access; rows that are
+     * explicitly inactive ({@code activeyn = 0}) or have a legacy {@code NULL}
+     * {@code activeyn} must be excluded.</p>
+     */
+    @Nested
+    @DisplayName("findActiveByProviderNo() operations")
+    class FindActiveByProviderNoOperations {
+
+        @Test
+        @Tag("read")
+        @Tag("security")
+        @DisplayName("should return only active assignments for the provider")
+        void shouldReturnOnlyActiveAssignments_forProvider() {
+            // Given - same provider with one active and one inactive role
+            createSecuserroleWithActive("FA100", "doctor", "ORG1", 1);
+            createSecuserroleWithActive("FA100", "admin", "ORG1", 0);
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findActiveByProviderNo("FA100");
+
+            // Then - only the active "doctor" assignment is returned
+            assertThat(results)
+                .hasSize(1)
+                .allMatch(r -> r.getActiveyn() != null && r.getActiveyn().equals(1));
+            assertThat(results.get(0).getRoleName()).isEqualTo("doctor");
+        }
+
+        @Test
+        @Tag("read")
+        @Tag("security")
+        @DisplayName("should exclude an inactive assignment so it cannot grant access")
+        void shouldExcludeInactiveAssignment_soItCannotGrantAccess() {
+            // Given - provider has only an explicitly deactivated role
+            createSecuserroleWithActive("FA200", "admin", "ORG1", 0);
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findActiveByProviderNo("FA200");
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("read")
+        @Tag("security")
+        @DisplayName("should exclude a legacy NULL-activeyn assignment")
+        void shouldExcludeLegacyNullActiveynAssignment_forProvider() {
+            // Given - legacy row with NULL activeyn (createSecuserrole leaves activeyn unset)
+            createSecuserrole("FA300", "doctor", "ORG1");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findActiveByProviderNo("FA300");
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
      * Tests for bulk delete operations - covers {@code deleteByOrgcd(String)} and
      * {@code deleteByProviderNo(String)} HQL bulk deletes, plus {@code deleteById(Integer)}.
      * Verifies correct row counts and zero returns for non-existent values.

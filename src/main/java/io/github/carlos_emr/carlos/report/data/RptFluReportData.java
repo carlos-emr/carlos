@@ -34,10 +34,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import io.github.carlos_emr.carlos.commn.model.Billing;
+import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -62,30 +61,39 @@ public class RptFluReportData {
         return pList;
     }
 
-    public void fluReportGenerate(String s, String s1) {
-        years = s1;
+    /**
+     * Loads the flu-recall patient list into {@link #demoList} and records the
+     * report year in {@link #years} for the JSP to read back.
+     *
+     * <p>Each {@link DemoFluDataStruct} carries the six rendered patient
+     * columns — name, phone, roster status, patient status, date of birth, and
+     * age — plus the demographic number, which is not displayed and exists only
+     * to resolve the Billing Date. All are non-null. The Billing Date itself is
+     * not loaded here; the JSP resolves it per row through
+     * {@link DemoFluDataStruct#getBillingDate(String)}.</p>
+     *
+     * <p>The typed-projection mapping dates from 2026-08-06; the method itself
+     * is considerably older.</p>
+     *
+     * @param providerNo the provider filter; {@code "-1"} means all providers
+     * @param reportYear the four-digit report year used to scope the billing lookup
+     */
+    public void fluReportGenerate(String providerNo, String reportYear) {
+        years = reportYear;
 
         DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
 
         demoList = new ArrayList<DemoFluDataStruct>();
         DemoFluDataStruct demofludatastruct;
-        for (Object[] o : dao.findDemographicsForFluReport(s)) {
-            String demographic_no = String.valueOf(o[0]);
-            String demoname = String.valueOf(o[0]);
-            String phone = String.valueOf(o[0]);
-            String roster_status = String.valueOf(o[0]);
-            String patient_status = String.valueOf(o[0]);
-            String dob = String.valueOf(o[0]);
-            String age = String.valueOf(o[0]);
-
+        for (FluReportDemographicRow patient : dao.findDemographicsForFluReport(providerNo)) {
             demofludatastruct = new DemoFluDataStruct();
-            demofludatastruct.demoNo = demographic_no;
-            demofludatastruct.demoName = demoname;
-            demofludatastruct.demoPhone = phone;
-            demofludatastruct.demoRosterStatus = roster_status;
-            demofludatastruct.demoPatientStatus = patient_status;
-            demofludatastruct.demoDOB = dob;
-            demofludatastruct.demoAge = age;
+            demofludatastruct.demoNo = patient.demographicNo();
+            demofludatastruct.demoName = patient.patientName();
+            demofludatastruct.demoPhone = patient.phone();
+            demofludatastruct.demoRosterStatus = patient.rosterStatus();
+            demofludatastruct.demoPatientStatus = patient.patientStatus();
+            demofludatastruct.demoDOB = patient.dateOfBirth();
+            demofludatastruct.demoAge = patient.age();
 
             demoList.add(demofludatastruct);
         }
@@ -121,18 +129,14 @@ public class RptFluReportData {
             return demoDOB;
         }
 
-        public String getBillingDate() {
-            String s = "&nbsp;";
-
-            BillingDao dao = SpringUtils.getBean(BillingDao.class);
-            for (Billing b : dao.findBillingsByDemoNoServiceCodeAndDate(ConversionUtils.fromIntString(demoNo), ConversionUtils.fromDateString("2003-04-01"), Arrays.asList(new String[]{"G590A", "G591A"}))) {
-                s = ConversionUtils.toDateString(b.getBillingDate());
-            }
-            return s;
-        }
-
+        /**
+         * Latest non-deleted G590A/G591A claim date for this patient inside
+         * {@code reportYear}, or the empty string when the patient has no flu
+         * claim that year — the "needs a flu shot" case this report exists to
+         * surface, so it must render as a blank cell rather than markup.
+         */
         public String getBillingDate(String reportYear) {
-            String s = "&nbsp;";
+            String s = "";
 
             String sDate = reportYear + "-01-01";
             String eDate = reportYear + "-12-31";

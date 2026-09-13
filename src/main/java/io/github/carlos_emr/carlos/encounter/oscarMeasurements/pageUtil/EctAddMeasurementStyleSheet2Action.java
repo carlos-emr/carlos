@@ -39,11 +39,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.io.FilenameUtils;
-
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -54,7 +54,8 @@ import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 
 /**
  * Struts2 action that handles file upload submission for measurement CSS stylesheets.
@@ -64,7 +65,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  *
  * @since 2004-03-12
  */
-public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
+public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -81,6 +82,12 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
             ArrayList<String> messages = new ArrayList<String>();
             String contextPath = request.getContextPath();
 
+            if (uploadValidationError != null) {
+                addActionError(uploadValidationError);
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return INPUT;
+            }
+
             if (!saveFile(file, fileName)) {
                 addActionError(getText("errors.fileNotAdded"));
                 request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
@@ -94,7 +101,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
             }
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin)");
         }
     }
 
@@ -105,6 +112,8 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
      * @param fileName String the original filename of the uploaded file
      * @return boolean true if the file was saved successfully; false on failure or duplicate
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public boolean saveFile(File file, String fileName) {
         boolean isAdded = true;
 
@@ -114,19 +123,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
                 return false;
             }
 
-            // Validate and sanitize the filename first
-            if (fileName == null || fileName.trim().isEmpty()) {
-                throw new IllegalArgumentException("fileName cannot be null or empty");
-            }
-            
-            // Sanitize filename to prevent path traversal - extract just the filename without any path
-            String sanitizedFileName = FilenameUtils.getName(fileName);
-            
-            // Additional validation: ensure no directory traversal characters
-            if (sanitizedFileName.contains("..") || sanitizedFileName.contains("/") || sanitizedFileName.contains("\\")) {
-                MiscUtils.getLogger().error("Attempted path traversal detected in filename: " + fileName);
-                throw new SecurityException("Invalid filename - path traversal detected");
-            }
+            String sanitizedFileName = PathValidationUtils.validateStrictFileName(fileName);
             
             // Check if the file already exists in the database using sanitized filename
             List<MeasurementCSSLocation> locs = dao.findByLocation(sanitizedFileName);
@@ -145,8 +142,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
             File uploadDir = new File(uploadPath);
             uploadDir.mkdirs();
             
-            // Create and validate the destination file using PathValidationUtils
-            File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, uploadDir);
+            File destinationFile = PathValidationUtils.validateUpload(file, sanitizedFileName, uploadDir);
 
             // Write the file to the validated destination
             try (FileInputStream fis = new FileInputStream(file)) {
@@ -174,7 +170,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
      */
     private void write2Database(String fileName) {
         // Sanitize the filename before storing in database
-        String sanitizedFileName = FilenameUtils.getName(fileName);
+        String sanitizedFileName = PathValidationUtils.validateStrictFileName(fileName);
         
         MeasurementCSSLocation m = new MeasurementCSSLocation();
         m.setLocation(sanitizedFileName);
@@ -183,12 +179,33 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
 
     private File file;
     private String fileName; // Name of the uploaded file
+    private String uploadValidationError;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            try {
+                this.file = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            } catch (SecurityException e) {
+                this.file = null;
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.fileName = null;
+                return;
+            }
+            try {
+                this.fileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.fileName = null;
+            }
+        }
+    }
 
     public File getFile() {
         return file;
     }
 
-    @StrutsParameter
     public void setFile(File file) {
         this.file = file;
     }
@@ -197,7 +214,6 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
         return fileName;
     }
 
-    @StrutsParameter
     public void setFileFileName(String fileName) {
         this.fileName = fileName;
     }

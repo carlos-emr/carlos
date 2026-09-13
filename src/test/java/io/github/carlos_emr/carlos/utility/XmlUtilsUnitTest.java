@@ -25,13 +25,16 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
 import javax.xml.XMLConstants;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
+import java.io.ByteArrayInputStream;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.net.URL;
 import java.util.Collections;
 import java.util.Set;
@@ -71,6 +74,27 @@ class XmlUtilsUnitTest extends CarlosUnitTestBase {
         Schema schema = factory.newSchema(new StreamSource(new StringReader(schemaContent)));
 
         assertThat(XmlUtils.createSecureValidator(schema)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should parse simple document through secure document builder")
+    void shouldParseSimpleDocument_withToDocument() throws Exception {
+        Document document = XmlUtils.toDocument(new ByteArrayInputStream("""
+                <root><child>ok</child></root>
+                """.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(document.getDocumentElement().getNodeName()).isEqualTo("root");
+        assertThat(document.getElementsByTagName("child").item(0).getTextContent()).isEqualTo("ok");
+    }
+
+    @Test
+    @DisplayName("should reject DOCTYPE declarations through toDocument")
+    void shouldRejectDoctypeDeclarations_withToDocument() {
+        assertThatThrownBy(() -> XmlUtils.toDocument(new ByteArrayInputStream("""
+                <!DOCTYPE root [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+                <root>&xxe;</root>
+                """.getBytes(StandardCharsets.UTF_8))))
+                .isInstanceOf(SAXException.class);
     }
 
     @Test

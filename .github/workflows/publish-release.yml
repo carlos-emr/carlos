@@ -1,0 +1,375 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - "20*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing protected release tag to retry
+        required: true
+        type: string
+
+# One GLOBAL group (not per-tag): the release-notes "previous tag" lookup and
+# the draft bookkeeping read the set of existing releases, so serializing all
+# release runs keeps that state consistent. Releases are rare and deliberate —
+# strict serialization costs nothing; same-tag re-runs still queue as before.
+# (The final publish + latest-pointer decision now happens in deb-packages.yml,
+# after the .debs are attached.)
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to inspect prior workflow runs and validation-job results for dispatch retries.
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.release-state.outputs.skip }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      commit: ${{ steps.metadata.outputs.commit }}
+      source_branch: ${{ steps.metadata.outputs.source_branch }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+      line: ${{ steps.metadata.outputs.line }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Detect an already-published immutable release
+        id: release-state
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if release_json=$(gh release view "$RELEASE_TAG" --repo "$REPO" \
+            --json isDraft --jq '{draft: .isDraft}' 2>/dev/null); then
+            if [ "$(jq -r '.draft' <<< "$release_json")" = "false" ]; then
+              echo "Release $RELEASE_TAG is already published; nothing to change."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Existing draft release will be resumed."
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the tagged source
+        if: steps.release-state.outputs.skip != 'true'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        if: steps.release-state.outputs.skip != 'true'
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Verify Maven toolchain
+        if: steps.release-state.outputs.skip != 'true'
+        run: mvn --version
+
+      - name: Validate CalVer, annotation, source branch, and Maven metadata
+        if: steps.release-state.outputs.skip != 'true'
+        id: metadata
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          tag_regex='^([0-9]{4})\.((0[1-9])|(1[0-2]))\.([0-9]+)(-(alpha|beta|rc)[1-9][0-9]*)?$'
+          if [[ ! "$RELEASE_TAG" =~ $tag_regex ]]; then
+            echo "::error::Tag must match YYYY.MM.PATCH[-alphaN|-betaN|-rcN]."
+            exit 1
+          fi
+          if [[ "$RELEASE_TAG" == *SNAPSHOT* ]]; then
+            echo "::error::Snapshot versions cannot be released."
+            exit 1
+          fi
+
+          tag_type=$(git cat-file -t "refs/tags/$RELEASE_TAG")
+          if [ "$tag_type" != "tag" ]; then
+            echo "::error::Release tags must be annotated; found $tag_type."
+            exit 1
+          fi
+
+          tag_commit=$(git rev-parse "$RELEASE_TAG^{commit}")
+          checked_out_commit=$(git rev-parse HEAD)
+          if [ "$tag_commit" != "$checked_out_commit" ]; then
+            echo "::error::Checkout does not resolve to the tagged commit."
+            exit 1
+          fi
+
+          project_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          scm_tag=$(mvn help:evaluate -Dexpression=project.scm.tag -q -DforceStdout)
+          if [ "$project_version" != "$RELEASE_TAG" ] || [ "$scm_tag" != "$RELEASE_TAG" ]; then
+            echo "::error::Tag, project.version, and project.scm.tag must be identical."
+            echo "tag=$RELEASE_TAG project.version=$project_version project.scm.tag=$scm_tag"
+            exit 1
+          fi
+
+          release_line=$(sed -E 's/^([0-9]{4}\.[0-9]{2})\..*$/\1/' <<< "$RELEASE_TAG")
+          git fetch --no-tags origin \
+            "refs/heads/main:refs/remotes/origin/main" \
+            "refs/heads/release/$release_line:refs/remotes/origin/release/$release_line" || \
+            git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
+
+          is_retry=false
+          if [ "$IS_DISPATCH" = "true" ]; then
+            while IFS= read -r prior_run_id; do
+              [ -n "$prior_run_id" ] || continue
+              validation_result=$(gh api \
+                "repos/$REPO/actions/runs/$prior_run_id/jobs?filter=all&per_page=100" \
+                --jq '.jobs[] | select(.name == "Validate release tag") | .conclusion' |
+                head -n 1)
+              if [ "$validation_result" = "success" ]; then
+                is_retry=true
+                break
+              fi
+            done < <(
+              gh run list --repo "$REPO" --workflow publish-release.yml \
+                --branch "$RELEASE_TAG" --event push --limit 100 \
+                --json databaseId,headSha,status,conclusion \
+                --jq ".[] | select(.headSha == \"$tag_commit\" and .status == \"completed\" and .conclusion != \"success\") | .databaseId"
+            )
+          fi
+
+          source_branch=""
+          main_head=$(git rev-parse origin/main)
+          if [ "$main_head" = "$tag_commit" ]; then
+            source_branch=main
+          elif [ "$is_retry" = "true" ] &&
+               git merge-base --is-ancestor "$tag_commit" origin/main; then
+            source_branch=main
+          elif git show-ref --verify --quiet "refs/remotes/origin/release/$release_line"; then
+            release_ref="origin/release/$release_line"
+            release_head=$(git rev-parse "$release_ref")
+            if [ "$release_head" = "$tag_commit" ]; then
+              source_branch="release/$release_line"
+            elif [ "$is_retry" = "true" ] &&
+                 git merge-base --is-ancestor "$tag_commit" "$release_ref"; then
+              source_branch="release/$release_line"
+            fi
+          fi
+          if [ -z "$source_branch" ]; then
+            echo "::error::Tag must be the current branch head; ancestor validation requires a prior unsuccessful tag-push attempt."
+            exit 1
+          fi
+
+          tag_message=$(git for-each-ref --format='%(contents)' "refs/tags/$RELEASE_TAG")
+          grep -qF "Release $RELEASE_TAG" <<< "$tag_message" || {
+            echo "::error::Annotated tag message must contain 'Release $RELEASE_TAG'."
+            exit 1
+          }
+
+          prerelease=false
+          if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc)[1-9][0-9]*$ ]]; then
+            prerelease=true
+          fi
+
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "commit=$tag_commit" >> "$GITHUB_OUTPUT"
+          echo "source_branch=$source_branch" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "line=$release_line" >> "$GITHUB_OUTPUT"
+
+  full-check:
+    name: Full release verification
+    needs: validate
+    if: needs.validate.outputs.skip != 'true'
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/maven-project.yml
+    with:
+      ref: refs/tags/${{ needs.validate.outputs.tag }}
+
+  package-and-publish:
+    name: Package release draft and dispatch deb build
+    needs: [validate, full-check]
+    if: always() && needs.validate.outputs.skip != 'true' && needs.full-check.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+      # actions:write lets the final step dispatch the Debian-packages
+      # workflow, which attaches the .debs to the draft and publishes it.
+      # An explicit dispatch is REQUIRED: this job leaves the release as a
+      # draft (no release event to trigger on), and even once deb-packages
+      # publishes it, GitHub suppresses workflow triggers for events created
+      # with the workflow-scoped GITHUB_TOKEN. workflow_dispatch is exempt.
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      TAG_COMMIT: ${{ needs.validate.outputs.commit }}
+      RELEASE_LINE: ${{ needs.validate.outputs.line }}
+      IS_PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout the complete tagged history
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Build the release environment from tagged source
+        run: |
+          set -euo pipefail
+
+          docker build --pull -t carlos-release-build-env .devcontainer/development
+
+      - name: Build the WAR and CycloneDX SBOM from a clean checkout
+        run: |
+          set -euo pipefail
+
+          mkdir -p .m2-cache release-assets
+          docker run --rm --name carlos-release-build \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$GITHUB_WORKSPACE/.m2-cache:/root/.m2" \
+            -w /workspace \
+            carlos-release-build-env bash -euo pipefail -c "
+              git config --global --add safe.directory /workspace
+              mvn se.vandmo:dependency-lock-maven-plugin:check -q
+              mvn clean -DskipTests=true -DbuildNumber=$TAG_COMMIT -T 1C package
+              mvn org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom \
+                -DoutputFormat=json \
+                -DschemaVersion=1.6 \
+                -DincludeBomSerialNumber=true \
+                -DoutputReactorProjects=false \
+                -DoutputName=carlos-$RELEASE_TAG-cyclonedx
+            "
+
+          war="target/carlos-$RELEASE_TAG.war"
+          sbom="target/carlos-$RELEASE_TAG-cyclonedx.json"
+          test -f "$war"
+          test -f "$sbom"
+          unzip -t "$war" >/dev/null
+
+          build_properties=$(unzip -p "$war" WEB-INF/classes/buildNumber.properties)
+          if ! grep -qxF "git-sha-1=$TAG_COMMIT" <<< "$build_properties"; then
+            echo "::error::WAR source SHA does not match the tagged commit."
+            printf '%s\n' "$build_properties"
+            exit 1
+          fi
+          # Check the RESOLVED project version, not the raw pom text: a
+          # future comment, property name, or pinned dependency containing
+          # the word "snapshot" must not block every release. The artifact
+          # filenames are checked too — they embed the version the WAR/SBOM
+          # were actually built as.
+          project_version=$(python3 -c '
+          import xml.etree.ElementTree as ET
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          v = ET.parse("pom.xml").getroot().find("m:version", ns)
+          print("" if v is None else (v.text or ""))')
+          if [[ "${project_version^^}" == *SNAPSHOT* ]] || [[ "$war" == *SNAPSHOT* ]] || [[ "$sbom" == *SNAPSHOT* ]]; then
+            echo "::error::Release artifacts must not contain snapshot version metadata (project.version='$project_version')."
+            exit 1
+          fi
+
+          cp "$war" "$sbom" release-assets/
+          (
+            cd release-assets
+            sha256sum "carlos-$RELEASE_TAG.war" > "carlos-$RELEASE_TAG.war.sha256"
+            sha256sum "carlos-$RELEASE_TAG-cyclonedx.json" > "carlos-$RELEASE_TAG-cyclonedx.json.sha256"
+          )
+
+      - name: Attest the WAR and SBOM provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            release-assets/carlos-${{ env.RELEASE_TAG }}.war
+            release-assets/carlos-${{ env.RELEASE_TAG }}-cyclonedx.json
+
+      - name: Create or resume the draft release
+        run: |
+          set -euo pipefail
+
+          # Paginated: a fixed --limit would silently miss the same-line
+          # predecessor once the repo accumulates more releases than the cap.
+          previous_tag=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+            --jq '.[] | select(.draft | not) | .tag_name' |
+            grep -E "^$RELEASE_LINE\." |
+            grep -Fxv "$RELEASE_TAG" |
+            head -n 1 || true)
+
+          if ! gh release view "$RELEASE_TAG" --repo "$REPO" >/dev/null 2>&1; then
+            args=(
+              "$RELEASE_TAG"
+              --repo "$REPO"
+              --verify-tag
+              --target "$TAG_COMMIT"
+              --title "$RELEASE_TAG"
+              --draft
+              --generate-notes
+            )
+            if [ -n "$previous_tag" ]; then
+              args+=(--notes-start-tag "$previous_tag")
+            fi
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              args+=(--prerelease)
+            fi
+            gh release create "${args[@]}"
+          fi
+
+      - name: Upload and verify release assets
+        run: |
+          set -euo pipefail
+
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$REPO" --clobber
+          release_id=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .id")
+          if [ -z "$release_id" ]; then
+            echo "::error::Draft release $RELEASE_TAG was not found after asset upload."
+            exit 1
+          fi
+          release_json=$(gh api "repos/$REPO/releases/$release_id")
+
+          for asset in release-assets/*; do
+            name=$(basename "$asset")
+            expected="sha256:$(sha256sum "$asset" | awk '{print $1}')"
+            actual=$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .digest' <<< "$release_json")
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::GitHub digest mismatch for $name: expected $expected, got $actual"
+              exit 1
+            fi
+          done
+
+      - name: Dispatch the Debian package build that finalizes the release
+        run: |
+          set -euo pipefail
+          # The release is still a DRAFT at this point: the WAR + SBOM are
+          # attached but it is NOT published. deb-packages.yml downloads the
+          # WAR from the draft, builds and attaches the .deb assets, and then
+          # publishes the release as its final step — so the immutable release,
+          # once locked, already carries every asset (the repo enables
+          # immutable releases, which forbid attaching assets after publish).
+          # It is dispatched by hand rather than relying on a trigger: this job
+          # has not published anything yet, so there is no release event to
+          # react to, and workflow_dispatch is also exempt from the
+          # GITHUB_TOKEN event suppression noted above.
+          # Dispatched on the TAG's own ref: workflow_dispatch requires the
+          # workflow file to exist on the dispatched ref, and deb-packages.yml
+          # lives on the release lines (and their tags), not necessarily on
+          # the default branch — a default-branch dispatch 404'd on every
+          # release. The tag is also exactly the tree the build checks out.
+          if ! gh workflow run deb-packages.yml --repo "$REPO" \
+                 --ref "refs/tags/$RELEASE_TAG" \
+                 -f "tag=$RELEASE_TAG"; then
+            echo "::error::Draft release $RELEASE_TAG is ready but the Debian package build could not be dispatched, so the release was NOT published. Run it manually to finalize: gh workflow run deb-packages.yml --ref refs/tags/$RELEASE_TAG -f tag=$RELEASE_TAG"
+            exit 1
+          fi

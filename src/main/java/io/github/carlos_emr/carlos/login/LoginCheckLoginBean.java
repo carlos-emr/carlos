@@ -46,11 +46,12 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Bean that validates user credentials and enforces authentication security policies for CARLOS EMR.
@@ -122,8 +123,12 @@ public final class LoginCheckLoginBean {
      * Pre-computed BCrypt hash of a random decoy password, used only to equalize missing-user
      * authentication timing with the normal password-validation path.
      */
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "BCrypt timing-equalization decoy: a pre-computed hash of a random "
+                    + "throwaway password with no usable plaintext, used only to make "
+                    + "missing-user paths take the same wall-clock time as real password checks")
     private static final String MISSING_USER_DUMMY_PASSWORD_HASH =
-            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C";
+            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C"; // NOSONAR java:S2068,secrets:S8215 -- BCrypt decoy hash for timing equalization; not a usable credential // nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash -- BCrypt decoy hash for missing-user timing equalization; not a credential
 
     /** Security manager for password encoding, validation, and hash migration */
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
@@ -320,7 +325,7 @@ public final class LoginCheckLoginBean {
      * <p>Security measures:
      * <ul>
      *   <li>Drops object references to userpassword and password fields after the failed attempt</li>
-     *   <li>Logs failed attempt with OWASP-encoded username for PHI protection</li>
+     *   <li>Logs failed attempt with log-safe username sanitization</li>
      *   <li>Returns null to indicate authentication failure</li>
      * </ul>
      *
@@ -329,9 +334,8 @@ public final class LoginCheckLoginBean {
      * @see #cleanNullObjExpire for expired password cleanup
      */
     private String[] cleanNullObj(String errorMsg) {
-        logger.warn(errorMsg);
-        // SECURITY: OWASP encode username for HTML context to prevent injection in logs
-        LogAction.addLogSynchronous("", "failed", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
+        logger.warn(LogSafe.sanitize(errorMsg));
+        LogAction.addLogSynchronous("", "failed", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip);
         // Drop references after the failed attempt. These are immutable Strings, so this does not
         // wipe already-allocated heap contents.
         userpassword = null;
@@ -344,6 +348,9 @@ public final class LoginCheckLoginBean {
      *
      * @return Security object containing only the precomputed BCrypt dummy password hash
      */
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "Sets the BCrypt timing-equalization decoy hash; see MISSING_USER_DUMMY_PASSWORD_HASH")
+    // BCrypt timing-equalization decoy — sets dummy hash, not a real credential
     private static Security missingUserDummySecurity() {
         Security dummySecurity = new Security();
         dummySecurity.setPassword(MISSING_USER_DUMMY_PASSWORD_HASH);
@@ -364,7 +371,7 @@ public final class LoginCheckLoginBean {
      * <p>Security measures:
      * <ul>
      *   <li>Drops object references to userpassword and password fields after the expired attempt</li>
-     *   <li>Logs expiration event with OWASP-encoded username for PHI protection</li>
+     *   <li>Logs expiration event with log-safe username sanitization</li>
      *   <li>Returns ["expired"] array to indicate account expiration</li>
      * </ul>
      *
@@ -373,9 +380,8 @@ public final class LoginCheckLoginBean {
      * @see #cleanNullObj for general authentication failure cleanup
      */
     private String[] cleanNullObjExpire(String errorMsg) {
-        logger.warn(errorMsg);
-        // SECURITY: OWASP encode username for HTML context to prevent injection in logs
-        LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
+        logger.warn(LogSafe.sanitize(errorMsg));
+        LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip);
         // Drop references after the expired attempt. These are immutable Strings, so this does not
         // wipe already-allocated heap contents.
         userpassword = null;
@@ -431,6 +437,11 @@ public final class LoginCheckLoginBean {
         SecUserRoleDao secUserRoleDao = (SecUserRoleDao) SpringUtils.getBean(SecUserRoleDao.class);
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(security.getProviderNo());
         for (SecUserRole role : roles) {
+            // Only active (activeyn = 1) role assignments belong in the session role string;
+            // an inactive assignment must not grant access. Boolean.TRUE.equals is null-tolerant.
+            if (!Boolean.TRUE.equals(role.getActive())) {
+                continue;
+            }
             if (rolename == null) {
                 rolename = role.getRoleName();
             } else {

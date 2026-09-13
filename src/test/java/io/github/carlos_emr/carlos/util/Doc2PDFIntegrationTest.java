@@ -25,6 +25,10 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.URI;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -54,9 +58,14 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
+        request.setScheme("http");
         request.setProtocol("HTTP/1.1");
         request.setRemoteHost("localhost");
+        request.setServerName("carlos.local");
         request.setServerPort(8080);
+        request.setLocalName("localhost");
+        request.setLocalAddr("127.0.0.1");
+        request.setLocalPort(8080);
         request.setContextPath("/openo");
 
         response = new MockHttpServletResponse();
@@ -242,6 +251,57 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @Tag("security")
+    @DisplayName("should reject Doc2PDF internal fetch when target host differs")
+    void shouldRejectInternalFetch_whenTargetHostDiffers() {
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123",
+                "http://169.254.169.254/openo/report.jsp")).isNull();
+    }
+
+    @Test
+    @Tag("security")
+    @DisplayName("should reject Doc2PDF internal fetch when URI uses file scheme")
+    void shouldRejectInternalFetch_whenUriUsesFileScheme() {
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123", "file:///etc/passwd")).isNull();
+    }
+
+    @Test
+    @Tag("security")
+    @DisplayName("should reject Doc2PDF internal fetch outside current context path")
+    void shouldRejectInternalFetch_whenOutsideContextPath() {
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123",
+                "http://localhost:8080/admin/report.jsp")).isNull();
+    }
+
+    @Test
+    @Tag("security")
+    @DisplayName("should reject Doc2PDF internal fetch when path contains encoded dot segment")
+    void shouldRejectInternalFetch_whenPathContainsEncodedDotSegment() {
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123",
+                "http://localhost:8080/openo/%2e%2e/admin/report.jsp")).isNull();
+    }
+
+    @Test
+    @Tag("security")
+    @DisplayName("should reject legacy Doc2PDF fetch without request context")
+    void shouldRejectLegacyInternalFetch_withoutRequestContext() {
+        assertThat(Doc2PDF.GetInputFromURI("ABC123",
+                "http://localhost:8080/openo/report.jsp")).isNull();
+    }
+
+    @Test
+    @Tag("security")
+    @DisplayName("should append session ID without double-encoding encoded URI parts")
+    void shouldAppendSessionId_withoutDoubleEncodingEncodedUriParts() throws Exception {
+        URI rewrittenUri = appendSessionId(
+                "http://localhost:8080/openo/report%20view.jsp?name=Fran%C3%A7ois%20C%C3%B4t%C3%A9",
+                "A B/C+1");
+
+        assertThat(rewrittenUri.toASCIIString())
+                .isEqualTo("http://localhost:8080/openo/report%20view.jsp;jsessionid=A%20B%2FC%2B1?name=Fran%C3%A7ois%20C%C3%B4t%C3%A9");
+    }
+
+    @Test
     @Tag("parse")
     @DisplayName("should produce PDF when HTML contains input without type attribute")
     void shouldProducePdf_whenHtmlContainsInputWithoutTypeAttribute() {
@@ -304,4 +364,19 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
         assertThat(response.getContentType()).isEqualTo("application/pdf");
         assertThat(response.getContentAsByteArray()).isNotEmpty();
     }
+
+    private static URI appendSessionId(String uri, String jsessionid) throws Exception {
+        Method method = Doc2PDF.class.getDeclaredMethod("appendSessionId", URI.class, String.class);
+        method.setAccessible(true);
+        try {
+            return (URI) method.invoke(null, new URI(uri), jsessionid);
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception) {
+                throw (Exception) cause;
+            }
+            throw e;
+        }
+    }
+
 }

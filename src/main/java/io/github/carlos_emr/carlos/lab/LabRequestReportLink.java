@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class LabRequestReportLink {
     private static LabRequestReportLinkDao dao = SpringUtils.getBean(LabRequestReportLinkDao.class);
@@ -181,6 +182,8 @@ public class LabRequestReportLink {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static Integer getMeasurementIdFromExt(String reportTable, String reportId) {
         String key = "lab_no";
         if ("labPatientPhysicianInfo".equalsIgnoreCase(reportTable)) key = "lab_ppid";

@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.collections4.OrderedMapIterator;
 import org.apache.commons.collections4.map.ListOrderedMap;
 import org.apache.commons.io.IOUtils;
@@ -592,6 +593,8 @@ public class MeasurementFlowSheet {
      * @return String the HTML content to display at the top of the flowsheet,
      *         or an empty string if no HTML file is configured or the file cannot be read
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String getTopHTMLStream() {
         StringBuilder sb = new StringBuilder();
         if (topHTMLFileName != null) {
@@ -639,6 +642,8 @@ public class MeasurementFlowSheet {
      * @param dsHTML String the filename of the HTML file to load
      * @return String the HTML content, or an empty string if the file cannot be found or read
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String getDSHTMLStream(String dsHTML) {
         StringBuilder sb = new StringBuilder();
         InputStream is = null;
@@ -774,6 +779,8 @@ public class MeasurementFlowSheet {
      * @see DroolsHelper#loadFromInputStream(java.io.InputStream)
      * @see DroolsHelper#loadFromUrl(URL)
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void loadRuleBase(String string) {
         try {
             boolean fileFound = false;

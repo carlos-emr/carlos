@@ -84,6 +84,13 @@ function showSuccessAlert(onDismissEvent) {
     this.createAndShowAlert('submit-success-alert', 'The form has been saved successfully.', 'success', 5, onDismissEvent);
 }
 
+/**
+ * Show a warning alert
+ */
+function showWarningAlert(message, onDismissEvent) {
+    this.createAndShowAlert('submit-warning-alert', message, 'warning', 7, onDismissEvent);
+}
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }

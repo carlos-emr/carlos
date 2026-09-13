@@ -1,4 +1,5 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %><%--
@@ -284,7 +285,7 @@
                                                                                           size="50"
                                                                                           name="fldCustomName<%= i%>"
                                                                                           class=tblRow size=80
-                                                                                          value="<%= f.getCustomName() %>"/>
+                                                                                          value="<%= SafeEncode.forHtmlAttribute(f.getCustomName()) %>"/>
                                             </td>
                                         </tr>
                                         <% } %>
@@ -379,7 +380,7 @@
                                                                     s = "";
                                                             %>
                                                             <textarea name="fldSpecial<%= i%>" style="width: 100%"
-                                                                      rows=5><%=s.trim()%></textarea></td>
+                                                                      rows=5><%=SafeEncode.forHtmlContent(s.trim())%></textarea></td>
                                                     </tr>
                                                 </table>
                                             </td>

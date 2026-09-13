@@ -85,7 +85,7 @@
     <%} else {%>
     <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
-    <%=defaultPrinterName%>
+    <carlos:encode value='<%= defaultPrinterName %>' context="html"/>
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
@@ -93,4 +93,3 @@
             height="80%" width="100%"></object>
     </body>
 </html>
-

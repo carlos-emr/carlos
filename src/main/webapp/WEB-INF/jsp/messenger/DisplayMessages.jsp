@@ -100,10 +100,8 @@
     if (!authed) {
         return;
     }
-    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
-    String scheduleNavQuerySuffix = showScheduleNav ? "&scheduleNav=1" : "";
-    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
+<%@ include file="messengerScheduleNav.jspf" %>
 
 <%
     // Determine which message box to display based on boxType parameter
@@ -399,9 +397,11 @@
                                          <fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/></a><!--deletedMessage link-->
 
                                     </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="javascript:BackToCarlos()"><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
-                                    </li>
+                                    <% if (showMessengerExitButton) { %>
+                                        <li class="nav-item">
+                                            <a class="nav-link" href="javascript:BackToCarlos()"><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
+                                        </li>
+                                    <% } %>
                                     </ul>
                         </td>
                     </tr>
