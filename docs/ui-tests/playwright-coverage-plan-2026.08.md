@@ -144,6 +144,7 @@ schedule, never by a URL.
 | `demographic-labels` | §2.4 | The Master Record's Print / Labels menu — the PDF *bytes* of every envelope and label, not just that the popup opened |
 | `inboxhub-filters` | §2.6 | The Inbox's type and review-status filters, asserted as a *partition* of the unfiltered list — which is what catches a filter that is silently ignored |
 | `mutator-get-rejection-live` | §2.2 | Every action the GET/HEAD rejection contract covers, driven through the **real** stack. Its route list is derived from `MutatorActionGetRejectionContractUnitTest`, so it cannot cover less than the unit contract does |
+| `csrf-bootstrap-audit` (static) | §2.2 | CLAUDE.md's CSRF token-bootstrapping rule, enforced across all 1,031 JSPs. Not a browser check — it needs no deployment, so it runs on every pull request |
 
 The first thirteen share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
