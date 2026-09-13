@@ -15,7 +15,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -189,13 +191,15 @@ public class SMTPEmailSender {
      * @throws MessagingException if attachment processing fails due to invalid file paths
      *         or I/O errors when accessing attachment files
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void addAttachments(MimeMessageHelper helper, List<EmailAttachment> attachments) throws MessagingException {
         if (attachments == null) {
             return;
         }
 
         for (EmailAttachment attachment : attachments) {
-            helper.addAttachment(attachment.getFileName(), new File(attachment.getFilePath()));
+            helper.addAttachment(attachment.getFileName(), PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())));
         }
     }
 

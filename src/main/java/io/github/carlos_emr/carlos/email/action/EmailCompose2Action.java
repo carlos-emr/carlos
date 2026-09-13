@@ -8,13 +8,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -58,7 +61,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * Security Considerations:
  * <ul>
  *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
- *   <li>Uses OWASP Encode.forJava() for sanitizing invalid fid values in logs</li>
+ *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
  *   <li>Generates patient-specific PDF passwords based on demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
@@ -80,6 +83,8 @@ public class EmailCompose2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
+    private PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", "demographicId",
@@ -166,6 +171,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>senderAccounts (List&lt;EmailConfig&gt;) - available sender account configurations</li>
      *   <li>emailPDFPassword (String) - generated or existing PDF password</li>
      *   <li>emailPDFPasswordClue (String) - password hint for recipient</li>
+     *   <li>message (String) - unified message selected from the legacy content channels</li>
      *   <li>demographicId (String) - patient demographic identifier</li>
      *   <li>fdid (String) - form data ID</li>
      *   <li>fid (String) - validated form ID or null if invalid</li>
@@ -226,8 +232,10 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            String sanitizedFid = Encode.forJava(fid);
-            logger.warn("Invalid fid parameter received: {}", sanitizedFid);
+            if (logger.isWarnEnabled()) {
+                String sanitizedFid = LogSafe.sanitize(fid);
+                logger.warn("Invalid fid parameter received: {}", sanitizedFid); // NOSONAR javasecurity:S5145 (SonarCloud alert #26207) — sanitized with LogSafe
+            }
             fid = null;
         }
 
@@ -253,11 +261,15 @@ public class EmailCompose2Action extends ActionSupport {
             emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
             emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(loggedInInfo, attachedHRMDocuments));
             emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(request, response, attachedForms, Integer.parseInt(demographicId)));
-        } catch (PDFGenerationException e) {
+            emailComposeManager.sanitizeAttachments(emailAttachmentList);
+            for (EmailAttachment attachment : emailAttachmentList) {
+                attachment.setPreviewToken(pdfPreviewCapabilityService.issue(
+                        request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
+            }
+        } catch (PDFGenerationException | RuntimeException e) {
             logger.error(e.getMessage(), e);
             return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed. \\n\\n" + e.getMessage());
         }
-        emailComposeManager.sanitizeAttachments(emailAttachmentList);
 
         // Set request attributes for JSP (from session and computed values)
         request.setAttribute("transactionType", TransactionType.EFORM);
@@ -271,18 +283,29 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
         request.setAttribute("senderEmail", senderEmail);
         request.setAttribute("subjectEmail", subjectEmail);
-        request.setAttribute("bodyEmail", bodyEmail);
-        request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
+        // The compose screen now has a single "Message" field (issue #3118). Seed it from the
+        // channel matching the encryption state. For encrypted drafts where both legacy channels
+        // contain content, the protected channel deliberately wins: there is no reliable way to
+        // distinguish a meaningful historical cleartext body from the fixed notice stored by the
+        // unified workflow.
+        // Fail closed when older entry points do not seed either session flag: only an explicit
+        // Boolean false may open the composer with message or attachment encryption disabled.
+        boolean isEmailEncrypted = !Boolean.FALSE.equals(session.getAttribute("isEmailEncrypted"));
+        boolean isEmailAttachmentEncrypted =
+                !Boolean.FALSE.equals(session.getAttribute("isEmailAttachmentEncrypted"));
+        isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
+                isEmailEncrypted, bodyEmail, encryptedMessageEmail);
+        request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
         request.setAttribute("emailPatientChartOption", emailPatientChartOption);
         request.setAttribute("demographicId", demographicId);
         request.setAttribute("fdid", session.getAttribute("fdid"));
         request.setAttribute("fid", fid);
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
         request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
-        request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
-        request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
+        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
+        request.setAttribute("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
         request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
 
         cleanupEmailSessionAttributes(request);
 

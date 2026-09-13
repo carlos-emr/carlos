@@ -26,7 +26,7 @@ class FormViewRoutesTest {
     @Test
     void shouldResolveActionRoutes_forEncounterFormDbValues() {
         // Regression: these strings are stored in the encounterForm.form_value column
-        // (seeded in database/mysql/oscarinit.sql and database/mysql/oscardata.sql).
+        // (seeded in the Flyway baseline, database/mysql/migration/**).
         // EctDisplayForm2Action concatenates them with the demographic number to
         // build the "add new form" popup URL, so they must resolve to a valid
         // extensionless Struts action route (not the moved /form/*.jsp path which
@@ -45,6 +45,14 @@ class FormViewRoutesTest {
     void shouldResolveLegacyFormJspToActionRoute() {
         assertThat(FormViewRoutes.resolveActionPath("/form/formannual.jsp?demographic_no="))
                 .isEqualTo("/form/formannual?demographic_no=");
+    }
+
+    @Test
+    void shouldResolveLegacyFormXmlUploadJsp_toExplicitPageRoute() {
+        assertThat(FormViewRoutes.resolveActionPath("/form/formXmlUpload.jsp"))
+                .isEqualTo("/form/formXmlUpload");
+        assertThat(FormViewRoutes.resolveActionPath("/form/formXmlUpload.jsp?source=legacy"))
+                .isEqualTo("/form/formXmlUpload?source=legacy");
     }
 
     @Test
@@ -73,6 +81,7 @@ class FormViewRoutesTest {
         assertThat(FormViewRoutes.resolveActionPath("/form/eCARES/sections/info.jsp")).isNull();
         assertThat(FormViewRoutes.resolveActionPath("/form/formSaveAndExit.jsp")).isNull();
         assertThat(FormViewRoutes.isAllowedWildcardFormView("formannual")).isTrue();
+        assertThat(FormViewRoutes.isAllowedWildcardFormView("formXmlUpload")).isFalse();
         assertThat(FormViewRoutes.isAllowedWildcardFormView("eCARES/sections/info")).isFalse();
     }
 
@@ -82,4 +91,20 @@ class FormViewRoutesTest {
                 .isEqualTo("/WEB-INF/jsp/form/formannual.jsp");
         assertThat(FormViewRoutes.resolveInternalViewFromFormLink("../formannual.jsp")).isNull();
     }
+    @Test
+    void shouldResolveExtensionlessFormLink_whenViewIsAllowed() {
+        assertThat(FormViewRoutes.resolveInternalViewFromFormLink("formrourke2017complete"))
+                .isEqualTo("/WEB-INF/jsp/form/formrourke2017complete.jsp");
+        assertThat(FormViewRoutes.resolveInternalViewFromFormLink("formrourke2017complete.jsp"))
+                .isEqualTo("/WEB-INF/jsp/form/formrourke2017complete.jsp");
+    }
+
+    @Test
+    void shouldRejectExtensionlessFormLink_whenViewIsUnknownOrUnsafe() {
+        for (String link : new String[] {null, "", "unknown", "../formrourke2017complete",
+                "formrourke2017complete?x=1", "/WEB-INF/web.xml", "formSaveAndExit"}) {
+            assertThat(FormViewRoutes.resolveInternalViewFromFormLink(link)).as(link).isNull();
+        }
+    }
+
 }

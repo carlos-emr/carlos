@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -48,6 +49,21 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("security")
 @DisplayName("DemographicExportAction42Action coding-system allowlist")
 class DemographicExportAction42ActionCodeSystemAllowlistTest {
+
+    @Test
+    @DisplayName("should load the class without a Spring bean factory")
+    void shouldLoadClass_withoutSpringBeanFactory() {
+        // The contract this whole class depends on. The action used to hold ten
+        // `private static final X = SpringUtils.getBean(X.class)` fields, so class INITIALIZATION
+        // required a live bean factory — and every test here died with ExceptionInInitializerError
+        // followed by NoClassDefFoundError, including the ones below that only read a Map.of
+        // constant. Forcing initialization explicitly states that dependency as the thing under
+        // test, rather than letting it resurface as eight unexplained errors.
+        assertThatCode(() -> Class.forName(
+                DemographicExportAction42Action.class.getName(), true,
+                DemographicExportAction42ActionCodeSystemAllowlistTest.class.getClassLoader()))
+                .doesNotThrowAnyException();
+    }
 
     // -------------------------------------------------------------------------
     // Allowlist contents

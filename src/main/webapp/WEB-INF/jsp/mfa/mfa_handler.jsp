@@ -27,6 +27,7 @@
 
 --%>
 
+<%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
 <%
     // The MFA page is shown before a user is fully authenticated. Require the
     // pending-MFA marker instead of the normal "user" session attribute, which
@@ -47,6 +48,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><fmt:message key="loginApplication.title"/></title>

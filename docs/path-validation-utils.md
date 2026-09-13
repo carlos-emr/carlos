@@ -41,6 +41,35 @@ File safeFile = PathValidationUtils.validatePath(userProvidedFilename, directory
 
 **Throws**: `SecurityException` if validation fails
 
+### validatePathComponent(String value, String label)
+
+**Use for**: Validating a single path component that must be preserved exactly, such as a queue
+directory name, document id segment, or existing server-side filename.
+
+**What it does**:
+1. Rejects null, blank, hidden, current-directory, and parent-directory values
+2. Rejects Unix and Windows path separators, drive prefixes, UNC paths, and null bytes
+3. Returns the original value unchanged after proving it is a safe single component
+
+Use this when `validatePath()` would be too permissive because it strips path components. For
+example, `validatePath("../../safe.pdf", dir)` resolves to `dir/safe.pdf`, but
+`validatePathComponent("../../safe.pdf", "pdfName")` rejects the value.
+
+```java
+// Example: Preserve request components exactly, then validate the final path boundary
+String queueId = PathValidationUtils.validatePathComponent(rawQueueId, "queueId");
+String fileName = PathValidationUtils.validatePathComponent(rawFileName, "fileName");
+File target = PathValidationUtils.validateExistingPath(
+    new File(new File(incomingDocumentDir, queueId), fileName),
+    incomingDocumentDir
+);
+// Now safe to read from target
+```
+
+**Returns**: `String` - The original component if valid
+
+**Throws**: `SecurityException` if the value is not a safe single path component
+
 ### validateExistingPath(File file, File allowedDir)
 
 **Use for**: Validating internal/application-created paths before access or deletion.
@@ -195,12 +224,32 @@ try {
 }
 ```
 
+#### 5. Request Components Used in Existing Paths
+```java
+// Old: validatePath() sanitizes a copy, but the original values are still used later
+PathValidationUtils.validatePath(requestQueueId, incomingDir);
+File target = new File(new File(incomingDir, requestQueueId), requestFileName);
+
+// New: validate each component exactly, then validate the assembled path
+String queueId = PathValidationUtils.validatePathComponent(requestQueueId, "queueId");
+String fileName = PathValidationUtils.validatePathComponent(requestFileName, "fileName");
+File target = PathValidationUtils.validateExistingPath(
+    new File(new File(incomingDir, queueId), fileName),
+    incomingDir
+);
+```
+
 ## Security Features
 
 ### Filename Sanitization
 - Strips path components (directory prefixes)
 - Rejects hidden files (starting with `.`)
 - Uses Apache Commons IO FilenameUtils for cross-platform support
+
+### Strict Path Component Validation
+- Preserves the original value instead of normalizing or stripping it
+- Rejects path separators, traversal components, drive prefixes, UNC prefixes, and null bytes
+- Prevents the common anti-pattern of validating a sanitized copy and then using the original input
 
 ### Path Traversal Prevention
 - Uses canonical path resolution to follow symlinks
@@ -215,20 +264,23 @@ try {
 ## Best Practices
 
 1. **Always use PathValidationUtils** for any file operations involving user input
-2. **Use `validatePath()`** for user-provided filenames (creates new safe paths)
-3. **Use `validateExistingPath()`** for internal paths (validates existing paths)
-4. **Use `validateUpload()`** for file uploads
-5. **Handle SecurityException** gracefully - don't expose internal paths in error messages
-6. **Log security violations** for monitoring
+2. **Use `validatePath()`** when basename stripping is acceptable and you are creating a safe path inside an allowed directory
+3. **Use `validatePathComponent()`** when a request-controlled directory or filename segment must be preserved exactly
+4. **Use `validateExistingPath()`** for assembled or internal paths before access or deletion
+5. **Use `validateUpload()`** for file uploads
+6. **Use the returned value** from validation methods; don't validate one value and later use the original unvalidated value
+7. **Handle SecurityException** gracefully - don't expose internal paths in error messages
+8. **Log security violations** for monitoring
 
 ## Testing
 
 Tests are located at:
-`src/test/java/io/github/carlos_emr/carlos/utility/PathValidationUtilsTest.java`
+- `src/test/java/io/github/carlos_emr/carlos/utility/PathValidationUtilsUnitTest.java`
+- `src/test/java/io/github/carlos_emr/carlos/documentManager/IncomingDocUtilPathValidationTest.java`
 
 Run tests with:
 ```bash
-mvn test -Dtest=PathValidationUtilsTest
+mvn -q -Dtest=PathValidationUtilsUnitTest,IncomingDocUtilPathValidationTest test
 ```
 
 ## CodeQL Model Pack (Static Analysis Integration)
@@ -250,9 +302,9 @@ example, `validatePath(String userInput, File allowedDir)` maps `Argument[1]`
 
 | Extensible | Description |
 |---|---|
-| `summaryModel` | PathValidationUtils methods: `validatePath`, `validateExistingPath`, `validateUpload` (2 overloads) |
+| `summaryModel` | PathValidationUtils methods: `validatePath`, `validatePathComponent`, `validateExistingPath`, `validateUpload` (2 overloads) |
 | `summaryModel` | Wrapper methods that internally call PathValidationUtils (e.g., `MEDITECHHandler.validateAndGetFile`, `FaxManagerImpl.resolveAndValidateFilePath`, `NioFileManagerImpl.getOscarDocument`) |
-| `neutralModel` | Boolean guard predicates: `isInAllowedTempDirectory`, `Util.isPathWithinDirectory`, `IncomingDocUtil.isValidPathComponent`/`isPathWithinBounds` |
+| `neutralModel` | Boolean guard predicates: `isInAllowedTempDirectory`, `Util.isPathWithinDirectory`, `IncomingDocUtil.isPathWithinBounds` |
 | `neutralModel` | Static sanitizer wrappers with no safe argument to model: `EDocUtil.resolvePath` |
 
 ### When Adding New PathValidationUtils Methods
@@ -262,6 +314,11 @@ If you add a new method to `PathValidationUtils`:
 1. **Add a `summaryModel` entry** in `path-validation-sanitizers.yml` following the existing pattern
 2. **Specify only the safe argument** as the taint source for `ReturnValue`
 3. **Omit user-controlled arguments** from the flow specification
+
+For validators like `validatePathComponent()` that return a checked user value rather than a
+`File` under an allowed directory, model a non-user argument such as the fixed `label` as the
+return source. This keeps CodeQL from treating the validated component as raw request taint while
+the subsequent `validateExistingPath()` call still proves the final filesystem boundary.
 
 ### When Adding New Wrapper Methods
 

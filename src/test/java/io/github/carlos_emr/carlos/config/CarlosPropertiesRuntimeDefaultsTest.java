@@ -87,7 +87,7 @@ class CarlosPropertiesRuntimeDefaultsTest extends CarlosUnitTestBase {
         assertThat(properties.stringPropertyNames())
                 .doesNotContainAnyElementsOf(STARTUP_DERIVED_DOCUMENT_PATH_KEYS);
         assertThat(properties.getProperty("log.purge.outputdir"))
-                .isEqualTo("/var/lib/OscarDocument/carlos/document/");
+                .isEqualTo("/var/lib/CarlosDocument/carlos/document/");
         assertThat(properties.getProperty("FAX_INCOMING_DIR")).isEmpty();
         assertThat(properties.getProperty("log.purge.daysfromnowtopurge")).isEmpty();
         assertThat(properties.getProperty("PREVENTION_FILE")).isEmpty();

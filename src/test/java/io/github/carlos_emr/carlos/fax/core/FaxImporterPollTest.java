@@ -17,6 +17,7 @@
  */
 package io.github.carlos_emr.carlos.fax.core;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -28,6 +29,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
@@ -71,6 +73,11 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
 
     private FaxImporter faxImporter;
 
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path faxIncomingDir;
+
+    private String originalFaxIncomingDir;
+
     @BeforeEach
     void setUp() {
         faxConfigDao = mock(FaxConfigDao.class);
@@ -80,8 +87,61 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         faxProviderClientFactory = mock(FaxProviderClientFactory.class);
         faxProviderClient = mock(FaxProviderClient.class);
 
+        // poll() returns immediately unless initialize() has run, and initialize() is @PostConstruct
+        // — Spring calls it in production, nothing called it here. Every test below therefore
+        // exercised the early return rather than the orchestration it names: the four that expect a
+        // config to be processed failed, and the three that assert "never" passed for the wrong
+        // reason. Point the importer at a scratch directory and initialize it for real.
+        CarlosProperties properties = CarlosProperties.getInstance();
+        originalFaxIncomingDir = properties.getProperty("FAX_INCOMING_DIR");
+        properties.setProperty("FAX_INCOMING_DIR", faxIncomingDir.toString());
+
         faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
-                providerLabRoutingDao, faxProviderClientFactory);
+                providerLabRoutingDao, faxProviderClientFactory, faxIncomingDir.toString());
+        faxImporter.initialize();
+        assertThat(faxImporter.isInitialized())
+                .describedAs("poll() is a no-op unless the importer initialized; without this every "
+                        + "assertion below would hold vacuously")
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("should persist a fixed download failure without exposing provider text or acknowledging the fax")
+    void shouldKeepDownloadFailurePrivate_whenProviderDownloadThrows() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        FaxJob received = new FaxJob();
+        received.setJobId(123L);
+        received.setStatus(FaxJob.STATUS.RECEIVED);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(config)).thenReturn(List.of(received));
+        when(faxProviderClient.downloadFax(config, received)).thenThrow(
+                new FaxProviderException("PRIVATE_DOWNLOAD_FILENAME.pdf",
+                        new java.io.IOException("PRIVATE_DOWNLOAD_CAUSE"), 503));
+
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            var saved = org.mockito.ArgumentCaptor.forClass(FaxJob.class);
+            verify(faxJobDao).persist(saved.capture());
+            assertThat(saved.getValue().getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+            assertThat(saved.getValue().getStatusString()).isEqualTo(
+                    "Incoming fax download failed. Check the fax service configuration and retry.");
+            assertThat(logs.messages()).anyMatch(message -> message.contains("HTTP 503"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_DOWNLOAD");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            verify(faxProviderClient, never()).markFaxAsRead(any(), any());
+            verify(faxProviderClient, never()).deleteFax(any(), any());
+        }
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void restoreProperties() {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        if (originalFaxIncomingDir == null) {
+            properties.setProperty("FAX_INCOMING_DIR", "");
+        } else {
+            properties.setProperty("FAX_INCOMING_DIR", originalFaxIncomingDir);
+        }
     }
 
     @Test

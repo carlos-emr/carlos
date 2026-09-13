@@ -543,9 +543,16 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             FaxJob receivedFax = createReceivedFax();
             FaxJob faxFile = createFaxFile("Corrupted PDF data not base64");
 
-            // When: Call saveToIncoming with corrupted data
-            Path result = (Path) saveToIncomingMethod.invoke(
-                    faxImporter, faxConfig, receivedFax, faxFile);
+            // When: Call saveToIncoming with corrupted data; diagnostics must not attach
+            // the parser exception or expose the staged filename in the persisted UI status.
+            receivedFax.setFile_name("PRIVATE_INCOMING_FILENAME.pdf");
+            Path result;
+            try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+                result = (Path) saveToIncomingMethod.invoke(faxImporter, faxConfig, receivedFax, faxFile);
+                assertThat(logs.messages()).anyMatch(message -> message.contains("Fax validation failed"));
+                assertThat(logs.messages().toString()).doesNotContain("PRIVATE_INCOMING_FILENAME");
+                assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            }
 
             // Then: Should return null (failure)
             assertThat(result).isNull();
@@ -553,10 +560,8 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             // Then: receivedFax should have ERROR status
             assertThat(receivedFax.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
 
-            // Then: Should have descriptive error message
-            assertThat(receivedFax.getStatusString())
-                    .isNotNull()
-                    .containsAnyOf("validation", "PDF", "failed", "decode", "Base64");
+            // Then: Persist a useful, fixed message rather than an exception payload.
+            assertThat(receivedFax.getStatusString()).isEqualTo("Incoming fax content validation failed (Base64 or PDF).");
         }
 
         /**

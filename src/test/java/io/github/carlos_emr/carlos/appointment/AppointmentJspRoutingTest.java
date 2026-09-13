@@ -25,6 +25,8 @@ class AppointmentJspRoutingTest {
 
     private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
             "(?:(?:var|let|const)\\s+)?(?:window\\.)?forceWindowPaths\\s*=\\s*(?:(?:window\\.)?forceWindowPaths\\s*\\|\\|\\s*)?\\[(?<body>[\\s\\S]*?)]\\s*;?");
+    private static final Pattern POPUP_FOCUS_PAGE_RETURN_PATTERN = Pattern.compile(
+            "function\\s+popupFocusPage\\s*\\([^)]*\\)\\s*\\{[\\s\\S]*?return\\s+popup;\\s*}");
 
     @Test
     void shouldRouteLiveAppointmentCallers_directlyToFinalTargets() throws IOException {
@@ -40,6 +42,7 @@ class AppointmentJspRoutingTest {
         String ticklerAdd = readJspContent("src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp");
         String addAlternateContact = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/AddAlternateContact.jsp");
         String oscarJs = readJspContent("src/main/webapp/share/javascript/Oscar.js");
+        String globalJs = readJspContent("src/main/webapp/js/global.js");
         String schedulingStruts = readJspContent("src/main/webapp/WEB-INF/classes/struts-scheduling.xml");
 
         assertThat(editAppointment).contains("/demographic/DemographicSearch");
@@ -52,6 +55,26 @@ class AppointmentJspRoutingTest {
         assertThat(editAppointment).doesNotContain("/appointment/appointmentcontrol");
         assertThat(editAppointment).contains("/appointment/appointmenteditrepeatbooking");
         assertThat(editAppointment).doesNotContain("appointmenteditrepeatbooking.jsp");
+        String printReceiptButton = extractInputElement(editAppointment, "printReceiptButton");
+        assertThat(printReceiptButton)
+                .as("the receipt update must use the same validated submit path as a normal update")
+                .contains(
+                        "formaction=\"<%=request.getContextPath() %>/appointment/UpdateRecord\"",
+                        "onclick=\"",
+                        "displaymode.value='Update Appt'",
+                        "printReceipt.value='1'",
+                        "onButUpdate()");
+        assertThat(editAppointment)
+                .as("the validated submit path must reserve the receipt window and explain a failed handoff")
+                .contains(
+                        "if (document.EDITAPPT.printReceipt.value === '1')",
+                        "reserveAppointmentReceiptWindow()",
+                        "popupFocusPage(350, 750, '', 'appointmentReceipt')",
+                        "receiptDocument.title = '${carlos:forJavaScript(appointmentReceiptTitle)}'",
+                        "receiptDocument.body.textContent = '${carlos:forJavaScript(appointmentReceiptPending)}'");
+        assertThat(globalJs)
+                .as("popupFocusPage must return the reserved window so callers can manage its lifecycle")
+                .containsPattern(POPUP_FOCUS_PAGE_RETURN_PATTERN);
 
         assertThat(addAppointment).contains("/appointment/AddRecord");
         assertThat(addAppointment).contains("/appointment/appointmentgrouprecords");
@@ -80,6 +103,9 @@ class AppointmentJspRoutingTest {
         assertThat(updateRecord).containsAnyOf("request.getContextPath()", "pageContext.request.contextPath");
         assertThat(updateRecord).contains("pageContext.request.contextPath");
         assertThat(updateRecord).contains("carlos:forJavaScript(carlos:forUriComponent(appointmentNo))");
+        assertThat(updateRecord)
+                .as("the update result must reuse the dedicated receipt window, not its own attachment window")
+                .contains("popupFocusPage(350, 750,", "'appointmentReceipt'");
         assertThat(updateRecord).doesNotContain("printappointment.jsp?appointment_no=");
 
         assertThat(providerDay).contains("/appointment/addappointment?");
@@ -148,5 +174,19 @@ class AppointmentJspRoutingTest {
 
     private String readJspContent(String path) throws IOException {
         return Files.readString(Path.of(path), StandardCharsets.UTF_8);
+    }
+
+    private String extractInputElement(String pageSource, String id) {
+        String idAttribute = "id=\"" + id + "\"";
+        int idIndex = pageSource.indexOf(idAttribute);
+        assertThat(idIndex)
+                .as("the page should contain input %s", id)
+                .isNotNegative();
+
+        int inputStart = pageSource.lastIndexOf("<input", idIndex);
+        int nextInput = pageSource.indexOf("<input", idIndex + idAttribute.length());
+        assertThat(inputStart).isNotNegative();
+        assertThat(nextInput).isGreaterThan(inputStart);
+        return pageSource.substring(inputStart, nextInput);
     }
 }

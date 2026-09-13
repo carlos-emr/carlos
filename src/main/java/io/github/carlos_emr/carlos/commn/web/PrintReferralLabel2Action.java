@@ -47,7 +47,9 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
@@ -69,13 +71,15 @@ public class PrintReferralLabel2Action extends ActionSupport {
     public PrintReferralLabel2Action() {
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     @SuppressWarnings("resource")
     private InputStream getInputStream() {
         InputStream ins = null;
         try {
-            ins = new FileInputStream(System.getProperty("user.home") + "/reflabel.xml");
-        } catch (IOException e) {
-            MiscUtils.getLogger().warn("no reflabel.xml found in user's home directory, going to backup");
+            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/reflabel.xml")));
+        } catch (IOException | SecurityException e) {
+            MiscUtils.getLogger().warn("no reflabel.xml found in user's home directory, going to backup", e);
         }
         if (ins == null) {
             ins = getClass().getResourceAsStream("/org/oscarehr/common/web/reflabel.xml");

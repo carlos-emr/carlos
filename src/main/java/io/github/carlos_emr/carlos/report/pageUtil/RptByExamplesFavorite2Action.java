@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,7 +40,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesFavoriteDao;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamplesFavorite;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
@@ -49,6 +49,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptByExamplesFavorite2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -59,29 +60,49 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
 
     private ReportByExamplesFavoriteDao dao = SpringUtils.getBean(ReportByExamplesFavoriteDao.class);
 
+    /**
+     * Handles the POST-only create, edit, update, and delete workflows for the
+     * current provider's Query-by-Example favorites. The caller must hold
+     * {@code _admin} or {@code _report} read privilege, and stored records are
+     * checked for provider ownership before mutation.
+     *
+     * @return {@link #NONE} after rejecting a non-POST request, {@code "edit"}
+     *         when preparing the editor, or {@link #SUCCESS} after a completed mutation
+     * @throws ServletException if servlet processing fails
+     * @throws IOException if the method-rejection response cannot be written
+     * @throws SecurityException if authorization or provider ownership validation fails
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
+        }
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
-        String providerNo = (String) request.getSession().getAttribute("user");
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (!StringUtils.isEmpty(this.getNewQuery())) {
             // Edit case
-            this.setQuery(this.getNewQuery());
-            if (!StringUtils.isEmpty(this.getNewName())) {
-                this.setFavoriteName(this.getNewName());
+            if (hasFavoriteId()) {
+                ReportByExamplesFavorite favorite = requireOwnedFavorite(providerNo, this.getId());
+                this.setQuery(favorite.getQuery());
+                this.setFavoriteName(favorite.getName());
             } else {
-                ReportByExamplesFavoriteDao dao = SpringUtils.getBean(ReportByExamplesFavoriteDao.class);
-                for (ReportByExamplesFavorite f : dao.findByQuery(this.getNewQuery())) {
-                    this.setFavoriteName(f.getName());
-                }
+                prepareNewFavorite(providerNo);
             }
             return "edit";
         } else if ("true".equalsIgnoreCase(this.getToDelete())) {
             // Deletion case
-            deleteQuery(this.getId());
+            deleteQuery(providerNo, this.getId());
+        } else if (hasFavoriteId()) {
+            updateFavorite(providerNo, this.getId(), this.getFavoriteName(), this.getQuery());
         } else {
             // Add to favorite case
             String favoriteName = this.getFavoriteName();
@@ -96,14 +117,21 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Creates a favorite or updates the first exact provider/name/query match.
+     * A null or empty query is ignored. Authorization is enforced by the calling
+     * {@link #execute()} workflow.
+     *
+     * @param providerNo owner of the favorite
+     * @param favoriteName display name for the favorite
+     * @param query SQL text to store
+     * @throws RuntimeException if favorite lookup or persistence fails
+     */
     public void write2Database(String providerNo, String favoriteName, String query) {
         if (query == null || query.compareTo("") == 0) {
             return;
         }
 
-        MiscUtils.getLogger().debug("Fav " + favoriteName + " query " + query);
-
-        ReportByExamplesFavoriteDao dao = SpringUtils.getBean(ReportByExamplesFavoriteDao.class);
         List<ReportByExamplesFavorite> favorites = dao.findByEverything(providerNo, favoriteName, query);
         if (favorites.isEmpty()) {
             ReportByExamplesFavorite r = new ReportByExamplesFavorite();
@@ -122,8 +150,54 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
 
     }
 
-    public void deleteQuery(String id) {
-        dao.remove(Integer.parseInt(id));
+    /**
+     * Deletes a favorite after verifying that it belongs to the supplied provider.
+     * Authorization is enforced by the calling {@link #execute()} workflow.
+     *
+     * @param providerNo expected owner of the favorite
+     * @param id numeric favorite identifier
+     * @throws SecurityException if the identifier is invalid or the favorite is not provider-owned
+     * @throws RuntimeException if persistence fails
+     */
+    public void deleteQuery(String providerNo, String id) {
+        dao.remove(requireOwnedFavorite(providerNo, id));
+    }
+
+    private void prepareNewFavorite(String providerNo) {
+        this.setQuery(this.getNewQuery());
+        if (!StringUtils.isEmpty(this.getNewName())) {
+            this.setFavoriteName(this.getNewName());
+            return;
+        }
+        List<ReportByExamplesFavorite> favorites = dao.findByProviderAndQuery(providerNo, this.getNewQuery());
+        if (!favorites.isEmpty()) {
+            this.setFavoriteName(favorites.get(0).getName());
+        }
+    }
+
+    private void updateFavorite(String providerNo, String id, String favoriteName, String query) {
+        ReportByExamplesFavorite favorite = requireOwnedFavorite(providerNo, id);
+        favorite.setName(favoriteName);
+        favorite.setQuery(StringUtils.defaultIfEmpty(query, favorite.getQuery()));
+        dao.merge(favorite);
+    }
+
+    private ReportByExamplesFavorite requireOwnedFavorite(String providerNo, String id) {
+        final int favoriteId;
+        try {
+            favoriteId = Integer.parseInt(id);
+        } catch (NumberFormatException e) {
+            throw new SecurityException("Invalid favorite selection", e);
+        }
+        ReportByExamplesFavorite favorite = dao.find(favoriteId);
+        if (favorite == null || !Objects.equals(providerNo, favorite.getProviderNo())) {
+            throw new SecurityException("Favorite does not belong to the current provider");
+        }
+        return favorite;
+    }
+
+    private boolean hasFavoriteId() {
+        return StringUtils.isNotBlank(this.getId()) && !"error".equals(this.getId());
     }
 
 

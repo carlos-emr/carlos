@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.web;
 
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
+import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -222,13 +223,21 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
         void shouldAccept_whenProviderNoIsValid() throws Exception {
             addRequestParameter("method", "patientExcelReport");
             addRequestParameter("provider_no", "doc1");
-            setSessionAttribute("listview", new ArrayList<>());
+            setSessionAttribute("listview", new ArrayList<>(List.of(new DxRegistedPTInfo(
+                    "Test", "Patient", "X", "2000-01-01", "555-0100", "TEST-HIN",
+                    "icd9", "250", "2026-01-01", "2026-08-06", "A"))));
             setSessionAttribute("radiovaluestatus", "patientRegistedAll");
 
-            // patientExcelReport returns null (writes directly to output stream)
+            // patientExcelReport returns NONE after writing directly to the output stream
             String result = executeAction(action);
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(getMockResponse().getContentType())
+                    .isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            assertThat(getMockResponse().getHeader("Content-disposition"))
+                    .isEqualTo("attachment; filename=dxResearchReport.xlsx");
+            assertThat(getMockResponse().getContentAsByteArray())
+                    .startsWith((byte) 0x50, (byte) 0x4B, (byte) 0x03, (byte) 0x04);
         }
     }
 

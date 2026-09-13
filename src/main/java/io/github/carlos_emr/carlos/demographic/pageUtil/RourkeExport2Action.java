@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.DataExport;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -62,6 +63,7 @@ import java.sql.Timestamp;
 import java.util.*;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RourkeExport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -3684,6 +3686,8 @@ public class RourkeExport2Action extends ActionSupport {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void buildPatientDemographic(Demographic demo, Patient patient) {
 
         String healthCard = demo.getHin();
@@ -3771,7 +3775,8 @@ public class RourkeExport2Action extends ActionSupport {
         options.setSaveOuter();
 
         String fileName = "Rourke2009Export.xml";
-        File xmlFile = new File(tmpDir, fileName);
+        File tmpDirectory = PathValidationUtils.resolveConfiguredDirectory(tmpDir, "Rourke export temp directory");
+        File xmlFile = PathValidationUtils.validateGeneratedChildPath(fileName, tmpDirectory);
         try {
             patientDocument.save(xmlFile, options);
         } catch (IOException e) {
@@ -3783,13 +3788,15 @@ public class RourkeExport2Action extends ActionSupport {
         //Zip export files
         String zipName = "rourke2009_export-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".zip";
         if (!Util.zipFiles(files, zipName, tmpDir)) {
+            // Abort rather than copying a missing/partial zip into DOCUMENT_DIR below.
             MiscUtils.getLogger().error("Error! Failed zipping export files");
+            throw new Exception("Failed to zip Rourke export files; aborting export");
         }
 
         //copy zip to document directory
-        File zipFile = new File(tmpDir, zipName);
+        File zipFile = PathValidationUtils.validateGeneratedChildPath(zipName, tmpDirectory);
         CarlosProperties properties = CarlosProperties.getInstance();
-        File destDir = new File(properties.getProperty("DOCUMENT_DIR"));
+        File destDir = PathValidationUtils.resolveConfiguredDirectory(properties.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         org.apache.commons.io.FileUtils.copyFileToDirectory(zipFile, destDir);
 
         //Remove zip & export files from temp dir
