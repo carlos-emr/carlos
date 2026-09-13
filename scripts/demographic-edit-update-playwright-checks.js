@@ -1,0 +1,226 @@
+#!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * This software is published under the GPL GNU General Public License.
+ * You may redistribute it and/or modify it under version 2 of the License,
+ * or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/*
+ * Browser regression check: editing a patient's demographics through the UI
+ * actually writes every field, and the page shows what was written.
+ *
+ * WHY THIS EXISTS. Every other check on this page opens it; none of them changes
+ * anything and reads the row back. The failure this is for is the one the suite's
+ * own rules call out -- "a page that shows a success banner and writes nothing is
+ * the failure these workflows actually have, and it is invisible to a check that
+ * only reads the page". A silently dropped demographic field is worse than most:
+ * a clinic corrects a patient's phone number or postal code, the page says saved,
+ * and the correction is gone. Nothing in CARLOS tells anyone.
+ *
+ * THE ASSERTION IS THREE-SIDED, and all three are needed:
+ *   1. the row in MariaDB carries the new value  -- proves the write happened;
+ *   2. the re-opened form shows it               -- proves the read path agrees,
+ *      which is what the clinic actually sees next time;
+ *   3. a field left alone is unchanged           -- proves the update is not
+ *      clobbering columns it was not asked to touch, which is the other way this
+ *      screen can lose data.
+ *
+ * ENTERED THE WAY A CLINIC ENTERS IT: login, the schedule's Search control, the
+ * patient row, the record's Edit link. Not a demographic URL.
+ *
+ * IT MUTATES, SO IT RESTORES. It edits an existing demo patient rather than
+ * creating one (demographic-add-playwright-checks.js covers creation, and
+ * deleting a patient is far messier than restoring five columns). The original
+ * values are captured before the edit and written back in a finally, whether the
+ * assertions passed or threw. Only the columns this check touched are restored,
+ * and only for the one demographic_no it edited.
+ *
+ * NO REAL PATIENT DATA IS WRITTEN: every value is obviously synthetic and carries
+ * this run's marker, and no value is ever logged -- the diagnostics name the
+ * field, never its content.
+ *
+ * Defaults are for the local devcontainer:
+ *   npm run test:demographic-edit-update-playwright
+ *
+ * Optional environment (the common contract is in lib/playwright-harness.js):
+ *   DEMOGRAPHIC_EDIT_SEARCH=FAKE-        surname prefix to search for
+ *   DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO=2    prefer this patient from the results
+ *   DEMOGRAPHIC_EDIT_TIMEOUT_MS=20000
+ *
+ * IMPLEMENTS: coverage plan section 2.4, `demographic-edit-update`
+ * (docs/ui-tests/playwright-coverage-plan-2026.08.md). App defects this check
+ * finds are recorded in docs/ui-tests/app-findings-log.md, not worked around.
+ */
+
+const {
+  assert, createSqlRunner, createRecorder, launchBrowser, login, newContext, readConfig,
+  runCheck, sqlString,
+} = require('./lib/playwright-harness');
+const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
+
+/*
+ * The fields this check round-trips: form input name -> demographic column.
+ *
+ * Chosen to be free text (no dropdown whose options vary by deployment), clearly
+ * synthetic when filled, and non-clinical -- a demographic's address and contact
+ * details, not their care. `sin` and `hin` are deliberately excluded: they are
+ * identifiers a check has no business writing, even on a FAKE- demo patient.
+ */
+const ROUND_TRIP_FIELDS = [
+  { input: 'city', column: 'city', value: (marker) => `CITY-${marker}` },
+  { input: 'postal', column: 'postal', value: () => 'X0X0X0' },
+  // 555-01xx is the reserved fictional range, so this can never be a real number.
+  { input: 'phone', column: 'phone', value: () => '555-0142' },
+  { input: 'email', column: 'email', value: (marker) => `pw-${marker.toLowerCase()}@example.invalid` },
+  { input: 'chart_no', column: 'chart_no', value: (marker) => `PW${marker}` },
+];
+
+/** A column the check never writes, used to prove the update is not clobbering. */
+const UNTOUCHED_COLUMN = 'last_name';
+
+async function openEditForm(masterPage, timeout) {
+  const editLink = masterPage.locator('a', { hasText: /^\s*Edit\s*$/i }).first();
+  assert(await editLink.count() > 0,
+    'The Master Record offers no Edit link, so a clinic cannot correct a patient record from it');
+  await editLink.scrollIntoViewIfNeeded().catch(() => {});
+  await Promise.all([
+    masterPage.waitForLoadState('domcontentloaded').catch(() => {}),
+    editLink.click({ timeout }),
+  ]);
+  await masterPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  return masterPage;
+}
+
+/** Which of the round-trip fields this deployment actually renders. */
+async function presentFields(page) {
+  const present = [];
+  for (const field of ROUND_TRIP_FIELDS) {
+    const locator = page.locator(`[name="${field.input}"]`).first();
+    if (await locator.count() > 0) {
+      present.push(field);
+    }
+  }
+  assert(present.length >= 3,
+    `The edit form rendered only ${present.length} of the ${ROUND_TRIP_FIELDS.length} fields this check writes; `
+    + 'either the form changed or it failed to render, and a round-trip over one field proves little');
+  return present;
+}
+
+async function main() {
+  const config = readConfig();
+  const searchTerm = process.env.DEMOGRAPHIC_EDIT_SEARCH || 'FAKE-';
+  const preferredDemographicNo = process.env.DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO || '2';
+  const timeout = Number(process.env.DEMOGRAPHIC_EDIT_TIMEOUT_MS || '20000');
+  const marker = `EDIT${Date.now()}`;
+
+  const recorder = createRecorder();
+  const sql = createSqlRunner(config.mysql);
+  const browser = await launchBrowser(config);
+
+  let demographicNo = null;
+  let original = null;
+  let fields = [];
+
+  try {
+    const context = await newContext(browser, config);
+    const schedulePage = await login(context, config, recorder);
+    const masterPage = await openMasterRecord(context, schedulePage, recorder, {
+      searchTerm, preferredDemographicNo, timeout,
+    });
+
+    // Take the id from the page the UI landed on, not from the environment: the
+    // check must assert against the patient it actually opened.
+    const landed = masterPage.url().match(/demographic_no=(\d+)/);
+    assert(landed, 'Could not determine which patient the Master Record opened');
+    [, demographicNo] = landed;
+
+    await openEditForm(masterPage, timeout);
+    fields = await presentFields(masterPage);
+
+    // Capture the originals from the DATABASE, not the form: a form that renders
+    // a field blank when the column is populated is itself a defect, and
+    // restoring from the form would then silently erase the real value.
+    const columns = [...fields.map((field) => field.column), UNTOUCHED_COLUMN];
+    const [before] = sql.rows(
+      `SELECT ${columns.map((column) => `\`${column}\``).join(', ')} FROM demographic WHERE demographic_no = ${Number(demographicNo)}`,
+    );
+    assert(before, `No demographic row for the patient the UI opened (demographic_no ${demographicNo})`);
+    original = Object.fromEntries(columns.map((column, index) => [column, before[index]]));
+
+    for (const field of fields) {
+      const input = masterPage.locator(`[name="${field.input}"]`).first();
+      await input.scrollIntoViewIfNeeded().catch(() => {});
+      await input.fill(field.value(marker));
+    }
+
+    const save = masterPage.locator('input[value="Update Record"], button:has-text("Update Record")').first();
+    assert(await save.count() > 0, 'The edit form offers no "Update Record" control');
+    await save.scrollIntoViewIfNeeded().catch(() => {});
+    await Promise.all([
+      masterPage.waitForLoadState('domcontentloaded').catch(() => {}),
+      save.click({ timeout }),
+    ]);
+    await masterPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+
+    // 1. The write reached the database.
+    const [after] = sql.rows(
+      `SELECT ${columns.map((column) => `\`${column}\``).join(', ')} FROM demographic WHERE demographic_no = ${Number(demographicNo)}`,
+    );
+    assert(after, 'The demographic row disappeared after the update');
+    const stored = Object.fromEntries(columns.map((column, index) => [column, after[index]]));
+
+    const dropped = fields.filter((field) => stored[field.column] !== field.value(marker));
+    assert(dropped.length === 0,
+      `The form reported the record saved, but ${dropped.length} field(s) did not reach the database: `
+      + `${dropped.map((field) => field.input).join(', ')}. `
+      + 'A correction typed here would be silently lost.');
+
+    // 2. A field the check never touched is untouched.
+    assert(stored[UNTOUCHED_COLUMN] === original[UNTOUCHED_COLUMN],
+      `Updating the patient changed ${UNTOUCHED_COLUMN}, which the check never edited; the update is clobbering columns it was not asked to touch`);
+
+    // 3. The read path agrees -- what the clinic sees the next time it opens the
+    // record. A write that the form cannot read back is still a lost correction.
+    await openEditForm(masterPage, timeout);
+    const notShown = [];
+    for (const field of fields) {
+      const shown = await masterPage.locator(`[name="${field.input}"]`).first().inputValue().catch(() => '');
+      if (shown !== field.value(marker)) {
+        notShown.push(field.input);
+      }
+    }
+    assert(notShown.length === 0,
+      `${notShown.length} field(s) are stored correctly but the re-opened form does not show them: ${notShown.join(', ')}`);
+
+    console.log(`  round-tripped ${fields.length} demographic field(s) through the UI and the database`);
+    return { demographicNo, fields: fields.map((field) => field.input) };
+  } finally {
+    // Restore whatever was captured, even if the run threw mid-edit. Only the
+    // columns this check writes, and only this patient.
+    try {
+      if (demographicNo && original) {
+        const assignments = fields
+          .map((field) => `\`${field.column}\` = ${original[field.column] === null ? 'NULL' : sqlString(original[field.column])}`)
+          .join(', ');
+        if (assignments) {
+          sql.execute(`UPDATE demographic SET ${assignments} WHERE demographic_no = ${Number(demographicNo)}`);
+        }
+      }
+    } finally {
+      sql.dispose();
+      await browser.close().catch(() => {});
+    }
+  }
+}
+
+if (require.main === module) {
+  runCheck({ name: 'demographic-edit-update', run: main });
+}
+
+module.exports = { ROUND_TRIP_FIELDS, UNTOUCHED_COLUMN, main, openEditForm, presentFields };

@@ -95,7 +95,8 @@
     "test:admin-index-links-playwright": "node scripts/admin-index-links-playwright-checks.js",
     "test:master-record-tabs-playwright": "node scripts/master-record-tabs-playwright-checks.js",
     "test:echart-navbar-modules-playwright": "node scripts/echart-navbar-modules-playwright-checks.js",
-    "test:surface-audit-playwright": "node scripts/surface-audit-playwright-checks.js"
+    "test:surface-audit-playwright": "node scripts/surface-audit-playwright-checks.js",
+    "test:demographic-edit-update-playwright": "node scripts/demographic-edit-update-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

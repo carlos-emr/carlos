@@ -329,6 +329,23 @@
       ]
     },
     {
+      "name": "demographic-edit-update",
+      "script": "scripts/demographic-edit-update-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DEMOGRAPHIC_EDIT_SEARCH",
+        "DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO",
+        "DEMOGRAPHIC_EDIT_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "demographic-master-crud-smoke",
       "script": "scripts/demographic-master-crud-smoke.js",
       "tiers": [
