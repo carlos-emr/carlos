@@ -142,6 +142,7 @@ schedule, never by a URL.
 | `patient-search-modes` | §2.4 | Every patient-search mode, the active/inactive/all scope, and the browser-side date-of-birth refusal |
 | `clinical-calculators` | §2.5 | The chart's osteoporotic-fracture and simple calculators — the numbers themselves, not just that the page rendered |
 | `demographic-labels` | §2.4 | The Master Record's Print / Labels menu — the PDF *bytes* of every envelope and label, not just that the popup opened |
+| `inboxhub-filters` | §2.6 | The Inbox's type and review-status filters, asserted as a *partition* of the unfiltered list — which is what catches a filter that is silently ignored |
 
 The first thirteen share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding

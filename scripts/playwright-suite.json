@@ -397,6 +397,21 @@
       ]
     },
     {
+      "name": "inboxhub-filters",
+      "script": "scripts/inboxhub-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "demographic-master-crud-smoke",
       "script": "scripts/demographic-master-crud-smoke.js",
       "tiers": [
