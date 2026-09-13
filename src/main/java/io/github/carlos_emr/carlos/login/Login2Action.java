@@ -911,21 +911,22 @@ public final class Login2Action extends ActionSupport {
     /**
      * Validates an RFC 6238 TOTP code with one time-step of clock skew tolerance.
      *
-     * <p>Authenticator apps and server clocks can differ briefly. Accepting the current, previous,
-     * or next time step preserves the usual +/- one-step tolerance without accepting an unbounded
-     * replay window.</p>
+     * <p>Authenticator apps and server clocks can differ briefly. Accepting the steps within
+     * {@link TotpWindow#STEP_TOLERANCE} of the current one preserves the usual +/- one-step
+     * tolerance without accepting an unbounded replay window.</p>
      *
-     * <p>An accepted code is recorded in {@link MfaUsedCodeCache} for the validity window. A code
-     * that has already authenticated within that window is rejected (RFC 6238 §5.2), preventing a
-     * code observed for one pending-MFA session from being replayed against another.</p>
+     * <p>An accepted code is recorded in {@link MfaUsedCodeCache} for {@link TotpWindow#ACCEPTANCE},
+     * the same span this method accepts it over. A code that has already authenticated within that
+     * window is rejected (RFC 6238 §5.2), preventing a code observed for one pending-MFA session
+     * from being replayed against another.</p>
      *
      * @param mfaSecret Base32-encoded MFA secret
      * @param submittedCode user-submitted TOTP code; length validation is performed by the TOTP
      *        comparison rather than this helper
      * @param securityNo security record id the code is being validated for; used to scope used-code
      *        tracking so a code accepted for one account does not block others
-     * @return true when the submitted code matches the current, previous, or next time step and has
-     *         not already been accepted within the validity window
+     * @return true when the submitted code matches an accepted time step and has not already been
+     *         accepted within the validity window
      * @throws InvalidKeyException when the Base32 secret is null, empty, malformed, or cannot
      *         create a valid TOTP key
      */
@@ -945,10 +946,16 @@ public final class Login2Action extends ActionSupport {
         java.time.Instant now = java.time.Instant.now();
         java.time.Duration timeStep = totpGenerator.getTimeStep();
 
-        boolean matchesTimeStep =
-                constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now), submittedCode)
-                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)), submittedCode)
-                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)), submittedCode);
+        // Every tolerated step is compared even after a match so the number of comparisons does not
+        // reveal which step matched. TotpWindow also sizes the replay cache's TTL from this
+        // tolerance, keeping "still accepted" and "still remembered" the same span.
+        boolean matchesTimeStep = false;
+        for (int step = -TotpWindow.STEP_TOLERANCE; step <= TotpWindow.STEP_TOLERANCE; step++) {
+            java.time.Instant candidateInstant = now.plus(timeStep.multipliedBy(step));
+            if (constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, candidateInstant), submittedCode)) {
+                matchesTimeStep = true;
+            }
+        }
         if (!matchesTimeStep) {
             return false;
         }

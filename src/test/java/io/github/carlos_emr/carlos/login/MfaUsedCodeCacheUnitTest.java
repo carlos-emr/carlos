@@ -59,20 +59,36 @@ class MfaUsedCodeCacheUnitTest {
         assertThat(cache.recordIfUnused(12345, null)).isFalse();
         assertThat(cache.recordIfUnused(12345, "")).isFalse();
 
-        // None of the rejected inputs should have been recorded, so a real code still succeeds.
+        // Nothing was stored, so the same inputs cannot have consumed a later legitimate use.
+        assertThat(cache.size()).isZero();
         assertThat(cache.recordIfUnused(12345, "123456")).isTrue();
     }
 
     @Test
-    @DisplayName("should allow the code again after the write TTL expires")
-    void shouldAllowCodeAgain_afterWriteTtlExpires() {
+    @DisplayName("should still reject a replay one second before the acceptance window closes")
+    void shouldRejectReplay_beforeAcceptanceWindowCloses() {
+        AtomicLong nanos = new AtomicLong();
+        MfaUsedCodeCache cache = new MfaUsedCodeCache(nanos::get);
+
+        assertThat(cache.recordIfUnused(12345, "123456")).isTrue();
+
+        nanos.addAndGet(TotpWindow.ACCEPTANCE.minusSeconds(1).toNanos());
+
+        // The code is still inside the window Login2Action would accept it over, so it must still
+        // be remembered as used.
+        assertThat(cache.recordIfUnused(12345, "123456")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should allow the code again once the acceptance window has elapsed")
+    void shouldAllowCodeAgain_afterAcceptanceWindowElapses() {
         AtomicLong nanos = new AtomicLong();
         MfaUsedCodeCache cache = new MfaUsedCodeCache(nanos::get);
 
         assertThat(cache.recordIfUnused(12345, "123456")).isTrue();
         assertThat(cache.recordIfUnused(12345, "123456")).isFalse();
 
-        nanos.addAndGet(TimeUnit.SECONDS.toNanos(90));
+        nanos.addAndGet(TotpWindow.ACCEPTANCE.toNanos());
 
         assertThat(cache.recordIfUnused(12345, "123456")).isTrue();
     }
@@ -105,8 +121,8 @@ class MfaUsedCodeCacheUnitTest {
     }
 
     @Test
-    @DisplayName("should expose a process-wide singleton instance")
-    void shouldExposeProcessWideSingletonInstance() {
+    @DisplayName("should expose a singleton instance for process-wide replay tracking")
+    void shouldExposeSingletonInstance_forProcessWideTracking() {
         assertThat(MfaUsedCodeCache.getInstance()).isSameAs(MfaUsedCodeCache.getInstance());
     }
 }

@@ -1076,6 +1076,11 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             // A second, independent pending-MFA challenge replays the same observed code while it is
             // still within the TOTP validity window; it must be rejected as already used.
             stagePendingMfa(security);
+            // The first login committed a redirect on the shared response. A fresh one keeps a
+            // replay-protection regression failing on the assertions below rather than on an
+            // "already committed" error from the second login's redirect.
+            response = new MockHttpServletResponse();
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
             Login2Action replayAttempt = newAction(null, null, null);
             replayAttempt.setCode("123456");
 
@@ -1083,6 +1088,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("mfaHandler");
             assertThat(request.getAttribute("mfaValidateCodeErr")).isEqualTo("Invalid MFA Code");
+            assertThat(response.getRedirectedUrl()).isNull();
             logActionMock.verify(() -> LogAction.addLog("999998", "login", "mfa_failed", "mfa",
                     request.getRemoteAddr()));
         }
