@@ -177,6 +177,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_form", "w"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.AddEForm2Action",
                     "_eform", "w"),
+            // The complete email send/cancel action is POST-only. Send dispatches transmit email
+            // and persist EmailLog; cancel consumes session-scoped attachment state.
+            Arguments.of("io.github.carlos_emr.carlos.email.action.EmailSend2Action",
+                    "_email", "w"),
             // --- encounter / consultation ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
                     "_con", "w"),
@@ -230,6 +234,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // package is not in IN_SCOPE_PACKAGE_PREFIXES, so the discovery scan does not find it.
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
                     "_eform", "u"),
+            // Puts a deleted eForm back in the live library. Same shape and same reason as
+            // DelEForm2Action above; it was missed when delete was fixed, so a GET restored
+            // an eForm with no CSRF token until the guard was added.
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action",
+                    "_eform", "w"),
             // Replaces the shared antenatal risk-list configuration file. The HTTP
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
@@ -247,6 +256,10 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Rx: only method=updateDB mutates (it rebuilds the DrugRef database) and rejects
+        // GET; the read-only status methods stay reachable by GET. Covered in detail by
+        // RxUpdateDrugref2ActionUnitTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateDrugref2Action",
         // Appointment: rejects GET when targeting specific mutation URIs
         // (appointmentaddrecordprint, groupappt param).
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action",
@@ -295,8 +308,10 @@ class MutatorActionGetRejectionContractUnitTest {
         // Fax admin queue: CancelFax/ResendFax/SetCompleted mutate and reject GET/HEAD before
         // dispatch; viewFax/fetchFaxStatus stay verb-open (see ManageFaxes2ActionUnitTest).
         "io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action",
-        // Fax admin config: configure/restartFaxScheduler mutate and reject GET/HEAD;
-        // getFaxSchedularStatus/getPendingIncomingFaxes stay verb-open (see ConfigureFax2ActionUnitTest).
+        // Fax admin config: configure/restartFaxScheduler mutate and testConnection forwards
+        // submitted credentials to the provider; all three are POST-only (405 + Allow: POST for
+        // GET/HEAD and PUT/PATCH/DELETE alike); getFaxSchedularStatus/getPendingIncomingFaxes
+        // stay verb-open (see ConfigureFax2ActionUnitTest).
         "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
         // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
         // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).
@@ -384,6 +399,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
+        // email slice: only EmailSend2Action is registered (issue #3111); the broader email
+        // production-readiness audit that surfaced it is tracked via PR #3096.
+        "io.github.carlos_emr.carlos.email.action.EmailSend2Action",
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",

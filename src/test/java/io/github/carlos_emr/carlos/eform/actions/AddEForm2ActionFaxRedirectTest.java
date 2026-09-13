@@ -40,17 +40,17 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.mockStatic;
 
 /**
- * Unit tests for the prepared-fax redirect helper in {@link AddEForm2Action}.
+ * Unit tests for the prepared-fax POST handoff helper in {@link AddEForm2Action}.
  *
  * <p>Both eForm fax branches (current and previous revision) route through the shared
- * {@code redirectToPreparedFax(...)} helper. These tests pin the security-relevant URL contract:
+ * {@code prepareFaxHandoff(...)} helper. These tests pin the security-relevant URL contract:
  * optional recipient parameters MUST be URL-encoded (a raw {@code &}/{@code #} would otherwise
- * split or truncate the redirect query string) and empty optional parameters MUST be omitted
+ * split or truncate the form-action query string) and empty optional parameters MUST be omitted
  * rather than emitted as dangling {@code &recipient=} pairs.</p>
  *
  * @since 2026-06-06
  */
-@DisplayName("AddEForm2Action prepared-fax redirect")
+@DisplayName("AddEForm2Action prepared-fax POST handoff")
 @Tag("unit")
 @Tag("eform")
 @Tag("security")
@@ -65,7 +65,7 @@ class AddEForm2ActionFaxRedirectTest extends CarlosUnitTestBase {
     void setUp() {
         // AddEForm2Action resolves these managers from SpringUtils in its field initializers,
         // so they must be registered before the action is constructed (none are used by the
-        // redirect helper under test — they only need to satisfy construction).
+        // POST handoff helper under test — they only need to satisfy construction).
         registerMock(SecurityInfoManager.class, Mockito.mock(SecurityInfoManager.class));
         registerMock(EformDataManager.class, Mockito.mock(EformDataManager.class));
         registerMock(DocumentAttachmentManager.class, Mockito.mock(DocumentAttachmentManager.class));
@@ -91,14 +91,17 @@ class AddEForm2ActionFaxRedirectTest extends CarlosUnitTestBase {
         }
     }
 
-    /** Invokes the private helper via reflection and returns the redirect target it wrote. */
+    /** Returns the target of the narrow form, not a redirect that replays the saved body. */
     private String redirect(String fdid, String demoNo, String recipient, String faxNo, String letterhead)
             throws Exception {
         Method m = AddEForm2Action.class.getDeclaredMethod(
-            "redirectToPreparedFax", String.class, String.class, String.class, String.class, String.class);
+            "prepareFaxHandoff", String.class, String.class, String.class, String.class, String.class);
         m.setAccessible(true);
         m.invoke(action, fdid, demoNo, recipient, faxNo, letterhead);
-        return mockResponse.getRedirectedUrl();
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        assertThat(mockResponse.getHeader("Location")).isNull();
+        assertThat(mockResponse.getHeader("Cache-Control")).isEqualTo("no-store");
+        return (String) mockRequest.getAttribute("preparedFaxTarget");
     }
 
     @Test
@@ -139,5 +142,18 @@ class AddEForm2ActionFaxRedirectTest extends CarlosUnitTestBase {
             .contains("&recipient=Smith")
             .contains("&recipientFaxNumber=555+1234")
             .contains("&letterheadFax=Clinic%231");
+    }
+
+    @Test
+    void shouldRenderOnlyTheNarrowProtectedPostWithoutReplayingClinicalFields() throws Exception {
+        String jsp = java.nio.file.Files.readString(java.nio.file.Path.of(
+                "src/main/webapp/WEB-INF/jsp/eform/EFormFaxPreparation.jsp"));
+        assertThat(jsp).contains("method=\"post\"", "<csrf:tokenname/>", "<csrf:tokenvalue/>",
+                "${requestScope.preparedFaxTarget}", "context=\"htmlAttribute\"", "form.requestSubmit()");
+        assertThat(jsp).doesNotContain("paramValues", "parameterMap", "openosp-image-link", "sendRedirect");
+        assertThat(jsp.split("<input ", -1)).hasSize(2);
+        String mappings = java.nio.file.Files.readString(java.nio.file.Path.of(
+                "src/main/webapp/WEB-INF/classes/struts-eform.xml"));
+        assertThat(mappings).contains("<result name=\"faxPreparation\">/WEB-INF/jsp/eform/EFormFaxPreparation.jsp</result>");
     }
 }

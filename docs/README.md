@@ -10,7 +10,7 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 
 | Category | Documents | Description |
 |----------|-----------|-------------|
-| **Installation & Deployment** | [Installing CARLOS (.deb packages)](install-deb.md) | Single-server production install on Ubuntu 26.04: packages, quickstart, day-two administration, backups, TLS. Development environments use the [devcontainer](../.devcontainer/README.md); a container-based deployment is under development at [carlos-podman](https://github.com/carlos-emr/carlos-podman) |
+| **Installation & Deployment** | [Installing CARLOS (.deb packages)](install-deb.md)<br>[carlos-ctl administration reference](carlos-ctl.md) | Single-server production install on Ubuntu 26.04: packages, an illustrated installer walkthrough, quickstart, day-two administration, troubleshooting, backups, TLS — plus the post-install configuration and `carlos-ctl` verb reference. Development environments use the [devcontainer](../.devcontainer/README.md); a container-based deployment is under development at [carlos-podman](https://github.com/carlos-emr/carlos-podman) |
 | **Testing** | [📂 test/](test/)<br>[📂 ui-tests/](ui-tests/)<br>[eForm PDF Render Smoke Test](ui-tests/eform-pdf-render-smoke-test.md) | Modern test framework docs, browser-backed UI testing, and the eForm PDF smoke runbook |
 | **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
 | **Security** | [Password System](Password_System.md) | Authentication and security architecture |
@@ -44,6 +44,8 @@ Key testing resources:
 | [Runtime Directories](runtime-directories.md) | Required filesystem directories and permissions |
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
+| [Database Schema Management](database-schema-management.md) | Flyway baseline, forward migrations, where migrations run |
+| [Database Index Review (2026-09-04)](database-index-review-2026-09-04.md) | Index state vs. DAO query patterns; rationale for the V1.0.18/V1.0.19 index migrations |
 | [Testing Exclusions](Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md) | Excluded test documentation |
 
 ## Quick Links
