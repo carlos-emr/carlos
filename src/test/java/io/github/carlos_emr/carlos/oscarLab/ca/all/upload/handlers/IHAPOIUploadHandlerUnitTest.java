@@ -59,6 +59,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.IHAPOIHandler;
 
+/**
+ * Unit tests for {@link IHAPOIHandler} upload parse functionality.
+ *
+ * <p>Parameterized tests verifying that each IHAPOI HL7 message from the
+ * test archive can be successfully parsed by the upload handler.
+ * Migrated from legacy JUnit 4 IHAPOIHandlerTest (upload).
+ *
+ * <p>Also covers {@code validateAndGetFile}: temp-upload sources stay accepted,
+ * a missing DOCUMENT_DIR fails closed, and file-state errors never echo the
+ * caller-supplied path.
+ *
+ * @since 2026-03-07
+ */
 @Tag("unit")
 @Tag("lab")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -147,7 +160,7 @@ class IHAPOIUploadHandlerUnitTest {
 
     @Test
     @DisplayName("should not expose upload file path in file state errors")
-    void shouldNotExposeUploadFilePathInFileStateErrors() throws Exception {
+    void shouldNotExposeUploadFilePath_inFileStateErrors() throws Exception {
         Path documentDir = Files.createTempDirectory("ihapoi-document-dir");
         Path uploadFile = documentDir.resolve("missing-ihapoi-upload.txt");
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");

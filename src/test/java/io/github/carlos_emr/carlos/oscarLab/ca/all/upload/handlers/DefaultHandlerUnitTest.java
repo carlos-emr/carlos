@@ -16,6 +16,14 @@ import org.junit.jupiter.api.Test;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.DefaultHandler;
 
+/**
+ * Unit tests for {@link DefaultHandler} path-validation behaviour.
+ *
+ * <p>Lab filenames can carry patient-identifying text, so a rejected path must not
+ * be echoed back in the thrown message where it would reach logs or a response.
+ *
+ * @since 2026-06-01
+ */
 @Tag("unit")
 @Tag("lab")
 @DisplayName("DefaultHandler unit tests")
@@ -23,7 +31,7 @@ class DefaultHandlerUnitTest {
 
     @Test
     @DisplayName("should not expose rejected file path in readTextFile errors")
-    void shouldNotExposeRejectedFilePathInReadTextFileErrors() throws Exception {
+    void shouldNotExposeRejectedFilePath_inReadTextFileErrors() throws Exception {
         Path documentDir = Files.createTempDirectory("default-handler-document-dir");
         Path uploadFile = Files.createTempFile("default-handler-upload", ".txt");
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");

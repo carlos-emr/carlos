@@ -617,7 +617,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should return canonical DOCUMENT_DIR when configured")
-        void shouldReturnCanonicalDocumentDirectoryWhenConfigured() throws IOException {
+        void shouldReturnCanonicalDocumentDirectory_whenConfigured() throws IOException {
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
 
             assertThat(PathValidationUtils.getRequiredDocumentDirectory())
@@ -627,7 +627,7 @@ class PathValidationUtilsUnitTest {
         @ParameterizedTest
         @DisplayName("should reject blank DOCUMENT_DIR values")
         @ValueSource(strings = {"", "   "})
-        void shouldRejectBlankDocumentDirectory(String documentDir) {
+        void shouldRejectDocumentDirectory_whenBlank(String documentDir) {
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir);
 
             assertThatThrownBy(PathValidationUtils::getRequiredDocumentDirectory)
@@ -637,7 +637,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should reject missing DOCUMENT_DIR")
-        void shouldRejectMissingDocumentDirectory() {
+        void shouldRejectDocumentDirectory_whenMissing() {
             CarlosProperties.getInstance().remove("DOCUMENT_DIR");
 
             assertThatThrownBy(PathValidationUtils::getRequiredDocumentDirectory)
@@ -647,7 +647,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should reject DOCUMENT_DIR that is not a directory")
-        void shouldRejectDocumentDirectoryThatIsNotDirectory() throws IOException {
+        void shouldRejectDocumentDirectory_whenNotADirectory() throws IOException {
             Path regularFile = Files.createTempFile(tempDir, "document-dir", ".txt");
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", regularFile.toString());
 
@@ -658,7 +658,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should accept existing document path inside DOCUMENT_DIR")
-        void shouldAcceptExistingDocumentPathInsideDocumentDirectory() throws IOException {
+        void shouldAcceptExistingDocumentPath_whenInsideDocumentDirectory() throws IOException {
             Path document = Files.writeString(tempDir.resolve("lab.hl7"), "MSH");
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
 
@@ -668,7 +668,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should reject existing document path outside DOCUMENT_DIR")
-        void shouldRejectExistingDocumentPathOutsideDocumentDirectory() throws IOException {
+        void shouldRejectExistingDocumentPath_whenOutsideDocumentDirectory() throws IOException {
             Path outside = Files.createTempFile("outside-document-dir", ".hl7");
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
 
@@ -686,7 +686,7 @@ class PathValidationUtilsUnitTest {
         @ParameterizedTest
         @DisplayName("should reject blank existing path values")
         @ValueSource(strings = {"", "   "})
-        void shouldRejectBlankExistingPathValues(String filePath) {
+        void shouldRejectExistingPath_whenBlank(String filePath) {
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
 
             assertThatThrownBy(() -> PathValidationUtils.validateExistingDocumentPath(filePath))
@@ -735,7 +735,7 @@ class PathValidationUtilsUnitTest {
         @ParameterizedTest
         @DisplayName("should reject generated child path components with traversal syntax")
         @ValueSource(strings = {"../evil.txt", "nested/evil.txt", "nested\\evil.txt", ".", ".."})
-        void shouldRejectGeneratedChildPathComponentsWithTraversalSyntax(String generatedName) {
+        void shouldRejectGeneratedChildPath_withTraversalSyntax(String generatedName) {
             assertThatThrownBy(() -> PathValidationUtils.validateGeneratedChildPath(generatedName, allowedDir))
                     .isInstanceOf(FileValidationException.class)
                     .hasMessageContaining(PathValidationUtils.PATH_COMPONENT_FILENAME_MESSAGE);
