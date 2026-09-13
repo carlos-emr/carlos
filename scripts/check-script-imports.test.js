@@ -26,10 +26,22 @@ function exportedNames(file) {
   const source = fs.readFileSync(file, 'utf8');
   const match = source.match(/module\.exports\s*=\s*\{([\s\S]*?)\n\};/);
   assert.ok(match, `${path.basename(file)} must export an object literal`);
-  return match[1]
+  const entries = match[1]
     .split(',')
     .map((entry) => entry.trim().replace(/,$/, ''))
     .filter((entry) => entry && !entry.includes(':') && !entry.startsWith('//'));
+  // Every surviving entry becomes part of a RegExp below. A non-identifier --
+  // a spread like `...harness` (which eform-local-playwright-utils.js really
+  // does use, and a lib file could adopt), or anything carrying regex
+  // metacharacters -- would build a pattern that matches the wrong thing or
+  // throws. Silently dropping it would be worse than either: the name would
+  // stop being guarded and the sweep would still report success. Fail loudly.
+  for (const entry of entries) {
+    assert.match(entry, /^[A-Za-z_$][\w$]*$/,
+      `${path.basename(file)} exports "${entry}", which is not a plain identifier; `
+      + 'the import sweep builds a RegExp per export and cannot guard this one');
+  }
+  return entries;
 }
 
 const SHARED = [
@@ -118,4 +130,24 @@ test('the sweep detects a missing import when one exists', () => {
   assert.ok(!scope.has('assertStrictPage'));
   const body = executableOnly('  assertStrictPage(recorder, [\'login\']);');
   assert.match(body, /(?<![\w.$])assertStrictPage\s*\(/);
+});
+
+test('an export that is not a plain identifier fails the parse instead of weakening the sweep', () => {
+  // Every export becomes part of a RegExp. A spread entry -- `...harness`, the
+  // shape eform-local-playwright-utils.js already uses -- would build
+  // `(?<![\w.$])...harness\s*\(`, where the three dots are wildcards: a pattern
+  // that quietly matches the wrong thing while the sweep still reports success.
+  const identifier = /^[A-Za-z_$][\w$]*$/;
+  assert.ok(identifier.test('assertStrictPage'));
+  assert.ok(identifier.test('_private'));
+  assert.ok(identifier.test('$dollar'));
+  assert.ok(!identifier.test('...harness'), 'a spread must not pass as an export name');
+  assert.ok(!identifier.test('a.b'));
+  assert.ok(!identifier.test('a('));
+  assert.ok(!identifier.test(''));
+  // And the parser really applies it, rather than the test asserting on a
+  // regex it defined itself.
+  const source = fs.readFileSync(path.join(__dirname, 'check-script-imports.test.js'), 'utf8');
+  const parser = source.slice(source.indexOf('function exportedNames'), source.indexOf('const SHARED'));
+  assert.match(parser, /assert\.match\(entry,/);
 });

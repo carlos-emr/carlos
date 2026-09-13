@@ -150,8 +150,13 @@ async function shownRows(page) {
 
 /** Open the Inbox from the schedule's own control. */
 async function openInbox(context, schedulePage, recorder, timeout) {
-  const control = schedulePage.locator('#inboxLink');
-  assert(await control.count() > 0,
+  // .first() because click() is strict: a locator matching two elements throws
+  // rather than clicking. No rendered page carries two #inboxLink today (the
+  // day sheet has its own nav copy and does not include mainMenu.jsp), but a
+  // duplicated id in a legacy JSP is a plausible future, and this should fail
+  // on the Inbox being unreachable, not on the audit's own locator.
+  const control = schedulePage.locator('#inboxLink').first();
+  assert(await schedulePage.locator('#inboxLink').count() > 0,
     'The schedule offers no Inbox control, so a clinician cannot reach their results from the day sheet at all');
   const inbox = await clickOpensPopup(schedulePage, control, {
     context, label: 'inbox', recorder, timeout,
@@ -162,8 +167,8 @@ async function openInbox(context, schedulePage, recorder, timeout) {
 
 /** Narrow by one type through the toolbar, and read what came back. */
 async function applyTypeFilter(page, filter, timeout) {
-  const control = page.locator(filter.id);
-  if (await control.count() === 0) {
+  const control = page.locator(filter.id).first();
+  if (await page.locator(filter.id).count() === 0) {
     throw new SkipCheck(`${filter.title}: ${filter.optional || 'the control is not rendered here'}`);
   }
   await control.click({ timeout });
