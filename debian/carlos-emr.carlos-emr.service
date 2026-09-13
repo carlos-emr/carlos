@@ -24,6 +24,10 @@ After=mariadb.service network-online.target
 Wants=carlos-emr-provision.service
 After=carlos-emr-provision.service
 
+# Disabling does not prevent a queued or manual start. Enforce the credential
+# guard on every start, including after a failed boot-time repair.
+ConditionPathExists=!/var/lib/carlos-emr/.seed-credential-live
+
 [Service]
 Type=exec
 User=carlos

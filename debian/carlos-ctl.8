@@ -193,7 +193,7 @@ can end with no clinical schema while apt still reports success. The postinst
 records that in
 .IR /var/lib/carlos\-emr/.install\-incomplete ,
 .B check
-reports it, and this command completes it: the MariaDB settings drop\-in, the
+reports it, and this command completes it: configuration, the MariaDB settings drop\-in, the
 accounts, the schema, the seeded administrator credential, and the
 demonstration dataset if the install asked for one.
 .IP
@@ -201,6 +201,19 @@ It is idempotent, so a step that already succeeded is detected and skipped, and
 it can be re\-run after fixing whatever stopped the install. DrugRef answering
 nothing on loopback is usually this same failure seen from the other end: it
 shares the application server that never started.
+.IP
+Any failed required or requested step returns nonzero and keeps the install
+pending. Fix the reported error, then run the command again. A failed service
+start also restores the marker. If the marker cannot be written, automatic
+retry is not assured; retry manually after fixing the filesystem.
+.IP
+DrugRef data is provisioned separately. An empty drugref2 database requires
+.BR "dpkg-reconfigure carlos-emr-drugref" .
+Existing tables without a seed-completion marker require a backup and
+administrator review before reloading; populated databases are left alone.
+Run
+.B check
+and test a prescribing lookup after recovery.
 .IP
 .B carlos\-emr\-provision.service
 runs
@@ -229,7 +242,10 @@ Replace the seeded
 administrator password and PIN with random values and write them to
 .IR /etc/carlos\-emr/initial\-admin.txt .
 The migrations seed that account with a hash published in the CARLOS source
-repository, so this runs at install time by default.
+repository, so this runs at install time by default. If a failed installation
+left a credential guard or disabled service, use
+.B finish-install
+to complete recovery and restore service startup.
 .TP
 .B db-users
 Create the databases and the least\-privilege accounts (the verb name

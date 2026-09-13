@@ -145,21 +145,20 @@ Description: CARLOS EMR is installed
 Template: carlos-emr/install-incomplete
 Type: error
 Description: CARLOS EMR is installed but is NOT ready to use
- The package could not finish provisioning the database, so this host has no
- clinical schema, no administrator credential, and the EMR has not been
- started. Drug lookups are silent for the same reason: DrugRef shares the
- application server that did not start.
+ The package could not finish all requested database provisioning steps.
+ The schema, administrator credential, database settings or requested demo data
+ may be incomplete. The EMR and prescribing lookups may be unavailable.
  .
- Nothing is lost and nothing needs reinstalling. The reason was reported in the
- installation output and is recorded in /var/lib/carlos-emr/.install-incomplete
- — most often a database server that was not running, or that went away during
- the installation.
+ Read the installation output for the failed step. When the filesystem is
+ writable, it is also recorded in /var/lib/carlos-emr/.install-incomplete.
+ Existing data is preserved; do not delete databases to retry this repair.
  .
- Fix that cause if it is still present, then finish the install with:
+ Fix the reported cause, then finish the install with:
  .
  sudo carlos-ctl finish-install
  .
- It resumes exactly where the installer stopped — database settings, accounts,
- the schema, the administrator credential and the demonstration dataset if you
- asked for one — and then starts the EMR. It also runs by itself at the next
- boot. Check the result with "sudo carlos-ctl check".
+ It checks database settings, accounts, the schema, the administrator credential
+ and the demonstration dataset if requested. A failed step returns an error and
+ keeps the install pending. Boot retries require the marker and never migrate
+ a populated schema that fails validation. Check the result with
+ "sudo carlos-ctl check"; follow any separate DrugRef recovery instructions.

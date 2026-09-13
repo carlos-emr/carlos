@@ -11,8 +11,9 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     Reported by an alpha tester whose install ended with no tables in the
     clinical database.
   * The installer now records what it could not do in
-    /var/lib/carlos-emr/.install-incomplete and raises a debconf note at
-    critical priority, which every front end presents.
+    /var/lib/carlos-emr/.install-incomplete and raises a critical debconf error
+    for interactive front ends. Unattended installs must check the recorded
+    state and command output.
   * A new "carlos-ctl finish-install" resumes provisioning where the installer
     stopped -- the MariaDB settings, the least-privilege accounts, the schema,
     the seeded administrator credential and the demonstration dataset if the
@@ -20,6 +21,11 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     fails closed the same way the installer does if the published carlosdoc
     credential cannot be replaced. It also reports a drug reference database
     that the same failure left unseeded, and names the command that loads it.
+  * Recovery now checks every required/requested step, retains incomplete state
+    on failure, verifies credential containment and re-enablement, and identifies
+    DrugRef datasets without a seed-completion marker. Marker I/O failures are
+    reported explicitly; they do not silently turn failure into completion.
+    Add behavioral failure/retry tests and clearer administrator instructions.
   * carlos-emr-provision.service runs that once at each boot, ordered before
     carlos-emr.service, so an install interrupted by a database that went away
     completes by itself. It is skipped outright when there is no marker, and it

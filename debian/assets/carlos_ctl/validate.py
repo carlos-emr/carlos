@@ -104,13 +104,13 @@ def cmd_check(argv) -> int:
     # to come back at the next reboot.
     for unit in ("carlos-emr.service", "carlos-emr-backup.timer",
                  "carlos-emr-backup-verify.timer", "carlos-emr-cert-renew.timer"):
-        if run(["systemctl", "is-enabled", "--quiet", unit], capture_output=True).returncode == 0:
-            _ok(f"{unit} is enabled")
-        elif unit == "carlos-emr.service" and os.path.exists(
+        if unit == "carlos-emr.service" and os.path.exists(
                 os.path.join("/var/lib/carlos-emr", ".seed-credential-live")):
-            _bad(f"{unit} is DISABLED because the seeded administrator credential is still "
-                 "live — it will NOT start at the next boot. Run 'carlos-ctl bootstrap-admin' "
-                 "(it re-enables the unit), then 'systemctl start carlos-emr'")
+            _bad(f"{unit} has a seeded-credential guard that blocks starts. "
+                 "Run 'carlos-ctl finish-install' to verify the credential, "
+                 "clear the guard and re-enable the service.")
+        elif run(["systemctl", "is-enabled", "--quiet", unit], capture_output=True).returncode == 0:
+            _ok(f"{unit} is enabled")
         else:
             _bad(f"{unit} is NOT enabled")
 

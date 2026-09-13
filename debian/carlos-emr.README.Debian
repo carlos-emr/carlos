@@ -735,16 +735,39 @@ The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silen
   on stderr, the transaction succeeds, and on a front end that never showed you
   stderr the install simply looks finished.
 
-  What it leaves behind is recorded in /var/lib/carlos-emr/.install-incomplete,
-  and the same file is what makes carlos-emr-provision.service finish the job at
-  the next boot. The usual cause is the database: check
-  `journalctl -u mariadb` and, on a small machine, `journalctl -k | grep -i oom`
-  for a MariaDB the kernel killed under memory pressure during the install (the
-  8 GB in the requirements assumes a server, not a desktop session as well).
+  When the state directory is writable, the failed install is recorded in
+  /var/lib/carlos-emr/.install-incomplete. Interactive installers also show a
+  critical debconf error; unattended installers must inspect the command output
+  and run carlos-ctl check. If writing the marker fails, fix the filesystem and
+  run finish-install manually: an automatic boot retry is not assured.
 
-  DrugRef "not answering XML-RPC on loopback" is usually this same failure seen
-  from the other end rather than a DrugRef problem: DrugRef is a second webapp in
-  the EMR's Tomcat, so while the EMR is not running, DrugRef answers nothing.
+  finish-install returns nonzero if configuration, database settings, accounts,
+  migration, credential replacement or requested demo data fails. It preserves
+  the pending state so you can fix the reported cause and run the same command
+  again. A populated schema that fails validation is NEVER migrated at boot;
+  arrange a verified backup and have the administrator review the Flyway error
+  before running the manual repair. Do not delete clinical databases to retry.
+
+  Check `journalctl -u mariadb` for the database outage's cause. Memory pressure
+  is one possibility, not a diagnosis: `journalctl -k` records kernel OOM kills.
+  An 8 GB allocation alone does not establish why provisioning was interrupted.
+
+  DrugRef is a second webapp in the EMR's Tomcat, so a stopped application server
+  also stops drug lookups. Its dataset is loaded by the separate DrugRef package.
+  If finish-install says that database is empty, run:
+
+    sudo dpkg-reconfigure carlos-emr-drugref
+    sudo carlos-ctl check
+
+  If it reports existing tables WITHOUT _carlos_seed_complete, the dataset may
+  be from an older installation or an interrupted seed. Back it up and ask the
+  administrator to verify it before reloading; reconfigure deliberately leaves
+  populated databases alone. Test a prescribing lookup after recovery.
+
+  A failed seeded-password replacement stops and disables the EMR and leaves a
+  guard that also blocks manual starts. finish-install checks containment and
+  reports an error if it cannot verify it. A successful retry re-enables the
+  service and removes the guard; boot recovery also queues its start.
 
 eForm print, fax or archive fails
   Those three are the only workflows that need a browser, and it runs as its own

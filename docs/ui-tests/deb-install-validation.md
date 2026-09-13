@@ -1124,3 +1124,52 @@ maintenance to retain their IDs and specialist assignments. The current
 consultation settings offer Add/Delete, without a re-enable control. Automatic
 repair cannot infer which existing inactive services were deliberately disabled.
 Published migration checksums remain unchanged.
+
+### PR #3666 install recovery regression validation (2026-09-13)
+
+The published `2026.08.0-alpha12` DEBs were checksum-verified and tested in an
+Ubuntu 26.04 VM with 2 vCPUs, 8 GiB RAM and no guest swap. With MariaDB
+unavailable, a real apt reinstall returned success while both clinical and
+DrugRef schemas had zero tables and no recovery marker; reboot did not repair
+that state. The same packages installed successfully when MariaDB was available.
+This reproduces the packaging failure, but does not establish the original
+Desktop tester's cause or implicate the 8 GiB allocation.
+
+The follow-up fixes were tested with the published main/DrugRef application
+payloads, PR Python tooling, maintainer-script source and systemd units. The
+maintainer script retained the published package's generated debhelper section;
+the new provisioner was explicitly enabled. This was a source overlay on an
+existing disposable VM with new test schemas, not a newly built snapshot23 DEB
+or a clean Ubuntu Desktop installation. The original site configuration and
+dependencies were retained and backed up for restoration; this follow-up kept
+the site's pre-existing 2 GiB maximum Java heap. The earlier published-package
+positive control also passed with a 4 GiB heap on the same 8 GiB VM.
+
+| Regression | Observed fixed behavior |
+| --- | --- |
+| Configure while MariaDB is unavailable | `dpkg-reconfigure` exits 0, records the reason and requested options, and displays the incomplete-install error |
+| Reboot after that outage | Creates the clinical schema with 23 migrations, replaces the seeded administrator credential, clears the marker and starts the EMR |
+| Requested demo-data load blocked by its real file lock | `finish-install` exits 1, keeps the marker and leaves the demo completion table absent |
+| Same demo failure in the maintainer script | Configure exits 0 but keeps the incomplete marker and displays the error |
+| Manual migration of a nonempty fixture schema without Flyway history | Exits 1, keeps the marker, leaves the fixture unchanged and does not start the stopped EMR |
+| Retry after removing the demo lock | Loads the requested dataset, records its completion, clears the install marker and starts the service |
+| Injected credential replacement failure with real systemd | Verifies the service is stopped and disabled; both guards remain; a manual start is blocked |
+| Reboot with the credential guard and disabled service | Verifies the already-replaced credential, re-enables the service, removes the guard and queues the EMR start |
+| Two marker-free boot invocations | No-op; generated administrator credential file remains unchanged |
+| Real DrugRef dataset with its marker temporarily renamed | Warns about a potentially incomplete/older seed, preserves data and requests backup/administrator review |
+
+Automated coverage comprises 235 passing Node script tests, including the
+recovery harness's 22 Python behavioral tests. Fault injection covers required
+step return codes and exceptions, marker write/delete failures, credential
+containment and re-enablement, failed service starts, and DrugRef query failures.
+Shell syntax, Python compilation and manpage checks pass. Systemd verifies the
+CARLOS units; Ubuntu emits unrelated deprecation warnings for its XFS units.
+
+Final `carlos-ctl check` passes with 431 clinical tables and 18 DrugRef tables.
+Playwright passes generated login/first-password reset, prescribing search
+(`amox`: 47 results, HTTP 200), eChart writes/autosave and application-health
+routes through nginx/ModSecurity. No automatic JVM restart or kernel OOM kill
+was observed; the VM had no swap. These checks use existing backup/drill history
+and do not claim a new backup/restore drill. An initial missing-DrugRef failure
+was traced to the test overlay hiding the companion webapp; the overlay was
+corrected with the published DrugRef payload before the passing final checks.

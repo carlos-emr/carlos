@@ -26,35 +26,51 @@ STATE=/var/lib/carlos-emr
 # the EMR: a shell variable would not survive the run, and the exposure has to
 # outlast it (a reboot, or an aborted apt transaction, would otherwise bring the
 # internet-facing EMR up with a password published in the source repository).
-# Cleared automatically by the next successful bootstrap-admin.
+# Cleared by a successful configure or finish-install after bootstrap-admin.
 SEED_SENTINEL="${STATE}/.seed-credential-live"
 
 # Durable record that database provisioning is OWED. Every provisioning step
-# below is deliberately non-fatal — a database that is unreachable must not
+# below is non-fatal unless credential containment itself fails. An unreachable
+# database must not
 # leave dpkg half-configured and block the rest of the apt transaction — but
 # the consequence, reported by an alpha tester, is that apt exits 0 over a host
 # with no clinical schema, with the diagnosis only on a stderr stream a
 # graphical or quiet front end never showed. This marker outlives the run so
 # the failure is still there to be found: `carlos-ctl check` reports it first,
-# the debconf note at the end of this script announces it whatever the front
-# end, and carlos-emr-provision.service finishes the job at the next boot.
+# the debconf error at the end of this script announces it to interactive front
+# ends, and carlos-emr-provision.service finishes the job at the next boot.
 # It carries what the install asked for, so the resumed run makes the same
 # decisions this one would have.
 INCOMPLETE_MARKER="${STATE}/.install-incomplete"
 
+# Keep an in-memory failure flag too: a full/read-only filesystem may prevent
+# writing the marker, but must not suppress the notice or abort dpkg configure.
+INSTALL_INCOMPLETE=0
 mark_incomplete() {
-    mkdir -p "${STATE}"
-    # The reason is one of this script's own constant strings: one line, no
-    # values that could carry a newline into a KEY=value file.
-    {
-        printf 'reason=%s\n' "$1"
-        printf 'reset_admin=%s\n' "${RESET_ADMIN:-true}"
-        printf 'demo_data=%s\n' "${DEMO_DATA:-false}"
-        printf 'at=%s\n' "$(date -Is 2>/dev/null || true)"
-    } > "${INCOMPLETE_MARKER}"
-    chmod 0644 "${INCOMPLETE_MARKER}"
-    echo "carlos-emr: recorded the unfinished install in ${INCOMPLETE_MARKER}." >&2
+    INSTALL_INCOMPLETE=1
+    marker_tmp=""
+    if mkdir -p "${STATE}" && marker_tmp="$(mktemp "${INCOMPLETE_MARKER}.XXXXXX")" &&
+        {
+            printf 'reason=%s\n' "$1" &&
+            printf 'reset_admin=%s\n' "${RESET_ADMIN:-true}" &&
+            printf 'demo_data=%s\n' "${DEMO_DATA:-false}" &&
+            printf 'at=%s\n' "$(date -Is 2>/dev/null || true)"
+        } > "${marker_tmp}" && chmod 0644 "${marker_tmp}" &&
+        mv -f "${marker_tmp}" "${INCOMPLETE_MARKER}"; then
+        echo "carlos-emr: recorded the unfinished install in ${INCOMPLETE_MARKER}." >&2
+    else
+        [ -z "${marker_tmp}" ] || rm -f "${marker_tmp}" || true
+        echo "carlos-emr: WARNING: could not persist ${INCOMPLETE_MARKER}; automatic retry is not assured." >&2
+    fi
     echo "carlos-emr: finish it with:  sudo carlos-ctl finish-install" >&2
+}
+
+clear_incomplete() {
+    if [ "${INSTALL_INCOMPLETE}" = 0 ]; then
+        if ! rm -f "${INCOMPLETE_MARKER}"; then
+            mark_incomplete "the completed provisioning state could not be recorded"
+        fi
+    fi
 }
 
 # deb-systemd-invoke rather than systemctl: it honours /usr/sbin/policy-rc.d,
@@ -715,6 +731,7 @@ case "$1" in
             echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
             echo "carlos-emr: WARNING: configuration (see above). The install continues; fix the" >&2
             echo "carlos-emr: WARNING: cause and re-run 'carlos-ctl init-config'." >&2
+            mark_incomplete "the configuration could not be applied"
         }
 
         # (The mariadb start + wait that used to sit here is hoisted above
@@ -742,6 +759,7 @@ case "$1" in
                 echo "carlos-emr: (STRICT sql_mode and/or no binary log). The application may" >&2
                 echo "carlos-emr: misbehave and point-in-time recovery is unavailable until" >&2
                 echo "carlos-emr: 'carlos-ctl db-apply-settings' succeeds." >&2
+                mark_incomplete "the database settings could not be applied"
             }
             # Handled like the migration below rather than left to set -e: an
             # unhandled abort here marks the package failed-to-configure,
@@ -796,10 +814,15 @@ case "$1" in
                     # stayed disabled, so the EMR would silently fail to come
                     # back at the following reboot.
                     if [ -e "${SEED_SENTINEL}" ]; then
-                        rm -f "${SEED_SENTINEL}"
-                        deb-systemd-helper enable carlos-emr.service >/dev/null 2>&1 || true
-                        echo "carlos-emr: the seeded administrator credential has been replaced; the" >&2
-                        echo "carlos-emr: service unit has been re-enabled." >&2
+                        if deb-systemd-helper enable carlos-emr.service &&
+                            { [ ! -d /run/systemd/system ] || systemctl is-enabled --quiet carlos-emr.service; } &&
+                            rm -f "${SEED_SENTINEL}"; then
+                            echo "carlos-emr: the seeded administrator credential has been replaced; the" >&2
+                            echo "carlos-emr: service unit has been re-enabled." >&2
+                        else
+                            MIGRATION_OK=0
+                            mark_incomplete "the credential guard could not be cleared or the service re-enabled"
+                        fi
                     fi
                 elif [ "${MIGRATION_OK}" = 1 ]; then
                     # Only treat this as "the published credential is live" when
@@ -811,6 +834,7 @@ case "$1" in
                     # seeded credential years ago.
                     MIGRATION_OK=0
                     SEED_CREDENTIAL_LIVE=1
+                    mark_incomplete "the seeded administrator credential could not be replaced"
                     echo "carlos-emr: the seeded 'carlosdoc' password could NOT be replaced — the" >&2
                     echo "carlos-emr: account still carries the credential PUBLISHED in the CARLOS" >&2
                     echo "carlos-emr: source repository (see the notice at the end of setup)." >&2
@@ -835,22 +859,25 @@ case "$1" in
                 carlos-ctl demo-data || {
                     echo "carlos-emr: WARNING: the demonstration dataset was NOT loaded (see" >&2
                     echo "carlos-emr: above). Fix the cause, then run 'sudo carlos-ctl demo-data'." >&2
+                    mark_incomplete "the requested demonstration dataset could not be loaded"
                 }
             fi
         else
             MIGRATION_OK=0
             echo "carlos-emr: could not reach MariaDB as root over the unix socket." >&2
-            echo "carlos-emr: NOTHING has been provisioned: no accounts, no schema, no" >&2
-            echo "carlos-emr: administrator credential, and the EMR has not been started." >&2
+            echo "carlos-emr: database provisioning could not run; existing data was not checked." >&2
+            echo "carlos-emr: the EMR has not been started by this configure run." >&2
             mark_incomplete "MariaDB was not reachable while the package was configured"
         fi
 
         # Everything provisioned: drop any marker a previous failed configure
         # left behind, so the boot-time completion and `carlos-ctl check` stop
         # reporting a problem that this run has just fixed.
-        if [ "${MIGRATION_OK}" = 1 ]; then
-            rm -f "${INCOMPLETE_MARKER}"
+        if [ -e "${SEED_SENTINEL}" ] && [ "${SEED_CREDENTIAL_LIVE}" = 0 ]; then
+            MIGRATION_OK=0
+            mark_incomplete "the seeded credential guard still requires recovery"
         fi
+        clear_incomplete
 
         # --- TLS ------------------------------------------------------------
         # A certificate failure is fatal to the front door (nginx refuses to
@@ -979,18 +1006,30 @@ if [ "$1" = configure ] && [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
     # VERIFY rather than assert: this is the one invariant the whole branch
     # exists to establish, and a silent failure here means the operator believes
     # a reboot is safe when it is not.
-    if [ -d /run/systemd/system ] && systemctl is-enabled --quiet carlos-emr.service 2>/dev/null; then
-        echo "carlos-emr: *** COULD NOT DISABLE carlos-emr.service ***" >&2
-        echo "carlos-emr: the seeded 'carlosdoc' credential (published in the CARLOS source" >&2
-        echo "carlos-emr: repository) is still live AND the unit will start at the next boot." >&2
-        echo "carlos-emr: run this NOW:  sudo systemctl disable --now carlos-emr" >&2
-    else
-        echo "carlos-emr: the service has been STOPPED and DISABLED: the seeded 'carlosdoc'" >&2
-        echo "carlos-emr: credential (published in the CARLOS source repository) could not be" >&2
-        echo "carlos-emr: replaced, so the EMR must not come up with it live — including on a" >&2
-        echo "carlos-emr: reboot. Replace the credential and the unit is re-enabled for you:" >&2
-        echo "carlos-emr:   sudo carlos-ctl bootstrap-admin && sudo systemctl start carlos-emr" >&2
+    containment_failed=0
+    if [ ! -f "${SEED_SENTINEL}" ]; then
+        echo "carlos-emr: ERROR: could not persist the seeded credential guard." >&2
+        containment_failed=1
     fi
+    if [ -d /run/systemd/system ]; then
+        enabled_state="$(systemctl is-enabled carlos-emr.service 2>/dev/null || true)"
+        active_state="$(systemctl is-active carlos-emr.service 2>/dev/null || true)"
+        case "${enabled_state}" in disabled|masked) ;; *) containment_failed=1 ;; esac
+        case "${active_state}" in inactive|failed) ;; *) containment_failed=1 ;; esac
+    else
+        enabled_rc=0
+        deb-systemd-helper is-enabled carlos-emr.service >/dev/null 2>&1 || enabled_rc=$?
+        [ "${enabled_rc}" = 1 ] || containment_failed=1
+    fi
+    if [ "${containment_failed}" = 1 ]; then
+        echo "carlos-emr: ERROR: could not verify that carlos-emr.service is stopped and protected at boot." >&2
+        echo "carlos-emr: the published administrator credential may still be live. Check this NOW:" >&2
+        echo "carlos-emr:   sudo systemctl disable --now carlos-emr" >&2
+        exit 1
+    fi
+    echo "carlos-emr: the service is disabled and the credential guard is in place." >&2
+    echo "carlos-emr: replace the seeded administrator credential and complete setup with:" >&2
+    echo "carlos-emr:   sudo carlos-ctl finish-install" >&2
 fi
 
 # Everything below runs AFTER the debhelper snippets, so the units exist and
@@ -1005,10 +1044,9 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
     # deb-systemd-invoke has no reload verb, so call systemctl directly (as the
     # renderer's postinst already does). Best-effort; never fail configure.
     systemctl --system daemon-reload >/dev/null 2>&1 || true
-    if [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
-        # Already stopped, disabled and reported by the block above; the only
-        # thing left to do here is NOT start the service.
-        :
+    if [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ] || [ -e "${SEED_SENTINEL}" ]; then
+        echo "carlos-emr: NOT starting the service — the seeded credential guard requires recovery." >&2
+        echo "carlos-emr: run 'sudo carlos-ctl finish-install' (see above)." >&2
     elif [ "${MIGRATION_OK:-1}" = 0 ]; then
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
@@ -1082,11 +1120,12 @@ fi
 # reports a failed provisioning step on stderr and lets the transaction
 # succeed, which is right for dpkg and wrong for the person installing: apt
 # prints "done", and a graphical front end never showed them a stderr stream at
-# all. A debconf note is the only channel every front end presents, and it is
-# raised at critical priority so a low-priority or preseeded run still records
-# it. Outside the systemd guard above on purpose: an image or chroot build that
+# all. Raise a critical debconf error for interactive front ends as well as
+# the stderr diagnosis. Unattended installs must inspect the marker and run
+# carlos-ctl check; noninteractive front ends cannot guarantee a visible alert.
+# Outside the systemd guard above on purpose: an image or chroot build that
 # provisioned nothing needs the same notice.
-if [ "$1" = configure ] && [ -e "${INCOMPLETE_MARKER}" ]; then
+if [ "$1" = configure ] && { [ "${INSTALL_INCOMPLETE}" = 1 ] || [ -e "${INCOMPLETE_MARKER}" ]; }; then
     # 'seen false' first: debconf shows a note once and then skips it, so a
     # second failed attempt — the one an operator is most likely to be watching
     # for — would otherwise pass in silence.
