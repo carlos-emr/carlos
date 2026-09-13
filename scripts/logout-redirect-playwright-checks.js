@@ -164,7 +164,12 @@ function isSevereConsoleMessage(message) {
   }
   const text = message.text();
   if (message.type() === 'error') {
-    return !/imageRenderingServlet\?|favicon\.ico/i.test(text);
+    // Chromium reports a failed subresource with a GENERIC message ("Failed to
+    // load resource: ... 404") and names the asset only in location().url, so the
+    // asset has to be matched there. Matching the text alone let an already-excused
+    // 404 fail the check anyway.
+    const assetUrl = (message.location() || {}).url || '';
+    return !/imageRenderingServlet\?|favicon\.ico/i.test(`${text} ${assetUrl}`);
   }
   return /(ReferenceError|TypeError|SyntaxError|DataTable is not a function|Cannot read|Cannot set|is not defined)/i.test(text);
 }

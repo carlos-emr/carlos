@@ -201,9 +201,16 @@ Fixtures the dataset alone does not provide:
 #    done
 #    then chown carlos:carlos and chmod 0640 the pushed files.
 
-# b) Provider stamp for the consultation-signature checks: any small PNG,
-#    named consult_sig_<providerNo>.png in the eForm image directory.
-#    (Any PNG will do, e.g.: convert -size 240x80 xc:white consult_sig_999998.png,
+# b) Provider stamp for the consultation-signature checks: a small PNG named
+#    consult_sig_<providerNo>.png in the eForm image directory.
+#    IT MUST BE A DECODABLE PNG, not merely a file with a PNG header. The stamp is
+#    embedded into the consultation PDF by ImageIO, so a truncated or hand-built
+#    PNG makes the whole print preview fail with the generic "A print preview of
+#    this consultation could not be generated" message, and the real cause
+#    (javax.imageio.IIOException: Error reading PNG image data) appears only in the
+#    application log. Verify before staging it, e.g.
+#      python3 -c "from PIL import Image; Image.open('consult_sig_999998.png').load()"
+#    (Any real PNG will do: convert -size 240x80 xc:white consult_sig_999998.png,
 #    or reuse a repo image such as release/4422-84v9-1.png renamed.)
 lxc file push consult_sig_999998.png \
   carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/eform/images/
@@ -268,6 +275,11 @@ export TEST_PASSWORD_HASH='{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/
 # Record pointers into the demo dataset:
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
+# CONSULT_REQUEST_ID must name a consultation that ALREADY CARRIES A SIGNATURE:
+# consultation-signature-playwright-checks.js waits for the stored signature image to
+# load. The demo dataset ships none (signature_img is NULL on every consultationRequests
+# row), so on a fresh install run consultation-signature-submit first — it signs
+# CONSULT_UNSIGNED_REQUEST_ID — and then point CONSULT_REQUEST_ID at that same id.
 export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
 # Ontario 3rd-Party / Bonus-Codes bill entry (billing-on-third-party-playwright-checks.js).

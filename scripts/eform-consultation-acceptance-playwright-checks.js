@@ -205,7 +205,16 @@ function isSevereConsoleMessage(message) {
     return false;
   }
   const text = message.text();
-  if (isExpectedLegacyConsoleIssue(text, message.location())) {
+  const location = message.location() || {};
+  if (isExpectedLegacyConsoleIssue(text, location)) {
+    return false;
+  }
+  // Chromium reports a failed subresource with a GENERIC message ("Failed to load
+  // resource: ... 404") and names the asset only in location().url, so an asset
+  // isExpectedMissingAsset() already excuses on the response side has to be excused
+  // here too. The packaged front door proxies the browser's automatic root
+  // /favicon.ico request to Tomcat, which 404s it on every page load.
+  if (/Failed to load resource/i.test(text) && isExpectedMissingAsset(404, location.url || '')) {
     return false;
   }
   if (message.type() === 'error') {
