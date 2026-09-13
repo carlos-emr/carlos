@@ -49,7 +49,7 @@ const ERROR_PAGE_RE = /CARLOS has encountered an unexpected error|HTTP Status 5\
  */
 async function catalogueLinks(page, options = {}) {
   const selector = options.selector || 'a';
-  return page.$$eval(selector, (anchors) => anchors.map((anchor) => {
+  const items = await page.$$eval(selector, (anchors) => anchors.map((anchor, index) => {
     const text = (anchor.textContent || '').replace(/\s+/g, ' ').trim();
     const href = anchor.getAttribute('href') || '';
     const onclick = anchor.getAttribute('onclick') || anchor.getAttribute('onClick') || '';
@@ -59,12 +59,21 @@ async function catalogueLinks(page, options = {}) {
       return null;
     }
     return {
+      // WHY THE INDEX. It is the item's identity for clicking. Two admin items
+      // routinely share link text while pointing at different routes ("Search",
+      // "Report", a module name under two headings); locating by text would
+      // click the first one both times, so the second route would never be
+      // opened while the check still reported two successes.
+      index,
       text,
       href: hasRealHref ? href : '',
       route: routeInOnclick ? routeInOnclick[1] : '',
       opensPopup: /popup|newWindow|postToPopup/i.test(onclick),
     };
   }).filter(Boolean));
+  // The selector travels with the item so the click resolves against the same
+  // list the index was taken from.
+  return items.map((item) => ({ ...item, selector }));
 }
 
 /** Drop duplicates (the same item often appears in two permission branches). */
@@ -132,8 +141,25 @@ async function csrfBootstrapFinding(page, itemText) {
   return `${itemText}: reads input[name="CSRF-TOKEN"] from an AJAX POST, but that input is absent or empty, so those requests are rejected with an HTML error page (CLAUDE.md CSRF bootstrapping rule)`;
 }
 
+/**
+ * The one anchor this catalogue entry came from.
+ *
+ * By index within the same selector the catalogue was read from, never by text:
+ * see the note in catalogueLinks. The identity check re-reads the anchor and
+ * fails loudly if the page changed under us, because clicking a different link
+ * than the one being reported on is worse than not clicking at all.
+ */
+function itemLocator(hostPage, item) {
+  assert(Number.isInteger(item.index) && item.index >= 0,
+    `catalogue item "${item.text}" has no index; it did not come from catalogueLinks()`);
+  return hostPage.locator(item.selector || 'a').nth(item.index);
+}
+
 async function openItem(context, hostPage, item, recorder, label, timeout) {
-  const link = hostPage.locator('a', { hasText: item.text }).first();
+  const link = itemLocator(hostPage, item);
+  const stillThere = ((await link.textContent({ timeout }).catch(() => null)) || '').replace(/\s+/g, ' ').trim();
+  assert(stillThere === item.text,
+    `the page changed under the audit: item ${item.index} was "${item.text}" when catalogued and is "${stillThere}" now`);
   await link.scrollIntoViewIfNeeded().catch(() => {});
   if (item.opensPopup) {
     const popup = await clickOpensPopup(hostPage, link, {
@@ -231,5 +257,6 @@ module.exports = {
   csrfBootstrapFinding,
   dedupe,
   findingsSince,
+  itemLocator,
   snapshotRecorder,
 };

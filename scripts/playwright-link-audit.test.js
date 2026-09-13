@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
-  ERROR_PAGE_RE, catalogueLinks, dedupe, findingsSince, snapshotRecorder,
+  ERROR_PAGE_RE, catalogueLinks, dedupe, findingsSince, itemLocator, snapshotRecorder,
 } = require('./lib/playwright-link-audit');
 const { createRecorder } = require('./lib/playwright-harness');
 
@@ -125,4 +125,50 @@ test('catalogueLinks is evaluated in the browser, so it takes no server-side sta
   const source = catalogueLinks.toString();
   assert.match(source, /\$\$eval/);
   assert.doesNotMatch(source, /require\(/, 'the browser-side body cannot require anything');
+});
+
+/*
+ * Identity, not text. dedupe() deliberately keeps two items that share a label
+ * but point at different routes -- and that is worth nothing if the click then
+ * resolves by text, because both audits would open the first one and the second
+ * route would never be visited while the run reported two successes.
+ */
+
+test('a catalogued item is clicked by position, never by its label', () => {
+  const clicked = [];
+  const fakePage = {
+    locator(selector) {
+      return {
+        nth(index) {
+          clicked.push(`${selector}#${index}`);
+          return { selector, index };
+        },
+      };
+    },
+  };
+  const first = { text: 'Manage Billing Form', index: 4, selector: 'a' };
+  const second = { text: 'Manage Billing Form', index: 9, selector: 'a' };
+  itemLocator(fakePage, first);
+  itemLocator(fakePage, second);
+  assert.deepEqual(clicked, ['a#4', 'a#9'],
+    'two same-text items must resolve to two different anchors');
+});
+
+test('an item that did not come from catalogueLinks cannot be clicked', () => {
+  // A hand-written item has no index, so locating it would fall back to "the
+  // first anchor" -- exactly the bug this replaced. Fail loudly instead.
+  const fakePage = { locator: () => ({ nth: () => ({}) }) };
+  assert.throws(() => itemLocator(fakePage, { text: 'Search' }), /no index/);
+  assert.throws(() => itemLocator(fakePage, { text: 'Search', index: -1 }), /no index/);
+});
+
+test('the scoped selector travels with the item, so the index means the same list', () => {
+  // The eChart navbar catalogues '#leftNavBar a, #rightNavBar a'. An index taken
+  // from that list addresses a different anchor in the page-wide 'a' list.
+  const fakePage = {
+    locator: (selector) => ({ nth: (index) => ({ selector, index }) }),
+  };
+  const located = itemLocator(fakePage, { text: 'Allergies', index: 2, selector: '#leftNavBar a, #rightNavBar a' });
+  assert.equal(located.selector, '#leftNavBar a, #rightNavBar a');
+  assert.equal(located.index, 2);
 });

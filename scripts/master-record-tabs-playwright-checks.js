@@ -51,8 +51,9 @@
  */
 
 const {
-  assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck, wireStrictPage,
+  assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
+const { clickOpensPopup, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { assertAuditClean, auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 
 const SKIP_ITEMS = [
@@ -70,11 +71,18 @@ const SKIP_ITEMS = [
 async function openMasterRecord(context, schedulePage, recorder, options) {
   const { searchTerm, preferredDemographicNo, timeout } = options;
 
-  const searchPromise = context.waitForEvent('page', { timeout });
-  await schedulePage.locator('a').filter({ hasText: /^Search$/ }).first().click({ timeout });
-  const searchPage = await searchPromise;
-  wireStrictPage(searchPage, 'patient-search', recorder);
-  await searchPage.waitForLoadState('domcontentloaded', { timeout });
+  // The Search control is conditional in the JSP: a same-tab href to
+  // PMmodule/ClientSearch2 with the caisi module loaded, a popupPage2 otherwise
+  // (appointmentprovideradminday.jsp, <li id="search">). Assuming either one
+  // makes the check wrong on half the deployments, so race them.
+  const search = await clickOpensPopupOrNavigates(
+    schedulePage,
+    schedulePage.locator('#search a').first(),
+    {
+      context, label: 'patient-search', recorder, timeout,
+    },
+  );
+  const searchPage = search.page;
 
   await searchPage.locator('#keyword, input[name="keyword"]').first().fill(searchTerm);
   await Promise.all([
@@ -83,7 +91,12 @@ async function openMasterRecord(context, schedulePage, recorder, options) {
   ]);
   await searchPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
 
-  const results = searchPage.locator("a[href*='demographic_no='], a[onclick*='demographic_no=']");
+  // The Master Record control on a result row, as demographicsearchresults.jsp
+  // renders it: a[title="Master Demographic File"] whose onclick is
+  // popup(800,1200,'DemographicEdit?demographic_no=N'). Matching on the title is
+  // what distinguishes it from the E / Rx / T / C badges in the same row, which
+  // go to the chart, prescriptions, tickler and consultations instead.
+  const results = searchPage.locator('a[title="Master Demographic File"]');
   const resultCount = await results.count();
   assert(resultCount > 0,
     `The patient search for ${JSON.stringify(searchTerm)} returned no rows; set MASTER_RECORD_SEARCH to a surname present in this dataset`);
@@ -91,27 +104,41 @@ async function openMasterRecord(context, schedulePage, recorder, options) {
   // Prefer the configured patient so the run is deterministic across datasets;
   // fall back to the first row rather than failing on a dataset that lacks it.
   let chosen = results.first();
+  let chosenNo = '';
   for (let index = 0; index < resultCount; index += 1) {
     const candidate = results.nth(index);
-    const target = `${await candidate.getAttribute('href') || ''} ${await candidate.getAttribute('onclick') || ''}`;
     // A literal pattern, compared numerically: building the regex from the
     // environment value would be a dynamic RegExp, which the repo's Semgrep
     // rules flag (and rightly -- nothing here needs one).
-    const found = target.match(/demographic_no=(\d+)/);
+    const found = (await candidate.getAttribute('onclick') || '').match(/demographic_no=(\d+)/);
+    if (index === 0 && found) {
+      chosenNo = found[1];
+    }
     if (found && found[1] === String(preferredDemographicNo)) {
       chosen = candidate;
+      chosenNo = found[1];
       break;
     }
   }
-  await Promise.all([
-    searchPage.waitForLoadState('domcontentloaded').catch(() => {}),
-    chosen.click({ timeout }),
-  ]);
-  await searchPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
 
-  const body = await searchPage.locator('body').innerText({ timeout }).catch(() => '');
+  // THE POINT OF THIS FUNCTION. The row's onclick is popup(...), so the Master
+  // Record opens in a NEW window. Keeping the search page here would audit the
+  // search results and report them as the Master Record -- every item green,
+  // nothing of the record actually checked.
+  const masterPage = await clickOpensPopup(searchPage, chosen, {
+    context, label: 'master-record', recorder, timeout,
+  });
+
+  const landed = masterPage.url().match(/demographic_no=(\d+)/);
+  assert(landed, `The Master Record popup did not land on a demographic page (${masterPage.url().split('?')[0]})`);
+  if (chosenNo) {
+    assert(landed[1] === chosenNo,
+      `Clicked the row for demographic ${chosenNo} but landed on ${landed[1]}`);
+  }
+
+  const body = await masterPage.locator('body').innerText({ timeout }).catch(() => '');
   assert(body.trim().length > 0, 'The Master Record rendered a blank page');
-  return searchPage;
+  return { masterPage, searchPage, demographicNo: landed[1] };
 }
 
 async function main() {
@@ -127,7 +154,7 @@ async function main() {
   try {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
-    const masterPage = await openMasterRecord(context, schedulePage, recorder, {
+    const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
       searchTerm, preferredDemographicNo, timeout,
     });
 

@@ -130,7 +130,7 @@ async function main() {
   try {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
-    const masterPage = await openMasterRecord(context, schedulePage, recorder, {
+    const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
       searchTerm, preferredDemographicNo, timeout,
     });
 

@@ -1301,17 +1301,17 @@
       "timeoutSec": 300
     },
     {
-      "name": "surface-audit:billing-surface",
+      "name": "surface-audit:referrals-surface",
       "script": "scripts/surface-audit-playwright-checks.js",
       "envSet": {
-        "SURFACE": "billing-surface"
+        "SURFACE": "referrals-surface"
       },
       "tiers": [
         "core"
       ],
       "assertsDatabase": false,
       "provinces": [
-        "ON"
+        "all"
       ],
       "timeoutSec": 420,
       "env": [

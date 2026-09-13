@@ -142,7 +142,23 @@ function isLocalTlsTarget(baseUrl) {
   if (['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1'].includes(host)) {
     return true;
   }
-  return /^(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.)/.test(host);
+  // The host must be a literal IPv4 address before any private-range test. A
+  // prefix match on the string alone accepted names like "10.example.com" as
+  // private, which with ALLOW_NON_LOCAL_BASE_URL=true would have waived
+  // certificate verification for a public host while posting TEST_PASSWORD --
+  // the exact boundary issue #3598 is about.
+  const octets = host.split('.');
+  if (octets.length !== 4 || !octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)) {
+    return false;
+  }
+  const [first, second] = octets.map(Number);
+  if (first === 10 || first === 127) {
+    return true;
+  }
+  if (first === 192 && second === 168) {
+    return true;
+  }
+  return first === 172 && second >= 16 && second <= 31;
 }
 
 function appUrl(baseUrl, appPath) {
@@ -720,8 +736,11 @@ async function runCheck(options) {
       try {
         await options.cleanup();
       } catch (cleanupError) {
-        // A cleanup failure must be visible: the next run inherits the rows.
-        outcome = outcome === 'PASS' ? 'FAIL' : outcome;
+        // ANY cleanup failure is a failure, including one on a skipped check.
+        // Promoting only from PASS left a SKIP reporting exit 2 -- "nothing to
+        // test here" -- while its fixture rows stayed in the database for the
+        // next run to inherit.
+        outcome = 'FAIL';
         detail = `${detail ? `${detail}; ` : ''}cleanup failed: ${(cleanupError && cleanupError.message) || 'unknown'}`;
       }
     }

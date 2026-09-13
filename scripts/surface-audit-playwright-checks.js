@@ -15,9 +15,9 @@
  * Open every surface the schedule leads to, and everything each one offers.
  *
  * WHY ONE SCRIPT FOR TEN SURFACES. Report, Inbox, Consultations, Msg, Tickler,
- * eDoc, Billing, Preferences, WorkFlow and Scratch all need the identical check
+ * eDoc, Ref, Preferences, WorkFlow and Scratch all need the identical check
  * -- open it by clicking, open what it offers, fail on anything broken -- and
- * differ only in the label clicked to reach them. Ten near-identical scripts
+ * differ only in the control clicked to reach them. Ten near-identical scripts
  * would drift apart and a fix would have to be made ten times. The surfaces are
  * data in lib/playwright-surfaces.js; this is the engine.
  *
@@ -51,7 +51,7 @@
  *   messenger-surface     -> section 3.4 `messenger-attachments` (the surface half)
  *   tickler-surface       -> section 3.4 `tickler-forward-filters` (the surface half)
  *   edoc-surface          -> section 2.6 `document-manage` (the surface half)
- *   billing-surface       -> section 2.7, the Ontario billing surfaces
+ *   referrals-surface     -> section 3.6, referral management
  *   preferences-surface   -> section 3.7 `provider-preferences` (the surface half)
  *   workflow-surface      -> section 4.4, integration surfaces
  *   scratch-surface       -> section 4.4, integration surfaces
@@ -63,14 +63,49 @@ const {
 } = require('./lib/playwright-harness');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 const { auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
-const { NEVER_OPEN, surfaceByName, surfacesForProvince } = require('./lib/playwright-surfaces');
+const {
+  NEVER_OPEN, describeEntry, entryStrategy, surfaceByName, surfacesForProvince,
+} = require('./lib/playwright-surfaces');
+
+/**
+ * The one control on the schedule that reaches this surface.
+ *
+ * Three strategies because the schedule genuinely uses three conventions; see
+ * the header of lib/playwright-surfaces.js for which control needs which and
+ * why. A label regex must not be end-anchored: <oscar:newLab>/<oscar:newTickler>
+ * append a live "<sup>N</sup>" count inside the anchor, so "Inbox" becomes
+ * "Inbox3" the moment a lab is waiting.
+ */
+async function resolveControl(schedulePage, surface) {
+  const strategy = entryStrategy(surface);
+  if (strategy === 'selector') {
+    return schedulePage.locator(surface.entry.selector).first();
+  }
+  if (strategy === 'label') {
+    return schedulePage.locator('a').filter({ hasText: surface.entry.label }).first();
+  }
+  // CSS has no attribute-regex, and the two icon-only controls are identified by
+  // their title. Read the titles once, match here, then address that anchor by
+  // its position in the same list -- never by clicking whatever came first.
+  const titles = await schedulePage.$$eval('a[title]', (anchors) => anchors.map((anchor) => anchor.getAttribute('title') || ''));
+  const index = titles.findIndex((title) => surface.entry.title.test(title));
+  if (index < 0) {
+    return null;
+  }
+  return schedulePage.locator('a[title]').nth(index);
+}
 
 /** Reach one surface from the schedule, by clicking the control a user clicks. */
 async function openSurface(context, schedulePage, surface, recorder, timeout) {
-  const control = schedulePage.locator('a').filter({ hasText: surface.entry.label }).first();
-  const found = await control.count();
+  const control = await resolveControl(schedulePage, surface);
+  const found = control ? await control.count() : 0;
+  if (found === 0 && surface.optional) {
+    // A property-gated control that is off is not a defect, but it must be
+    // reported as a skip rather than silently passing an empty audit.
+    throw new SkipCheck(`${surface.title} is not offered on this deployment: ${surface.optional}`);
+  }
   assert(found > 0,
-    `The schedule offers no control matching ${surface.entry.label} for ${surface.title}, so a user cannot reach it from the schedule at all`);
+    `The schedule offers no control matching ${describeEntry(surface)} for ${surface.title}, so a user cannot reach it from the schedule at all`);
 
   if (surface.entry.popup) {
     return clickOpensPopup(schedulePage, control, {
@@ -126,9 +161,10 @@ async function main() {
   let surfaces;
   if (selected) {
     const one = surfaceByName(selected);
-    if (!one) {
-      throw new SkipCheck(`SURFACE=${selected} is not a known surface; see lib/playwright-surfaces.js`);
-    }
+    // Deliberately a failure, not a skip. This name comes from the suite
+    // manifest, so a typo or a renamed surface would otherwise report SKIP
+    // forever and nobody would notice the surface stopped being checked.
+    assert(one, `SURFACE=${selected} is not a known surface; see lib/playwright-surfaces.js`);
     if (province && one.province !== 'all' && one.province !== province) {
       throw new SkipCheck(`${selected} does not exist in billregion ${province}`);
     }
@@ -146,13 +182,24 @@ async function main() {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
 
+    const audited = [];
+    const notOffered = [];
     for (const surface of surfaces) {
       try {
         const result = await auditSurface(context, schedulePage, surface, recorder, { timeout, limit, screenshotDir });
+        audited.push(surface.name);
         summary.push(`${surface.name}: opened ${result.opened.length}, skipped ${result.skipped}`);
         // Prefix each finding with the surface so a multi-surface run stays readable.
         failures.push(...result.failures.map((line) => `[${surface.name}] ${line}`));
       } catch (error) {
+        if (error instanceof SkipCheck) {
+          // A property-gated surface that this deployment does not offer. Only
+          // rows carrying `optional` can reach here; a missing control on any
+          // other row is an assertion failure.
+          notOffered.push(surface.name);
+          summary.push(`${surface.name}: not offered here (${error.message})`);
+          continue;
+        }
         failures.push(`[${surface.name}] ${String(error.message).split('\n')[0]}`);
       }
     }
@@ -162,7 +209,12 @@ async function main() {
     }
     assert(failures.length === 0,
       `${failures.length} surface item(s) are broken:\n    - ${failures.join('\n    - ')}`);
-    return { surfaces: surfaces.map((surface) => surface.name), summary };
+    if (audited.length === 0 && notOffered.length > 0) {
+      // Nothing was actually exercised. Reporting PASS here would be the exact
+      // dishonesty this suite is meant to avoid.
+      throw new SkipCheck(`none of the selected surfaces are offered on this deployment: ${notOffered.join(', ')}`);
+    }
+    return { surfaces: audited, notOffered, summary };
   } finally {
     await browser.close().catch(() => {});
   }
@@ -172,4 +224,6 @@ if (require.main === module) {
   runCheck({ name: process.env.SURFACE ? `surface-audit:${process.env.SURFACE}` : 'surface-audit', run: main });
 }
 
-module.exports = { auditSurface, main, openSurface };
+module.exports = {
+  auditSurface, main, openSurface, resolveControl,
+};

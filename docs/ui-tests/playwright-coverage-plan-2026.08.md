@@ -130,7 +130,7 @@ schedule, never by a URL.
 | `surface-audit:messenger-surface` | §3.4 | Messenger |
 | `surface-audit:tickler-surface` | §3.4 | Tickler |
 | `surface-audit:edoc-surface` | §2.6 | eDoc document report |
-| `surface-audit:billing-surface` | §2.7 | Ontario billing (ON only) |
+| `surface-audit:referrals-surface` | §3.6 | Manage billing referrals (property-gated: skips where `referral_menu` is off) |
 | `surface-audit:preferences-surface` | §3.7 | Provider preferences |
 | `surface-audit:workflow-surface` | §4.4 | WorkFlow list |
 | `surface-audit:scratch-surface` | §4.4 | Scratch pad |

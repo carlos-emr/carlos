@@ -55,8 +55,9 @@
  */
 
 const {
-  assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck, wireStrictPage,
+  assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
+const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { assertAuditClean, auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
@@ -82,16 +83,14 @@ async function openChart(context, masterPage, recorder, timeout) {
   assert(await chartLink.count() > 0,
     'The Master Record offers no E-Chart link, so a clinician cannot open the chart from the patient record');
 
-  // The chart may open in this window or a new one; take whichever happens.
-  const popupPromise = context.waitForEvent('page', { timeout }).catch(() => null);
-  await chartLink.click({ timeout });
-  const popup = await popupPromise;
-  const chartPage = popup || masterPage;
-  if (popup) {
-    wireStrictPage(chartPage, 'echart', recorder);
-  }
-  await chartPage.waitForLoadState('domcontentloaded', { timeout });
-  await chartPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  // edit.jsp calls popupEChart(), so in practice this is a popup -- but
+  // popupEChart reuses a named window, so a chart already open for this patient
+  // is navigated in place and no 'page' event fires. Waiting only for the popup
+  // would then burn the full timeout and land on the Master Record anyway, which
+  // is how a chart check ends up asserting against the patient edit form.
+  const { page: chartPage } = await clickOpensPopupOrNavigates(masterPage, chartLink, {
+    context, label: 'echart', recorder, timeout,
+  });
   return chartPage;
 }
 
@@ -130,7 +129,7 @@ async function main() {
   try {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
-    const masterPage = await openMasterRecord(context, schedulePage, recorder, {
+    const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
       searchTerm, preferredDemographicNo, timeout,
     });
     const chartPage = await openChart(context, masterPage, recorder, timeout);

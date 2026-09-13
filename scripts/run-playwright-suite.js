@@ -116,39 +116,84 @@ function selectChecks(checks, options) {
  * disposable. The bash loop had no way to check this; a mistyped BASE_URL
  * pointed the whole mutating suite at whatever answered.
  */
+/**
+ * Refuse to drive an unfamiliar deployment without an explicit opt-in.
+ *
+ * WHY THE GUARD IS NOT SCOPED TO assertsDatabase. It used to be, and that was
+ * wrong in the unsafe direction: assertsDatabase means "this check reads rows
+ * back out of MariaDB to prove what happened", which is a different question
+ * from "this check writes". eform-admin-crud, allergy-rx-alert and
+ * demographic-master-crud-smoke all create and delete records through the UI
+ * with assertsDatabase false, so the old test let every one of them run
+ * unguarded against any host. Every check in this suite logs in as a real
+ * provider and clicks through a live EMR; none of them is safe to point at a
+ * deployment someone else is using. So the opt-in is required for a non-local
+ * BASE_URL whatever is selected, and assertsDatabase only sharpens the message.
+ */
 function assertSafeTarget(checks, env) {
-  const mutating = checks.filter((check) => check.assertsDatabase);
-  if (!mutating.length) {
+  if (!checks.length) {
     return;
   }
-  const baseUrl = validateBaseUrl(env.BASE_URL || 'http://127.0.0.1:8080/carlos');
-  if (!isLocalTlsTarget(baseUrl) && env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(
-      `${mutating.length} selected checks write and delete database rows, and BASE_URL points at `
-      + `the non-local host ${baseUrl.hostname}. Set ALLOW_NON_LOCAL_BASE_URL=true only for a `
-      + 'disposable test deployment.',
-    );
+  const baseUrl = validateBaseUrl(env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
+  if (isLocalTlsTarget(baseUrl) || env.ALLOW_NON_LOCAL_BASE_URL === 'true') {
+    return;
   }
+  const asserting = checks.filter((check) => check.assertsDatabase).length;
+  throw new Error(
+    `${checks.length} selected check(s) drive a live CARLOS session as a real provider`
+    + `${asserting ? ` (${asserting} of them also read rows straight out of MariaDB)` : ''}, `
+    + `and BASE_URL points at the non-local host ${baseUrl.hostname}. Set `
+    + 'ALLOW_NON_LOCAL_BASE_URL=true only for a disposable test deployment.',
+  );
 }
 
 /**
  * The application's build identity, used to prove the suite tested one process.
  *
  * The runbook did this by reading systemd's NRestarts, which only works on a
- * packaged install. The About page's build tag works anywhere the suite runs; a
- * change mid-suite means the WAR was replaced or the JVM restarted under it, and
- * a green result would be spanning two different deployments.
+ * packaged install. The build tag itself is authenticated-only (see
+ * docs/build-identity.md) and the runner holds no session, so the unauthenticated
+ * stand-in is the validator Tomcat serves for a static asset: redeploying a WAR
+ * re-extracts it and changes its Last-Modified and ETag.
+ *
+ * WHAT THIS DOES AND DOES NOT DETECT. It detects the case that actually produces
+ * misleading results -- the WAR being replaced under a running suite. It does NOT
+ * detect a bare JVM restart with the same WAR, which would surface as mass login
+ * failures anyway. Returning null (no CDN-style validators, or BASE_URL unset)
+ * disables the comparison rather than inventing a verdict.
  */
 function readBuildIdentity(env, run = spawnSync) {
   const base = (env.BASE_URL || '').replace(/\/$/, '');
   if (!base) {
     return null;
   }
-  const result = run('curl', ['-sk', '--max-time', '10', '-o', '/dev/null', '-w', '%{http_code}', `${base}/`], { encoding: 'utf8' });
+  // HEAD a static asset and fingerprint the validators Tomcat serves for it.
+  // The earlier version wrote the body to /dev/null and returned %{http_code},
+  // which is "200" before and "200" after -- the comparison below could never
+  // fire, so the guard existed but did nothing.
+  const result = run(
+    'curl',
+    ['-sSkI', '--max-time', '10', `${base}/images/favicon.ico`],
+    { encoding: 'utf8' },
+  );
   if (result.status !== 0) {
     return null;
   }
-  return String(result.stdout || '').trim();
+  const headers = String(result.stdout || '');
+  if (!/^HTTP\/[\d.]+ 200\b/im.test(headers)) {
+    return null;
+  }
+  // A line scan rather than a built regex: the repo's Semgrep rules flag
+  // new RegExp(...) on principle, and nothing here needs one.
+  const lines = headers.split(/\r?\n/);
+  const pick = (name) => {
+    const prefix = `${name.toLowerCase()}:`;
+    const line = lines.find((candidate) => candidate.toLowerCase().startsWith(prefix));
+    return line ? line.slice(prefix.length).trim() : '';
+  };
+  const fingerprint = [pick('ETag'), pick('Last-Modified'), pick('Content-Length')]
+    .filter(Boolean).join('|');
+  return fingerprint || null;
 }
 
 function runOne(check, options, run = spawnSync) {
@@ -276,5 +321,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  loadManifest, main, parseArguments, readBuildIdentity, runOne, selectChecks, toJUnit,
+  assertSafeTarget, loadManifest, main, parseArguments, readBuildIdentity, runOne, selectChecks, toJUnit,
 };

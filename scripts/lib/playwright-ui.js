@@ -72,6 +72,64 @@ async function clickOpensPopup(page, locator, options = {}) {
 }
 
 /**
+ * Click a control that MAY open a popup or MAY navigate in place, and take
+ * whichever actually happened.
+ *
+ * WHY THIS IS NEEDED AND NOT PARANOIA. Several CARLOS controls are conditional
+ * in the JSP, not in the check: the schedule's Search control is a same-tab href
+ * to PMmodule/ClientSearch2 when the caisi module is loaded and a popupPage2
+ * otherwise; an eChart navbar module may render as either depending on
+ * properties. A check that assumes "popup" waits out the whole popup timeout and
+ * then fails on a page that worked perfectly; a check that assumes "same tab"
+ * asserts against the opener and passes while testing nothing. Racing the two is
+ * the only honest reading of a control whose behaviour is a deployment setting.
+ *
+ * Returns { page, isPopup }. The caller closes the page only when isPopup.
+ */
+async function clickOpensPopupOrNavigates(page, locator, options = {}) {
+  const context = options.context || page.context();
+  const label = options.label || 'target';
+  const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const startedAt = page.url();
+
+  // A loser must never settle: Promise.race takes the FIRST settlement, so a
+  // rejected loser (both share one deadline) would otherwise win the race and
+  // hide the outcome that actually occurred.
+  const never = () => new Promise(() => {});
+  const popupArrived = context.waitForEvent('page', { timeout })
+    .then((popup) => ({ page: popup, isPopup: true }), never);
+  const navigated = page.waitForURL((url) => String(url) !== startedAt, { timeout })
+    .then(() => ({ page, isPopup: false }), never);
+
+  let expire;
+  const deadline = new Promise((resolve, reject) => {
+    expire = setTimeout(
+      () => reject(new Error(`${label}: clicking opened neither a popup nor a navigation within ${timeout}ms`)),
+      timeout,
+    );
+  });
+
+  const target = typeof locator === 'string' ? page.locator(locator) : locator;
+  await target.scrollIntoViewIfNeeded().catch(() => {});
+  await target.click({ timeout });
+
+  let outcome;
+  try {
+    outcome = await Promise.race([popupArrived, navigated, deadline]);
+  } finally {
+    clearTimeout(expire);
+  }
+
+  if (outcome.isPopup && options.recorder) {
+    wireStrictPage(outcome.page, label, options.recorder, options);
+  }
+  await outcome.page.waitForLoadState('domcontentloaded', { timeout });
+  await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  await assertNotErrorPage(outcome.page, label);
+  return outcome;
+}
+
+/**
  * Click a control that replaces an AJAX-injected panel, and wait for the panel.
  *
  * The Administration shell injects its pages into #dynamic-content. Issue #3377
@@ -144,7 +202,12 @@ async function expectOpenerRefresh(opener, popup, rowLocator, options = {}) {
   assert(sentinel && sentinel.marker && sentinel.token,
     'expectOpenerRefresh needs the sentinel returned by markOpener(opener) before the popup was opened');
   if (!popup.isClosed()) {
+    // Swallowing this timeout would be a false pass: if the popup never closed,
+    // the opener was never called back, and the marker assertion below would
+    // still hold -- it holds precisely because nothing happened.
     await popup.waitForEvent('close', { timeout }).catch(() => {});
+    assert(popup.isClosed(),
+      `The popup did not close within ${timeout}ms, so its save never completed and no opener callback was made`);
   }
   const target = typeof rowLocator === 'string' ? opener.locator(rowLocator) : rowLocator;
   await target.first().waitFor({ state: 'visible', timeout });
@@ -200,7 +263,16 @@ async function pickDate(page, inputSelector, isoDate, options = {}) {
   await input.click({ timeout });
   const calendar = page.locator('.flatpickr-calendar.open');
   await calendar.waitFor({ state: 'visible', timeout });
-  const day = calendar.locator(`.flatpickr-day[aria-label][data-date="${isoDate}"], .flatpickr-day:not(.flatpickr-disabled)`);
+  // Only the requested day. The earlier selector fell back to
+  // ".flatpickr-day:not(.flatpickr-disabled)" when the exact date was not
+  // rendered, which silently clicked whatever day came first -- so a
+  // date-sensitive check (a far-future appointment slot, a report range) could
+  // pass against the wrong date and prove nothing.
+  const day = calendar.locator(`.flatpickr-day[data-date="${isoDate}"]:not(.flatpickr-disabled)`);
+  const available = await day.count();
+  assert(available > 0,
+    `The calendar is not showing ${isoDate} as a selectable day (it may be on another month, or the date may be disabled); `
+    + 'refusing to click a different date');
   await day.first().click({ timeout });
   await calendar.waitFor({ state: 'hidden', timeout }).catch(() => {});
   const value = await input.inputValue();
@@ -219,8 +291,18 @@ async function pickDate(page, inputSelector, isoDate, options = {}) {
  */
 async function dataTableRows(page, tableSelector, options = {}) {
   const timeout = options.timeout || DEFAULT_TIMEOUT;
-  const table = typeof tableSelector === 'string' ? page.locator(tableSelector) : tableSelector;
+  // The draw wait runs page-side through document.querySelector, so it needs a
+  // CSS string. Passing a Locator threw inside the page and the throw was
+  // swallowed, which meant every Locator caller skipped the draw wait entirely
+  // and could read the table before DataTables had initialised it.
+  assert(typeof tableSelector === 'string',
+    'dataTableRows needs a CSS selector string: the DataTables draw wait runs inside the page and cannot take a Locator');
+  const table = page.locator(tableSelector);
   await table.waitFor({ state: 'visible', timeout });
+  // Deliberately NOT swallowed. A draw callback that throws is the exact defect
+  // this helper exists to catch (the deleted-eForms ReferenceError this suite
+  // once shipped green); ignoring the timeout would report the table as drawn
+  // and hand back pre-initialisation or zero rows.
   await page.waitForFunction(
     (selector) => {
       const element = document.querySelector(selector);
@@ -237,8 +319,10 @@ async function dataTableRows(page, tableSelector, options = {}) {
     },
     tableSelector,
     { timeout },
-  ).catch(() => {});
+  );
   const rows = table.locator('tbody tr');
+  // An empty table is a legitimate result, so this wait may time out; the
+  // dataTables_empty placeholder below is what distinguishes empty from broken.
   await rows.first().waitFor({ state: 'visible', timeout }).catch(() => {});
   const empty = await table.locator('tbody tr td.dataTables_empty').count();
   return { rows, count: empty ? 0 : await rows.count() };
@@ -325,7 +409,12 @@ const NAVIGATION = {
     from: 'login', click: null, opens: 'page', validated: true, note: 'login() lands here',
   },
   search: {
-    from: 'schedule', click: '#search', opens: 'popup', validated: false,
+    // Conditional by design. appointmentprovideradminday.jsp renders three
+    // anchors inside <li id="search">: with the caisi module loaded the first is
+    // a plain href to PMmodule/ClientSearch2 (same tab); otherwise it is
+    // popupPage2(demographic/ViewSearch) (popup). A check must handle both, so
+    // this entry must not claim one.
+    from: 'schedule', click: '#search a', opens: 'popup-or-page', validated: false, note: 'caisi module loaded => same-tab PMmodule/ClientSearch2; otherwise a popup',
   },
   inbox: {
     from: 'schedule', click: '#inboxLink', opens: 'popup', validated: false,
@@ -352,7 +441,10 @@ const NAVIGATION = {
     from: 'schedule', click: '#dashboardList', opens: 'popup', validated: false,
   },
   preferences: {
-    from: 'schedule', click: '#userSettings', opens: 'menu', validated: false, note: 'opens #userSettingsMenu; the Preferences item is inside it',
+    // #userSettingsMenu is a plain always-visible flex <ul>, not a dropdown, and
+    // the control inside it is an icon with no text -- its title is its
+    // accessible name.
+    from: 'schedule', click: '#userSettingsMenu a[title="Edit your personal setting"]', opens: 'popup', validated: false,
   },
   help: {
     from: 'schedule', click: '#helpLink', opens: 'popup', validated: false,
@@ -376,6 +468,7 @@ module.exports = {
   REQUIRED_SECTIONS,
   clickInjectsPanel,
   clickOpensPopup,
+  clickOpensPopupOrNavigates,
   csrfTokenPresent,
   dataTableRows,
   expectDialog,

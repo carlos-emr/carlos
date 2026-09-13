@@ -21,15 +21,32 @@
  * 150 lines, each drifting separately. One table plus one tested engine means a
  * fix reaches every surface and a new surface is four lines.
  *
- * WHY TEXT LOCATORS, NOT IDS. The schedule's top bar renders its labels through
- * <fmt:message> with embedded <u> accesskey markup ("T<u>i</u>ckler"), so the id
- * is not always present but the text always is, and textContent flattens the
- * markup. A label regex is also what the coverage plan's paths say, which keeps
- * the check and the documentation describing the same click.
+ * HOW A CONTROL IS IDENTIFIED. Each row names the control the way a user
+ * identifies it, and the schedule does not use one convention for all of them:
  *
- * `entry`      how to reach it from the post-login schedule.
- *   .label     regex matched against the anchor's text on the schedule.
- *   .popup     true when the control opens a new window (most of them do).
+ *   .label     the anchor's visible text. The top bar renders labels through
+ *              <fmt:message> with embedded accesskey markup ("T<u>i</u>ckler"),
+ *              which textContent flattens, so the text is reliable where it
+ *              exists -- but several labels are FOLLOWED by a live count
+ *              (<oscar:newLab> appends "<sup>3</sup>" when labs are waiting), so
+ *              these regexes anchor at the start and must not anchor at the end.
+ *              Nor may they end in \b: the count is a digit, and there is no
+ *              word boundary between "Tickler" and "3".
+ *   .title     the control's title attribute, for the two icon-only controls in
+ *              #userSettings, which render an inline <svg> and no text at all.
+ *              The title IS the accessible name, so this is still "what the user
+ *              sees", not an implementation detail.
+ *   .selector  a CSS selector, for a control whose text carries a count AND
+ *              whose sibling would also match the text (the Inbox link, next to
+ *              the unclaimed-lab "U" badge).
+ *
+ * Exactly one of the three per row; the engine asserts that.
+ *
+ * `entry.popup` true when the control opens a new window (most of them do).
+ * `optional`   the control is behind a property or module flag that a given
+ *              deployment may legitimately have off (WORKFLOW, referral_menu).
+ *              Absent means SKIP, not fail. Everything without this flag must be
+ *              present, because "control missing" is the failure this catches.
  * `scope`      optional CSS scope for the catalogue, when only part of the
  *              surface belongs to it.
  * `minimum`    how many items the surface must offer. This is the guard against
@@ -38,6 +55,12 @@
  *              worthless. Set it from what the surface actually renders.
  * `skip`       items not to open, each with a reason.
  * `province`   'all', or the billregion this surface exists in.
+ *
+ * WHAT IS DELIBERATELY NOT HERE. There is no Billing entry: the schedule top bar
+ * has no Billing control (verified against appointmentprovideradminday.jsp --
+ * the only billing links on that page are the per-appointment "B" badges, which
+ * are a workflow, not a surface). Ontario billing is reached through the
+ * Administration panel, which admin-index-links already audits.
  */
 
 const NEVER_OPEN = [
@@ -49,7 +72,7 @@ const SURFACES = [
   {
     name: 'report-index',
     title: 'Report index',
-    entry: { label: /^\s*Report\s*$/i, popup: true },
+    entry: { label: /^\s*Report/i, popup: true },
     minimum: 3,
     province: 'all',
     note: 'schedule-links opens this page but never opens anything on it',
@@ -57,7 +80,9 @@ const SURFACES = [
   {
     name: 'inbox-surface',
     title: 'Inbox (Inboxhub)',
-    entry: { label: /^\s*Inbox\s*$/i, popup: true },
+    // The label is "Inbox" (global.lab), but <oscar:newLab> appends a count and
+    // the adjacent unclaimed-lab badge is another anchor in the same <li>.
+    entry: { selector: '#inboxLink', popup: true },
     minimum: 4,
     province: 'all',
     note: 'issue #3313 item 1 was a pageerror on this page that no check saw',
@@ -65,43 +90,46 @@ const SURFACES = [
   {
     name: 'consultations-surface',
     title: 'Consultations list',
-    entry: { label: /^\s*Consultations\s*$/i, popup: true },
+    entry: { label: /^\s*Consultations/i, popup: true },
     minimum: 3,
     province: 'all',
   },
   {
     name: 'messenger-surface',
     title: 'Messenger',
-    entry: { label: /^\s*Msg\s*$/i, popup: true },
+    entry: { label: /^\s*Msg/i, popup: true },
     minimum: 3,
     province: 'all',
   },
   {
     name: 'tickler-surface',
     title: 'Tickler',
-    entry: { label: /^\s*Tickler\s*$/i, popup: true },
+    entry: { label: /^\s*Tickler/i, popup: true },
     minimum: 3,
     province: 'all',
   },
   {
     name: 'edoc-surface',
     title: 'eDoc document report',
-    entry: { label: /^\s*eDoc\s*$/i, popup: true },
+    entry: { label: /^\s*eDoc/i, popup: true },
     minimum: 3,
     province: 'all',
   },
   {
-    name: 'billing-surface',
-    title: 'Billing',
-    entry: { label: /^\s*Billing\s*$/i, popup: true },
-    minimum: 3,
-    province: 'ON',
-    note: 'the Ontario billing module is 4% covered by route; this is its first surface check',
+    name: 'referrals-surface',
+    title: 'Manage billing referrals',
+    // Label is "Ref" (global.manageReferrals), anchored both ends so it cannot
+    // swallow "Report". Gated by the referral_menu property.
+    entry: { label: /^\s*Ref\s*$/i, popup: true },
+    optional: 'the referral_menu property is not set to yes on this deployment',
+    minimum: 2,
+    province: 'all',
   },
   {
     name: 'preferences-surface',
     title: 'Provider preferences',
-    entry: { label: /^\s*Preferences\s*$/i, popup: true },
+    // Icon-only control in #userSettings; its title is its accessible name.
+    entry: { title: /Edit your personal setting/i, popup: true },
     minimum: 2,
     province: 'all',
     note: 'every Preferences section writes provider properties; this opens what it offers read-only',
@@ -109,18 +137,36 @@ const SURFACES = [
   {
     name: 'workflow-surface',
     title: 'WorkFlow list',
-    entry: { label: /^\s*WorkFlow\s*$/i, popup: true },
+    entry: { label: /^\s*WorkFlow/i, popup: true },
+    optional: 'the WORKFLOW property is not set to yes on this deployment',
     minimum: 1,
     province: 'all',
   },
   {
     name: 'scratch-surface',
     title: 'Scratch pad',
-    entry: { label: /^\s*Scratch/i, popup: true },
+    // Icon-only control in #userSettings; its title is its accessible name.
+    entry: { title: /Scratch\s*Pad/i, popup: true },
     minimum: 1,
     province: 'all',
   },
 ];
+
+/** How a row names its control, for messages and for the one-strategy rule. */
+function entryStrategy(surface) {
+  const entry = surface.entry || {};
+  const used = ['label', 'title', 'selector'].filter((key) => entry[key]);
+  if (used.length !== 1) {
+    throw new Error(`surface ${surface.name} must name its control with exactly one of label/title/selector; found ${used.length}`);
+  }
+  return used[0];
+}
+
+/** Human-readable form of the control this surface is reached by. */
+function describeEntry(surface) {
+  const strategy = entryStrategy(surface);
+  return `${strategy} ${String(surface.entry[strategy])}`;
+}
 
 function surfaceByName(name) {
   return SURFACES.find((surface) => surface.name === name) || null;
@@ -133,4 +179,6 @@ function surfacesForProvince(province) {
   return SURFACES.filter((surface) => surface.province === 'all' || surface.province === province);
 }
 
-module.exports = { NEVER_OPEN, SURFACES, surfaceByName, surfacesForProvince };
+module.exports = {
+  NEVER_OPEN, SURFACES, describeEntry, entryStrategy, surfaceByName, surfacesForProvince,
+};
