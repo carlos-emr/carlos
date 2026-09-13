@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
+import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
@@ -80,6 +81,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     @Mock private SecurityInfoManager securityInfoManager;
     @Mock private NioFileManager nioFileManager;
     @Mock private FaxConfigDao faxConfigDao;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.FaxJobDao faxJobDao;
     @Mock private ClinicDAO clinicDAO;
     @Mock private LoggedInInfo loggedInInfo;
 
@@ -94,6 +96,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "nioFileManager", nioFileManager);
         injectDependency(manager, "faxConfigDao", faxConfigDao);
+        injectDependency(manager, "faxJobDao", faxJobDao);
         injectDependency(manager, "clinicDAO", clinicDAO);
 
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
@@ -121,6 +124,159 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         } finally {
             if (mocks != null) mocks.close();
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,false,false", "1,false,false", "2,false,false", "1,true,false", "2,true,false",
+            "0,false,true", "1,false,true", "2,false,true", "1,true,true", "2,true,true"})
+    @DisplayName("should defer intermediate cleanup until commit and preserve all prepared files for an unknown outcome")
+    void shouldRetainPreparedFiles_untilCompletionIsKnown(int completion, boolean persistenceThrows, boolean covered,
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path pdf = Files.writeString(directory.resolve("fax.pdf"), "fixture fax");
+        Path coveredPdf = covered ? Files.writeString(directory.resolve("covered.pdf"), "fixture covered fax") : null;
+        FaxJob job = new FaxJob();
+        job.setStatus(FaxJob.STATUS.WAITING);
+        job.setFile_name("fax.pdf");
+        doReturn(job).when(manager).createFaxJob(eq(loggedInInfo), anyMap());
+        when(nioFileManager.getOscarDocument(Path.of("fax.pdf"))).thenReturn(pdf);
+        if (covered) {
+            doReturn(coveredPdf).when(manager).addCoverPage(eq(loggedInInfo), any(), any(), any(), eq(Path.of("fax.pdf")));
+        }
+        if (persistenceThrows) doThrow(new IllegalStateException("injected persistence failure"))
+                .when(manager).saveFaxJob(eq(loggedInInfo), anyList());
+        else doReturn(List.of(job)).when(manager).saveFaxJob(eq(loggedInInfo), anyList());
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try (MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths =
+                Mockito.mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.isInApplicationTempDirectory(any(java.io.File.class)))
+                    .thenReturn(true);
+            Map<String, Object> params = Map.of("faxFilePath", pdf.toString(), "coverpage", Boolean.toString(covered));
+            if (persistenceThrows) assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, params))
+                    .isInstanceOf(IllegalStateException.class);
+            else assertThat(manager.createAndSaveFaxJob(loggedInInfo, params)).singleElement().isSameAs(job);
+            assertThat(pdf).exists();
+            if (covered) assertThat(coveredPdf).exists();
+            var callbacks = org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
+            assertThat(callbacks).hasSize(1);
+            callbacks.get(0).afterCompletion(completion);
+            assertThat(Files.exists(pdf)).isEqualTo(
+                    completion == org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN
+                    || (!covered && completion == org.springframework.transaction.support.TransactionSynchronization.STATUS_COMMITTED));
+            if (covered) assertThat(Files.exists(coveredPdf)).isEqualTo(
+                    completion != org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {SecurityInfoManager.READ, SecurityInfoManager.WRITE})
+    @DisplayName("should reject resend before locking or saving when either fax permission is missing")
+    void shouldRejectResend_whenPermissionIsMissing(String deniedPermission) {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", deniedPermission, null)).thenReturn(false);
+        assertThatThrownBy(() -> manager.resendFax(loggedInInfo, "123", "+442079460100"))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(faxJobDao);
+        verify(manager, never()).saveFaxJob(any(), any(FaxJob.class));
+    }
+
+    @Test
+    @DisplayName("should reject a malformed resend id without logging attacker-controlled text")
+    void shouldAvoidLogInjection_whenResendIdIsMalformed() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        try (LogCapture capture = LogCapture.forLogger(FaxManagerImpl.class)) {
+            assertThat(manager.resendFax(loggedInInfo, "123\r\nSensitiveFixturePatient forged-log", null)).isFalse();
+            assertThat(capture.messages()).contains("Invalid fax job ID format");
+            assertThat(capture.messages().toString()).doesNotContain("SensitiveFixturePatient", "forged-log");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
+        verifyNoInteractions(faxJobDao);
+        verify(manager, never()).saveFaxJob(any(), any(FaxJob.class));
+    }
+
+    private FaxJob stubResendSource() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        faxConfigDao.getActiveConfigByNumber("1234567890").setProviderType(FaxConfig.ProviderType.SRFAX);
+        FaxJob source = new FaxJob();
+        source.setId(123);
+        source.setDirection(FaxJob.Direction.OUT);
+        source.setStatus(FaxJob.STATUS.ERROR);
+        source.setFax_line("1234567890");
+        source.setDestination("+442079460100");
+        source.setJobId(99L);
+        when(faxJobDao.findForUpdate(123)).thenReturn(source);
+        return source;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"+44 20 7946 0100", "011442079460100"})
+    @DisplayName("should preserve international intent for unchanged and replacement resend destinations")
+    void shouldPreserveInternationalDestination_whenResending(String replacement) {
+        FaxJob source = stubResendSource();
+        java.util.List<FaxJob> saves = new java.util.ArrayList<>();
+        org.mockito.Mockito.doAnswer(call -> {
+            FaxJob job = call.getArgument(1);
+            if (job.getId() == null) job.setId(124);
+            saves.add(job);
+            return job;
+        }).when(manager).saveFaxJob(eq(loggedInInfo), any(FaxJob.class));
+        assertThat(manager.resendFax(loggedInInfo, "123", replacement)).isTrue();
+        assertThat(saves).hasSize(2);
+        assertThat(saves.get(0).getDestination()).isEqualTo("+442079460100");
+        assertThat(saves.get(0).getJobId()).isNull();
+        assertThat(source.getStatus()).isEqualTo(FaxJob.STATUS.RESENT);
+        assertThat(manager.resendFax(loggedInInfo, "123", replacement)).isFalse();
+        assertThat(saves).hasSize(2);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"short", "inactive", "inbound", "waiting", "resent"})
+    @DisplayName("should not clone invalid, inactive, inbound, pending, or already resent fax jobs")
+    void shouldRejectResend_beforeSaving(String scenario) {
+        FaxJob source = stubResendSource();
+        if ("inactive".equals(scenario)) when(faxConfigDao.getActiveConfigByNumber("1234567890")).thenReturn(null);
+        if ("inbound".equals(scenario)) source.setDirection(FaxJob.Direction.IN);
+        if ("waiting".equals(scenario)) source.setStatus(FaxJob.STATUS.WAITING);
+        if ("resent".equals(scenario)) source.setStatus(FaxJob.STATUS.RESENT);
+        assertThat(manager.resendFax(loggedInInfo, "123", "short".equals(scenario) ? "12345678" : null)).isFalse();
+        verify(manager, never()).saveFaxJob(any(), any(FaxJob.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should validate SRFax primary and copy destinations before reading or publishing the PDF")
+    void shouldRejectUndialableSrfaxRecipient_beforeFileAccess(boolean copy) throws Exception {
+        faxConfigDao.getActiveConfigByNumber("1234567890").setProviderType(FaxConfig.ProviderType.SRFAX);
+        Map<String, Object> input = new java.util.HashMap<>();
+        input.put("faxFilePath", "/tmp/not-read.pdf");
+        input.put("recipient", "Test Recipient");
+        input.put("recipientFaxNumber", copy ? "4165550100" : "12345678");
+        input.put("senderFaxNumber", "1234567890");
+        input.put("demographicNo", 17);
+        if (copy) input.put("copyToRecipients", new String[]{"\"name\":\"Copy\",\"fax\":\"12345678\""});
+        FaxJob result = manager.createFaxJob(loggedInInfo, input);
+        assertThat(result.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        verifyNoInteractions(nioFileManager);
+        verify(manager, never()).resolveAndValidateFilePath(any(String.class));
+    }
+
+    @Test
+    @DisplayName("should deduplicate equivalent domestic and international SRFax recipients")
+    void shouldDeduplicateEquivalentNumbers_whenAddingSrfaxRecipients() {
+        FaxConfig config = new FaxConfig();
+        config.setProviderType(FaxConfig.ProviderType.SRFAX);
+        FaxJob primary = new FaxJob();
+        primary.setDestination("14165550100");
+        primary.setFaxAccount(new io.github.carlos_emr.carlos.fax.core.FaxAccount(config));
+        List<FaxJob> copies = manager.addRecipients(loggedInInfo, primary, List.of(
+                new io.github.carlos_emr.carlos.fax.core.FaxRecipient("Same", "416-555-0100"),
+                new io.github.carlos_emr.carlos.fax.core.FaxRecipient("Same", "+1 4165550100"),
+                new io.github.carlos_emr.carlos.fax.core.FaxRecipient("International", "+44 20 7946 0100"),
+                new io.github.carlos_emr.carlos.fax.core.FaxRecipient("Same international", "011442079460100")));
+        assertThat(copies).hasSize(1);
+        assertThat(copies.get(0).getDestination()).isEqualTo("+442079460100");
     }
 
     @Test
@@ -160,6 +316,48 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             }
             Files.deleteIfExists(tempRoot);
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should reject unreadable PDFs and clean only copies owned by this fax attempt")
+    void shouldRejectZeroPagePdf_beforePersistence(boolean promoted,
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path source = Files.writeString(directory.resolve("source.pdf"), "unreadable fixture");
+        Path copy = Files.writeString(directory.resolve("copy.pdf"), "unreadable fixture");
+        doReturn(source).when(manager).resolveAndValidateFilePath(source.toString());
+        when(nioFileManager.promoteApplicationTempFile(source)).thenReturn(copy);
+        eDocUtilMock.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(any(String.class))).thenReturn(0);
+        try (MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths =
+                     Mockito.mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.isInApplicationTempDirectory(any(java.io.File.class)))
+                    .thenReturn(promoted);
+            List<FaxJob> jobs = manager.createAndSaveFaxJob(loggedInInfo, Map.of(
+                    "faxFilePath", source.toString(), "coverpage", "false", "recipient", "Fixture",
+                    "recipientFaxNumber", "4165551234", "senderFaxNumber", "1234567890", "demographicNo", 17));
+            assertThat(jobs).hasSize(1);
+            assertThat(jobs.get(0).getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+            assertThat(jobs.get(0).getStatusString()).contains("no readable pages");
+            assertThat(source).exists();
+            assertThat(Files.exists(copy)).isEqualTo(!promoted);
+            verify(manager, never()).saveFaxJob(any(), anyList());
+        }
+    }
+
+    @Test
+    @DisplayName("should reject and remove an unreadable generated cover PDF before saving")
+    void shouldRejectZeroPageCover_beforePersistence(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path covered = Files.writeString(directory.resolve("covered.pdf"), "unreadable fixture");
+        FaxJob job = new FaxJob();
+        job.setStatus(FaxJob.STATUS.WAITING);
+        job.setFile_name("source.pdf");
+        doReturn(job).when(manager).createFaxJob(eq(loggedInInfo), anyMap());
+        doReturn(covered).when(manager).addCoverPage(eq(loggedInInfo), any(), any(), any(), any(Path.class));
+        eDocUtilMock.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(covered.toString())).thenReturn(0);
+        List<FaxJob> jobs = manager.createAndSaveFaxJob(loggedInInfo, Map.of("coverpage", "true"));
+        assertThat(jobs.get(0).getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(covered).doesNotExist();
+        verify(manager, never()).saveFaxJob(any(), anyList());
     }
 
 
@@ -324,17 +522,38 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should fail fast before any file promotion when a copy-to recipient entry is unparseable")
     void shouldFailFast_beforePromotionWhenCopyToRecipientUnparseable() {
-        assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, Map.of(
-                "coverpage", "false",
-                "copyToRecipients", new String[] {"NOT-JSON"})))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Failed to parse");
+        try (LogCapture capture = LogCapture.forLogger(FaxManagerImpl.class)) {
+            assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, Map.of(
+                    "coverpage", "false",
+                    "copyToRecipients", new String[] {"\"name\":\"SensitiveFixturePatient\",\"fax\":\"5550000000\", NOT-JSON"})))
+                    .isInstanceOf(FaxPreparationException.class)
+                    .hasMessageContaining("Failed to parse 1 recipient(s)")
+                    .hasMessageNotContaining("SensitiveFixturePatient")
+                    .hasMessageNotContaining("5550000000")
+                    .hasMessageNotContaining("NOT-JSON");
+            assertThat(capture.messages()).anyMatch(message -> message.contains("recipient parsing failed"));
+            assertThat(capture.messages().toString()).doesNotContain("SensitiveFixturePatient", "5550000000", "NOT-JSON");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
 
         // Recipient parsing must precede createFaxJob: createFaxJob's temp->document promotion
         // deletes the preview source, so a recipient-shape failure after it destroys the user's
         // only copy and strands an orphan PDF in the document store.
         verify(manager, never()).createFaxJob(any(LoggedInInfo.class), anyMap());
         verifyNoInteractions(nioFileManager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "NOT-JSON"})
+    @DisplayName("should return a display-ready error when copy-recipient validation fails")
+    void shouldReturnError_withoutFilesWhenCopyRecipientIsInvalid(String entry) {
+        FaxJob job = manager.createFaxJob(loggedInInfo, Map.of("recipient", "Fixture",
+                "recipientFaxNumber", "4165551234", "senderFaxNumber", "1234567890",
+                "demographicNo", 17, "copyToRecipients", new String[] {entry}));
+        assertThat(job.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(job.getStatusString()).contains("invalid").doesNotContain("NOT-JSON");
+        assertThat(job.getId()).isNull();
+        verifyNoInteractions(nioFileManager, faxJobDao);
     }
 
     @Test
@@ -426,6 +645,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                 .addRecipients(eq(loggedInInfo), eq(waitingJob), anyList());
 
         Path coveredDocument = Paths.get("Cover_test-uuid_queued-fax.pdf");
+        eDocUtilMock.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(coveredDocument.toString())).thenReturn(2);
         doReturn(coveredDocument).when(manager)
                 .addCoverPage(eq(loggedInInfo), any(), any(), any(), eq(Paths.get("queued-fax.pdf")));
         List<FaxJob> result = manager.createAndSaveFaxJob(loggedInInfo, Map.of(
@@ -457,6 +677,82 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                 "createAndSaveFaxJob", LoggedInInfo.class, Map.class);
 
         assertThat(createAndSaveFaxJob.isAnnotationPresent(Transactional.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should persist and audit one pre-built fax job inside a transaction")
+    void shouldPersistAndAuditPrebuiltFaxJob_insideTransaction() throws Exception {
+        Method method = FaxManagerImpl.class.getMethod("persistAndLogFaxJob",
+                LoggedInInfo.class, FaxJob.class, FaxManager.TransactionType.class, int.class);
+        assertThat(method.isAnnotationPresent(Transactional.class)).isTrue();
+
+        FaxJobDao faxJobDao = mock(FaxJobDao.class);
+        injectDependency(manager, "faxJobDao", faxJobDao);
+        FaxJob faxJob = new FaxJob();
+        Mockito.doNothing().when(manager)
+                .logFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
+
+        manager.persistAndLogFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
+
+        org.mockito.InOrder ordered = Mockito.inOrder(faxJobDao, manager);
+        ordered.verify(faxJobDao).persist(faxJob);
+        ordered.verify(manager).logFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
+    }
+
+    @Test
+    @DisplayName("should reject pre-built consultation fax batches without fax write privilege")
+    void shouldRejectPrebuiltConsultationFaxBatch_withoutFaxWritePrivilege() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull()))
+                .thenReturn(false);
+        FaxJobDao faxJobDao = mock(FaxJobDao.class);
+        injectDependency(manager, "faxJobDao", faxJobDao);
+
+        assertThatThrownBy(() -> manager.persistAndLogConsultationFaxJobs(loggedInInfo, List.of(new FaxJob()), 123))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+
+        verifyNoInteractions(faxJobDao);
+    }
+
+    @Test
+    @DisplayName("should reject a pre-built fax job before persistence or audit when fax write is denied")
+    void shouldRejectPrebuiltFaxJob_whenFaxWriteIsDenied() throws Exception {
+        FaxJobDao faxJobDao = mock(FaxJobDao.class);
+        injectDependency(manager, "faxJobDao", faxJobDao);
+        FaxJob faxJob = new FaxJob();
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, (String) null))
+                .thenReturn(false);
+        // Model a read-only role: if the implementation ever substitutes READ
+        // for WRITE, it must not accidentally satisfy this denial regression.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, (String) null))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> manager.persistAndLogFaxJob(
+                loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, (String) null);
+        verifyNoInteractions(faxJobDao, loggedInInfo);
+        verify(manager, never()).logFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
+    }
+
+    @Test
+    @DisplayName("should not persist or audit a pre-built fax job when its authorization check fails")
+    void shouldNotPersistPrebuiltFaxJob_whenAuthorizationCheckFails() throws Exception {
+        FaxJobDao faxJobDao = mock(FaxJobDao.class);
+        injectDependency(manager, "faxJobDao", faxJobDao);
+        FaxJob faxJob = new FaxJob();
+        IllegalStateException authorizationFailure = new IllegalStateException("role lookup unavailable");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, (String) null))
+                .thenThrow(authorizationFailure);
+
+        assertThatThrownBy(() -> manager.persistAndLogFaxJob(
+                loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123))
+                .isSameAs(authorizationFailure);
+
+        verifyNoInteractions(faxJobDao, loggedInInfo);
+        verify(manager, never()).logFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
     }
 
     @Test

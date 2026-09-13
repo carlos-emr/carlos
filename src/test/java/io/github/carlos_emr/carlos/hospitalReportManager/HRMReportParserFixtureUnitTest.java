@@ -131,6 +131,46 @@ class HRMReportParserFixtureUnitTest {
         }
     }
 
+    @Test
+    void shouldShipParseableSyntheticFilesForEveryDemoHrmReference() throws Exception {
+        String sql = Files.readString(Path.of(".devcontainer/db/scripts/development.sql"));
+        String rows = sql.split("INSERT INTO `HRMDocument` VALUES", 2)[1].split(";", 2)[0];
+        java.util.regex.Matcher filenames = java.util.regex.Pattern
+                .compile("'([^']+\\.xml(?:\\.[0-9]+)?)'").matcher(rows);
+        int reports = 0;
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            CarlosProperties props = mock(CarlosProperties.class);
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+            when(props.getProperty("DOCUMENT_DIR")).thenReturn(FIXTURE.getParent().toString());
+            while (filenames.find()) {
+                String filename = filenames.group(1);
+                List<Throwable> errors = new ArrayList<>();
+                HRMReport report = HRMReportParser.parseReport(null, filename, errors);
+                assertThat(errors).as(filename).isEmpty();
+                assertThat(report).as(filename).isNotNull();
+                assertThat(report.getFirstReportClass()).isNotBlank();
+                assertThat(report.getLegalName()).contains("FAKE-");
+                assertThat(report.getFirstReportTextContent()).contains("SYNTHETIC-DEMO-HRM-");
+                assertThat(HRMReportParser.getAppropriateDateFromReport(report)).isNotNull();
+                reports++;
+            }
+        }
+        assertThat(reports).isEqualTo(41);
+    }
+
+    @Test
+    void shouldReturnNoReportWhenAnUploadedFileIsMissing() {
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            CarlosProperties props = mock(CarlosProperties.class);
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+            when(props.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            List<Throwable> errors = new ArrayList<>();
+            assertThat(HRMReportParser.parseReport(null, "missing-report.xml", errors)).isNull();
+            assertThat(errors).hasSize(1);
+            assertThat(errors.get(0)).isInstanceOf(java.io.FileNotFoundException.class);
+        }
+    }
+
     static Stream<Class<? extends Enum<?>>> decompiledEnums() {
         return Stream.of(ReportClass.class, ReportFormat.class, ReportMedia.class, AuditFormat.class,
                 PersonNamePrefixCode.class, PersonNameSuffixCode.class);

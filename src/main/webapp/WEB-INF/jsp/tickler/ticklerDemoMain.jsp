@@ -90,6 +90,7 @@
 %>
 <%@ page import="java.util.*,java.text.*, io.github.carlos_emr.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -948,7 +949,7 @@
                             <TD ROWSPAN="1"
                                 class="<%=cellColour%>"><%=String.valueOf(t.getStatus()).equals("A") ? "Active" : String.valueOf(t.getStatus()).equals("C") ? "Completed" : String.valueOf(t.getStatus()).equals("D") ? "Deleted" : String.valueOf(t.getStatus())%>
                             </TD>
-                            <TD ROWSPAN="1" class="<%=cellColour%>"><%=t.getMessage()%>
+                            <TD ROWSPAN="1" class="<%=cellColour%>"><%=SafeEncode.forHtmlContent(t.getMessage())%>
 
                                 <%
                                     List<TicklerLink> linkList = ticklerLinkDao.getLinkByTickler(t.getId().intValue());
@@ -1021,7 +1022,7 @@
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
-                            <td ROWSPAN="1" class="<%=cellColour%>" colspan="3"><%=tc.getMessage()%>
+                            <td ROWSPAN="1" class="<%=cellColour%>" colspan="3"><%=SafeEncode.forHtmlContent(tc.getMessage())%>
                             </td>
 
                         </tr>

@@ -58,7 +58,7 @@ import java.nio.file.Paths;
  *   <li>The document is a PDF; only PDFs can be sent directly.</li>
  * </ul>
  *
- * <p>On success it redirects to {@code /fax/faxAction?method=prepareFax} rather than
+ * <p>On success it renders a CSRF-protected POST handoff to {@code /fax/faxAction?method=prepareFax} rather than
  * forwarding to the cover page itself. That matters for security, not tidiness:
  * {@code prepareFax} stages its own copy of the file under the application temp root and
  * records a session claim which {@code queue()} consumes, so the path that is eventually
@@ -138,7 +138,7 @@ public class FaxDocument2Action extends ActionSupport {
             throw new SecurityException("Unauthorized access to patient record");
         }
 
-        return redirectToPreparedFax(request, response, docId, demographicNo);
+        return prepareFaxHandoff(request, response, docId, demographicNo);
     }
 
     private static Integer parseDocId(String raw) {
@@ -229,7 +229,7 @@ public class FaxDocument2Action extends ActionSupport {
     // route; the only interpolated values are two ints already parsed from the request and
     // URL-encoded here, so no caller-supplied string reaches the Location header.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "same-application relative redirect; only URL-encoded numeric parameters are interpolated")
-    private String redirectToPreparedFax(HttpServletRequest request, HttpServletResponse response,
+    private String prepareFaxHandoff(HttpServletRequest request, HttpServletResponse response,
                                          int docId, int demographicNo) {
         String target = request.getContextPath()
                 + "/fax/faxAction?method=prepareFax"
@@ -239,13 +239,9 @@ public class FaxDocument2Action extends ActionSupport {
                 + URLEncoder.encode(String.valueOf(docId), StandardCharsets.UTF_8)
                 + "&demographicNo="
                 + URLEncoder.encode(String.valueOf(demographicNo), StandardCharsets.UTF_8);
-        try {
-            response.sendRedirect(target);
-        } catch (java.io.IOException e) {
-            logger.error("Could not redirect document {} into the fax pipeline", docId, e);
-            return refuse(request, "The fax screen could not be opened.");
-        }
-        return NONE;
+        request.setAttribute("preparedFaxTarget", target);
+        response.setHeader("Cache-Control", "no-store");
+        return "prepareFax";
     }
 
     private String refuse(HttpServletRequest request, String reason) {

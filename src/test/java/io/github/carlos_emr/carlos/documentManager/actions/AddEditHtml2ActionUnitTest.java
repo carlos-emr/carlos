@@ -12,9 +12,14 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -27,9 +32,16 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link AddEditHtml2Action}'s lowercase parameter alias.
@@ -51,17 +63,21 @@ import static org.mockito.Mockito.mockStatic;
 class AddEditHtml2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+    private SecurityInfoManager securityInfoManager;
 
     @BeforeEach
     void setUp() {
         // The action resolves SecurityInfoManager and the servlet request/response in field
         // initializers, so both have to be in place before the constructor runs.
-        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
         servletActionContextMock = mockStatic(ServletActionContext.class);
-        servletActionContextMock.when(ServletActionContext::getRequest)
-                .thenReturn(new MockHttpServletRequest());
-        servletActionContextMock.when(ServletActionContext::getResponse)
-                .thenReturn(new MockHttpServletResponse());
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
     }
 
     @AfterEach
@@ -132,5 +148,53 @@ class AddEditHtml2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(retry.getReviewerId()).isEqualTo("303");
         assertThat(retry.getReviewDateTime()).isEqualTo("2026-08-31 10:00:00");
         assertThat(retry.getHtml()).isEqualTo("<p>report body</p>");
+    }
+
+    @Test
+    @DisplayName("should keep scheduleNav on the add-link redirect")
+    void shouldKeepScheduleNav_whenAddLinkSucceedsInScheduleShell() {
+        request.addParameter("scheduleNav", "1");
+
+        assertThat(addLinkAndCaptureRedirect()).contains("scheduleNav=1");
+    }
+
+    @Test
+    @DisplayName("should not add scheduleNav to the add-link redirect outside the schedule shell")
+    void shouldOmitScheduleNav_whenAddLinkSucceedsOutsideScheduleShell() {
+        assertThat(addLinkAndCaptureRedirect()).doesNotContain("scheduleNav");
+    }
+
+    /** Drives one successful Add Link through {@code execute()} and returns the redirect it sent. */
+    private String addLinkAndCaptureRedirect() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), isNull())).thenReturn(true);
+        request.addParameter("function", "demographic");
+        request.addParameter("functionid", "42");
+
+        ProgramManager2 programManager = mock(ProgramManager2.class);
+        registerMock(ProgramManager2.class, programManager);
+
+        AddEditHtml2Action action = new AddEditHtml2Action();
+        action.setMode("addLink");
+        action.setFunction("demographic");
+        action.setFunctionId("42");
+        action.setDocType("Lab");
+        action.setDocDesc("Reference site");
+        action.setDocCreator("999998");
+        action.setResponsibleId("999998");
+        action.setObservationDate("2026-09-06");
+        action.setHtml("http://example.invalid/report");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.getDoctypes("demographic"))
+                    .thenReturn(new ArrayList<>(List.of("Lab")));
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class))).thenReturn("777");
+
+            assertThat(action.execute()).isEqualTo(AddEditHtml2Action.NONE);
+            return response.getRedirectedUrl();
+        }
     }
 }

@@ -30,7 +30,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Runs one piece of PDF work on a daemon thread with a hard deadline.
@@ -113,8 +113,8 @@ public final class BoundedPdfTask {
         // with "the server is busy" until the JVM restarted, turning the cap into the outage it
         // exists to prevent. The CAS makes the release idempotent, so the narrow window where the
         // worker starts just as the caller gives up cannot return the permit twice.
-        AtomicBoolean permitHeld = new AtomicBoolean(true);
-        AtomicBoolean bodyEntered = new AtomicBoolean(false);
+        // 0 = waiting, 1 = executing, 2 = released. Cancellation and entry are one atomic handoff.
+        AtomicInteger permitState = new AtomicInteger(0);
         boolean submitted = false;
         Future<T> future = null;
         ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
@@ -125,10 +125,12 @@ public final class BoundedPdfTask {
         try {
             future = executor.submit(() -> {
                 try {
-                    bodyEntered.set(true);
+                    if (!permitState.compareAndSet(0, 1)) {
+                        throw new IOException("Document task was cancelled before starting.");
+                    }
                     return task.call();
                 } finally {
-                    releaseOnce(permitHeld);
+                    releaseOnce(permitState);
                 }
             });
             submitted = true;
@@ -138,6 +140,7 @@ public final class BoundedPdfTask {
                 future.cancel(true);
                 throw new IOException("Reading the document took too long.");
             } catch (InterruptedException e) {
+                future.cancel(true);
                 Thread.currentThread().interrupt();
                 throw new IOException("Reading the document was interrupted.");
             } catch (ExecutionException e) {
@@ -160,11 +163,11 @@ public final class BoundedPdfTask {
         } finally {
             if (!submitted) {
                 // submit() itself failed, so no worker will ever release the permit.
-                releaseOnce(permitHeld);
-            } else if (future.isCancelled() && !bodyEntered.get()) {
+                releaseOnce(permitState);
+            } else if (future.isCancelled() && permitState.compareAndSet(0, 2)) {
                 // Cancelled before the callable body began: its finally will never run, so the
                 // permit comes back here instead.
-                releaseOnce(permitHeld);
+                PARSE_PERMITS.release();
             }
             // Returns immediately; close() would wait for the abandoned worker instead.
             executor.shutdownNow();
@@ -172,8 +175,8 @@ public final class BoundedPdfTask {
     }
 
     /** Returns the permit at most once, whichever of the caller or the worker gets there first. */
-    private static void releaseOnce(AtomicBoolean permitHeld) {
-        if (permitHeld.compareAndSet(true, false)) {
+    private static void releaseOnce(AtomicInteger permitState) {
+        if (permitState.getAndSet(2) != 2) {
             PARSE_PERMITS.release();
         }
     }

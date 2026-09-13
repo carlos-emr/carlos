@@ -93,6 +93,14 @@
             }
 
             function setfocus() {
+                // Do not steal focus from a user (or password manager) that
+                // began entering credentials before every page asset finished.
+                // On a slow load, moving focus back to username can put the
+                // PIN or password into the wrong field.
+                const activeElement = document.activeElement;
+                if (activeElement && activeElement !== document.body && activeElement !== document.documentElement) {
+                    return;
+                }
                 document.loginForm.username.focus();
                 document.loginForm.username.select();
             }

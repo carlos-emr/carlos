@@ -143,7 +143,7 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
     @Override
     @SuppressWarnings("unchecked")
     public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city) {
-        String sql = "select x from PharmacyInfo x where x.status = ?1 and (x.name like ?2 or x.address like ?3) and x.city like ?4 order by x.name, x.address";
+        String sql = "select x from PharmacyInfo x where x.status = ?1 and (x.name like ?2 escape '!' or x.address like ?3 escape '!') and x.city like ?4 order by x.name, x.address";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, PharmacyInfo.ACTIVE);
         query.setParameter(2, "%" + name + "%");
@@ -158,10 +158,8 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         // The fax filter belongs in the query, not the caller: setMaxResults caps rows at the
         // database, so skipping fax-less rows afterwards let a run of them eat the whole limit.
         String sql = "select x from PharmacyInfo x where x.status = ?1"
-                // No explicit ESCAPE clause: backslash is already the default LIKE escape in
-                // MySQL/MariaDB and H2, and escapeLike() below produces exactly that form.
-                + " and (x.name like ?2 or x.address like ?3)"
-                + " and x.city like ?4"
+                + " and (x.name like ?2 escape '!' or x.address like ?3 escape '!')"
+                + " and x.city like ?4 escape '!'"
                 + " and x.fax is not null and trim(x.fax) <> ''"
                 + " order by x.name, x.address";
         Query query = entityManager.createQuery(sql);
@@ -220,6 +218,6 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
 
     /** Neutralises LIKE metacharacters so a typed % or _ matches itself. */
     private static String escapeLike(String raw) {
-        return raw == null ? "" : raw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return raw == null ? "" : raw.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 }

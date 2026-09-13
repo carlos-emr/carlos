@@ -41,7 +41,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -94,7 +95,10 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
 
         request = new MockHttpServletRequest();
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        LoggedInInfo info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
         response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -192,8 +196,9 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
 
         // A claim exists, but the form carries a different file: the substitution case.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(
-                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
+                new HashMap<>(Map.of(staged.toString(),
+                        new Fax2Action.FaxPreviewClaim(FaxManager.TransactionType.DOCUMENT, DOCUMENT_NO,
+                                DEMOGRAPHIC_NO, "999998", false))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -220,8 +225,9 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         Path staged = Files.createTempFile(Paths.get(APP_TEMP_ROOT), "staged-match-", ".pdf");
 
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(
-                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
+                new HashMap<>(Map.of(staged.toString(),
+                        new Fax2Action.FaxPreviewClaim(FaxManager.TransactionType.DOCUMENT, DOCUMENT_NO,
+                                DEMOGRAPHIC_NO, "999998", false))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -236,9 +242,9 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
 
         // Single use: the claim is spent, so replaying the same cover-page submission cannot
         // queue the document a second time.
-        java.util.Collection<?> remaining = (java.util.Collection<?>) request.getSession(true)
+        java.util.Map<?, ?> remaining = (java.util.Map<?, ?>) request.getSession(true)
                 .getAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
-        assertThat(remaining == null || !remaining.contains(staged.toString()))
+        assertThat(remaining == null || !remaining.containsKey(staged.toString()))
                 .as("the claim is single use, so a replayed submission cannot queue it again")
                 .isTrue();
     }
@@ -254,8 +260,9 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         // the patient the cover-page form submits with it. Without re-deriving the binding from
         // the document row, the fax would be filed against a chart it does not belong to.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(
-                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
+                new HashMap<>(Map.of(staged.toString(),
+                        new Fax2Action.FaxPreviewClaim(FaxManager.TransactionType.DOCUMENT, DOCUMENT_NO,
+                                DEMOGRAPHIC_NO, "999998", false))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -265,7 +272,7 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(action::queue)
                     .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("no longer belongs to this patient");
+                    .hasMessageContaining("Unclaimed fax file path");
         } finally {
             Files.deleteIfExists(staged);
         }
@@ -285,8 +292,9 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         // "unlinked document, no binding to contradict" branch and pass. That let a genuine path
         // claim be promoted against an arbitrary demographicNo.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(
-                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
+                new HashMap<>(Map.of(staged.toString(),
+                        new Fax2Action.FaxPreviewClaim(FaxManager.TransactionType.DOCUMENT, DOCUMENT_NO,
+                                DEMOGRAPHIC_NO, "999998", false))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -317,8 +325,9 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         // prepareFax requires transactionId; queue() is a separate request whose parameters the
         // client re-supplies. Simply dropping the hidden field skipped the re-binding check.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(
-                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
+                new HashMap<>(Map.of(staged.toString(),
+                        new Fax2Action.FaxPreviewClaim(FaxManager.TransactionType.DOCUMENT, DOCUMENT_NO,
+                                DEMOGRAPHIC_NO, "999998", false))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -354,6 +363,7 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
             Fax2Action staging = new Fax2Action();
             staging.setTransactionType("DOCUMENT");
             staging.setTransactionId(DOCUMENT_NO);
+            staging.setDemographicNo(DEMOGRAPHIC_NO);
             staging.recordClaimedFaxFilePathInSession(staged);
 
             // The claim is real: this session staged this file for DOCUMENT_NO. What is forged is

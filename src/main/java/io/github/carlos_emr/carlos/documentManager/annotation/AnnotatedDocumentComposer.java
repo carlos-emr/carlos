@@ -325,8 +325,8 @@ public class AnnotatedDocumentComposer {
     }
 
     /**
-     * Drops characters the embedded font cannot encode. PDFBox throws on an unmappable
-     * glyph, and a provider pasting an exotic character must not fail the whole save.
+     * Rejects characters the embedded font cannot encode. PDFBox throws on an unmappable
+     * glyph; silently replacing it would change a clinical annotation without consent.
      */
     private static String sanitize(String text, PDType0Font font) {
         StringBuilder safe = new StringBuilder(text.length());
@@ -343,7 +343,7 @@ public class AnnotatedDocumentComposer {
                 font.encode(piece);
                 safe.append(piece);
             } catch (IOException | IllegalArgumentException e) {
-                safe.append(' ');
+                throw new IllegalArgumentException("The annotation contains a character the document font cannot display. Edit the text and try again.");
             }
         }
         return safe.toString();

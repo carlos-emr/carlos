@@ -60,6 +60,22 @@ class AnnotatedDocumentComposerUnitTest {
     private final AnnotatedDocumentComposer composer = new AnnotatedDocumentComposer();
 
     @Test
+    @DisplayName("should refuse unsupported text without silently dropping characters")
+    void shouldRefuseUnsupportedText_withoutChangingSource(@TempDir Path tempDir) throws Exception {
+        Path source = blankPdf(tempDir.resolve("unsupported.pdf"), 1, 0);
+        byte[] before = Files.readAllBytes(source);
+        DocumentAnnotationDto note = new DocumentAnnotationDto(
+                DocumentAnnotationDto.Type.TEXT, 1, 0.1, 0.1, 0.4, 0.1,
+                List.of(), "Dose \uD83E\uDDEC", "black", 2, 11);
+        Path font = Path.of("src/main/webapp/library/eforms/dejavufonts/ttf/DejaVuSans.ttf");
+        assertThatThrownBy(() -> composer.compose(source, List.of(note), null, font))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot display")
+                .hasMessageNotContaining("Dose");
+        assertThat(Files.readAllBytes(source)).isEqualTo(before);
+    }
+
+    @Test
     @DisplayName("should report the page count the file actually has")
     void shouldReportPageCount_fromTheFile(@TempDir Path tempDir) throws Exception {
         // The document row carries its own numberofpages, and it lies: legacy rows hold zero and

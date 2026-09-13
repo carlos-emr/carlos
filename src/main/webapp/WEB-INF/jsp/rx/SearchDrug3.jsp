@@ -220,6 +220,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="${ctx}/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
+        <script src="${ctx}/share/javascript/allergy-alerts.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
 
@@ -783,7 +784,7 @@ function renderRxStage() {
           padding-left: 20px;
 
         }
-        #statusDisplay {
+        #statusDisplay, #drugrefHeaderMetadata:not([hidden]) {
           font-size: x-small;
           display: flex;
           flex-direction: row;
@@ -1621,34 +1622,17 @@ function renderRxStage() {
     }
 
    function checkAllergy(id,atcCode){
-        const url = ctx + "/rx/showAllergy"
-        const data="method=allergyData&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
-     CarlosAjax.request(url,{method: 'post',postBody:data,
-       requestHeaders: { 'Accept': 'application/json' },
-       onSuccess:function(transport){
-         if (!transport.responseText) return;
-         var json = null;
-         try { json = JSON.parse(transport.responseText); } catch(e) { return; }
-         if (json != null && json.results && json.results.length > 0) {
-           // Pick the first allergy warning found
-           var allergy = json.results[0];
-           var allegEl = document.getElementById('alleg_' + json.id);
-           allegEl.textContent = '';
-           var allergyLabel = document.createElement('label');
-           allergyLabel.style.color = 'red';
-           allergyLabel.textContent = ' Allergy:';
-           var descText = document.createTextNode(' ' + allergy.DESCRIPTION + ' ');
-           var reactionLabel = document.createElement('label');
-           reactionLabel.style.color = 'red';
-           reactionLabel.textContent = 'Reaction:';
-           var reactionText = document.createTextNode(' ' + allergy.reaction);
-           allegEl.appendChild(allergyLabel);
-           allegEl.appendChild(descText);
-           allegEl.appendChild(reactionLabel);
-           allegEl.appendChild(reactionText);
-           document.getElementById('alleg_tbl_' + json.id).style.display = 'block';
-         }
-       }
+     const url = ctx + "/rx/showAllergy";
+     const data="method=allergyData&demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
+     CarlosAllergyAlert.render(document, id, {pending: true});
+     CarlosAjax.request(url, {method: 'post', postBody: data,
+       requestHeaders: {'Accept': 'application/json'},
+       onSuccess: function(transport) {
+         var result = null;
+         try { result = JSON.parse(transport.responseText); } catch (error) { /* show unavailable below */ }
+         CarlosAllergyAlert.render(document, id, result);
+       },
+       onFailure: function() { CarlosAllergyAlert.render(document, id, null); }
      });
    }
    function checkIfInactive(id,dinNumber){
@@ -1805,11 +1789,33 @@ function popForm2(scriptId){
                 }
             }
             var modalBody = document.getElementById('carlosModalBody');
+            var csrfToken = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (!csrfToken || !csrfToken.value) {
+                throw new Error('Prescription preview requires a valid CSRF token; reload the prescription page.');
+            }
             modalBody.textContent = '';
             var iframe = document.createElement('iframe');
             iframe.style.cssText = 'width:100%;height:890px;border:none;display:block;';
-            iframe.src = url;
+            iframe.name = 'carlosPrescriptionPreview';
             modalBody.appendChild(iframe);
+            // The explicit save/print action may apply a signature stamp. Submit it as
+            // POST with this session's token; ordinary GET preview/reload stays read-only.
+            var previewRequest = document.createElement('form');
+            previewRequest.method = 'post';
+            previewRequest.action = url;
+            previewRequest.target = iframe.name;
+            previewRequest.hidden = true;
+            var previewToken = document.createElement('input');
+            previewToken.type = 'hidden';
+            previewToken.name = 'CSRF-TOKEN';
+            previewToken.value = csrfToken.value;
+            previewRequest.appendChild(previewToken);
+            modalBody.appendChild(previewRequest);
+            try {
+                previewRequest.submit();
+            } finally {
+                previewRequest.remove();
+            }
             var modalDialog = document.querySelector('#carlosModal .modal-dialog');
             modalDialog.style.maxWidth = '980px';
             var editRxMsg = '${carlos:forJavaScript(msg_editRx)}';

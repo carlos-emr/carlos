@@ -26,7 +26,7 @@
     Contains action mappings for document management, medical data system (MDS), and hospital report management.
 -->
 <struts>
-    <package name="document" namespace="/" extends="struts-default" strict-method-invocation="true">
+    <package name="document" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -124,6 +124,7 @@
              hands a document-store path to the browser. -->
         <action name="documentManager/FaxDocument" class="io.github.carlos_emr.carlos.documentManager.actions.FaxDocument2Action">
             <result name="noFax">/WEB-INF/jsp/documentManager/faxNotAvailable.jsp</result>
+            <result name="prepareFax">/WEB-INF/jsp/eform/EFormFaxPreparation.jsp</result>
         </action>
         <!-- Annotation viewer gate (GET, _edoc w). The page renders server-produced
              page images; no PDF bytes are ever sent to the browser. -->

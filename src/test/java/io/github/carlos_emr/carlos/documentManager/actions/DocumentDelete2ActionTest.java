@@ -92,12 +92,14 @@ class DocumentDelete2ActionTest extends CarlosUnitTestBase {
         assertThat(deletedDocNos).isEmpty();
     }
 
-    @Test
-    @DisplayName("should return methodNotAllowed on GET")
-    void shouldReturnMethodNotAllowed_onGet() throws Exception {
-        mockRequest.setMethod("GET");
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "POſT"})
+    @DisplayName("should return methodNotAllowed on every non-POST verb")
+    void shouldReturnMethodNotAllowed_onNonPost(String verb) throws Exception {
+        mockRequest.setMethod(verb);
         action.setDelDocumentNo("42");
         assertThat(action.execute()).isEqualTo("methodNotAllowed");
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         assertThat(deletedDocNos).isEmpty();
     }
 
@@ -159,6 +161,25 @@ class DocumentDelete2ActionTest extends CarlosUnitTestBase {
             .contains("view=all")
             .contains("viewstatus=active")
             .contains("categorykey=Private");
+    }
+
+    @Test
+    @DisplayName("should keep scheduleNav on the redirect when posted from the schedule shell")
+    void shouldKeepScheduleNav_whenPostedFromScheduleShell() throws Exception {
+        // documentReport.jsp's submitDocAction() already posts scheduleNav=1; the redirect back
+        // has to carry it or the report re-renders without the navigation header tabs.
+        mockRequest.addParameter("scheduleNav", "1");
+        action.setDelDocumentNo("42");
+        action.execute();
+        assertThat(mockResponse.getRedirectedUrl()).contains("scheduleNav=1");
+    }
+
+    @Test
+    @DisplayName("should omit scheduleNav from the redirect outside the schedule shell")
+    void shouldOmitScheduleNav_whenNotInScheduleShell() throws Exception {
+        action.setDelDocumentNo("42");
+        action.execute();
+        assertThat(mockResponse.getRedirectedUrl()).doesNotContain("scheduleNav");
     }
 
     @Test

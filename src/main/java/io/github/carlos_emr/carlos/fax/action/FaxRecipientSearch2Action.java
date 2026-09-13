@@ -85,6 +85,7 @@ public class FaxRecipientSearch2Action extends ActionSupport {
 
         if (!"GET".equals(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "GET");
             return NONE;
         }
 
@@ -106,8 +107,15 @@ public class FaxRecipientSearch2Action extends ActionSupport {
         }
 
         ArrayNode results = objectMapper.createArrayNode();
-        addSpecialistResults(term, results);
-        addPharmacyResults(term, results);
+        try {
+            addSpecialistResults(term, results);
+            addPharmacyResults(term, results);
+        } catch (RuntimeException failure) {
+            logger.warn("Fax recipient directory lookup failed ({})", failure.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            JSONUtil.jsonResponse(response, objectMapper.createArrayNode().toString());
+            return NONE;
+        }
 
         JSONUtil.jsonResponse(response, results.toString());
         return NONE;
@@ -154,7 +162,7 @@ public class FaxRecipientSearch2Action extends ActionSupport {
                 results.add(item);
             }
         } catch (Exception e) {
-            logger.warn("Error loading specialist fax autocomplete results", e);
+            throw new IllegalStateException("Specialist directory unavailable", e);
         }
     }
 
@@ -184,7 +192,7 @@ public class FaxRecipientSearch2Action extends ActionSupport {
                 results.add(item);
             }
         } catch (Exception e) {
-            logger.warn("Error loading pharmacy fax autocomplete results", e);
+            throw new IllegalStateException("Pharmacy directory unavailable", e);
         }
     }
 }

@@ -61,7 +61,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -82,6 +81,91 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fax")
 class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
+
+    @Test
+    @DisplayName("should keep response-write failures private while refusing a GET scheduler restart")
+    void shouldKeepResponseFailurePrivate_whenErrorCannotBeWritten() {
+        setUpCommonMocks();
+        request.setMethod("GET");
+        request.setParameter("method", "restartFaxScheduler");
+        response = new MockHttpServletResponse() {
+            @Override
+            public void sendError(int status, String message) throws java.io.IOException {
+                throw new java.io.IOException("PRIVATE_RESPONSE_MESSAGE", new IllegalStateException("PRIVATE_RESPONSE_CAUSE"));
+            }
+        };
+        try (var context = mockStatic(ServletActionContext.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ConfigureFax2Action.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            assertThat(new ConfigureFax2Action().execute()).isEqualTo(ConfigureFax2Action.NONE);
+            verify(faxManager, never()).restartFaxScheduler(any());
+            assertThat(logs.messages()).anyMatch(message -> message.contains("Error sending error response"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_RESPONSE");
+            assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "restartFaxScheduler,false", "restartFaxScheduler,true",
+            "getPendingIncomingFaxes,false", "getPendingIncomingFaxes,true",
+            "getFaxSchedularStatus,false", "getFaxSchedularStatus,true"
+    })
+    @DisplayName("should bound scheduler and pending-import diagnostics for runtime and security failures")
+    void shouldKeepSchedulerDiagnosticsPrivate_whenBackendFails(String method, boolean securityFailure) throws Exception {
+        setUpCommonMocks();
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(String.class), any(String.class), isNull()))
+                .thenReturn(true);
+        RuntimeException failure = securityFailure
+                ? new SecurityException("PRIVATE_SCHEDULER_MESSAGE", new IllegalStateException("PRIVATE_SCHEDULER_CAUSE"))
+                : new IllegalStateException("PRIVATE_SCHEDULER_MESSAGE", new IllegalStateException("PRIVATE_SCHEDULER_CAUSE"));
+        var importer = mock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class);
+        registerMock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class, importer);
+        switch (method) {
+            case "restartFaxScheduler" -> org.mockito.Mockito.doThrow(failure).when(faxManager).restartFaxScheduler(any());
+            case "getPendingIncomingFaxes" -> when(importer.listPendingIncomingFaxes()).thenThrow(failure);
+            case "getFaxSchedularStatus" -> when(faxManager.getFaxSchedularStatus(any())).thenThrow(failure);
+            default -> throw new AssertionError("Unexpected test method");
+        }
+        request.setMethod("POST");
+        request.setParameter("method", method);
+        try (var context = mockStatic(ServletActionContext.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ConfigureFax2Action.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+            assertThat(response.getContentAsString()).contains("\"success\":false").doesNotContain("PRIVATE_SCHEDULER");
+            assertThat(logs.messages()).anyMatch(message -> message.contains(failure.getClass().getSimpleName()));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_SCHEDULER");
+            assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
+    @DisplayName("should hide unexpected backend argument errors while preserving authored field-validation messages")
+    void shouldKeepBackendArgumentErrorPrivate_whenConfigurationSaveFails() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        when(faxConfigDao.findAll(isNull(), isNull())).thenReturn(new ArrayList<>());
+        request.setMethod("POST");
+        setSrfaxAccountRowParams("0", "4165550100", "test-secret-pw");
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("PRIVATE_BACKEND_MESSAGE",
+                        new IllegalStateException("PRIVATE_BACKEND_CAUSE")))
+                .when(faxConfigDao).saveEntity(any(FaxConfig.class));
+        try (var context = mockStatic(ServletActionContext.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ConfigureFax2Action.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+            verify(faxConfigDao).saveEntity(any(FaxConfig.class));
+            assertThat(response.getContentAsString()).contains("\"success\":false")
+                    .contains("There was a problem saving your configuration")
+                    .doesNotContain("PRIVATE_BACKEND", "test-secret-pw");
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_BACKEND", "test-secret-pw");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -475,7 +559,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             // Submitted credentials must never travel to the provider on a GET.
-            verifyNoInteractions(providerClientFactory, providerClient);
+            verifyNoInteractions(providerClientFactory, providerClient, faxConfigDao, faxManager, securityInfoManager);
         }
     }
 
@@ -533,13 +617,13 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return the provider failure message when verification fails")
-    void shouldReturnProviderMessage_whenVerificationFails() throws Exception {
+    @DisplayName("should report bounded provider failure details when verification fails")
+    void shouldKeepProviderFailurePrivate_whenVerificationFails() throws Exception {
         setUpCommonMocks();
         grantConfigureWrite(true);
         stubProviderClient();
         org.mockito.Mockito.doThrow(new FaxProviderException(
-                "SRFax connection test failed: Invalid Access Code / Password"))
+                "PRIVATE_CONNECTION_MESSAGE", new IllegalStateException("PRIVATE_CONNECTION_CAUSE"), 401))
                 .when(providerClient).verifyConnection(any(FaxConfig.class));
         request.setMethod("POST");
         setTestConnectionParams("-1", "123456", "test-secret-pw");
@@ -548,12 +632,18 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
-            new ConfigureFax2Action().execute();
+            try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ConfigureFax2Action.class)) {
+                new ConfigureFax2Action().execute();
+                assertThat(logs.messages()).anyMatch(message -> message.contains("HTTP 401"));
+                assertThat(logs.messages().toString()).doesNotContain("PRIVATE_CONNECTION");
+                assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            }
 
             assertThat(response.getContentAsString())
                     .contains("\"success\":false")
                     .contains("Connection failed")
-                    .contains("Invalid Access Code / Password");
+                    .contains("Provider HTTP 401")
+                    .doesNotContain("PRIVATE_CONNECTION");
         }
     }
 
@@ -743,15 +833,23 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(ConfigureFax2Action.isSrfaxAccountNumber(null)).isFalse();
     }
 
-    @ParameterizedTest(name = "{0} with method testConnection is refused with 405")
-    @ValueSource(strings = {"HEAD", "PATCH", "DELETE"})
-    @DisplayName("should send 405 with Allow: POST on every non-POST verb for testConnection")
-    void shouldSend405_onNonPostVerbsForTestConnection(String verb) throws Exception {
+    private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> rejectedMutationMethods() {
+        return java.util.stream.Stream.of("configure", "restartFaxScheduler", "testConnection")
+                .flatMap(mutator -> java.util.stream.Stream.of("GET", "HEAD", "PUT", "PATCH", "DELETE",
+                        "OPTIONS", "TRACE", "post", "PoSt", "POſT")
+                        .map(verb -> org.junit.jupiter.params.provider.Arguments.of(mutator, verb)));
+    }
+
+    @ParameterizedTest(name = "{1} with method {0} is refused with 405")
+    @org.junit.jupiter.params.provider.MethodSource("rejectedMutationMethods")
+    @DisplayName("should send 405 with Allow: POST on every non-POST mutator verb")
+    void shouldSend405_onNonPostMutatorVerbs(String mutator, String verb) throws Exception {
         setUpCommonMocks();
         grantConfigureWrite(true);
         stubProviderClient();
         request.setMethod(verb);
         setTestConnectionParams("1", "123456", "test-secret-pw");
+        request.setParameter("method", mutator);
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -761,7 +859,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             assertThat(response.getHeader("Allow")).isEqualTo("POST");
-            verifyNoInteractions(providerClientFactory, providerClient);
+            verifyNoInteractions(providerClientFactory, providerClient, faxConfigDao, faxManager, securityInfoManager);
         }
     }
 
@@ -770,12 +868,8 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReturnUnsupportedProviderMessage_whenTestConnectionProviderIsMiddleware() throws Exception {
         setUpCommonMocks();
         grantConfigureWrite(true);
-        // A legacy relay client without a verifyConnection override: exercise the interface
-        // default rather than a stub, so the contract for non-SRFax providers is what is pinned.
-        FaxProviderClient middlewareClient = mock(FaxProviderClient.class);
-        when(middlewareClient.getProviderType()).thenReturn(FaxConfig.ProviderType.MIDDLEWARE);
-        doCallRealMethod().when(middlewareClient).verifyConnection(any(FaxConfig.class));
-        when(providerClientFactory.getClient(any(FaxConfig.class))).thenReturn(middlewareClient);
+        // Legacy middleware has no connection-test implementation. Return the known safe
+        // unsupported-provider message without needing a provider exception as UI text.
         request.setMethod("POST");
         // Middleware rows carry a relay username, so the SRFax digits rule must not apply.
         setTestConnectionParams("1", "relay-user", "test-secret-pw");
@@ -792,6 +886,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
                     .contains("\"success\":false")
                     .contains("Connection test is not supported for provider MIDDLEWARE");
             assertThat(body).doesNotContain("test-secret-pw");
+            verifyNoInteractions(providerClientFactory, providerClient);
         }
     }
 
@@ -819,7 +914,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             String body = response.getContentAsString();
             assertThat(body)
                     .contains("\"success\":false")
-                    .contains("Invalid provider type 'BOGUSscript'. Valid values are");
+                    .contains("Invalid provider type. Valid values are");
             assertThat(body).doesNotContain("<script>").doesNotContain("null");
             verifyNoInteractions(providerClientFactory, providerClient);
         }

@@ -24,7 +24,13 @@ package io.github.carlos_emr.carlos.documentManager.annotation;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
-import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -154,7 +160,6 @@ public class AnnotatedDocumentService {
                 loggedInInfo, linkedDemographicNo)) {
             throw new SecurityException("Unauthorized access to patient record");
         }
-        String demographicNo = linkedDemographicNo > 0 ? String.valueOf(linkedDemographicNo) : null;
 
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getDocumentDirectory(), DOCUMENT_DIR_LABEL);
@@ -187,23 +192,58 @@ public class AnnotatedDocumentService {
         File target = createUniqueTarget(documentDir, composed);
         String newFileName = target.getName();
 
-        int newDocNo;
-        try {
-            newDocNo = Integer.parseInt(EDocUtil.addDocumentSQL(buildCopy(source, newFileName,
-                    loggedInInfo.getLoggedInProviderNo(), sourceDocNo, actualPageCount)));
-        } catch (RuntimeException e) {
-            // The row is the thing that makes the file reachable; without it the bytes are
-            // unreferenced PHI sitting in the document store.
-            Files.deleteIfExists(target.toPath());
-            throw e;
-        }
-
-        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT,
-                String.valueOf(newDocNo), null, demographicNo);
+        int newDocNo = fileCopy(buildCopy(source, newFileName,
+                loggedInInfo.getLoggedInProviderNo(), sourceDocNo, actualPageCount), target.toPath(),
+                linkedDemographicNo, loggedInInfo);
         logger.info("Annotated copy {} filed from document {} by provider {}",
                 newDocNo, sourceDocNo, LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo()));
 
         return newDocNo;
+    }
+
+    /** A failed database acknowledgement may still mean the copy committed; do not encourage retries. */
+    public static class FilingException extends IllegalStateException {
+        public FilingException() {
+            super("The save could not be confirmed. Check the patient's documents before saving another copy.");
+        }
+    }
+
+    /** Files both document rows and the audit together, removing bytes only after a confirmed rollback. */
+    int fileCopy(EDoc copy, Path target, int patientNo, LoggedInInfo info) {
+        try {
+            TransactionTemplate tx = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+            tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            return tx.execute(status -> {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int completion) {
+                        if (completion == STATUS_ROLLED_BACK) {
+                            try {
+                                Files.deleteIfExists(target);
+                            } catch (IOException failure) {
+                                logger.error("Could not remove rolled-back annotated document ({})",
+                                        failure.getClass().getSimpleName());
+                            }
+                        }
+                    }
+                });
+                int id = Integer.parseInt(EDocUtil.addDocumentSQL(copy));
+                OscarLog audit = new OscarLog();
+                audit.setProviderNo(info.getLoggedInProviderNo());
+                audit.setAction(LogConst.ADD);
+                audit.setContent(LogConst.CON_DOCUMENT);
+                audit.setContentId(String.valueOf(id));
+                audit.setIp(info.getIp());
+                if (patientNo > 0) audit.setDemographicId(patientNo);
+                SpringUtils.getBean(OscarLogDao.class).persist(audit);
+                return id;
+            });
+        } catch (RuntimeException failure) {
+            // Do not delete on a lost commit acknowledgement: the row may reference these bytes.
+            logger.error("Annotated document filing outcome could not be confirmed ({})",
+                    failure.getClass().getSimpleName());
+            throw new FilingException();
+        }
     }
 
     /**
@@ -358,6 +398,7 @@ public class AnnotatedDocumentService {
         copy.setSource(SOURCE_PREFIX + sourceDocNo);
         copy.setSourceFacility(source.getSourceFacility());
         copy.setProgramId(source.getProgramId());
+        copy.setRestrictToProgram(source.isRestrictToProgram());
         copy.setStatus('A');
         copy.setDocPublic(source.getDocPublic());
         copy.setObservationDate(source.getObservationDate());

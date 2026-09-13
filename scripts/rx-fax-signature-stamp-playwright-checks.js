@@ -86,6 +86,7 @@ const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { browserErrorClass } = require('./browser-error-class');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -301,7 +302,7 @@ function cleanupFixtures() {
     try {
       fn();
     } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${(error && error.message) || 'failed'}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}` });
     }
   };
   let ourScriptNos = new Set();
@@ -347,7 +348,7 @@ function cleanupFixtures() {
 // On interruption (Ctrl-C / CI termination) run the same idempotent DB cleanup, then remove the
 // cleartext-password file, before exiting — so a killed run leaves neither test rows nor the secret.
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(130); });
+  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(signal === 'SIGTERM' ? 143 : 130); });
 }
 
 function sql(query) {
@@ -355,7 +356,7 @@ function sql(query) {
     return execFileSync(
       mysqlBin,
       [`--defaults-extra-file=${mysqlDefaultsFile}`, '-N', '-B', mysqlDatabase, '-e', query],
-      { encoding: 'utf8', timeout: 30000 },
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 },
     ).trim();
   } catch (error) {
     // Do not echo the full command/SQL (it can carry identifiers); surface a bounded reason.
@@ -369,15 +370,7 @@ function sql(query) {
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    const text = error.stack || error.message || '';
-    // Known pre-existing defect, tracked by issue #3578: expandPreview writes into the preview
-    // iframe from an async fetch callback before that iframe has parsed, so the target node does
-    // not exist on some render orders. Named here so the suppression stays auditable — an entry
-    // without an issue behind it would let a real regression pass unnoticed.
-    if (/Cannot set properties of null \(setting 'innerHTML'\)/.test(text) && /expandPreview/.test(text)) {
-      return;
-    }
-    findings.push({ label, type: 'pageerror', text });
+    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
   });
   page.on('dialog', async (dialog) => {
     // Accept ONLY the one confirm() the custom-drug button legitimately raises, and only while we are
@@ -389,7 +382,7 @@ function wirePage(page, label) {
       await dialog.accept().catch(() => {});
       return;
     }
-    findings.push({ label, type: 'unexpected-dialog', text: `${dialog.type()}: ${dialog.message()}`.slice(0, 200) });
+    findings.push({ label, type: 'unexpected-dialog', text: `unexpected ${dialog.type()} dialog` });
     await dialog.dismiss().catch(() => dialog.accept().catch(() => {}));
   });
 }
@@ -477,8 +470,30 @@ async function writeCustomRxThroughUi(page) {
   // The custom drug injects the prescribe fragment and stages the drug.
   await page.locator("[id^='drugName_'], [id^='quantity_']").first().waitFor({ state: 'attached', timeout: 30000 });
 
+  // A staged prescription is not a persisted preview. Navigation and prefetch must
+  // neither save it nor apply a signature, even while the session can prescribe.
+  const previewStateQuery = `SELECT script_no,COALESCE(digital_signature_id,0) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} ORDER BY script_no;`;
+  const beforePreview = sql(previewStateQuery);
+  for (const method of ['GET', 'HEAD']) {
+    const response = await page.request.fetch(appUrl('/rx/viewScript'), { method });
+    try {
+      if (response.status() !== 409 || sql(previewStateQuery) !== beforePreview) {
+        throw new Error('Unsaved prescription preview navigation must reject without saving or stamping');
+      }
+    } finally {
+      await response.dispose();
+    }
+  }
+  visited.push({ label: 'unsaved-preview-get-head-read-only', databaseUnchanged: true });
+
   // Real control: "Save And Print" — writes the script and opens ViewScript2 in the modal.
-  await page.locator('#saveButton').click();
+  const [previewRequest] = await Promise.all([
+    page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/rx/viewScript'), { timeout: 30000 }),
+    page.locator('#saveButton').click(),
+  ]);
+  if (previewRequest.method() !== 'POST') {
+    throw new Error('Save And Print must open its stamping preview through POST');
+  }
 
   // The Bootstrap preview modal loads ViewScript2 in an iframe.
   const modalFrame = page.frameLocator('#carlosModalBody iframe');
@@ -577,8 +592,8 @@ async function runChecks(context) {
       visited.push({ label: 'fax-request', url: new URL(faxRequest.url()).pathname + ' (query redacted)', status: faxStatus });
     } catch (error) {
       // A captured request whose response never came is a different failure from no request at all.
-      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: `the Fax click's createcustomedpdf request got no response: ${error.message}` });
-      else findings.push({ label: 'fax-click', type: 'no-request', text: `Fax click produced no createcustomedpdf request: ${error.message}` });
+      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: browserErrorClass(error) });
+      else findings.push({ label: 'fax-click', type: 'no-request', text: browserErrorClass(error) });
     }
 
     if (faxRequest) {
@@ -600,7 +615,7 @@ async function runChecks(context) {
       if (faxStatus < 200 || faxStatus >= 300) {
         findings.push({ label: 'fax-gate', type: 'http-error', status: faxStatus, text: `signed fax returned HTTP ${faxStatus}` });
       } else if (!/fax-success/i.test(faxBody) && !/not signed/i.test(faxBody)) {
-        findings.push({ label: 'fax-gate', type: 'not-successful', text: `signed fax did not report fax-success: ${faxBody.replace(/\s+/g, ' ').slice(0, 160)}` });
+        findings.push({ label: 'fax-gate', type: 'not-successful', text: 'signed fax did not report fax-success', status: faxStatus });
       }
     }
 
@@ -647,10 +662,10 @@ async function runChecks(context) {
     if (!unsigned.hadToken) findings.push({ label: 'fax-gate', type: 'no-csrf-token', text: 'could not obtain a CSRFGuard token for the unsigned-fax POST' });
     if (unsigned.status >= 500) findings.push({ label: 'fax-gate', type: 'http-500', status: unsigned.status });
     if (/csrf|token/i.test(unsignedBody) && /reject|forbidden|invalid/i.test(unsignedBody)) {
-      findings.push({ label: 'fax-gate', type: 'csrf-rejected', text: `unsigned-fax POST was rejected by CSRF, not the signature gate: ${unsignedBody.replace(/\s+/g, ' ').slice(0, 160)}` });
+      findings.push({ label: 'fax-gate', type: 'csrf-rejected', text: 'unsigned-fax POST was rejected by CSRF, not the signature gate', status: unsigned.status });
     }
     if (/Signature not found/i.test(unsignedBody)) findings.push({ label: 'fax-gate', type: 'legacy-alert-unsigned', text: 'unsigned fax still shows the old "Signature not found" alert' });
-    if (!/not signed/i.test(unsignedBody)) findings.push({ label: 'fax-gate', type: 'not-refused', text: `unsigned fax was not refused: ${unsignedBody.replace(/\s+/g, ' ').slice(0, 160)}` });
+    if (!/not signed/i.test(unsignedBody)) findings.push({ label: 'fax-gate', type: 'not-refused', text: 'unsigned fax was not refused', status: unsigned.status });
 
     return { createdScriptId, faxDisabled, padPresent, persistedSignatureId: sigId };
   } finally {
@@ -692,7 +707,7 @@ async function runChecks(context) {
     removeSecretsDir();
   }
 })().catch((error) => {
-  console.error(error.stack || error.message);
+  console.error(`FAIL rx-fax-signature-stamp: ${browserErrorClass(error)}`);
   removeSecretsDir();
   process.exit(1);
 });

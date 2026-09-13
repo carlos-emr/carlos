@@ -896,6 +896,17 @@ public class ManageDocument2Action extends ActionSupport {
     // security control conditional.
     @SuppressWarnings("java:S2629") // error level is always enabled; LogSafe.sanitize is required, not optional
     public byte[] createCacheVersion2(Document d, Integer pageNum, int dpi) {
+        if (!ALLOWED_RENDER_DPI.contains(dpi)) return EMPTY_IMAGE;
+        try {
+            return io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.runWithin(
+                    30, "document-page-render", () -> renderPageToCache(d, pageNum, dpi));
+        } catch (IOException failure) {
+            log.warn("Document page rendering failed ({})", failure.getClass().getSimpleName());
+            return EMPTY_IMAGE;
+        }
+    }
+
+    private byte[] renderPageToCache(Document d, Integer pageNum, int dpi) {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
         Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();
         File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
@@ -929,8 +940,17 @@ public class ManageDocument2Action extends ActionSupport {
                 PDFRenderer rend = new PDFRenderer(pdf);
                 BufferedImage image = rend.renderImageWithDPI(pageIndex, dpi, ImageType.RGB);
 
-                ImageIO.write(image, "png", pngFile.toFile());
-                ImageIO.write(image, "png", baos);
+                if (!ImageIO.write(image, "png", baos)) {
+                    throw new IOException("PNG writer unavailable");
+                }
+                Path stagedPng = Files.createTempFile(cacheDir.toPath(), "page-render-", ".png");
+                try {
+                    Files.write(stagedPng, baos.toByteArray());
+                    Files.move(stagedPng, pngFile, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } finally {
+                    Files.deleteIfExists(stagedPng);
+                }
 
                 image.flush();
             }

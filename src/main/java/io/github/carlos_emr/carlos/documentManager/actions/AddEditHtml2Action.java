@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -161,8 +162,12 @@ public class AddEditHtml2Action extends ActionSupport {
         String functionIdParam = request.getParameter("functionid");
         redirect.append("?function=").append(functionParam != null ? URLEncoder.encode(functionParam, StandardCharsets.UTF_8) : "");
         redirect.append("&functionid=").append(functionIdParam != null ? URLEncoder.encode(functionIdParam, StandardCharsets.UTF_8) : "");
+        // The redirect is a fresh request: re-append the schedule-shell flag the Add Link form
+        // posted, or the document list comes back without its navigation header tabs. The helper
+        // is a no-op when the shell is not active.
+        String target = ScheduleNav.append(redirect.toString(), request);
         try {
-            response.sendRedirect(redirect.toString());
+            response.sendRedirect(target);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

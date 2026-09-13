@@ -48,7 +48,6 @@ import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -108,14 +107,14 @@ public class AddEForm2Action extends ActionSupport {
      * Validates an eform_link value against the expected key format.
      *
      * <p>Returns the value unchanged if it matches the expected format, or {@code null}
-     * if the value is invalid or null. Non-null invalid values are logged at WARN level.</p>
+     * if the value is invalid or null. Non-null invalid values produce a bounded warning without echoing the value.</p>
      *
      * @param eformLink the raw eform_link parameter value (may be null)
      * @return the validated eform_link, or null if invalid
      */
     static String validateEformLink(String eformLink) {
         if (eformLink != null && !EFORM_LINK_PATTERN.matcher(eformLink).matches()) {
-            logger.warn("Invalid eform_link parameter rejected: {}", LogSafe.sanitize(eformLink));
+            logger.warn("Invalid eform_link parameter rejected");
             return null;
         }
         return eformLink;
@@ -138,7 +137,8 @@ public class AddEForm2Action extends ActionSupport {
     public String execute() {
 
         String method = request.getMethod();
-        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+        if (!"POST".equals(method)) {
+            response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -303,7 +303,7 @@ public class AddEForm2Action extends ActionSupport {
             try {
                 curForm.addImagePathPlaceholders(imagePathPlaceHolders);
             } catch (Exception e) {
-                logger.error("Error retrieving image path placeholders from eForm submission.", e);
+                logger.error("Unable to process eForm image placeholders ({})", e.getClass().getSimpleName());
             }
 
             String fdid = eformDataManager.saveEformData(loggedInInfo, curForm) + "";
@@ -320,7 +320,7 @@ public class AddEForm2Action extends ActionSupport {
                 if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
                     se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
                 } else {
-                    logger.warn("Invalid eform_link rejected: {}", LogSafe.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSafe (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                    logger.warn("Invalid eform_link rejected");
                 }
             }
 
@@ -374,8 +374,8 @@ public class AddEForm2Action extends ActionSupport {
             }
 
             if (fax) {
-                redirectToPreparedFax(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
-                return NONE;
+                prepareFaxHandoff(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
+                return "faxPreparation";
             } else if (isDownloadEForm) {
                 /*
                  * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
@@ -440,8 +440,8 @@ public class AddEForm2Action extends ActionSupport {
                  * This form id is sent to the fax action to render it as a faxable PDF.
                  * A preview is returned to the user once the form is rendered.
                  */
-                redirectToPreparedFax(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
-                return NONE;
+                prepareFaxHandoff(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
+                return "faxPreparation";
             } else if (isDownloadEForm) {
                 /*
                  * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
@@ -510,7 +510,7 @@ public class AddEForm2Action extends ActionSupport {
             try {
                 matchManager.<Demographic>processEvent(client, IMatchManager.Event.CLIENT_CREATED);
             } catch (MatchManagerException e) {
-                MiscUtils.getLogger().error("Error while processing MatchManager.processEvent(Client)", e);
+                MiscUtils.getLogger().error("Error while processing MatchManager.processEvent(Client) ({})", e.getClass().getSimpleName());
             }
 		}
 
@@ -518,9 +518,8 @@ public class AddEForm2Action extends ActionSupport {
         return closeWithPdfPreview(loggedInInfo, demographic_no, fdid);
 	}
 	
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin fax action path built from the current context path with encoded query parameters.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin fax action path built from the current context path with encoded query parameters")
-    private void redirectToPreparedFax(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
+    /** Prepares a narrow POST handoff only after the original protected eForm save. */
+    private void prepareFaxHandoff(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
         StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
         faxForward.append("?method=").append("prepareFax");
         faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
@@ -536,11 +535,10 @@ public class AddEForm2Action extends ActionSupport {
         if (letterheadFax != null && !letterheadFax.isEmpty()) {
             faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
         }
-        try {
-            response.sendRedirect(faxForward.toString());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        // Do not replay the saved form body with a 307: signatures and rich text have
+        // save-route-specific WAF allowances and are not inputs to fax preparation.
+        request.setAttribute("preparedFaxTarget", faxForward.toString());
+        response.setHeader("Cache-Control", "no-store");
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin email compose path built from the current context path with an encoded eForm id.
@@ -595,7 +593,7 @@ public class AddEForm2Action extends ActionSupport {
         try {
             return generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
         } catch (RuntimeException e) {
-            logger.warn("Falling back to a generic PDF preview filename for demographic {}", LogSafe.sanitize(demographicNo), e);
+            logger.warn("Using a generic eForm PDF preview filename ({})", e.getClass().getSimpleName());
             return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + PDF_PREVIEW_FALLBACK_SUFFIX;
         }
     }
@@ -719,13 +717,13 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     private void setPdfError(String message, Exception e) {
-        logger.error(message, e);
+        logger.error("eForm PDF preparation failed ({})", e.getClass().getSimpleName());
         request.setAttribute(ERROR_ATTRIBUTE, "true");
         request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message);
     }
 
     private void setPdfWarning(String message, Exception e) {
-        logger.warn(message, e);
+        logger.warn("eForm PDF preview unavailable ({})", e.getClass().getSimpleName());
         request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message);
     }
 

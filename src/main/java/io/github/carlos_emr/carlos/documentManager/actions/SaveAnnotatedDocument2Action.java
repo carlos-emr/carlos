@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentComposer;
 import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentAnnotationDto;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentAnnotationParser;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -109,7 +110,7 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         // Verb gate first: nothing below may run on the wrong method, including the privilege
         // lookup. POST is the only verb this route has; allowing PUT/PATCH/DELETE/OPTIONS to
         // reach composition and filing lets the action's contract drift away from its caller.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             response.setHeader("Allow", "POST");
             return NONE;
@@ -135,9 +136,14 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         }
 
         EDoc source = EDocUtil.getDoc(String.valueOf(docId));
-        if (source == null) {
+        if (source == null || StringUtils.isBlank(source.getFileName())) {
             return json(response, HttpServletResponse.SC_NOT_FOUND,
                     error("The document could not be found."));
+        }
+        int patientNo = DocumentPatientLink.demographicNoOf(source);
+        if (patientNo > 0 && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, patientNo)) {
+            return json(response, HttpServletResponse.SC_FORBIDDEN,
+                    error("You do not have access to this patient's records."));
         }
         // Read from the FILE, matching what AnnotateDocument2Action showed the provider. The
         // stored count is metadata: legacy rows carry zero, which this used to floor at 1, so a
@@ -186,8 +192,12 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             ObjectNode ok = objectMapper.createObjectNode();
             ok.put("success", true);
             ok.put("documentNo", newDocNo);
-            ok.put("demographicNo", StringUtils.defaultString(source.getModuleId(), "0"));
+            ok.put("demographicNo", String.valueOf(patientNo));
             return json(response, HttpServletResponse.SC_OK, ok);
+        } catch (AnnotatedDocumentService.FilingException e) {
+            ObjectNode uncertain = error(e.getMessage());
+            uncertain.put("retryable", false);
+            return json(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, uncertain);
         } catch (SecurityException e) {
             return json(response, HttpServletResponse.SC_FORBIDDEN,
                     error("You do not have access to this patient's records."));
@@ -195,7 +205,7 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return json(response, HttpServletResponse.SC_CONFLICT, error(e.getMessage()));
         } catch (IOException | IllegalStateException e) {
             // The cause can quote document internals; log it, do not return it.
-            logger.error("Failed to compose annotated copy of document {}", docId, e);
+            logger.error("Failed to compose annotated copy of document {} ({})", docId, e.getClass().getSimpleName());
             return json(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     error("The annotated document could not be saved."));
         }

@@ -63,7 +63,9 @@
         annotations: [],   // the model posted to the server
         wordBoxes: {},     // page -> [{x,y,w,h}], for snap-to-text
         seq: 0,
-        saved: false
+        saved: false,
+        saving: false,
+        uncertain: false
     };
 
     var pagesEl = document.getElementById('pages');
@@ -90,7 +92,14 @@
             img.alt = t('pageLabel', 'Page') + ' ' + page;
             img.loading = page <= 2 ? 'eager' : 'lazy';
             img.dataset.page = String(page);
-            img.addEventListener('load', function () { sizeOverlay(this.parentNode); });
+            img.addEventListener('load', function () {
+                this.parentNode.classList.remove('load-failed');
+                sizeOverlay(this.parentNode);
+            });
+            img.addEventListener('error', function () {
+                this.parentNode.classList.add('load-failed');
+                setStatus('Page ' + this.dataset.page + ' could not be loaded. Reload the viewer before annotating it.', 'error');
+            });
 
             var svg = document.createElementNS(SVG_NS, 'svg');
             svg.setAttribute('class', 'overlay');
@@ -260,6 +269,8 @@
     /* ---------- model edits ---------- */
 
     function addAnnotation(a) {
+        if (state.saving) { return; }
+        state.saved = false;
         a.id = ++state.seq;
         state.annotations.push(a);
         redrawPage(a.page);
@@ -267,6 +278,8 @@
     }
 
     function removeAnnotation(id) {
+        if (state.saving) { return; }
+        state.saved = false;
         var index = state.annotations.findIndex(function (a) { return a.id === id; });
         if (index < 0) { return; }
         var page = state.annotations[index].page;
@@ -278,8 +291,8 @@
     function updateCounts() {
         var count = state.annotations.length;
         document.getElementById('markCount').textContent = String(count);
-        document.getElementById('btnSave').disabled = count === 0;
-        document.getElementById('btnSaveFax').disabled = count === 0;
+        document.getElementById('btnSave').disabled = state.uncertain || state.saving || state.saved || count === 0;
+        document.getElementById('btnSaveFax').disabled = state.uncertain || state.saving || state.saved || count === 0;
     }
 
     /* ---------- pointer interaction ---------- */
@@ -290,7 +303,8 @@
         var dragging = null;
 
         svg.addEventListener('pointerdown', function (event) {
-            if (state.tool === 'select') { return; }
+            if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
+                    || wrap.classList.contains('load-failed')) { return; }
             var rect = svg.getBoundingClientRect();
             var nx = (event.clientX - rect.left) / rect.width;
             var ny = (event.clientY - rect.top) / rect.height;
@@ -351,10 +365,10 @@
             el.setAttribute('stroke-width', DEFAULT_STROKE_WIDTH * previewScale(svg));
         } else {
             el = document.createElementNS(SVG_NS, 'rect');
-            el.setAttribute('x', Math.min(drag.x0, drag.x1 || drag.x0) * w);
-            el.setAttribute('y', Math.min(drag.y0, drag.y1 || drag.y0) * h);
-            el.setAttribute('width', Math.abs((drag.x1 || drag.x0) - drag.x0) * w);
-            el.setAttribute('height', Math.abs((drag.y1 || drag.y0) - drag.y0) * h);
+            el.setAttribute('x', Math.min(drag.x0, drag.x1 === undefined ? drag.x0 : drag.x1) * w);
+            el.setAttribute('y', Math.min(drag.y0, drag.y1 === undefined ? drag.y0 : drag.y1) * h);
+            el.setAttribute('width', Math.abs((drag.x1 === undefined ? drag.x0 : drag.x1) - drag.x0) * w);
+            el.setAttribute('height', Math.abs((drag.y1 === undefined ? drag.y0 : drag.y1) - drag.y0) * h);
             el.setAttribute('fill', COLORS[state.color]);
             el.setAttribute('fill-opacity', '0.3');
         }
@@ -371,10 +385,10 @@
             });
             return;
         }
-        var x = Math.min(drag.x0, drag.x1 || drag.x0);
-        var y = Math.min(drag.y0, drag.y1 || drag.y0);
-        var w = Math.abs((drag.x1 || drag.x0) - drag.x0);
-        var h = Math.abs((drag.y1 || drag.y0) - drag.y0);
+        var x = Math.min(drag.x0, drag.x1 === undefined ? drag.x0 : drag.x1);
+        var y = Math.min(drag.y0, drag.y1 === undefined ? drag.y0 : drag.y1);
+        var w = Math.abs((drag.x1 === undefined ? drag.x0 : drag.x1) - drag.x0);
+        var h = Math.abs((drag.y1 === undefined ? drag.y0 : drag.y1) - drag.y0);
         if (w < 0.004 || h < 0.004) { return; }
 
         var box = { x: x, y: y, w: w, h: h };
@@ -467,11 +481,15 @@
         fetch(cfg.contextPath + '/documentManager/DocumentTextBoxes?docId='
             + encodeURIComponent(cfg.docId) + '&page=' + encodeURIComponent(page),
             { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (r) {
+                if (!r.ok) { throw new Error('Text layer unavailable'); }
+                return r.json();
+            })
             .then(function (data) {
                 // An empty list is the normal answer for a page with no text layer, and is
                 // cached as such so the page is not asked for again.
-                state.wordBoxes[page] = (data && Array.isArray(data.words)) ? data.words : [];
+                if (!data || !Array.isArray(data.words)) { throw new Error('Invalid text layer'); }
+                state.wordBoxes[page] = data.words;
             })
             .catch(function () {
                 // A transient failure must not disable snapping for the rest of the session:
@@ -518,7 +536,8 @@
     }
 
     function save(thenFax) {
-        if (!state.annotations.length) { return; }
+        if (state.uncertain || state.saving || state.saved || !state.annotations.length) { return; }
+        state.saving = true;
         setStatus(t('saving', 'Saving…'), 'busy');
         document.getElementById('btnSave').disabled = true;
         document.getElementById('btnSaveFax').disabled = true;
@@ -555,7 +574,9 @@
                 return { ok: response.ok, data: data };
             });
         }).then(function (result) {
+            state.saving = false;
             if (!result.ok || !result.data.success) {
+                state.uncertain = result.data.retryable === false;
                 setStatus(result.data && result.data.error
                     ? result.data.error
                     : t('saveFailed', 'The annotated document could not be saved.'), 'error');
@@ -563,6 +584,7 @@
                 return;
             }
             state.saved = true;
+            updateCounts();
             setStatus(t('saved', 'Saved as a new document.') + ' #' + result.data.documentNo, 'ok');
             if (thenFax) {
                 window.location.href = cfg.contextPath + '/documentManager/FaxDocument?docId='
@@ -578,7 +600,9 @@
                 document.getElementById('savedLink').appendChild(link);
             }
         }).catch(function () {
-            setStatus(t('saveFailed', 'The annotated document could not be saved.'), 'error');
+            state.saving = false;
+            state.uncertain = true;
+            setStatus('The save could not be confirmed. Check the patient’s documents before saving another copy.', 'error');
             updateCounts();
         });
     }
@@ -602,7 +626,11 @@
             }
         }
         out.push(points[points.length - 1]);
-        return out.slice(0, 4000);
+        if (out.length <= 4000) { return out; }
+        // Sample the complete stroke, including its final point; never silently chop its tail.
+        return Array.from({ length: 4000 }, function (_, index) {
+            return out[Math.round(index * (out.length - 1) / 3999)];
+        });
     }
 
     /* ---------- wiring ---------- */
@@ -658,7 +686,7 @@
             for (var n = 0; n < wraps.length; n++) { sizeOverlay(wraps[n]); }
         });
         window.addEventListener('beforeunload', function (event) {
-            if (state.annotations.length && !state.saved) {
+            if (state.saving || (state.annotations.length && !state.saved)) {
                 event.preventDefault();
                 event.returnValue = '';
             }

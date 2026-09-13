@@ -188,6 +188,8 @@
         // typing collapses that to one.
         nameEl.addEventListener('input', function () {
             var term = nameEl.value.trim();
+            if (abortCtrl) { abortCtrl.abort(); abortCtrl = null; }
+            hideDropdown();
             if (pendingSearch) { clearTimeout(pendingSearch); pendingSearch = null; }
             if (term.length < 2) {
                 if (abortCtrl) { abortCtrl.abort(); abortCtrl = null; }
@@ -218,14 +220,20 @@
                     }
                     return response.json();
                 })
-                .then(renderResults)
+                .then(function (items) {
+                    if (nameEl.value.trim() === term && document.activeElement === nameEl) {
+                        renderResults(items);
+                    }
+                })
                 .catch(function (err) {
                     if (err.name === 'AbortError') {
                         return; // request was intentionally aborted
                     }
                     // Clear stale suggestions when fetch fails
                     hideDropdown();
-                    console.error('Error searching fax recipients:', err);
+                    dropEl.textContent = 'Recipient search is unavailable. Enter and verify the fax number manually, or try again.';
+                    dropEl.setAttribute('role', 'status');
+                    dropEl.style.display = 'block';
                 });
         }
 

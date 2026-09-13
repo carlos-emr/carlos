@@ -98,17 +98,34 @@ public class Fax2Action extends ActionSupport {
     // client-supplied faxFilePath it is about to consume is actually one this session's own
     // prepareFax() produced -- rather than trusting whatever app-temp-directory path the client
     // happens to submit, which could belong to a different session's unrelated staged fax preview.
-    // A Set of paths, not one fixed key or one entry per fdid: a session can have more than one
+    // A path-keyed binding map, not one fixed key or one entry per fdid: a session can have more than one
     // fax preview in flight at once (concurrent tabs, or re-previewing the same eForm before
     // queuing an earlier attempt), and a single shared slot per fdid would let a later prepareFax()
     // overwrite an earlier still-unresolved claim for the SAME fdid, silently losing the ability to
     // clean up that earlier claim's file if it were later rejected. Each queue() call for an EFORM
-    // consumes (removes) exactly the one entry matching its own faxFilePath, regardless of whether
-    // that promotion succeeds or is rejected, so entries never accumulate in a long-lived session.
+    // consumes (removes) exactly the entry matching its path AND eForm/patient/provider binding,
+    // whether that owned promotion succeeds or is rejected. A mismatched request leaves another
+    // preview's claim untouched; a consumed claim never remains available for replay.
     // Package-private (not private) solely so tests in this package can seed the session the same
     // way a prior prepareFax() call would, without driving the full render pipeline.
     static final String CLAIMED_FAX_FILE_PATHS_SESSION_KEY =
-            "io.github.carlos_emr.carlos.fax.action.Fax2Action.claimedFaxFilePaths";
+            "io.github.carlos_emr.carlos.fax.action.Fax2Action.boundFaxFilePaths.v3";
+
+    record FaxPreviewClaim(TransactionType type, Integer eformId, Integer demographicId,
+                           String providerNo, boolean cancelled) implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+        FaxPreviewClaim(Integer id, Integer demographicId, String providerNo) {
+            this(TransactionType.EFORM, id, demographicId, providerNo, false);
+        }
+        FaxPreviewClaim(Integer id, Integer demographicId, String providerNo, boolean cancelled) {
+            this(TransactionType.EFORM, id, demographicId, providerNo, cancelled);
+        }
+    }
+
+    private FaxPreviewClaim currentPreviewClaim(String providerNo, boolean cancelled) {
+        TransactionType type = TransactionType.valueOf(transactionType.toUpperCase(java.util.Locale.ROOT));
+        return new FaxPreviewClaim(type, transactionId, demographicNo, providerNo, cancelled);
+    }
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -129,32 +146,26 @@ public class Fax2Action extends ActionSupport {
      * <p>{@code queue()} persists {@link FaxJob} rows and promotes files into the fax
      * queue; {@code cancel()} -- including this method's own no-{@code method}
      * fall-through -- deletes temporary files and PHI preview caches. Both are
-     * mutations and must never execute on GET/HEAD. {@code getPreview}, {@code
-     * getPageCount}, and {@code prepareFax} stay verb-open: {@code CoverPage.jsp}
+     * mutations and require POST. {@code getPreview} and {@code
+     * getPageCount} stay verb-open: {@code CoverPage.jsp}
      * builds {@code <img src>}/link GETs for {@code getPreview} and polls {@code
-     * getPageCount}, and {@code AddEForm2Action.redirectToPreparedFax()} issues a
-     * server-side {@code sendRedirect()} to {@code prepareFax} that the browser
-     * always follows with a GET -- rejecting GET there would break the eForm fax
-     * flow. {@code prepareFax} itself only renders an ephemeral temp PDF for review
-     * (via {@link DocumentAttachmentManager#stageEFormPacketForFaxPreview}); it does not
-     * persist a queued fax job or any permanent record.
+     * getPageCount}. Preparation writes a staged PDF and session capabilities, so
+     * it also requires POST. After the protected eForm save, a narrow same-origin
+     * POST handoff sends only saved-form references and a server-rendered CSRF token.
      *
      * @return the Struts result name for the dispatched operation, or {@link #NONE}
      *         after a direct-response write or a 405 rejection
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity")
     public String execute() {
         String method = request.getParameter("method");
-        boolean readOnly = "getPreview".equals(method) || "getPageCount".equals(method) || "prepareFax".equals(method);
-        boolean approvalSubmission = "prepareFax".equals(method)
-                && request.getParameter("renderApproval") != null;
+        boolean readOnly = "getPreview".equals(method) || "getPageCount".equals(method);
         String httpMethod = request.getMethod();
-        if ((!readOnly || approvalSubmission) && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
+        if (!readOnly && !"POST".equals(httpMethod)) {
             // queue() persists fax jobs and promotes files; cancel() (also the no-method
             // fall-through below) deletes temp files and PHI preview caches -- mutations must
-            // not ride a GET/HEAD. CoverPage.jsp submits both via <form method="post">, so no UI
-            // change is required.
+            // require POST. CoverPage submits queue/cancel by POST, and the eForm
+            // handoff submits a narrow protected POST to preparation.
+            response.setHeader("Allow", "POST");
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
             return NONE;
         }
@@ -192,22 +203,44 @@ public class Fax2Action extends ActionSupport {
         String faxForward = transactionType;
 
         if (faxFilePath != null && !faxFilePath.trim().isEmpty()) {
-            faxManager.validateFilePath(faxFilePath);
-            if (!faxManager.flush(loggedInInfo, faxFilePath)) {
+            String ownedPath = claimFaxPreviewForCancellation(loggedInInfo);
+            if (ownedPath == null) {
+                sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, "This fax preview is not owned by the current session.");
+                return NONE;
+            }
+            faxManager.validateFilePath(ownedPath);
+            boolean cleaned = false;
+            try {
+                cleaned = faxManager.flush(loggedInInfo, ownedPath);
+            } catch (RuntimeException failure) {
+                logger.warn("Owned fax preview cleanup failed ({})", failure.getClass().getSimpleName());
+            }
+            if (!cleaned) {
                 if (logger.isErrorEnabled()) {
-                    logger.error("Failed to clear fax preview cache or temporary file: {}", LogSafe.sanitize(faxFilePath, 1024));
+                    logger.error("Failed to clear an owned fax preview cache or temporary file");
                 }
                 // Do not redirect: a redirect discards the action error and the user believes the
                 // cancel (and PHI cleanup) succeeded. Render the preview page with the failure.
                 request.setAttribute("faxCleanupFailed", Boolean.TRUE);
                 return "preview";
             }
-            // The staged file is gone, so its claim can never be promoted. Leaving it behind
-            // grew the session's claim set by one entry for every preview a clinician opened
-            // and abandoned, for the life of the session.
-            consumeClaimedFaxFilePathFromSession();
+            // Keep a failed cleanup claim retryable but never queueable. Only confirmed
+            // cleanup removes this session-owned, cancellation-only claim.
+            var claims = claimedFaxFilePathsInSession(request.getSession(false));
+            synchronized (claims) {
+                claims.remove(ownedPath, currentPreviewClaim(loggedInInfo.getLoggedInProviderNo(), true));
+            }
         }
 
+        if (TransactionType.DOCUMENT.name().equalsIgnoreCase(transactionType)) {
+            try {
+                response.sendRedirect(request.getContextPath()
+                        + "/documentManager/ManageDocument?method=display&doc_no=" + transactionId);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
+        }
         if (TransactionType.CONSULTATION.name().equalsIgnoreCase(transactionType)) {
             try {
                 response.sendRedirect(request.getContextPath() + "/encounter/ViewRequest?de=" + demographicNo + "&requestId=" + transactionId);
@@ -277,7 +310,7 @@ public class Fax2Action extends ActionSupport {
                 throw new SecurityException("Invalid demographic number: must be non-negative");
             }
             // Verify user has access to this patient's record
-            if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            if (demographicNo > 0 && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
                 logger.warn("Unauthorized access attempt to demographic {} by provider {}",
                         LogSafe.sanitize(String.valueOf(demographicNo)), LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo()));
                 throw new SecurityException("Unauthorized access to patient record");
@@ -301,8 +334,7 @@ public class Fax2Action extends ActionSupport {
         if (recipient != null && !recipient.trim().isEmpty()) {
             // Check for potential injection patterns
             if (recipient.contains("<script") || recipient.contains("javascript:") || recipient.contains("onerror=")) {
-                // recipient failed the XSS screen, so it may carry markup/control chars — sanitize.
-                logger.error("Potential XSS attempt in recipient name: {}", LogSafe.sanitize(recipient));
+                logger.error("Fax recipient name failed the markup validation check");
                 throw new SecurityException("Invalid characters in recipient name");
             }
         }
@@ -327,7 +359,7 @@ public class Fax2Action extends ActionSupport {
                     ObjectNode json = (ObjectNode) objectMapper.readTree(jsonString);
                     copyToFaxNumber = json.has("fax") ? json.get("fax").asText() : null;
                 } catch (JsonProcessingException | ClassCastException e) {
-                    logger.error("Failed to parse copy-to recipient JSON at index {}: {}", i, LogSafe.sanitize(copyRecipient), e);
+                    logger.error("Copy-to recipient parsing failed at index {} ({})", i, e.getClass().getSimpleName());
                     addActionError("Copy-to recipient entry " + (i + 1) + " is not in a valid format");
                     throw new SecurityException("Invalid copy-to recipient format at index " + i);
                 }
@@ -364,6 +396,11 @@ public class Fax2Action extends ActionSupport {
         // Validate all inputs before processing
         try {
             validateFaxInputs(loggedInInfo);
+            if (!TransactionType.EFORM.name().equalsIgnoreCase(getTransactionType())
+                    && !TransactionType.DOCUMENT.name().equalsIgnoreCase(getTransactionType())) {
+                addActionError("This fax endpoint does not accept that transaction type");
+                throw new SecurityException("This fax endpoint does not accept that transaction type");
+            }
         } catch (SecurityException e) {
             // securityError.jsp (the provider package's SecurityException mapping target) renders
             // the request attribute "actionErrors"; Struts action errors don't reach it on the
@@ -374,7 +411,7 @@ public class Fax2Action extends ActionSupport {
             throw e;
         }
 
-        TransactionType transactionType = TransactionType.valueOf(getTransactionType().toUpperCase());
+        TransactionType transactionType = TransactionType.valueOf(getTransactionType().toUpperCase(java.util.Locale.ROOT));
 
         // prepareFax already revalidates the eForm's demographic binding immediately before it
         // hands the staged PDF off for preview, but queue() is a separate, later request that is
@@ -382,7 +419,7 @@ public class Fax2Action extends ActionSupport {
         // to a different patient in the gap between those two requests. Re-check the binding here
         // too, right before persistAndLogFaxJobs, instead of trusting the demographicNo the client
         // resubmitted with the cover-page form.
-        revalidateEformBindingBeforePromotion(transactionType);
+        String claimedFaxFilePath = revalidateEformBindingBeforePromotion(transactionType);
 
         // recipient/comments are persisted and rendered raw (encode-at-output, not
         // encode-at-write): pre-encoding here with Encode.forHtml produced literal HTML entities
@@ -391,7 +428,7 @@ public class Fax2Action extends ActionSupport {
         // encode at render time via <carlos:encode>/${carlos:forHtml()}. The XSS screen in
         // validateFaxInputs (recipient <script/javascript:/onerror= check) still runs above.
         FaxJobParams params = FaxJobParams.builder()
-                .faxFilePath(faxFilePath)
+                .faxFilePath(claimedFaxFilePath)
                 .recipient(recipient)
                 .recipientFaxNumber(recipientFaxNumber)
                 .senderFaxNumber(senderFaxNumber)
@@ -403,7 +440,21 @@ public class Fax2Action extends ActionSupport {
 
         // Persist AND audit-log in one transaction: a post-commit log failure must not leave a
         // sendable WAITING set behind that a retry would duplicate (double PHI transmission).
-        List<FaxJob> faxJobList = faxManager.persistAndLogFaxJobs(loggedInInfo, params.toMap(), transactionType, transactionId);
+        List<FaxJob> faxJobList;
+        try {
+            faxJobList = faxManager.persistAndLogFaxJobs(loggedInInfo, params.toMap(), transactionType, transactionId);
+        } catch (io.github.carlos_emr.carlos.managers.FaxPreparationException invalidPreparation) {
+            if (claimedFaxFilePath != null) deleteRejectedClaimedFaxFile(claimedFaxFilePath);
+            sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST,
+                    "The fax was not queued because its recipients are invalid. Prepare a new fax preview before trying again.");
+            return NONE;
+        } catch (RuntimeException queueFailure) {
+            // The transaction proxy commits after the manager returns. Its exception may
+            // mean a lost commit acknowledgement, not an unqueued fax. Do not show a resend form.
+            logger.error("Fax queue outcome could not be confirmed ({})", queueFailure.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            return "faxUncertain";
+        }
 
         boolean success = true;
         for (FaxJob faxJob : faxJobList) {
@@ -415,11 +466,17 @@ public class Fax2Action extends ActionSupport {
             }
         }
 
+        if (!success && claimedFaxFilePath != null) {
+            // This action consumed ownership of the staged eForm PDF. A definite ERROR
+            // batch has no queued jobs, and no other owner remains to remove this source.
+            deleteRejectedClaimedFaxFile(claimedFaxFilePath);
+            sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST,
+                    "The fax was not queued. Reopen the document or eForm and prepare a new fax preview before trying again.");
+            return NONE;
+        }
         request.setAttribute("faxSuccessful", success);
         request.setAttribute("faxJobList", faxJobList);
-        // Repopulate the sender-account list so a failed submit re-renders CoverPage.jsp with a
-        // working sender dropdown (only prepareFax set it before; queue() left it empty on failure).
-        request.setAttribute("accounts", faxManager.getFaxGatewayAccounts(loggedInInfo));
+        // No database-backed UI enrichment after the sendable jobs have committed.
 
         return "preview";
     }
@@ -433,22 +490,20 @@ public class Fax2Action extends ActionSupport {
      *
      * @throws SecurityException if the eForm no longer belongs to the submitted demographic; the
      *         claimed staged PDF is deleted and a user-facing action error is recorded first
+     * @return the non-null trusted staged path whose cleanup ownership transfers to this queue attempt
      */
-    private void revalidateEformBindingBeforePromotion(TransactionType transactionType) {
-        // Applies to EVERY type, before the per-type binding checks below. Those checks are
-        // selected by transactionType, which the client supplies on this request — so branching
-        // on it alone left CONSULTATION, FORM and RX with no check at all, while
-        // FaxManagerImpl.validateFilePath still accepts any existing file under DOCUMENT_DIR.
-        // Naming another patient's stored document under one of those types therefore faxed it.
+    private String revalidateEformBindingBeforePromotion(TransactionType transactionType) {
         rejectUnstagedDocumentStorePath();
-
         if (transactionType == TransactionType.DOCUMENT) {
-            revalidateDocumentClaimBeforePromotion();
-            return;
+            return revalidateDocumentClaimBeforePromotion();
         }
-        if (transactionType != TransactionType.EFORM || transactionId == null) {
-            return;
+        if (transactionType != TransactionType.EFORM) {
+            // This action prepares eForm previews only. Consultation and prescription sends
+            // have separate actions. A client-selected alternate enum must not bypass the
+            // preview claim by reaching a legacy unbound-path persistence branch here.
+            throw new SecurityException("This fax endpoint does not accept that transaction type");
         }
+        if (transactionId == null) throw new SecurityException("An eForm fax requires a saved eForm");
         EFormData eFormAtPromotion = eFormDataDao().find(transactionId.intValue());
         String promotionDemographicNo = eFormAtPromotion == null || eFormAtPromotion.getDemographicId() == null
                 ? null : String.valueOf(eFormAtPromotion.getDemographicId());
@@ -457,12 +512,16 @@ public class Fax2Action extends ActionSupport {
         // it must not linger in a long-lived clinician session accumulating one entry per fax
         // preview ever prepared.
         String claimedFaxFilePath = consumeClaimedFaxFilePathFromSession();
+        if (claimedFaxFilePath == null) {
+            addActionError("The fax preview is no longer available for this eForm and patient. Prepare a new preview.");
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            throw new SecurityException("The fax preview is not owned by this eForm, patient and provider session");
+        }
         if (promotionDemographicNo != null && demographicNo != null
                 && promotionDemographicNo.equals(String.valueOf(demographicNo))) {
-            return;
+            return claimedFaxFilePath;
         }
-        logger.warn("Rejected fax promotion: eForm {} no longer belongs to the demographic submitted with the fax job",
-                transactionId);
+        logger.warn("Rejected fax promotion: eForm no longer belongs to the submitted demographic");
         if (claimedFaxFilePath != null) {
             deleteRejectedClaimedFaxFile(claimedFaxFilePath);
         }
@@ -493,15 +552,16 @@ public class Fax2Action extends ActionSupport {
         try {
             deleteUnownedStagedFaxPreview(Path.of(claimedFaxFilePath));
         } catch (InvalidPathException e) {
-            logger.warn("Unable to parse fax file path while cleaning up a rejected promotion", e);
+            logger.warn("Unable to parse fax file path while cleaning up a rejected promotion ({})", e.getClass().getSimpleName());
         }
     }
 
     /**
      * Get a preview image of the entire fax document.
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: the request faxFilePath is confined to the CARLOS-owned temp workspace via PathValidationUtils.isInApplicationTempDirectory before any File use; a stored-document path is reachable only through its job binding.
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "faxFilePath is containment-validated via PathValidationUtils.isInApplicationTempDirectory before any File use; stored documents are reachable only through their job binding")
+    // Direct reads require an active session/eForm/patient/provider claim plus temp containment;
+    // stored documents require an authorized job binding.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding")
     @SuppressWarnings("unused")
     public void getPreview() {
 
@@ -521,8 +581,12 @@ public class Fax2Action extends ActionSupport {
         if (jobId != null && !jobId.isEmpty()) {
             try {
                 faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+                if (faxJob == null) {
+                    sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "Fax job not found");
+                    return;
+                }
             } catch (NumberFormatException e) {
-                logger.warn("Invalid jobId supplied for fax preview: {}", LogSafe.sanitize(jobId, 1024), e);
+                logger.warn("Invalid jobId supplied for fax preview ({})", e.getClass().getSimpleName());
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
                 return;
             }
@@ -548,7 +612,7 @@ public class Fax2Action extends ActionSupport {
             try {
                 page = Integer.parseInt(pageNumber);
             } catch (NumberFormatException e) {
-                logger.warn("Invalid pageNumber supplied for fax preview: {}", LogSafe.sanitize(pageNumber, 1024), e);
+                logger.warn("Invalid pageNumber supplied for fax preview ({})", e.getClass().getSimpleName());
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid pageNumber");
                 return;
             }
@@ -565,6 +629,13 @@ public class Fax2Action extends ActionSupport {
             // (DOCUMENT_DIR) may therefore only be previewed through its job binding above — direct
             // paths outside the CARLOS-owned temp workspace are rejected before any use.
             boolean pathFromRequestParam = (faxJob == null);
+            if (pathFromRequestParam) {
+                requestedFaxFilePath = authorizedPreviewPath(loggedInInfo, requestedFaxFilePath);
+                if (requestedFaxFilePath == null) {
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return;
+                }
+            }
             if (pathFromRequestParam && !PathValidationUtils.isInApplicationTempDirectory(new File(requestedFaxFilePath))) {
                 logger.warn("Rejected fax preview for a non-temp path supplied directly as faxFilePath");
                 sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
@@ -579,11 +650,11 @@ public class Fax2Action extends ActionSupport {
                 try {
                     outfile = faxManager.getFaxPreviewImage(loggedInInfo, requestedFaxFilePath, page);
                 } catch (SecurityException e) {
-                    logger.error("Security validation failed for fax preview image: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    logger.error("Security validation failed for fax preview image ({})", e.getClass().getSimpleName());
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     return;
                 } catch (RuntimeException e) {
-                    logger.error("Error generating fax preview image: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    logger.error("Error generating fax preview image ({})", e.getClass().getSimpleName());
                     sendErrorQuietly(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate fax preview");
                     return;
                 }
@@ -607,11 +678,11 @@ public class Fax2Action extends ActionSupport {
                     outfile = faxManager.resolveAndValidateFilePath(requestedFaxFilePath);
                     response.setContentType("application/pdf");
                 } catch (SecurityException e) {
-                    logger.error("Security validation failed for file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    logger.error("Security validation failed for fax preview file path ({})", e.getClass().getSimpleName());
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     return;
                 } catch (IOException e) {
-                    logger.error("File not found or error processing file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    logger.error("Fax preview file not found or unreadable ({})", e.getClass().getSimpleName());
                     sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "File not found");
                     return;
                 }
@@ -627,7 +698,7 @@ public class Fax2Action extends ActionSupport {
                 outs.flush();
                 logger.debug("Streamed fax preview to client");
             } catch (IOException e) {
-                logger.error("Error reading or writing file", e);
+                logger.error("Error streaming fax preview ({})", e.getClass().getSimpleName());
                 // The file vanished or broke mid-stream. If nothing has been committed yet, tell
                 // the client instead of ending with an empty 200 it will render as a broken image.
                 if (!response.isCommitted()) {
@@ -650,6 +721,11 @@ public class Fax2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String prepareFax() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
+            return NONE;
+        }
         long prepareStartedNanos = System.nanoTime();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -785,8 +861,8 @@ public class Fax2Action extends ActionSupport {
                                 pdfPath != null && Files.exists(pdfPath));
                     }
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) cannot be faxed. \\n\\n" + e.getMessage();
+                    logger.error("eForm fax PDF preparation failed ({})", e.getClass().getSimpleName());
+                    String errorMessage = "This eForm and its attachments could not be prepared for faxing. No fax was queued. Please retry or contact your administrator.";
                     request.setAttribute("errorMessage", errorMessage);
                     return "eFormError";
                 }
@@ -882,8 +958,8 @@ public class Fax2Action extends ActionSupport {
     /**
      * Get the actual number of pages in this PDF document.
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: the request faxFilePath is confined to the CARLOS-owned temp workspace via PathValidationUtils.isInApplicationTempDirectory before any File use; a stored-document path is reachable only through its job binding.
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "faxFilePath is containment-validated via PathValidationUtils.isInApplicationTempDirectory before any File use; stored documents are reachable only through their job binding")
+    // Page metadata uses the same ownership and current-patient gates as PDF/image reads.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding")
     @SuppressWarnings("unused")
     public void getPageCount() {
 
@@ -908,14 +984,30 @@ public class Fax2Action extends ActionSupport {
     private int resolvePageCount(LoggedInInfo loggedInInfo, String jobId, String requestedFaxFilePath) {
         if (jobId != null && !jobId.isEmpty()) {
             try {
-                return faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
+                int id = Integer.parseInt(jobId);
+                FaxJob job = faxManager.getFaxJob(loggedInInfo, id);
+                if (job == null) {
+                    sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "Fax job not found");
+                    return 0;
+                }
+                if (job.getDemographicNo() != null
+                        && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, job.getDemographicNo())) {
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return 0;
+                }
+                return faxManager.getPageCount(loggedInInfo, id);
             } catch (NumberFormatException e) {
-                logger.warn("Invalid jobId supplied for fax page count: {}", LogSafe.sanitize(jobId, 1024), e);
+                logger.warn("Invalid jobId supplied for fax page count ({})", e.getClass().getSimpleName());
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
                 return 0;
             }
         }
         if (requestedFaxFilePath == null || requestedFaxFilePath.isEmpty()) {
+            return 0;
+        }
+        requestedFaxFilePath = authorizedPreviewPath(loggedInInfo, requestedFaxFilePath);
+        if (requestedFaxFilePath == null) {
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
             return 0;
         }
         // No jobId: same direct-path exposure as getPreview. A stored document (DOCUMENT_DIR) may
@@ -932,10 +1024,10 @@ public class Fax2Action extends ActionSupport {
                 return pdf.getNumberOfPages();
             }
         } catch (SecurityException e) {
-            logger.error("Security validation failed for page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+            logger.error("Security validation failed for fax page count path ({})", e.getClass().getSimpleName());
             sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
         } catch (IOException e) {
-            logger.error("File not found or error processing page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+            logger.error("Fax page count file not found or unreadable ({})", e.getClass().getSimpleName());
             sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "File not found");
         }
         return 0;
@@ -950,8 +1042,45 @@ public class Fax2Action extends ActionSupport {
         try {
             response.sendError(statusCode, message);
         } catch (IOException ex) {
-            logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
+            logger.error("{} ({})", ERROR_SENDING_ERROR_RESPONSE, ex.getClass().getSimpleName());
         }
+    }
+
+    /** Authorizes a read without consuming the exact active session-issued preview claim. */
+    @SuppressWarnings("unchecked")
+    private String authorizedPreviewPath(LoggedInInfo loggedInInfo, String requestedPath) {
+        HttpSession session = request.getSession(false);
+        String provider = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        if (session == null || requestedPath == null || provider == null || provider.isBlank()) return null;
+        // A read must not create an empty claim map or a new session.
+        var claims = (java.util.Map<String, FaxPreviewClaim>) session.getAttribute(CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
+        if (claims == null) return null;
+        FaxPreviewClaim claim;
+        String ownedPath = null;
+        synchronized (claims) {
+            claim = claims.get(requestedPath);
+            if (claim == null || claim.cancelled() || !provider.equals(claim.providerNo())) return null;
+            for (String path : claims.keySet()) {
+                if (path.equals(requestedPath)) { ownedPath = path; break; }
+            }
+        }
+        if (claim.eformId() == null || claim.demographicId() == null) return null;
+        if (claim.type() == TransactionType.DOCUMENT) {
+            EDoc document = EDocUtil.getDoc(String.valueOf(claim.eformId()));
+            if (document == null || StringUtils.isBlank(document.getFileName())
+                    || !claim.demographicId().equals(DocumentPatientLink.demographicNoOf(document))
+                    || !securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)
+                    || (claim.demographicId() > 0 && !securityInfoManager.isAllowedAccessToPatientRecord(
+                            loggedInInfo, claim.demographicId()))) return null;
+            return ownedPath;
+        }
+        if (claim.type() != TransactionType.EFORM) return null;
+        EFormData eform = eFormDataDao().find(claim.eformId().intValue());
+        if (eform == null || !claim.demographicId().equals(eform.getDemographicId())
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ,
+                        String.valueOf(claim.demographicId()))
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, claim.demographicId())) return null;
+        return ownedPath;
     }
 
     private static void deleteUnownedStagedFaxPreview(Path path) {
@@ -961,8 +1090,8 @@ public class Fax2Action extends ActionSupport {
         try {
             Files.deleteIfExists(path);
         } catch (IOException e) {
-            logger.warn("Unable to delete staged fax preview after approval issuance failed: {}",
-                    path, e);
+            logger.warn("Unable to delete staged fax preview after approval issuance failed ({})",
+                    e.getClass().getSimpleName());
         }
     }
 
@@ -1010,6 +1139,8 @@ public class Fax2Action extends ActionSupport {
                 throw new SecurityException("Document does not belong to the submitted patient");
             }
         }
+
+        demographicNo = documentDemographicNo;
 
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getDocumentDirectory(), "DOCUMENT_DIR");
@@ -1075,12 +1206,12 @@ public class Fax2Action extends ActionSupport {
      * document here, exactly as {@link #revalidateEformBindingBeforePromotion} does for eForms,
      * rather than trusted from the form.
      */
-    private void revalidateDocumentClaimBeforePromotion() {
+    private String revalidateDocumentClaimBeforePromotion() {
         String claimed = consumeClaimedFaxFilePathFromSession();
         if (claimed != null && claimed.equals(faxFilePath)) {
             String rejection = documentPatientRebindingRejection();
             if (rejection == null) {
-                return;
+                return claimed;
             }
             logger.warn("Rejected fax promotion: document {} no longer belongs to the demographic "
                     + "submitted with the fax job", transactionId);
@@ -1122,6 +1253,13 @@ public class Fax2Action extends ActionSupport {
             return "This document is no longer available to send.";
         }
         int documentDemographicNo = DocumentPatientLink.demographicNoOf(doc);
+        if (demographicNo == null || demographicNo != documentDemographicNo) {
+            return "This document no longer belongs to this patient.";
+        }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request),
+                "_edoc", SecurityInfoManager.READ, null)) {
+            return "You are not permitted to send this document.";
+        }
         if (documentDemographicNo == 0) {
             return null;
         }
@@ -1154,68 +1292,76 @@ public class Fax2Action extends ActionSupport {
     // instead of with the code.
     void recordClaimedFaxFilePathInSession(Path claimedPath) {
         HttpSession session = request.getSession(false);
-        if (session == null || claimedPath == null) {
-            return;
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String providerNo = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        if (session == null || claimedPath == null || transactionId == null || demographicNo == null
+                || providerNo == null || providerNo.isBlank()) {
+            throw new SecurityException("A fax preview requires an authenticated eForm and patient context");
         }
-        // Every component is server-side: the transaction type and id were validated by the
-        // staging branch that produced claimedPath, which is itself a renderer/staging temp path.
-        claimedFaxFilePathsInSession(session).add(claimKey(transactionType, transactionId, claimedPath.toString())); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- every component is server-derived: the staging branch validated the transaction and generated the path
+        // claimedPath is a server-generated renderer/staging temp file path (createSecureTempFile
+        // or the staged-approval's own claimed path), never derived from request parameters.
+        claimedFaxFilePathsInSession(session).put(claimedPath.toString(),
+                currentPreviewClaim(providerNo, false)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- path is server-generated; eForm/patient binding was revalidated against the database before recording
     }
 
     /**
-     * Composite claim key. {@code transactionId} is nullable on legacy paths, so it is rendered as
-     * an empty segment rather than omitted, keeping the arity fixed. Paths cannot contain a
-     * newline on any supported filesystem, so the separator cannot be forged from the path.
-     */
-    // Package-private so the claim tests seed the session through the SAME key construction
-    // the production path uses, rather than hand-building a string that could drift from it.
-    static String claimKey(String type, Integer id, String path) {
-        return StringUtils.upperCase(StringUtils.trimToEmpty(type)) + "\n"
-                + (id == null ? "" : id.toString()) + "\n" + path;
-    }
-
-    /**
-     * Removes and returns the entry matching {@link #faxFilePath} from this session's set of
-     * outstanding claimed fax file paths, or {@code null} if none matches. Single-use per claim:
-     * once consumed here, the same claim can never be consumed again, whether the promotion it
-     * belongs to is accepted or rejected -- so it cannot linger in the session past the request
-     * that resolves it, and a later, distinct claim for the same fdid is never confused with this
-     * one.
+     * Marks the exact session-owned path/eForm/patient/provider claim cancellation-only,
+     * returning its server-issued path or {@code null} when the binding does not match.
+     * Failed cleanup remains retryable, but queueing can no longer consume this claim.
      *
-     * <p>Returns the value actually stored in the session's claim set -- populated only by
+     * <p>Returns the path actually stored in the session's claim map -- populated only by
      * {@link #recordClaimedFaxFilePathInSession} from a server-generated renderer path, never from
      * {@link #faxFilePath} itself -- so callers that use the result downstream (e.g. to delete a
      * file) do so with a value a static analyzer can see originates from that trusted store, not
      * from the client-supplied request field, even though the two are verified equal here.</p>
      */
-    private String consumeClaimedFaxFilePathFromSession() {
+    private String claimFaxPreviewForCancellation(LoggedInInfo loggedInInfo) {
         HttpSession session = request.getSession(false);
-        if (session == null || faxFilePath == null) {
-            return null;
-        }
-        java.util.Set<String> claimedPaths = claimedFaxFilePathsInSession(session);
-        // Matched on the composite key, so a claim staged for one transaction cannot be spent on
-        // another even though the path is identical.
-        String wanted = claimKey(transactionType, transactionId, faxFilePath);
-        // Collections.synchronizedSet requires the caller to hold the set's own monitor while
-        // iterating; per-call methods like remove() are internally synchronized, but this find-
-        // and-remove needs the exact stored String back, which no Set method returns directly.
-        synchronized (claimedPaths) {
-            java.util.Iterator<String> iterator = claimedPaths.iterator();
-            while (iterator.hasNext()) {
-                String claimed = iterator.next();
-                if (claimed.equals(wanted)) {
-                    iterator.remove();
-                    // Hand back the PATH component, which is what callers delete. It originates
-                    // from the trusted store, not from the client-supplied request field.
-                    return claimed.substring(claimed.lastIndexOf('\n') + 1);
+        String providerNo = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        if (session == null || faxFilePath == null || providerNo == null || providerNo.isBlank()) return null;
+        var claims = claimedFaxFilePathsInSession(session);
+        var active = currentPreviewClaim(providerNo, false);
+        var cancelled = currentPreviewClaim(providerNo, true);
+        synchronized (claims) {
+            for (var entry : claims.entrySet()) {
+                if (entry.getKey().equals(faxFilePath)
+                        && (active.equals(entry.getValue()) || cancelled.equals(entry.getValue()))) {
+                    // A server-issued path and exact patient/provider/eForm tuple are required.
+                    // Mark it before IO so a concurrent queue cannot consume a cancelled preview.
+                    entry.setValue(cancelled);
+                    return entry.getKey();
                 }
             }
         }
         return null;
     }
 
-    // Guards the get-or-create of the session's claim-set attribute below. Deliberately a private
+    /** Removes and returns an exact, active server-issued preview claim once; cancelled claims cannot queue. */
+    private String consumeClaimedFaxFilePathFromSession() {
+        HttpSession session = request.getSession(false);
+        if (session == null || faxFilePath == null) {
+            return null;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String providerNo = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        if (providerNo == null || providerNo.isBlank()) return null;
+        java.util.Map<String, FaxPreviewClaim> claimedPaths = claimedFaxFilePathsInSession(session);
+        FaxPreviewClaim expected = currentPreviewClaim(providerNo, false);
+        // Iterate/remove under one monitor so concurrent requests cannot consume a claim twice.
+        synchronized (claimedPaths) {
+            java.util.Iterator<java.util.Map.Entry<String, FaxPreviewClaim>> iterator = claimedPaths.entrySet().iterator();
+            while (iterator.hasNext()) {
+                java.util.Map.Entry<String, FaxPreviewClaim> claim = iterator.next();
+                if (claim.getKey().equals(faxFilePath) && expected.equals(claim.getValue())) {
+                    iterator.remove();
+                    return claim.getKey();
+                }
+            }
+        }
+        return null;
+    }
+
+    // Guards the get-or-create of the session's claim-map attribute below. Deliberately a private
     // lock object per session, not the HttpSession itself: synchronizing on a method parameter (or
     // any object this class does not exclusively own) risks unpredictable contention or deadlock
     // with unrelated code that might also lock on the same shared session object. A single shared
@@ -1256,12 +1402,12 @@ public class Fax2Action extends ActionSupport {
     }
 
     @SuppressWarnings("unchecked")
-    private static java.util.Set<String> claimedFaxFilePathsInSession(HttpSession session) {
+    private static java.util.Map<String, FaxPreviewClaim> claimedFaxFilePathsInSession(HttpSession session) {
         synchronized (claimedFaxFilePathsLockForSession(session)) {
-            java.util.Set<String> claimedPaths =
-                    (java.util.Set<String>) session.getAttribute(CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
+            java.util.Map<String, FaxPreviewClaim> claimedPaths =
+                    (java.util.Map<String, FaxPreviewClaim>) session.getAttribute(CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
             if (claimedPaths == null) {
-                claimedPaths = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+                claimedPaths = java.util.Collections.synchronizedMap(new java.util.HashMap<>());
                 session.setAttribute(CLAIMED_FAX_FILE_PATHS_SESSION_KEY, claimedPaths);
             }
             return claimedPaths;
