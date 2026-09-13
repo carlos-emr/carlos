@@ -465,6 +465,21 @@ it does not approve omitted content to obtain a PDF.
 
 ## 6. Run the suite
 
+> **A runner now exists, and is not yet the documented procedure.**
+> `scripts/run-playwright-suite.js` reads `scripts/playwright-suite.json` and does
+> what the loop at the end of this section does, plus tier selection, a JUnit
+> report, exit code 2 for a check that skipped for a missing fixture rather than
+> failed, and a refusal to run the database-mutating checks against a non-local
+> target. It has unit tests but has **not yet been run against a deployment**, so
+> the loop below is still the authoritative procedure. The first validation run
+> should compare the two and then replace the loop here:
+>
+> ```bash
+> node scripts/run-playwright-suite.js --tier core --tier front-door --junit /tmp/playwright.xml
+> ```
+>
+> See [playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
+
 Environment contract (one block, exported before every script):
 
 ```bash

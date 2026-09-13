@@ -1,0 +1,34 @@
+{
+  "$comment": [
+    "The suite-wide allow-list of legacy browser noise for wireStrictPage().",
+    "",
+    "Every entry is a class of regression the whole suite can no longer detect, so",
+    "each one must name where it is tracked and why it is here. This file is a",
+    "BURN-DOWN: when the tracked defect is fixed, delete the entry rather than",
+    "leaving it to mask the next occurrence. Do not add an entry to make a check",
+    "pass -- a new console error is the finding (see the 'report, don't encode'",
+    "rule in docs/ui-tests/clinical-workflow-browser-checks.md).",
+    "",
+    "pattern: a JavaScript regular expression source, matched against the console",
+    "         message text or the uncaught error's stack.",
+    "issue:   the GitHub issue, or the docs reference, that tracks removing it.",
+    "note:    what the defect is, so a reviewer can tell it apart from a new one."
+  ],
+  "allow": [
+    {
+      "pattern": "providerSignatureImage",
+      "issue": "docs/ui-tests/alpha-11-tester-coverage.md observation 6",
+      "note": "The consultation form requests providerSignatureImage?providerNo=... unconditionally, which 404s for any provider without a stored signature, so every open of that form logs a console error. Needs an issue filed and the request made conditional."
+    },
+    {
+      "pattern": "getActiveText",
+      "issue": "docs/ui-tests/alpha-11-tester-coverage.md observation 15",
+      "note": "The eChart note editor throws a TypeError on every keystroke from getActiveText() in js/newCaseManagementView.js.jsp, which writes to a 'keyword' element the current layout no longer renders. Needs an issue filed; until then any check that types into a chart note would fail on it."
+    },
+    {
+      "pattern": "expandPreview",
+      "issue": "#3578",
+      "note": "The Rx preview pane's expandPreview writes into the preview iframe before it has parsed, raising 'Cannot set properties of null'. Tolerated today by rx-fax-reprint-represcribe; delete this entry when #3578 closes."
+    }
+  ]
+}

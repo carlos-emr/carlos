@@ -1,6 +1,7 @@
 # Playwright coverage plan — release/2026.08
 
-Status: **plan only**. Nothing in this document has been implemented. It records what
+Status: **Phase 0 has landed; everything else is still a plan.** What exists in the
+repository today is listed in §0; the rest of this document has not been implemented. It records what
 browser checks exist on `release/2026.08` (at `7e322ee3`, 2026.08.0-alpha13-SNAPSHOT), what
 they leave untouched, and — grouped by priority — which scripts to add and which to change to
 get comprehensive, *meaningful* Playwright coverage of CARLOS. "Meaningful" has the definition
@@ -96,6 +97,40 @@ a keyboard shortcut, and **31** navigate directly to a page the UI opens as a po
 `context.request.post('/cvc')` rather than the widget; `echart-note-sign-bill` triggers the
 Save / Sign / Bill buttons through their handlers because the row sits below the viewport
 (obs. 16). Each is listed for a change in §2.1.
+
+---
+
+## 0. What has landed so far
+
+Phase 0 of §5 (the shared harness, the suite manifest and the runner) is in the
+repository. Nothing else in this document is implemented, and **no browser check
+has been migrated onto the new harness yet**.
+
+| Landed | What it is | Verified by |
+|---|---|---|
+| `scripts/lib/playwright-harness.js` | The shared harness: `readConfig`, `createSqlRunner`, `login` (forced reset + MFA + facility select), `wireStrictPage` / `assertStrictPage`, `runCheck`, the TLS gate, `SkipCheck` | `scripts/playwright-harness.test.js` (18 tests), run by `script-regressions.yml` |
+| `scripts/lib/playwright-ui.js` | The JavaScript-path helpers (`clickOpensPopup`, `clickInjectsPanel`, `expectOpenerRefresh`, `typeAutocomplete`, `pickDate`, `dataTableRows`, `pressShortcut`, `csrfTokenPresent`, `expectDialog`) and the `NAVIGATION` click map | `scripts/playwright-suite-manifest.test.js` |
+| `scripts/lib/console-baseline.json` | The suite-wide, issue-keyed allow-list that replaces per-check `allow` arrays | a test asserts every entry names where its removal is tracked |
+| `scripts/playwright-suite.json` | The manifest: 76 entries with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
+| `scripts/run-playwright-suite.js` | The runner: `--tier`, `--only`, `--skip`, `--province`, `--junit`, `--list`, `--dry-run` | `scripts/playwright-suite-manifest.test.js` |
+| `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
+
+`scripts/eform-local-playwright-utils.js` is now a re-export of the harness plus
+the eForm-specific helpers, so **no existing check changed behaviour**: `wirePage`
+deliberately records exactly what it recorded before (no `requestfailed`, no
+script-MIME finding, no unexpected-dialog finding, no console baseline). Only
+`wireStrictPage` applies the strict contract, so migrating a check is a reviewed
+change to that check rather than 75 checks gaining new failure modes at once.
+
+**What is not yet verified.** The harness and runner are unit-tested but have not
+been run against a deployment: no Tomcat or MariaDB was available in the session
+that wrote them. Before anything migrates onto them, one pass of the existing
+suite through `node scripts/run-playwright-suite.js` against the devcontainer is
+needed, and the `NAVIGATION` selectors (read out of
+`appointmentprovideradminday.jsp`, each carrying `validated: false`) have to be
+confirmed by a live run. Until that happens
+[deb-install-validation.md §6](deb-install-validation.md#6-run-the-suite) remains
+the authoritative way to run the suite.
 
 ---
 

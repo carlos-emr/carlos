@@ -1,0 +1,388 @@
+#!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * This software is published under the GPL GNU General Public License.
+ * You may redistribute it and/or modify it under version 2 of the License,
+ * or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/*
+ * The JavaScript-path helpers: how a check drives the mechanisms CARLOS actually
+ * uses, instead of the Struts action underneath them.
+ *
+ * WHY. Measured on release/2026.08, the webapp's WEB-INF JSPs contain 827
+ * popupPage/popup/newWindow openers, 155 files with a window.opener refresh
+ * callback, 1,383 confirm()/alert() call sites, 1,158 inline <script> blocks and
+ * 171 fetch/XHR/$.ajax call sites, plus 35 DataTables lists, 19 jQuery UI
+ * autocompletes and 35 flatpickr date pickers. What breaks for a user is
+ * therefore rarely the action: it is the onclick that opens the popup, the
+ * opener callback that repaints the day sheet, the DataTables init, the
+ * autocomplete that fills the hidden id, or the confirm() whose result gates the
+ * delete. A check that posts the form directly, or calls the page's handler from
+ * page.evaluate, passes straight through all of it.
+ *
+ * THE LINE THIS MODULE DRAWS. page.evaluate is for READING page state (is the
+ * hidden input filled, did the opener reload). It is never the way an action is
+ * triggered: that is always a real locator.click()/fill()/press() on the element
+ * the user uses. A check that needs to invoke a handler directly has found a
+ * defect -- an unreachable control -- and should report it, not route around it.
+ *
+ * SELECTOR PROVENANCE. The ids in NAVIGATION below were read out of
+ * src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp on
+ * release/2026.08. Entries carry `validated: false` until a run against a live
+ * deployment confirms them; the manifest test asserts the flag exists so an
+ * unvalidated entry cannot quietly look authoritative.
+ */
+
+const { assert, assertNotErrorPage, wireStrictPage } = require('./playwright-harness');
+
+const DEFAULT_TIMEOUT = 30000;
+
+/**
+ * Click an opener and take the popup window it opens.
+ *
+ * Three checks in 75 waited for a popup event; the other openers were bypassed
+ * by navigating to the popup's URL. That misses the whole opener: the
+ * messenger's compose page, for instance, redirects to the login page when it is
+ * opened without the session bean its opener establishes, so a check that
+ * navigated to it directly was asserting against a login form and passing (see
+ * docs/ui-tests/clinical-workflow-browser-checks.md).
+ */
+async function clickOpensPopup(page, locator, options = {}) {
+  const context = options.context || page.context();
+  const label = options.label || 'popup';
+  const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const popupPromise = context.waitForEvent('page', { timeout });
+  const target = typeof locator === 'string' ? page.locator(locator) : locator;
+  await target.scrollIntoViewIfNeeded().catch(() => {});
+  await target.click({ timeout });
+  const popup = await popupPromise;
+  if (options.recorder) {
+    wireStrictPage(popup, label, options.recorder, options);
+  }
+  await popup.waitForLoadState('domcontentloaded', { timeout });
+  await popup.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  await assertNotErrorPage(popup, label);
+  return popup;
+}
+
+/**
+ * Click a control that replaces an AJAX-injected panel, and wait for the panel.
+ *
+ * The Administration shell injects its pages into #dynamic-content. Issue #3377
+ * is what this guards: the Select Forms buttons posted to an action whose
+ * success result was a servlet forward, so the response came back HTTP 200 with
+ * an empty body and the panel rendered white. Asserting the POST status would
+ * have passed; only asserting that the panel still has content catches it.
+ */
+async function clickInjectsPanel(page, locator, options = {}) {
+  const panelSelector = options.panel || '#dynamic-content';
+  const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const target = typeof locator === 'string' ? page.locator(locator) : locator;
+  const panel = page.locator(panelSelector);
+  const before = await panel.innerHTML().catch(() => '');
+  await target.scrollIntoViewIfNeeded().catch(() => {});
+  await target.click({ timeout });
+  await page.waitForFunction(
+    ({ selector, previous }) => {
+      const element = document.querySelector(selector);
+      if (!element) {
+        return false;
+      }
+      const current = element.innerHTML.trim();
+      return current.length > 0 && current !== previous;
+    },
+    { selector: panelSelector, previous: before.trim() },
+    { timeout },
+  );
+  if (options.marker) {
+    await page.locator(options.marker).first().waitFor({ state: 'visible', timeout });
+  }
+  const after = await panel.innerHTML();
+  assert(after.trim().length > 0, `${panelSelector} rendered empty after the click (issue #3377 class)`);
+  return panel;
+}
+
+/** The Administration shell hosts some pages in an iframe rather than a panel. */
+function inFrame(page, selector = '#myFrame') {
+  return page.frameLocator(selector);
+}
+
+/**
+ * Mark the opener so a later reload can be detected.
+ *
+ * Deliberately page.evaluate and NOT addInitScript: an init script would re-run
+ * on reload and the sentinel would survive, which is the opposite of what this
+ * has to detect.
+ */
+async function markOpener(page, marker = '__carlosOpenerGeneration') {
+  const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  await page.evaluate(({ name, value }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the sentinel name is a module constant and the value is locally generated
+    window[name] = value;
+  }, { name: marker, value: token });
+  return { marker, token };
+}
+
+/**
+ * Assert the opener re-rendered what the popup saved, without a manual reload.
+ *
+ * This is the contract 155 JSP files rely on and that only 10 of 75 checks
+ * touched at all: the popup saves, calls back into window.opener, and the row or
+ * badge appears where the user is already looking. A check that closes the popup
+ * and reloads the opener itself proves the row is in the database and proves
+ * nothing about the callback -- so a broken callback, which to a user means "I
+ * saved it and nothing happened", stays green.
+ */
+async function expectOpenerRefresh(opener, popup, rowLocator, options = {}) {
+  const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const sentinel = options.sentinel;
+  assert(sentinel && sentinel.marker && sentinel.token,
+    'expectOpenerRefresh needs the sentinel returned by markOpener(opener) before the popup was opened');
+  if (!popup.isClosed()) {
+    await popup.waitForEvent('close', { timeout }).catch(() => {});
+  }
+  const target = typeof rowLocator === 'string' ? opener.locator(rowLocator) : rowLocator;
+  await target.first().waitFor({ state: 'visible', timeout });
+  const stillMarked = await opener.evaluate((name) => window[name], sentinel.marker); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the sentinel name is a module constant
+  assert(stillMarked === sentinel.token,
+    'The opener reloaded instead of refreshing in place, so this did not test the window.opener callback');
+  return target;
+}
+
+/**
+ * Drive a jQuery UI autocomplete the way a user does and prove it filled the id.
+ *
+ * eform-consultation-acceptance is the cautionary tale: the consultation form
+ * replaced its <select id="specialist"> with a hidden #specialist plus a
+ * #specialistInput autocomplete, so the check silently fell through to its
+ * programmatic fallback and stopped testing the widget at all (alpha-11
+ * observation 5). Typing and picking is the test; the hidden id is the proof.
+ */
+async function typeAutocomplete(page, inputSelector, text, options = {}) {
+  const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const menu = options.menu || '.ui-autocomplete:visible, ul.ui-menu:visible';
+  const input = typeof inputSelector === 'string' ? page.locator(inputSelector) : inputSelector;
+  await input.click({ timeout });
+  await input.fill('');
+  await input.type(text, { delay: options.delay || 60 });
+  const suggestions = page.locator(menu).locator('li');
+  await suggestions.first().waitFor({ state: 'visible', timeout });
+  const option = options.option
+    ? page.locator(menu).locator('li', { hasText: options.option }).first()
+    : suggestions.first();
+  await option.click({ timeout });
+  if (options.hidden) {
+    const hidden = typeof options.hidden === 'string' ? page.locator(options.hidden) : options.hidden;
+    const value = await hidden.inputValue();
+    assert(value && value.trim() !== '',
+      `The autocomplete did not populate ${typeof options.hidden === 'string' ? options.hidden : 'its hidden field'}; the widget looks selected but the form would submit no id`);
+    return value;
+  }
+  return null;
+}
+
+/**
+ * Pick a date through the flatpickr calendar rather than typing into the input.
+ *
+ * 35 JSPs use flatpickr. Its inputs are frequently readonly and always carry a
+ * change handler the rest of the form depends on, so fill() either throws or
+ * sets a value nothing reacts to.
+ */
+async function pickDate(page, inputSelector, isoDate, options = {}) {
+  const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const input = typeof inputSelector === 'string' ? page.locator(inputSelector) : inputSelector;
+  await input.scrollIntoViewIfNeeded().catch(() => {});
+  await input.click({ timeout });
+  const calendar = page.locator('.flatpickr-calendar.open');
+  await calendar.waitFor({ state: 'visible', timeout });
+  const day = calendar.locator(`.flatpickr-day[aria-label][data-date="${isoDate}"], .flatpickr-day:not(.flatpickr-disabled)`);
+  await day.first().click({ timeout });
+  await calendar.waitFor({ state: 'hidden', timeout }).catch(() => {});
+  const value = await input.inputValue();
+  assert(value && value.trim() !== '', `The flatpickr picker left ${isoDate} unset`);
+  return value;
+}
+
+/**
+ * Wait for a DataTables list to finish its first draw, then return its rows.
+ *
+ * 35 lists in the webapp are DataTables-rendered. The rows exist in the response
+ * before the draw, so a check that reads the table immediately sees either the
+ * pre-init markup or the "No data available" placeholder, and a draw callback
+ * that throws (the deleted-eForms ReferenceError this suite once shipped green)
+ * leaves the list empty with the response still HTTP 200.
+ */
+async function dataTableRows(page, tableSelector, options = {}) {
+  const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const table = typeof tableSelector === 'string' ? page.locator(tableSelector) : tableSelector;
+  await table.waitFor({ state: 'visible', timeout });
+  await page.waitForFunction(
+    (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) {
+        return false;
+      }
+      // DataTables adds the wrapper and the processing container on init.
+      const wrapper = element.closest('.dataTables_wrapper') || document.querySelector(`${selector}_wrapper`);
+      if (!wrapper) {
+        return false;
+      }
+      const processing = wrapper.querySelector('.dataTables_processing');
+      return !processing || processing.style.display === 'none' || processing.offsetParent === null;
+    },
+    tableSelector,
+    { timeout },
+  ).catch(() => {});
+  const rows = table.locator('tbody tr');
+  await rows.first().waitFor({ state: 'visible', timeout }).catch(() => {});
+  const empty = await table.locator('tbody tr td.dataTables_empty').count();
+  return { rows, count: empty ? 0 : await rows.count() };
+}
+
+/** The day sheet binds 17 single-key shortcuts; nothing but three checks pressed one. */
+async function pressShortcut(page, key, options = {}) {
+  await page.locator('body').click({ position: { x: 2, y: 2 } }).catch(() => {});
+  await page.keyboard.press(key, { delay: options.delay || 50 });
+}
+
+/**
+ * Assert the hidden CSRF-TOKEN input exists AND is populated.
+ *
+ * CLAUDE.md's rule: CSRFGuard's client script only injects the token into a form
+ * whose action is a real URL and whose method is non-GET, so a page that does
+ * AJAX POSTs reading input[name="CSRF-TOKEN"] silently sends an empty token, the
+ * request is rejected with an HTML error page, and response.json() throws into a
+ * catch the user never sees. An empty token is the defect, so presence alone is
+ * not the assertion.
+ */
+async function csrfTokenPresent(page, options = {}) {
+  const selector = options.selector || 'input[name="CSRF-TOKEN"]';
+  const token = await page.locator(selector).first().inputValue().catch(() => '');
+  assert(token && token.trim() !== '',
+    `${selector} is absent or empty, so this page's AJAX POSTs would be rejected with an HTML error page (see the CSRF bootstrapping rule in CLAUDE.md)`);
+  return token;
+}
+
+/**
+ * Answer the next dialog the page raises, and prove it was raised.
+ *
+ * Both halves matter. A delete whose confirm() disappeared would otherwise pass
+ * (nothing to answer, the delete proceeds); a delete that started asking twice
+ * would hang. Pair with wireStrictPage's unexpected-dialog recording, which
+ * fails a check that raised a dialog nobody expected.
+ */
+function expectDialog(page, options = {}) {
+  const expectedType = options.type || 'confirm';
+  const accept = options.accept !== false;
+  const seen = [];
+  const handler = async (dialog, entry) => {
+    seen.push(entry);
+    if (accept) {
+      await dialog.accept(options.promptText).catch(() => {});
+    } else {
+      await dialog.dismiss().catch(() => {});
+    }
+  };
+  return {
+    handler,
+    assertRaised() {
+      assert(seen.length > 0,
+        `Expected a ${expectedType}() dialog and none was raised; the control no longer asks for confirmation`);
+      assert(seen.length === 1,
+        `Expected exactly one ${expectedType}() dialog, saw ${seen.length}`);
+      assert(seen[0].type === expectedType,
+        `Expected a ${expectedType}() dialog, saw ${seen[0].type}`);
+      return seen[0];
+    },
+    get dialogs() {
+      return seen.slice();
+    },
+  };
+}
+
+/**
+ * How a user reaches each section, as data.
+ *
+ * Every entry is a CLICK from somewhere the user already is. A check that needs
+ * a section not listed here should add it rather than navigate to the URL: if
+ * the only way to reach a surface is an address, that is a finding about the
+ * surface, not a licence to type it.
+ *
+ * `from`      where the user is when they click.
+ * `click`     the element, preferring the id the JSP renders.
+ * `opens`     'page' (same window), 'popup' (a new window), 'panel' (AJAX
+ *             fragment) or 'frame'.
+ * `validated` whether a run against a live deployment has confirmed the
+ *             selector. New entries start false; flip it in the PR that runs it.
+ */
+const NAVIGATION = {
+  schedule: {
+    from: 'login', click: null, opens: 'page', validated: true, note: 'login() lands here',
+  },
+  search: {
+    from: 'schedule', click: '#search', opens: 'popup', validated: false,
+  },
+  inbox: {
+    from: 'schedule', click: '#inboxLink', opens: 'popup', validated: false,
+  },
+  inboxUnmatched: {
+    from: 'schedule', click: '#unclaimedLabLink', opens: 'popup', validated: false,
+  },
+  tickler: {
+    from: 'schedule', click: '#oscar_new_tickler', opens: 'popup', validated: false,
+  },
+  msg: {
+    from: 'schedule', click: '#oscar_new_msg', opens: 'popup', validated: false,
+  },
+  consultations: {
+    from: 'schedule', click: '#con', opens: 'popup', validated: false,
+  },
+  econsult: {
+    from: 'schedule', click: '#econ', opens: 'popup', validated: false,
+  },
+  administration: {
+    from: 'schedule', click: '#admin-panel', opens: 'popup', validated: false,
+  },
+  dashboard: {
+    from: 'schedule', click: '#dashboardList', opens: 'popup', validated: false,
+  },
+  preferences: {
+    from: 'schedule', click: '#userSettings', opens: 'menu', validated: false, note: 'opens #userSettingsMenu; the Preferences item is inside it',
+  },
+  help: {
+    from: 'schedule', click: '#helpLink', opens: 'popup', validated: false,
+  },
+  logout: {
+    from: 'schedule', click: '#logoutButton', opens: 'page', validated: false,
+  },
+  scratch: {
+    from: 'schedule', click: '[title="Scratch Pad"]', opens: 'popup', validated: false,
+  },
+};
+
+/** Sections the coverage plan's Priority 1 checks need to reach by clicking. */
+const REQUIRED_SECTIONS = [
+  'schedule', 'search', 'inbox', 'tickler', 'msg', 'consultations',
+  'administration', 'preferences', 'logout',
+];
+
+module.exports = {
+  NAVIGATION,
+  REQUIRED_SECTIONS,
+  clickInjectsPanel,
+  clickOpensPopup,
+  csrfTokenPresent,
+  dataTableRows,
+  expectDialog,
+  expectOpenerRefresh,
+  inFrame,
+  markOpener,
+  pickDate,
+  pressShortcut,
+  typeAutocomplete,
+};
