@@ -97,6 +97,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -403,6 +404,7 @@
         </script>
         <script type="text/javascript">
             function hideLotDrop(elem) {
+                if (!elem) return; // The CVC layout uses cvcLot instead of lotDrop.
                 var bFound = 0;
                 var LotNr = document.getElementById('lot').value;
                 var summary = document.getElementById('summary');
@@ -487,10 +489,12 @@
             var cvcLookupSequence = 0;
 
             function changeCVCName() {
+                var cvcName = document.getElementById('cvcName');
+                if (!cvcName) return; // A generic without catalogue brands uses manual entry.
                 var lookupSequence = ++cvcLookupSequence;
                 lots = null;
 
-                var snomedId = document.getElementById('cvcName').value;
+                var snomedId = cvcName.value;
                 var lot = document.getElementById('lot');
                 var cvcLot = document.getElementById('cvcLot');
                 var expiryDate = document.getElementById('expiryDate');
@@ -506,6 +510,19 @@
                     if (name) name.style.display = '';
                 } else {
                     if (unknownName) unknownName.style.display = 'none';
+                    // Capture restoration state for this request. A later vaccine change must
+                    // neither reuse the previous vaccine's lot nor consume its pending response.
+                    var initialLot = startup2
+                        ? '<carlos:encode value='<%= addByLotNbr != null ? addByLotNbr : "" %>' context="javaScriptBlock"/>'
+                        : startup ? '<carlos:encode value='<%= str(extraData.get("lot"), "") %>' context="javaScriptBlock"/>' : '';
+                    var initialExpiry = startup
+                        ? '<carlos:encode value='<%= str(extraData.get("expiryDate"), "") %>' context="javaScriptBlock"/>' : '';
+                    startup = startup2 = false;
+                    lot.value = initialLot;
+                    if (expiryDate) expiryDate.value = initialExpiry;
+                    cvcLot.style.display = 'none';
+                    cvcLot.innerHTML = '';
+                    lot.style.display = '';
                     var formData = new URLSearchParams();
                     formData.append('method', 'getLotNumberAndExpiryDates');
                     formData.append('snomedConceptId', snomedId);
@@ -543,14 +560,15 @@
                                 opt.setAttribute('expiryDate', output);
                                 opt.text = item.lotNumber;
 
-                                if (startup2 && item.lotNumber == '<carlos:encode value='<%= addByLotNbr != null ? addByLotNbr : "" %>' context="javaScriptBlock"/>') {
-                                    opt.selected = true;
-                                    startup2 = false;
-                                } else if (startup && item.lotNumber == '<carlos:encode value='<%= existingPrevention != null && existingPrevention.get("lot") != null ? (String)existingPrevention.get("lot") : "" %>' context="javaScriptBlock"/>') {
-                                    opt.selected = true;
-                                    startup = false;
-                                }
+                                if (item.lotNumber === initialLot) opt.selected = true;
                                 cvcLot.appendChild(opt);
+                            }
+                            if (initialLot && cvcLot.value !== initialLot) {
+                                // A recorded historical lot can disappear from the refreshed
+                                // catalogue. Keep its stored value instead of erasing it on save.
+                                cvcLot.style.display = 'none';
+                                lot.style.display = '';
+                            } else {
                                 updateCvcLot();
                             }
                         } else {
@@ -611,8 +629,11 @@
             <% if(existingPrevention != null && snomedId != null && existingPrevention.get("brandSnomedId") != null) { %>
             document.addEventListener('DOMContentLoaded', function () {
                 startup = true;
-                document.getElementById('cvcName').value = '<carlos:encode value='<%= (String)existingPrevention.get("brandSnomedId") %>' context="javaScriptBlock"/>';
-                changeCVCName();
+                var cvcName = document.getElementById('cvcName');
+                if (cvcName) {
+                    cvcName.value = '<carlos:encode value='<%= (String)existingPrevention.get("brandSnomedId") %>' context="javaScriptBlock"/>';
+                    changeCVCName();
+                }
             });
             <% } %>
 
@@ -688,6 +709,8 @@
                 <h3 class="alert alert-danger"><fmt:message key="oscarprevention.addpreventiondata.preventionNotFound"/></h3>
                 <%} else { %>
                 <form action="${pageContext.request.contextPath}/prevention/AddPrevention" method="post" onsubmit="return handleFormSubmission()">
+                    <%-- Startup lot lookup runs before CSRFGuard's asynchronous form injection. --%>
+                    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
                     <input type="hidden" name="prevention" value="<carlos:encode value='<%= prevention != null ? prevention : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no != null ? demographic_no : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="providerNo" value="<carlos:encode value='<%= provider != null ? provider : "" %>' context="htmlAttribute"/>"/>
@@ -783,7 +806,7 @@
                                                 selected = "selected=\"selected\"";
                                             }
                                         }
-                                        if (foundByLotNumber) {
+                                        if (foundByLotNumber && brandName != null) {
                                             String brandSnomedId = brandName.getSnomedConceptId();
                                             if (brandSnomedId != null && brandSnomedId.equals(tn.getSnomedConceptId())) {
                                                 selected = "selected=\"selected\"";

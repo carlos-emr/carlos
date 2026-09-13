@@ -40,7 +40,7 @@
  * RTL_REQUIRE_ALL_FAMILIES=1.
  *
  * Environment: BASE_URL, CHROME_PATH, TEST_USER/TEST_PASSWORD/TEST_PIN, RTL_DEMOGRAPHIC_NO,
- * RTL_FORM_NAME, RTL_SCREENSHOT_DIR, RTL_REQUIRE_ALL_FAMILIES, RTL_HRM_TEXT_MARKER.
+ * RTL_FORM_NAME, RTL_SCREENSHOT_DIR, RTL_REQUIRE_ALL_FAMILIES, RTL_HRM_TEXT_MARKER, RTL_HRM_DOCUMENT_NO (default 1).
  */
 const fs = require('fs');
 const zlib = require('zlib');
@@ -76,8 +76,11 @@ const config = {
   screenshotDir: process.env.RTL_SCREENSHOT_DIR || '/tmp',
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
   requireAllFamilies: process.env.RTL_REQUIRE_ALL_FAMILIES === '1',
+  hrmDocumentNo: process.env.RTL_HRM_DOCUMENT_NO || '1',
   hrmTextMarker: process.env.RTL_HRM_TEXT_MARKER || 'SEED-HRM-ATTACHMENT-MARKER',
 };
+
+assert(/^\d+$/.test(config.hrmDocumentNo), 'RTL_HRM_DOCUMENT_NO must be numeric');
 
 // One entry per attachment family the popup (attachEform.jsp) and the packet renderer
 // (DocumentAttachmentManagerImpl.renderEFormPacket) know about. `panelPrefix` is the label
@@ -273,6 +276,12 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     const popup = track(await openAttachPopup(view, context));
     await waitForPopupReady(popup, recorder, `rtl-attach-${family.key}-popup`);
     let candidate = popup.locator(`input[name="${family.inputName}"]`).first();
+    // Once every demo HRM file is seeded, the newest report is no longer the
+    // canonical marker-bearing fixture. Select the record paired with the
+    // configured PDF marker instead of relying on row ordering.
+    if (family.key === 'hrm') {
+      candidate = popup.locator(`input[name="hrmNo"][value="${config.hrmDocumentNo}"]`);
+    }
     if (family.attachPreviousLetter && previousLetter) {
       const previous = popup.locator(`input[name="${family.inputName}"][value="${previousLetter.fdid}"]`);
       if (await previous.count()) {

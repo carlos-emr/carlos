@@ -691,6 +691,20 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
+- **DrugRef refreshes can remove legacy AHFS names.** The allergy browser check uses
+  `AMOXICILLIN` (typed) and `CLARITHROMYCIN` (free text), which are present in both
+  the demo reference and the current DPD extract. It requires both recording paths
+  to produce confirmed warnings; it no longer substitutes an arbitrary search
+  result or skips the typed warning. Also run with
+  `ALLERGY_CUSTOM_ALLERGEN=PWUNKNOWNALRG ALLERGY_EXPECT_UNCHECKED=true` to require
+  an explicit `Not checked` notice for an unresolved allergy. Service failures and
+  malformed responses must remain visibly incomplete, never look like a negative check.
+
+- **The HRM PDF marker belongs to a specific report.**
+  `eform-rtl-attachment-pdf-playwright-checks.js` defaults to `RTL_HRM_DOCUMENT_NO=1`
+  and `RTL_HRM_TEXT_MARKER=SEED-HRM-ATTACHMENT-MARKER`. Override both together for
+  another fixture; the first listed report can change when missing demo files are restored.
+
 - **`allergy-rx-alert-playwright-checks.js` cleans up both allergies it records.**
   Each run uses cryptographically unique reaction markers and, in `finally`,
   inactivates every active row carrying one of those exact markers through the

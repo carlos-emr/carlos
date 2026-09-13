@@ -76,6 +76,7 @@ const genericConcept = `${catalogueConcept}1`;
 const catalogueName = `PWV${Date.now()}`;
 const catalogueLot = `${lotNumber}CVC`;
 const cvcUi = process.env.PREVENTION_CVC_UI === 'true';
+const ownedPreventionIds = [];
 
 let mysqlDefaults = null;
 function initMysqlDefaults() {
@@ -116,7 +117,7 @@ function cleanupRows() {
   sql(`DELETE FROM CVCMedication WHERE snomedCode='${catalogueConcept}'`);
   sql(`DELETE FROM CVCMapping WHERE cvcSnomedId='${genericConcept}'`);
   sql(`DELETE FROM CVCImmunization WHERE snomedConceptId IN ('${catalogueConcept}','${genericConcept}')`);
-  for (const id of preventionIds()) {
+  for (const id of new Set([...preventionIds(), ...ownedPreventionIds])) {
     sql(`DELETE FROM preventionsExt WHERE prevention_id=${Number(id)}`);
     sql(`DELETE FROM preventions WHERE id=${Number(id)}`);
   }
@@ -211,6 +212,19 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       await input.fill(catalogueName);
       await index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} generic`}).waitFor({state: 'visible'});
       await index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} brand`}).waitFor({state: 'visible'});
+      const genericPopupPromise = context.waitForEvent('page');
+      await index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} generic`}).click();
+      const genericPopup = await genericPopupPromise;
+      wirePage(genericPopup, 'cvc-generic', recorder);
+      await genericPopup.waitForURL(/\/prevention\/ViewAddPreventionData\?/, {waitUntil:'domcontentloaded'});
+      await assertNotErrorPage(genericPopup, 'CVC generic popup');
+      assert(await genericPopup.locator('input[name="prevention"]').inputValue() === 'Tdap', 'generic lookup lost the mapped prevention type');
+      assert(await genericPopup.locator('#cvcName').inputValue() === '-1', 'generic lookup silently chose a brand');
+      const genericLots = genericPopup.waitForResponse((response) => response.url().endsWith('/cvc') && response.request().method() === 'POST');
+      await genericPopup.locator('#cvcName').selectOption(catalogueConcept);
+      assert((await genericLots).ok(), 'selecting a brand after generic lookup failed');
+      await genericPopup.waitForFunction(() => document.getElementById('cvcLot')?.options.length === 2);
+      await genericPopup.close();
       const lotQuery = index.waitForResponse((response) => response.url().includes('/cvc?method=query')
         && (response.request().postData() || '').includes(catalogueLot));
       await input.fill(catalogueLot);
@@ -233,10 +247,35 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       await popup.locator('form[action$="/prevention/AddPrevention"] input[type="submit"], form[action$="/prevention/AddPrevention"] button[type="submit"]').first().click();
       assert((await saved).ok(), 'CVC prevention save failed');
       const ids = preventionIds();
+      ownedPreventionIds.push(...ids);
       assert(ids.length === 1, 'CVC prevention was not saved exactly once');
       const ext = Object.fromEntries(sqlRows(`SELECT keyval,val FROM preventionsExt WHERE prevention_id=${Number(ids[0])}`));
       assert(ext.lot === catalogueLot && ext.brandSnomedId === catalogueConcept
         && !ext.expiryDate, 'CVC save lost the selected vaccine/lot or invented an expiry date');
+      await popup.waitForEvent('close', {timeout:30000}).catch(() => {});
+      const edit = await context.newPage();
+      wirePage(edit, 'cvc-prevention-edit', recorder);
+      await gotoApp(edit, config.baseUrl, `/prevention/ViewAddPreventionData?demographic_no=${demographicNo}&id=${ids[0]}`);
+      await edit.waitForFunction((lot) => document.getElementById('cvcLot')?.value === lot, catalogueLot);
+      assert(await edit.locator('#expiryDate').inputValue() === '', 'editing an undated lot invented an expiry date');
+      await edit.close();
+      // Simulate a catalogue refresh which removes the historical lot but leaves
+      // other lots for this vaccine. Editing must retain the recorded lot.
+      sql(`UPDATE CVCMedicationLotNumber l JOIN CVCMedication m ON m.id=l.cvcMedicationId SET l.lotNumber='${catalogueLot}OTHER' WHERE m.snomedCode='${catalogueConcept}'`);
+      const historical = await context.newPage();
+      wirePage(historical, 'cvc-historical-lot', recorder);
+      const historicalLookup = historical.waitForResponse((response) => response.url().endsWith('/cvc') && response.request().method() === 'POST');
+      await gotoApp(historical, config.baseUrl, `/prevention/ViewAddPreventionData?demographic_no=${demographicNo}&id=${ids[0]}`);
+      assert((await historicalLookup).ok(), 'historical lot lookup failed');
+      await historical.waitForFunction((lot) => document.getElementById('cvcLot')?.options.length === 2
+        && document.getElementById('lot')?.value === lot && document.getElementById('cvcLot').style.display === 'none', catalogueLot);
+      assert(await historical.locator('#expiryDate').inputValue() === '', 'historical lot acquired an expiry date');
+      const historicalSave = historical.waitForResponse((response) => response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/prevention/AddPrevention'));
+      await historical.locator('form[action$="/prevention/AddPrevention"] input[type="submit"], form[action$="/prevention/AddPrevention"] button[type="submit"]').first().click();
+      assert((await historicalSave).ok(), 'historical prevention update failed');
+      assert(preventionIds().length === 1, 'updating the prevention lost its historical lot');
+      await historical.waitForEvent('close', {timeout:30000}).catch(() => {});
       assertNoPageErrors(recorder);
       const unexpected = recorder.badResponses.filter((entry) => !(entry.status === 404 && /displayImage\?imagefile=vaccine-brands\.json/.test(entry.url)));
       assert(unexpected.length === 0, JSON.stringify(unexpected));

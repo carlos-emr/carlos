@@ -52,6 +52,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.owasp.encoder.Encode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -220,72 +222,62 @@ public final class RxShowAllergy2Action extends ActionSupport {
      *
      * @param loggedInInfo LoggedInInfo object containing user session details and security information.
      */
-    private void getAllergyData(LoggedInInfo loggedInInfo) {
-        boolean rxShowAllAllergyWarnings = systemPreferencesDao.isReadBooleanPreference(SystemPreferences.RX_PREFERENCE_KEYS.rx_show_highest_allergy_warning);
-
-        String atcCode = request.getParameter("atcCode");
-        String id = request.getParameter("id");
-        String disabled = CarlosProperties.getInstance().getProperty("rx.disable_allergy_warnings", "false");
-        if (disabled.equals("false")) {
-
-            ObjectMapper objectMapper = new ObjectMapper();
-            RxSessionBean rxSessionBean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-            Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, rxSessionBean.getDemographicNo()).getActiveAllergies();
-
-            Allergy[] allergyWarnings = null;
-            RxDrugData drugData = new RxDrugData();
-
-            try {
-                allergyWarnings = drugData.getAllergyWarnings(atcCode, allergies);
-
-
-                Allergy highestSeverityAllergy = null;
-
-                ObjectNode result = objectMapper.createObjectNode();
-                result.put("id", id);
-                ArrayNode allergyResultArray = objectMapper.createArrayNode();
-                if (allergyWarnings != null && allergyWarnings.length > 0) {
-                    highestSeverityAllergy = allergyWarnings[0];
-                    for (Allergy allergy : allergyWarnings) {
-                        ObjectNode allergyResult = objectMapper.createObjectNode();
-                        allergyResult.put("DESCRIPTION", StringUtils.trimToEmpty(allergy.getDescription()));
-                        allergyResult.put("reaction", StringUtils.trimToEmpty(allergy.getReaction()));
-                        allergyResult.put("severity", StringUtils.trimToEmpty(allergy.getSeverityOfReactionDesc()));
-                        if (rxShowAllAllergyWarnings) {
-                            int highestSeverity = Integer.parseInt(highestSeverityAllergy.getSeverityOfReaction());
-                            int thisSeverity = Integer.parseInt(allergy.getSeverityOfReaction());
-                            if (thisSeverity > highestSeverity) {
-                                highestSeverityAllergy = allergy;
-                            }
-                        } else {
-                            allergyResultArray.add(allergyResult);
-                        }
-                    }
+    private void getAllergyData(LoggedInInfo loggedInInfo) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode result = mapper.createObjectNode();
+        result.put("id", request.getParameter("id"));
+        ArrayNode warnings = result.putArray("results");
+        ArrayNode unchecked = result.putArray("unchecked");
+        result.put("checkComplete", false);
+        Allergy[] allergies = new Allergy[0];
+        try {
+            if (!"false".equals(CarlosProperties.getInstance().getProperty("rx.disable_allergy_warnings", "false"))) {
+                result.put("disabled", true);
+            } else {
+                RxSessionBean session = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+                allergies = RxPatientData.getPatient(loggedInInfo, session.getDemographicNo()).getActiveAllergies();
+                List<Allergy> missing = new ArrayList<>();
+                Allergy[] matches = new RxDrugData().getAllergyWarnings(request.getParameter("atcCode"), allergies, missing);
+                boolean highestOnly = systemPreferencesDao.isReadBooleanPreference(
+                        SystemPreferences.RX_PREFERENCE_KEYS.rx_show_highest_allergy_warning);
+                Allergy highest = null;
+                for (Allergy allergy : matches) {
+                    if (!highestOnly) warnings.add(allergyJson(mapper, allergy));
+                    if (highest == null || severity(allergy) > severity(highest)) highest = allergy;
                 }
-                if (rxShowAllAllergyWarnings && highestSeverityAllergy != null) {
-                    ObjectNode allergyResult = objectMapper.createObjectNode();
-                    allergyResult.put("DESCRIPTION", StringUtils.trimToEmpty(highestSeverityAllergy.getDescription()));
-                    allergyResult.put("reaction", StringUtils.trimToEmpty(highestSeverityAllergy.getReaction()));
-                    allergyResult.put("severity", StringUtils.trimToEmpty(highestSeverityAllergy.getSeverityOfReactionDesc()));
-                    allergyResultArray.add(allergyResult);
-                }
-                result.set("results", allergyResultArray);
-
-                response.setContentType("application/json");
-                response.getOutputStream().write(result.toString().getBytes());
-
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error in getAllergyData", e);
-                try {
-                    ObjectNode errorResult = objectMapper.createObjectNode();
-                    errorResult.put("id", id);
-                    errorResult.set("results", objectMapper.createArrayNode());
-                    response.setContentType("application/json");
-                    response.getOutputStream().write(objectMapper.writeValueAsBytes(errorResult));
-                } catch (IOException ioe) {
-                    MiscUtils.getLogger().error("Error writing empty allergy JSON response", ioe);
-                }
+                if (highestOnly && highest != null) warnings.add(allergyJson(mapper, highest));
+                // An unresolved allergen is not a negative allergy check. Keep every unresolved
+                // entry even when the preference limits confirmed matches to highest severity.
+                for (Allergy allergy : missing) unchecked.add(allergyJson(mapper, allergy));
+                result.put("checkComplete", missing.isEmpty());
             }
+        } catch (Exception error) {
+            MiscUtils.getLogger().error("Unable to complete prescription allergy check", error);
+            result.put("checkFailed", true);
+            result.put("checkComplete", false);
+            unchecked.removeAll();
+            for (Allergy allergy : allergies) unchecked.add(allergyJson(mapper, allergy));
+        }
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.getOutputStream().write(mapper.writeValueAsBytes(result));
+    }
+
+    private static ObjectNode allergyJson(ObjectMapper mapper, Allergy allergy) {
+        ObjectNode item = mapper.createObjectNode();
+        item.put("DESCRIPTION", StringUtils.trimToEmpty(allergy.getDescription()));
+        item.put("reaction", StringUtils.trimToEmpty(allergy.getReaction()));
+        item.put("severity", StringUtils.trimToEmpty(allergy.getSeverityOfReactionDesc()));
+        return item;
+    }
+
+    private static int severity(Allergy allergy) {
+        try {
+            int level = Integer.parseInt(allergy.getSeverityOfReaction());
+            return level >= 1 && level <= 3 ? level : 0; // 5 means No Reaction.
+        } catch (NumberFormatException ignored) {
+            return 0;
         }
     }
 

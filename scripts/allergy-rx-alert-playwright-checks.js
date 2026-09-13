@@ -77,8 +77,11 @@
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN
  * Optional: ALLERGY_DEMOGRAPHIC_NO (default 2), ALLERGY_SEARCH_TERM (default
- *   "penicillin"), ALLERGY_ALLERGEN (default "PENICILLINS"),
- *   ALLERGY_CUSTOM_ALLERGEN (default "MACROLIDES"), ALLERGY_DRUG_TERM (default
+ *   "amoxicillin"), ALLERGY_ALLERGEN (default "AMOXICILLIN"),
+ *   ALLERGY_CUSTOM_ALLERGEN (default "CLARITHROMYCIN"),
+ *   ALLERGY_EXPECT_UNCHECKED=true with an unknown custom allergen to require
+ *   an explicit unresolved-check JSON result and visible Not checked notice,
+ *   ALLERGY_DRUG_TERM (default
  *   "biaxin", a macrolide -- the free-text allergen's class),
  *   ALLERGY_TYPED_DRUG_TERM (default "amoxil", a penicillin -- the typed
  *   allergen's class), CHROME_PATH, ALLERGY_SCREENSHOT_DIR (default /tmp).
@@ -109,20 +112,22 @@ const config = {
   screenshotDir: process.env.ALLERGY_SCREENSHOT_DIR || '/tmp',
 };
 const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '2';
-// The allergen the check records and then prescribes against. PENICILLINS is an
-// AHFS class in the seeded DrugRef and amoxicillin is filed under one of its
-// subclasses (08:12.16.08 under 08:12.16), so the alert only fires if the AHFS
-// number is matched as a prefix rather than for equality.
-const allergySearchTerm = process.env.ALLERGY_SEARCH_TERM || 'penicillin';
-const allergenName = process.env.ALLERGY_ALLERGEN || 'PENICILLINS';
+// Use a typed name present in both the demo and current DPD reference. Legacy
+// AHFS parent names such as PENICILLINS can disappear after a DPD refresh;
+// those need an explicit unresolved-check notice, not a fabricated match.
+const allergySearchTerm = process.env.ALLERGY_SEARCH_TERM || 'amoxicillin';
+const allergenName = process.env.ALLERGY_ALLERGEN || 'AMOXICILLIN';
 
-// Part 2 deliberately uses a DIFFERENT allergen class from part 1, recorded as a
-// free-text custom allergy, and prescribes a drug in that class. Keeping the two
+// Part 2 deliberately uses an unrelated drug from part 1, recorded as a
+// free-text custom allergy, and prescribes a brand of that drug. CLARITHROMYCIN
+// remains in both the demo reference and the current DPD extract; MACROLIDES
+// disappears from the newer extract and belongs in the unresolved-check case. Keeping the two
 // classes disjoint is what makes the alert assertion specific: a penicillin
 // allergy cannot warn on a macrolide, so the only warning clarithromycin can
 // produce here is the free-text one, and the assertion cannot be satisfied by
 // the typed allergy part 1 just added.
-const customAllergen = process.env.ALLERGY_CUSTOM_ALLERGEN || 'MACROLIDES';
+const customAllergen = process.env.ALLERGY_CUSTOM_ALLERGEN || 'CLARITHROMYCIN';
+const expectUnchecked = process.env.ALLERGY_EXPECT_UNCHECKED === 'true';
 const drugTerm = process.env.ALLERGY_DRUG_TERM || 'biaxin';
 // The originally reported scenario: a penicillin prescribed to a penicillin-allergic
 // patient. Part 4 drives it against the TYPED allergy so both recording paths are
@@ -309,20 +314,13 @@ async function recordAllergy(page, marker, cancellation) {
         + 'this check exists to exercise never happens.',
     );
 
-    // Prefer the exact class the alert assertion depends on; fall back to the first result so the
-    // recording half still runs on a different dataset. Compared as plain strings rather than
-    // through a RegExp: the match wanted here IS equality, and allergen names carry regex
-    // metacharacters freely -- 274 of the 75,113 names in the seeded reference cannot be compiled
-    // as a pattern at all ("SPF 30 PA+++" is "Nothing to repeat"), and any name with a decimal
-    // would match strings it should not, because "." matches any character.
+    // Require the configured pairing. A fallback allergen cannot establish
+    // whether this run's prescribed drug triggered the intended typed allergy.
     const resultNames = (await results.allTextContents()).map((text) => text.trim());
     const exactIndex = resultNames.indexOf(allergenName);
-    // Part 4 asserts a warning for this allergen from a drug in ITS class, so that pairing has to
-    // be the one the operator configured. The fallback keeps parts 1-3 working on a dataset that
-    // does not carry the requested name, but it breaks the pairing, so part 4 stands down rather
-    // than asserting against whatever the search happened to return first.
-    const matchedRequestedAllergen = exactIndex >= 0;
-    const chosen = results.nth(matchedRequestedAllergen ? exactIndex : 0);
+    assert(exactIndex >= 0, `Allergy search did not return the configured allergen ${allergenName}`);
+    const matchedRequestedAllergen = true;
+    const chosen = results.nth(exactIndex);
     const chosenName = ((await chosen.textContent()) || '').trim();
     assert(chosenName.length > 0, 'Search result anchor has no text');
 
@@ -447,26 +445,23 @@ async function recordAllergy(page, marker, cancellation) {
 
     const payload = await allergyDataResponse.json();
     assert(Array.isArray(payload.results), 'The allergy probe JSON has no results array');
-    assert(
-      payload.results.length > 0,
-      `Prescribing "${drugTerm}" to a patient allergic to ${customAllergen} returned no allergy `
-        + 'warnings. An empty results array is exactly what the unfixed build returned for a '
-        + 'free-text (typeCode 0) allergy: check that DrugRef is at or past the pin in '
-        + 'debian/drugref.pin, which carries the free-text branch of get_allergy_warnings.',
-    );
-    // Match on the reaction text this run wrote, not just the allergen name: it is
-    // the only thing that distinguishes the free-text allergy from any other row
-    // the patient may already carry under the same name.
-    assert(
-      payload.results.some((r) => String(r.reaction || '').includes(freeTextReaction)),
-      `The warnings for "${drugTerm}" do not include the free-text ${customAllergen} allergy this `
-        + `check recorded (${payload.results.length} warning(s) returned). The returned warnings `
-        + 'carry the patient\'s own recorded reactions, so they are counted here rather than printed.',
-    );
+    if (expectUnchecked) {
+      assert(payload.checkComplete === false && payload.checkFailed !== true,
+        'unresolved allergy must be an incomplete reference check, not a transport failure');
+      assert(Array.isArray(payload.unchecked) && payload.unchecked.some((item) => item.reaction === freeTextReaction),
+        'unresolved free-text allergy disappeared from the response');
+      assert(!payload.results.some((item) => item.reaction === freeTextReaction),
+        'unresolved allergy was incorrectly reported as a confirmed match');
+    } else {
+      assert(payload.results.some((item) => item.reaction === freeTextReaction),
+        `Prescribing "${drugTerm}" did not return a confirmed match for this run's free-text ${customAllergen} allergy`);
+    }
 
     const alertTable = rxPage.locator("table[id^='alleg_tbl_']").first();
     await alertTable.waitFor({ state: 'visible', timeout: 20000 });
+    await alertTable.getByText(freeTextReaction, {exact:false}).waitFor({state:'visible'});
     const alertText = (await alertTable.innerText()).trim();
+    if (expectUnchecked) assert(alertText.includes('Not checked:'), 'unresolved allergy is not visibly distinguished from a confirmed match');
     assert(
       /allergy/i.test(alertText) && alertText.toUpperCase().includes(customAllergen.toUpperCase()),
       `The allergy alert row is visible but does not name ${customAllergen}. Its text is the `
@@ -480,14 +475,7 @@ async function recordAllergy(page, marker, cancellation) {
     // The literally reported scenario: a penicillin prescribed to a patient carrying
     // the penicillin allergy recorded in part 1.
     cancellation.throwIfCancelled();
-    if (!matchedRequestedAllergen) {
-      console.log(
-        `[skip] part 4: the search for "${allergySearchTerm}" did not return "${allergenName}", so `
-        + `part 1 recorded "${chosenName}" instead. ALLERGY_TYPED_DRUG_TERM ("${typedDrugTerm}") is `
-        + `paired with "${allergenName}", not with that, so asserting a warning here would be `
-        + 'checking a pairing nobody configured. Parts 1-3 still ran.',
-      );
-    } else {
+    {
       const typedRxPage = await context.newPage();
       wirePage(typedRxPage, 'rx-alert-typed', recorder);
       await gotoApp(typedRxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
@@ -542,7 +530,7 @@ async function recordAllergy(page, marker, cancellation) {
     console.log('allergy-rx-alert checks passed');
     console.log(`  recorded from search: ${chosenName}`);
     console.log(`  recorded as free text: ${customAllergen}`);
-    console.log(`  ${drugTerm} warned on the free-text allergen`);
+    console.log(`  ${drugTerm} ${expectUnchecked ? 'displayed Not checked for' : 'warned on'} the free-text allergen`);
     if (matchedRequestedAllergen) {
       console.log(`  ${typedDrugTerm} warned on the allergen recorded from the search results`);
     }
