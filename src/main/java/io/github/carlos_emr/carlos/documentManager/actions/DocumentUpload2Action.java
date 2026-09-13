@@ -485,22 +485,22 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         // This preference is read back as the upload destination folder, so only a folder the
         // write path would accept is worth storing. Persisting an arbitrary value just parked
         // request-controlled text in the database for a later path build to reject.
-        if (!IncomingDocUtil.isAllowedIncomingDocFolder(destFolder)) {
+        if (IncomingDocUtil.isAllowedIncomingDocFolder(destFolder)) {
+            UserPropertyDAO pref = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+            UserProperty up = pref.getProp(user_no, UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
+
+            if (up == null) {
+                up = new UserProperty();
+                up.setName(UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
+                up.setProviderNo(user_no);
+            }
+
+            if (up.getValue() == null || !(up.getValue().equals(destFolder))) {
+                up.setValue(destFolder);
+                pref.saveProp(up);
+            }
+        } else {
             logger.warn("Rejected incoming document folder preference: {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-            return null;
-        }
-        UserPropertyDAO pref = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty up = pref.getProp(user_no, UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
-
-        if (up == null) {
-            up = new UserProperty();
-            up.setName(UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
-            up.setProviderNo(user_no);
-        }
-
-        if (up.getValue() == null || !(up.getValue().equals(destFolder))) {
-            up.setValue(destFolder);
-            pref.saveProp(up);
         }
         return null;
     }
