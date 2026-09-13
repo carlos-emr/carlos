@@ -123,6 +123,10 @@ abstract class DemographicExportActionUnitTestBase extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
+        // mockStatic stubs every LoggedInInfo static, so the require* variant the action now
+        // calls (#2499) returns null unless it is stubbed too.
+        loggedInInfoMock.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(loggedInInfo);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
                 .thenReturn(true);
