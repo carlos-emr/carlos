@@ -145,7 +145,15 @@ function initMysqlDefaults() {
   // and cleanupMysqlDefaults() can only remove a directory it knows about.
   // Leaving one behind strands MYSQL_PASSWORD in cleartext under /tmp.
   mysqlDefaults = { dir, file };
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  try {
+    fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  } catch (writeError) {
+    // This function runs before the main try/finally, so nothing else would
+    // remove the directory. Registering the path is not enough on its own --
+    // cleanup has to actually run on this path too.
+    cleanupMysqlDefaults();
+    throw writeError;
+  }
 }
 function cleanupMysqlDefaults() {
   if (mysqlDefaults) {
@@ -394,6 +402,24 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
     // Remember the patient's real First Nations values so the finally can put
     // them back: this runs against a demo dataset, not a scratch row.
     originalExt = readOriginalExtRows(demographicNo, SEEDED_KEYS);
+
+    // Refuse to run against a record that already holds one of this check's
+    // payloads. That means an earlier run died between seeding and restore, so
+    // the "original" just captured IS the payload -- and because every restore
+    // write is now conditional on the value still being ours, the run would
+    // faithfully put the payload back and print PASS over a record that still
+    // carries live XSS. Nothing here can know what the real value was, so the
+    // only honest move is to stop and say which key needs repairing.
+    const stale = originalExt.filter(
+      (row) => !row.isNull && row.hex === Buffer.from(PAYLOADS[row.key], 'utf8').toString('hex').toUpperCase(),
+    );
+    assert(
+      stale.length === 0,
+      `demographic ${demographicNo} still holds this check's payload in `
+        + `${stale.map((row) => row.key).join(', ')} -- an earlier run did not restore it. `
+        + 'Repair those rows to their real values before re-running; seeding now would '
+        + 'capture the payload as the original and report PASS while preserving it.',
+    );
 
     for (const key of SEEDED_KEYS) {
       sql(
