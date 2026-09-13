@@ -214,6 +214,60 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
 }
 
 /**
+ * Click something that submits or navigates, and wait for the page to be
+ * REPLACED -- not merely to be loaded.
+ *
+ * WHY THIS EXISTS, AND WHY IT IS SHARED. The idiom it replaces,
+ *
+ *     await Promise.all([
+ *       page.waitForLoadState('domcontentloaded').catch(() => {}),
+ *       control.click({ timeout }),
+ *     ]);
+ *
+ * looks like the documented Playwright pattern but is not it. waitForLoadState
+ * resolves against the document ALREADY ON SCREEN, and that document is already
+ * loaded -- so it returns immediately, the click's navigation has not started,
+ * and whatever the check reads next is the page's PREVIOUS state. A search
+ * validates the previous result set, a date jump is compared against the day it
+ * started on, a saved form is read back before it was saved. Every one of those
+ * passes. (The documented pattern uses waitForNavigation, which waits for a NEW
+ * navigation; that form is correct and is left alone where it appears.)
+ *
+ * Six sites in this suite had it, in five files, found one or two at a time
+ * across two review rounds -- which is why it is one exported helper now rather
+ * than a correction repeated per call site.
+ *
+ * @param watchPage the page that NAVIGATES, which is not always the page
+ *   clicked: a calendar popup's cells navigate the opener and then close
+ *   themselves, so the wait belongs on the opener.
+ * @param options.required set false for a control that legitimately may not
+ *   navigate; the return value then says whether it did.
+ * @returns true when a navigation was observed.
+ */
+async function clickAndAwaitReload(watchPage, locator, options = {}) {
+  const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const what = options.label || 'the control';
+  // ARMED BEFORE THE CLICK. Armed after, it could be satisfied by the document
+  // that is already there, which is the whole defect.
+  const navigated = watchPage.waitForEvent('framenavigated', {
+    predicate: (frame) => frame === watchPage.mainFrame(),
+    timeout,
+  }).then(() => true, () => false);
+  const target = typeof locator === 'string' ? watchPage.locator(locator) : locator;
+  await target.scrollIntoViewIfNeeded().catch(() => {});
+  await target.click({ timeout });
+  const reloaded = await navigated;
+  if (options.required !== false) {
+    assert(reloaded,
+      `${what}: clicking left the page on ${watchPage.url()} without navigating, so anything read next `
+      + 'would be the state before the click');
+  }
+  await watchPage.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+  await watchPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  return reloaded;
+}
+
+/**
  * Click a control that replaces an AJAX-injected panel, and wait for the panel.
  *
  * The Administration shell injects its pages into #dynamic-content. Issue #3377
@@ -601,6 +655,7 @@ const REQUIRED_SECTIONS = [
 module.exports = {
   NAVIGATION,
   REQUIRED_SECTIONS,
+  clickAndAwaitReload,
   clickDownloadsOrOpens,
   clickInjectsPanel,
   clickOpensPopup,

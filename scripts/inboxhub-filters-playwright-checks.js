@@ -63,7 +63,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext,
   readConfig, runCheck,
 } = require('./lib/playwright-harness');
-const { clickOpensPopup } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, clickOpensPopup } = require('./lib/playwright-ui');
 
 /*
  * The toolbar's type filters, as InboxhubListMode.jsp renders them. The id is
@@ -174,10 +174,9 @@ async function applyTypeFilter(page, filter, timeout) {
 /** Narrow by review status through the form, which submits for real. */
 async function applyStatusFilter(page, filter, timeout) {
   await page.locator(filter.id).check({ timeout });
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
-    page.locator('#inboxhubFormSearchBtn').click({ timeout }),
-  ]);
+  await clickAndAwaitReload(page, page.locator('#inboxhubFormSearchBtn'), {
+    timeout, label: `the ${filter.title} filter`,
+  });
   await settle(page, timeout);
   return shownRows(page);
 }
@@ -262,10 +261,9 @@ async function checkStatusFilters(page, timeout) {
   // "All" first, so the whole set is measured under the same form submission
   // path as the parts -- not against the AJAX-loaded initial list.
   await page.locator('#statusAll').check({ timeout });
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
-    page.locator('#inboxhubFormSearchBtn').click({ timeout }),
-  ]);
+  await clickAndAwaitReload(page, page.locator('#inboxhubFormSearchBtn'), {
+    timeout, label: 'the unfiltered (All) submission',
+  });
   await settle(page, timeout);
   const whole = await shownRows(page);
   if (whole.length === 0) {

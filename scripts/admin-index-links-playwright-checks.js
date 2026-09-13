@@ -46,7 +46,7 @@
  */
 
 const {
-  assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
+  assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 const { assertAuditClean, auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
@@ -93,6 +93,14 @@ async function main() {
     const adminPage = await clickOpensPopup(schedulePage, opener, {
       context, label: 'administration', recorder, timeout,
     });
+
+    // BEFORE the catalogue, because auditCatalogue snapshots per item and
+    // measures from the first one onward: a pageerror, a failed resource, a
+    // script served as text/html or an unanswered confirm() during the panel's
+    // OWN startup is recorded and then never read by anything. Without this the
+    // check can report 120 pages opened cleanly while the panel that lists them
+    // is itself broken.
+    assertStrictPage(recorder, ['administration']);
 
     const items = dedupe(await catalogueLinks(adminPage))
       .filter((item) => !only || item.text.toLowerCase().includes(only));

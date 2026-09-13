@@ -132,7 +132,20 @@ test('the fingerprint is null rather than a guess when it cannot be read', () =>
   assert.equal(readBuildIdentity(args, () => ({ status: 7, stdout: '' })), null);
   assert.equal(readBuildIdentity(args, () => ({ status: 0, stdout: 'HTTP/1.1 404\r\n\r\n' })), null);
   assert.equal(readBuildIdentity(args, () => ({ status: 0, stdout: 'HTTP/1.1 200\r\n\r\n' })), null);
-  assert.equal(readBuildIdentity({}, () => ({ status: 0, stdout: 'HTTP/1.1 200\r\nETag: "x"\r\n' })), null);
+});
+
+test('an unset BASE_URL fingerprints the default deployment, not nothing', () => {
+  // The runner's target gate defaults to http://127.0.0.1:8080/carlos, so a
+  // devcontainer run with nothing exported DOES have a deployment under it.
+  // Reading BASE_URL alone left that commonest case with the redeploy guard
+  // silently disabled -- the guard ran, compared null to null, and passed.
+  let requested = null;
+  const identity = readBuildIdentity({}, (command, args) => {
+    requested = args[args.length - 1];
+    return { status: 0, stdout: 'HTTP/1.1 200\r\nETag: "x"\r\n' };
+  });
+  assert.equal(requested, 'http://127.0.0.1:8080/carlos/images/favicon.ico');
+  assert.equal(identity, '"x"');
 });
 
 test('the runner refuses a remote MYSQL_HOST even when BASE_URL is local', () => {

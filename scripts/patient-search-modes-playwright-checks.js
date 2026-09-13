@@ -68,7 +68,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, createSqlRunner, launchBrowser, login,
   newContext, readConfig, runCheck, sqlString, withExpectedDialogs,
 } = require('./lib/playwright-harness');
-const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 
 /*
  * The app's own default for the `inactive_statuses` property, read out of
@@ -144,12 +144,30 @@ const MODES = [
   {
     name: 'search_phone',
     title: 'phone',
-    // "(d.phone like :phone OR d.phone2 LIKE :phone)" wrapped in %...% -- a
-    // substring match across BOTH numbers.
+    // THREE numbers, not two. DemographicDaoImpl.searchDemographicByPhone*
+    // UNIONS its "(d.phone like :phone OR d.phone2 LIKE :phone)" branch with a
+    // second query over demographicExt:
+    //
+    //   INNER JOIN demographicExt dext ON dext.demographic_no = de.demographic_no
+    //   WHERE dext.key_val = 'demo_cell' AND dext.value LIKE :value
+    //     AND de.patient_status != 'MERGED'
+    //
+    // Modelling only phone/phone2 meant a patient whose CELL is the matching
+    // number was returned by the UI and absent from the oracle -- reported as
+    // the application showing a patient it should not have, which is the
+    // privacy direction and the most serious verdict this check can reach. A
+    // false one, from an incomplete model.
+    //
+    // All three are substring matches (the DAO wraps %...% on both branches).
+    // The MERGED exclusion is on the extension branch ONLY; that asymmetry is
+    // the DAO's, and reproducing it is the point.
     columns: ['phone'],
     seedValue: (row) => row[0],
-    predicate: (alias, value) => `(${alias}.phone LIKE ${sqlString(`%${value}%`)}`
-      + ` OR ${alias}.phone2 LIKE ${sqlString(`%${value}%`)})`,
+    predicate: (alias, value) => `((${alias}.phone LIKE ${sqlString(`%${value}%`)}`
+      + ` OR ${alias}.phone2 LIKE ${sqlString(`%${value}%`)})`
+      + ` OR (${alias}.patient_status <> 'MERGED' AND EXISTS (`
+      + `SELECT 1 FROM demographicExt dext WHERE dext.demographic_no = ${alias}.demographic_no`
+      + ` AND dext.key_val = 'demo_cell' AND dext.value LIKE ${sqlString(`%${value}%`)})))`,
   },
   {
     name: 'search_address',
@@ -248,11 +266,7 @@ async function runSearch(page, mode, value, timeout, submit = 'active') {
   const control = submit === 'active'
     ? form.locator('input[type="submit"]').first()
     : form.locator(`input[type="button"][onclick^="search${submit}"]`).first();
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
-    control.click({ timeout }),
-  ]);
-  await page.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  await clickAndAwaitReload(page, control, { timeout, label: `the ${mode} search` });
 }
 
 /** One mode: search it, then check the result set in both directions. */

@@ -287,3 +287,39 @@ test('a hostile onclick cannot hang the catalogue inside the page', async () => 
   // Unterminated, so there is no route to find -- the point is that it returns.
   assert.deepEqual(items, []);
 });
+
+test('each surface audit asserts its landing page before cataloguing it', () => {
+  // auditCatalogue snapshots findings PER ITEM and measures from the first one
+  // onward, so anything the surface's own startup produced -- a pageerror, a
+  // failed resource, a script served as text/html, an unanswered confirm() --
+  // is recorded and then read by nothing. The audit could report 120 pages
+  // opened cleanly while the panel that lists them was itself broken.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const audits = [
+    ['admin-index-links-playwright-checks.js', 'catalogueLinks(adminPage)'],
+    ['master-record-tabs-playwright-checks.js', 'catalogueLinks(masterPage)'],
+    ['echart-navbar-modules-playwright-checks.js', 'catalogueLinks(chartPage'],
+  ];
+  for (const [name, catalogueCall] of audits) {
+    const source = fs.readFileSync(path.join(__dirname, name), 'utf8');
+    const asserted = source.indexOf('assertStrictPage(recorder');
+    const catalogued = source.indexOf(catalogueCall);
+    assert.ok(asserted > -1, `${name} must assert its landing page`);
+    assert.ok(catalogued > -1, `${name}: could not find the catalogue call`);
+    assert.ok(asserted < catalogued,
+      `${name}: the landing page must be asserted BEFORE the catalogue, or its own startup errors go unread`);
+  }
+});
+
+test('the tenth-surface audit folds its opening findings into the result', () => {
+  // surface-audit opens ten surfaces in one run, so it cannot use one scoped
+  // assertStrictPage; it snapshots before each open and attributes what happened
+  // to that surface instead. Either shape is fine -- silence is not.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, 'surface-audit-playwright-checks.js'), 'utf8');
+  assert.match(source, /const beforeOpen = snapshotRecorder\(recorder\)/);
+  assert.match(source, /const openingFindings = findingsSince\(recorder, beforeOpen/);
+  assert.match(source, /failures: \[\.\.\.openingFindings, \.\.\.result\.failures\]/);
+});

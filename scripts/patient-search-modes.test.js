@@ -153,3 +153,23 @@ test('the DOB validation alert is taken through the page\'s single dialog handle
   assert.ok(!/page\.on\('dialog'/.test(SOURCE),
     'the check must borrow the wired handler, never add a second listener');
 });
+
+test('the phone oracle models all three numbers the DAO searches', () => {
+  // DemographicDaoImpl.searchDemographicByPhone* UNIONS its phone/phone2 branch
+  // with a demographicExt query on demo_cell. Modelling only phone and phone2
+  // meant a patient whose CELL was the matching number came back from the UI
+  // and was absent from the oracle -- reported as the application showing a
+  // patient it should not have, which is the privacy direction and the most
+  // serious verdict this check can reach. A false one, from a partial model.
+  const phone = MODES.find((mode) => mode.name === 'search_phone');
+  const sql = phone.predicate('x', '5551234');
+  assert.match(sql, /x\.phone LIKE '%5551234%'/);
+  assert.match(sql, /x\.phone2 LIKE '%5551234%'/);
+  assert.match(sql, /demographicExt/);
+  assert.match(sql, /dext\.key_val = 'demo_cell'/);
+  assert.match(sql, /dext\.value LIKE '%5551234%'/);
+  // The MERGED exclusion belongs to the extension branch only. That asymmetry
+  // is the DAO's; reproducing it is the point, so it must not migrate to the
+  // phone/phone2 half.
+  assert.match(sql, /x\.patient_status <> 'MERGED' AND EXISTS/);
+});

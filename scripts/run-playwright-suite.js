@@ -144,7 +144,7 @@ function assertSafeTarget(checks, env) {
   if (env.MYSQL_HOST) {
     validateMysqlHost(env.MYSQL_HOST, env);
   }
-  const baseUrl = validateBaseUrl(env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
+  const baseUrl = validateBaseUrl(env.BASE_URL || DEFAULT_BASE_URL, env);
   if (isLocalTlsTarget(baseUrl) || env.ALLOW_NON_LOCAL_BASE_URL === 'true') {
     return;
   }
@@ -156,6 +156,11 @@ function assertSafeTarget(checks, env) {
     + 'ALLOW_NON_LOCAL_BASE_URL=true only for a disposable test deployment.',
   );
 }
+
+// The devcontainer deployment. Shared by the target gate and the build-identity
+// probe so a run cannot be gated against one address and fingerprinted against
+// another -- or, as it was, fingerprinted against nothing.
+const DEFAULT_BASE_URL = 'http://127.0.0.1:8080/carlos';
 
 /**
  * The application's build identity, used to prove the suite tested one process.
@@ -173,7 +178,12 @@ function assertSafeTarget(checks, env) {
  * disables the comparison rather than inventing a verdict.
  */
 function readBuildIdentity(env, run = spawnSync) {
-  const base = (env.BASE_URL || '').replace(/\/$/, '');
+  // The SAME default the target gate and the harness use. Reading BASE_URL
+  // alone meant the commonest case of all -- a devcontainer run with nothing
+  // exported -- fingerprinted nothing and disabled the redeploy comparison,
+  // while the suite ran happily against that default deployment. The guard was
+  // present, ran, and could not fire.
+  const base = (env.BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
   if (!base) {
     return null;
   }

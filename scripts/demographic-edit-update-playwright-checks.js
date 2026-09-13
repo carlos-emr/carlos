@@ -62,6 +62,7 @@ const {
   assert, assertStrictPage, createSqlRunner, createRecorder, launchBrowser, login, newContext, readConfig,
   runCheck, sqlString,
 } = require('./lib/playwright-harness');
+const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
@@ -243,12 +244,11 @@ async function main() {
 
     const save = masterPage.locator('input[value="Update Record"], button:has-text("Update Record")').first();
     assert(await save.count() > 0, 'The edit form offers no "Update Record" control');
-    await save.scrollIntoViewIfNeeded().catch(() => {});
-    await Promise.all([
-      masterPage.waitForLoadState('domcontentloaded').catch(() => {}),
-      save.click({ timeout }),
-    ]);
-    await masterPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+    // The database is read back on the very next line, so a wait that returns
+    // before the POST has even started would race the write it is meant to
+    // observe -- and the comparison would then blame the application for
+    // dropping a field it had simply not stored yet.
+    await clickAndAwaitReload(masterPage, save, { timeout, label: 'Update Record' });
 
     // 1. The write reached the database.
     const [after] = sql.rows(

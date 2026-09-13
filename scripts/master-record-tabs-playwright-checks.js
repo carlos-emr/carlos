@@ -53,7 +53,9 @@
 const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
-const { clickOpensPopup, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const {
+  clickAndAwaitReload, clickOpensPopup, clickOpensPopupOrNavigates,
+} = require('./lib/playwright-ui');
 const { assertAuditClean, auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 
 const SKIP_ITEMS = [
@@ -85,11 +87,9 @@ async function openMasterRecord(context, schedulePage, recorder, options) {
   const searchPage = search.page;
 
   await searchPage.locator('#keyword, input[name="keyword"]').first().fill(searchTerm);
-  await Promise.all([
-    searchPage.waitForLoadState('domcontentloaded').catch(() => {}),
-    searchPage.locator("input[type='submit']").first().click({ timeout }),
-  ]);
-  await searchPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  await clickAndAwaitReload(searchPage, searchPage.locator("input[type='submit']").first(), {
+    timeout, label: 'the patient search',
+  });
 
   // The Master Record control on a result row, as demographicsearchresults.jsp
   // renders it: a[title="Master Demographic File"] whose onclick is

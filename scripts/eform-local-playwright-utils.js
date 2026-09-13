@@ -29,6 +29,7 @@
  */
 
 const harness = require('./lib/playwright-harness');
+const { clickAndAwaitReload } = require('./lib/playwright-ui');
 
 const {
   assert, assertNotErrorPage, gotoApp, wirePage,
@@ -72,11 +73,9 @@ async function openAddEform(context, config, recorder, fid, demographicNo, label
 async function saveCurrentEform(page, subjectValue) {
   await assertNotErrorPage(page, 'save candidate');
   await page.locator('#remote_eform_subject').fill(subjectValue);
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
-    page.locator('#remoteSubmitButton').click(),
-  ]);
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await clickAndAwaitReload(page, page.locator('#remoteSubmitButton'), {
+    timeout: 30000, label: 'the eForm save',
+  });
   await page.locator('#fdid').waitFor({ state: 'attached', timeout: 15000 });
   const fdid = await page.locator('#fdid').inputValue();
   assert(/^\d+$/.test(fdid), `Expected saved eForm fdid after submit, got ${fdid}`);
