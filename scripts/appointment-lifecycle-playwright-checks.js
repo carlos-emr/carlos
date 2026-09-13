@@ -235,8 +235,15 @@ async function openDaySheet(page) {
 
 /** Books the appointment this check then operates on, from an empty slot link. */
 async function bookFromSlot(context, daySheet) {
-  const slots = daySheet.locator('a.adhour');
-  assert(await slots.count() > 0, `day sheet for ${targetDate} rendered no bookable slot links`);
+  // Scoped to the target provider's COLUMN, not just the first slot on the sheet.
+  // appointmentprovideradminday.jsp builds its columns from the logged-in provider's
+  // group (curProvider_no) and only falls back to the logged-in provider alone when
+  // that group is empty, so on a grouped deployment the leftmost slot belongs to
+  // whoever sorts first. Each slot's onclick carries the provider it books for; the
+  // trailing & keeps provider 999998 from matching 9999988.
+  const slots = daySheet.locator(`a.adhour[onclick*="provider_no=${providerNo}&"]`);
+  assert(await slots.count() > 0,
+    `day sheet for ${targetDate} rendered no bookable slot link in provider ${providerNo}'s column`);
 
   const popupPromise = context.waitForEvent('page', { timeout: 45000 });
   await slots.first().click();
