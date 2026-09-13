@@ -130,17 +130,25 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
 
-                File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
-                File destinationFile = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
-                WriteToIncomingDocsResult writeResult = writeToIncomingDocs(docFile, destinationFile);
-                if (writeResult == WriteToIncomingDocsResult.ALREADY_EXISTS) {
-                    map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
-                } else if (writeResult == WriteToIncomingDocsResult.FAILED) {
-                    map.put("error", "Failed to write file. Please contact administrator");
-                    MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                } else {
-                    map.put("name", docFile.getName());
-                    map.put("size", docFile.length());
+                // A destination folder outside the IncomingDocUtil allowlist (or carrying path
+                // components) is a client error, so answer through the uploader's JSON contract
+                // instead of letting the exception escape to errorpage.jsp as a raw 500.
+                try {
+                    File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
+                    File destinationFile = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
+                    WriteToIncomingDocsResult writeResult = writeToIncomingDocs(docFile, destinationFile);
+                    if (writeResult == WriteToIncomingDocsResult.ALREADY_EXISTS) {
+                        map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                    } else if (writeResult == WriteToIncomingDocsResult.FAILED) {
+                        map.put("error", "Failed to write file. Please contact administrator");
+                        logger.error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    } else {
+                        map.put("name", docFile.getName());
+                        map.put("size", docFile.length());
+                    }
+                } catch (IllegalArgumentException | SecurityException e) {
+                    map.put("error", "Invalid incoming document destination");
+                    logger.warn("Rejected incoming document destination folder: {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 }
 
                 if (queueId != null) {

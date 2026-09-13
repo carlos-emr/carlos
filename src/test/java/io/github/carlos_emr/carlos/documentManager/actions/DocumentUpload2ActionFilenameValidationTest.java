@@ -14,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -185,6 +187,33 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
                     .doesNotContain("error");
             assertThat(tempDestinationFile).exists();
             assertThat(tempUploadFile).doesNotExist();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Archive", "../escape", "Fax/escape"})
+    @DisplayName("incoming docs upload should reject a disallowed destination folder with JSON error")
+    void shouldRejectDisallowedDestinationFolder_withJsonError(String destFolder) throws Exception {
+        DocumentUpload2Action action = incomingDocsAction("report.pdf");
+        tempDestinationDirectory = Files.createTempDirectory("incoming-docs-root").toFile();
+        request.addParameter("queue", "1");
+        request.addParameter("destFolder", destFolder);
+        String previousIncomingDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", tempDestinationDirectory.getPath());
+
+        try {
+            String result = action.executeUpload();
+
+            assertThat(result).isNull();
+            assertThat(response.getContentAsString()).contains("Invalid incoming document destination");
+            assertThat(tempDestinationDirectory.listFiles()).isEmpty();
+            assertThat(tempUploadFile).doesNotExist();
+        } finally {
+            if (previousIncomingDir == null) {
+                CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", previousIncomingDir);
+            }
         }
     }
 

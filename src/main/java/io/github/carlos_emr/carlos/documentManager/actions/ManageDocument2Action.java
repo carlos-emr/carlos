@@ -133,9 +133,6 @@ public class ManageDocument2Action extends ActionSupport {
     private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
     private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
 
-    // Canonical incoming-document queue subdirectories. Kept in sync with the allowlist
-    // enforced by IncomingDocUtil.getIncomingDocumentFilePath.
-    private static final Set<String> ALLOWED_INCOMING_QUEUE_DIRS = Set.of("Fax", "Mail", "File", "Refile");
     private static final int MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS = 1000;
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
@@ -1220,12 +1217,12 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid directory parameters");
         }
 
-        // Restrict pdfDir to the canonical incoming queue subdirectories. Canonical-path
+        // Restrict pdfDir to the allowed incoming queue subdirectories. Canonical-path
         // containment alone only bounds the move to the incoming root; without this
         // allowlist an _edoc writer could file documents out of any other single-segment
-        // subdirectory under the queue (e.g. *_deleted/archive dirs). This mirrors the
-        // restriction enforced by IncomingDocUtil.getIncomingDocumentFilePath.
-        if (!ALLOWED_INCOMING_QUEUE_DIRS.contains(pdfDir)) {
+        // subdirectory under the queue (e.g. *_deleted/archive dirs). This is the same
+        // allowlist enforced by IncomingDocUtil.getIncomingDocumentFilePath.
+        if (!IncomingDocUtil.isAllowedIncomingDocFolder(pdfDir)) {
             log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
         }

@@ -30,9 +30,12 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -59,19 +62,124 @@ class IncomingDocUtilUnitTest {
     Path incomingRoot;
 
     private String previousIncomingDocumentDir;
+    private String previousAllowedFolders;
 
     @BeforeEach
     void setUp() {
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        previousAllowedFolders = CarlosProperties.getInstance()
+                .getProperty(IncomingDocUtil.ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY);
         CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingRoot.toString());
+        CarlosProperties.getInstance().remove(IncomingDocUtil.ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY);
     }
 
     @AfterEach
     void tearDown() {
-        if (previousIncomingDocumentDir == null) {
-            CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
+        restoreProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+        restoreProperty(IncomingDocUtil.ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY, previousAllowedFolders);
+    }
+
+    private static void restoreProperty(String key, String previousValue) {
+        if (previousValue == null) {
+            CarlosProperties.getInstance().remove(key);
         } else {
-            CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+            CarlosProperties.getInstance().setProperty(key, previousValue);
+        }
+    }
+
+    /**
+     * Destination folder allowlist: the built-in folders are always accepted, and
+     * {@code ALLOWED_INCOMING_DOC_FOLDERS} can only add single-segment names on top.
+     */
+    @Nested
+    @DisplayName("Incoming document folder allowlist")
+    @Tag("security")
+    class FolderAllowlist {
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Fax", "Mail", "File", "Refile"})
+        @DisplayName("should return folder path when folder is a built-in folder")
+        void shouldReturnFolderPath_whenFolderIsBuiltIn(String pdfDir) {
+            String path = IncomingDocUtil.getIncomingDocumentFilePath("queue1", pdfDir);
+
+            assertThat(path).isEqualTo(incomingRoot.resolve("queue1").resolve(pdfDir).toString());
+        }
+
+        @Test
+        @DisplayName("should expose the built-in folders in display order when nothing is configured")
+        void shouldExposeBuiltInFolders_whenNothingConfigured() {
+            assertThat(IncomingDocUtil.getAllowedIncomingDocFolders())
+                    .containsExactly("Fax", "Mail", "File", "Refile");
+        }
+
+        @Test
+        @DisplayName("should return configured folder path when folder is in configured allowlist")
+        void shouldReturnConfiguredFolderPath_whenFolderIsInConfiguredAllowlist() {
+            CarlosProperties.getInstance().setProperty(
+                    IncomingDocUtil.ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY, "Portal, Mailbox");
+
+            String path = IncomingDocUtil.getIncomingDocumentFilePath("queue1", "Portal");
+
+            assertThat(path).isEqualTo(incomingRoot.resolve("queue1").resolve("Portal").toString());
+            assertThat(IncomingDocUtil.getAllowedIncomingDocFolders())
+                    .containsExactly("Fax", "Mail", "File", "Refile", "Portal", "Mailbox");
+        }
+
+        @Test
+        @DisplayName("should keep built-in folders allowed when configured allowlist omits them")
+        void shouldKeepBuiltInFoldersAllowed_whenConfiguredAllowlistOmitsThem() {
+            // The UI, EDocUtil refiling and the fax importer address Fax/Refile by name, so a
+            // configured list may add folders but must never remove the built-in ones.
+            CarlosProperties.getInstance().setProperty(
+                    IncomingDocUtil.ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY, "Portal,Mailbox");
+
+            String path = IncomingDocUtil.getIncomingDocumentFilePath("queue1", "Fax");
+
+            assertThat(path).isEqualTo(incomingRoot.resolve("queue1").resolve("Fax").toString());
+            assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Refile")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject unknown folder name when resolving incoming path")
+        void shouldRejectUnknownFolderName_whenResolvingIncomingPath() {
+            assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("queue1", "Unknown"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Invalid pdfDir");
+            assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Unknown")).isFalse();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Fax/Archive", "Mail\\Archive", "../Fax", ".Fax"})
+        @DisplayName("should reject folder names carrying path components even when configured")
+        void shouldRejectFolderNames_withPathComponents(String pdfDir) {
+            CarlosProperties.getInstance().setProperty(IncomingDocUtil.ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY,
+                    "Fax/Archive,Mail\\Archive,../Fax,.Fax");
+
+            assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("queue1", pdfDir))
+                    .isInstanceOf(FileValidationException.class);
+            assertThat(IncomingDocUtil.isAllowedIncomingDocFolder(pdfDir)).isFalse();
+            assertThat(IncomingDocUtil.getAllowedIncomingDocFolders())
+                    .containsExactly("Fax", "Mail", "File", "Refile");
+        }
+
+        @Test
+        @DisplayName("should ignore configured entries that name a recycle-bin directory")
+        void shouldIgnoreConfiguredEntries_whenNamedLikeRecycleBin() {
+            CarlosProperties.getInstance().setProperty(
+                    IncomingDocUtil.ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY, "Fax_deleted, ,Scans");
+
+            assertThat(IncomingDocUtil.getAllowedIncomingDocFolders())
+                    .containsExactly("Fax", "Mail", "File", "Refile", "Scans");
+            assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("queue1", "Fax_deleted"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Invalid pdfDir");
+        }
+
+        @Test
+        @DisplayName("should treat null and empty folder names as not allowed")
+        void shouldReturnFalse_forNullOrEmptyFolderName() {
+            assertThat(IncomingDocUtil.isAllowedIncomingDocFolder(null)).isFalse();
+            assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("")).isFalse();
         }
     }
 

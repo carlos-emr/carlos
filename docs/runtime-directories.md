@@ -33,6 +33,7 @@ All directory properties are configured in `carlos.properties`. Many have **fall
 | Property | Default Path | Purpose |
 |----------|--------------|---------|
 | `INCOMINGDOCUMENT_DIR` | `{BASE}/carlos/incomingdocs` | Incoming document imports |
+| `ALLOWED_INCOMING_DOC_FOLDERS` | _(unset)_ | Optional extra queue subfolder names under `INCOMINGDOCUMENT_DIR/{queue}` accepted alongside the built-in `Fax`, `Mail`, `File`, `Refile` (comma-separated single directory names) |
 | `TMP_DIR` | `{BASE}/carlos/export/` | Temporary export files |
 | `INTEGRATOR_OUTPUT_DIR` | `/var/lib/bc-integrator/export` | BC Integrator export files |
 

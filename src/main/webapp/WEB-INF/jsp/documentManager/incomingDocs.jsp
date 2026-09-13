@@ -220,10 +220,9 @@
     String errorMessage = "";
     String pdfNo = "";
     String pdfDirParam = request.getParameter("pdfDir");
-    // Validate pdfDir against whitelist to prevent path traversal (CWE-22)
-    String pdfDir = ("Fax".equals(pdfDirParam) || "Mail".equals(pdfDirParam)
-            || "File".equals(pdfDirParam) || "Refile".equals(pdfDirParam))
-            ? pdfDirParam : "Fax";
+    // Validate pdfDir against the shared IncomingDocUtil allowlist to prevent path traversal
+    // (CWE-22). "Fax" is always allowed, so the fallback can never itself be rejected.
+    String pdfDir = IncomingDocUtil.isAllowedIncomingDocFolder(pdfDirParam) ? pdfDirParam : "Fax";
     String pdfDirectory = IncomingDocUtil.getIncomingDocumentFilePath(queueIdStr, pdfDir);
     String pdfAction = request.getParameter("pdfAction") == null ? "" : request.getParameter("pdfAction");
     String pdfPageNumber = request.getParameter("pdfPageNumber") == null ? "1" : request.getParameter("pdfPageNumber");

@@ -45,11 +45,14 @@ import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -75,7 +78,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>All file path operations are secured against path traversal attacks using
  * {@link PathValidationUtils}. Document directories are organized by queue ID
- * and subdirectory type (Fax, Mail, File, Refile).
+ * and subdirectory type. The built-in subfolders are Fax, Mail, File and Refile;
+ * deployments may accept additional single-segment folder names through the
+ * {@code ALLOWED_INCOMING_DOC_FOLDERS} property (see {@link #getAllowedIncomingDocFolders()}).
  *
  * @see PathValidationUtils
  * @see EDocUtil
@@ -83,6 +88,24 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public final class IncomingDocUtil {
     private static final String INCOMING_DOCUMENT_DIR_PROPERTY = "INCOMINGDOCUMENT_DIR";
+
+    /**
+     * Optional comma-separated list of extra queue subfolder names accepted in addition to
+     * {@link #BUILT_IN_INCOMING_DOC_FOLDERS}. Package-private so tests can reference the key.
+     */
+    static final String ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY = "ALLOWED_INCOMING_DOC_FOLDERS";
+
+    /**
+     * Queue subfolders that are always accepted. These names are wired into the incoming
+     * documents UI, the refile flow ({@code EDocUtil}) and the fax importer, so configuration
+     * can add folders but never remove these.
+     */
+    private static final Set<String> BUILT_IN_INCOMING_DOC_FOLDERS =
+            Collections.unmodifiableSet(new LinkedHashSet<>(List.of("Fax", "Mail", "File", "Refile")));
+
+    /** Suffix of the per-folder recycle bin directory; never addressable as a queue folder. */
+    private static final String DELETED_FOLDER_SUFFIX = "_deleted";
+
     private static final Logger logger = MiscUtils.getLogger();
     
     /**
@@ -95,14 +118,68 @@ public final class IncomingDocUtil {
     }
 
     private static String validateIncomingDocumentDir(String pdfDir) {
+        // Component validation first so a separator-bearing value fails as a path violation
+        // (FileValidationException) before the allowlist is consulted.
         String validatedPdfDir = validatePathComponent(pdfDir, "pdfDir");
-        if (validatedPdfDir.equals("Fax")
-                || validatedPdfDir.equals("Mail")
-                || validatedPdfDir.equals("File")
-                || validatedPdfDir.equals("Refile")) {
+        if (getAllowedIncomingDocFolders().contains(validatedPdfDir)) {
             return validatedPdfDir;
         }
-        throw new IllegalArgumentException("Invalid pdfDir: must be one of Fax, Mail, File, or Refile");
+        throw new IllegalArgumentException("Invalid pdfDir: not an allowed incoming document folder");
+    }
+
+    /**
+     * Returns the queue subfolder names that may be used as an incoming document destination
+     * or source, in display order: the built-in {@code Fax, Mail, File, Refile} first, then any
+     * extra names configured through {@code ALLOWED_INCOMING_DOC_FOLDERS}.
+     *
+     * <p>Configured entries are trimmed and must be a single directory name: values carrying
+     * path separators, traversal segments, a leading dot or the {@code _deleted} recycle-bin
+     * suffix are ignored rather than widening the allowlist. The property is read on every call
+     * so configuration changes and tests do not need a cache reset.
+     *
+     * @return unmodifiable, insertion-ordered set of allowed folder names; never empty
+     */
+    public static Set<String> getAllowedIncomingDocFolders() {
+        String configuredFolders = CarlosProperties.getInstance()
+                .getProperty(ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY, "");
+        if (configuredFolders == null || configuredFolders.trim().isEmpty()) {
+            return BUILT_IN_INCOMING_DOC_FOLDERS;
+        }
+
+        Set<String> allowedFolders = new LinkedHashSet<>(BUILT_IN_INCOMING_DOC_FOLDERS);
+        for (String configuredFolder : configuredFolders.split(",")) {
+            String folder = configuredFolder.trim();
+            if (folder.isEmpty() || folder.endsWith(DELETED_FOLDER_SUFFIX)) {
+                continue;
+            }
+            try {
+                allowedFolders.add(validatePathComponent(folder, "configured incoming document folder"));
+            } catch (FileValidationException e) {
+                // validatePathComponent already warned about the rejected component; a bad entry
+                // must not take the whole allowlist down with it.
+                logger.debug("Ignoring ALLOWED_INCOMING_DOC_FOLDERS entry that is not a single directory name");
+            }
+        }
+        return Collections.unmodifiableSet(allowedFolders);
+    }
+
+    /**
+     * Whether {@code pdfDir} names an allowed incoming document queue subfolder. Unlike
+     * {@link #getIncomingDocumentFilePath(String, String)} this never throws, which makes it
+     * suitable for choosing a UI fallback folder.
+     *
+     * @param pdfDir candidate folder name, typically request-supplied; may be null
+     * @return true only for a non-null, separator-free name present in the allowlist
+     */
+    public static boolean isAllowedIncomingDocFolder(String pdfDir) {
+        if (pdfDir == null || pdfDir.isEmpty()) {
+            return false;
+        }
+        try {
+            return getAllowedIncomingDocFolders().contains(validatePathComponent(pdfDir, "pdfDir"));
+        } catch (FileValidationException e) {
+            return false;
+        }
     }
 
     private static String addPdfNameSuffix(String pdfName, String suffix) {
