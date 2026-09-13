@@ -166,21 +166,21 @@
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line1">
                                                     <td colspan="2">
                                                         <b>Favorite Name:</b>
-                                                        <input type="hidden" name="fldFavoriteId${i}" value="${fav.id}"/>
-                                                        <input type="text" size="50" name="fldFavoriteName${i}" class="tblRow" value="${fav.favoriteName}"/>
+                                                        <input type="hidden" name="fldFavoriteId${i}" value="${carlos:forHtmlAttribute(fav.id)}"/>
+                                                        <input type="text" size="50" name="fldFavoriteName${i}" class="tblRow" value="${carlos:forHtmlAttribute(fav.favoriteName)}"/>
                                                     </td>
                                                 </tr>
                                                 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line2">
-                                                    <td><b>Brand Name:</b>${fav.bn}</td>
-                                                    <td colspan="5"><b>Generic Name:</b>${fav.gn}</td>
+                                                    <td><b>Brand Name:</b>${carlos:forHtmlContent(fav.bn)}</td>
+                                                    <td colspan="5"><b>Generic Name:</b>${carlos:forHtmlContent(fav.gn)}</td>
                                                 </tr>
 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line3">
                                                     <td><b>Take:</b>
-                                                        <input type="text" name="fldTakeMin${i}" class="tblRow" size="3" value="${fav.takeMin}"/>
+                                                        <input type="text" name="fldTakeMin${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMin)}"/>
                                                         <span>to</span>
-                                                        <input type="text" name="fldTakeMax${i}" class="tblRow" size="3" value="${fav.takeMax}"/>
+                                                        <input type="text" name="fldTakeMax${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMax)}"/>
                                                     </td>
                                                 </tr>
                                             </c:forEach>

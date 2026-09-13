@@ -339,6 +339,18 @@ class JspEncodingRegressionTest {
                 .doesNotContainPattern(
                         ">\\s*<%=\\s*providerDao\\.getProvider" + ALL_PROVIDERS_ENTRY_PATTERN
                                 + "\\.getFormattedName\\(\\)\\s*%>");
+
+        // The same page renders the favorites list a second time through JSTL, and EL output is
+        // not auto-escaped in JSP, so these carry the identical stored-XSS risk as the scriptlets.
+        assertThat(copyFavoritesJsp)
+                .contains("value=\"${carlos:forHtmlAttribute(fav.favoriteName)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(fav.id)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(fav.takeMin)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(fav.takeMax)}\"")
+                .contains("${carlos:forHtmlContent(fav.bn)}")
+                .contains("${carlos:forHtmlContent(fav.gn)}")
+                .doesNotContainPattern("value\\s*=\\s*\"\\$\\{fav\\.(favoriteName|id|takeMin|takeMax)\\}\"")
+                .doesNotContainPattern("<b>(Brand|Generic) Name:</b>\\s*\\$\\{fav\\.(bn|gn)\\}");
     }
 
     @Test
