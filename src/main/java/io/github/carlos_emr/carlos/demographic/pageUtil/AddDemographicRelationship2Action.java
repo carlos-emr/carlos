@@ -189,9 +189,6 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     // Sex determines whether the inverse is e.g. brother/sister, grandfather/grandmother,
     // husband/wife of the same relation (from AddAlternateContact.jsp's original logic).
     // Returns null when no inverse relation applies (e.g. relation type has no sex-specific inverse).
-    // loggedInInfo is threaded in from execute() rather than re-read from the session here: the
-    // session is resolved once, through requireLoggedInInfoFromSession(), so the privilege check
-    // and this demographic read cannot disagree about who the caller is.
     private InverseRelation computeInverseRelation(LoggedInInfo loggedInInfo, String origDemo,
             String linkingDemo, String relation) {
         boolean relationset = false;

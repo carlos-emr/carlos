@@ -85,10 +85,8 @@ class ViewPrintDemographicLabelAuditLoggingUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
-        // requireLoggedInInfoFromSession() delegates to getLoggedInInfoFromSession() in production,
-        // but mockStatic intercepts every static on the class — the delegation never runs, so the
-        // wrapper has to be stubbed in its own right. Without this it returns null and the
-        // privilege check below is handed a null LoggedInInfo.
+        // mockStatic stubs every LoggedInInfo static, so the require* variant the action now
+        // calls (#2499) returns null unless it is stubbed too.
         loggedInInfoMock.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
     }
