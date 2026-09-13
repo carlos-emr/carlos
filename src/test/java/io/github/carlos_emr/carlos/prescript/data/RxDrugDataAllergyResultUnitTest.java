@@ -26,7 +26,9 @@ class RxDrugDataAllergyResultUnitTest {
     @DisplayName("should preserve confirmed and unresolved results with nullable legacy allergy fields")
     void shouldPreserveResults_whenLegacyFieldsAreNull() throws Exception {
         Allergy first = new Allergy();
+        first.setId(1);
         Allergy second = new Allergy();
+        second.setId(2);
         List<Allergy> missing = new ArrayList<>();
         try (MockedConstruction<RxDrugRef> ignored = response(List.of(Map.of("warnings", List.of("0"), "missing", List.of("1"))))) {
             assertThat(new RxDrugData().getAllergyWarnings("J01FA09", new Allergy[]{first, second}, missing)).containsExactly(first);

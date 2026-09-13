@@ -16,6 +16,7 @@ import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -29,6 +30,7 @@ import java.util.List;
 import org.mockito.MockedConstruction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.ArgumentMatchers.anyList;
 
@@ -93,6 +95,7 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(AllergyDao.class, mockAllergyDao);
+        registerMock(DemographicManager.class, mock(DemographicManager.class));
         registerMock(SystemPreferencesDao.class, mockSystemPreferencesDao);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -135,12 +138,13 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
-        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("r"), isNull());
+        verify(mockSecurityInfoManager, atLeastOnce()).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("r"), isNull());
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
         verify(mockAllergyDao, never()).merge(any(AbstractModel.class));
     }
     private Allergy allergy(String name, String severity) {
         Allergy allergy = new Allergy();
+        allergy.setId(name.hashCode());
         allergy.setDescription(name);
         allergy.setReaction("test reaction");
         allergy.setSeverityOfReaction(severity);
