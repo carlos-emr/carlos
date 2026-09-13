@@ -235,6 +235,25 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       assert(weekUrl.searchParams.get('weekView') === 'true'
         && weekUrl.searchParams.get('provider_no') === appointment.providerNo, 'week navigation lost view/provider context');
     }
+    for (const shortcut of ['weekForward', 'weekBackward', 'monthForward', 'monthBackward']) {
+      await Promise.all([
+        schedule.waitForNavigation({waitUntil: 'domcontentloaded'}),
+        schedule.locator(`.quick-btn[onclick*="getLocation('${shortcut}', document.getElementById"]`).click(),
+      ]);
+      const weekUrl = new URL(schedule.url());
+      assert(weekUrl.searchParams.get('weekView') === 'true'
+        && weekUrl.searchParams.get('provider_no') === appointment.providerNo, `${shortcut} lost week/provider context`);
+    }
+    const statusBefore = sql(`SELECT status FROM appointment WHERE appointment_no=${Number(appointment.id)}`);
+    await Promise.all([
+      schedule.waitForNavigation({waitUntil: 'domcontentloaded'}),
+      schedule.locator(`a[onclick*="updateApptStatus"][onclick*="appointment_no=${appointment.id}&"]`).click(),
+    ]);
+    const updatedWeekUrl = new URL(schedule.url());
+    assert(updatedWeekUrl.searchParams.get('weekView') === 'true'
+      && updatedWeekUrl.searchParams.get('provider_no') === appointment.providerNo, 'status update lost week/provider context');
+    assert(sql(`SELECT status FROM appointment WHERE appointment_no=${Number(appointment.id)}`) !== statusBefore,
+      'week-view appointment status did not change');
 
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
