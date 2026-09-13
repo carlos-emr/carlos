@@ -62,6 +62,50 @@ sd_reset_start_limit() {
     systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
 }
 
+# An OSCAR 19 import in progress owns this database until it says
+# otherwise: it runs with the service stopped, and its row-parity
+# gate rejects the rows the application's startup listener writes.
+# An unattended upgrade landing mid-import would run Flyway
+# against a half-copied schema and then START the webapp into it,
+# costing the clinic a multi-hour rollback. The state file is the
+# same predicate --resume uses. Parsed, not grepped, and it must
+# match the tool's own definition of "a run is in progress" in
+# both directions:
+#   * P7 records a "verify" phase when it STARTS, so the mere
+#     presence of the key read a failed or interrupted
+#     verification as a finished import. Only
+#     phases.verify.status == "done" clears the gate.
+#   * a lone "stage" phase is NOT a run. `o19-preflight` calls
+#     run_p1, which marks "stage" unconditionally, so a clinic
+#     that merely ASSESSED a migration and declined it is left
+#     with that ledger for ever. Gating on it would keep the EMR
+#     stopped after every later upgrade, and the --resume this
+#     block prints is itself refused in that state
+#     ("a staged dump alone is not a run"). carlos-ctl excludes
+#     {"stage"} in five places; so does this.
+# An unreadable, half-written or structurally wrong ledger fails
+# closed (python3 is a hard Depends -- carlos-ctl is written in
+# it), as does an empty "phases" -- a real run writes the ledger
+# before P0 and only marks its first phase afterwards.
+# Consulted TWICE -- by configure (no Flyway, no start) and by the abort-*
+# paths (no restart) -- so the two can never disagree about what "a run
+# is in progress" means; the platform check lifts and evals this body.
+o19_import_in_progress() {
+    # The predicate is the SHIPPED guard, /usr/lib/carlos-emr/carlos-emr-o19-guard,
+    # which carlos-emr.service also runs as its ExecCondition= on every start
+    # (a reboot mid-import included) -- one file, so the two cannot drift.
+    # It exits 1 when an import is in progress. The guard is unpacked before
+    # any of this runs (configure, and the abort-* paths of an upgrade of
+    # this package), so its absence is a broken unpack: fail CLOSED and say
+    # so, rather than start the EMR into what may be a half-copied schema.
+    if [ ! -x /usr/lib/carlos-emr/carlos-emr-o19-guard ]; then
+        echo "carlos-emr: /usr/lib/carlos-emr/carlos-emr-o19-guard is missing; treating an" >&2
+        echo "carlos-emr: OSCAR 19 import as possibly in progress (fail closed)" >&2
+        return 0
+    fi
+    ! /usr/lib/carlos-emr/carlos-emr-o19-guard 2>/dev/null
+}
+
 # Install a generated file ONCE. These carry credentials and site decisions, so
 # they are deliberately not conffiles: dpkg would prompt about a "modified"
 # file on every upgrade, and worse, a distribution default could overwrite a
@@ -703,7 +747,22 @@ case "$1" in
         # inherited variable of this name would otherwise disable the unit on a
         # perfectly healthy install.
         SEED_CREDENTIAL_LIVE=0
-        if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+        # The predicate is o19_import_in_progress() above; db-migrate and
+        # the service start both read MIGRATION_OK.
+        if o19_import_in_progress; then
+            MIGRATION_OK=0
+            echo "carlos-emr: an OSCAR 19 import is in progress (see" >&2
+            echo "carlos-emr:   /var/lib/carlos-emr/o19-import/report.txt)." >&2
+            echo "carlos-emr: NOT migrating the schema and NOT starting the service:" >&2
+            echo "carlos-emr: both would corrupt the import. Finish it with" >&2
+            echo "carlos-emr:   sudo carlos-ctl import-o19 ... --resume" >&2
+            echo "carlos-emr: then run: sudo carlos-ctl db-migrate && sudo systemctl start carlos-emr" >&2
+            echo "carlos-emr: If that import never reached the data copy (a dry run or an" >&2
+            echo "carlos-emr: abandoned assessment), retire the workspace and re-run this upgrade:" >&2
+            echo "carlos-emr:   sudo carlos-ctl import-o19 --cleanup" >&2
+            echo "carlos-emr: Once the copy has started --cleanup refuses; finish with --resume," >&2
+            echo "carlos-emr: or restore the pre-import snapshot." >&2
+        elif mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
             # mariadb-server was already running when this package's drop-in
             # was unpacked, so it is still on distribution defaults — STRICT
             # sql_mode and no binary log, neither of which this deployment can
@@ -863,6 +922,48 @@ case "$1" in
                 # is the live Let's Encrypt one and must not be touched.
                 if [ ! -s "${CONF_DIR}/tls/fullchain.pem" ]; then
                     /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed
+                    # The issuance itself is NOT attempted here. It needs
+                    # public DNS for this name and port 80 reachable from
+                    # the internet, neither of which is knowable during
+                    # dpkg configure, and certbot failing (or worse,
+                    # blocking) inside a maintainer script would break the
+                    # install for a certificate the operator can request in
+                    # one command. So say the command, with the address
+                    # they already gave debconf — the answer was otherwise
+                    # collected and silently discarded.
+                    #
+                    # Re-tested rather than assumed: cert_failed only WARNS
+                    # (it must not abort the configure), so reaching this
+                    # point does not mean a pair exists. Announcing "a
+                    # placeholder is in place" straight after "generation
+                    # FAILED" would contradict the line above it — and the
+                    # acme advice is worse than useless without one, since
+                    # certbot's HTTP-01 challenge is served by an nginx
+                    # that will not start until the pair exists.
+                    # BOTH halves: carlos-emr-cert installs the pair with
+                    # two separate `mv -f` calls (fullchain, then privkey)
+                    # under `set -euo pipefail`, so any failure at or after
+                    # the second one -- including fix_perms' chown on a
+                    # privkey that is not there -- leaves fullchain present
+                    # and privkey missing. Testing fullchain alone then
+                    # announces "a self-signed placeholder is in place"
+                    # directly under "certificate generation FAILED", and
+                    # nginx will not start on half a pair either.
+                    if [ ! -s "${CONF_DIR}/tls/fullchain.pem" ] \
+                       || [ ! -s "${CONF_DIR}/tls/privkey.pem" ]; then
+                        echo "carlos-emr: TLS mode is 'acme' but no certificate could be placed;" >&2
+                        echo "carlos-emr: fix that first ('carlos-ctl cert selfsigned'), because" >&2
+                        echo "carlos-emr: certbot's challenge is served by nginx, which will not" >&2
+                        echo "carlos-emr: start without one. Then run 'carlos-ctl cert acme'." >&2
+                    elif [ -n "${ACME_EMAIL}" ]; then
+                        echo "carlos-emr: TLS mode is 'acme' and a self-signed placeholder is in place." >&2
+                        echo "carlos-emr: Once ${SERVER_NAME} resolves publicly and port 80 is reachable, run:" >&2
+                        echo "carlos-emr:   sudo carlos-ctl cert acme ${ACME_EMAIL}" >&2
+                    else
+                        echo "carlos-emr: TLS mode is 'acme' but no contact e-mail was given;" >&2
+                        echo "carlos-emr: a self-signed placeholder is in place. Run:" >&2
+                        echo "carlos-emr:   sudo carlos-ctl cert acme <admin-email>" >&2
+                    fi
                 fi
                 ;;
         esac
@@ -904,10 +1005,17 @@ case "$1" in
         # caused by an unrelated package — would undo the fail-closed and bring
         # the EMR up with the source-published administrator password live. The
         # timers carry no such exposure and are always restored.
+        # The same holds for an OSCAR 19 import in progress: it runs with the
+        # service stopped, and a restart from here would land the startup
+        # listener's rows in a half-copied schema (o19_import_in_progress).
         if [ -d /run/systemd/system ]; then
             if [ -e "${SEED_SENTINEL}" ]; then
                 echo "carlos-emr: not restarting the application — the seeded administrator" >&2
                 echo "carlos-emr: credential is still live (run 'carlos-ctl bootstrap-admin')." >&2
+            elif o19_import_in_progress; then
+                echo "carlos-emr: not restarting the application — an OSCAR 19 import is in" >&2
+                echo "carlos-emr: progress; started now, the EMR would write into a half-copied" >&2
+                echo "carlos-emr: schema. Finish it: sudo carlos-ctl import-o19 ... --resume" >&2
             else
                 sd_reset_start_limit
                 deb-systemd-invoke start carlos-emr.service >/dev/null 2>&1 || true

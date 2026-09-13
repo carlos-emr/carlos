@@ -70,6 +70,18 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
   carlos-ctl rotate               rotate every generated database password
   carlos-ctl logs [args]          journalctl -u carlos-emr
 
+Clinic migration from OSCAR 19 (experimental — review output before
+clinical use):
+  carlos-ctl import-o19 (experimental)
+                                  import an OSCAR 19 clinic backup into a
+                                  STOCK initial deploy: --bundle FILE (or
+                                  --dump/--documents/--properties),
+                                  --admin-user NAME; see --help for the
+                                  --accept sign-off flags and --dry-run
+  carlos-ctl o19-preflight (experimental)
+                                  stage a dump and run the go/no-go
+                                  feasibility check only
+
 Decommissioning:
   carlos-ctl destroy-data --confirm <server-name>
                                   DESTROY the clinical record on this host.
@@ -110,6 +122,7 @@ def _cmd_lifecycle(verb: str, argv) -> int:
             f"(for other units use systemctl directly)")
     need_root(verb)
     if verb in ("start", "restart"):
+        _refuse_start_during_o19_import(verb)
         # An operator asking for a restart is never a crash loop; clear the
         # start-rate counter so systemd cannot refuse it. See
         # util.reset_emr_start_limit for why this is needed and why it does not
@@ -117,6 +130,33 @@ def _cmd_lifecycle(verb: str, argv) -> int:
         util.reset_emr_start_limit()
     os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])
     raise AssertionError("unreachable: execvp replaces the process")
+
+
+O19_GUARD = os.path.join(LIB, "carlos-emr-o19-guard")
+
+
+def _refuse_start_during_o19_import(verb: str) -> None:
+    """Refuse `start`/`restart` while an OSCAR 19 import is in progress.
+
+    carlos-emr.service already consults the same guard as ExecCondition=,
+    so systemctl would not start the EMR either -- but it reports a
+    condition failure as a clean exit 0 and a silent "condition failed"
+    in the journal, which an operator at the terminal would read as
+    "started". Run the shipped guard here first so the refusal, with its
+    remedy, lands on the terminal. The guard is the single predicate; this
+    function only relays its verdict. A host without the guard file (a
+    build that predates it) falls through to systemctl unchanged.
+    """
+    if not os.path.exists(O19_GUARD):
+        return
+    verdict = util.run([O19_GUARD], capture_output=True)
+    if verdict.returncode == 0:
+        return
+    detail = (verdict.stderr or "").strip()
+    die(f"'{verb}' refused: an OSCAR 19 import is in progress and "
+        f"carlos-emr must stay stopped until it finishes "
+        f"(see: sudo carlos-ctl import-o19 --help, --resume / --cleanup)"
+        + (f"\n{detail}" if detail else ""))
 
 
 def _cmd_cert(argv) -> int:
@@ -157,7 +197,8 @@ def _cmd_backup(argv) -> int:
             util.warn("the backup FAILED — journalctl -u carlos-emr-backup -n 50")
         return rc
     if sub[0] == "verify":
-        util.log("running the restore-drill unit (journalctl -u carlos-emr-backup-verify -f to watch)")
+        util.log("running the restore-drill unit "
+                 "(journalctl -u carlos-emr-backup-verify -f to watch)")
         rc = util.run(["systemctl", "start", "carlos-emr-backup-verify.service"]).returncode
         if rc == 0:
             util.log("restore drill passed")
@@ -172,6 +213,19 @@ def _cmd_backup(argv) -> int:
 def _cmd_logs(argv) -> int:
     os.execvp("journalctl", ["journalctl", "-u", "carlos-emr.service"] + list(argv))
     raise AssertionError("unreachable: execvp replaces the process")
+
+
+def _cmd_import_o19(argv) -> int:
+    # Lazy import: the o19 modules parse the generated schema manifest
+    # (tens of thousands of data lines) — that cost belongs to the two
+    # import verbs, not to every `carlos-ctl status`.
+    from . import o19import
+    return o19import.cmd_import_o19(argv)
+
+
+def _cmd_o19_preflight(argv) -> int:
+    from . import o19import
+    return o19import.cmd_o19_preflight(argv)
 
 
 _VERBS = {
@@ -196,6 +250,8 @@ _VERBS = {
     "bootstrap-admin": dbops.cmd_bootstrap_admin,
     "rotate": dbops.cmd_rotate,
     "destroy-data": dbops.cmd_destroy_data,
+    "import-o19": _cmd_import_o19,
+    "o19-preflight": _cmd_o19_preflight,
     "logs": _cmd_logs,
     "restart": lambda argv: _cmd_lifecycle("restart", argv),
     "start": lambda argv: _cmd_lifecycle("start", argv),
