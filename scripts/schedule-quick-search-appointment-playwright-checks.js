@@ -185,6 +185,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(String(slot.providerNo) === mrp, `slot provider ${slot.providerNo} is not the patient's MRP ${mrp}`);
     const popup = await popupPromise;
     wirePage(popup, 'add-appointment', recorder);
+    await popup.waitForURL(/\/appointment\/addappointment\?/, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
     await assertNotErrorPage(popup, 'add-appointment popup');
     await schedule.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
@@ -218,6 +219,41 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await schedule.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     const link = schedule.locator(`a.apptLink[onclick*="appointment_no=${appointment.id}&"]`).first();
     await link.waitFor({ state: 'visible', timeout: 30000 });
+
+    // A provider-filtered day must retain encounter/bill links, and entering
+    // week view explicitly must survive the previous/next navigation controls.
+    assert(await schedule.locator(`a.encounterBtn[onclick*=",${appointment.id});"]`).count(), 'provider-filtered day lost the encounter link');
+    assert(await schedule.locator(`a[onclick*="/billing?"][onclick*="appointment_no=${appointment.id}&"]`).count(), 'provider-filtered day lost the billing link');
+    await schedule.locator(`[onclick*="goWeekView"][onclick*="'${appointment.providerNo}'"]`).first().click();
+    await schedule.waitForURL(/weekView=true/);
+    assert(await schedule.locator('select[name="provider_select"]').inputValue() === appointment.providerNo,
+      'week view changed the selected provider');
+    for (const icon of ['fa-forward-step', 'fa-backward-step']) {
+      await schedule.locator(`a.redArrow:has(.${icon})`).click();
+      await schedule.waitForLoadState('domcontentloaded');
+      const weekUrl = new URL(schedule.url());
+      assert(weekUrl.searchParams.get('weekView') === 'true'
+        && weekUrl.searchParams.get('provider_no') === appointment.providerNo, 'week navigation lost view/provider context');
+    }
+    for (const shortcut of ['weekForward', 'weekBackward', 'monthForward', 'monthBackward']) {
+      await Promise.all([
+        schedule.waitForNavigation({waitUntil: 'domcontentloaded'}),
+        schedule.locator(`.quick-btn[onclick*="getLocation('${shortcut}', document.getElementById"]`).click(),
+      ]);
+      const weekUrl = new URL(schedule.url());
+      assert(weekUrl.searchParams.get('weekView') === 'true'
+        && weekUrl.searchParams.get('provider_no') === appointment.providerNo, `${shortcut} lost week/provider context`);
+    }
+    const statusBefore = sql(`SELECT status FROM appointment WHERE appointment_no=${Number(appointment.id)}`);
+    await Promise.all([
+      schedule.waitForNavigation({waitUntil: 'domcontentloaded'}),
+      schedule.locator(`a[onclick*="updateApptStatus"][onclick*="appointment_no=${appointment.id}&"]`).click(),
+    ]);
+    const updatedWeekUrl = new URL(schedule.url());
+    assert(updatedWeekUrl.searchParams.get('weekView') === 'true'
+      && updatedWeekUrl.searchParams.get('provider_no') === appointment.providerNo, 'status update lost week/provider context');
+    assert(sql(`SELECT status FROM appointment WHERE appointment_no=${Number(appointment.id)}`) !== statusBefore,
+      'week-view appointment status did not change');
 
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);

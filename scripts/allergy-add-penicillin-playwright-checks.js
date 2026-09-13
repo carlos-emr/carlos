@@ -33,9 +33,7 @@
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: ALLERGY_DEMOGRAPHIC_NO (2; not 1, whose demo-seed chart notes
- *   panel answers 500 because of unshipped HRM report files -- tracked for
- *   review).
+ * Optional: ALLERGY_DEMOGRAPHIC_NO (1).
  */
 
 const { chromium } = require('playwright');
@@ -68,7 +66,7 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '2';
+const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '1';
 assert(/^\d+$/.test(demographicNo), 'ALLERGY_DEMOGRAPHIC_NO must be numeric');
 const reactionText = `PW_ALLERGY_${Date.now()} rash`;
 

@@ -1024,8 +1024,8 @@ def cmd_demo_data(argv) -> int:
 
 def _demo_seed_document_files() -> None:
     """Copy the demo document FILES into the document store. The dataset's
-    document rows reference PDFs, and demo-hrm-report.sql points one HRM row
-    at the fictitious HRM report; the rows alone make every attachment
+    document rows reference PDFs and HRM XML files. The shipped fictitious
+    reports cover every HRM filename in the demo snapshot; rows alone make an attachment
     render fail ("could not be converted into a PDF") and leave the HRM
     lists empty. Runs after the marker is written: a file copy that fails
     must not make the SQL load look incomplete, so it warns and continues.

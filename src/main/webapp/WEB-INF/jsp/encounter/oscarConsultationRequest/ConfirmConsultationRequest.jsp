@@ -50,6 +50,9 @@
     }
     // Store transType as a local variable for safe comparison
     String transType = (String) request.getAttribute("transType");
+    if (transType == null) {
+        transType = request.getParameter("transType");
+    }
     String isPreview = (String) request.getAttribute("isPreviewReady");
     String fallbackDemographicNo = request.getParameter("demographicNo");
     if (fallbackDemographicNo == null || fallbackDemographicNo.trim().isEmpty()) {

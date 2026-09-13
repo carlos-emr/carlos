@@ -205,9 +205,9 @@ this replaced.
 |---|---|---|
 | Result | the package's `error` | the package's `securityError` |
 | HTTP status | 500 (set before the result renders, unless the response is already committed) | 403 |
-| Log | one ERROR line with the stack trace | one WARN line, no trace, the (static) message |
+| Log | one ERROR event with bounded stack frames and cause/suppressed exception types | one WARN line, no trace, the (static) message |
 | Log line carries | incident id, exception class, action name, HTTP method, request path (no query string, no path parameters), provider number (sanitised) | the same |
-| Log line never carries | request parameters, the query string, the exception message | request parameters, the query string |
+| Entire log event never carries | request parameters, the query string, exception messages (including causes and suppressed exceptions) | request parameters, the query string |
 | Result page gets | request attribute `carlosIncidentId` | `carlosIncidentId` |
 | Value stack gets | nothing (no `exception` / `exceptionStack`) | nothing |
 

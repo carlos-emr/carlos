@@ -393,6 +393,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
   let previewTransactionId;
   let csrfToken;
   let cancelled = false;
+  let handoffHtml;
   const endpoint = appUrl('/fax/faxAction');
   const form = overrides => ({ 'CSRF-TOKEN': csrfToken, method: 'cancel', transactionType: 'EFORM',
     transactionId: String(previewTransactionId), demographicNo: String(demographicNo), faxFilePath, ...overrides });
@@ -411,16 +412,24 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
         'fax preparation must reject GET/HEAD before staging');
       await rejected.dispose();
     }
+    // Capture the actual response before its auto-submit navigates away. Chromium may
+    // discard the handoff document's body by the time the preview has finished loading.
+    await page.route(url => url.pathname === new URL(appUrl('/eform/addEForm')).pathname, async route => {
+      const response = await route.fetch({ maxRedirects: 0 });
+      const body = await response.body();
+      handoffHtml = body.toString('utf8');
+      await route.fulfill({ response, body });
+    });
     const handoffPromise = page.waitForResponse(response => response.status() === 200
       && new URL(response.url()).pathname.endsWith('/eform/addEForm')
       && response.request().method() === 'POST', { timeout: 180000 });
     const preparedPromise = page.waitForResponse(response => response.url().startsWith(endpoint)
       && new URL(response.url()).searchParams.get('method') === 'prepareFax'
       && response.request().method() === 'POST', { timeout: 180000 });
-    const [handoff, prepared] = await Promise.all([
+    const [, prepared] = await Promise.all([
       handoffPromise, preparedPromise, page.locator('#remoteFaxButton').click(),
     ]);
-    assert((await handoff.text()).includes('id="eform-fax-preparation"'),
+    assert(handoffHtml && handoffHtml.includes('id="eform-fax-preparation"'),
       'protected eForm save must return the narrow fax handoff');
     const preparationBody = new URLSearchParams(prepared.request().postData() || '');
     assert([...preparationBody.keys()].every(key => key === 'CSRF-TOKEN')
