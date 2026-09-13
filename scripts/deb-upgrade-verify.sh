@@ -19,6 +19,12 @@
 # new build identity in place. Run as root after `apt-get install` returns.
 # UPGRADE_LOG, EXPECT_FLYWAY (count), EXPECT_NEW (space-separated versions) and
 # EXPECT_TAG tune it for a given release pair; defaults match a11 -> a12.
+#
+# EXPECT_FLYWAY counts the rows in flyway_schema_history on the install under test,
+# NOT the migration files the package ships. They differ: a12 ships 27 migration
+# files, but the BC-only ones never apply to an Ontario install, so an ON install
+# upgraded from a11 goes 19 applied -> 23 applied. Set it to the applied count for
+# the province being verified.
 set -u
 PRE="${PRE:-/root/baseline-a11.txt}"; POST="${POST:-/root/baseline-a12.txt}"
 UPGRADE_LOG="${UPGRADE_LOG:-/root/a12-upgrade.log}"

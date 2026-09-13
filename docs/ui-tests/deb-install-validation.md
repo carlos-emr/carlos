@@ -1049,8 +1049,12 @@ flags only; no PHI leaves the host.
 
 What the review established, from the maintainer scripts and the run:
 
-- **Migrations.** The a11 package ships 23 Flyway migrations, a12 ships 27. The
-  delta is exactly `V1.0.20`, `V1.0.21`, `V1.0.22` (common) and `V1.0.23` (on);
+- **Migrations.** The a11 package ships 23 Flyway migration *files*, a12 ships 27.
+  Files and applied rows are different numbers and it is worth keeping them apart:
+  the BC-only files never apply to an Ontario install, so this ON host went from
+  **19 applied rows to 23**, which is what `EXPECT_FLYWAY` in
+  `deb-upgrade-verify.sh` counts. The delta is exactly `V1.0.20`, `V1.0.21`,
+  `V1.0.22` (common) and `V1.0.23` (on);
   nothing was removed and every shared file is byte-identical, so `validate`
   passes and `carlos-ctl db-migrate` applies the four (`applied 4 migration(s);
   schema is at 1.0.23`). `V1.0.23` is demo-guarded: it activated the 257 seeded

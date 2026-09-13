@@ -126,6 +126,10 @@ let originalQueueLinkStatus = null;
 // can be linked to several queues, and restoring by document_id would overwrite the
 // rows this check never changed.
 let queueLinkRowId = null;
+// The second, read-only fixture: a lab whose accession has a NEWER version, so the
+// Inboxhub row and the page it opens are different segments.
+let showLatestProbe = null;
+let showLatestRoutingCreated = false;
 
 let mysqlDefaults = null;
 // A MySQL option file interprets backslash escapes, so a password containing \ or "
@@ -302,7 +306,75 @@ function cleanupQueueLink() {
   }
 }
 
+/**
+ * Finds a routed-but-superseded lab, if the deployment has one.
+ *
+ * Everything downstream of the showLatest substitution has to key on the segment the
+ * page RESOLVES to, not the one the row asked for. The acknowledge half of this check
+ * deliberately routes a lab that is its own rendered segment, so it cannot see a
+ * mix-up; this probe is the other case, and it is read-only -- it never acknowledges.
+ * Returns null when no accession on this deployment has two versions with different
+ * received dates, in which case there is nothing to assert.
+ */
+function findShowLatestProbe() {
+  const rows = sqlRows(
+    'SELECT h.lab_no, m.created FROM hl7TextInfo h'
+    + " JOIN patientLabRouting pl ON pl.lab_no=h.lab_no AND pl.lab_type='HL7'"
+    + " JOIN hl7TextMessage m ON m.lab_id=h.lab_no AND IFNULL(m.type,'') <> 'CLS'"
+    + " WHERE h.accessionNum <> '' ORDER BY h.lab_no"
+  );
+  for (const [labNo, created] of rows) {
+    const rendered = renderedSegmentFor(labNo);
+    if (rendered === labNo) {
+      continue;
+    }
+    const renderedCreated = sql(`SELECT created FROM hl7TextMessage WHERE lab_id=${Number(rendered)}`);
+    if (!renderedCreated || renderedCreated === created) {
+      continue;
+    }
+    return {
+      requested: labNo,
+      rendered,
+      requestedDate: formatReceived(created),
+      renderedDate: formatReceived(renderedCreated),
+    };
+  }
+  return null;
+}
+
+/** The "yyyy-MM-dd HH:mm" the lab header renders, from a MySQL DATETIME. */
+function formatReceived(value) {
+  return value.replace('T', ' ').slice(0, 16);
+}
+
+function seedShowLatestRouting(probe) {
+  const existing = sqlRows(
+    `SELECT id FROM providerLabRouting WHERE provider_no='${escapeSql(providerNo)}'`
+    + ` AND lab_no=${Number(probe.requested)} AND lab_type='HL7' LIMIT 1`
+  )[0];
+  if (existing) {
+    return;
+  }
+  sql(
+    'INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type)'
+    + ` VALUES ('${escapeSql(providerNo)}', ${Number(probe.requested)}, 'N', 'HL7')`
+  );
+  showLatestRoutingCreated = true;
+}
+
+function cleanupShowLatestRouting() {
+  if (!showLatestRoutingCreated || showLatestProbe === null) {
+    return;
+  }
+  sql(
+    `DELETE FROM providerLabRouting WHERE provider_no='${escapeSql(providerNo)}'`
+    + ` AND lab_no=${Number(showLatestProbe.requested)} AND lab_type='HL7'`
+  );
+  showLatestRoutingCreated = false;
+}
+
 function cleanupFixture() {
+  cleanupShowLatestRouting();
   if (segmentId === null) {
     return;
   }
@@ -403,6 +475,38 @@ async function openLabFromInboxhub(context, inboxhub) {
     + ` ${JSON.stringify(renderedSegments)}; showLatest resolved off the routed segment, so an`
     + ' acknowledge here would be recorded against a lab the provider never had in their inbox');
   return { popup, token };
+}
+
+/**
+ * Opens the superseded lab from its own Inboxhub row, read-only.
+ *
+ * Same path as the acknowledge open -- the row's link, not a typed URL -- because the
+ * showLatest parameter this whole assertion is about is something the row supplies and
+ * an address bar does not.
+ */
+async function openSupersededLabFromInboxhub(context) {
+  const inboxhub = await openInboxhubFromSchedule(context);
+  const row = inboxhub.locator(`tr[data-segment-id="${showLatestProbe.requested}"][data-lab-type="HL7"]`).first();
+  await row.waitFor({ state: 'attached', timeout: 30000 });
+  const labLink = row.locator('a[onclick*="reportWindow"]').first();
+  assert(await labLink.count() > 0,
+    `the Inboxhub row for superseded lab ${showLatestProbe.requested} rendered no result link`);
+
+  const popupPromise = context.waitForEvent('page', { timeout: 45000 });
+  await labLink.click();
+  const popup = await popupPromise;
+  wirePage(popup, 'lab-display-superseded', recorder);
+  await popup.waitForLoadState('domcontentloaded', { timeout: 45000 });
+  await popup.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
+  await assertNotErrorPage(popup, 'superseded lab display');
+
+  const renderedSegments = await popup.locator('form[id^="acknowledgeForm_"]')
+    .evaluateAll((forms) => forms.map((form) => form.id.replace('acknowledgeForm_', '')));
+  assert(renderedSegments.includes(showLatestProbe.rendered),
+    `the Inboxhub row for lab ${showLatestProbe.requested} was expected to open the newer segment`
+    + ` ${showLatestProbe.rendered}, but the page carries ${JSON.stringify(renderedSegments)}`);
+  await inboxhub.close().catch(() => {});
+  return popup;
 }
 
 /**
@@ -534,6 +638,29 @@ async function checkCumulativeValues(context) {
       `acknowledging lab ${segmentId} changed the DOCUMENT queue link for document_id ${segmentId}`
       + ` to ${JSON.stringify(queueLink)}; a lab acknowledge must not reach the document queue`);
     pass(`the document queue link sharing number ${segmentId} is untouched by the lab acknowledge`);
+
+    // The header's Date Received belongs to the segment the page RENDERED. Before this
+    // branch it was read from the requested id, so an Inboxhub row could open the newest
+    // version of an accession under an older version's received date.
+    showLatestProbe = findShowLatestProbe();
+    if (showLatestProbe) {
+      seedShowLatestRouting(showLatestProbe);
+      const probePage = await openSupersededLabFromInboxhub(context);
+      const probeText = await probePage.locator('body').innerText();
+      assert(probeText.includes(showLatestProbe.renderedDate),
+        `the lab display rendered segment ${showLatestProbe.rendered} but its header does not carry`
+        + ` that segment's received date ${showLatestProbe.renderedDate}`);
+      assert(!probeText.includes(showLatestProbe.requestedDate),
+        `the lab display rendered segment ${showLatestProbe.rendered} while showing the REQUESTED`
+        + ` segment ${showLatestProbe.requested}'s received date ${showLatestProbe.requestedDate};`
+        + ' the received date is being read before showLatest settles which segment the page shows');
+      await probePage.close().catch(() => {});
+      pass(`the header of a superseded lab (${showLatestProbe.requested} -> ${showLatestProbe.rendered})`
+        + ' carries the rendered version\'s received date');
+    } else {
+      console.log('WARN no accession on this deployment has two versions with different received'
+        + ' dates; the showLatest received-date assertion had nothing to run against');
+    }
 
     const cumulative = await checkCumulativeValues(context);
     assert(cumulative.length > 0, 'the cumulative lab values page rendered nothing');

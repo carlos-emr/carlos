@@ -103,12 +103,19 @@ change nothing an operator sees.
 **A defect the check found becomes an assertion once it is fixed.** An earlier
 `lab-acknowledge` found that acknowledging a lab posted the lab's segment id to the
 *document* queue (`updateDocStatusInQueue`) and inactivated whatever document shared
-the number, and that the READ audit named the segment the Inboxhub row asked for
-rather than the newer version `showLatest` rendered. Both are fixed on this branch,
-and the check now plants a queue link with the lab's number and asserts it survives,
-and reads the audit rows the open wrote and asserts they name the rendered segment.
-While the first defect stood, the check tolerated its console `Failed to fetch` by
-exact origin; that tolerance is gone and the console is asserted clean.
+the number, and that the READ audit and the header's **Date Received** both named the
+segment the Inboxhub row asked for rather than the newer version `showLatest`
+rendered. All three are fixed on this branch, and the check now plants a queue link
+with the lab's number and asserts it survives, reads the audit rows the open wrote and
+asserts they name the rendered segment, and — read-only, from a second Inboxhub row —
+opens a *superseded* lab and asserts the header carries the rendered version's
+received date and not the requested one's. That last assertion needs its own fixture
+because the acknowledge half deliberately routes a lab that is its own rendered
+segment, so it can never see the mix-up. Measured against stock 2026.08.0-alpha12 it
+fails (`rendered segment 162 ... does not carry that segment's received date`) and
+against this branch it passes. While the first defect stood, the check tolerated its
+console `Failed to fetch` by exact origin; that tolerance is gone and the console is
+asserted clean.
 
 **A refusal is proven against a matching acceptance.** `measurement-validation`
 asserts a bad value is refused AND that a good value through the same form still

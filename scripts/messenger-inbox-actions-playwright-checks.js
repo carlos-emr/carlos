@@ -266,6 +266,9 @@ function messageCheckbox(page, messageId) {
 
 /** Seeds one message to the logged-in provider, composing from inside the inbox. */
 async function sendSelfMessage(inbox, subjectText = subject, body = bodyText) {
+  // The Compose link lives on the box page, and the sent confirmation this returns to
+  // is not that page, so seeding a second message means going back to the box first.
+  await openBox(inbox, BOX_INBOX);
   const composeLink = inbox.locator('a[href*="/messenger/ViewCreateMessage"]').first();
   await composeLink.waitFor({ state: 'visible', timeout: 30000 });
   await Promise.all([

@@ -155,9 +155,15 @@ function seedFixture() {
     + ' report has nothing it must report as due; seed one before running this check');
   fixtureDemographicNo = demo;
 
+  // `selects` is not optional decoration: RptDemographicQueryBuilder returns an empty
+  // result when the saved query names no columns, so the report would run and list
+  // nobody. The shape is the one RptDemographicQuery2Saver writes, with no whitespace
+  // between the elements because RptDemographicQueryLoader casts every child node to
+  // an Element.
+  const selectsXml = '<root><item value="demographic_no"/></root>';
   sql(
-    'INSERT INTO demographicQueryFavourites (queryName, archived, demoIds)'
-    + ` VALUES ('${escapeSql(stamp)}', '1', '${escapeSql(demo)}')`
+    'INSERT INTO demographicQueryFavourites (queryName, archived, demoIds, selects)'
+    + ` VALUES ('${escapeSql(stamp)}', '1', '${escapeSql(demo)}', '${escapeSql(selectsXml)}')`
   );
   fixtureQueryId = sql(`SELECT favId FROM demographicQueryFavourites WHERE queryName='${escapeSql(stamp)}'`);
   assert(/^\d+$/.test(fixtureQueryId), 'the saved-query fixture did not reach demographicQueryFavourites');
