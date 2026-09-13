@@ -25,6 +25,9 @@ UPGRADE_LOG="${UPGRADE_LOG:-/root/a12-upgrade.log}"
 EXPECT_FLYWAY="${EXPECT_FLYWAY:-23}"; EXPECT_NEW="${EXPECT_NEW:-1.0.20 1.0.21 1.0.22 1.0.23}"
 EXPECT_TAG="${EXPECT_TAG:-build.version=2026.08.0-alpha12-SNAPSHOT build.job=carlos-emr-deb build.number=2026.09.0~snapshot22}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# Own the log path instead of writing a predictable name into a world-writable /tmp.
+CHECK_LOG="$(mktemp -t deb-upgrade-check.XXXXXX)"
+trap 'rm -f "$CHECK_LOG"' EXIT
 g() { sed -n "s/^$2=//p" "$1"; }
 pass=0; fail=0
 ok()  { echo "PASS $1"; pass=$((pass+1)); }
@@ -32,7 +35,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 [ -r "$PRE" ] || { echo "PRE snapshot $PRE not readable"; exit 2; }
 [ -r "$UPGRADE_LOG" ] && { echo "== upgrade log =="; grep -E "^UPGRADE_RC=" "$UPGRADE_LOG"; grep -iE "^E: |dpkg: error|No space|FAILED" "$UPGRADE_LOG" | head -5 | cut -c1-140; }
 for i in $(seq 1 60); do c=$(curl -sk -o /dev/null -w "%{http_code}" https://127.0.0.1/carlos/); [ "$c" = 200 ] && break; sleep 5; done; echo "front=$c after $((i*5))s"
-echo "== carlos-ctl check =="; carlos-ctl check > /tmp/deb-upgrade-check.log 2>&1; grep -E "All checks passed|check\(s\) failed" /tmp/deb-upgrade-check.log
+echo "== carlos-ctl check =="; carlos-ctl check > "$CHECK_LOG" 2>&1; grep -E "All checks passed|check\(s\) failed" "$CHECK_LOG"
 "$HERE/deb-upgrade-baseline.sh" > "$POST"
 echo "== pre/post diff (changed keys) =="; diff <(sort "$PRE") <(sort "$POST") | grep -E "^[<>]" | sed 's/^</  before: /;s/^>/  after:  /'
 echo "== assertions =="

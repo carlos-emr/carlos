@@ -229,8 +229,12 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     // history of what was believed when is preserved. Both halves are asserted: a
     // version that only added would double-report the allergy, and one that only
     // archived would lose it.
+    // allergyToArchive is the last field of the anchor id, so match it as a suffix:
+    // a contains() on "allergyToArchive=12" also matches the row for allergy 123.
+    const archiveSuffix = `allergyToArchive=${row.id}`;
     const modifyLink = page.locator('a.modifyAllergyLink').filter({ hasText: 'Modify' })
-      .locator(`xpath=self::a[contains(@id, "allergyToArchive=${row.id}")]`).first();
+      .locator(`xpath=self::a[substring(@id, string-length(@id) - ${archiveSuffix.length - 1}) = "${archiveSuffix}"]`)
+      .first();
     assert(await modifyLink.count() > 0,
       `the allergy list offered no Modify link carrying allergyToArchive=${row.id}`);
 
@@ -276,6 +280,9 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     // part an operator actually sees.
     const listText = await page.locator('body').innerText();
     assert(listText.includes('PENICILLINS'), 'the allergy list lost PENICILLINS after the amend');
+    assert(listText.includes(amendedReactionText),
+      'the allergy list does not show the corrected reaction text after the amend,'
+      + ' so the correction reached the database without reaching the operator');
     assert(!listText.includes(reactionText),
       'the allergy list still shows the superseded reaction text after the amend');
 

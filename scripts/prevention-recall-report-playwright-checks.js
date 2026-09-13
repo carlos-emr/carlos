@@ -29,8 +29,17 @@
  * disappearing from the menu.
  *
  * The check asserts the report is reachable, renders its form, and RUNS for a
- * screening type against a real as-of date — not merely that the page loads. It
- * reads only; it records no preventions and writes nothing, so it needs no cleanup.
+ * screening type against a real as-of date — and that a patient who IS due comes
+ * back in the results.
+ *
+ * WHY A FIXTURE IS NEEDED AT ALL: PreventionReport2Action returns the empty form
+ * unchanged unless patientSet parses to a positive id (hasValidPatientSet), so a
+ * check that only picks a screening type and a date never runs the query it is
+ * meant to cover — the page comes back looking identical whether the report works
+ * or not. The fixture is one saved demographic query (demographicQueryFavourites)
+ * naming a single patient the report must classify, which is also what makes the
+ * expected result deterministic instead of "whatever the demo roster happens to
+ * hold". It is the only row this check writes, and the finally block removes it.
  *
  * Defaults are for the local devcontainer:
  *   npm run test:prevention-recall-report-playwright
@@ -39,11 +48,17 @@
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
- *   PREVENTION_REPORT_TYPE=Flu   screening type to run (Mammogram, PAP, FOBT,
- *                                Flu, ChildImmunizations)
+ *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * PREVENTION_REPORT_TYPE is deliberately NOT configurable: the fixture below and the
+ * expected classification are specific to the Flu recall rule.
  */
 
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { chromium } = require('playwright');
 const {
   assert,
@@ -55,6 +70,7 @@ const {
   gotoApp,
   login,
   validateBaseUrl,
+  validateMysqlHost,
   wirePage,
 } = require('./eform-local-playwright-utils');
 
@@ -65,14 +81,99 @@ const config = {
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
 };
-// Flu is the default because every province's schedule carries it, so the option
-// is present on any deployment without depending on local customisation.
-const reportType = process.env.PREVENTION_REPORT_TYPE || 'Flu';
-assert(['Mammogram', 'PAP', 'FOBT', 'Flu', 'ChildImmunizations'].includes(reportType),
-  `PREVENTION_REPORT_TYPE must be one of the screening types the report offers, got ${reportType}`);
+const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
+const mysqlUser = process.env.MYSQL_USER || 'root';
+const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
+// Flu is used because every province's schedule carries it, so the option is present
+// on any deployment without depending on local customisation.
+const reportType = 'Flu';
+// FluReport.isOfAge treats a patient as eligible when their DOB is on or before
+// December 31 of the as-of year minus 65 years; with no Flu prevention recorded,
+// such a patient is classified "No Info" -- the report's way of saying "due".
+const expectedState = 'No Info';
 
+const stamp = `PW_RECALL_${Date.now()}`;
 const recorder = createRecorder();
 const passed = [];
+let fixtureQueryId = null;
+let fixtureDemographicNo = null;
+
+let mysqlDefaults = null;
+// A MySQL option file interprets backslash escapes, so a password containing \ or "
+// reaches the client mangled unless it is quoted and escaped here.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function initMysqlDefaults() {
+  if (/[\r\n]/.test(mysqlPassword)) {
+    throw new Error('MYSQL_PASSWORD must not contain newline characters');
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prevention-recall-'));
+  const file = path.join(dir, 'mysql-defaults.cnf');
+  fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
+  mysqlDefaults = { dir, file };
+}
+function cleanupMysqlDefaults() {
+  if (mysqlDefaults) {
+    fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
+    mysqlDefaults = null;
+  }
+}
+function sql(query) {
+  assert(mysqlDefaults, 'MySQL defaults file has not been initialized');
+  return execFileSync('mysql', [
+    `--defaults-extra-file=${mysqlDefaults.file}`,
+    '-h', mysqlHost, '-u', mysqlUser, mysqlDatabase, '-N', '-B', '-e', query,
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
+}
+function escapeSql(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "''");
+}
+
+/**
+ * Picks a patient the Flu recall must report as due and wraps them in a saved query.
+ *
+ * The patient has to be 65 or over as of December 31 of this year and carry no live
+ * Flu prevention, which is exactly the "No Info" branch of FluReport. Selecting the
+ * patient from the deployment's own roster rather than inventing one keeps the check
+ * free of demographic writes.
+ */
+function seedFixture() {
+  const asOfYear = new Date().getFullYear();
+  const demo = sql(
+    'SELECT demographic_no FROM demographic'
+    + ` WHERE year_of_birth REGEXP '^[0-9]{4}$' AND CAST(year_of_birth AS UNSIGNED) <= ${asOfYear - 65}`
+    + " AND patient_status = 'AC'"
+    + ' AND demographic_no NOT IN ('
+    + "   SELECT demographic_no FROM preventions WHERE prevention_type = 'Flu' AND IFNULL(deleted, '0') <> '1'"
+    + ' ) ORDER BY demographic_no LIMIT 1'
+  );
+  assert(/^\d+$/.test(demo),
+    'this deployment has no active patient aged 65+ without a Flu prevention, so the recall'
+    + ' report has nothing it must report as due; seed one before running this check');
+  fixtureDemographicNo = demo;
+
+  sql(
+    'INSERT INTO demographicQueryFavourites (queryName, archived, demoIds)'
+    + ` VALUES ('${escapeSql(stamp)}', '1', '${escapeSql(demo)}')`
+  );
+  fixtureQueryId = sql(`SELECT favId FROM demographicQueryFavourites WHERE queryName='${escapeSql(stamp)}'`);
+  assert(/^\d+$/.test(fixtureQueryId), 'the saved-query fixture did not reach demographicQueryFavourites');
+}
+
+function cleanupFixture() {
+  if (fixtureQueryId === null) {
+    return;
+  }
+  try {
+    sql(`DELETE FROM demographicQueryFavourites WHERE favId=${Number(fixtureQueryId)}`);
+  } catch (error) {
+    console.error(`WARN could not remove the saved-query fixture ${fixtureQueryId}: ${error.message}`);
+  }
+  fixtureQueryId = null;
+}
 
 function pass(message) {
   passed.push(message);
@@ -133,8 +234,17 @@ async function openPreventionReport(context, reportIndex) {
  * a submitted report exercises the query that decides who is overdue.
  */
 async function runReport(report) {
+  // patientSet is what decides whether the report RUNS at all: without a positive id
+  // PreventionReport2Action returns the untouched form, so the fixture query has to be
+  // selected here or nothing below is exercised.
+  const patientSetSelect = report.locator('select#patientSet');
+  await patientSetSelect.waitFor({ state: 'visible', timeout: 30000 });
+  const patientSets = await patientSetSelect.locator('option').evaluateAll((nodes) => nodes.map((n) => n.value));
+  assert(patientSets.includes(String(fixtureQueryId)),
+    `the report does not offer the saved query fixture ${fixtureQueryId}; it offers ${JSON.stringify(patientSets)}`);
+  await patientSetSelect.selectOption(String(fixtureQueryId));
+
   const preventionSelect = report.locator('select#prevention');
-  await preventionSelect.waitFor({ state: 'visible', timeout: 30000 });
   const options = await preventionSelect.locator('option').evaluateAll((nodes) => nodes.map((n) => n.value));
   assert(options.includes(reportType),
     `the report does not offer ${reportType}; it offers ${JSON.stringify(options)}`);
@@ -154,7 +264,7 @@ async function runReport(report) {
   ]);
   assert(response.status() < 400, `prevention/PreventionReport returned HTTP ${response.status()}`);
   await report.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
-  const text = await assertNotErrorPage(report, `prevention recall report for ${reportType}`);
+  await assertNotErrorPage(report, `prevention recall report for ${reportType}`);
 
   // The submitted report must come back on the report page with the chosen type
   // still selected: a run that silently reset the form is a run whose numbers
@@ -162,13 +272,44 @@ async function runReport(report) {
   const selectedAfter = await report.locator('select#prevention').inputValue();
   assert(selectedAfter === reportType,
     `after running, the report showed ${selectedAfter} selected instead of ${reportType}`);
-  return { text, asOfValue };
+  assert(await report.locator('#preventionTable').count() > 0,
+    'the report answered without a result table, so the query never ran');
+  return { asOfValue };
+}
+
+/**
+ * Asserts the fixture patient is listed, and listed as due.
+ *
+ * "The report rendered" is not the assertion that matters. A recall tool that comes
+ * back empty, or that reports a 65-year-old with no flu shot on file as anything
+ * other than due, is broken in exactly the way that looks like working software.
+ */
+async function assertFixtureIsReportedDue(report) {
+  const row = report.locator('#preventionTable tbody tr')
+    .filter({ has: report.locator(`a[onclick*="demographic_no=${fixtureDemographicNo}"]`) })
+    .first();
+  assert(await row.count() > 0,
+    `the ${reportType} recall report did not list patient ${fixtureDemographicNo},`
+    + ' who is over 65 with no flu shot on file and must be reported as due');
+  const state = (await row.locator('span.badge').first().innerText()).trim();
+  assert(state === expectedState,
+    `the ${reportType} recall report classified patient ${fixtureDemographicNo} as "${state}",`
+    + ` expected "${expectedState}"`);
 }
 
 (async () => {
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  initMysqlDefaults();
+  let browser = null;
+  let context = null;
+  // Setup runs inside the try so a failure before the browser opens still reaches the
+  // finally: initMysqlDefaults has already written a 0600 file holding the database
+  // password, and the fixture row must not outlive a failed run either.
   try {
+    seedFixture();
+
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    context = await browser.newContext({ ignoreHTTPSErrors: true });
+
     await login(context, config, recorder);
 
     const reportIndex = await openReportIndexFromSchedule(context);
@@ -179,6 +320,9 @@ async function runReport(report) {
 
     const { asOfValue } = await runReport(report);
     pass(`the recall report runs for ${reportType} as of ${asOfValue} and keeps the chosen type selected`);
+
+    await assertFixtureIsReportedDue(report);
+    pass(`patient ${fixtureDemographicNo} is reported "${expectedState}" for ${reportType}, so the recall query answers`);
 
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0,
@@ -191,7 +335,12 @@ async function runReport(report) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
+    try {
+      cleanupFixture();
+    } finally {
+      cleanupMysqlDefaults();
+    }
   }
 })();

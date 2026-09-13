@@ -10,7 +10,7 @@ every other check there.
 | `appointment-lifecycle` | Edit, advance status from the day sheet, cancel, delete an appointment (+ the `appointmentArchive` row) | `schedule-quick-search-appointment` and `echart-new-patient-notes` cover **booking**; nothing covered what happens to a booking afterwards |
 | `messenger-inbox-actions` | Mark read / unread, search and clear, archive, unarchive, and the archived box | `messenger` covers composing, sending from the messenger and the chart, and that **opening** a message marks it read |
 | `lab-acknowledge` | Acknowledge a result (`oscarMDS/UpdateStatus`), the lab PDF, cumulative values | `lab-macro-tickler` covers raising a tickler from a lab macro |
-| `prevention-recall-report` | Run the prevention recall report for a screening type | `prevention-brand-picker` covers recording an immunization on one chart |
+| `prevention-recall-report` | Run the prevention recall report over a seeded patient set and assert a patient who is due comes back as due | `prevention-brand-picker` covers recording an immunization on one chart |
 | `measurement-validation` | A bad vital is **refused** and writes nothing; a good one through the same form still saves | `echart-vitals-bmi` covers the happy path on the same popup |
 
 ## The rule these follow: reach it the way a user reaches it
@@ -37,8 +37,10 @@ typing the address:
   renders segment 162. The check therefore routes the *newest* segment of a chain and
   asserts the rendered acknowledge form belongs to the segment it routed; a check
   written against the requested id acknowledges a lab that was never in the inbox.
-  (Until this branch the page also resolved the patient and wrote its READ audit from
-  the requested id *before* that substitution; `labDisplay.jsp` now resolves first.)
+  (Until this branch the page also resolved the patient, wrote its READ audit and read
+  the "Date Received" from the requested id *before* that substitution, so an opened
+  lab could show one version's results over another version's received date;
+  `labDisplay.jsp` now settles the segment first and everything keyed on it follows.)
 - **The day sheet needs its full day-search parameter set.**
   `providercontrol?year=&month=&day=` alone answers HTTP **200 with an empty
   document** — no error, no redirect, a blank page. Only the parameter set the
@@ -51,7 +53,12 @@ typing the address:
   when either is missing; its only UI entry is the clinical flowsheet's Add links,
   which is the gap described below.
 - **The prevention recall report has exactly one UI entry**, the Preventions link on
-  the report index. Driving it from there is what notices the link disappearing.
+  the report index. Driving it from there is what notices the link disappearing. It
+  also has a second trap: `PreventionReport2Action` returns the untouched form unless
+  `patientSet` parses to a positive id, so picking a screening type and a date runs
+  nothing and the page comes back looking the same either way. The check seeds a saved
+  demographic query (`demographicQueryFavourites`) naming one patient the Flu rule must
+  classify as due, selects it, and asserts that patient comes back as `No Info`.
 
 A corollary: if a route has **no** UI entry, it does not get a check.
 `prevention/printPrevention` is referenced by no JSP in the tree, so it is left

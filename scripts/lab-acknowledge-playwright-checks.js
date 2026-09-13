@@ -128,13 +128,19 @@ let originalQueueLinkStatus = null;
 let queueLinkRowId = null;
 
 let mysqlDefaults = null;
+// A MySQL option file interprets backslash escapes, so a password containing \ or "
+// reaches the client mangled unless it is quoted and escaped here.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function initMysqlDefaults() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lab-ack-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
   mysqlDefaults = { dir, file };
 }
 function cleanupMysqlDefaults() {
@@ -472,15 +478,21 @@ async function checkCumulativeValues(context) {
 
 (async () => {
   initMysqlDefaults();
-  const resolved = resolveSegment();
-  segmentId = resolved.segmentId;
-  demographicNo = resolved.demographicNo;
-  seedRouting();
-  seedQueueLink();
-
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  let browser = null;
+  let context = null;
+  // Setup runs inside the try so a failure before the browser opens still reaches the
+  // finally: initMysqlDefaults has already written a 0600 file holding the database
+  // password, and a throw here used to leave it on disk for the life of the host.
   try {
+    const resolved = resolveSegment();
+    segmentId = resolved.segmentId;
+    demographicNo = resolved.demographicNo;
+    seedRouting();
+    seedQueueLink();
+
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    context = await browser.newContext({ ignoreHTTPSErrors: true });
+
     await login(context, config, recorder);
 
     const inboxhub = await openInboxhubFromSchedule(context);
@@ -538,8 +550,8 @@ async function checkCumulativeValues(context) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
     try {
       cleanupFixture();
     } finally {

@@ -110,13 +110,19 @@ const recorder = createRecorder();
 const passed = [];
 
 let mysqlDefaults = null;
+// A MySQL option file interprets backslash escapes, so a password containing \ or "
+// reaches the client mangled unless it is quoted and escaped here.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function initMysqlDefaults() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'appt-lifecycle-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
   mysqlDefaults = { dir, file };
 }
 function cleanupMysqlDefaults() {
@@ -288,6 +294,10 @@ async function bookFromSlot(context, daySheet) {
   assert(row2.date === targetDate, `booked appointment landed on ${row2.date}, expected ${targetDate}`);
   assert(row2.demographic === demographicNo,
     `booked appointment landed on demographic ${row2.demographic}, expected ${demographicNo}`);
+  // The slot was clicked in one provider's column; a booking that lands on a different
+  // provider still shows up on the day sheet and would pass every other assertion here.
+  assert(row2.provider === providerNo,
+    `booked appointment landed on provider ${row2.provider}, expected the ${providerNo} column that was clicked`);
   assert(row2.startTime.startsWith(slotStart.slice(0, 5)),
     `booked appointment start_time ${row2.startTime} did not match the clicked slot ${slotStart}`);
   await popup.close().catch(() => {});
@@ -363,10 +373,12 @@ async function editAppointment(context, daySheet, appointmentNo) {
 async function rotateStatus(daySheet, appointmentNo, statusBefore) {
   await openDaySheet(daySheet);
   const statusLink = daySheet.locator(`a.apptStatus[onclick*="appointment_no=${appointmentNo}"]`).first();
-  if (await statusLink.count() === 0) {
-    console.log('WARN day sheet rendered no status-rotation link (no nextStatus configured); skipping');
-    return null;
-  }
+  // A missing status letter is a regression in the day sheet, not a configuration
+  // choice to skip past: every status in the demo set has a nextStatus, so the only
+  // way the link disappears is the schedule failing to render it.
+  assert(await statusLink.count() > 0,
+    `the day sheet rendered no a.apptStatus rotation link for appointment ${appointmentNo};`
+    + ` the status letter is the only no-form status path and it is gone (status before: ${statusBefore})`);
   await Promise.all([
     daySheet.waitForLoadState('domcontentloaded', { timeout: 45000 }),
     statusLink.click(),
@@ -450,19 +462,25 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
 
 (async () => {
   initMysqlDefaults();
-  cleanupRows();
-
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
-  // appointmentaddarecord.jsp calls self.close() on a SUCCESSFUL add, tearing the
-  // confirmation down before it can be read. Neutralising close keeps the page
-  // inspectable; the flag it sets is what the booking asserts instead.
-  await context.addInitScript(() => {
-    window.close = () => {
-      window.__carlosSelfCloseRequested = true;
-    };
-  });
+  let browser = null;
+  let context = null;
+  // Setup runs inside the try so a failure before the browser opens still reaches the
+  // finally: initMysqlDefaults has already written a 0600 file holding the database
+  // password, and a throw here used to leave it on disk for the life of the host.
   try {
+    cleanupRows();
+
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    context = await browser.newContext({ ignoreHTTPSErrors: true });
+    // appointmentaddarecord.jsp calls self.close() on a SUCCESSFUL add, tearing the
+    // confirmation down before it can be read. Neutralising close keeps the page
+    // inspectable; the flag it sets is what the booking asserts instead.
+    await context.addInitScript(() => {
+      window.close = () => {
+        window.__carlosSelfCloseRequested = true;
+      };
+    });
+
     await login(context, config, recorder);
 
     const daySheet = await context.newPage();
@@ -477,9 +495,7 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
     pass(`edit persisted reason, notes and the recomputed end_time (${edited.startTime}-${edited.endTime})`);
 
     const rotated = await rotateStatus(daySheet, booked.id, edited.status);
-    if (rotated) {
-      pass(`day sheet status letter advanced the status ${edited.status} -> ${rotated.status}`);
-    }
+    pass(`day sheet status letter advanced the status ${edited.status} -> ${rotated.status}`);
 
     const cancelled = await cancelAppointment(context, daySheet, booked.id);
     pass(`edit popup cancelled the appointment (status=${cancelled.status}) without deleting it`);
@@ -498,8 +514,8 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
     try {
       cleanupRows();
     } finally {

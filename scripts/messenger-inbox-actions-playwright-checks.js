@@ -95,6 +95,11 @@ assert(/^\d+$/.test(providerNo), 'MESSENGER_PROVIDER_NO must be numeric');
 const stamp = `PW_MSGBOX_${Date.now()}`;
 const subject = `${stamp} subject`;
 const bodyText = `${stamp} body line one`;
+// A second, untouched message in the same box. Every bulk action below is asserted
+// to leave it alone: "the selected row moved" is equally true of an action that moved
+// the whole box, and that is the way a bulk action actually fails.
+const controlSubject = `${stamp} control`;
+const controlBodyText = `${stamp} control body`;
 
 // messagelisttbl.status values, from MessageList.STATUS_*. The inbox renders these
 // directly, so they are the contract the bulk actions have to honour.
@@ -111,13 +116,19 @@ const passed = [];
 let enrolledContactByCheck = false;
 
 let mysqlDefaults = null;
+// A MySQL option file interprets backslash escapes, so a password containing \ or "
+// reaches the client mangled unless it is quoted and escaped here.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function initMysqlDefaults() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'messenger-inbox-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
   mysqlDefaults = { dir, file };
 }
 function cleanupMysqlDefaults() {
@@ -150,8 +161,10 @@ function contactRows() {
   return sqlRows(`SELECT id, groupID FROM groupMembers_tbl WHERE provider_No='${escapeSql(providerNo)}' AND facilityId=0 ORDER BY id`);
 }
 
-function stampedMessageId() {
-  const rows = sqlRows(`SELECT messageid FROM messagetbl WHERE thesubject LIKE '${escapeSql(`${stamp}%`)}' ORDER BY messageid`);
+function stampedMessageId(subjectText) {
+  const rows = sqlRows(
+    `SELECT messageid FROM messagetbl WHERE thesubject='${escapeSql(subjectText)}' ORDER BY messageid`
+  );
   return rows.length === 1 ? rows[0][0] : null;
 }
 
@@ -252,7 +265,7 @@ function messageCheckbox(page, messageId) {
 }
 
 /** Seeds one message to the logged-in provider, composing from inside the inbox. */
-async function sendSelfMessage(inbox) {
+async function sendSelfMessage(inbox, subjectText = subject, body = bodyText) {
   const composeLink = inbox.locator('a[href*="/messenger/ViewCreateMessage"]').first();
   await composeLink.waitFor({ state: 'visible', timeout: 30000 });
   await Promise.all([
@@ -268,7 +281,7 @@ async function sendSelfMessage(inbox) {
   const recipient = inbox.locator(`input[type="checkbox"][name="provider"][value^="${providerNo}"]`).first();
   assert(await recipient.count() > 0, `compose offered no recipient checkbox for provider ${providerNo}`);
   await recipient.check({ force: true });
-  await inbox.locator('#subject').fill(subject);
+  await inbox.locator('#subject').fill(subjectText);
 
   // Typed into the WYSIWYG surface, not the hidden textarea: the Send button's
   // writeToMessage() copies the editor's markdown into that textarea, so filling
@@ -276,7 +289,7 @@ async function sendSelfMessage(inbox) {
   const editor = inbox.locator('.toastui-editor-ww-container .ProseMirror').first();
   await editor.waitFor({ state: 'visible', timeout: 15000 });
   await editor.click();
-  await inbox.keyboard.type(bodyText);
+  await inbox.keyboard.type(body);
 
   const [response] = await Promise.all([
     inbox.waitForResponse((r) => r.request().method() === 'POST'
@@ -287,7 +300,8 @@ async function sendSelfMessage(inbox) {
   assert(response.status() < 400, `messenger/CreateMessage returned HTTP ${response.status()}`);
   await assertNotErrorPage(inbox, 'messenger sent confirmation');
 
-  const messageId = await waitFor(() => stampedMessageId(), 'the sent message to reach messagetbl');
+  const messageId = await waitFor(() => stampedMessageId(subjectText),
+    `the sent message "${subjectText}" to reach messagetbl`);
   await waitFor(() => (recipientStatus(messageId) === STATUS_NEW ? true : null),
     `message ${messageId} to be delivered to provider ${providerNo} as ${STATUS_NEW}`);
   return messageId;
@@ -300,7 +314,8 @@ async function sendSelfMessage(inbox) {
  * the action applied to the row the check selected rather than to the whole box,
  * which is the way a bulk action fails.
  */
-async function runBulkAction(page, boxType, messageId, buttonName, expectedStatus) {
+async function runBulkAction(page, boxType, messageId, buttonName, expectedStatus, controlId = null) {
+  const controlBefore = controlId === null ? null : recipientStatus(controlId);
   await openBox(page, boxType);
   const checkbox = messageCheckbox(page, messageId);
   await checkbox.waitFor({ state: 'visible', timeout: 30000 });
@@ -323,6 +338,13 @@ async function runBulkAction(page, boxType, messageId, buttonName, expectedStatu
 
   await waitFor(() => (recipientStatus(messageId) === expectedStatus ? true : null),
     `${buttonName} to move message ${messageId} to status ${expectedStatus}`);
+
+  if (controlId !== null) {
+    const controlAfter = recipientStatus(controlId);
+    assert(controlAfter === controlBefore,
+      `${buttonName} also moved the unselected control message ${controlId}`
+      + ` from ${controlBefore} to ${controlAfter}; the action applied beyond the selected row`);
+  }
 }
 
 /** Asserts the archived message left the inbox and is listed in the archived box. */
@@ -340,11 +362,13 @@ async function assertArchivedPlacement(page, messageId) {
  * Clearing matters as much as searching: the filter lives in a session bean, so a
  * clear that no-ops leaves the next page load showing a stale, narrowed inbox.
  */
-async function searchAndClear(page, messageId) {
+async function searchAndClear(page, messageId, controlId) {
   await openBox(page, BOX_INBOX);
   const searchInput = page.locator('input[name="searchString"]').first();
   assert(await searchInput.count() > 0, 'the inbox rendered no search field');
-  await searchInput.fill(stamp);
+  // Searching the exact subject narrows the box to this message and excludes the
+  // control, so the clear below has something concrete to restore.
+  await searchInput.fill(subject);
   await Promise.all([
     page.waitForLoadState('domcontentloaded', { timeout: 45000 }),
     page.locator('button[name="btnSearch"]').first().click(),
@@ -352,6 +376,8 @@ async function searchAndClear(page, messageId) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(page, 'inbox search results');
   await messageCheckbox(page, messageId).waitFor({ state: 'visible', timeout: 30000 });
+  assert(await messageCheckbox(page, controlId).count() === 0,
+    `the inbox search for "${subject}" still listed the control message ${controlId}, so it filtered nothing`);
 
   await Promise.all([
     page.waitForLoadState('domcontentloaded', { timeout: 45000 }),
@@ -359,15 +385,31 @@ async function searchAndClear(page, messageId) {
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(page, 'inbox after clearing the search');
+
+  // The filter lives in the session bean, so the proof it cleared is a FRESH load of
+  // the box: a clear that only blanks the rendered field leaves the next page load
+  // still narrowed, which is what an operator hits on their next visit.
+  await openBox(page, BOX_INBOX);
+  const reloadedSearch = await page.locator('input[name="searchString"]').first().inputValue();
+  assert(reloadedSearch === '',
+    `the inbox reloaded with searchString="${reloadedSearch}" still set after the search was cleared`);
+  await messageCheckbox(page, controlId).waitFor({ state: 'visible', timeout: 30000 });
+  await messageCheckbox(page, messageId).waitFor({ state: 'visible', timeout: 30000 });
 }
 
 (async () => {
   initMysqlDefaults();
-  cleanupRows();
-
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  let browser = null;
+  let context = null;
+  // Setup runs inside the try so a failure before the browser opens still reaches the
+  // finally: initMysqlDefaults has already written a 0600 file holding the database
+  // password, and a throw here used to leave it on disk for the life of the host.
   try {
+    cleanupRows();
+
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    context = await browser.newContext({ ignoreHTTPSErrors: true });
+
     await login(context, config, recorder);
     await ensureMessengerContact(context);
     pass(`provider ${providerNo} is enrolled as a local messenger contact`
@@ -379,22 +421,29 @@ async function searchAndClear(page, messageId) {
     const messageId = await sendSelfMessage(inbox);
     pass(`message ${messageId} composed from the inbox and delivered as unread`);
 
-    await runBulkAction(inbox, BOX_INBOX, messageId, 'btnRead', STATUS_READ);
+    const controlId = await sendSelfMessage(inbox, controlSubject, controlBodyText);
+    pass(`control message ${controlId} seeded in the same box to scope every bulk action`);
+
+    await runBulkAction(inbox, BOX_INBOX, messageId, 'btnRead', STATUS_READ, controlId);
     pass('mark-read applies to the selected message only');
 
-    await runBulkAction(inbox, BOX_INBOX, messageId, 'btnUnread', STATUS_NEW);
+    await runBulkAction(inbox, BOX_INBOX, messageId, 'btnUnread', STATUS_NEW, controlId);
     pass('mark-unread returns the selected message to unread');
 
-    await searchAndClear(inbox, messageId);
-    pass('inbox search finds the message by subject and the filter clears again');
+    await searchAndClear(inbox, messageId, controlId);
+    pass('inbox search narrows to the message by subject and a fresh load shows the filter cleared');
 
-    await runBulkAction(inbox, BOX_INBOX, messageId, 'btnDelete', STATUS_DELETED);
+    await runBulkAction(inbox, BOX_INBOX, messageId, 'btnDelete', STATUS_DELETED, controlId);
     pass('archive moves the selected message to the archived status');
 
     await assertArchivedPlacement(inbox, messageId);
     pass('the archived message leaves the inbox and appears in the archived box');
 
-    await runBulkAction(inbox, BOX_ARCHIVED, messageId, 'btnUnarchive', STATUS_READ);
+    assert(await messageCheckbox(inbox, controlId).count() === 0,
+      `the control message ${controlId} followed the archive into the archived box`);
+    pass('the unselected control message stayed out of the archived box');
+
+    await runBulkAction(inbox, BOX_ARCHIVED, messageId, 'btnUnarchive', STATUS_READ, controlId);
     pass('unarchive restores the message to a readable status');
 
     assertNoPageErrors(recorder);
@@ -408,8 +457,8 @@ async function searchAndClear(page, messageId) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
     try {
       cleanupRows();
     } finally {

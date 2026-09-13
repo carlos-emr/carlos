@@ -21,9 +21,16 @@ PROPS="WEB-INF/classes/carlos-build.properties"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/WEB-INF/classes"
-if ! unzip -p "$WAR" "$PROPS" > "$TMP/$PROPS" 2>/dev/null; then
-  echo "stamp-war-build-identity: $WAR carries no $PROPS; leaving its identity alone" >&2
-  exit 0
+# A damaged or non-zip WAR must fail loudly; only a *missing* properties entry is
+# recoverable, and it is recovered by creating the entry rather than skipping the
+# stamp -- silently leaving a prebuilt WAR unidentified is the defect this script
+# exists to close.
+unzip -tqq "$WAR" || { echo "stamp-war-build-identity: $WAR is not a readable archive" >&2; exit 1; }
+if unzip -Z1 "$WAR" | grep -Fxq "$PROPS"; then
+  unzip -p "$WAR" "$PROPS" > "$TMP/$PROPS"
+else
+  echo "stamp-war-build-identity: $WAR carries no $PROPS; creating it" >&2
+  : > "$TMP/$PROPS"
 fi
 # A key that is absent (an older WAR) is appended so the stamp still lands.
 for pair in "build.job=$JOB" "build.number=$NUMBER"; do

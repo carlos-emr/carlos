@@ -621,7 +621,12 @@ suite_failed=0
 #                                showLatest=true, which renders the newest version of the chain, so an
 #                                older segment would put the acknowledge on a row it never routed. Left
 #                                unset the check picks a qualifying lab itself.)
-#   PREVENTION_REPORT_TYPE=Flu   (prevention-recall-report; read-only, seeds and cleans up nothing)
+#                                (prevention-recall-report takes no knob: the screening type is fixed
+#                                to Flu because the check seeds a saved demographic query naming one
+#                                65+ patient with no flu shot and asserts the report classifies them
+#                                "No Info". Without a patientSet the report returns its empty form
+#                                unchanged, so the fixture is what makes it run at all. The saved
+#                                query is the only row written and a finally removes it.)
 #   MEASUREMENT_DEMOGRAPHIC_NO=1 MEASUREMENT_GROUP=Anthropometrics MEASUREMENT_TYPE=WT
 #                                (measurement-validation)
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do

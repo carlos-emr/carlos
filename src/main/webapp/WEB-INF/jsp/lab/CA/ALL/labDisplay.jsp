@@ -210,19 +210,10 @@
         }
     }
 
-    Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
     MeasurementMapDao measurementMapDao = SpringUtils.getBean(MeasurementMapDao.class);
-    Hl7TextMessage hl7TextMessage = null;
-    if (StringUtils.isNotBlank(segmentID) && StringUtils.isNumeric(segmentID)) {
-        hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentID));
-    }
-
+    // "Date Received" is resolved further down, after showLatest has settled which segment this
+    // page actually renders. Declared here only because the header markup reads it.
     String dateLabReceived = "n/a";
-    if (hl7TextMessage != null) {
-        java.util.Date date = hl7TextMessage.getCreated();
-        String stringFormat = "yyyy-MM-dd HH:mm";
-        dateLabReceived = UtilDateUtilities.DateToString(date, stringFormat);
-    }
 
     boolean isLinkedToDemographic = false;
     ArrayList<ReportStatus> ackList = null;
@@ -345,6 +336,21 @@
             LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
         }
 
+    }
+
+    // Same reason as the audit above: showLatest may have swapped segmentID for the newest
+    // version of the accession, so the received date has to be read from the segment that is
+    // being rendered. Reading it earlier showed the requested version's date on a page
+    // displaying a different version's results.
+    Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
+    Hl7TextMessage hl7TextMessage = null;
+    if (StringUtils.isNotBlank(segmentID) && StringUtils.isNumeric(segmentID)) {
+        hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentID));
+    }
+    if (hl7TextMessage != null) {
+        java.util.Date date = hl7TextMessage.getCreated();
+        String stringFormat = "yyyy-MM-dd HH:mm";
+        dateLabReceived = UtilDateUtilities.DateToString(date, stringFormat);
     }
 
 request.setAttribute("duplicateOfLab", duplicateOfLab);

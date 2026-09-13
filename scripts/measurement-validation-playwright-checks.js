@@ -101,13 +101,19 @@ const passed = [];
 let highWaterId = '0';
 
 let mysqlDefaults = null;
+// A MySQL option file interprets backslash escapes, so a password containing \ or "
+// reaches the client mangled unless it is quoted and escaped here.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function initMysqlDefaults() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'measurement-validation-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
   mysqlDefaults = { dir, file };
 }
 function cleanupMysqlDefaults() {
@@ -240,12 +246,18 @@ async function submitInvalid(page, field) {
 
 (async () => {
   initMysqlDefaults();
-  const description = assertTypeIsNumeric();
-  highWaterId = sql(`SELECT COALESCE(MAX(id), 0) FROM measurements`);
-
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  let browser = null;
+  let context = null;
+  // Setup runs inside the try so a failure before the browser opens still reaches the
+  // finally: initMysqlDefaults has already written a 0600 file holding the database
+  // password, and a throw here used to leave it on disk for the life of the host.
   try {
+    const description = assertTypeIsNumeric();
+    highWaterId = sql(`SELECT COALESCE(MAX(id), 0) FROM measurements`);
+
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    context = await browser.newContext({ ignoreHTTPSErrors: true });
+
     await login(context, config, recorder);
 
     const { page, field } = await openMeasurementPopup(context);
@@ -304,8 +316,8 @@ async function submitInvalid(page, field) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
     try {
       cleanupRows();
     } finally {
