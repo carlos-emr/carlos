@@ -36,6 +36,62 @@ that a click produced. A route with no UI entry gets no check (the suite's exist
 corollary). The "Routes" column of each table is traceability for the manifest, not the path
 the check takes.
 
+## Why full user-facing paths: the JavaScript layer
+
+CARLOS is not a server-rendered app with a thin front end. Measured on this branch:
+
+| Mechanism a user's click depends on | Count |
+|---|---:|
+| `popupPage` / `popup` / `newWindow` openers in `WEB-INF/jsp` | 827 |
+| Files with a `window.opener` refresh callback (the opener re-renders after a popup saves) | 155 |
+| `confirm()` / `alert()` call sites | 1,383 |
+| Inline `<script>` blocks in `WEB-INF/jsp` | 1,158 |
+| `fetch` / `XMLHttpRequest` / `$.ajax` / `Ajax.Request` call sites | 171 |
+| Administration pages injected into `#dynamic-content` by AJAX / hosted in the `#myFrame` iframe | 20 / 3 files |
+| DataTables-rendered lists | 35 files |
+| jQuery UI autocompletes (patient, provider, specialist, drug, dx) | 19 files |
+| flatpickr date pickers | 35 files |
+| Day-sheet keyboard shortcuts | 17 keys |
+| CSRFGuard client script injected into pages; AJAX POSTs read its hidden token | every page |
+
+So the thing that breaks for a user is almost never the Struts action alone: it is the
+`onclick` that opens the popup, the opener callback that repaints the day sheet, the DataTables
+init that renders the list, the autocomplete that fills the hidden id, the `confirm()` whose
+result gates the delete, the AJAX fragment the admin shell injects, or the CSRF token an AJAX
+POST reads from a page that never received it. The suite's own history says the same: the
+`aSubmit is not defined` add-patient form, the `contextPath is not defined` Inbox, the
+`parent.parent.resizeIframe` schedule wizard, the eForm restore GET, the notes-pagination
+loop, the `#payee` `TypeError`, and the Select Forms panel that rendered white were all
+JavaScript-layer failures on pages whose server actions were fine.
+
+**The rule this plan applies to every check, existing and new:**
+
+1. **Drive the browser's own event path.** Real `locator.click()` / `fill()` / `press()` /
+   `selectOption()` / `setInputFiles()` on the element the user uses — scrolled into view,
+   in the frame it lives in. No `page.evaluate(() => someHandler())`, no
+   `form.evaluate(f => f.submit())`, no `context.request.post(...)` **as the path**. Those are
+   permitted only for a *negative probe* (replay a captured POST without its token, with a
+   forged patient, as GET) after the positive path has been driven through the UI.
+2. **Enter through the opener, not the address.** If the UI opens a page as a popup, the
+   check clicks the opener and takes the `popup` event; if the admin shell injects a panel,
+   the check clicks the left-nav item and asserts inside `#dynamic-content` / `#myFrame`.
+3. **Assert the JavaScript signals on every page, not only the DB row.** A `pageerror`, a
+   `jQuery.Deferred exception`, a `Refused to execute script … MIME type` message, a failed
+   subresource (`requestfailed`, or a script/CSS answering ≥ 400), or a `confirm()` nobody
+   answered is a failure unless it is on the shared, issue-keyed console baseline.
+4. **Assert the round trip a user sees.** After a popup saves, the opener has re-rendered the
+   new row (the callback ran); after an AJAX save, the fragment shows the result; after a
+   DataTables list loads, the row is in the table, not only in the response.
+
+Measured against the existing 75 scripts: **26** assert `pageerror`, **0** assert
+`requestfailed`, **3** wait for a popup window, **10** touch the opener contract, **3** press
+a keyboard shortcut, and **31** navigate directly to a page the UI opens as a popup (§1.3).
+`rx-med-history` calls `window.displayMedHistory(id)` and `drugref-update` calls
+`pollStatus()` from `page.evaluate`; `prevention-brand-picker` probes the lot lookup with
+`context.request.post('/cvc')` rather than the widget; `echart-note-sign-bill` triggers the
+Save / Sign / Bill buttons through their handlers because the row sits below the viewport
+(obs. 16). Each is listed for a change in §2.1.
+
 ---
 
 ## 1. Baseline: what exists today
@@ -166,6 +222,22 @@ SIGINT/SIGTERM (#3600). 51 pass `ignoreHTTPSErrors: true` unconditionally (#3598
   - `consoleBaseline` — one shared allow-list (`scripts/lib/console-baseline.json`) of known
     legacy console errors keyed to issue numbers (the `providerSignatureImage` 404, the Rourke
     favicon 404, the `getActiveText()` TypeError). New checks fail on *new* console errors.
+  - **`wireStrictPage(page)` — the JavaScript-signal contract.** Extends today's `wirePage`
+    so that, by default, a `pageerror`, a `jQuery.Deferred exception`, a `Refused to execute
+    script` MIME error, a `requestfailed`, or a script/stylesheet/XHR answering ≥ 400 fails the
+    check unless matched by the console baseline; one `dialog` listener per page with an
+    explicit expectation (`expectDialog('confirm', accept)`) so an unanswered `confirm()`
+    is a failure, not a silent dismiss.
+  - **`ui.*` — the JavaScript-path helpers**, so every check drives the same mechanisms the
+    way a user does: `ui.clickOpensPopup(locator)` (click + `popup` event + `load` +
+    `wireStrictPage` on the popup), `ui.clickInjectsPanel(navItem, '#dynamic-content')`
+    (click + wait for the fragment's marker element), `ui.inFrame('#myFrame')`,
+    `ui.expectOpenerRefresh(page, popup, rowLocator)` (close the popup, assert the opener
+    re-rendered the row without a manual reload), `ui.typeAutocomplete(input, text, option)`
+    (type, wait for the suggestion list, pick, assert the hidden id filled),
+    `ui.pickDate(input, isoDate)` (through flatpickr, not `fill`), `ui.dataTableRows(table)`
+    (wait for DataTables init + draw), `ui.pressShortcut(page, key)`, `ui.csrfTokenPresent(page)`
+    (the hidden `CSRF-TOKEN` input is populated before an AJAX POST is attempted).
 - Unit-test the harness in `scripts/playwright-harness.test.js` (CI already runs `*.test.js`).
 - Migrate the 25 scripts that do not require the harness; delete local copies in slices of
   ~8 scripts per PR.
@@ -217,6 +289,12 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `echart-note-sign-bill` | `WARN` that Save / Sign & Save / Bill are inside the viewport at 1366×768 and 1920×1080; promote when obs. 16 is fixed | Handlers are clicked today, hiding a real layout defect |
 | `billing-on-submit` | Assert no `TypeError` from `onSave()` (obs. 2) once `#payee` is guarded; assert the billing physician defaults to the appointment provider (obs. 4) when fixed | Report, don't encode |
 | `demographic-master-crud-smoke` | Rename to `-playwright-checks.js`, adopt the harness, add DB asserts (page-only today) | A save that wrote nothing passes a page-only check |
+| `echart-note-sign-bill` | Click the real Save / Sign & Save / Bill buttons (`scrollIntoViewIfNeeded` + `click`); keep the handler invocation only as the documented fallback that reports `WARN` until obs. 16 is fixed, then remove it | The button row is the JS path a clinician uses |
+| `rx-med-history` | Replace `page.evaluate(() => window.displayMedHistory(id))` with the click on the medication-history control | Handler invocation skips the opener/onclick wiring |
+| `drugref-update` | Replace `page.evaluate(() => pollStatus())` with waiting on the page's own status poll (`waitForResponse` on the relay + the rendered status) | The check must prove the page polls by itself |
+| `prevention-brand-picker` | Drive the lot-number lookup through the widget in the Add Prevention popup; keep the `context.request.post('/cvc')` probe as a secondary assertion | The widget is what a nurse uses; obs. 20 says its endpoint may be unmapped |
+| the 31 scripts in §1.3 that `goto` a popup page | Click the opener via `navigate.*` / `ui.clickOpensPopup`; assert the opener refresh where the popup saves (appointments, ticklers, preventions, Rx, eForms, consultations) | 827 popup openers and 155 opener callbacks are otherwise untested |
+| the 49 scripts without `pageerror` wiring | `wireStrictPage` via `runCheck()` | A page whose script block fails to parse currently passes if its form still posts |
 | `browser-surface` | Fold into `master-record-tabs` (2.4) and `admin-index-links` (3.7) | Overlaps |
 | `schedule-links` | Thin wrapper over `navigate.*` asserting every top-bar item, not six | The click map is the contract |
 | `document-upload`, `tickler-*`, `messenger*`, `rx-*`, `allergy-*` | Enter via `navigate.*` | §1.3 |
@@ -310,6 +388,10 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `direct-response-contract` (parameterised) | Click every Print / PDF / Export / Download control a user can reach — eForm PDF, consultation letter, Rx print, labels, invoices, lab PDF, HRM print, chart print, eChart history print, flowsheet print, prevention print, report exports, Database/Document Download, envelope, measurement graph | Right `Content-Type`, magic bytes (`%PDF`, `PK`, `\x89PNG`), `Content-Disposition`, and never an HTML error page inside a download (the `CARLOS Error: 0` class from PR #2043) |
 | `phi-in-error-pages` | Provoke 400/403/404/405/500 across each route family (bad ids on real pages, replayed POSTs) | No HIN pattern, no `FAKE-` name, no `demographic_no` in the body; local-only extension greps `catalina.out` after the suite for the same patterns |
 | `waf-clinical-text-corpus` (front-door tier) | Extends `clinical-freetext`: post a fixture corpus of clinician sentences the CRS mis-scores through every free-text field the survey identified, via the UI | Each saves through nginx on `:443` |
+| `page-script-integrity` (parameterised over the click map) | Reach every page/popup/panel `navigate.*` knows through its click | No script or stylesheet answers ≥ 400 or the wrong MIME type (the `displayImage.do?imagefile=stamps.js` class from #3313); no `pageerror`; no `jQuery.Deferred exception`; every page whose scripts do AJAX POSTs has a populated hidden `CSRF-TOKEN` input (the bootstrap rule in `CLAUDE.md`); DataTables lists finish their first draw; autocompletes answer |
+| `schedule-shortcuts-popups` | Schedule: press each of the 17 day-sheet shortcut keys; click every top-bar opener (Tickler, Consultations, Msg, Inbox, Report, Billing, Administration, Preferences, eDoc, Scratch, WorkFlow, Dashboard, Program Management) | The right popup/window opens with focus, is wired strictly, renders its first content, and closes; the day-sheet view/date shortcuts change the rendered day |
+| `opener-refresh-contract` | Day sheet ▸ slot ▸ Add Appointment ▸ save; Master Record ▸ Tickler ▸ add; Chart ▸ Preventions ▸ add; Chart ▸ Rx ▸ save; Chart ▸ eForms ▸ save; Consultations ▸ new ▸ save | After the popup closes the opener shows the new row/badge **without a manual reload** (the `window.opener` callback ran) — and the row is in the DB |
+| `dialog-confirmations` | For each delete/cancel/discard control in the P1 families (appointment delete, tickler delete, note discard, Rx delete, allergy delete, document delete, bill delete, eForm delete) | Dismissing the `confirm()` writes nothing; accepting writes the row; a missing dialog (handler changed) is a failure |
 
 ---
 
@@ -456,9 +538,9 @@ Effort is in engineer-weeks for someone who has written one check on this suite 
 
 | Phase | Scope | Exit criteria | Effort |
 |---|---|---|---|
-| 0 | §2.1 harness + `runCheck` + `navigate.*`, manifest + runner, missing npm aliases, migrate 8 scripts as proof | Runner drives the existing suite in the devcontainer; `script-regressions.yml` tests the harness and the manifest; runbook §6 loop replaced | 2 |
-| 1 | §2.1 fixtures, smoke CI tier (non-blocking), the §1.3 path changes, migrate remaining scripts | Smoke tier green on three consecutive PRs; #3313 / #3317 / #3598 / #3600 closed | 3 |
-| 2 | Priority 1 checks (§2.2–2.8) | Route coverage ≥ 45%; every daily clinical + revenue workflow has a DB-asserting check; nightly core tier on `develop` and `release/**` | 8–10 |
+| 0 | §2.1 harness + `runCheck` + `wireStrictPage` + `navigate.*` + `ui.*`, manifest + runner, missing npm aliases, migrate 8 scripts as proof | Runner drives the existing suite in the devcontainer; `script-regressions.yml` tests the harness and the manifest; runbook §6 loop replaced | 2 |
+| 1 | §2.1 fixtures, smoke CI tier (non-blocking), the §1.3 path changes, strict wiring on all 75, migrate remaining scripts | Smoke tier green on three consecutive PRs; every script enters through its opener and fails on a `pageerror`; #3313 / #3317 / #3598 / #3600 closed | 3 |
+| 2 | Priority 1 checks (§2.2–2.8), starting with `page-script-integrity`, `schedule-shortcuts-popups`, `opener-refresh-contract`, `dialog-confirmations` | Route coverage ≥ 45%; every daily clinical + revenue workflow has a DB-asserting check; nightly core tier on `develop` and `release/**` | 8–10 |
 | 3 | Priority 2 (§3) | Route coverage ≥ 70%; `admin-index-links`, `report-index-links`, `master-record-tabs`, `echart-navbar-modules`, `form-catalog-smoke` give every reachable page at least a render check | 6–8 |
 | 4 | Priority 3 (§4; BC after the profile); front-door CI | BC routes covered or explicitly listed as uncovered; a11y / i18n report-only in nightly | 4–6 |
 
@@ -498,3 +580,9 @@ shared helper.
 | write a machine-readable result | 4 |
 | without an `npm run` alias | 8 |
 | enter by typed URL where a click exists (§1.3) | ~30 |
+| assert `pageerror` | 26 |
+| assert `requestfailed` | 0 |
+| wait for a popup window (`popup` event) | 3 |
+| assert the opener refresh contract | 10 |
+| press a keyboard shortcut | 3 |
+| call a page function from `page.evaluate` as the path | 2 |
