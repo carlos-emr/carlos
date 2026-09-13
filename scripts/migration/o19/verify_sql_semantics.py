@@ -2665,6 +2665,63 @@ def _archive_collation_body(client: Client, dst: str, arch: str
     return failures
 
 
+def check_login_names(client: Client, dst: str) -> List[str]:
+    """The P7 login-name advisory lists exactly the accounts CARLOS's
+    login refuses.
+
+    Login2Action accepts a user name matching `[a-zA-Z0-9]{1,30}` and
+    nothing else; OSCAR 19 never had that rule. The advisory's predicate
+    (`BINARY user_name NOT REGEXP ...`, o19etl.login_name_violations_sql)
+    must list the dotted, underscored, at-signed and hyphenated names and
+    none of the plain ones, on both server lines. The control is the
+    pattern --admin-user used to enforce before the fix, which accepted
+    those characters: run in the same predicate it lists nothing, which
+    is why `rehearsal.admin` was created and could never sign in.
+    """
+    try:
+        return _login_names_body(client, dst)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`;".format(dst))
+
+
+def _login_names_body(client: Client, dst: str) -> List[str]:
+    """The login-name checks; the caller owns the teardown."""
+    failures: List[str] = []
+    print("\n  login names CARLOS refuses (P7 advisory predicate)")
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+                 .format(dst))
+    plain = ["jdoe", "Ab9", "MiXeD1", "x" * 30, "7"]
+    odd = ["dr.smith", "it@clinic", "j_doe", "ops-2"]
+    client.setup(
+        "CREATE TABLE security (security_no int, user_name varchar(30)); "
+        "INSERT INTO security VALUES "
+        + ", ".join("({0}, '{1}')".format(i, n)
+                    for i, n in enumerate(plain + odd)) + ";", dst)
+    got = [r[0] for r in client.rows(
+        o19etl.login_name_violations_sql(dst), dst)]
+    want = sorted(odd)
+    print("    {0:<44} {1}".format(
+        "the predicate lists the four refused names",
+        "ok" if got == want else "NOT ({0!r})".format(got)))
+    if got != want:
+        failures.append("login_name_violations_sql listed {0!r}, "
+                        "expected {1!r}".format(got, want))
+    # control: the pre-fix --admin-user pattern in the same predicate
+    old = "^[A-Za-z0-9][A-Za-z0-9_.@\\-]{0,29}$"
+    ctl = [r[0] for r in client.rows(
+        "SELECT user_name FROM `{0}`.security WHERE BINARY user_name NOT "
+        "REGEXP '{1}' ORDER BY user_name".format(dst, old), dst)]
+    print("    {0:<44} {1}".format(
+        "control: the pre-fix pattern misses all four",
+        "yes (it accepted them, so it lists none)" if ctl == []
+        else "NO ({0!r})".format(ctl)))
+    if ctl != []:
+        failures.append("the pre-fix pattern listed {0!r}; the control "
+                        "no longer demonstrates the defect".format(ctl))
+    return failures
+
+
 def _run_checks(client: Client, args, failures: Dict[str, List[str]],
                 dst: str, src: str, arch: str) -> int:
     """Every check in turn; `main` owns the shared-schema teardown."""
@@ -2723,6 +2780,9 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
                                        args.prefix + "_cla")
     if collated:
         failures["archive collation"] = collated
+    names = check_login_names(client, args.prefix + "_lnd")
+    if names:
+        failures["login names"] = names
 
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
@@ -2760,7 +2820,9 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
           "demonstrably fails a faithful copy, and the literal that "
           "substitution uses is right for EVERY type the manifest "
           "presents -- on the rows that needed no substitution as much "
-          "as on the rows that did")
+          "as on the rows that did, and the P7 login-name advisory lists "
+          "exactly the accounts CARLOS's login refuses where the pattern "
+          "--admin-user used to enforce demonstrably lists none")
     return 0
 
 
