@@ -92,6 +92,9 @@ assert(/^[A-Za-z0-9_-]{1,20}$/.test(measurementType), 'MEASUREMENT_TYPE must be 
 // purpose: a range rule is configurable per deployment, but no numeric measurement
 // type accepts alphabetic input, so this is refused everywhere.
 const invalidValue = 'not-a-number';
+// The control that must save through the same form; assertTypeIsNumeric() checks it
+// sits inside the type's configured numeric range.
+const validValue = '72';
 
 const recorder = createRecorder();
 const passed = [];
@@ -154,17 +157,29 @@ function cleanupRows() {
   }
 }
 
+/**
+ * Requires the configured type to carry a NUMERIC validation rule that admits the
+ * control value. This check submits a non-numeric string and expects a rejection,
+ * then a numeric control and expects a save; a type validated by a regex (BP), a
+ * date, or a free-text rule would accept the "bad" value or refuse the "good" one,
+ * and the check would report a regression the application does not have.
+ */
 function assertTypeIsNumeric() {
-  const validation = sql(
-    `SELECT COALESCE(validation, '') FROM measurementType WHERE type='${escapeSql(measurementType)}' LIMIT 1`
-  );
-  assert(validation !== '' || true,
+  const row = sqlRows(
+    "SELECT mt.typeDescription, IFNULL(v.isNumeric, 0), IFNULL(v.minValue, ''), IFNULL(v.maxValue1, ''), IFNULL(v.regularExp, ''), IFNULL(v.isDate, 0)"
+    + ' FROM measurementType mt LEFT JOIN validations v ON v.id = mt.validation'
+    + ` WHERE mt.type='${escapeSql(measurementType)}' LIMIT 1`
+  )[0];
+  assert(row,
     `MEASUREMENT_TYPE=${measurementType} is not configured in measurementType on this deployment`);
-  const description = sql(
-    `SELECT typeDescription FROM measurementType WHERE type='${escapeSql(measurementType)}' LIMIT 1`
-  );
-  assert(description,
-    `MEASUREMENT_TYPE=${measurementType} is not configured in measurementType on this deployment`);
+  const [description, isNumeric, minValue, maxValue, regularExp, isDate] = row;
+  assert(isNumeric === '1' && regularExp === '' && isDate === '0',
+    `MEASUREMENT_TYPE=${measurementType} is not validated by a numeric rule`
+    + ` (isNumeric=${isNumeric}, isDate=${isDate}, regularExp=${JSON.stringify(regularExp)});`
+    + ' this check only supports numeric-rule types such as WT or HT');
+  const control = Number(validValue);
+  assert((minValue === '' || control >= Number(minValue)) && (maxValue === '' || control <= Number(maxValue)),
+    `the control value ${validValue} is outside ${measurementType}'s numeric range [${minValue || '-inf'}, ${maxValue || '+inf'}]`);
   return description;
 }
 
@@ -261,7 +276,7 @@ async function submitInvalid(page, field) {
     // A valid value through the same form proves the refusal above was the
     // validation rule and not a save that is broken for every input.
     await field.fill('');
-    await field.fill('72');
+    await field.fill(validValue);
     await field.dispatchEvent('blur');
     const [goodResponse] = await Promise.all([
       page.waitForResponse((r) => r.request().method() === 'POST'
@@ -274,7 +289,7 @@ async function submitInvalid(page, field) {
       `a valid ${measurementType} value was rejected too, so the refusal above proves nothing:`
       + ` ${JSON.stringify(goodJson)}`);
     const accepted = newRows();
-    assert(accepted.length === 1 && accepted[0].dataField === '72',
+    assert(accepted.length === 1 && accepted[0].dataField === validValue,
       `a valid ${measurementType} value did not persist as expected: ${JSON.stringify(accepted)}`);
     pass(`a valid ${measurementType} value through the same form persists, so the rejection was the rule`);
 

@@ -122,6 +122,10 @@ let originalRoutingStatus = null;
 // shares the lab's number, otherwise the existing link's status is remembered.
 let queueLinkCreatedByCheck = false;
 let originalQueueLinkStatus = null;
+// The single queue_document_link row the fixture touched, by primary key: a document
+// can be linked to several queues, and restoring by document_id would overwrite the
+// rows this check never changed.
+let queueLinkRowId = null;
 
 let mysqlDefaults = null;
 function initMysqlDefaults() {
@@ -173,21 +177,29 @@ async function waitFor(probe, description, timeoutMs = 30000) {
 }
 
 /**
- * Returns the newest lab sharing this lab's accession number.
+ * Returns the segment labDisplay will render for this lab under showLatest=true.
  *
- * labDisplay is opened by the Inboxhub with showLatest=true, and on that flag it
- * REPLACES the requested segment with the last of Hl7textResultsData.getMatchingLabs
- * -- the newest version of the same accession (labDisplay.jsp:319). The fixture has
- * to be that newest version, or the acknowledge form on the page would belong to a
- * segment this check never routed to the provider and the review would be written
- * against the wrong row.
+ * The Inboxhub opens labs with showLatest=true, and on that flag labDisplay.jsp
+ * REPLACES the requested segment with the last element of
+ * Hl7textResultsData.getMatchingLabs(): the labs sharing its non-empty accession
+ * number whose OBR date lies within four months of the requested lab's, in the
+ * order Hl7TextInfoDao.findByLabIdViaMagic returns them -- final_result_count,
+ * obr_date, lab_no. That is NOT "the highest lab_no": a re-issued result with a
+ * lower number can sort last. This mirrors that selection so the fixture routed
+ * to the provider is the segment the page will actually render; if the two ever
+ * disagreed, the check would fail on fixture selection instead of on the
+ * acknowledge it exists to exercise. CLS-type labs use a different matcher
+ * (filler order number) and are excluded from the default fixture search.
  */
-function newestOfChain(labNo) {
-  const newest = sql(
-    'SELECT MAX(h2.lab_no) FROM hl7TextInfo h2'
-    + ` WHERE h2.accessionNum = (SELECT h.accessionNum FROM hl7TextInfo h WHERE h.lab_no=${Number(labNo)})`
+function renderedSegmentFor(labNo) {
+  const last = sql(
+    'SELECT a.lab_no FROM hl7TextInfo a JOIN hl7TextInfo b ON a.accessionNum = b.accessionNum'
+    + ` WHERE b.lab_no=${Number(labNo)} AND a.accessionNum <> ''`
+    + " AND a.obr_date IS NOT NULL AND b.obr_date IS NOT NULL"
+    + ' AND ABS(TIMESTAMPDIFF(MONTH, STR_TO_DATE(a.obr_date, \'%Y-%m-%d %H:%i:%s\'), STR_TO_DATE(b.obr_date, \'%Y-%m-%d %H:%i:%s\'))) < 4'
+    + ' ORDER BY a.final_result_count DESC, a.obr_date DESC, a.lab_no DESC LIMIT 1'
   );
-  return newest || String(labNo);
+  return last || String(labNo);
 }
 
 function resolveSegment() {
@@ -198,24 +210,24 @@ function resolveSegment() {
       `SELECT demographic_no FROM patientLabRouting WHERE lab_no=${Number(requested)} AND lab_type='HL7' LIMIT 1`
     );
     assert(linked, `LAB_SEGMENT_ID=${requested} is not an HL7 lab linked to a patient`);
-    const newest = newestOfChain(requested);
-    assert(newest === requested,
-      `LAB_SEGMENT_ID=${requested} is not the newest version of its accession (that is ${newest});`
+    const rendered = renderedSegmentFor(requested);
+    assert(rendered === requested,
+      `LAB_SEGMENT_ID=${requested} is not the version labDisplay renders for its accession (that is ${rendered});`
       + ' the Inboxhub opens labs with showLatest=true, so the page would render'
-      + ` ${newest} and this check would review a segment it never routed`);
+      + ` ${rendered} and this check would review a segment it never routed`);
     return { segmentId: requested, demographicNo: linked };
   }
-  // Only labs that are the newest of their accession qualify, for the reason in
-  // newestOfChain: the demo dataset ships one accession with 30-odd versions, and
-  // the lowest lab_no of that chain is exactly the segment showLatest moves off.
-  const row = sqlRows(
+  // Only a lab that is its own rendered segment qualifies, for the reason in
+  // renderedSegmentFor: the demo dataset ships one accession with 30-odd versions,
+  // and the lowest lab_no of that chain is exactly the segment showLatest moves off.
+  const candidates = sqlRows(
     'SELECT h.lab_no, pl.demographic_no FROM hl7TextInfo h'
     + " JOIN patientLabRouting pl ON pl.lab_no=h.lab_no AND pl.lab_type='HL7'"
-    + ' WHERE h.lab_no = (SELECT MAX(h2.lab_no) FROM hl7TextInfo h2'
-    + '                   WHERE h2.accessionNum = h.accessionNum)'
-    + ' ORDER BY h.lab_no LIMIT 1'
-  )[0];
-  assert(row, 'the deployment has no HL7 lab linked to a patient; set LAB_SEGMENT_ID');
+    + " JOIN hl7TextMessage m ON m.lab_id=h.lab_no AND IFNULL(m.type,'') <> 'CLS'"
+    + ' ORDER BY h.lab_no'
+  );
+  const row = candidates.find(([labNo]) => renderedSegmentFor(labNo) === labNo);
+  assert(row, 'the deployment has no non-CLS HL7 lab linked to a patient that is its own rendered segment; set LAB_SEGMENT_ID');
   return { segmentId: row[0], demographicNo: row[1] };
 }
 
@@ -257,24 +269,30 @@ function queueLinkRow() {
 function seedQueueLink() {
   const existing = queueLinkRow();
   if (existing) {
+    queueLinkRowId = existing.id;
     originalQueueLinkStatus = existing.status;
     sql(`UPDATE queue_document_link SET status='A' WHERE id=${Number(existing.id)}`);
     return;
   }
   sql(`INSERT INTO queue_document_link (queue_id, document_id, status) VALUES (1, ${Number(segmentId)}, 'A')`);
+  // Separate mysql invocations are separate sessions, so LAST_INSERT_ID() is not
+  // available here; the row just written is the newest one for this document.
+  queueLinkRowId = sql(
+    `SELECT id FROM queue_document_link WHERE queue_id=1 AND document_id=${Number(segmentId)} ORDER BY id DESC LIMIT 1`
+  );
   queueLinkCreatedByCheck = true;
 }
 
 function cleanupQueueLink() {
-  if (segmentId === null) {
+  if (segmentId === null || queueLinkRowId === null || !/^\d+$/.test(queueLinkRowId)) {
     return;
   }
   if (queueLinkCreatedByCheck) {
-    sql(`DELETE FROM queue_document_link WHERE document_id=${Number(segmentId)} AND queue_id=1 AND status IN ('A','I')`);
+    sql(`DELETE FROM queue_document_link WHERE id=${Number(queueLinkRowId)}`);
   } else if (originalQueueLinkStatus !== null) {
     // mysql -N -B prints a NULL status as the text NULL; put a real NULL back.
     const restored = originalQueueLinkStatus === 'NULL' ? 'NULL' : `'${escapeSql(originalQueueLinkStatus)}'`;
-    sql(`UPDATE queue_document_link SET status=${restored} WHERE document_id=${Number(segmentId)}`);
+    sql(`UPDATE queue_document_link SET status=${restored} WHERE id=${Number(queueLinkRowId)}`);
   }
 }
 
@@ -497,7 +515,9 @@ async function checkCumulativeValues(context) {
       `lab ${segmentId} is still queued as unreviewed for provider ${providerNo} after acknowledgement`);
     pass('the acknowledged lab no longer sits in the provider unreviewed queue');
 
-    const queueLink = queueLinkRow();
+    const queueLink = queueLinkRowId !== null
+      ? (() => { const st = sql(`SELECT status FROM queue_document_link WHERE id=${Number(queueLinkRowId)}`); return st ? { id: queueLinkRowId, status: st } : null; })()
+      : queueLinkRow();
     assert(queueLink && queueLink.status === 'A',
       `acknowledging lab ${segmentId} changed the DOCUMENT queue link for document_id ${segmentId}`
       + ` to ${JSON.stringify(queueLink)}; a lab acknowledge must not reach the document queue`);
