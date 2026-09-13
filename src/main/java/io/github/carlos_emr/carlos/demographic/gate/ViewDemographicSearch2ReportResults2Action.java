@@ -37,7 +37,7 @@ public final class ViewDemographicSearch2ReportResults2Action extends ActionSupp
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_search", "r", null)) {
             throw new SecurityException("missing required sec object (_search)");

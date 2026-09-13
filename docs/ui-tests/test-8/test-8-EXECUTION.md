@@ -12,13 +12,13 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/oscar/index.jsp
 
 ### 2. Database Connectivity
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword carlos -e "SELECT 1;"
 ```
 
 ### 3. Check for Lab Data (Optional)
 ```bash
 # Check if any lab results exist
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT COUNT(*) as lab_count FROM hl7TextMessage LIMIT 1;"
 ```
 

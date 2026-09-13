@@ -39,6 +39,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO,io.github.carlos_emr.carlos.commn.model.Dxresearch,io.github.carlos_emr.carlos.commn.dao.Icd9Dao,io.github.carlos_emr.carlos.commn.model.Icd9" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
@@ -69,7 +70,8 @@
             <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script> --%>
 
         <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-3.7.1.min.js"></script>
-        <script type="text/javascript" src="${ oscar_context_path }/js/jquery-ui-1.8.18.custom.min.js"></script>
+        <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-compat.js"></script>
+        <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript">var ctx = '${ oscar_context_path }';</script>
         <title>Drug Reason</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -293,7 +295,7 @@
                                             %>
                                             <carlos:encode value='<%= descr %>' context="html"/>
                                         </td>
-                                        <td><%=drugReason.getComments() %>
+                                        <td><%=SafeEncode.forHtmlContent(drugReason.getComments()) %>
                                         </td>
                                         <td>
                                             <%if (drugReason.getPrimaryReasonFlag()) { %>
