@@ -9,6 +9,8 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Clock;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
@@ -62,14 +64,19 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class HL7CreateFile {
     private Demographic demographic;
+    private final Clock clock;
     String LAB_TYPE = "CML";
     Integer resultCount = 1;
     private static final Logger logger = MiscUtils.getLogger();
-    private static final SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    private static final SimpleDateFormat inputDateOnlyFormat = new SimpleDateFormat("yyyy-MM-dd");
-    private static final SimpleDateFormat xmlTimezoneOffSetDateTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-    private static final SimpleDateFormat fullDateTime = new SimpleDateFormat("yyyyMMddHHmmss");
-    private static final SimpleDateFormat fullDate = new SimpleDateFormat("yyyyMMdd");
+    // SimpleDateFormat is NOT thread-safe. These were previously shared static instances used for
+    // parse/format without synchronization, which corrupts dates under concurrent HL7 generation.
+    // They are now pattern constants; each use site builds its own short-lived formatter (default
+    // locale/timezone, identical behavior) so no formatter state is shared across threads.
+    private static final String INPUT_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    private static final String INPUT_DATE_ONLY_FORMAT = "yyyy-MM-dd";
+    private static final String XML_TIMEZONE_OFFSET_DATE_TIME = "yyyy-MM-dd'T'HH:mm:ssXXX";
+    private static final String FULL_DATE_TIME = "yyyyMMddHHmmss";
+    private static final String FULL_DATE = "yyyyMMdd";
 
 
     /**
@@ -79,7 +86,12 @@ public class HL7CreateFile {
      *                    sex, health insurance number, and contact information
      */
     public HL7CreateFile(Demographic demographic) {
+        this(demographic, Clock.systemDefaultZone());
+    }
+
+    HL7CreateFile(Demographic demographic, Clock clock) {
         this.demographic = demographic;
+        this.clock = clock;
     }
 
     /**
@@ -184,8 +196,9 @@ public class HL7CreateFile {
             }
         }
         String labNameType = LAB_TYPE + "|" + labName;
-        DateTimeFullOrPartial labDateString = lab.getLabRequisitionDateTime() != null ? lab.getLabRequisitionDateTime() : lab.getCollectionDateTime();
-        String requisitionDate = getDateTime(labDateString);
+        String messageCreationDate = DateTimeFormatter.ofPattern(FULL_DATE_TIME)
+                .withZone(clock.getZone())
+                .format(clock.instant());
         String version = "2.3";
         if (LAB_TYPE.equals("MDS")) {
             labNameType = labName + "|" + LAB_TYPE;
@@ -196,7 +209,7 @@ public class HL7CreateFile {
             version = version + ".1";
         }
 
-        return "MSH|^~\\&|" + labNameType + "|||" + requisitionDate + "||ORU^R01|" + StringUtils.noNull(lab.getAccessionNumber()) + "-" + resultCount + "|P|" + version + "||||";
+        return "MSH|^~\\&|" + labNameType + "|||" + messageCreationDate + "||ORU^R01|" + StringUtils.noNull(lab.getAccessionNumber()) + "-" + resultCount + "|P|" + version + "||||";
     }
 
     private String generateNTE(LaboratoryResultsDocument.LaboratoryResults lab) {
@@ -307,7 +320,15 @@ public class HL7CreateFile {
             pid19 = "X" + healthCard;
         }
 
-        return "PID|1|" + StringUtils.noNull(demographic.getHin()) + "|" + lab.getAccessionNumber() + "|" + healthCard + "|" + demographic.getLastName() + "^" + demographic.getFirstName() + "||" + fullDate.format(demographic.getBirthDay().getTime()) + "|" + demographic.getSex() + "|||||" + demographicPhone + "|" + demographicPhone2 + "|||||" + pid19;
+        // getBirthDay() is nullable — a demographic with no recorded date of birth threw an NPE out
+        // of HL7 generation here, failing the whole message rather than emitting a PID with an empty
+        // DOB field. HL7 treats an empty component as "not supplied", which is the honest encoding
+        // of a birth date CARLOS does not hold.
+        String birthDate = demographic.getBirthDay() == null
+                ? ""
+                : new SimpleDateFormat(FULL_DATE).format(demographic.getBirthDay().getTime());
+
+        return "PID|1|" + StringUtils.noNull(demographic.getHin()) + "|" + lab.getAccessionNumber() + "|" + healthCard + "|" + demographic.getLastName() + "^" + demographic.getFirstName() + "||" + birthDate + "|" + demographic.getSex() + "|||||" + demographicPhone + "|" + demographicPhone2 + "|||||" + pid19;
     }
 
     private String generateZFR(LaboratoryResultsDocument.LaboratoryResults lab) {
@@ -384,15 +405,18 @@ public class HL7CreateFile {
     }
 
     /**
-     * Attempts to parse a Date object from the provided DateTimeFullOrPartial
+     * Attempts to parse a Date from the provided DateTimeFullOrPartial across the known input formats.
      *
      * @param dateObj The provided DateTimeFullOrPartial object
-     * @return A parsed date string of the DateTimeFullOrPartial or if not parsable it takes the current Date()
+     * @return the formatted {@code yyyyMMddHHmmss} timestamp, or an empty string when the date is
+     *         absent or unparseable. It deliberately does NOT substitute the current time: fabricating
+     *         a plausible-but-wrong clinical timestamp is worse than an empty field.
      */
     private String getDateTime(DateTimeFullOrPartial dateObj) {
         Date date = null;
         if (dateObj != null) {
-            SimpleDateFormat[] formats = {inputFormat, xmlTimezoneOffSetDateTime, inputDateOnlyFormat};
+            SimpleDateFormat[] formats = {new SimpleDateFormat(INPUT_FORMAT),
+                    new SimpleDateFormat(XML_TIMEZONE_OFFSET_DATE_TIME), new SimpleDateFormat(INPUT_DATE_ONLY_FORMAT)};
             for (SimpleDateFormat format : formats) {
                 try {
                     if (dateObj.isSetFullDate()) {
@@ -400,17 +424,25 @@ public class HL7CreateFile {
                     } else if (dateObj.isSetFullDateTime()) {
                         date = format.parse(dateObj.getFullDateTime().toString());
                     }
-                } catch (ParseException e) { /* Do nothing */ }
+                } catch (ParseException e) {
+                    // Expected while probing formats: this one did not match, try the next. The
+                    // terminal all-formats-failed case is surfaced below rather than swallowed.
+                }
                 if (date != null) {
                     break;
                 }
             }
         }
         if (date == null) {
-            date = new Date();
+            // Do NOT fabricate the current time for an absent/unparseable clinical date: a wrong but
+            // plausible collection/requisition timestamp silently corrupts the lab record downstream and
+            // is undebuggable months later. Surface it (no PHI) and emit an empty HL7 date component.
+            logger.warn("HL7 export: a date component was absent or could not be parsed in any known "
+                    + "format; emitting an empty timestamp instead of a fabricated one");
+            return "";
         }
 
-        return fullDateTime.format(date);
+        return new SimpleDateFormat(FULL_DATE_TIME).format(date);
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

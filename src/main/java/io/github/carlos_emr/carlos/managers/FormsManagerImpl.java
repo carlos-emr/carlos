@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,6 +57,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.form.gate.FormShortcutRouteResolver;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -70,6 +72,9 @@ import jakarta.servlet.http.HttpServletResponse;
  */
 @Service
 public class FormsManagerImpl implements FormsManager {
+    private static final String FORM_SECURITY_OBJECT = "_form";
+    private static final String MISSING_REQUIRED_FORM_SECURITY_OBJECT = "missing required sec object (_form)";
+
     private final Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -164,9 +169,7 @@ public class FormsManagerImpl implements FormsManager {
     @Override
     public List<PatientForm> getEncounterFormsbyDemographicNumber(LoggedInInfo loggedInInfo, Integer demographicId,
                                                                   boolean getAllVersions, boolean getOnlyPDFReadyForms) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
-        }
+        requireFormReadPrivilege(loggedInInfo, securityTarget(demographicId));
 
         return processEncounterForms(loggedInInfo, demographicId, getAllVersions, getOnlyPDFReadyForms);
     }
@@ -260,9 +263,7 @@ public class FormsManagerImpl implements FormsManager {
 
     @Override
     public Path renderForm(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
-        }
+        requireFormReadPrivilege(loggedInInfo, securityTarget(formTransportContainer));
 
         LogAction.addLogSynchronous(loggedInInfo, "FormsManager.saveFormAsTempPdf", "");
 
@@ -270,11 +271,11 @@ public class FormsManagerImpl implements FormsManager {
     }
 
     /**
-     * This method processes a PatientForm, which can be null, and retrieves data using the 'formId', 'formName',
-     * and 'demographicNo' parameters from the HttpServletRequest request.
+     * Renders the supplied patient form. When no patient form is supplied, the form metadata is read from the
+     * request for the standalone preview flow.
      *
-     * @param form    The PatientForm to process (can be null).
-     * @param request The HttpServletRequest containing the parameters.
+     * @param form    trusted patient form metadata, or null for a standalone preview
+     * @param request the current request
      */
     @Override
     public Path renderForm(HttpServletRequest request, HttpServletResponse response, EctFormData.PatientForm form) throws PDFGenerationException {
@@ -282,9 +283,7 @@ public class FormsManagerImpl implements FormsManager {
         if (loggedInInfo != null && loggedInInfo.getLoggedInProvider() == null) {
             loggedInInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
-        }
+        requireFormReadPrivilege(loggedInInfo, securityTarget(form, request));
 
         FormTransportContainer formTransportContainer = getFormTransportContainer(request, response, form);
         Path path = null;
@@ -293,19 +292,30 @@ public class FormsManagerImpl implements FormsManager {
         } catch (Exception e) {
             throw new PDFGenerationException("Error Details: Form [" + formTransportContainer.getFormName() + "] could not be converted into a PDF", e);
         }
+        if (path == null) {
+            // ConvertToEdoc.saveAsTempPDF returns null (it does NOT throw) when the internal HTML->PDF
+            // conversion fails (iText DocumentException / IO error is swallowed there). Without this
+            // guard the null escapes to callers such as DocumentAttachmentManagerImpl.attachFormPDFs,
+            // which dereferences it as path.toString() -> a context-free NPE / unmapped 500 on the
+            // eForm-with-attachments fax/print path. Fail with a named exception instead, mirroring
+            // FaxDocumentManagerImpl.getFormFaxDocument.
+            throw new PDFGenerationException("Error Details: Form [" + formTransportContainer.getFormName() + "] could not be converted into a PDF");
+        }
         return path;
     }
 
     private FormTransportContainer getFormTransportContainer(HttpServletRequest request, HttpServletResponse response,
                                                              EctFormData.PatientForm form) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String formId = request.getParameter("formId") != null ? request.getParameter("formId") : form.getFormId();
-        String formName = request.getParameter("formName") != null ? request.getParameter("formName")
-                : form.getFormName();
-        String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo")
-                : form.getDemoNo();
-        String formPath = "/form/forwardshortcutname?method=fetch&formname=" + formName + "&demographic_no="
-                + demographicNo + "&formId=" + formId;
+        String formId = form == null ? request.getParameter("formId") : form.getFormId();
+        String formName = form == null ? request.getParameter("formName") : form.getFormName();
+        String demographicNo = form == null ? request.getParameter("demographicNo") : form.getDemoNo();
+        String formPath;
+        try {
+            formPath = FormShortcutRouteResolver.resolve(demographicNo, formName, formId, null, null);
+        } catch (SQLException | IllegalArgumentException e) {
+            throw new PDFGenerationException("An error occurred while resolving the form render path.", e);
+        }
         FormTransportContainer formTransportContainer = null;
         try {
             formTransportContainer = new FormTransportContainer(response, request, formPath);
@@ -326,9 +336,7 @@ public class FormsManagerImpl implements FormsManager {
      * Fetch a specific form by providing both the form ID and name, as they collectively ensure accurate identification.
      */
     public PatientForm getFormById(LoggedInInfo loggedInInfo, Integer formId, Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
-        }
+        requireFormReadPrivilege(loggedInInfo, securityTarget(demographicNo));
 
         PatientForm patientForm = null;
         List<EncounterForm> encounterFormList = getAllEncounterForms();
@@ -347,6 +355,32 @@ public class FormsManagerImpl implements FormsManager {
         }
 
         return patientForm;
+    }
+
+    private void requireFormReadPrivilege(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, FORM_SECURITY_OBJECT, SecurityInfoManager.READ,
+                demographicNo)) {
+            throw new SecurityException(MISSING_REQUIRED_FORM_SECURITY_OBJECT);
+        }
+    }
+
+    private String securityTarget(Integer demographicNo) {
+        return demographicNo == null ? null : String.valueOf(demographicNo);
+    }
+
+    private String securityTarget(String demographicNo) {
+        return demographicNo == null || demographicNo.trim().isEmpty() ? null : demographicNo;
+    }
+
+    private String securityTarget(FormTransportContainer formTransportContainer) {
+        return formTransportContainer == null ? null : securityTarget(formTransportContainer.getDemographicNo());
+    }
+
+    private String securityTarget(EctFormData.PatientForm form, HttpServletRequest request) {
+        if (form != null) {
+            return securityTarget(form.demographicId);
+        }
+        return request == null ? null : securityTarget(request.getParameter("demographicNo"));
     }
 
 }

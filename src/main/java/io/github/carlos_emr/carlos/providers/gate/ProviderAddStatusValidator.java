@@ -41,4 +41,38 @@ public final class ProviderAddStatusValidator {
         String appointmentStatus = status + statusch;
         return APPOINTMENT_STATUS.matcher(appointmentStatus).matches() ? appointmentStatus : null;
     }
+
+    /**
+     * Checks that the status submitted by the schedule was the status persisted when the
+     * transition began.
+     *
+     * @param persistedStatus current appointment status loaded from the database
+     * @param submittedStatus current status rendered into the schedule link
+     * @return {@code true} when both statuses are valid and identical
+     */
+    public static boolean matchesCurrentStatus(String persistedStatus, String submittedStatus) {
+        return isValidStatus(persistedStatus)
+                && isValidStatus(submittedStatus)
+                && persistedStatus.equals(submittedStatus);
+    }
+
+    /**
+     * Checks that the requested status is the next transition calculated from server-side
+     * appointment-status configuration.
+     *
+     * @param calculatedNextStatus next status calculated by {@code ApptStatusData}
+     * @param requestedStatus status requested by the client
+     * @return {@code true} when both statuses are valid and identical
+     */
+    public static boolean matchesCalculatedNextStatus(
+            String calculatedNextStatus,
+            String requestedStatus) {
+        return isValidStatus(calculatedNextStatus)
+                && isValidStatus(requestedStatus)
+                && calculatedNextStatus.equals(requestedStatus);
+    }
+
+    private static boolean isValidStatus(String status) {
+        return status != null && APPOINTMENT_STATUS.matcher(status).matches();
+    }
 }

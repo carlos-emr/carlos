@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import org.openpdf.text.Document;
 import org.openpdf.text.pdf.PdfCopy;
 import org.openpdf.text.pdf.PdfName;
@@ -40,11 +41,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
@@ -79,6 +82,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2013-05-12
  */
 public final class IncomingDocUtil {
+    private static final String INCOMING_DOCUMENT_DIR_PROPERTY = "INCOMINGDOCUMENT_DIR";
     private static final Logger logger = MiscUtils.getLogger();
     
     /**
@@ -99,6 +103,15 @@ public final class IncomingDocUtil {
             return validatedPdfDir;
         }
         throw new IllegalArgumentException("Invalid pdfDir: must be one of Fax, Mail, File, or Refile");
+    }
+
+    private static String addPdfNameSuffix(String pdfName, String suffix) {
+        if (pdfName == null || !pdfName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            throw new FileValidationException("Incoming document names must end in .pdf");
+        }
+
+        int extensionIndex = pdfName.length() - 4;
+        return pdfName.substring(0, extensionIndex) + suffix + pdfName.substring(extensionIndex);
     }
 
     /**
@@ -123,7 +136,7 @@ public final class IncomingDocUtil {
     }
 
     /** List of formatted modification dates corresponding to PDF files returned by {@link #getDocList(String)}. */
-    private ArrayList<String> pdfListModifiedDate = new ArrayList<String>();
+    private final List<String> pdfListModifiedDate = new ArrayList<>();
 
     /** Comparator that sorts files by last-modified timestamp in ascending order. */
     private static final Comparator<File> lastModified = new Comparator<File>() {
@@ -137,52 +150,101 @@ public final class IncomingDocUtil {
      * Returns the list of formatted modification dates for PDF files found by the last
      * call to {@link #getDocList(String)}.
      *
-     * @return ArrayList of String date strings in "yyyy-MM-dd HH:mm:ss" format
+     * @return immutable list of date strings in "yyyy-MM-dd HH:mm:ss" format
      */
-    public ArrayList getPdfListModifiedDate() {
-        return pdfListModifiedDate;
-
+    public List<String> getPdfListModifiedDate() {
+        return List.copyOf(pdfListModifiedDate);
     }
 
     /**
      * Lists all PDF files in the specified directory, sorted by last-modified date ascending.
      * Also populates the internal {@link #pdfListModifiedDate} list with corresponding
-     * formatted timestamps.
+     * formatted timestamps. A queue subdirectory that has not been created yet is treated
+     * as an empty queue; a missing or misconfigured INCOMINGDOCUMENT_DIR base still fails
+     * loudly so incoming documents cannot silently disappear from the intake screens.
      *
-     * @param directory String the absolute path to the directory to scan for PDF files
-     * @return ArrayList of String PDF filenames found in the directory
+     * @param directory String the absolute path to the directory to scan for PDF files;
+     * must resolve inside INCOMINGDOCUMENT_DIR
+     * @return list of PDF filenames found in the directory, empty when the
+     * queue subdirectory has not been created yet
+     * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
+     * @throws SecurityException if the directory resolves outside INCOMINGDOCUMENT_DIR or
+     * the configured directory is missing or cannot be listed
      */
-    public ArrayList getDocList(String directory) {
-        ArrayList<String> docList = new ArrayList<String>();
+    // FindSecBugs PATH_TRAVERSAL_IN: callers pass paths built by getIncomingDocumentFilePath from
+    // validated components, and the candidate is containment-checked against INCOMINGDOCUMENT_DIR
+    // before any filesystem probe.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "callers pass paths built by getIncomingDocumentFilePath from validated components; candidate is containment-checked against INCOMINGDOCUMENT_DIR before any filesystem probe")
+    public List<String> getDocList(String directory) {
+        List<String> docList = new ArrayList<>();
 
         String docName;
         pdfListModifiedDate.clear();
+
+        String incomingRootPath = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
+        if (incomingRootPath == null || incomingRootPath.isEmpty()) {
+            throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
+        }
+        File incomingBaseDir = new File(incomingRootPath);
 
         FilenameFilter pdfFilter;
 
         pdfFilter = new FilenameFilter() {
             @Override
             public boolean accept(File dir, String name) {
-                return (name.toLowerCase().endsWith(".pdf"));
+                if (!name.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+                    return false;
+                }
+
+                // Keep listing consistent with validatePathComponent on the read path:
+                // entries that cannot be addressed safely must not appear as broken rows.
+                try {
+                    validatePathComponent(name, "queued PDF filename");
+                    PathValidationUtils.validateExistingPath(new File(dir, name), incomingBaseDir);
+                    return true;
+                } catch (SecurityException e) {
+                    return false;
+                }
             }
         };
 
+        // A queue subdirectory is only created by the first upload or fax import, so a
+        // never-used queue has no directory yet. That is an empty queue, not a
+        // configuration error — validating it as one sent fresh installs to the error page.
+        // Only the missing CHILD is an empty queue: when the base directory itself is
+        // absent (config typo, unmounted volume), rendering every queue as empty would
+        // hide accumulating incoming documents from intake staff, so that still fails
+        // loudly below. The candidate is containment-validated before any probe.
+        File queueDirCandidate = PathValidationUtils.validateChildPath(new File(directory), incomingBaseDir);
+        // Files.notExists is true only when nonexistence can be established. File.exists
+        // also returns false when access is denied, which would incorrectly hide an
+        // inaccessible queue as an unused/empty one instead of taking the loud path below.
+        if (incomingBaseDir.isDirectory() && Files.notExists(queueDirCandidate.toPath())) {
+            // Logged so an operator can tell "never used" apart from "the queue volume
+            // vanished" without having to reason from an empty screen.
+            logger.debug("Incoming queue directory not created yet, reporting empty queue");
+            return docList;
+        }
+
         File dir = PathValidationUtils.validateConfiguredDirectory(directory, "incoming document directory");
         File[] listOfFiles = dir.listFiles(pdfFilter);
-        if (listOfFiles != null) {
+        if (listOfFiles == null) {
+            logger.error("Unable to list incoming document directory: {}",
+                    LogSafe.sanitize(dir.getPath())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new SecurityException("Unable to list incoming document directory");
+        }
 
-            Arrays.sort(listOfFiles, lastModified);
+        Arrays.sort(listOfFiles, lastModified);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-            for (int i = 0; i < listOfFiles.length; i++) {
-                if (listOfFiles[i].isFile()) {
-                    docName = listOfFiles[i].getName();
-                    long dateTime = listOfFiles[i].lastModified();
-                    Date d = new Date(dateTime);
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                    String dateString = sdf.format(d);
-                    docList.add(docName);
-                    pdfListModifiedDate.add(dateString);
-                }
+        for (File file : listOfFiles) {
+            if (file.isFile()) {
+                docName = file.getName();
+                long dateTime = file.lastModified();
+                Date d = new Date(dateTime);
+                String dateString = dateFormat.format(d);
+                docList.add(docName);
+                pdfListModifiedDate.add(dateString);
             }
         }
         return docList;
@@ -202,9 +264,10 @@ public final class IncomingDocUtil {
         try (PdfReader reader = new PdfReader(filePath)) {
             numOfPages = reader.getNumberOfPages();
         } catch (org.openpdf.text.exceptions.BadPasswordException e) {
-            MiscUtils.getLogger().error("Cannot read page count - PDF is password-protected: {}", filePath, e);
+            MiscUtils.getLogger().error("Cannot read page count - PDF is password-protected: {}",
+                    LogSafe.sanitize(filePath), e);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Cannot read page count for PDF file: {}", filePath, e);
+            MiscUtils.getLogger().error("Cannot read page count for PDF file: {}", LogSafe.sanitize(filePath), e);
         }
         return numOfPages;
     }
@@ -224,16 +287,27 @@ public final class IncomingDocUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String getIncomingDocumentFilePathName(String queueId, String pdfDir, String pdfName) {
-        // Validate pdfName to prevent path traversal
-        pdfName = PathValidationUtils.validateStrictFileName(pdfName);
-        
+        // Validate pdfName without normalizing it: this resolves an EXISTING queued file,
+        // so the on-disk name must be preserved exactly. Normalizing here rewrote names
+        // containing spaces or parentheses (e.g. "scan (1).pdf" -> "scan_1.pdf") and made
+        // every such uploaded document unresolvable — viewer, page count, rotate, delete.
+        pdfName = validatePathComponent(pdfName, "pdfName");
+
+        // Component validation preserves the name but, unlike the normalizing validator this
+        // replaced, carries no extension allowlist. Queue contents are PDFs only (the listing
+        // filter and the upload action both enforce that), so keep the dangerous-extension
+        // door shut here rather than letting request-supplied names name anything else.
+        if (!pdfName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            throw new FileValidationException("Incoming document names must end in .pdf");
+        }
+
         String filePathName = getIncomingDocumentFilePath(queueId, pdfDir);
         
         // Use File constructor to safely combine paths
         File file = new File(filePathName, pdfName);
         
         // Validate the final path is within bounds
-        File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
         return PathValidationUtils.validateExistingPath(file, baseDir).getPath();
     }
 
@@ -260,7 +334,7 @@ public final class IncomingDocUtil {
         File file = new File(filePathName, pdfName);
         
         // Validate the final path is within bounds
-        File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
         return PathValidationUtils.validateExistingPath(file, baseDir).getPath();
     }
 
@@ -281,7 +355,7 @@ public final class IncomingDocUtil {
     public static String getIncomingDocumentDeletedFilePath(String queueId, String pdfDir) {
         String filePath;
 
-        filePath = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        filePath = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
         if (filePath == null || filePath.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
         }
@@ -299,7 +373,7 @@ public final class IncomingDocUtil {
         if (pdfDir != null && !pdfDir.isEmpty()) {
             pdfDir = validateIncomingDocumentDir(pdfDir);
             try {
-                File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+                File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
                 File deletedPathDir = new File(filePath, pdfDir + "_deleted");
 
                 // Validate path is within bounds using PathValidationUtils
@@ -317,7 +391,7 @@ public final class IncomingDocUtil {
             }
         }
         
-        File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
         return PathValidationUtils.validateExistingPath(new File(filePath), baseDir).getPath();
     }
 
@@ -336,7 +410,7 @@ public final class IncomingDocUtil {
     public static String getIncomingDocumentFilePath(String queueId, String pdfDir) {
         String filePath;
 
-        filePath = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        filePath = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
 
         if (filePath == null || filePath.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
@@ -356,7 +430,7 @@ public final class IncomingDocUtil {
             filePath = filePath + validateIncomingDocumentDir(pdfDir);
         }
 
-        File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
         return PathValidationUtils.validateExistingPath(new File(filePath), baseDir).getPath();
     }
 
@@ -376,7 +450,7 @@ public final class IncomingDocUtil {
         String filePath = getIncomingDocumentFilePath(queueId, pdfDir);
         
         // Get the base directory for validation
-        String baseDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String baseDir = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
         if (baseDir == null || baseDir.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
         }
@@ -390,16 +464,20 @@ public final class IncomingDocUtil {
         
         // Validate path is within bounds using PathValidationUtils
         try {
-            File baseDirFile = new File(baseDir);
+            // The configured root may be a mounted document volume. Never recreate a
+            // missing root locally: doing so would make successful writes disappear when
+            // the real volume is remounted. Only queue children are lazy-created.
+            File baseDirFile = PathValidationUtils.validateConfiguredDirectory(
+                    baseDir, "incoming document root");
             filePathDir = PathValidationUtils.validateExistingPath(filePathDir, baseDirFile);
 
             File canonicalDir = filePathDir.getCanonicalFile();
 
-            if (!canonicalDir.exists()) {
-                boolean created = canonicalDir.mkdirs();
-                if (!created) {
-                    logger.warn("Failed to create directory: {}", LogSafe.sanitize(canonicalDir.getPath())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                }
+            if (!canonicalDir.isDirectory()
+                    && !canonicalDir.mkdirs()
+                    && !canonicalDir.isDirectory()) {
+                logger.error("Failed to create incoming document directory: {}", LogSafe.sanitize(canonicalDir.getPath())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                throw new IllegalStateException("Failed to create incoming document directory");
             }
 
             return canonicalDir.getPath();
@@ -557,14 +635,10 @@ public final class IncomingDocUtil {
 
         File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
         File validatedDeleteFile = null;
-        int index = myPdfName.indexOf(".pdf");
-
-        String myPdfNameF = myPdfName.substring(0, index);
-        String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
-
         try (PdfReader reader = new PdfReader(filePathName);
              FileOutputStream copyFos = new FileOutputStream(validatedTempFile)) {
-            String deleteFileName = myPdfNameF + "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()) + myPdfNameExt;
+            String deleteFileName = addPdfNameSuffix(myPdfName,
+                    "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()));
             validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
 
             try (FileOutputStream deleteFos = new FileOutputStream(validatedDeleteFile)) {
@@ -649,10 +723,6 @@ public final class IncomingDocUtil {
         f.setReadOnly();
 
         File extractBaseDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentFilePath(queueId, myPdfDir), "incoming extract directory");
-        int index = myPdfName.toLowerCase().indexOf(".pdf");
-        String myPdfNameF = myPdfName.substring(0, index);
-        String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
-
         ArrayList<String> extractList = new ArrayList<String>();
         int startPage, endPage;
         boolean cancelExtract = false;
@@ -667,7 +737,8 @@ public final class IncomingDocUtil {
 
         try {
             reader = new PdfReader(filePathName);
-            String extractFileName = myPdfNameF + "E" + Integer.toString(reader.getNumberOfPages()) + myPdfNameExt;
+            String extractFileName = addPdfNameSuffix(myPdfName,
+                    "E" + Integer.toString(reader.getNumberOfPages()));
             File validatedExtractFile = PathValidationUtils.validatePath(extractFileName, extractBaseDir);
             extractPath = validatedExtractFile.getPath();
 

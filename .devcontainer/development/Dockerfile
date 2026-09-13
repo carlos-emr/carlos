@@ -1,16 +1,35 @@
-FROM tomcat:11.0-jdk21-temurin
+FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077
+
+# bash with pipefail, not the default /bin/sh (dash), for EVERY RUN below.
+#
+# This is not style. `curl -fsSL <url> | bash -` under a shell without pipefail reports the exit
+# status of the LAST command in the pipeline — bash, which happily exits 0 on empty input — so a
+# curl that failed with 403 looked like success and the `&&` chain carried on. That is exactly how
+# the Node install silently produced a container with no npm: NodeSource now answers 403 to CI
+# runners, curl wrote nothing, bash succeeded, and apt fell back to Ubuntu's nodejs (which packages
+# npm separately). The build then died several commands later on `npm: not found`, naming a symptom
+# rather than the cause.
+#
+# With pipefail the pipeline fails at the curl, at the line that is actually wrong. Several other
+# steps here use the same `curl | ...` shape and were masked the same way.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Set environment variables for Tomcat
 ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
 # ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
 ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties"
+# The eForm browser PDF renderer runs headless Chromium unsandboxed by default (Tomcat runs as root
+# here and Chromium refuses to start its OS-level sandbox as root); this container IS the isolation
+# boundary. No env var is needed for that default. To exercise Chromium's OS sandbox in a container
+# that supports it (non-root user + unprivileged user namespaces), set EFORM_RENDER_SANDBOX=true;
+# a sandboxed launch that cannot start then fails closed (see EFormBrowserPdfService.sandboxEnabled()).
 ENV JPDA_OPTS="-agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
 ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
 
 # Copy Tomcat installation from the official Tomcat image
-COPY --from=tomcat:11.0-jdk21-temurin /usr/local/tomcat $CATALINA_HOME
+COPY --from=tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077 /usr/local/tomcat $CATALINA_HOME
 
 # Labels
 LABEL author="CARLOS EMR Project" \
@@ -19,9 +38,10 @@ LABEL author="CARLOS EMR Project" \
 
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
-ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
+ARG OSCAR_DOCUMENT="${DOCS_PATH}/CarlosDocument"
 ARG DB_DOCS="/db-data/documents"
-ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
+ARG DOCS_DEST="/var/lib/CarlosDocument/carlos/document"
+ARG EFORM_IMAGES_DIR="/var/lib/CarlosDocument/carlos/eform/images"
 
 WORKDIR /workspace
 
@@ -62,10 +82,44 @@ RUN /usr/local/bin/apt-install \
     inotify-tools \
     fonts-roboto fonts-liberation fonts-noto-color-emoji
 
-# Install Node.js (latest LTS)
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && /usr/local/bin/apt-install nodejs \
-    && node --version && npm --version
+# Install Node.js from the official nodejs.org distribution, NOT NodeSource.
+#
+# deb.nodesource.com now answers 403 to CI runners (verified: 403 from the GitHub Actions build and
+# from a developer machine), so `curl … | bash -` fetched nothing, added no apt repository, and
+# `apt-install nodejs` quietly resolved to Ubuntu's nodejs 18. Ubuntu packages npm separately and
+# apt-install passes --no-install-recommends, so npm was absent and the build failed later at
+# `npm: not found`. Adding an apt repository over the network was the fragile part; this removes it.
+#
+# The official tarball is a fixed URL with a published checksum, so the install is reproducible and
+# tamper-evident. `curl -f` turns an HTTP error into a non-zero exit, and the SHELL pipefail set at
+# the top of this file means a failed download can no longer be masked by a later command in a pipe.
+#
+# Pinned deliberately: an unpinned "latest" reintroduces the moving target that broke this twice.
+# Bumping it is a one-line change plus the matching per-arch checksums from
+# https://nodejs.org/dist/v<version>/SHASUMS256.txt.
+# .tar.gz, not .tar.xz: extracting xz needs the `xz` binary, which is not in this base image's
+# default package set. A dry run of these exact commands failed on "xz: Cannot exec" — gzip is
+# always present, so the gz tarball removes a dependency rather than adding one to apt.
+# The archive is selected from the Docker build target architecture so native ARM64 builds
+# (e.g. Apple Silicon) get arm64 binaries instead of failing on x64 executables.
+ENV NODE_VERSION=22.11.0
+ENV NODE_SHA256_X64=4f862bab52039835efbe613b532238b6e4dde98d139a34e6923193e073438b13
+ENV NODE_SHA256_ARM64=27453f7a0dd6b9e6738f1f6ea6a09b102ec7aa484de1e39d6a1c3608ad47aa6a
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) node_arch=x64; node_sha256="${NODE_SHA256_X64}" ;; \
+         arm64) node_arch=arm64; node_sha256="${NODE_SHA256_ARM64}" ;; \
+         *) echo "ERROR: unsupported architecture for Node.js install: $arch" >&2; exit 1 ;; \
+       esac \
+    && curl -fsSLo /tmp/node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz" \
+    && echo "${node_sha256}  /tmp/node.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 --no-same-owner \
+    && rm /tmp/node.tar.gz \
+    && node --version && npm --version \
+    && case "$(node --version)" in \
+         v${NODE_VERSION}) : ;; \
+         *) echo "ERROR: expected Node v${NODE_VERSION}, got $(node --version)." >&2; exit 1 ;; \
+       esac
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -97,8 +151,9 @@ RUN npm install -g @github/copilot && \
     echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
 
 # Install OpenAI Codex CLI (standalone coding agent)
-RUN npm install -g @openai/codex && \
-    echo "✅ OpenAI Codex CLI installed: $(codex --version)"
+ARG CODEX_CLI_VERSION=0.142.2
+# Retry the npm fetch because CI occasionally hits transient ECONNRESET errors.
+RUN for attempt in 1 2 3; do         npm install -g "@openai/codex@${CODEX_CLI_VERSION}" && break;         if [ "$attempt" -eq 3 ]; then exit 1; fi;         echo "Retrying @openai/codex install after transient npm failure (attempt $attempt)...";         sleep 5;     done &&     echo "✅ OpenAI Codex CLI installed: $(codex --version)"
 
 ARG PLAYWRIGHT_VERSION=1.60.0
 
@@ -118,10 +173,55 @@ RUN /usr/local/bin/apt-install pipx && \
     pipx install aider-chat && \
     pipx ensurepath
 
-# Install Postfix for mail testing with default values
-RUN /usr/local/bin/apt-install postfix
+# Install Postfix and flock for local mail capture testing with default values.
+RUN /usr/local/bin/apt-install postfix util-linux
 
-# Configure Postfix for simple localhost operation
+# Give the Postfix pipe a dedicated identity and a tightly permissioned capture
+# layout. The root-owned parent prevents the delivery user from replacing the
+# lock or capture file; its private spool remains writable for atomic capture.
+RUN groupadd --system carlos-mail && \
+    useradd --system --gid carlos-mail --home-dir /nonexistent \
+      --shell /usr/sbin/nologin carlos-mail && \
+    install -d -o root -g carlos-mail -m 0750 /var/log/carlos-mail-capture && \
+    install -d -o carlos-mail -g carlos-mail -m 0770 \
+      /var/log/carlos-mail-capture/.spool && \
+    install -o carlos-mail -g carlos-mail -m 0660 /dev/null \
+      /var/log/carlos-mail-capture/messages.eml && \
+    install -o carlos-mail -g carlos-mail -m 0660 /dev/null \
+      /var/log/carlos-mail-capture/.lock
+
+# Register a custom pipe transport that streams every accepted message to the
+# capture script. ${sender}/${recipient} pass envelope metadata; the raw
+# message body arrives on stdin.
+RUN printf '%s\n%s\n' \
+    'devcapture unix  -       n       n       -       -       pipe' \
+    '  flags=q user=carlos-mail argv=/scripts/postfix-capture-mail ${sender} ${recipient}' \
+    >> /etc/postfix/master.cf
+
+# Route every recipient to the capture transport.
+RUN printf '/.*/ devcapture:\n' > /etc/postfix/carlos-transport-regexp
+
+# Opt-in real-delivery allowlist (see docs/postfix-mail-server.md). Recipients
+# listed here are delivered for REAL, but ONLY when the container is started with
+# CARLOS_MAIL_ALLOW_SEND=1 (the 'mail' helper wires the allowlist into
+# transport_maps in that case). It ships EMPTY, so the env flag alone sends
+# nothing — every message stays captured until an address is added here.
+RUN printf '%s\n' \
+    '# CARLOS dev mail allowlist (regexp transport map).' \
+    '# Recipients matched here are delivered EXTERNALLY when the devcontainer is' \
+    '# started with CARLOS_MAIL_ALLOW_SEND=1. Everything not matched is still' \
+    '# captured locally. NEVER add a real patient address here — use only your own' \
+    '# test inbox. Example (uncomment and edit):' \
+    '# /^me@my-test-inbox\.example\.com$/  smtp:' \
+    '# After editing, rerun CARLOS_MAIL_ALLOW_SEND=1 mail start to apply changes.' \
+    > /etc/postfix/carlos-send-allowlist
+
+# `mail start` renders the user-maintained allowlist above into this runtime
+# transport map, adding CARLOS_MAIL_RELAYHOST to bare `smtp:` results.
+RUN install -o root -g root -m 0644 /dev/null \
+    /etc/postfix/carlos-send-allowlist.effective
+
+# Configure Postfix for localhost-only operation with capture-everything delivery.
 RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'mydestination=openo-dev.local, localhost' && \
     postconf -e 'mynetworks=127.0.0.0/8' && \
@@ -132,7 +232,19 @@ RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'smtpd_use_tls=no' && \
     postconf -e 'smtpd_tls_security_level=none' && \
     # Allow local connections without auth
-    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject'
+    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject' && \
+    # Defense in depth: route ALL mail to the capture transport so no accepted
+    # message can ever use Postfix's normal outbound smtp delivery. The regexp
+    # map matches every recipient; the *_transport overrides catch anything the
+    # map somehow misses.
+    postconf -e 'transport_maps=regexp:/etc/postfix/carlos-transport-regexp' && \
+    postconf -e 'default_transport=devcapture:' && \
+    postconf -e 'relay_transport=devcapture:' && \
+    postconf -e 'local_transport=devcapture:' && \
+    # Deliver one recipient per pipe invocation so the capture script's
+    # ${recipient} (and the Envelope-To metadata) is always the single correct
+    # address even when Postfix batches multiple recipients for a message.
+    postconf -e 'devcapture_destination_recipient_limit=1'
 
 # Create custom bashrc with tool reminders
 COPY ./config/bashrc /root/.bashrc
@@ -166,20 +278,21 @@ COPY ./openosp_files/tomcat-users.xml $TOMCAT_PATH/conf/tomcat-users.xml
 
 # Set up document directories, including seeded document data for the database and the destination
 # of all documents
-RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
-    $OSCAR_DOCUMENT/oscar/billing/download \
-    $OSCAR_DOCUMENT/oscar/billing/invoices \
-    $OSCAR_DOCUMENT/oscar/eform/images \
-    $OSCAR_DOCUMENT/oscar/form/records \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/inbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/outbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/sent \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/archive \
-    $OSCAR_DOCUMENT/oscar/encounter/oscarMeasurements/styles \
-    $OSCAR_DOCUMENT/oscar/incomingdocs \
-    $OSCAR_DOCUMENT/oscar/export \
+RUN mkdir -p $OSCAR_DOCUMENT/carlos/document \
+    $OSCAR_DOCUMENT/carlos/billing/download \
+    $OSCAR_DOCUMENT/carlos/billing/invoices \
+    $OSCAR_DOCUMENT/carlos/form/records \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/inbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/outbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/sent \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/archive \
+    $OSCAR_DOCUMENT/carlos/encounter/oscarMeasurements/styles \
+    $OSCAR_DOCUMENT/carlos/incomingdocs \
+    $OSCAR_DOCUMENT/carlos/export \
     $DB_DOCS \
-    $DOCS_DEST
+    $DOCS_DEST \
+    $EFORM_IMAGES_DIR \
+    && /scripts/bootstrap-property-directories /root/carlos.properties EFORM_IMAGES_DIR
 
 # Set up GPG for PGP encryption (used by demographic export)
 # Create the GNUPGHOME directory and generate a test key for development
