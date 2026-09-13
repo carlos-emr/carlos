@@ -235,7 +235,7 @@
             text.setAttribute('y', (a.y * h) + ((a.fontSize || 11) * unit * TEXT_BASELINE_RATIO));
             text.setAttribute('fill', COLORS[a.color] || COLORS.black);
             text.setAttribute('font-size', (a.fontSize || 11) * unit);
-            text.setAttribute('font-family', 'sans-serif');
+            text.setAttribute('font-family', 'CarlosAnnotation, sans-serif');
             text.setAttribute('class', 'mark');
             text.textContent = a.text;
             return text;

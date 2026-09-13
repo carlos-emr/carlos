@@ -208,3 +208,10 @@ body {
 @media (prefers-reduced-motion: no-preference) {
     html { scroll-behavior: smooth; }
 }
+
+/* Use the same font as the PDF composer so text placement matches the saved copy. */
+@font-face {
+    font-family: CarlosAnnotation;
+    src: url("../library/eforms/dejavufonts/ttf/DejaVuSans.ttf") format("truetype");
+    font-display: block;
+}
