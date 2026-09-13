@@ -173,7 +173,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted sender's full name
      */
     public String getSenderFullName() {
-        return toCamelCase(senderFirstName) + " " + toCamelCase(senderLastName);
+        return formatFirstNameLastName(senderFirstName, senderLastName);
     }
 
     /**
@@ -247,7 +247,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted recipient's full name
      */
     public String getRecipientFullName() {
-        return toCamelCase(recipientFirstName) + " " + toCamelCase(recipientLastName);
+        return formatFirstNameLastName(recipientFirstName, recipientLastName);
     }
 
     /**
@@ -303,7 +303,15 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted provider's full name
      */
     public String getProviderFullName() {
-        return toCamelCase(providerLastName) + ", " + toCamelCase(providerFirstName);
+        String firstName = toCamelCase(providerFirstName);
+        String lastName = toCamelCase(providerLastName);
+        if (firstName.isEmpty()) {
+            return lastName;
+        }
+        if (lastName.isEmpty()) {
+            return firstName;
+        }
+        return lastName + ", " + firstName;
     }
 
     /**
@@ -524,11 +532,24 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      *
      * @param inputString String the input string to convert
      * @return String the Title Case formatted string
-     * @throws NullPointerException if inputString is null
-     * @throws StringIndexOutOfBoundsException if inputString is empty
      */
     private String toCamelCase(String inputString) {
+        if (inputString == null || inputString.isEmpty()) {
+            return "";
+        }
         return Character.toUpperCase(inputString.charAt(0)) + inputString.substring(1).toLowerCase();
+    }
+
+    private String formatFirstNameLastName(String firstName, String lastName) {
+        String formattedFirstName = toCamelCase(firstName);
+        String formattedLastName = toCamelCase(lastName);
+        if (formattedFirstName.isEmpty()) {
+            return formattedLastName;
+        }
+        if (formattedLastName.isEmpty()) {
+            return formattedFirstName;
+        }
+        return formattedFirstName + " " + formattedLastName;
     }
 
     /**
