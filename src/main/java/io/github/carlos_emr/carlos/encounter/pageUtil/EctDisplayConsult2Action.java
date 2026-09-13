@@ -35,6 +35,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil;
@@ -110,18 +111,10 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
                 String dateStr = "";
                 String status = "";
 
-                if (theRequests.service != null && !theRequests.service.isEmpty()) {
-                    service = theRequests.service.get(idx);
-                }
-                if (theRequests.vSpecialist != null && !theRequests.vSpecialist.isEmpty()) {
-                    specialist =  theRequests.vSpecialist.get(idx);
-                }
-                if (theRequests.date != null && !theRequests.date.isEmpty()) {
-                    dateStr = theRequests.date.get(idx);
-                }
-                if (theRequests.status != null && !theRequests.status.isEmpty()) {
-                    status = theRequests.status.get(idx);
-                }
+                service = columnOrEmpty(theRequests.service, idx);
+                specialist = columnOrEmpty(theRequests.vSpecialist, idx);
+                dateStr = columnOrEmpty(theRequests.date, idx);
+                status = columnOrEmpty(theRequests.status, idx);
 
                 DateFormat formatter = new SimpleDateFormat(dbFormat);
                 try {
@@ -152,5 +145,23 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
 
     public String getCmd() {
         return cmd;
+    }
+
+    /**
+     * Reads one cell of the request util's parallel lists as text.
+     *
+     * The lists are parallel to {@code ids} and each element is the raw column value, so a
+     * request saved without a status or date (the form allows it, and the demo dataset ships
+     * three such rows) yields a {@code null} ELEMENT even though the list itself is non-empty.
+     * Coalescing to {@code ""} renders that request as "no status" instead of an NPE that
+     * fails the whole Consultations panel with HTTP 500.
+     *
+     * @return the trimmed element, or {@code ""} when the list, the slot or the value is absent
+     */
+    static String columnOrEmpty(List<String> column, int idx) {
+        if (column == null || idx < 0 || idx >= column.size()) {
+            return "";
+        }
+        return org.apache.commons.lang3.StringUtils.trimToEmpty(column.get(idx));
     }
 }

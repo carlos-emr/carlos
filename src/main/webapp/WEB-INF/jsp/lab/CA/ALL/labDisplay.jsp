@@ -280,27 +280,6 @@
     if (remoteFacilityIdString == null) // local lab
     {
 
-        HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
-        if (reqMap.get("id") != null) {
-            reqID = reqMap.get("id").toString();
-            reqTableID = reqMap.get("request_id").toString();
-        } else {
-            reqID = "";
-            reqTableID = "";
-        }
-
-
-        PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
-        for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
-            demographicID = "" + r.getDemographicNo();
-        }
-
-        if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
-            isLinkedToDemographic = true;
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
-        } else {
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
-        }
 
 
         if (showAll) {
@@ -336,6 +315,34 @@
             segmentIDs = segmentIdList.toArray(new String[segmentIdList.size()]);
 
             hl7 = Factory.getHL7Body(segmentID);
+        }
+
+        // The demographic lookup and the READ audit below key on segmentID, so they run only
+        // after showLatest has had its say: with showLatest=true the Inboxhub asks for the
+        // segment on its row but this page renders the newest version of that accession
+        // (segmentIDs[last] above). Resolving the patient and writing the audit row from the
+        // REQUESTED id recorded a lab the clinician never opened and, should an accession ever
+        // be shared across patients, would have bound the page to the wrong chart.
+        HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
+        if (reqMap.get("id") != null) {
+            reqID = reqMap.get("id").toString();
+            reqTableID = reqMap.get("request_id").toString();
+        } else {
+            reqID = "";
+            reqTableID = "";
+        }
+
+
+        PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
+        for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
+            demographicID = "" + r.getDemographicNo();
+        }
+
+        if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
+            isLinkedToDemographic = true;
+            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
+        } else {
+            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
         }
 
     }

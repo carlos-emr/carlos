@@ -47,19 +47,23 @@
  *                                 that is linked to a patient
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  *
- * ACKNOWLEDGE SIDE EFFECT (defect, found by this check). On a successful
- * acknowledge, oscarMDSIndex.js updateStatus() calls updateDocStatusInQueue(doclabid)
- * unconditionally -- for a lab as well as a document. That posts the LAB segment id
- * as `docid` to documentManager/inboxManage, and the server hands it to
- * QueueDocumentLinkDao.setStatusInactive(), which matches queue_document_link on
- * document_id. Lab segment ids and document ids are separate sequences, so
- * acknowledging a lab inactivates the inbox queue link of whatever DOCUMENT happens
- * to carry the same number. Measured on 2026.08.0-alpha12: with queue_document_link
- * pointed at document 22 and lab segment 22 acknowledged, the link went A -> I.
- * The same handler also closes the window, so whether the stray mutation lands is a
- * race; when it loses, the abort shows up as the console "Failed to fetch" this
- * check tolerates below. This check asserts the acknowledge's OWN effect (the
- * routing row) and deliberately does not pin the stray one as correct.
+ * TWO REGRESSIONS THIS CHECK PINS, both found by an earlier version of it on
+ * 2026.08.0-alpha12:
+ *
+ * - A lab acknowledge must not touch the DOCUMENT inbox queue. oscarMDSIndex.js
+ *   updateStatus() used to call updateDocStatusInQueue(doclabid) for labs as well as
+ *   documents, posting the lab segment id as `docid`; the server matched it against
+ *   queue_document_link.document_id, and since lab and document ids are separate
+ *   sequences, acknowledging lab 22 inactivated the queue link of document 22. The
+ *   check plants a queue link whose document_id equals the lab's segment id and
+ *   asserts it is still active after the acknowledge. (The window closing mid-fetch
+ *   used to make this a race, visible as a console "Failed to fetch"; the console is
+ *   asserted clean, so a reappearance fails here too.)
+ * - The READ audit must name the lab the page rendered. With showLatest=true the
+ *   page renders the newest version of the row's accession, and labDisplay.jsp used
+ *   to write the audit row (and resolve the patient) from the REQUESTED id before
+ *   making that substitution. The check reads the audit rows the open wrote and
+ *   asserts each names the rendered segment.
  *
  * FIXTURE AND CLEANUP. The demo dataset routes every lab to provider 0, so no
  * provider has a reviewable inbox item. This check routes ONE existing demo lab to
@@ -114,6 +118,10 @@ let segmentId = null;
 let demographicNo = null;
 let routingCreatedByCheck = false;
 let originalRoutingStatus = null;
+// The planted queue_document_link row (see the header): created when no document
+// shares the lab's number, otherwise the existing link's status is remembered.
+let queueLinkCreatedByCheck = false;
+let originalQueueLinkStatus = null;
 
 let mysqlDefaults = null;
 function initMysqlDefaults() {
@@ -234,10 +242,47 @@ function seedRouting() {
   routingCreatedByCheck = true;
 }
 
+function queueLinkRow() {
+  const row = sqlRows(
+    `SELECT id, status FROM queue_document_link WHERE document_id=${Number(segmentId)} ORDER BY id LIMIT 1`
+  )[0];
+  return row ? { id: row[0], status: row[1] } : null;
+}
+
+/**
+ * Plants the document queue link a lab acknowledge must leave alone. queue_id 1 is
+ * the seeded default queue; the link is only ever read back by id, so it does not
+ * matter to the check whether a document with that number exists.
+ */
+function seedQueueLink() {
+  const existing = queueLinkRow();
+  if (existing) {
+    originalQueueLinkStatus = existing.status;
+    sql(`UPDATE queue_document_link SET status='A' WHERE id=${Number(existing.id)}`);
+    return;
+  }
+  sql(`INSERT INTO queue_document_link (queue_id, document_id, status) VALUES (1, ${Number(segmentId)}, 'A')`);
+  queueLinkCreatedByCheck = true;
+}
+
+function cleanupQueueLink() {
+  if (segmentId === null) {
+    return;
+  }
+  if (queueLinkCreatedByCheck) {
+    sql(`DELETE FROM queue_document_link WHERE document_id=${Number(segmentId)} AND queue_id=1 AND status IN ('A','I')`);
+  } else if (originalQueueLinkStatus !== null) {
+    // mysql -N -B prints a NULL status as the text NULL; put a real NULL back.
+    const restored = originalQueueLinkStatus === 'NULL' ? 'NULL' : `'${escapeSql(originalQueueLinkStatus)}'`;
+    sql(`UPDATE queue_document_link SET status=${restored} WHERE document_id=${Number(segmentId)}`);
+  }
+}
+
 function cleanupFixture() {
   if (segmentId === null) {
     return;
   }
+  cleanupQueueLink();
   if (routingCreatedByCheck) {
     sql(
       `DELETE FROM providerLabRouting WHERE provider_no='${escapeSql(providerNo)}'`
@@ -413,6 +458,7 @@ async function checkCumulativeValues(context) {
   segmentId = resolved.segmentId;
   demographicNo = resolved.demographicNo;
   seedRouting();
+  seedQueueLink();
 
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
@@ -422,8 +468,20 @@ async function checkCumulativeValues(context) {
     const inboxhub = await openInboxhubFromSchedule(context);
     pass(`the schedule Inbox link opens the Inboxhub for provider ${providerNo}`);
 
+    const auditHighWater = sql('SELECT IFNULL(MAX(id), 0) FROM log');
     const { popup, token } = await openLabFromInboxhub(context, inboxhub);
     pass(`the Inboxhub row opens lab ${segmentId} with an acknowledge form and a bootstrapped CSRF token`);
+
+    // Every READ audit row the open wrote must name the segment the page rendered,
+    // not the one the row's URL asked for (see the header).
+    const auditedSegments = sqlRows(
+      `SELECT contentId FROM log WHERE id > ${Number(auditHighWater)} AND provider_no='${escapeSql(providerNo)}'`
+      + " AND content='lab' AND action='read' ORDER BY id"
+    ).map((row) => row[0]);
+    assert(auditedSegments.length > 0, 'opening the lab wrote no READ audit row');
+    assert(auditedSegments.every((id) => id === segmentId),
+      `the READ audit named lab(s) ${JSON.stringify(auditedSegments)} but the page rendered lab ${segmentId}`);
+    pass(`the READ audit names the rendered lab ${segmentId}`);
 
     const pdf = await checkLabPdf(popup, token);
     pass(`the lab PDF print returns ${pdf.length} real PDF bytes`);
@@ -439,6 +497,12 @@ async function checkCumulativeValues(context) {
       `lab ${segmentId} is still queued as unreviewed for provider ${providerNo} after acknowledgement`);
     pass('the acknowledged lab no longer sits in the provider unreviewed queue');
 
+    const queueLink = queueLinkRow();
+    assert(queueLink && queueLink.status === 'A',
+      `acknowledging lab ${segmentId} changed the DOCUMENT queue link for document_id ${segmentId}`
+      + ` to ${JSON.stringify(queueLink)}; a lab acknowledge must not reach the document queue`);
+    pass(`the document queue link sharing number ${segmentId} is untouched by the lab acknowledge`);
+
     const cumulative = await checkCumulativeValues(context);
     assert(cumulative.length > 0, 'the cumulative lab values page rendered nothing');
     pass(`cumulative lab values render for demographic ${demographicNo}`);
@@ -446,18 +510,8 @@ async function checkCumulativeValues(context) {
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0,
       `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
-    // A successful lab acknowledge closes its own window, which aborts the
-    // document-queue fetch the same handler fires (see ACKNOWLEDGE SIDE EFFECT in
-    // the header). The abort surfaces as a console "Failed to fetch" from
-    // oscarMDSIndex.js postForm/updateDocStatusInQueue. It is tolerated by exact
-    // origin rather than by message text, so any OTHER console issue -- including a
-    // different failure in the same file -- still fails this check.
-    const unexpectedConsole = recorder.consoleIssues.filter((issue) => !(
-      /Failed to fetch/.test(issue.text)
-      && /updateDocStatusInQueue/.test(issue.text)
-      && /oscarMDSIndex\.js/.test(issue.text)));
-    assert(unexpectedConsole.length === 0,
-      `unexpected console issues: ${JSON.stringify(unexpectedConsole, null, 2)}`);
+    assert(recorder.consoleIssues.length === 0,
+      `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
     console.log(`\nPASS lab acknowledge: ${passed.length} checks, 0 failures`);
   } catch (error) {
     console.error(`FAIL lab acknowledge: ${error.stack || error.message}`);

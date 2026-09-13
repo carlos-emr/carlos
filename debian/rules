@@ -105,6 +105,7 @@ override_dh_auto_build:
 	if [ -n "$$CARLOS_WAR" ]; then \
 	  echo "using prebuilt CARLOS WAR: $$CARLOS_WAR"; \
 	  cp -f "$$CARLOS_WAR" $(BUILDDIR)/carlos.war; \
+	  $(CURDIR)/debian/stamp-war-build-identity.sh $(BUILDDIR)/carlos.war carlos-emr-deb "$$(dpkg-parsechangelog -SVersion)"; \
 	else \
 	  JOB_NAME=carlos-emr-deb BUILD_NUMBER="$$(dpkg-parsechangelog -SVersion)" \
 	    $(MVN) $(MVN_FLAGS) clean package; \

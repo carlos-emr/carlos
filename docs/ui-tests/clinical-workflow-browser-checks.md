@@ -37,6 +37,8 @@ typing the address:
   renders segment 162. The check therefore routes the *newest* segment of a chain and
   asserts the rendered acknowledge form belongs to the segment it routed; a check
   written against the requested id acknowledges a lab that was never in the inbox.
+  (Until this branch the page also resolved the patient and wrote its READ audit from
+  the requested id *before* that substitution; `labDisplay.jsp` now resolves first.)
 - **The day sheet needs its full day-search parameter set.**
   `providercontrol?year=&month=&day=` alone answers HTTP **200 with an empty
   document** — no error, no redirect, a blank page. Only the parameter set the
@@ -91,13 +93,15 @@ and reads the per-recipient `messagelisttbl` row — the row the inbox renders. 
 status written to the content row instead would look right in the database and
 change nothing an operator sees.
 
-**A known defect is tolerated by origin, never by message.** `lab-acknowledge`
-allows exactly one console error — the `Failed to fetch` that `oscarMDSIndex.js`
-`updateDocStatusInQueue` raises when the acknowledge closes its own window mid-fetch
-— and matches it on file, function and message together, so any other failure in the
-same file still fails the check. The underlying defect (that same call posts a **lab**
-segment id as a **document** id) is recorded in the script header and in the findings,
-not asserted as correct.
+**A defect the check found becomes an assertion once it is fixed.** An earlier
+`lab-acknowledge` found that acknowledging a lab posted the lab's segment id to the
+*document* queue (`updateDocStatusInQueue`) and inactivated whatever document shared
+the number, and that the READ audit named the segment the Inboxhub row asked for
+rather than the newer version `showLatest` rendered. Both are fixed on this branch,
+and the check now plants a queue link with the lab's number and asserts it survives,
+and reads the audit rows the open wrote and asserts they name the rendered segment.
+While the first defect stood, the check tolerated its console `Failed to fetch` by
+exact origin; that tolerance is gone and the console is asserted clean.
 
 **A refusal is proven against a matching acceptance.** `measurement-validation`
 asserts a bad value is refused AND that a good value through the same form still

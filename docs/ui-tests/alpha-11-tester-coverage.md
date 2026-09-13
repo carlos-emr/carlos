@@ -161,7 +161,10 @@ these are fixed by this change.
     no selectable consultation service and no specialty on Add Specialist
     until an admin activates them. The dev/demo database hides this because
     `development.sql` truncates the table and reseeds six active services, and
-    the additive demo build excludes the table.
+    the additive demo build excludes the table. **Fixed:**
+    `V1.0.23__on_activate_seeded_consultation_services.sql` activates the seeded
+    rows on an install where no service is active yet, and leaves a curated
+    list alone.
 22. (deb, fixed in `release/2026.08`) The alpha-11 WAF policy inspects
     `ARGS:caseNote_note` with the full CRS set, so any encounter note with a
     line starting `Start `, `Type `, `Find ` (Windows-RCE rule 932115, e.g.

@@ -595,8 +595,10 @@ suite_failed=0
 #   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
 #   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
 #   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
-# On a fresh Ontario install, consultation-request-create and specialist-add-cpso need at least one
-# active consultationServices row (the ON seed ships them all inactive; see the coverage page, finding 21).
+# consultation-request-create and specialist-add-cpso need at least one active consultationServices
+# row. Migration V1.0.23 (on) activates the seeded services on an Ontario install that has never
+# curated the list (the ON seed ships them all inactive; see the coverage page, finding 21), so a
+# package carrying it needs nothing; on an older package, activate one by hand first.
 # Clinical-workflow coverage scripts (docs/ui-tests/clinical-workflow-browser-checks.md). Each one
 # reaches its surface by clicking the links an operator clicks, seeds only what it needs and restores
 # it in a finally, and defaults to demographic 1 / provider 999998. Their knobs:
