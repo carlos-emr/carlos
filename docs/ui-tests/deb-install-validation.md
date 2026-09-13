@@ -11,6 +11,15 @@ and eForm saves, the add-patient validation regression, and the nullable-column
 500s on the consultation surfaces. Last validated end-to-end 2026-08-31 with
 **41/41 scripts passing** on 2026.09.0~snapshot18.
 
+The 2026-09 pass added six clinical-workflow checks — appointment booking,
+allergies, immunizations, internal messaging, lab-result review and vitals entry
+— for surfaces that had no browser coverage at all. They were written against
+2026.08.0-alpha11 packaged as 2026.09.0~snapshot19 and found four unvalidated-input
+HTTP 500s on the measurement surfaces plus two workflows that are unusable on a
+clean install until an operator provisions something the installer does not
+(messenger contacts, lab routing). See the per-check notes in the environment
+contract below; the reports are tracked as findings, not encoded as expectations.
+
 That 37/37 is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
 download failure, a false "0 error" banner on a successful delete, a DataTables
@@ -286,6 +295,54 @@ export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 # refuses such a prescription with "Valid fax number not found", so without it the check would be
 # measuring the missing pharmacy number rather than the signature gate.
 export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
+# ---------------------------------------------------------------------------
+# Clinical-workflow checks added 2026-09 (appointment, allergy, prevention,
+# messenger, lab review, measurement). All six share scripts/carlos-playwright-harness.js
+# and all six clean up after themselves in a finally, including after a failure:
+# each stamps the rows it writes with a unique PW_<AREA>_<millis> marker and deletes
+# exactly those. None of them touches a pre-existing clinical record.
+#
+# appointment-crud-playwright-checks.js — books into an empty slot on the day view,
+# edits, advances the status from the schedule's status letter, cancels, deletes, and
+# asserts the appointmentArchive row the delete must leave behind. It books
+# APPOINTMENT_DAYS_AHEAD out (default 400) so the demo dataset's own appointments
+# cannot occupy the slot it clicks.
+export APPOINTMENT_DEMOGRAPHIC_NO=1 APPOINTMENT_PROVIDER_NO=999998 APPOINTMENT_DAYS_AHEAD=400
+# allergy-crud-playwright-checks.js — drug-class search, quick-add, save, modify
+# (adds a replacement and archives the original), delete (archives), and the
+# prescriber's allergy-warning JSON endpoint. ALLERGY_WARNING_ATC only has to be a
+# real ATC; the endpoint is asserted as a JSON contract, not on a specific warning.
+export ALLERGY_DEMOGRAPHIC_NO=1 ALLERGY_WARNING_ATC=J01CA04
+# prevention-immunization-playwright-checks.js — records an immunization from the
+# prevention grid and asserts BOTH the preventions row and its preventionsExt detail
+# rows, then the reporting page and the printable record.
+export PREVENTION_DEMOGRAPHIC_NO=1 PREVENTION_PROVIDER_NO=999998
+# messenger-inbox-playwright-checks.js — compose, deliver, read, mark unread/read,
+# search, archive, unarchive, each asserted on the per-recipient messagelisttbl row.
+# A CLEAN INSTALL HAS NO MESSENGER CONTACTS (groupMembers_tbl is empty and the shipped
+# "doc" group has no members), so the compose page offers no recipients and nothing can
+# be sent. The check enrols the test provider through Administration > Messenger — the
+# operator's own remedy — and removes that enrolment again only if it created it.
+export MESSENGER_PROVIDER_NO=999998
+# lab-results-review-playwright-checks.js — Inboxhub, lab display (asserting the
+# CSRF bootstrap labDisplay.jsp depends on), the lab PDF, the acknowledge, and
+# cumulative values. The demo dataset routes its labs to provider 0, so no provider has
+# a reviewable inbox item; the check routes ONE existing demo lab to the test provider
+# and restores the routing exactly as it found it. LAB_SEGMENT_ID must be an HL7 lab
+# LINKED to a patient — labDisplay refuses to acknowledge an unmatched lab — and
+# defaults to the lowest demo lab that is.
+export LAB_PROVIDER_NO=999998
+# measurement-entry-playwright-checks.js — vitals entry, server-side validation of a
+# bad value, the save, the edit-form read-back and the trend graph.
+# MEASUREMENT_TEMPLATE IS NOT OPTIONAL: the entry form resolves it through
+# MeasurementTemplateFlowSheetConfig.getFlowSheet(), which has no null or unknown-name
+# guard, so a missing/empty/unknown template answers HTTP 500. "phv" (Periodic Health
+# Visit) is the default because it ships in the WAR and carries the general vitals
+# (BP/HT/WT/BMI); MEASUREMENT_TYPE must be a member of whichever flowsheet is named.
+# MEASUREMENT_ASSERT_INPUT_VALIDATION=true turns the malformed-input probes into
+# assertions — leave it OFF until that null handling is fixed, then turn it on.
+export MEASUREMENT_DEMOGRAPHIC_NO=1 MEASUREMENT_TYPE=WT MEASUREMENT_TEMPLATE=phv MEASUREMENT_VALUE=72
+# ---------------------------------------------------------------------------
 # Rx reprint / re-prescribe check (rx-fax-reprint-represcribe-playwright-checks.js). Same two
 # prerequisites as the fax check above, and it reuses RX_FAX_PROVIDER_NO / RX_FAX_DEMOGRAPHIC_NO.
 # It creates one prescription through the UI and removes it (with its drugs row and stored

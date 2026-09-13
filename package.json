@@ -56,7 +56,13 @@
     "test:flowsheet-admin-playwright": "node scripts/flowsheet-admin-playwright-checks.js",
     "test:select-forms-panel-playwright": "node scripts/select-forms-panel-playwright-checks.js",
     "test:flu-billing-report-playwright": "node scripts/flu-billing-report-playwright-checks.js",
-    "test:billing-on-third-party-playwright": "node scripts/billing-on-third-party-playwright-checks.js"
+    "test:billing-on-third-party-playwright": "node scripts/billing-on-third-party-playwright-checks.js",
+    "test:appointment-crud-playwright": "node scripts/appointment-crud-playwright-checks.js",
+    "test:allergy-crud-playwright": "node scripts/allergy-crud-playwright-checks.js",
+    "test:prevention-immunization-playwright": "node scripts/prevention-immunization-playwright-checks.js",
+    "test:messenger-inbox-playwright": "node scripts/messenger-inbox-playwright-checks.js",
+    "test:lab-results-review-playwright": "node scripts/lab-results-review-playwright-checks.js",
+    "test:measurement-entry-playwright": "node scripts/measurement-entry-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
