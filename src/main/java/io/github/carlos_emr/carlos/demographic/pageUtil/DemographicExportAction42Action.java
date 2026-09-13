@@ -205,6 +205,14 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
     private static final Logger logger = MiscUtils.getLogger();
+
+    // Instance fields, assigned by a constructor -- never `private static final X =
+    // SpringUtils.getBean(X.class)`. That earlier shape ran during static initialization, so
+    // merely REFERENCING this class needed a live Spring bean factory: a unit test touching the
+    // coding-system allowlist below (a plain Map.of constant needing no Spring at all) died with
+    // ExceptionInInitializerError, taking every later test in the class with it. Struts builds
+    // this action through the no-arg constructor, which resolves the same singletons once per
+    // instance; tests pass mocks to the injected constructor and never touch Spring.
     private final transient DemographicArchiveDao demoArchiveDao;
     private final transient DemographicContactDao contactDao;
     private final transient PartialDateDao partialDateDao;
