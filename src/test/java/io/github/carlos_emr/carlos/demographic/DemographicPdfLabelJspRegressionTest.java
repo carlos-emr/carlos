@@ -91,9 +91,11 @@ class DemographicPdfLabelJspRegressionTest {
      * {@code java.lang.String} in {@code carlos-tag.tld}. Jasper passes a
      * request-time scriptlet expression straight into {@code setValue(String)},
      * so a non-String expression such as the Integer {@code getDemographicNo()}
-     * breaks JSP translation at runtime. CI does not precompile JSPs (that needs
-     * {@code mvn package -Pjspc}), so this guard is the only thing standing
-     * between such a regression and a 500 on the label page.
+     * breaks JSP translation. CI's {@code jspc} job ({@code make jspc}, the
+     * {@code -Pjspc} profile) does catch this, but it is gated behind
+     * {@code needs: build} and runs a container-based full package, so it goes
+     * silent whenever {@code build} fails for an unrelated reason. This guard
+     * fails in milliseconds and does not depend on that job running.
      */
     @Test
     @DisplayName("should not pass non-String expressions to the encode tag")
