@@ -118,13 +118,27 @@ test('the prediction parser reads the page\'s actual output format', () => {
 });
 
 test('every arithmetic key is a button the calculator actually has', () => {
-  const buttons = new Set([...SIMPLE_JSP.matchAll(/VALUE="([^"]+)"\s*$/gm)].map((found) => found[1]));
+  // BOUND TO TYPE=button. The old pattern took any VALUE= that ended a line,
+  // which captured the DISPLAY field -- SimpleCalculator.jsp:269 is
+  // `<INPUT TYPE="text" VALUE="0"` -- and the membership test was a bare
+  // SIMPLE_JSP.includes(), which any element's VALUE could satisfy. A scenario
+  // pressing "0", or a button renamed to something the display happens to
+  // carry, would have passed with no such button on the page.
+  //
+  // TYPE is unquoted on the buttons and quoted on the text field, so the
+  // pattern accepts either spelling rather than assuming the current one.
+  const buttons = new Set(
+    [...SIMPLE_JSP.matchAll(/<INPUT\s+TYPE=["']?button["']?\s+VALUE="([^"]+)"/gi)].map((found) => found[1]),
+  );
+  assert.ok(buttons.size > 10, `only ${buttons.size} buttons parsed; the pattern is probably not matching`);
+  // The display field's value must NOT be in there, which is the bug itself.
+  assert.ok(!buttons.has('0') || SIMPLE_JSP.includes('TYPE=button VALUE="0"'),
+    'the display field was parsed as a button');
   for (const scenario of ARITHMETIC_CASES) {
     for (const key of scenario.keys) {
-      assert.ok(SIMPLE_JSP.includes(`VALUE="${key}"`), `the calculator has no "${key}" button`);
+      assert.ok(buttons.has(key), `the calculator has no "${key}" button`);
     }
   }
-  assert.ok(buttons.size > 0);
 });
 
 test('the arithmetic expectations match what the page computes', () => {

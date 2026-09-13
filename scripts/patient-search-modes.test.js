@@ -190,3 +190,46 @@ test('the phone oracle models all three numbers the DAO searches', () => {
   // phone/phone2 half.
   assert.match(sql, /x\.patient_status <> 'MERGED' AND EXISTS/);
 });
+
+test('no failure message carries a typed value or a patient identifier', () => {
+  // runCheck() writes a thrown message to stdout and into RESULT_JSON. The
+  // material here is the worst kind to put there: the typed value IS the PHI
+  // (a health number, a phone number, an address, a date of birth) and the
+  // rendered predicate carries it, while demographic numbers join straight back
+  // to those patients. CLAUDE.md: a diagnostic names the field, never content.
+  // A window after each assert( rather than a balanced-paren parse: this is a
+  // lint, and a window that overshoots into the next statement only makes it
+  // stricter, never laxer.
+  const assertions = [...SOURCE.matchAll(/\bassert\(/g)]
+    .map((match) => SOURCE.slice(match.index, match.index + 400));
+  assert.ok(assertions.length > 3, 'the assertions must actually be found');
+  for (const body of assertions) {
+    assert.ok(!/mode\.predicate\(/.test(body),
+      `an assertion message renders the predicate, which embeds the typed value: ${body.slice(0, 80)}`);
+    assert.ok(!/\$\{(extra|missing)\.join/.test(body),
+      `an assertion message lists demographic numbers: ${body.slice(0, 80)}`);
+    assert.ok(!/demographic \$\{number\}|\$\{seed\.value\}/.test(body),
+      `an assertion message carries an identifier or the typed value: ${body.slice(0, 80)}`);
+  }
+});
+
+test('the result written to RESULT_JSON carries no patient identifier', () => {
+  // main()'s return value is serialised to disk and archived by CI.
+  assert.ok(!/inactiveDemographic/.test(SOURCE),
+    'the status-scope result must not return the demographic number it searched for');
+  assert.match(SOURCE, /return \{ statusScopeChecked: true \}/);
+});
+
+test('the option file is removed when the run cannot even start', () => {
+  // createSqlRunner writes MYSQL_PASSWORD to a 0600 temp file and only
+  // dispose() removes it, so anything that throws between there and the
+  // try/finally -- the domain-restriction skip, a browser that will not launch
+  // -- would leave that file behind with nothing running to collect it.
+  const guard = SOURCE.slice(SOURCE.indexOf('const sql = createSqlRunner'), SOURCE.indexOf('const context = await newContext'));
+  assert.match(guard, /catch \(error\) \{\s*\n\s*sql\.dispose\(\);\s*\n\s*throw error;/);
+  const disposeIndex = guard.indexOf('sql.dispose()');
+  const launchIndex = guard.indexOf('await launchBrowser(config)');
+  const skipIndex = guard.indexOf('assertDomainRestrictionInactive(sql)');
+  assert.ok(launchIndex > -1 && skipIndex > -1 && disposeIndex > launchIndex && disposeIndex > skipIndex,
+    'both the skip and the browser launch must be inside the cleanup boundary');
+});

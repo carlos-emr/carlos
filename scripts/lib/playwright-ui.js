@@ -499,7 +499,14 @@ async function dataTableRows(page, tableSelector, options = {}) {
         return false;
       }
       // DataTables adds the wrapper and the processing container on init.
-      const wrapper = element.closest('.dataTables_wrapper') || document.querySelector(`${selector}_wrapper`);
+      // The "<id>_wrapper" fallback is only a valid selector when the table was
+      // named by a bare id: for "table.dt" or "#outer .dt" the concatenation
+      // builds something that matches nothing, or throws inside querySelector
+      // -- and a throw makes waitForFunction fail instead of falling back.
+      const byConvention = /^#[A-Za-z][\w-]*$/.test(selector)
+        ? document.querySelector(`${selector}_wrapper`)
+        : null;
+      const wrapper = element.closest('.dataTables_wrapper') || byConvention;
       if (!wrapper) {
         return false;
       }

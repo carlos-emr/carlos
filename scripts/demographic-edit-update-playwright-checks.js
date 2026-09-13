@@ -62,8 +62,7 @@ const {
   assert, assertStrictPage, createSqlRunner, createRecorder, launchBrowser, login, newContext, readConfig,
   runCheck, sqlString,
 } = require('./lib/playwright-harness');
-const { clickAndAwaitReload } = require('./lib/playwright-ui');
-const { clickOpensPopup } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, clickOpensPopup } = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 /*
@@ -156,8 +155,13 @@ async function auditRows(context, masterPage, recorder, timeout) {
     await audit.locator('#auditLog').waitFor({ state: 'visible', timeout });
     // "All", so the newest row is on the page being read. -1 is the value the
     // page's own lengthMenu uses for it.
+    // NOT swallowed. demographicAudit.jsp sorts ascending and DataTables pages
+    // at ten, so the row this check is looking for is on the LAST page. If the
+    // length menu does not take, auditRows() reads page one, the new entry is
+    // absent, and the check reports that CARLOS failed to write an audit record
+    // it actually wrote.
     await audit.locator('select[name="auditLog_length"]').first()
-      .selectOption('-1', { timeout }).catch(() => {});
+      .selectOption('-1', { timeout });
     return audit.$$eval('#auditLog tbody tr', (rows) => rows
       .map((row) => Array.from(row.querySelectorAll('td'))
         .slice(0, 3)
@@ -229,7 +233,9 @@ async function main() {
     const [before] = sql.rows(
       `SELECT ${selected} FROM demographic WHERE demographic_no = ${Number(demographicNo)}`,
     );
-    assert(before, `No demographic row for the patient the UI opened (demographic_no ${demographicNo})`);
+    // No identifier in the message: runCheck() writes it to stdout and into
+    // RESULT_JSON, and demographic_no joins straight back to a patient.
+    assert(before, 'No demographic row for the patient the UI opened');
     original = Object.fromEntries(columns.map((column, index) => [
       column,
       // The flag, not the parsed token, decides.

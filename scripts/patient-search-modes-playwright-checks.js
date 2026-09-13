@@ -335,16 +335,25 @@ async function checkMode(page, sql, mode, inactive, timeout) {
   // direction -- an over-matching search puts one patient's record in front of
   // a clinician who asked about another.
   const extra = shown.filter((number) => !seed.expected.includes(number));
+  // COUNTS, NOT IDENTIFIERS. runCheck() writes a thrown message to stdout and
+  // into RESULT_JSON, and the material here is the worst kind to put there: the
+  // typed value is a health number, a phone number, an address or a date of
+  // birth, and the rendered predicate carries it. The demographic numbers join
+  // straight back to those patients. CLAUDE.md's rule is that a diagnostic
+  // names the field and never its content; the mode and the count are enough
+  // to reproduce this locally against the same dataset.
   assert(extra.length === 0,
-    `Searching by ${mode.title} returned ${extra.length} patient(s) that do not match what was typed `
-    + `(demographic ${extra.join(', ')}). The mode's rule is ${mode.predicate('d', seed.value)}.`);
+    `Searching by ${mode.title} returned ${extra.length} patient(s) that do not match what was typed. `
+    + 'This is the privacy direction: the page showed records the search should not have matched. '
+    + 'Re-run this check locally to see which, or compare the mode\'s predicate against the DAO.');
 
   // Direction 2: everything that matches is shown. This is the direction a
   // "does the page render" check passes straight through.
   const missing = seed.expected.filter((number) => !shown.includes(number));
+  // Counts only: see the note above.
   assert(missing.length === 0,
-    `Searching by ${mode.title} did not show ${missing.length} patient(s) it should have `
-    + `(demographic ${missing.join(', ')}). The one legitimate cause is the Caisi program-domain `
+    `Searching by ${mode.title} did not show ${missing.length} patient(s) it should have. `
+    + 'The one legitimate cause is the Caisi program-domain '
     + 'restriction, which narrows results to the provider\'s own programs; anything else is a defect.');
 
   return { mode: mode.name, matched: shown.length };
@@ -374,20 +383,25 @@ async function checkStatusScope(page, sql, inactive, timeout) {
   // more than the page's ten rows, which would make "absent" ambiguous between
   // the status filter working and the patient being on page two.
   await runSearch(page, 'search_demographic_no', number, timeout, 'active');
+  // The identifier stays out of the message: it joins straight back to a
+  // patient, and runCheck() writes this to stdout and RESULT_JSON.
   assert(!(await shownDemographicNumbers(page)).includes(number),
-    `The default (active) search showed demographic ${number}, whose patient_status is inactive`);
+    'The default (active) search showed a patient whose patient_status is inactive');
 
   await runSearch(page, 'search_demographic_no', number, timeout, 'Inactive');
   assert((await shownDemographicNumbers(page)).includes(number),
-    `The Inactive button did not show demographic ${number}, which is inactive. `
+    'The Inactive button did not show the inactive patient this check searched for. '
     + 'searchInactive() sets the hidden ptstatus field to "inactive" before submitting; '
     + 'if that handler is broken the button performs an ordinary active search.');
 
   await runSearch(page, 'search_demographic_no', number, timeout, 'All');
   assert((await shownDemographicNumbers(page)).includes(number),
-    `The All button did not show demographic ${number}. searchAll() clears the hidden ptstatus field.`);
+    'The All button did not show the inactive patient this check searched for. '
+    + 'searchAll() clears the hidden ptstatus field.');
 
-  return { inactiveDemographic: number };
+  // Deliberately returns no identifier: main()'s return value becomes
+  // RESULT_JSON, which is written to disk and archived by CI.
+  return { statusScopeChecked: true };
 }
 
 /**
@@ -444,9 +458,20 @@ async function main() {
     : MODES;
 
   const sql = createSqlRunner(config.mysql);
-  assertDomainRestrictionInactive(sql);
+  // EVERYTHING between createSqlRunner and the try/finally has to clean up
+  // after itself. createSqlRunner writes MYSQL_PASSWORD to a 0600 option file
+  // and only dispose() removes it, so a throw out here -- the domain-restriction
+  // skip below, or a browser that will not launch -- would leave that file in
+  // the temp directory with nothing running to collect it.
   const recorder = createRecorder();
-  const browser = await launchBrowser(config);
+  let browser;
+  try {
+    assertDomainRestrictionInactive(sql);
+    browser = await launchBrowser(config);
+  } catch (error) {
+    sql.dispose();
+    throw error;
+  }
   try {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);

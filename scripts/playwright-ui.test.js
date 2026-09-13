@@ -349,3 +349,20 @@ test('pickDate reads the calendar rather than any attribute flatpickr does not w
     'flatpickr writes no data-date; a selector using one matches nothing and the helper can never click');
   assert.match(pickDateSource, /element\.dateObj/);
 });
+
+test('the DataTables wrapper fallback is only built for a bare id selector', () => {
+  // `${selector}_wrapper` is only a valid selector when the table was named by
+  // an id. For 'table.dt' or '#outer .dt' the concatenation builds something
+  // that matches nothing, or throws inside querySelector -- and a throw makes
+  // waitForFunction fail rather than fall back, so the caller sees a timeout
+  // instead of the table it asked for.
+  const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-ui'), 'utf8');
+  const helper = source.slice(source.indexOf('async function dataTableRows'));
+  assert.match(helper, /\/\^#\[A-Za-z\]\[\\w-\]\*\$\/\.test\(selector\)/);
+  // And the id pattern itself does what it claims.
+  const idOnly = /^#[A-Za-z][\w-]*$/;
+  assert.ok(idOnly.test('#auditLog'));
+  assert.ok(!idOnly.test('table.dt'));
+  assert.ok(!idOnly.test('#outer .dt'));
+  assert.ok(!idOnly.test('#a > #b'));
+});

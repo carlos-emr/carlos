@@ -251,8 +251,13 @@ async function checkTypeFilters(page, timeout) {
   // And clearing is reversible: a filter that cannot be undone strands the
   // clinician in a narrowed list.
   const restored = await shownRows(page);
-  assert(restored.length === whole.length,
-    `Clearing the type filter left ${restored.length} rows where the unfiltered list had ${whole.length}; `
+  // IDENTITIES, not the count. Both are sorted unique arrays already, and a
+  // clear that returns a DIFFERENT set of the same size is exactly the failure
+  // a count comparison accepts -- the same shape as the ignored-filter case
+  // this whole check exists to catch.
+  assert(restored.length === whole.length && restored.every((row, index) => row === whole[index]),
+    `Clearing the type filter left ${restored.length} row(s) where the unfiltered list had ${whole.length}, `
+    + `and ${restored.filter((row) => !whole.includes(row)).length} of them were not in it; `
     + 'the filter cannot be undone');
   return { whole: whole.length, parts: parts.map((part) => `${part.title}=${part.rows.length}`), skipped };
 }

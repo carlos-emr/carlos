@@ -121,7 +121,9 @@ async function openSurface(context, schedulePage, surface, recorder, timeout) {
 }
 
 async function auditSurface(context, schedulePage, surface, recorder, options) {
-  const { timeout, limit, screenshotDir } = options;
+  const {
+    timeout, limit, screenshotDir, scheduleUrl,
+  } = options;
   // Snapshot BEFORE the surface is opened. auditCatalogue snapshots per item, so
   // without this the opener phase -- the landing page of the popup itself, where
   // issue #3313 item 1 actually lived -- is the one page in the run whose errors
@@ -155,9 +157,21 @@ async function auditSurface(context, schedulePage, surface, recorder, options) {
       failures: [...openingFindings, ...result.failures],
     };
   } finally {
-    // Only close a popup; closing the schedule would strand the next surface.
     if (page !== schedulePage) {
+      // Only close a popup; closing the schedule would strand the next surface.
       await page.close().catch(() => {});
+    } else if (scheduleUrl && schedulePage.url() !== scheduleUrl) {
+      // A SAME-TAB surface navigated the schedule itself. Left there, the next
+      // iteration hunts for the schedule's own controls on whatever this
+      // surface rendered and reports every one of them as missing -- one
+      // conditional surface turning into a cascade of false findings about the
+      // surfaces after it. Going back is what a clinician does, so use history
+      // first and fall back to the address only if that does not land.
+      await schedulePage.goBack({ timeout }).catch(() => {});
+      if (schedulePage.url() !== scheduleUrl) {
+        await schedulePage.goto(scheduleUrl, { timeout, waitUntil: 'domcontentloaded' }).catch(() => {});
+      }
+      await schedulePage.waitForLoadState('networkidle', { timeout }).catch(() => {});
     }
   }
 }
@@ -193,12 +207,23 @@ async function main() {
   try {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
+    // The address to come back to: a same-tab surface navigates this very page,
+    // and the next iteration then looks for schedule controls on whatever it
+    // landed on. See the restore in auditSurface's finally.
+    const scheduleUrl = schedulePage.url();
+    // Read back BEFORE the loop. auditSurface snapshots per surface and
+    // measures from there, so anything login() recorded -- and login is a page
+    // like any other -- would otherwise sit in the recorder unread while every
+    // surface reported clean.
+    assertStrictPage(recorder, ['login']);
 
     const audited = [];
     const notOffered = [];
     for (const surface of surfaces) {
       try {
-        const result = await auditSurface(context, schedulePage, surface, recorder, { timeout, limit, screenshotDir });
+        const result = await auditSurface(context, schedulePage, surface, recorder, {
+          timeout, limit, screenshotDir, scheduleUrl,
+        });
         audited.push(surface.name);
         summary.push(`${surface.name}: opened ${result.opened.length}, skipped ${result.skipped}`);
         // Prefix each finding with the surface so a multi-surface run stays readable.

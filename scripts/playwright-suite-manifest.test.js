@@ -118,7 +118,13 @@ test('every navigation entry is a click, never a URL', () => {
   for (const [section, entry] of Object.entries(NAVIGATION)) {
     assert.equal(typeof entry.opens, 'string', `${section} must say what it opens`);
     assert.ok('validated' in entry, `${section} must declare whether a live run has confirmed its selector`);
+    // `!== null` let an entry that OMITS click through untested, and undefined
+    // with it -- so the one assertion standing between this suite and a map of
+    // URLs could be skipped by leaving a key out. Only a literal null means
+    // "no click needed", and it has to be written.
+    assert.ok('click' in entry, `${section} must declare a click target, or null if none is needed`);
     if (entry.click !== null) {
+      assert.equal(typeof entry.click, 'string', `${section}.click must be a selector string or null`);
       assert.doesNotMatch(entry.click, /^https?:|^\//, `${section} names a URL (${entry.click}); it must name the element the user clicks`);
     }
   }

@@ -97,7 +97,14 @@ test('the restore runs in a finally and is scoped to one patient and one column 
 
 test('no field value is ever logged', () => {
   // The repo rule: diagnostics name the field, never its content.
-  const logs = [...SOURCE.matchAll(/console\.(log|error)\(([^\n]*)/g)].map((match) => match[2]);
+  // The WHOLE call, not its first line. `[^\n]*` stopped at the newline, so a
+  // wrapped console.log(\n  `...${stored[field.column]}`,\n) was collected as an
+  // empty string and passed every assertion below while the field value still
+  // reached run output. This is the only test enforcing "diagnostics name the
+  // field, never its content", so the gap left the rule unenforced for any call
+  // somebody had reformatted.
+  const logs = [...SOURCE.matchAll(/console\.(log|error)\(([\s\S]*?)\);/g)].map((match) => match[2]);
+  assert.ok(logs.length > 0, 'the console calls must actually be found');
   for (const line of logs) {
     assert.ok(!/field\.value|stored\[|original\[|shown\b/.test(line),
       `a log line may not carry a field value: ${line.slice(0, 60)}`);

@@ -120,8 +120,11 @@ has been migrated onto the new harness yet**.
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 
 **Checks implementing this plan, landed so far.** Each script's header names the
-section it implements, and each is UI-driven: it is entered by clicking from the
-schedule, never by a URL.
+section it implements, and every *browser* check is UI-driven: it is entered by
+clicking from the schedule, never by a URL. `csrf-bootstrap-audit` is the one
+exception in the table below and is marked as such — it reads the webapp's JSPs
+from disk and drives no browser at all, which is why it can run on every pull
+request without a deployment.
 
 | Check | Implements | Covers |
 |---|---|---|

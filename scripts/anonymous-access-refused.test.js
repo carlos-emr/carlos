@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  LOGIN_REDIRECT, NOT_PROTECTED, REFUSED_STATUSES, resolveRoute, verdictFor,
+  LOGIN_REDIRECT, NOT_PROTECTED, REFUSED_STATUSES, printableRoute, resolveRoute, verdictFor,
 } = require('./anonymous-access-refused-playwright-checks');
 
 const SOURCE = fs.readFileSync(
@@ -178,7 +178,7 @@ test('the Administration panel is mandatory, and so is a plausible number of its
 test('the pages this check drives as a logged-in provider are read back', () => {
   // The catalogue is built by clicking through a real session. A page that
   // broke while cataloguing would otherwise go unreported.
-  assert.match(SOURCE, /assertStrictPage\(recorder, \['administration', 'patient-search', 'master-record'\]\)/);
+  assert.match(SOURCE, /assertStrictPage\(recorder, \['login', 'administration', 'patient-search', 'master-record'\]\)/);
 });
 
 test('a bare onclick route resolves INSIDE the application, not beside it', () => {
@@ -213,4 +213,40 @@ test('another host is still refused however it was resolved', () => {
   assert.equal(resolveRoute({ href: 'https://example.com/x', baseURI: page }, BASE), null);
   // And a path on the same host but outside the application's context.
   assert.equal(resolveRoute({ href: '/manager/html', baseURI: page }, BASE), null);
+});
+
+test('no diagnostic carries the query string a catalogued route came with', () => {
+  // The catalogue is built by clicking through an AUTHENTICATED session, so its
+  // Master Record and chart links carry the identifiers of whichever patient
+  // this run opened (DemographicEdit?demographic_no=123). runCheck() writes
+  // these messages to stdout and into RESULT_JSON, which CI archives.
+  // CLAUDE.md counts demographic_no among the identifiers that join straight
+  // back to a patient.
+  const withId = { url: `${BASE}/demographic/DemographicEdit?demographic_no=123&appointmentNo=456` };
+  const messages = [
+    verdictFor(withId, 302, `${BASE}/somewhere?demographic_no=123`, '', 'FAKE-Smith'),
+    verdictFor(withId, 500, '', '', 'FAKE-Smith'),
+    verdictFor(withId, 200, '', 'a body', 'FAKE-Smith'),
+    verdictFor(withId, 200, '', 'a body naming FAKE-Smith', 'FAKE-Smith'),
+  ].filter(Boolean);
+  assert.equal(messages.length, 4);
+  for (const message of messages) {
+    assert.ok(!/demographic_no|appointmentNo|123|456/.test(message),
+      `a diagnostic carried a patient identifier: ${message}`);
+    // The path is still there: it names the endpoint that answered.
+    assert.match(message, /DemographicEdit|somewhere/);
+  }
+});
+
+test('an empty Location still reads as an absent header, not as a redaction', () => {
+  // printableRoute('') must stay empty so the caller's own fallback fires.
+  assert.equal(printableRoute(''), '');
+  const message = verdictFor({ url: `${BASE}/x` }, 302, '', '', 'FAKE-Smith');
+  assert.match(message, /no Location header/);
+});
+
+test('a relative Location keeps its path and loses its query', () => {
+  // Location headers are frequently relative, which does not parse as a URL on
+  // its own -- and losing the path would throw away the only useful half.
+  assert.equal(printableRoute('/carlos/logout?demographic_no=9'), '/carlos/logout');
 });

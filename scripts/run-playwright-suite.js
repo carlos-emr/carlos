@@ -248,6 +248,12 @@ function runOne(check, options, run = spawnSync) {
     // meant a caller passing an explicit environment gated one target and ran
     // the child against another -- exactly the disassociation assertSafeTarget
     // exists to prevent.
+    //
+    // envSet comes SECOND on purpose and the order is load-bearing: it is how
+    // one script backs several named checks (SURFACE=inbox, SURFACE=report),
+    // so a per-check selector has to beat an ambient value of the same name.
+    // Spread the other way and every surface-audit row would run whichever
+    // SURFACE happened to be exported, i.e. the same surface ten times.
     env: { ...(options.env || process.env), ...(check.envSet || {}) },
   });
   const durationMs = Date.now() - started;

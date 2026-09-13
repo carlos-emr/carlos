@@ -174,8 +174,40 @@ async function catalogueReachable(context, schedulePage, recorder, options) {
   return { routes, surname, masterPage };
 }
 
+/**
+ * A route as it is safe to print.
+ *
+ * The catalogue is built by clicking through an authenticated session, so the
+ * Master Record and chart links carry the identifiers of the patient this run
+ * happened to open: `DemographicEdit?demographic_no=123`,
+ * `IncomingEncounter?demographicNo=123&appointmentNo=456`. Every diagnostic
+ * below is written to stdout by runCheck() and into RESULT_JSON, which CI
+ * archives -- so the query string must not go with them. CLAUDE.md counts
+ * demographic_no among the identifiers that join straight back to a patient.
+ *
+ * The path is what a reader needs anyway: it names the endpoint that answered.
+ */
+function printableRoute(url) {
+  const raw = String(url || '');
+  if (!raw) {
+    // Empty stays empty, so a caller's own "(no Location header)" fallback can
+    // still fire. Returning a placeholder here swallowed that distinction.
+    return '';
+  }
+  try {
+    const parsed = new URL(raw);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    // A Location header is frequently relative ("/carlos/logout?x=1"), which
+    // does not parse on its own. Cutting at the query is the same redaction and
+    // keeps the path, which is the part worth reading.
+    return raw.split(/[?#]/)[0];
+  }
+}
+
 /** Classify one anonymous response. */
 function verdictFor(route, status, location, body, surname) {
+  const where = printableRoute(route.url);
   if (REFUSED_STATUSES.includes(status)) {
     return null;
   }
@@ -183,7 +215,7 @@ function verdictFor(route, status, location, body, surname) {
     if (LOGIN_REDIRECT.test(String(location || ''))) {
       return null;
     }
-    return `${route.url} redirected a session-less request to ${location || '(no Location header)'} `
+    return `${where} redirected a session-less request to ${printableRoute(location) || '(no Location header)'} `
       + 'rather than to the login surface';
   }
   if (status === 404) {
@@ -193,7 +225,7 @@ function verdictFor(route, status, location, body, surname) {
     return 'NOT_FOUND';
   }
   if (status >= 500) {
-    return `${route.url} answered HTTP ${status} to a session-less request. It should have been refused before `
+    return `${where} answered HTTP ${status} to a session-less request. It should have been refused before `
       + 'anything ran; reaching an exception means the request got past the authentication gate';
   }
 
@@ -201,10 +233,10 @@ function verdictFor(route, status, location, body, surname) {
   const leaksPatient = surname && surname.trim().length >= 3
     && body.toLowerCase().includes(surname.trim().toLowerCase());
   if (leaksPatient) {
-    return `${route.url} answered HTTP 200 to a session-less request AND the response contains the patient's `
+    return `${where} answered HTTP 200 to a session-less request AND the response contains the patient's `
       + 'surname. This is patient data served to an unauthenticated caller.';
   }
-  return `${route.url} answered HTTP 200 to a session-less request (${body.length} bytes). LoginFilter should `
+  return `${where} answered HTTP 200 to a session-less request (${body.length} bytes). LoginFilter should `
     + 'have redirected it to /logoutPage.';
 }
 
@@ -247,18 +279,18 @@ async function main() {
         try {
           response = await anonymous.request.get(route.url, { timeout, maxRedirects: 0 });
         } catch (error) {
-          failures.push(`${route.url}: the request itself failed -- ${String(error.message).split('\n')[0]}`);
+          failures.push(`${printableRoute(route.url)}: the request itself failed -- ${String(error.message).split('\n')[0]}`);
           continue;
         }
         const status = response.status();
         const body = status === 200 ? await response.text().catch(() => '') : '';
         const verdict = verdictFor(route, status, response.headers().location, body, surname);
         if (verdict === 'NOT_FOUND') {
-          notFound.push(route.url);
+          notFound.push(printableRoute(route.url));
         } else if (verdict) {
           failures.push(verdict);
         } else {
-          probed.push(route.url);
+          probed.push(printableRoute(route.url));
         }
       }
     } finally {
@@ -268,7 +300,7 @@ async function main() {
     // The cataloguing half logs in and opens two real surfaces through strict
     // wiring. Without this, a pageerror while cataloguing is recorded and thrown
     // away, and the route list it produced is trusted anyway.
-    assertStrictPage(recorder, ['administration', 'patient-search', 'master-record']);
+    assertStrictPage(recorder, ['login', 'administration', 'patient-search', 'master-record']);
 
     assert(failures.length === 0,
       `${failures.length} of ${probed.length + failures.length} route(s) a clinician reaches are not refused to a `
@@ -304,5 +336,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  LOGIN_REDIRECT, NOT_PROTECTED, REFUSED_STATUSES, main, resolveRoute, verdictFor,
+  LOGIN_REDIRECT, NOT_PROTECTED, REFUSED_STATUSES, main, printableRoute, resolveRoute, verdictFor,
 };

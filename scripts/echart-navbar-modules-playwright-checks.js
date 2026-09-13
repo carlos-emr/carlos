@@ -139,7 +139,7 @@ async function main() {
     // before any item is clicked, so auditCatalogue's per-item snapshots never
     // see it. Assert it here or a pageerror during chart startup is recorded and
     // discarded.
-    assertStrictPage(recorder, ['patient-search', 'master-record', 'echart']);
+    assertStrictPage(recorder, ['login', 'patient-search', 'master-record', 'echart']);
 
     const items = dedupe(await catalogueLinks(chartPage, { selector: NAVBAR_SELECTOR }));
     assert(items.length > 0,

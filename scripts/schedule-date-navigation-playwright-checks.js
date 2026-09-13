@@ -175,7 +175,20 @@ async function checkMonthView(schedulePage, timeout) {
   const before = await shownDate(schedulePage, timeout);
   const monthLink = schedulePage.locator('a').filter({ hasText: /^\s*Month\s*$/i }).first();
   if (await monthLink.count() === 0) {
-    return null;
+    // ABSENCE IS LEGITIMATE, SILENCE IS NOT. appointmentprovideradminday.jsp
+    // wraps this anchor in <security:oscarSec objectName="_month" rights="r">,
+    // so a provider without that right sees no Month link at all. Returning
+    // null and still reporting PASS meant the check claimed month-view coverage
+    // it had not attempted -- and would have gone on claiming it if the
+    // selector went stale.
+    //
+    // So tell the two apart: the route is still in the page's markup if the
+    // anchor merely renamed itself.
+    const byRoute = schedulePage.locator('a[href*="displaymode=month"]');
+    assert(await byRoute.count() === 0,
+      'The schedule renders a displaymode=month link but nothing whose text is "Month", so this check\'s '
+      + 'selector is stale rather than the control being absent');
+    return { covered: false, reason: 'the logged-in provider has no _month read right, so the schedule renders no Month link' };
   }
   await clickAndAwaitReload(schedulePage, monthLink, { timeout, label: 'the Month link' });
 
@@ -190,7 +203,7 @@ async function checkMonthView(schedulePage, timeout) {
     'The month view offers no Today link, so a user who opened it cannot get back to a day sheet');
   await clickAndAwaitReload(schedulePage, today, { timeout, label: "the month view's Today link" });
   const after = await shownDate(schedulePage, timeout);
-  return { before, after };
+  return { covered: true, before, after };
 }
 
 async function main() {
@@ -205,10 +218,15 @@ async function main() {
 
     const boundaries = await checkMonthBoundaries(context, schedulePage, recorder, timeout);
     const monthView = await checkMonthView(schedulePage, timeout);
+    if (!monthView.covered) {
+      // Reported, not swallowed: a reader of a green run must be able to see
+      // that this half did not run, and why.
+      console.log(`  month view NOT COVERED: ${monthView.reason}`);
+    }
 
     assertStrictPage(recorder);
     console.log(`  crossed ${boundaries.length} month boundary/boundaries: ${boundaries.join(', ')}`);
-    if (monthView) {
+    if (monthView.covered) {
       console.log(`  month view opened and returned to ${monthView.after}`);
     }
     return { boundaries, monthView };

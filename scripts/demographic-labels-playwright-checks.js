@@ -220,7 +220,12 @@ async function main() {
       await openPrintMenu(masterPage, timeout);
     }
 
-    assertStrictPage(recorder, ['patient-search', 'master-record']);
+    // The WHOLE recorder, not two labels. Every Print / Labels item opens a
+    // popup wired under its own label, so scoping to the two pages we walked
+    // through left each generated document's own page unread: a label popup can
+    // render a body, satisfy the byte checks, and still be throwing in its
+    // inline script or failing to load its stylesheet.
+    assertStrictPage(recorder);
     assert(failures.length === 0,
       `${failures.length} Print / Labels item(s) do not produce what they promise:\n    - ${failures.join('\n    - ')}`);
     assert(generated.filter((entry) => entry.bytes > 0).length >= 3,

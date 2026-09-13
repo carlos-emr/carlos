@@ -100,7 +100,7 @@ async function main() {
     // OWN startup is recorded and then never read by anything. Without this the
     // check can report 120 pages opened cleanly while the panel that lists them
     // is itself broken.
-    assertStrictPage(recorder, ['administration']);
+    assertStrictPage(recorder, ['login', 'administration']);
 
     const items = dedupe(await catalogueLinks(adminPage))
       .filter((item) => !only || item.text.toLowerCase().includes(only));

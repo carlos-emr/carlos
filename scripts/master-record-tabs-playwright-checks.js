@@ -162,7 +162,7 @@ async function main() {
     // snapshots from here on -- so anything the browser reported while logging
     // in, searching and landing on the record has to be asserted now or it is
     // recorded and thrown away.
-    assertStrictPage(recorder, ['patient-search', 'master-record']);
+    assertStrictPage(recorder, ['login', 'patient-search', 'master-record']);
 
     const items = dedupe(await catalogueLinks(masterPage));
     assert(items.length > 0, 'The Master Record offered no navigable links at all');
