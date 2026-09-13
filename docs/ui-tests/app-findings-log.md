@@ -15,7 +15,7 @@ Status values: `open` (verified, no issue filed), `issue-filed`, `fixed`,
 `needs-live-check` (verified statically, wants confirmation against a running
 deployment).
 
-**All nine findings below are filed as [issue #3665](https://github.com/carlos-emr/carlos/issues/3665)**,
+**All findings below are filed as [issue #3665](https://github.com/carlos-emr/carlos/issues/3665)**,
 one ticket covering the whole pass. A finding keeps `needs-live-check` where that
 is still true of it — being filed does not make a source-search result a
 confirmed one.
@@ -84,6 +84,28 @@ it is fixed, the assertion belongs in that check.
 Finding 7 is the more serious of the two: it is on the single most-used screen in
 the product, it fires continuously while a clinician types, and it is the reason
 a baseline entry has to exist at all.
+
+## 2b. Pages that POST over AJAX with no CSRF token to send
+
+CLAUDE.md's CSRF bootstrapping rule: CSRFGuard's client script injects the hidden
+`CSRF-TOKEN` input only into a `<form>` with a real action and a non-GET method.
+A page that reads that input from an AJAX POST and has neither such a form nor the
+`/WEB-INF/jspf/csrf-token.jspf` include sends an **empty** token. The request comes
+back as an HTML error page, `response.json()` throws into a catch block, and the
+user is shown nothing.
+
+| # | Finding | Evidence | Status |
+|---|---|---|---|
+| 10 | **Six pages POST through the shared AJAX helper with nothing to populate the token.** `share/javascript/carlos-ajax.js` is the common path: `CarlosAjax.request()` defaults to `method: 'POST'` and `getCsrfToken()` reads `input[name="CSRF-TOKEN"]` on the caller's behalf (`carlos-ajax.js:49`). These six carry neither a qualifying form nor the include, so every one of those POSTs is sent with an empty token. Three are whole pages (`documentsInQueues.jsp`, 14 such calls; `CumulativeLabValues.jsp`; `newEncounterLayout.jsp`); three are fragments or generated script whose host pages were checked and do not carry it either (`ChartNotesAjax.jsp`, `labDisplayAjax.jsp`, `js/newCaseManagementView.js.jsp`). Remedy: add the `csrf-token.jspf` include to the document that owns each — and on any page setting its own `script-src`, publish the `cspNonce` request attribute first, or the inline bootstrap is blocked and the symptom is unchanged | `scripts/lib/csrf-bootstrap-audit.js` over the whole webapp, with the six pinned in `scripts/lib/csrf-bootstrap-baseline.json`; `labDisplayAjax.jsp` and `newEncounterLayout.jsp` carry the action-less-form anti-pattern CLAUDE.md names explicitly. Not confirmed against a running deployment: the audit is static, and `csrfBootstrapFinding()` in `scripts/lib/playwright-link-audit.js` is the browser half that would confirm the input is empty in a live DOM | `needs-live-check` |
+
+**How this was missed.** The audit's own applicability test required the token read
+and the AJAX send to appear in the page's *own* source. All six POST through
+`CarlosAjax` instead, so the audit classified them not applicable and reported the
+webapp clean — 25 applicable pages, **zero** violations. Widening applicability to
+the shared helper took it to 37 applicable pages and these six. A guard that ran,
+found nothing, and passed.
+
+---
 
 ## 3. Investigated and **not** defects
 

@@ -72,6 +72,27 @@ const SENDS_OVER_AJAX = [
 ];
 
 /**
+ * Sending through the SHARED HELPER, which reads the token on the page's behalf.
+ *
+ * WHY THIS IS A SEPARATE LIST. The rule's applicability test used to require the
+ * token read and the send to BOTH appear in the page's own source. 18 webapp
+ * files POST through share/javascript/carlos-ajax.js instead, where the read
+ * lives -- `CarlosAjax.request()` defaults to method POST and getCsrfToken()
+ * does document.querySelector('input[name="CSRF-TOKEN"]') at carlos-ajax.js:49.
+ * Those pages were therefore classified NOT APPLICABLE and the audit reported
+ * them clean without ever checking them: a hole in a security audit, in exactly
+ * the shape the audit exists to find.
+ *
+ * Delegating the read does not change the failure. When the page carries no
+ * populated input the helper sends an empty token, the request comes back as an
+ * HTML error page, and nothing surfaces -- which is the whole of CLAUDE.md's
+ * bootstrapping rule.
+ */
+const SENDS_VIA_SHARED_HELPER = [
+  /\bCarlosAjax\s*\.\s*(?:request|updater|post)\s*\(/,
+];
+
+/**
  * (a) A form CSRFGuard will actually inject into: real action, non-GET.
  *
  * WHY A WINDOW AND NOT ONE PATTERN OVER THE TAG. A CARLOS <form> tag routinely
@@ -83,7 +104,15 @@ const SENDS_OVER_AJAX = [
  * bounded window and the two attributes are looked for inside it.
  */
 const FORM_WINDOW = 600;
-const FORM_ACTION = /\baction\s*=\s*["'][^"']+["']/i;
+/*
+ * A REAL URL, not merely a non-empty attribute. `[^"']+` accepted
+ * action="#anchor", action="javascript:doIt()" and action="   ": CSRFGuard
+ * injects into none of those, so hasRealPostForm() could call a page compliant
+ * while its token input was never populated -- the static guard reporting clean
+ * on exactly the page it exists to catch. The value must have a non-space
+ * character and must not open with a fragment or a script scheme.
+ */
+const FORM_ACTION = /\baction\s*=\s*["']\s*(?!#|javascript:|vbscript:|data:)[^"'\s][^"']*["']/i;
 const FORM_METHOD_NON_GET = /\bmethod\s*=\s*["']\s*(?!get\b)[a-z]+\s*["']/i;
 
 function hasRealPostForm(source) {
@@ -170,7 +199,11 @@ const matchesAny = (patterns, text) => patterns.some((pattern) => pattern.test(t
  *   { file, satisfied, reason }
  */
 function auditSource(relativePath, source) {
-  if (!matchesAny(READS_TOKEN_INPUT, source) || !matchesAny(SENDS_OVER_AJAX, source)) {
+  // Two ways in: the page reads the token AND sends it itself, or it delegates
+  // both to the shared helper (see SENDS_VIA_SHARED_HELPER). Either way the page
+  // must carry a populated CSRF-TOKEN input or the POST is rejected.
+  const sendsItself = matchesAny(READS_TOKEN_INPUT, source) && matchesAny(SENDS_OVER_AJAX, source);
+  if (!sendsItself && !matchesAny(SENDS_VIA_SHARED_HELPER, source)) {
     return null;
   }
   if (BOOTSTRAP_INCLUDE.test(source)) {
@@ -325,6 +358,7 @@ module.exports = {
   INLINE_BOOTSTRAP,
   READS_TOKEN_INPUT,
   SENDS_OVER_AJAX,
+  SENDS_VIA_SHARED_HELPER,
   WEBAPP,
   auditSource,
   auditWebapp,

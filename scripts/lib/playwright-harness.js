@@ -687,12 +687,58 @@ function getLatestRequest(recorder, predicate) {
   return matches.length ? matches[matches.length - 1] : null;
 }
 
+/**
+ * The address without its query string, for a diagnostic a human will read.
+ *
+ * CARLOS puts PHI-CORRELATING IDENTIFIERS IN THE QUERY: the Master Record is
+ * demographiccontrol?demographic_no=NNN, and clickAndAwaitReload is called on
+ * exactly that page. runCheck() writes a thrown message to stdout AND into
+ * RESULT_JSON, which CI archives, so printing the whole address put a patient
+ * key into the artifacts of every failed save. The path alone says which page
+ * did not navigate, which is the entire point of the message.
+ */
+function pathOnly(rawUrl) {
+  const raw = String(rawUrl || '');
+  try {
+    const parsed = new URL(raw);
+    // http/https only. 'about:blank' PARSES, and its origin is the string
+    // 'null' with pathname 'blank', so the generic origin+pathname form
+    // rendered it as 'nullblank' -- a diagnostic naming a page that does not
+    // exist. Every other scheme falls through to the plain cut below.
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return `${parsed.origin}${parsed.pathname}`;
+    }
+  } catch {
+    // Not absolute at all (a relative url, or an empty one on a page mid
+    // teardown). Fall through.
+  }
+  // Cut at the first delimiter rather than returning something unbounded.
+  return raw.split(/[?#]/)[0];
+}
+
+/**
+ * What runCheck() serialises into RESULT_JSON when a check fails.
+ *
+ * THE URLS ARE STRIPPED HERE, NOT IN THE RECORDER. CARLOS routes carry
+ * PHI-correlating identifiers in the query -- demographic_no, provider_no,
+ * appointment and billing ids -- and every recorded bad response and request
+ * failure holds the full address. Handing those through verbatim put a patient
+ * key into the CI artifacts of every failed run, for every check in the suite.
+ *
+ * The recorder keeps the whole url on purpose: getLatestRequest() and the
+ * checks' own predicates match on query parameters, and stripping at capture
+ * would break them. Sanitising at the boundary where the data LEAVES for disk
+ * keeps both properties.
+ */
 function buildFailureDetails(recorder) {
+  const withoutQuery = (entries) => entries.map((entry) => (
+    entry && typeof entry.url === 'string' ? { ...entry, url: pathOnly(entry.url) } : entry
+  ));
   return {
-    badResponses: recorder.badResponses,
+    badResponses: withoutQuery(recorder.badResponses),
     consoleIssues: recorder.consoleIssues,
     pageErrors: recorder.pageErrors,
-    requestFailures: recorder.requestFailures,
+    requestFailures: withoutQuery(recorder.requestFailures),
     dialogs: recorder.dialogs,
   };
 }
@@ -882,6 +928,7 @@ module.exports = {
   assertStrictPage,
   buildArtifactPath,
   buildFailureDetails,
+  pathOnly,
   createRecorder,
   createSqlRunner,
   getLatestRequest,

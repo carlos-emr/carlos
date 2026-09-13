@@ -9,6 +9,8 @@ const {
   hasRealPostForm, isSelfContained, jspFiles,
 } = require('./lib/csrf-bootstrap-audit');
 
+const BASELINE = JSON.parse(fs.readFileSync(path.join(__dirname, 'lib', 'csrf-bootstrap-baseline.json'), 'utf8'));
+
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
 
 /*
@@ -41,14 +43,71 @@ test('the audit is not vacuous: it finds the pages the rule applies to', () => {
     + 'the detector is probably broken rather than the webapp having changed that much');
 });
 
-test('the webapp satisfies the rule today', () => {
+test('no page violates the rule except the ones already recorded as findings', () => {
+  // A BURN-DOWN, not a permission. The six in the baseline are application
+  // defects recorded as finding 10 in docs/ui-tests/app-findings-log.md and
+  // tracked in issue #3665; this branch is test coverage, and fixing a
+  // bootstrap wants a browser to confirm the token actually populates. Anything
+  // NOT on that list fails here, so the defect cannot spread.
   const { violations, unattributed } = auditWebapp();
-  assert.deepEqual(violations.map((entry) => `${entry.file}: ${entry.reason}`), [],
+  const known = new Set(BASELINE.known);
+  const unexpected = violations.filter((entry) => !known.has(entry.file));
+  assert.deepEqual(unexpected.map((entry) => `${entry.file}: ${entry.reason}`), [],
     'a page reads input[name="CSRF-TOKEN"] for an AJAX POST but nothing populates it, so those requests are '
     + 'answered with an HTML error page and fail inside a catch the user never sees');
   assert.deepEqual(unattributed.map((entry) => entry.file), [],
     'a fragment could not be attributed to any page that renders it, so the audit cannot say whether the rule '
     + 'holds for it: that needs a human, not a guess');
+});
+
+test('a baseline entry that no longer violates has to be removed', () => {
+  // The other half of a burn-down. Without this the list only ever grows stale,
+  // and a page that was fixed keeps its licence to break again unnoticed.
+  const violating = new Set(auditWebapp().violations.map((entry) => entry.file));
+  const stale = BASELINE.known.filter((file) => !violating.has(file));
+  assert.deepEqual(stale, [],
+    'these pages satisfy the CSRF bootstrapping rule now; delete them from '
+    + 'scripts/lib/csrf-bootstrap-baseline.json and from finding 10 in the findings log');
+});
+
+test('the baseline cites the finding and the issue that track it', () => {
+  // A baseline with no paper trail is just a suppression.
+  assert.match(BASELINE.issue, /github\.com\/carlos-emr\/carlos\/issues\/\d+/);
+  assert.match(BASELINE.finding, /app-findings-log\.md/);
+  assert.ok(BASELINE.known.length > 0, 'an empty baseline should be deleted, not kept');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', 'ui-tests', 'app-findings-log.md')),
+    'the findings log the baseline cites must exist');
+});
+
+test('the shared-helper path is part of applicability', () => {
+  // The audit used to require the token read and the send in the page's own
+  // source. 18 webapp files POST through share/javascript/carlos-ajax.js, whose
+  // getCsrfToken() reads input[name="CSRF-TOKEN"] on their behalf and whose
+  // request() defaults to POST -- so they were classified NOT APPLICABLE and
+  // the audit reported the webapp clean while never looking at them. That is
+  // the failure this audit exists to catch, in the audit itself.
+  const viaHelper = `
+    <html><body>
+    <script src="/carlos/share/javascript/carlos-ajax.js"></script>
+    <script>CarlosAjax.request(url, { parameters: { a: 1 } });</script>
+    </body></html>`;
+  const verdict = auditSource('helper.jsp', viaHelper);
+  assert.ok(verdict, 'a page POSTing through the shared helper must be in scope');
+  assert.equal(verdict.satisfied, false);
+});
+
+test('a form action must be a real url, not a fragment or a script', () => {
+  // `[^"']+` accepted all of these, so hasRealPostForm() could call a page
+  // compliant while CSRFGuard injected into nothing.
+  assert.equal(hasRealPostForm('<form action="/carlos/x" method="post"></form>'), true);
+  assert.equal(hasRealPostForm('<form action="  /carlos/x" method="post"></form>'), true);
+  assert.equal(hasRealPostForm('<form action="#" method="post"></form>'), false);
+  assert.equal(hasRealPostForm('<form action="#tab" method="post"></form>'), false);
+  assert.equal(hasRealPostForm('<form action="javascript:save()" method="post"></form>'), false);
+  assert.equal(hasRealPostForm('<form action="   " method="post"></form>'), false);
+  // The shapes CARLOS really writes must keep passing.
+  assert.equal(hasRealPostForm('<form action="<%= request.getContextPath() %>/x" method="post"></form>'), true);
+  assert.equal(hasRealPostForm('<form action="${pageContext.request.contextPath}/x" method="post"></form>'), true);
 });
 
 test('a page that reads the token with no form and no bootstrap is a violation', () => {
