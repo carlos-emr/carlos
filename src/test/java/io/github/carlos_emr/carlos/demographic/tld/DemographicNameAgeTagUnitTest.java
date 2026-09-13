@@ -191,7 +191,7 @@ class DemographicNameAgeTagUnitTest {
     class JspCallSites {
 
         private static final Pattern NAMEAGE_TAG = Pattern.compile("<oscar:nameage\\b");
-        private static final Pattern ATTRIBUTE_START = Pattern.compile("([\\w:-]++)\\s*+=\\s*+([\"'])");
+        private static final Pattern ATTRIBUTE_START = Pattern.compile("(?<![\\w:-])([\\w:-]++)\\s*+=\\s*+([\"'])");
         private static final Pattern JSP_BLOCK = Pattern.compile("<%--[\\s\\S]*?--%>|<%[\\s\\S]*?%>");
 
         @Test
