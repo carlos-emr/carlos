@@ -1766,6 +1766,7 @@
                         <include>**/DocumentDelete2ActionTest.java</include>
                         <include>**/DocumentUndelete2ActionTest.java</include>
                         <include>**/RxRePrescribe2ActionTest.java</include>
+                        <include>**/RxShowAllergy2ActionTest.java</include>
                         <include>**/SimpleXmlRpcClientTest.java</include>
                         <include>**/WLMutation2ActionsTest.java</include>
                     </includes>
