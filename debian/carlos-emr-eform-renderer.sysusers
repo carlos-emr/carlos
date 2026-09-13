@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# System account for the eForm render browser.
+#
+# Declared by THIS package rather than carlos-emr, together with the directory it
+# owns (carlos-emr-eform-renderer.tmpfiles). Splitting them across packages does
+# not work: dh runs sysusers before tmpfiles WITHIN a package, but carlos-emr is
+# configured first on a clean install, so its tmpfiles would try to create a
+# carlos-render-owned directory before this package's sysusers had created the
+# account — "Failed to resolve user 'carlos-render': Unknown user".
+#
+# In NO group, deliberately, including not `carlos`. chromedriver has no
+# authentication and any local uid can reach a loopback port, so an exposed one is
+# an arbitrary-code-execution service running as whatever account started it. As
+# `carlos` that would be the uid owning the patient document store and the database
+# credentials; as carlos-render it owns nothing but a scratch home.
+u carlos-render - "CARLOS EMR eForm render browser" /var/lib/carlos-emr/render /usr/sbin/nologin

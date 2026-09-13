@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.CarlosProperties" %><%--
+<%@ page import="io.github.carlos_emr.CarlosProperties" %><%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -28,6 +28,33 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+<%--
+/**
+ * Form XML Data Import
+ *
+ * Administrative page that lets an authorized admin upload a zip archive of
+ * form/eForm XML data for import into the CARLOS database. The upload form
+ * posts to the "/form/xmlUpload" action (FrmXmlUpload2Action), which is
+ * reached via this gated view served by ViewFormXmlUpload2Action.
+ *
+ * Main Features:
+ * - CSRF-protected multipart file upload form (zip archive, field name "file1")
+ * - Renders Struts actionErrors from a prior failed import attempt
+ * - Inline tooltip warning about upload behavior (global.uploadWarningBody)
+ *
+ * Security Requirements:
+ * - Requires "_admin" or "_admin.eform" write privilege via the security taglib;
+ *   unauthorized requests are redirected to /securityError
+ * - Requires an active user session; redirects to /logoutPage otherwise
+ * - Form submission carries a CSRFGuard token (csrf:tokenname / csrf:tokenvalue)
+ *
+ * Request Attributes:
+ * - actionErrors: optional List&lt;String&gt; of import errors rendered above the form
+ *
+ * @since 2026-08-05
+ */
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -44,6 +71,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -106,6 +134,7 @@
         <h3><fmt:message key="admin.admin.btnImportFormData"/></h3>
 
         <form action="${pageContext.request.contextPath}/form/xmlUpload" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
             <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
@@ -114,7 +143,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= SafeEncode.forHtmlContent(error) %></li>
             <% } %>
         </ul>
     </div>

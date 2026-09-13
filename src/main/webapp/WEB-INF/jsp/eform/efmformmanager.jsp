@@ -31,6 +31,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -53,7 +54,7 @@
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<%@ include file="/WEB-INF/jsp/eform/eformBootstrapScript.jspf" %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
 
@@ -62,19 +63,63 @@
             Popup = window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no, scrollbars=yes,resizable=yes,width=900,height=600,left=200,top=0');
         }
 
-        function confirmNDelete(fid) {
-            if (confirm("<fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/eform/delEForm';
-                var input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'fid';
-                input.value = fid;
-                form.appendChild(input);
-                document.body.appendChild(form);
-                form.submit();
+        // Resolve the CSRF token seeded by /WEB-INF/jspf/csrf-token.jspf.
+        // The bootstrap populates the hidden input from an async fetch, so a
+        // click landing before that settles would read an empty value. Wait on
+        // the bootstrap's promise, and if it never ran or its fetch failed,
+        // retry once here so a single transient failure does not leave every
+        // delete on the page broken until the operator reloads.
+        // Returns the token, or null if it could not be obtained.
+        async function csrfToken() {
+            try {
+                if (window.csrfTokenReady) {
+                    await window.csrfTokenReady;
+                }
+            } catch (e) {
+                // Bootstrap fetch failed; fall through to the retry below.
             }
+            var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (csrf && csrf.value) {
+                return csrf.value;
+            }
+            try {
+                await fetchCsrfToken('<%= request.getContextPath() %>');
+            } catch (e) {
+                return null;
+            }
+            csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+            return (csrf && csrf.value) ? csrf.value : null;
+        }
+
+        async function confirmNDelete(fid) {
+            if (!confirm("<fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
+                return;
+            }
+            // A form built after page load is never visited by CSRFGuard's
+            // injector, so the token has to be copied in by hand. Posting
+            // without it is rejected by CarlosCsrfGuardFilter and the delete
+            // silently does nothing — the exact defect this page was fixed
+            // for — so say so plainly instead of submitting a doomed request.
+            var token = await csrfToken();
+            if (!token) {
+                alert("<fmt:message key="eform.uploadhtml.deleteTokenUnavailable"/>");
+                return;
+            }
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = '<%= request.getContextPath() %>/eform/delEForm';
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'fid';
+            input.value = fid;
+            form.appendChild(input);
+            var tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = 'CSRF-TOKEN';
+            tokenInput.value = token;
+            form.appendChild(tokenInput);
+            document.body.appendChild(form);
+            form.submit();
         }
 
         var normalStyle = "eformInputHeading"
@@ -130,6 +175,14 @@
 </head>
     <body>
 
+    <%-- confirmNDelete() below builds its POST form in JavaScript at click time,
+         so CSRFGuard's client script never sees a <form> to inject the token
+         into (this page has no other form either). Without this bootstrap the
+         delete POST reaches CarlosCsrfGuardFilter with no token and is rejected
+         with "Required Token is missing from the Request" — the delete silently
+         does nothing. See docs CLAUDE.md, "CSRF Token Bootstrapping on AJAX
+         JSPs". --%>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 
     <%@ include file="efmTopNav.jspf" %>
 
@@ -149,7 +202,7 @@
                 <div class="card card-body bg-body-tertiary">
 
                     <iframe id="uploadFrame" name="uploadFrame" frameborder="0" width="100%" height="auto"
-                            scrolling="no" src="<%=request.getContextPath()%>/eform/partials/upload"></iframe>
+                            scrolling="no" src="<%=request.getContextPath()%>/eform/partials/upload${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}"></iframe>
 
                 </div>
             </div>
@@ -160,7 +213,7 @@
                 <div class="card card-body bg-body-tertiary">
 
                     <iframe id="importFrame" name="importFrame" frameborder="0" width="100%" height="auto"
-                            src="<%=request.getContextPath()%>/eform/partials/import"></iframe>
+                            src="<%=request.getContextPath()%>/eform/partials/import${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}"></iframe>
 
                 </div>
             </div>
@@ -188,50 +241,50 @@
 
             <tbody>
             <%
-                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-                SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-                boolean isEFormAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.eform", SecurityInfoManager.WRITE, null);
+                LoggedInInfo tableLoggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                SecurityInfoManager tableSecurityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+                boolean tableIsEFormAdmin = tableSecurityInfoManager.hasPrivilege(tableLoggedInInfo, "_admin.eform", SecurityInfoManager.WRITE, null);
 
                 ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.CURRENT);
                 for (int i = 0; i < eForms.size(); i++) {
                     HashMap<String, ? extends Object> curForm = eForms.get(i);
-                    boolean canDelete = isEFormAdmin;
+                    boolean canDelete = tableIsEFormAdmin;
             %>
             <tr>
                 <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i
-                        class="fa-solid fa-file" title="<%=curForm.get("formFileName").toString()%>"></i><%}%></td>
-                <td title="<%=curForm.get("formName")%>">
+                        class="fa-solid fa-file" title="<%=SafeEncode.forHtmlAttribute((String) curForm.get("formFileName"))%>"></i><%}%></td>
+                <td title="<%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>">
                     <a href="#"
-                       onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=curForm.get("fid")%>', '<%="Form"+i%>'); return false;"><%=curForm.get("formName")%>
+                       onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>', '<%="Form"+i%>'); return false;"><%=SafeEncode.forHtmlContent((String) curForm.get("formName"))%>
                     </a>
                 </td>
-                <td><%=curForm.get("formSubject")%>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("formSubject"))%>
                 </td>
-                <td><%=curForm.get("formDate")%>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("formDate"))%>
                 </td>
-                <td><%=curForm.get("formTime")%>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("formTime"))%>
                 </td>
-                <td><%=curForm.get("roleType")%>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("roleType"))%>
                 </td>
                 <td>
 
                     <div class="btn-group">
                         <a class="btn btn-link contentLink"
-                           href="<%= request.getContextPath() %>/eform/efmformmanageredit?fid=<%= curForm.get("fid")%>"
-                           title='<fmt:message key="eform.uploadhtml.editform"/><%=curForm.get("formName")%>'><i
+                           href="<%= request.getContextPath() %>/eform/efmformmanageredit?fid=<%= SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>"
+                           title='<fmt:message key="eform.uploadhtml.editform"/><%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
                                 class="fa-solid fa-pencil" title="<fmt:message key="eform.uploadhtml.editform"/>"></i></a>
 
 
                         <a class="btn btn-link"
-                           href='<%= request.getContextPath() %>/eform/manageEForm?method=exportEForm&fid=<%=curForm.get("fid")%>'
-                           title='<fmt:message key="eform.uploadhtml.btnExport"/> <%=curForm.get("formName")%>'><i
+                           href='<%= request.getContextPath() %>/eform/manageEForm?method=exportEForm&fid=<%=SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>'
+                           title='<fmt:message key="eform.uploadhtml.btnExport"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
                                 class="fa-solid fa-download" title="<fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
 
 
                         <% if (canDelete) { %>
                         <a class="btn btn-link contentLink"
-                           href='javascript:void(0);' onclick='confirmNDelete("<%=curForm.get("fid")%>")'
-                           title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
+                           href='javascript:void(0);' onclick='confirmNDelete("<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>")'
+                           title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
                                 class="fa-solid fa-trash" title="<fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
                         <% } %>
                     </div>

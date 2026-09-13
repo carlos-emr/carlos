@@ -168,6 +168,7 @@
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/css/print.css"/>
 
         <!-- Flatpickr -->
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/ticklerNoteDialog.js"></script>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
         <c:if test="${flatpickrLanguage != 'en'}">
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/${carlos:forUriComponent(flatpickrLanguage)}.js"></script>
@@ -498,7 +499,7 @@
              * checkmark so the user has a visual cue that this tickler has been opened.
              */
             function openTicklerEdit(link, ticklerNo) {
-                window.open(ctx + '/tickler/ViewTicklerEdit?tickler_no=' + ticklerNo, 'edit_tickler', 'width=800, height=650');
+                window.open(ctx + '/tickler/ViewTicklerEdit?tickler_no=' + ticklerNo, 'edit_tickler', 'width=1200, height=800');
                 var icon = link.querySelector('span');
                 if (icon) {
                     icon.classList.remove('fa-pencil-alt');
@@ -537,12 +538,7 @@
 
                 document.getElementById('tickler_note_demographicNo').value = demographicNo;
                 document.getElementById('tickler_note_ticklerNo').value = ticklerNo;
-                document.getElementById('tickler_note_noteId').value = '';
-                document.getElementById('tickler_note').value = '';
-                document.getElementById('tickler_note_revision').innerHTML = '';
-                document.getElementById('tickler_note_revision_url').setAttribute('onclick', '');
-                document.getElementById('tickler_note_editor').innerHTML = '';
-                document.getElementById('tickler_note_obsDate').innerHTML = '';
+                resetTicklerNoteFields();
 
                 jQuery.ajax({
                     method: "POST", url: ctx + '/CaseManagementEntry',
@@ -550,14 +546,7 @@
                     async: false,
                     dataType: 'json',
                     success: function (data) {
-                        if (data != null) {
-                            document.getElementById('tickler_note_noteId').value = data.noteId;
-                            document.getElementById('tickler_note').value = data.note;
-                            document.getElementById('tickler_note_revision').textContent = data.revision;
-                            document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open('" + ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(data.noteId) + "')");
-                            document.getElementById('tickler_note_editor').textContent = data.editor;
-                            document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
-                        }
+                        applyTicklerNoteFields(data, ctx);
                         jQuery("#note-form").dialog("open");
                     },
                     error: function (jqXHR, textStatus, errorThrown) {

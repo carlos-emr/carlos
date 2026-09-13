@@ -42,6 +42,7 @@ import org.jsoup.select.Elements;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -56,6 +57,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -100,7 +103,9 @@ public final class ConvertToEdoc {
     private enum FileType {pdf, css, jpeg, png, gif, js, jpg}
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
-    private static final String DEFAULT_IMAGE_DIRECTORY = String.format("%1$s", CarlosProperties.getInstance().getEformImageDirectory());
+    private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";
+    /** Percent-encoded form of {@link #OSCAR_IMAGE_PATH_TOKEN} as it can appear in stored src/href markup. */
+    private static final String OSCAR_IMAGE_PATH_TOKEN_ENCODED = "%24%7Boscar_image_path%7D";
     private static final String DEFAULT_FILENAME = "temporaryPDF";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";
@@ -138,7 +143,7 @@ public final class ConvertToEdoc {
                     DocumentType.eForm,
                     path.getParent().toString());
         } else {
-            logger.error("Could not read temporary PDF file " + filename);
+            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
         }
 
         return edoc;
@@ -217,7 +222,7 @@ public final class ConvertToEdoc {
                     formTransportContainer.getDocumentType(),
                     path.toString());
         } else {
-            logger.error("Could not read temporary PDF file " + filename);
+            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
         }
 
         return edoc;
@@ -234,6 +239,18 @@ public final class ConvertToEdoc {
         String eformString = eform.getFormData();
         String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
         return execute(eformString, filename);
+    }
+
+    /**
+     * Converts an arbitrary HTML string to a temporary PDF file.
+     * The caller is responsible for deleting the temporary file after use.
+     *
+     * @param htmlString String the HTML markup to convert
+     * @param filename String the base filename (without directory) used for the temporary PDF
+     * @return Path the temporary file path to the produced PDF, or null if conversion fails
+     */
+    public static synchronized Path saveAsTempPDF(String htmlString, String filename) {
+        return execute(htmlString, filename);
     }
 
     /**
@@ -271,15 +288,26 @@ public final class ConvertToEdoc {
      * @return Path the path to the saved temporary PDF, or null if conversion fails
      */
     private static Path execute(final String eformString, final String filename) {
+        if (eformString == null) {
+            // No source HTML to render. Return null per this method's documented failure contract
+            // instead of NPE-ing deep in the Jsoup/Flying Saucer pipeline; callers treat null as a
+            // conversion failure and surface it.
+            logger.error("Cannot render PDF: source HTML was null for {}", LogSafe.sanitize(filename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        }
         Path path = null;
         String document = tidyDocument(eformString);
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             renderPDF(document, os);
             path = nioFileManager.saveTempFile(filename, os);
+            if (logger.isDebugEnabled()) {
+                // Filename embeds demographic_no (buildFilename), so it is sanitized before logging.
+                logger.debug("Rendered temporary PDF ({} bytes) for {}", os.size(), LogSafe.sanitize(filename));
+            }
         } catch (DocumentException e1) {
             logger.error("Exception parsing file to PDF. File not saved. ", e1);
         } catch (IOException e) {
-            logger.error("Problem while writing PDF file to filesystem. " + filename, e);
+            logger.error("Problem while writing PDF file to filesystem. {}", LogSafe.sanitize(filename), e);
         }
 
         return path;
@@ -422,7 +450,9 @@ public final class ConvertToEdoc {
      * Prepare document for Flying Saucer which requires strict XHTML
      */
     static Document prepareDocumentForFlyingSaucer(String document) {
-        Document doc = Jsoup.parse(document);
+        // Defensive: execute() already returns early on null HTML, but keep the sink null-safe so a
+        // future caller of this package-visible helper cannot NPE Jsoup.parse.
+        Document doc = Jsoup.parse(document == null ? "" : document);
         normalizeHtmlCommentsForXml(doc);
         
         // Flying Saucer requires XML/XHTML syntax
@@ -794,9 +824,37 @@ public final class ConvertToEdoc {
             collectImageDirectoryCandidates(path, potentialFilePaths);
         } else {
             collectRealPathCandidates(path, potentialFilePaths);
+            collectOscarImagePathCandidate(path, potentialFilePaths);
         }
 
         return potentialFilePaths;
+    }
+
+    private static void collectOscarImagePathCandidate(String path, List<String> potentialFilePaths) {
+        String filename;
+        if (path.startsWith(OSCAR_IMAGE_PATH_TOKEN)) {
+            filename = path.substring(OSCAR_IMAGE_PATH_TOKEN.length());
+        } else if (path.regionMatches(true, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED.length())) {
+            // A percent-encoded token implies a percent-encoded filename too; decode the remainder so
+            // encoded eForm background images still resolve into the PDF instead of being dropped
+            // Fall back to the raw remainder if it is not validly encoded.
+            String encodedRemainder = path.substring(OSCAR_IMAGE_PATH_TOKEN_ENCODED.length());
+            try {
+                // Protect a literal '+' (percent-encode it) before decoding: URLDecoder applies form
+                // semantics and would otherwise turn '+' into a space, dropping a valid filename that
+                // legitimately contains '+'. '%20' still decodes to a real space.
+                filename = URLDecoder.decode(encodedRemainder.replace("+", "%2B"), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                filename = encodedRemainder;
+            }
+        } else {
+            return;
+        }
+
+        String candidate = buildImageDirectoryPath(filename);
+        if (!candidate.isEmpty()) {
+            potentialFilePaths.add(candidate);
+        }
     }
 
     private static boolean isTranslatableResourcePath(String path) {
@@ -1091,12 +1149,16 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * fetch the default EForm image directory in the host file system
+     * Fetches the configured EForm image directory in the host file system.
+     *
+     * <p>Resolved live on each call (via {@link CarlosProperties#getEformImageDirectory()}) rather
+     * than captured in a load-time {@code static final}, so a reconfigured image root is picked up
+     * without a redeploy and a test can point it at an isolated temporary directory.</p>
      *
      * @return String directory path
      */
     private static String getImageDirectory() {
-        return DEFAULT_IMAGE_DIRECTORY;
+        return CarlosProperties.getInstance().getEformImageDirectory();
     }
 
     /**

@@ -12,8 +12,8 @@
  * https://github.com/carlos-emr/carlos
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const SAFE_ARTIFACT_BASENAME_RE = /^[A-Za-z0-9._-]+$/;
 const SAFE_ARTIFACT_EXTENSION_RE = /^\.[A-Za-z0-9]+$/;
@@ -44,17 +44,37 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in the URL would ride every navigation and surface in failure diagnostics; the
+  // checks log in through the form with TEST_USER/TEST_PASSWORD instead.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
 
   const host = parsed.hostname.toLowerCase();
-  const normalizedHost = host.replace(/^\[(.*)]$/, '$1');
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(normalizedHost);
-  if (!localHosts.has(normalizedHost) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+  const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!loopbackHosts.has(normalizedHost) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-loopback BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
 
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+/*
+ * The fixture-writing checks seed and delete rows through the mysql client. A
+ * mistyped MYSQL_HOST must not point that at a shared or production database,
+ * so the host has to be loopback unless the caller opts in for a disposable
+ * non-local test database. Mirrors validateBaseUrl's loopback rule.
+ */
+function validateMysqlHost(rawHost, env = process.env) {
+  const host = String(rawHost || '').trim().toLowerCase();
+  const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+  const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!loopbackHosts.has(normalizedHost) && env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(`Refusing to seed fixtures into non-loopback MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable test database`);
+  }
+  return rawHost;
 }
 
 function appUrl(baseUrl, appPath) {
@@ -80,7 +100,7 @@ function createRecorder() {
 
 function isExpectedMissingAsset(status, responseUrl) {
   return status === 404 && (
-    /\/favicon\.ico$/.test(responseUrl)
+    responseUrl.endsWith('/favicon.ico')
     || /\/imageRenderingServlet\?/.test(responseUrl)
     || /\/eform\/displayImage\?imagefile=signature_pad\.min\.js(?:$|&)/.test(responseUrl)
     || /\/eform\/displayImage\?imagefile=BNK\.png(?:$|&)/.test(responseUrl)
@@ -114,10 +134,15 @@ function isSevereConsoleMessage(message) {
   return /(ReferenceError|TypeError|SyntaxError|\$ is not defined|jQuery is not defined|Cannot read|Cannot set|is not defined)/i.test(text);
 }
 
-function wirePage(page, label, recorder) {
+function wirePage(page, label, recorder, dialogHandler = null) {
   page.on('dialog', async (dialog) => {
-    recorder.dialogs.push({ label, type: dialog.type(), text: dialog.message() });
-    await dialog.dismiss().catch(() => {});
+    const entry = { label, type: dialog.type(), text: dialog.message() };
+    if (dialogHandler) {
+      await dialogHandler(dialog, entry);
+    } else {
+      recorder.dialogs.push(entry);
+      await dialog.dismiss().catch(() => {});
+    }
   });
   page.on('response', async (response) => {
     const responseUrl = response.url();
@@ -156,23 +181,57 @@ function wirePage(page, label, recorder) {
 }
 
 async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
-  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restrict hosts to local/private by default
+  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
 }
 
 async function login(context, config, recorder) {
   const page = await context.newPage();
   wirePage(page, 'login', recorder);
   await gotoApp(page, config.baseUrl, '/');
+  await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(config.testUser);
   await page.locator('#password').fill(config.testPassword);
-  if (await page.locator('#pin').count()) {
-    await page.locator('#pin').fill(config.testPin);
+  const pinInput = page.locator('#pin');
+  const hasPin = await pinInput.count() > 0;
+  if (hasPin) {
+    await pinInput.fill(config.testPin);
+    assert(await pinInput.inputValue() === config.testPin,
+      'login PIN field changed before submit');
   }
+  assert(await page.locator('#username').inputValue() === config.testUser,
+    'login username field changed before submit');
+  assert(await page.locator('#password').inputValue() === config.testPassword,
+    'login password field changed before submit');
   await Promise.all([
-    page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
+    // forcepasswordreset is a legitimate destination, not a failure: the carlos-emr package
+    // generates its first-login credential already flagged for a reset, so on a freshly
+    // installed deb -- the case the deb-install runbook is written for -- this is where the
+    // login lands. Waiting only for the schedule made every check here fail before it tested
+    // anything, and the devcontainer defaults hid it because that account is not flagged.
+    page.waitForURL(/providercontrol|appointment|forcepasswordreset/i, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  if (/forcepasswordreset/i.test(page.url())) {
+    assert(
+      config.resetPassword,
+      `${config.testUser} must change its password before it can be used: a fresh carlos-emr`
+      + ' install flags its generated admin credential for a forced reset. Complete it ONCE, in an'
+      + ' isolated run outside any suite loop, with RESET_PASSWORD set to a new password meeting'
+      + ' the policy, then export TEST_PASSWORD as that new password for every later run. Doing'
+      + ' it inside a loop leaves the scripts that ran before it unreset and the ones after it'
+      + ' authenticating with the old password.',
+    );
+    await page.locator('input[name="oldPassword"]').fill(config.testPassword);
+    await page.locator('input[name="newPassword"]').fill(config.resetPassword);
+    await page.locator('input[name="confirmPassword"]').fill(config.resetPassword);
+    await Promise.all([
+      page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
+      page.locator('input[type="submit"], button[type="submit"]').first().click(),
+    ]);
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  }
   return page;
 }
 
@@ -189,12 +248,12 @@ async function findLibraryEform(page, formName) {
   await row.waitFor({ state: 'visible', timeout: 15000 });
   const previewOnclick = await row.locator('a[onclick*="efmshowform_data?fid="]').first().getAttribute('onclick');
   const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
-  const previewMatch = previewOnclick && previewOnclick.match(/fid=([^&'"]+)/);
-  const editMatch = editHref && editHref.match(/fid=([^&'"]+)/);
-  assert(previewMatch?.[1] || editMatch?.[1], `Could not extract fid for ${formName}`);
+  const previewMatch = previewOnclick?.match(/fid=([^&'"]+)/);
+  const editMatch = editHref?.match(/fid=([^&'"]+)/);
+  assert(previewMatch?.[1] ?? editMatch?.[1], `Could not extract fid for ${formName}`);
   return {
     row,
-    fid: decodeURIComponent((previewMatch && previewMatch[1]) || editMatch[1]),
+    fid: decodeURIComponent(previewMatch?.[1] || editMatch[1]),
   };
 }
 
@@ -253,10 +312,14 @@ async function invokeFetchAttached(page) {
 
   const target = page.locator('#tdAttachedDocs');
   const previousHtml = await target.evaluate((element) => element.innerHTML).catch(() => '');
+  let sidebarResponse = null;
   const responsePromise = page.waitForResponse(
     (response) => response.url().includes('/eform/displayAttachedFiles'),
     { timeout: 30000 },
-  ).catch(() => null);
+  ).then((response) => {
+    sidebarResponse = response;
+    return response;
+  }).catch(() => null);
   const domPromise = page.waitForFunction((previousMarkup) => {
     const attachmentTarget = document.getElementById('tdAttachedDocs');
     if (!attachmentTarget) {
@@ -278,12 +341,39 @@ async function invokeFetchAttached(page) {
     return { hasFunction: true, error: invocation.error, text: '', html: '' };
   }
 
+  // Let whichever of the DOM change or the network response settle first, then wait for the DOM to
+  // finish updating.
   await Promise.race([responsePromise, domPromise]);
   await page.waitForFunction((previousMarkup) => {
     const attachmentTarget = document.getElementById('tdAttachedDocs');
     return !!attachmentTarget && attachmentTarget.innerHTML.trim().length > 0
       && attachmentTarget.innerHTML !== previousMarkup;
   }, previousHtml, { timeout: 5000 }).catch(() => {});
+  // Gate success on the SETTLED network response, not on whichever promise won the race above: if the
+  // DOM changed optimistically before the request finished, sidebarResponse would still be null and a
+  // 4xx/5xx attachment failure would be wrongly reported as success. Awaiting the
+  // response promise (it resolves to null on timeout/error) makes the status check deterministic.
+  await responsePromise;
+  // A null response means the request timed out or errored (responsePromise resolves to null in that
+  // case); treat that as a failure too, otherwise a missing attachment load would pass silently.
+  if (!sidebarResponse) {
+    return {
+      hasFunction: true,
+      error: 'fetchAttached() did not receive a displayAttachedFiles response',
+      text: '',
+      html: '',
+    };
+  }
+  if (sidebarResponse.status() >= 400) {
+    return {
+      hasFunction: true,
+      error: `fetchAttached() request failed with HTTP ${sidebarResponse.status()} for ${sidebarResponse.url()}`,
+      text: '',
+      html: '',
+      status: sidebarResponse.status(),
+      url: sidebarResponse.url(),
+    };
+  }
 
   return page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
     const target = document.getElementById('tdAttachedDocs');
@@ -301,9 +391,16 @@ function getLatestRequest(recorder, predicate) {
 }
 
 function getLaunchOptions(chromePath) {
+  // --no-sandbox is required when Chromium runs as root (the devcontainer/CI default).
+  // Set EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true to keep the Chromium sandbox enabled
+  // on deployments that run the renderer as an unprivileged user.
+  const args = ['--disable-dev-shm-usage'];
+  if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
+    args.unshift('--no-sandbox');
+  }
   const launchOptions = {
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -326,9 +423,41 @@ function buildFailureDetails(recorder) {
   };
 }
 
+/**
+ * Fail if the browser reported an uncaught JS error on any of the given pages.
+ *
+ * The recorder has always collected pageErrors, but several scripts only ever
+ * PRINTED them, and only on a run that had already failed for another reason.
+ * That is how a live ReferenceError on the deleted-eForms list shipped green:
+ * the assertions all completed before the DataTables draw callback threw, so
+ * nothing looked at the error the browser had raised. A check that drives a
+ * page should fail when that page is broken, whether or not the specific thing
+ * it asserted still worked.
+ *
+ * @param recorder  recorder from createRecorder()
+ * @param labels    page labels to consider; omit for all pages
+ * @param allow     regexes for known-benign errors; keep this list short and
+ *                  justified, since every entry is a class of regression the
+ *                  check can no longer see
+ */
+function assertNoPageErrors(recorder, labels = null, allow = []) {
+  const relevant = recorder.pageErrors.filter((entry) => {
+    if (labels && !labels.includes(entry.label)) {
+      return false;
+    }
+    return !allow.some((pattern) => pattern.test(entry.text));
+  });
+  assert(
+    relevant.length === 0,
+    `The browser raised ${relevant.length} uncaught JavaScript error(s): `
+      + relevant.map((entry) => `[${entry.label}] ${entry.text.split('\n')[0]}`).join(' | '),
+  );
+}
+
 module.exports = {
   appUrl,
   assert,
+  assertNoPageErrors,
   assertNotErrorPage,
   buildArtifactPath,
   buildFailureDetails,
@@ -345,6 +474,7 @@ module.exports = {
   saveCurrentEform,
   screenshot,
   validateBaseUrl,
+  validateMysqlHost,
   waitForPopupReady,
   wirePage,
 };

@@ -22,9 +22,10 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -39,14 +40,17 @@ import java.nio.file.Path;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.managers.ConsultationPreviewSignatureOutcome;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
 import io.github.carlos_emr.carlos.managers.ConsultationStampOutcome;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -63,8 +67,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -73,7 +79,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 @Tag("unit")
 class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
-    private static final byte[] SIGNATURE_BYTES = new byte[]{1, 2, 3};
     private static final String PDF_BASE64 = "JVBERi0xLjQK";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
@@ -127,19 +132,20 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(loggedInInfo);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), isNull()))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), eq("1")))
                 .thenReturn(true);
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
         when(consultationSignatureService.resolveSignatureProviderNo("999998", "999998", "999998"))
                 .thenReturn("999998");
-        when(consultationSignatureService.resolvePreviewSignatureImage(loggedInInfo, false, "", "sig-request", "999998"))
-                .thenReturn(SIGNATURE_BYTES);
         when(demographicManager.getDemographicFormattedName(loggedInInfo, 1)).thenReturn("Patient, Test");
 
         pdfPath = Files.createTempFile("consult-preview", ".pdf");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdfPath);
         when(documentAttachmentManager.convertPDFToBase64(pdfPath)).thenReturn(PDF_BASE64);
+        when(consultationRequestDao.find(9)).thenReturn(consultationRequest(1));
 
         action = new EctConsultationFormRequest2Action();
         action.setSubmission("And Print Preview");
@@ -172,41 +178,189 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("returns the base64 PDF JSON and sets the signature override for a direct print preview")
-    void shouldReturnJsonPdfWithSignatureOverride_forDirectPrintPreview() throws Exception {
+    @DisplayName("persists a captured manual signature before direct print preview")
+    void shouldPersistManualSignature_beforeDirectPrintPreview() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.SAVED, "77"));
+
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
         assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
         assertThat(response.getContentAsString()).contains("\"errorMessage\":null");
-        assertThat(request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE))
-                .isEqualTo(SIGNATURE_BYTES);
+        assertThat(response.getContentAsString()).contains("\"warningMessage\":null");
+        assertThat(response.getContentAsString()).contains("\"signatureImg\":\"77\"");
+        verify(consultationSignatureService).saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998");
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
     }
 
     @Test
-    @DisplayName("keeps print preview errors generic when rendering fails")
-    void shouldReturnGenericErrorMessage_whenDirectPrintPreviewFails() throws Exception {
-        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
-                .thenThrow(new RuntimeException("sensitive internal path /var/lib/OscarDocument/consult.pdf"));
+    @DisplayName("returns the base64 PDF JSON without creating a duplicate signature for direct print preview")
+    void shouldReturnJsonPdfWithoutDuplicateSignature_forDirectPrintPreview() throws Exception {
+        action.setSignatureImg("123");
+        request.setParameter("newSignature", "false");
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        assertThat(response.getContentAsString()).contains("\"errorMessage\":null");
+        assertThat(response.getContentAsString()).contains("\"warningMessage\":null");
+        assertThat(response.getContentAsString()).contains("\"signatureImg\":null");
+        verify(digitalSignatureManager, never()).processAndSaveDigitalSignature(any(), any(), any(), any());
+        verify(consultationRequestDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("warns but still returns unsigned PDF JSON when a submitted manual signature cannot be persisted")
+    void shouldWarnButReturnPdf_whenManualSignatureCannotBePersistedForDirectPrintPreview() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED, ""));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        assertThat(response.getContentAsString()).contains("The captured signature could not be saved and will not appear on the PDF.");
+        assertThat(response.getContentAsString()).contains("\"signatureImg\":null");
+        assertThat(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
+        verify(consultationRequestDao, never()).merge(any());
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("warns but returns unsigned PDF JSON when preview signature persistence throws")
+    void shouldReturnUnsignedPdfWithWarning_whenManualSignaturePersistenceThrowsForDirectPrintPreview() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenThrow(new DataIntegrityViolationException("database commit failed"));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        assertThat(response.getContentAsString()).contains("The captured signature could not be saved and will not appear on the PDF.");
+        assertThat(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("returns an error without rendering when direct print preview targets a missing consultation")
+    void shouldReturnErrorWithoutRendering_whenDirectPrintPreviewTargetMissing() throws Exception {
+        when(consultationRequestDao.find(9)).thenReturn(null);
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request unavailable.");
+        verify(consultationSignatureService, never()).saveManualSignatureForPreview(any(), anyInt(), anyInt(), any(), any(), any());
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+    }
+
+    @Test
+    @DisplayName("returns an error without rendering when direct print preview demographic does not match the consultation")
+    void shouldReturnErrorWithoutRendering_whenDirectPrintPreviewDemographicMismatches() throws Exception {
+        when(consultationRequestDao.find(9)).thenReturn(consultationRequest(2));
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request unavailable.");
+        verify(consultationSignatureService, never()).saveManualSignatureForPreview(any(), anyInt(), anyInt(), any(), any(), any());
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+    }
+
+    @Test
+    @DisplayName("returns an indistinguishable preview error before lookup when consult write is missing")
+    void shouldReturnUnavailablePreviewError_withoutLookupWhenConsultWriteMissing() throws Exception {
+        action.setDemographicNo("2");
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request unavailable.");
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "w", "2");
+        verify(consultationRequestDao, never()).find(9);
+        verify(consultationSignatureService, never()).saveManualSignatureForPreview(any(), anyInt(), anyInt(), any(), any(), any());
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("keeps print preview errors generic when rendering fails")
+    void shouldReturnGenericErrorMessage_whenDirectPrintPreviewFails(boolean checkedFailure) throws Exception {
+        Exception failure = checkedFailure
+                ? new io.github.carlos_emr.carlos.utility.PDFGenerationException("PRIVATE_RENDER_MESSAGE", new IllegalStateException("PRIVATE_RENDER_CAUSE"))
+                : new RuntimeException("PRIVATE_RENDER_MESSAGE", new IllegalStateException("PRIVATE_RENDER_CAUSE"));
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
+                .thenThrow(failure);
+
+        String result;
+        try (var capture = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormRequest2Action.class)) {
+            result = action.execute();
+            assertThat(capture.messages()).anyMatch(message -> message.contains(failure.getClass().getSimpleName()));
+            assertThat(capture.messages().toString()).doesNotContain("PRIVATE_RENDER_MESSAGE", "PRIVATE_RENDER_CAUSE");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
         assertThat(response.getContentAsString())
                 .contains("A print preview of this consultation could not be generated. Please try again or contact support.")
-                .doesNotContain("sensitive internal path")
-                .doesNotContain("/var/lib/OscarDocument");
+                .doesNotContain("PRIVATE_RENDER_MESSAGE", "PRIVATE_RENDER_CAUSE");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should bound consultation JSON and fallback response diagnostics")
+    void shouldKeepResponseDiagnosticsPrivate_whenWritingFails(boolean fallbackFails) throws Exception {
+        var failedResponse = mock(HttpServletResponse.class);
+        when(failedResponse.getWriter()).thenThrow(new java.io.IOException("PRIVATE_RESPONSE_MESSAGE",
+                new IllegalStateException("PRIVATE_RESPONSE_CAUSE")));
+        if (fallbackFails) org.mockito.Mockito.doThrow(new java.io.IOException("PRIVATE_FALLBACK_MESSAGE",
+                new IllegalStateException("PRIVATE_FALLBACK_CAUSE"))).when(failedResponse).sendError(500);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormRequest2Action.class)) {
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(action, "generatePDFResponse", request, failedResponse);
+            verify(failedResponse).sendError(500);
+            assertThat(logs.messages()).hasSize(fallbackFails ? 2 : 1);
+            assertThat(logs.messages().toString()).contains("IOException").doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
     }
 
     @Test
     @DisplayName("reuses the stored signature id when a manual re-sign produces no new signature on update")
     void shouldReuseStoredSignatureId_whenManualReSignReturnsNullOnUpdate() throws Exception {
-        ConsultationRequest existing = new ConsultationRequest();
-        existing.setSignatureImg("123"); // pre-existing DB-stored signature id
-        // AbstractDao has find(Object) and find(int); the action calls find(Integer), so stub the Object overload.
+        ConsultationRequest existing = consultationRequest(1, "123"); // pre-existing DB-stored signature id
         when(consultationRequestDao.find(9)).thenReturn(existing);
 
         action.setSubmission("Update");
@@ -246,7 +400,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("returns input after archiving when the consultation update target no longer exists")
+    @DisplayName("returns input without archiving when the consultation update target no longer exists")
     void shouldReturnInput_whenConsultationUpdateTargetIsMissing() throws Exception {
         when(consultationRequestDao.find(9)).thenReturn(null);
 
@@ -259,16 +413,107 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.INPUT);
-        verify(consultationManager).archiveConsultationRequest(9);
+        assertThat(action.getActionErrors()).containsExactly("Consultation request unavailable");
+        // The input result forwards to ViewRequest, so the form's alert reads this attribute; the
+        // action errors do not survive the forward.
+        assertThat(request.getAttribute("errorMessage")).isEqualTo("Consultation request unavailable");
+        verify(consultationManager, never()).archiveConsultationRequest(9);
         verify(consultationRequestDao).find(9);
         verify(consultationRequestDao, never()).merge(any());
     }
 
     @Test
+    @DisplayName("returns input without archiving when the stored demographic does not match the submitted patient")
+    void shouldReturnInput_beforeArchivingWhenStoredDemographicMismatches() throws Exception {
+        when(consultationRequestDao.find(9)).thenReturn(consultationRequest(2));
+
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setDemographicNo("1");
+        action.setService("1");
+        action.setSpecialist("0");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.INPUT);
+        assertThat(action.getActionErrors()).containsExactly("Consultation request unavailable");
+        verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
+        verify(consultationRequestDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("denies update before lookup when scoped consult write is missing for the submitted patient")
+    void shouldDenyUpdate_beforeLookupWhenSubmittedPatientWritePrivilegeMissing() {
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setDemographicNo("2");
+        action.setService("1");
+        action.setSpecialist("0");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_con)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "w", "2");
+        verify(consultationRequestDao, never()).find(9);
+        verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
+        verify(consultationRequestDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("denies standalone fax before lookup when consult write is missing")
+    void shouldDenyStandaloneFax_beforeLookupWhenSubmittedPatientWritePrivilegeMissing() {
+        action.setSubmission("And Fax");
+        action.setRequestId("9");
+        action.setDemographicNo("2");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_con)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "w", "2");
+        verify(consultationRequestDao, never()).find(9);
+        verifyNoInteractions(documentAttachmentManager);
+    }
+
+    @Test
+    void shouldDenySubmitAndFax_beforeAnySaveWhenFeatureIsDisabled() {
+        action.setSubmission("Submit And Fax");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.isConsultationFaxEnabled()).thenReturn(false);
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
+                    .hasMessage("consultation fax is disabled");
+            verify(properties).isConsultationFaxEnabled();
+            verifyNoInteractions(consultationRequestDao, documentAttachmentManager, consultationManager);
+        }
+    }
+
+    @Test
+    void shouldDenySubmitAndFax_beforeAnySaveWhenFaxWriteMissing() {
+        action.setSubmission("Submit And Fax");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(false);
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+        verifyNoInteractions(consultationManager, consultationRequestDao, documentAttachmentManager,
+                consultationSignatureService, demographicManager, digitalSignatureManager);
+    }
+
+    @Test
+    void shouldDenyUpdateAndFax_beforeArchiveWhenFaxAccountReadMissing() {
+        action.setSubmission("Update And Fax");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(false);
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+        verifyNoInteractions(consultationManager, consultationRequestDao, documentAttachmentManager,
+                consultationSignatureService, demographicManager, digitalSignatureManager);
+    }
+
+    @Test
     @DisplayName("saves a stamp for the selected signature provider when an update has no stored signature")
     void shouldSaveStampForSelectedProvider_whenUpdateHasNoStoredSignature() throws Exception {
-        ConsultationRequest existing = new ConsultationRequest();
-        // AbstractDao has find(Object) and find(int); the action calls find(Integer), so stub the Object overload.
+        ConsultationRequest existing = consultationRequest(1);
         when(consultationRequestDao.find(9)).thenReturn(existing);
 
         DigitalSignature savedStamp = mock(DigitalSignature.class);
@@ -299,15 +544,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("persists a null signature without a stored-id fallback when a manual sign yields nothing on create")
     void shouldPersistNullSignature_whenManualSignYieldsNothingOnCreate() throws Exception {
-        ConsultationRequest[] persisted = new ConsultationRequest[1];
-        doAnswer(invocation -> {
-            ConsultationRequest consult = invocation.getArgument(0);
-            // ConsultationRequest#id is a generated @Id with no setter; assign it so the action's
-            // post-persist Integer.parseInt(requestId) does not throw.
-            ReflectionTestUtils.setField(consult, "id", 7);
-            persisted[0] = consult;
-            return null;
-        }).when(consultationRequestDao).persist(org.mockito.ArgumentMatchers.any(ConsultationRequest.class));
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
 
         action.setSubmission("Submit");
         action.setService("1");
@@ -328,15 +565,215 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
     }
 
+    /**
+     * Regression for #2241. Both {@code serviceId} and {@code specId} are nullable columns, so a
+     * blank field is a legitimate "not chosen" value. Parsing them eagerly threw out of the action
+     * into the Struts global {@code Exception -> error} mapping, which logs nothing, so the
+     * clinician's referral was discarded with only a blank page to show for it.
+     *
+     * <p>Every other create test in this class supplies both fields, which is exactly why the
+     * defect survived: the unfilled form was never exercised.</p>
+     */
     @Test
-    @DisplayName("rejects GET with 405 and performs no persistence")
-    void shouldRejectGet_withMethodNotAllowed() throws Exception {
-        request.setMethod("GET");
+    @DisplayName("persists a null serviceId instead of throwing when the service is blank on create")
+    void shouldPersistNullServiceId_whenServiceIsBlankOnCreate() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+
+        action.setSubmission("Submit");
+        action.setService("");
+        action.setSpecialist("0");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getServiceId()).isNull();
+    }
+
+    /**
+     * Regression for #2241. A blank consultant left {@code specId} null, and the Health Care Team
+     * branch then unboxed it via {@code Integer.valueOf(specId)} before reaching the null-tolerant
+     * lookup — a NullPointerException on the create path only; the update path already passed the
+     * Integer through untouched.
+     */
+    @Test
+    @DisplayName("persists the consultation instead of throwing when the consultant is blank on create")
+    void shouldPersistConsultation_whenConsultantIsBlankOnCreate() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        // The NPE lived inside the Health Care Team branch, which is skipped entirely when the
+        // property is off. Without forcing it on, this test passes against the unfixed action and
+        // proves nothing.
+        CarlosProperties carlosProperties = mock(CarlosProperties.class);
+        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
+                .thenReturn(true);
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            action.execute();
+        }
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getServiceId()).isEqualTo(1);
+    }
+
+    /**
+     * The Health Care Team bridge is OFF in the shipped carlos.properties, and with it off a blank
+     * consultant left {@code specId} null all the way to {@code professionalSpecialistDao.find(null)}.
+     * Hibernate rejects a null identifier with {@link IllegalArgumentException} instead of returning
+     * null, so on a default install every new consultation without a consultant died in the Struts
+     * global {@code Exception -> error} mapping: nothing persisted, nothing logged, and the clinician
+     * was told the form "could not be printed". The mocked DAO has to reject null the way the real one
+     * does, or this test passes against the unfixed action.
+     */
+    @Test
+    @DisplayName("persists the consultation without a specialist lookup when the consultant is blank and the health care team bridge is off")
+    void shouldPersistConsultationWithoutSpecialistLookup_whenConsultantIsBlankAndHealthCareTeamOffOnCreate() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
+        when(professionalSpecialistDao.find((Object) null))
+                .thenThrow(new IllegalArgumentException("Identifier may not be null"));
+        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
+
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        CarlosProperties carlosProperties = mock(CarlosProperties.class);
+        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
+                .thenReturn(false);
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            action.execute();
+        }
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getProfessionalSpecialist()).isNull();
+        verify(professionalSpecialistDao, never()).find((Object) null);
+    }
+
+    /**
+     * The update branch guarded the null lookup but seeded its local with a bare
+     * {@code new ProfessionalSpecialist()}, attached that placeholder to the consultation, and merged.
+     * The association cascades MERGE, so every edit that left the consultant blank INSERTed an
+     * all-NULL professionalSpecialists row and re-pointed the request at it. A blank consultant on
+     * an edit must clear the link, and must not consult the DAO at all.
+     */
+    @Test
+    @DisplayName("clears the specialist instead of attaching a blank placeholder when the consultant is blank on update")
+    void shouldClearSpecialist_whenConsultantIsBlankOnUpdate() throws Exception {
+        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
+        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
+        ConsultationRequest stored = consultationRequest(1);
+        stored.setProfessionalSpecialist(new ProfessionalSpecialist());
+        when(consultationRequestDao.find(9)).thenReturn(stored);
+
+        action.setSubmission("Update");
+        action.setService("1");
+        action.setSpecialist("");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        CarlosProperties carlosProperties = mock(CarlosProperties.class);
+        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
+                .thenReturn(false);
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            action.execute();
+        }
+
+        ArgumentCaptor<ConsultationRequest> mergedConsultation =
+                ArgumentCaptor.forClass(ConsultationRequest.class);
+        verify(consultationRequestDao).merge(mergedConsultation.capture());
+        assertThat(mergedConsultation.getValue().getProfessionalSpecialist()).isNull();
+        verifyNoInteractions(professionalSpecialistDao);
+    }
+
+    /**
+     * The consultant field is authoritative on an edit: an id that does not resolve (the bridge's 0,
+     * a deleted specialist) clears the link the same way a blank does, instead of silently keeping
+     * whoever the request pointed at before.
+     */
+    @Test
+    @DisplayName("clears the specialist when the consultant id does not resolve on update")
+    void shouldClearSpecialist_whenConsultantIdDoesNotResolveOnUpdate() throws Exception {
+        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
+        when(professionalSpecialistDao.find((Object) 0)).thenReturn(null);
+        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
+        ConsultationRequest stored = consultationRequest(1);
+        stored.setProfessionalSpecialist(new ProfessionalSpecialist());
+        when(consultationRequestDao.find(9)).thenReturn(stored);
+
+        action.setSubmission("Update");
+        action.setService("1");
+        action.setSpecialist("0");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        CarlosProperties carlosProperties = mock(CarlosProperties.class);
+        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
+                .thenReturn(false);
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            action.execute();
+        }
+
+        ArgumentCaptor<ConsultationRequest> mergedConsultation =
+                ArgumentCaptor.forClass(ConsultationRequest.class);
+        verify(consultationRequestDao).merge(mergedConsultation.capture());
+        assertThat(mergedConsultation.getValue().getProfessionalSpecialist()).isNull();
+    }
+
+    /**
+     * Regression for #2241. The blank-service parse existed on the update branch too, so clearing
+     * the service on an existing consultation discarded the edit the same way.
+     */
+    @Test
+    @DisplayName("merges a null serviceId instead of throwing when the service is blank on update")
+    void shouldMergeNullServiceId_whenServiceIsBlankOnUpdate() throws Exception {
+        action.setSubmission("Update");
+        action.setService("");
+        action.setSpecialist("0");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        ArgumentCaptor<ConsultationRequest> mergedConsultation =
+                ArgumentCaptor.forClass(ConsultationRequest.class);
+        verify(consultationRequestDao).merge(mergedConsultation.capture());
+        assertThat(mergedConsultation.getValue().getServiceId()).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "POſT"})
+    @DisplayName("rejects every non-POST verb with 405 and performs no persistence")
+    void shouldRejectNonPost_withMethodNotAllowed(String verb) throws Exception {
+        request.setMethod(verb);
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(consultationRequestDao, never()).persist(any());
         verify(consultationRequestDao, never()).merge(any());
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
@@ -346,13 +783,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("warns the provider but still saves when a stamp cannot be applied on create")
     void shouldWarnButStillSave_whenStampFailsOnCreate() throws Exception {
-        ConsultationRequest[] persisted = new ConsultationRequest[1];
-        doAnswer(invocation -> {
-            ConsultationRequest consult = invocation.getArgument(0);
-            ReflectionTestUtils.setField(consult, "id", 7);
-            persisted[0] = consult;
-            return null;
-        }).when(consultationRequestDao).persist(org.mockito.ArgumentMatchers.any(ConsultationRequest.class));
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
 
         action.setSubmission("Submit");
         action.setService("1");
@@ -375,13 +806,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("warns the provider but still saves when a manual signature cannot be persisted on create")
     void shouldWarnButStillSave_whenManualFailsOnCreate() throws Exception {
-        ConsultationRequest[] persisted = new ConsultationRequest[1];
-        doAnswer(invocation -> {
-            ConsultationRequest consult = invocation.getArgument(0);
-            ReflectionTestUtils.setField(consult, "id", 7);
-            persisted[0] = consult;
-            return null;
-        }).when(consultationRequestDao).persist(org.mockito.ArgumentMatchers.any(ConsultationRequest.class));
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
 
         action.setSubmission("Submit");
         action.setService("1");
@@ -406,13 +831,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("does not warn when no manual signature was collected on create")
     void shouldNotWarn_whenNoManualSignatureCollectedOnCreate() throws Exception {
-        ConsultationRequest[] persisted = new ConsultationRequest[1];
-        doAnswer(invocation -> {
-            ConsultationRequest consult = invocation.getArgument(0);
-            ReflectionTestUtils.setField(consult, "id", 7);
-            persisted[0] = consult;
-            return null;
-        }).when(consultationRequestDao).persist(org.mockito.ArgumentMatchers.any(ConsultationRequest.class));
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
 
         action.setSubmission("Submit");
         action.setService("1");
@@ -438,8 +857,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("preserves an existing stored signature when stamp mode is skipped for a benign update outcome")
     void shouldPreserveStoredSignature_whenStampUpdateReturnsBenignNonSavedOutcome() throws Exception {
-        ConsultationRequest existing = new ConsultationRequest();
-        existing.setSignatureImg("123");
+        ConsultationRequest existing = consultationRequest(1, "123");
         when(consultationRequestDao.find(9)).thenReturn(existing);
 
         action.setSubmission("Update");
@@ -463,8 +881,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("warns the provider but preserves an existing stored signature when a stamp cannot be applied on update")
     void shouldWarnButPreserveStoredSignature_whenStampFailsOnUpdate() throws Exception {
-        ConsultationRequest existing = new ConsultationRequest();
-        existing.setSignatureImg("123");
+        ConsultationRequest existing = consultationRequest(1, "123");
         when(consultationRequestDao.find(9)).thenReturn(existing);
 
         action.setSubmission("Update");
@@ -488,7 +905,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("warns the provider but still saves when a collected manual signature fails to persist on update")
     void shouldWarnButStillSave_whenCapturedManualFailsOnUpdate() throws Exception {
-        ConsultationRequest existing = new ConsultationRequest();
+        ConsultationRequest existing = consultationRequest(1);
         when(consultationRequestDao.find(9)).thenReturn(existing);
 
         action.setSubmission("Update");
@@ -511,5 +928,30 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
         verify(consultationRequestDao).merge(existing);
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    private ConsultationRequest consultationRequest(Integer demographicId) {
+        ConsultationRequest consult = new ConsultationRequest();
+        consult.setDemographicId(demographicId);
+        return consult;
+    }
+
+    private ConsultationRequest[] capturePersistedConsultationRequest() {
+        ConsultationRequest[] persisted = new ConsultationRequest[1];
+        doAnswer(invocation -> {
+            ConsultationRequest consult = invocation.getArgument(0);
+            // ConsultationRequest#id is a generated @Id with no setter; assign it so the action's
+            // post-persist attachment path has the generated request id.
+            ReflectionTestUtils.setField(consult, "id", 7);
+            persisted[0] = consult;
+            return null;
+        }).when(consultationRequestDao).persist(org.mockito.ArgumentMatchers.any(ConsultationRequest.class));
+        return persisted;
+    }
+
+    private ConsultationRequest consultationRequest(Integer demographicId, String signatureImg) {
+        ConsultationRequest consult = consultationRequest(demographicId);
+        consult.setSignatureImg(signatureImg);
+        return consult;
     }
 }
