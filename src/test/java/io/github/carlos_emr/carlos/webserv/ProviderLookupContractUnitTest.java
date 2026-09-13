@@ -94,7 +94,7 @@ class ProviderLookupContractUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should read active providers when get_providers maps to SOAP ProviderService.getProviders2")
+    @DisplayName("should read inactive providers when get_providers maps to SOAP ProviderService.getProviders2")
     void shouldReadProviders_whenUsingSoapProviderServiceVersion2() {
         ProviderWs soapService = new ProviderWs() {
             @Override
