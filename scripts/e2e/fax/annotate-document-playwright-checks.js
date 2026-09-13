@@ -242,6 +242,11 @@ async function main() {
     check('the CSRF bootstrap executed', csrfBootstrapped,
       'window.csrfTokenReady is absent — script-src is blocking csrf-token.jspf');
 
+    const swatchColors = await page.locator('.swatch').evaluateAll(elements =>
+      elements.map(element => getComputedStyle(element).backgroundColor));
+    check('all six annotation colour choices are visibly distinct',
+      new Set(swatchColors).size === 6 && !swatchColors.includes('rgb(255, 255, 255)'), swatchColors.join(', '));
+
     const toolCount = await page.locator('.tool').count();
     check('viewer renders its toolbar', toolCount >= 6, `${toolCount} tools`);
 
@@ -390,6 +395,8 @@ async function main() {
       await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
     }
     async function mark(tool = 'highlight') {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (tool === 'draw') { await page.locator('.swatch[data-color="black"]').click(); }
       await page.locator(`.tool[data-tool="${tool}"]`).click();
       const bounds = await page.locator('svg.overlay').first().boundingBox();
       await page.mouse.move(bounds.x + 30, bounds.y + 80);
@@ -404,7 +411,7 @@ async function main() {
     const stale = await page.evaluate(async () => {
       const result = await fetch(window.CARLOS_ANNOTATE.contextPath
         + '/documentManager/SaveAnnotatedDocument?docId=' + window.CARLOS_ANNOTATE.docId, {
-        method: 'POST', headers: { 'Content-Type': 'application/json',
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest',
           'CSRF-TOKEN': document.querySelector('input[name="CSRF-TOKEN"]').value },
         body: JSON.stringify({ sourceDigest: '0'.repeat(64), annotations: [
           { type: 'highlight', page: 1, x: .1, y: .1, w: .2, h: .1 }
@@ -415,6 +422,20 @@ async function main() {
     check('a stale source fingerprint refuses filing with an explicit conflict',
       stale.status === 409 && stale.body.error.includes('source document changed'));
 
+    if (pageCount > 1) {
+      const lastPage = page.locator('.page').last();
+      await lastPage.evaluate(element => element.scrollIntoView({ block: 'start' }));
+      await page.waitForFunction(() => [...document.querySelectorAll('.page img')].at(-1).naturalWidth > 0);
+      await lastPage.evaluate(element => element.scrollIntoView({ block: 'start' }));
+      await page.locator('.tool[data-tool="date"]').click();
+      await lastPage.locator('svg.overlay').click({ position: { x: 80, y: 220 } });
+      await page.locator('#btnSave').click();
+      await waitForSave();
+      check('a mark on the last page saves successfully in a multipage document',
+        await page.locator('#status').getAttribute('class') === 'status ok');
+      await page.evaluate(() => window.scrollTo(0, 0));
+    }
+
     // A successful save must not suppress warnings for subsequent unsaved edits.
     await mark('draw');
     check('editing after a save enables saving again', await page.locator('#btnSave').isEnabled());
@@ -423,10 +444,16 @@ async function main() {
     await page.locator('.tool[data-tool="text"]').click();
     page.once('dialog', dialog => dialog.accept('Synthetic note é 3618'));
     await page.locator('svg.overlay').first().click({ position: { x: 230, y: 180 } });
+    check('preview loads the same font as the PDF composer',
+      await page.evaluate(() => document.fonts.load('11px CarlosAnnotation').then(fonts => fonts.length > 0)));
     await page.locator('#btnSave').click();
     await waitForSave();
     check('ink, date and Unicode text save through the real toolbar',
       await page.locator('#status').getAttribute('class') === 'status ok');
+    if (process.env.ARTIFACT_DIR) {
+      require('fs').mkdirSync(process.env.ARTIFACT_DIR, { recursive: true });
+      await page.screenshot({ path: require('path').join(process.env.ARTIFACT_DIR, 'annotation-tools.png'), fullPage: true });
+    }
 
     await openViewer();
     await page.locator('.tool[data-tool="text"]').click();
@@ -516,6 +543,17 @@ async function main() {
     });
     check('cancelled document preview cannot be read again', cancelledPreview.status() === 403);
     check('annotation flow has no CSP or uncaught script errors', cspViolations.length === 0, cspViolations.join(' | '));
+    await openViewer();
+    const blockedInline = await page.evaluate(async () => {
+      window.__annotationUnexpectedInline = false;
+      const script = document.createElement('script');
+      script.textContent = 'window.__annotationUnexpectedInline = true';
+      document.body.appendChild(script);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return !window.__annotationUnexpectedInline;
+    });
+    check('the front door enforces the application CSP against an unnonced inline script', blockedInline);
+
 
   } finally {
     await context.close();

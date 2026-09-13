@@ -112,7 +112,7 @@ body {
     font-weight: 400;
 }
 
-.swatch {
+.bar button.swatch {
     width: 24px;
     height: 24px;
     padding: 0;
@@ -121,14 +121,14 @@ body {
     cursor: pointer;
 }
 
-.swatch[aria-pressed="true"] { border-color: var(--ink); }
+.bar button.swatch[aria-pressed="true"] { border-color: var(--ink); }
 
-.s-yellow { background: #fff176; }
-.s-green  { background: #7be8b8; }
-.s-blue   { background: #8fd3f4; }
-.s-pink   { background: #ffc2dd; }
-.s-red    { background: #e03b3b; }
-.s-black  { background: #1a1a1a; }
+.bar button.swatch.s-yellow { background: #fff176; }
+.bar button.swatch.s-green  { background: #7be8b8; }
+.bar button.swatch.s-blue   { background: #8fd3f4; }
+.bar button.swatch.s-pink   { background: #ffc2dd; }
+.bar button.swatch.s-red    { background: #e03b3b; }
+.bar button.swatch.s-black  { background: #1a1a1a; }
 
 .count {
     color: var(--muted);
