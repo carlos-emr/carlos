@@ -242,6 +242,11 @@ promotion_ref=${PROMOTION_REF:?Set PROMOTION_REF to the reviewed promotion ref o
 git worktree add --detach ../carlos-package-validation "$promotion_ref"
 cd ../carlos-package-validation
 release_tag=2026.08.0-alpha12
+# The WAR stamps the checked-out ref's own Maven version, so a ref whose pom still
+# carries a -SNAPSHOT (a maintenance-branch head, or a correction branch) would build
+# a package whose changelog says alpha12 while its About page says alpha12-SNAPSHOT.
+# Catch that here rather than at the RX_EXPECTED_BUILD_TAG assertion in section 6.
+test "$(sed -n 's:^[[:space:]]*<version>\(.*\)</version>:\1:p' pom.xml | head -1)" = "$release_tag"
 deb_version="${release_tag//-/~}"
 printf 'carlos-emr (%s) resolute; urgency=medium\n\n  * Validation package of release %s.\n\n -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n' \
   "$deb_version" "$release_tag" "$(date -R)" > debian/changelog
@@ -597,13 +602,19 @@ service_restarts_before="$(systemctl show carlos-emr -p NRestarts --value)"
 suite_failed=0
 # Alpha-11 tester coverage scripts (docs/ui-tests/alpha-11-tester-coverage.md). They default to
 # demographic 1 / provider 999998 and clean up after themselves; the few knobs they take:
-#   NOTE_DEMOGRAPHIC_NO=2        (echart-note-sign-bill; demographic 1's chart 500s on the demo HRM rows)
 #   BILLING_SUBMIT_DATE=2024-05-06 BILLING_OHIP_CODE=A007A BILLING_BONUS_CODE=Q040A (billing-on-submit)
 #   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
 #   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
 #   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
-# On a fresh Ontario install, consultation-request-create and specialist-add-cpso need at least one
-# active consultationServices row (the ON seed ships them all inactive; see the coverage page, finding 21).
+#   NOTE_/MESSENGER_/ALLERGY_DEMOGRAPHIC_NO  (another demo patient; only needed for a fixture of
+#     your own. The alpha-11 workaround of moving these off demographic 1 is obsolete: the demo
+#     package now ships all 41 HRM report files, so its chart no longer 500s -- see "Demo HRM
+#     report files" below)
+# consultation-request-create and specialist-add-cpso need at least one active consultationServices
+# row. On a fresh or FAKE-only demo database the Ontario catalogue is activated for you by
+# migration V1.0.23 (257 services); a database holding real patients, or one whose catalogue has
+# been edited, is deliberately left untouched, so activate a service there first (see the coverage
+# page, finding 21, for why the seed shipped inactive).
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below

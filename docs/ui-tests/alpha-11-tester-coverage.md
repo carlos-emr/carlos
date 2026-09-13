@@ -48,9 +48,10 @@ database.
 - All of them default to demographic 1 and provider `999998` (carlosdoc) from
   the demo dataset unless noted; every one cleans up in a `finally`.
 - `echart-note-sign-bill`, `messenger` and `allergy-add-penicillin` default to
-  demographic **2**: demographic 1's chart notes panel answers 500 on the demo
-  dataset because its HRM rows point at report files that never shipped (see
-  the review findings from the alpha-11 coverage pass).
+  demographic 1 like the rest. During the alpha-11 pass they defaulted to
+  demographic **2**, because demographic 1's chart notes panel answered 500 on
+  the demo dataset — its HRM rows pointed at report files that never shipped
+  (finding 17). Alpha12 ships those files, so the workaround is gone.
 - `messenger` enrols `999998` as a messenger contact through Messenger Group
   Admin when the install has none (the demo seed ships none) and removes that
   enrolment again.
@@ -103,8 +104,10 @@ deployment findings, not script defects:
 
 ## Observations to review (found while writing the checks, 2026-09-12)
 
-Recorded here so the checks' `WARN` lines and allow-lists have a home; none of
-these are fixed by this change.
+Recorded here so the checks' `WARN` lines and allow-lists have a home. None of
+them were fixed by the alpha-11 coverage pass itself; entries carrying a
+"fixed in" marker were fixed afterwards, and the checks that worked around
+them now assert the fixed behaviour instead.
 
 1. Consultation request confirmation never says "Created"/"Updated": the save
    302-redirects to `ViewConfirmConsultationRequest` and `transType` is a
@@ -152,9 +155,12 @@ these are fixed by this change.
 16. Encounter layout: the Save / Sign & Save / Bill button row sits ~250 px
     below the bottom of the viewport at 1600x1100 and 1920x1400 with no
     ancestor scrolling it into view (worth checking at common laptop sizes).
-17. Demo demographic 1's chart notes panel answers 500 (`method=edit`) because
-    HRM rows 25-35 point at report files that never shipped; a missing HRM file
-    should not take down the notes panel. Demographics 2 and 3 load cleanly.
+17. (demo data, fixed in alpha12) Demo demographic 1's chart notes panel answers
+    500 (`method=edit`) because HRM rows 25-35 point at report files that never
+    shipped; a missing HRM file should not take down the notes panel.
+    Demographics 2 and 3 load cleanly. The demo package now ships all 41 report
+    files, so the three scripts that worked around this default to demographic 1
+    again.
 18. A leftover `casemgmt_tmpsave` draft / stale `casemgmt_note_lock` rows from
     an interrupted session also made the notes panel answer 500 until cleared.
 19. Notes saved from an appointment-opened chart carry `appointmentNo = 0`
@@ -164,13 +170,17 @@ these are fixed by this change.
     `name`/`id` while its scripts reference `document.RxSearchAllergyForm`;
     and `prevention/index.jsp` / `AddPreventionData.jsp` call a `/cvc` endpoint
     that has no Struts or servlet mapping (lot-number lookups will 404).
-21. (deb) `database/mysql/migration/on/V1.0.2__on_data.sql` seeds all 257
-    `consultationServices` rows with `active = '02'`; the BC seed uses `'1'`
-    and the DAO filters on `'1'`. A fresh Ontario package install therefore has
-    no selectable consultation service and no specialty on Add Specialist
-    until an admin activates them. The dev/demo database hides this because
-    `development.sql` truncates the table and reseeds six active services, and
-    the additive demo build excludes the table.
+21. (deb, fixed in alpha12) `database/mysql/migration/on/V1.0.2__on_data.sql`
+    seeds all 257 `consultationServices` rows with `active = '02'`; the BC seed
+    uses `'1'` and the DAO filters on `'1'`. A fresh Ontario package install
+    therefore has no selectable consultation service and no specialty on Add
+    Specialist until an admin activates them. The dev/demo database hides this
+    because `development.sql` truncates the table and reseeds six active
+    services, and the additive demo build excludes the table. Migration
+    `V1.0.23` now activates the catalogue, but only where it is provably the
+    untouched seed and the database holds no non-FAKE patients — `'02'` is also
+    the deliberate-disable value, so a configured or clinical database is left
+    for its administrator.
 22. (deb, fixed in `release/2026.08`) The alpha-11 WAF policy inspects
     `ARGS:caseNote_note` with the full CRS set, so any encounter note with a
     line starting `Start `, `Type `, `Find ` (Windows-RCE rule 932115, e.g.
