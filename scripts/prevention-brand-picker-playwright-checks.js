@@ -74,7 +74,7 @@ const lotNumber = `PWLOT${String(Date.now()).slice(-8)}`;
 const catalogueConcept = `9${Date.now()}`;
 const genericConcept = `${catalogueConcept}1`;
 const catalogueName = `PWV${Date.now()}`;
-const catalogueLot = `${lotNumber}CVC`;
+const catalogueLot = `${lotNumber}&CVC`;
 const cvcUi = process.env.PREVENTION_CVC_UI === 'true';
 const ownedPreventionIds = [];
 
@@ -226,7 +226,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       await genericPopup.waitForFunction(() => document.getElementById('cvcLot')?.options.length === 2);
       await genericPopup.close();
       const lotQuery = index.waitForResponse((response) => response.url().includes('/cvc?method=query')
-        && (response.request().postData() || '').includes(catalogueLot));
+        && new URLSearchParams(response.request().postData() || '').get('query') === catalogueLot);
       await input.fill(catalogueLot);
       assert((await lotQuery).ok(), 'CVC lot autocomplete request failed');
       await index.waitForFunction(() => document.querySelectorAll('#lotNumberToAdd2_choices .ac-item').length === 1);
@@ -270,11 +270,25 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       await historical.waitForFunction((lot) => document.getElementById('cvcLot')?.options.length === 2
         && document.getElementById('lot')?.value === lot && document.getElementById('cvcLot').style.display === 'none', catalogueLot);
       assert(await historical.locator('#expiryDate').inputValue() === '', 'historical lot acquired an expiry date');
+      assert((await historical.locator('#summary').inputValue()).includes(catalogueLot),
+        'the existing prevention summary is no longer visible');
       const historicalSave = historical.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/prevention/AddPrevention'));
       await historical.locator('form[action$="/prevention/AddPrevention"] input[type="submit"], form[action$="/prevention/AddPrevention"] button[type="submit"]').first().click();
-      assert((await historicalSave).ok(), 'historical prevention update failed');
-      assert(preventionIds().length === 1, 'updating the prevention lost its historical lot');
+      const historicalResponse = await historicalSave;
+      assert(!new URLSearchParams(historicalResponse.request().postData()).has('summary'),
+        'the derived read-only summary was resubmitted');
+      assert(historicalResponse.ok(), 'historical prevention update failed');
+      // Updates archive the original prevention and create a linked replacement.
+      const updatedIds = sqlRows(`SELECT prevention_id FROM preventionsExt WHERE keyval='previousId' AND val='${Number(ids[0])}'`).map((row) => row[0]);
+      ownedPreventionIds.push(...updatedIds);
+      assert(updatedIds.length === 1, 'the update did not create exactly one linked prevention revision');
+      const updatedExt = Object.fromEntries(sqlRows(`SELECT keyval,val FROM preventionsExt WHERE prevention_id=${Number(updatedIds[0])}`));
+      assert(updatedExt.lot === catalogueLot && updatedExt.brandSnomedId === catalogueConcept
+        && !updatedExt.expiryDate, 'updating the prevention lost its historical vaccine/lot or invented an expiry date');
+      assert(sql(`SELECT deleted FROM preventions WHERE id=${Number(ids[0])}`) === '1'
+        && sql(`SELECT deleted FROM preventions WHERE id=${Number(updatedIds[0])}`) === '0',
+        'the update did not archive the original and retain the replacement');
       await historical.waitForEvent('close', {timeout:30000}).catch(() => {});
       assertNoPageErrors(recorder);
       const unexpected = recorder.badResponses.filter((entry) => !(entry.status === 404 && /displayImage\?imagefile=vaccine-brands\.json/.test(entry.url)));

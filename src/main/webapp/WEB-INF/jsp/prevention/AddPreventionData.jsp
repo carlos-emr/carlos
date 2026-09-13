@@ -514,9 +514,9 @@
                     // neither reuse the previous vaccine's lot nor consume its pending response.
                     var initialLot = startup2
                         ? '<carlos:encode value='<%= addByLotNbr != null ? addByLotNbr : "" %>' context="javaScriptBlock"/>'
-                        : startup ? '<carlos:encode value='<%= str(extraData.get("lot"), "") %>' context="javaScriptBlock"/>' : '';
+                        : startup ? '<carlos:encode value='<%= extraData.get("lot") != null ? extraData.get("lot") : "" %>' context="javaScriptBlock"/>' : '';
                     var initialExpiry = startup
-                        ? '<carlos:encode value='<%= str(extraData.get("expiryDate"), "") %>' context="javaScriptBlock"/>' : '';
+                        ? '<carlos:encode value='<%= extraData.get("expiryDate") != null ? extraData.get("expiryDate") : "" %>' context="javaScriptBlock"/>' : '';
                     startup = startup2 = false;
                     lot.value = initialLot;
                     if (expiryDate) expiryDate.value = initialExpiry;
@@ -724,7 +724,9 @@
                     <div class="prevention">
                         <fieldset>
                             <legend><fmt:message key="oscarprevention.addpreventiondata.summary"/></legend>
-                            <textarea class="form-control form-control-sm" name="summary" readonly><carlos:encode value='<%= summary != null ? summary : "" %>' context="html"/></textarea>
+                            <%-- Derived display text is not an input to AddPrevention. Reposting its
+                                 multiline Location: label also triggers response-splitting WAF rules. --%>
+                            <textarea class="form-control form-control-sm" id="summary" readonly><carlos:encode value='<%= summary != null ? summary : "" %>' context="html"/></textarea>
 
                         </fieldset>
                     </div>
