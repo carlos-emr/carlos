@@ -114,6 +114,12 @@ const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 
 const LOOKUP_LIST_NAME = 'firstNationCommunity';
+// LookupList has no unique constraint on `name` (PRIMARY KEY (id) only), so a
+// check-then-insert cannot assume the row it finds afterwards is its own: two
+// runs seeding at once both succeed and `WHERE name=...` then matches both.
+// Stamp a per-run marker into the description column and resolve by that, so
+// each run identifies and removes exactly the list it created.
+const RUN_MARKER = `first-nations-encoding-playwright-checks.js run ${process.pid}@${Date.now()}`;
 
 // One payload shape per field, each carrying its own id so a rendered element
 // names the field that leaked it. The leading `">` is the whole point: it is
@@ -135,8 +141,11 @@ function initMysqlDefaults() {
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'first-nations-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  // Register before writing: a failed write can still have created the file,
+  // and cleanupMysqlDefaults() can only remove a directory it knows about.
+  // Leaving one behind strands MYSQL_PASSWORD in cleartext under /tmp.
   mysqlDefaults = { dir, file };
+  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
 }
 function cleanupMysqlDefaults() {
   if (mysqlDefaults) {
@@ -329,9 +338,13 @@ function restoreSeededRows() {
     }
   }
   if (!seededLookupListId && lookupListSeedAttempted) {
-    // The insert ran but the id never came back. This name had no list before
-    // the seed, so any row carrying it now is ours to remove.
-    const recovered = sql(`SELECT id FROM LookupList WHERE name=${sqlString(LOOKUP_LIST_NAME)}`);
+    // The insert ran but the id never came back. Match on the run marker, not
+    // the name: a concurrent run may have seeded a list of the same name, and
+    // deleting that one would strand its payload instead of ours.
+    const recovered = sql(
+      `SELECT id FROM LookupList WHERE name=${sqlString(LOOKUP_LIST_NAME)}`
+        + ` AND description=${sqlString(RUN_MARKER)}`,
+    );
     if (/^\d+$/.test(recovered)) {
       seededLookupListId = recovered;
     }
@@ -398,9 +411,12 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
       sql(
         'INSERT INTO LookupList (name, listTitle, description, active, createdBy)'
           + ` VALUES (${sqlString(LOOKUP_LIST_NAME)}, 'First Nation Community',`
-          + " 'Seeded by first-nations-encoding-playwright-checks.js', 1, '999998')",
+          + ` ${sqlString(RUN_MARKER)}, 1, '999998')`,
       );
-      seededLookupListId = sql(`SELECT id FROM LookupList WHERE name=${sqlString(LOOKUP_LIST_NAME)}`);
+      seededLookupListId = sql(
+        `SELECT id FROM LookupList WHERE name=${sqlString(LOOKUP_LIST_NAME)}`
+          + ` AND description=${sqlString(RUN_MARKER)}`,
+      );
       assert(/^\d+$/.test(seededLookupListId), 'Failed to seed the firstNationCommunity lookup list');
       sql(
         'INSERT INTO LookupListItem (lookupListId, value, label, displayOrder, active, createdBy)'
