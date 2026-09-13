@@ -81,6 +81,8 @@
  *   ALLERGY_CUSTOM_ALLERGEN (default "CLARITHROMYCIN"),
  *   ALLERGY_EXPECT_UNCHECKED=true with an unknown custom allergen to require
  *   an explicit unresolved-check JSON result and visible Not checked notice,
+ *   ALLERGY_OTHER_DEMOGRAPHIC_NO (default 1, or 2 when testing patient 1) for
+ *   a read-only second prescribing tab that must not change the first tab's check,
  *   ALLERGY_DRUG_TERM (default
  *   "biaxin", a macrolide -- the free-text allergen's class),
  *   ALLERGY_TYPED_DRUG_TERM (default "amoxil", a penicillin -- the typed
@@ -112,6 +114,7 @@ const config = {
   screenshotDir: process.env.ALLERGY_SCREENSHOT_DIR || '/tmp',
 };
 const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '2';
+const otherDemographicNo = process.env.ALLERGY_OTHER_DEMOGRAPHIC_NO || (demographicNo === '1' ? '2' : '1');
 // Use a typed name present in both the demo and current DPD reference. Legacy
 // AHFS parent names such as PENICILLINS can disappear after a DPD refresh;
 // those need an explicit unresolved-check notice, not a fabricated match.
@@ -141,6 +144,8 @@ const freeTextReaction = `Rash free-text check ${runMarker}`;
 const attemptedReactionMarkers = [];
 
 assert(/^\d+$/.test(demographicNo), `ALLERGY_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
+assert(/^\d+$/.test(otherDemographicNo) && Number(otherDemographicNo) !== Number(demographicNo),
+  'ALLERGY_OTHER_DEMOGRAPHIC_NO must identify a different numeric patient');
 // The drug picker debounces and only fires at minLength 3; a shorter term never
 // reaches the server and every assertion below would be vacuous.
 assert(drugTerm.length >= 3, `ALLERGY_DRUG_TERM must be at least 3 characters, got "${drugTerm}"`);
@@ -468,6 +473,30 @@ async function recordAllergy(page, marker, cancellation) {
         + "patient's own recorded reaction, so it is not reproduced here; see the screenshot.",
     );
 
+    // The prescribing session is shared across tabs. A later patient's window
+    // must not redirect an already-open page's allergy checks to that patient.
+    const originalCheck = new URLSearchParams(allergyDataResponse.request().postData() || '');
+    assert(originalCheck.get('demographicNo') === demographicNo, 'the allergy request is not bound to its page patient');
+    const otherRxPage = await context.newPage();
+    wirePage(otherRxPage, 'rx-other-patient', recorder);
+    await gotoApp(otherRxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${otherDemographicNo}`);
+    await otherRxPage.locator('#searchString').waitFor({state: 'visible', timeout: 20000});
+    await assertNotErrorPage(otherRxPage, 'second patient prescribing tab');
+    const repeatedCheck = rxPage.waitForResponse((response) => response.url().includes('/rx/showAllergy')
+      && response.request().method() === 'POST', {timeout: 60000});
+    await rxPage.evaluate(({id, atc}) => window.checkAllergy(id, atc),
+      {id: originalCheck.get('id'), atc: originalCheck.get('atcCode')});
+    const repeatedResponse = await repeatedCheck;
+    assert(repeatedResponse.ok(), 'the original patient allergy recheck failed after opening another patient');
+    const repeatedPayload = await repeatedResponse.json();
+    const expectedResults = expectUnchecked ? repeatedPayload.unchecked : repeatedPayload.results;
+    assert(Array.isArray(expectedResults) && expectedResults.some((item) => item.reaction === freeTextReaction),
+      'opening another patient changed the original tab allergy result');
+    assert(repeatedPayload.checkFailed !== true, 'the cross-tab allergy recheck was incomplete due to a service failure');
+    await alertTable.getByText(freeTextReaction, {exact:false}).waitFor({state:'visible'});
+    if (expectUnchecked) assert((await alertTable.innerText()).includes('Not checked:'),
+      'the cross-tab unresolved allergy lost its visible Not checked notice');
+    await otherRxPage.close();
     await screenshot(rxPage, config.screenshotDir, 'allergy-rx-alert');
     await rxPage.close();
 
@@ -531,6 +560,7 @@ async function recordAllergy(page, marker, cancellation) {
     console.log(`  recorded from search: ${chosenName}`);
     console.log(`  recorded as free text: ${customAllergen}`);
     console.log(`  ${drugTerm} ${expectUnchecked ? 'displayed Not checked for' : 'warned on'} the free-text allergen`);
+    console.log('  opening another patient preserved the original tab allergy check');
     if (matchedRequestedAllergen) {
       console.log(`  ${typedDrugTerm} warned on the allergen recorded from the search results`);
     }

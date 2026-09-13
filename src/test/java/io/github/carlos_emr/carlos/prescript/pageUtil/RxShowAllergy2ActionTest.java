@@ -194,13 +194,44 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
         assertThat(json.path("unchecked")).isEmpty();
     }
 
+    @Test
+    @DisplayName("should check the requested patient when another tab changes the prescribing session")
+    void shouldCheckRequestedPatient_whenAnotherTabChangesPrescribingSession() throws Exception {
+        Allergy target = allergy("target patient allergy", "3");
+        JsonNode json = check(new Allergy[]{target}, new Allergy[]{target}, List.of(), false, false, "2", 99);
+        assertThat(json.path("checkComplete").asBoolean()).isTrue();
+        assertThat(json.path("results").get(0).path("DESCRIPTION").asText()).isEqualTo("target patient allergy");
+    }
+
+    @Test
+    @DisplayName("should reject an allergy check with no patient instead of using shared session state")
+    void shouldRejectAllergyCheck_whenRequestedPatientIsMissing() throws Exception {
+        JsonNode json = check(new Allergy[0], new Allergy[0], List.of(), false, false, null, 2);
+        assertThat(json.path("checkFailed").asBoolean()).isTrue();
+        assertThat(json.path("checkComplete").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should reject an allergy check with a malformed patient identifier")
+    void shouldRejectAllergyCheck_whenRequestedPatientIsMalformed() throws Exception {
+        JsonNode json = check(new Allergy[0], new Allergy[0], List.of(), false, false, "2invalid", 2);
+        assertThat(json.path("checkFailed").asBoolean()).isTrue();
+        assertThat(json.path("checkComplete").asBoolean()).isFalse();
+    }
+
     private JsonNode check(Allergy[] allergies, Allergy[] matches, List<Allergy> unresolved,
                            boolean highestOnly, boolean failed) throws Exception {
+        return check(allergies, matches, unresolved, highestOnly, failed, "2", 2);
+    }
+
+    private JsonNode check(Allergy[] allergies, Allergy[] matches, List<Allergy> unresolved,
+                           boolean highestOnly, boolean failed, String requestedPatient, int sessionPatient) throws Exception {
         mockRequest.setParameter("method", "allergyData");
         mockRequest.setParameter("atcCode", "J01FA09");
         mockRequest.setParameter("id", "7");
+        if (requestedPatient != null) mockRequest.setParameter("demographicNo", requestedPatient);
         RxSessionBean session = mock(RxSessionBean.class);
-        when(session.getDemographicNo()).thenReturn(2);
+        when(session.getDemographicNo()).thenReturn(sessionPatient);
         mockRequest.getSession().setAttribute("RxSessionBean", session);
         RxPatientData.Patient patient = mock(RxPatientData.Patient.class);
         when(patient.getActiveAllergies()).thenReturn(allergies);

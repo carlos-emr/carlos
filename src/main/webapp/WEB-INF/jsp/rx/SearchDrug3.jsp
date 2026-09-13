@@ -1623,7 +1623,7 @@ function renderRxStage() {
 
    function checkAllergy(id,atcCode){
      const url = ctx + "/rx/showAllergy";
-     const data="method=allergyData&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
+     const data="method=allergyData&demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
      CarlosAllergyAlert.render(document, id, {pending: true});
      CarlosAjax.request(url, {method: 'post', postBody: data,
        requestHeaders: {'Accept': 'application/json'},

@@ -234,8 +234,13 @@ public final class RxShowAllergy2Action extends ActionSupport {
             if (!"false".equals(CarlosProperties.getInstance().getProperty("rx.disable_allergy_warnings", "false"))) {
                 result.put("disabled", true);
             } else {
-                RxSessionBean session = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-                allergies = RxPatientData.getPatient(loggedInInfo, session.getDemographicNo()).getActiveAllergies();
+                String demographicNo = request.getParameter("demographicNo");
+                if (demographicNo == null || !demographicNo.matches("[1-9]\\d{0,8}")) {
+                    throw new IllegalArgumentException("A valid patient is required for the allergy check");
+                }
+                // Another prescribing tab can replace the shared RxSessionBean. The
+                // request must identify the patient whose page initiated this check.
+                allergies = RxPatientData.getPatient(loggedInInfo, Integer.parseInt(demographicNo)).getActiveAllergies();
                 List<Allergy> missing = new ArrayList<>();
                 Allergy[] matches = new RxDrugData().getAllergyWarnings(request.getParameter("atcCode"), allergies, missing);
                 boolean highestOnly = systemPreferencesDao.isReadBooleanPreference(

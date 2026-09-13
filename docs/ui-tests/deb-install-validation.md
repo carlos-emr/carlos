@@ -699,6 +699,9 @@ Notes on the contract:
   `ALLERGY_CUSTOM_ALLERGEN=PWUNKNOWNALRG ALLERGY_EXPECT_UNCHECKED=true` to require
   an explicit `Not checked` notice for an unresolved allergy. Service failures and
   malformed responses must remain visibly incomplete, never look like a negative check.
+  The check also opens another patient in the same browser session and rechecks the
+  original tab. `ALLERGY_OTHER_DEMOGRAPHIC_NO` defaults to patient 1 (patient 2 when
+  the primary fixture is patient 1); it must name a different existing demo patient.
 
 - **The HRM PDF marker belongs to a specific report.**
   `eform-rtl-attachment-pdf-playwright-checks.js` defaults to `RTL_HRM_DOCUMENT_NO=1`
