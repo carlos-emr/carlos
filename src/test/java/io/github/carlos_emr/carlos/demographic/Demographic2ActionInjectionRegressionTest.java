@@ -50,8 +50,15 @@ class Demographic2ActionInjectionRegressionTest {
     private static final Path DEMOGRAPHIC_SOURCE_DIR =
             Path.of("src/main/java/io/github/carlos_emr/carlos/demographic");
     private static final Path STRUTS_CONFIG = Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
+    /**
+     * Matches a field declaration initialized from {@code SpringUtils.getBean(...)}.
+     *
+     * <p>Applied to a whole normalized statement (see {@link #fieldGetBeanViolations(Path, String)}),
+     * not to one physical line, so wrapping the initializer onto its own line does not hide the shim.
+     */
     private static final Pattern FIELD_GET_BEAN = Pattern.compile(
-            "^\\s*(?:(?:private|protected|public)\\s+)?(?:(?:static|final|transient)\\s+)*[A-Z][^;=]+\\s+\\w+\\s*=\\s*(?:\\([^)]*\\)\\s*)?SpringUtils\\.getBean\\([^;]+;\\s*$");
+            "^(?:(?:private|protected|public)\\s+)?(?:(?:static|final|transient)\\s+)*"
+                    + "[A-Z][^;=]+\\s+\\w+\\s*=\\s*(?:\\([^)]*\\)\\s*)?SpringUtils\\.getBean\\(.*$");
 
     @Test
     @DisplayName("should use constructor injection instead of SpringUtils field shims")
@@ -119,28 +126,187 @@ class Demographic2ActionInjectionRegressionTest {
                 .isEmpty();
     }
 
+    @Test
+    @DisplayName("should detect SpringUtils field shims split across lines")
+    void shouldDetectFieldShim_whenDeclarationSpansLines(@TempDir Path tempDir) throws IOException {
+        Path sourceFile = tempDir.resolve("WrappedDeclaration2Action.java");
+        Files.writeString(sourceFile, """
+                class WrappedDeclaration2Action {
+                    @SuppressFBWarnings(value = "X", justification = "wraps (parens) and a ; too")
+                    private final transient SecurityInfoManager securityInfoManager =
+                            SpringUtils.getBean(SecurityInfoManager.class);
+                }
+                """, StandardCharsets.UTF_8);
+
+        assertThat(fieldGetBeanViolations(sourceFile))
+                .containsExactly(sourceFile + ":3");
+    }
+
+    @Test
+    @DisplayName("should ignore SpringUtils lookups inside comments")
+    void shouldIgnoreFieldShim_whenOnlyInAComment(@TempDir Path tempDir) throws IOException {
+        Path sourceFile = tempDir.resolve("CommentedOut2Action.java");
+        Files.writeString(sourceFile, """
+                class CommentedOut2Action {
+                    // private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+                    /* private SecurityInfoManager other = SpringUtils.getBean(SecurityInfoManager.class); */
+                }
+                """, StandardCharsets.UTF_8);
+
+        assertThat(fieldGetBeanViolations(sourceFile))
+                .isEmpty();
+    }
+
     private static Stream<String> fieldGetBeanViolations(Path path) {
         try {
-            List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-            List<String> violations = new ArrayList<>();
-            int braceDepth = 0;
-            for (int index = 0; index < lines.size(); index++) {
-                String line = lines.get(index);
-                if (braceDepth == 1 && FIELD_GET_BEAN.matcher(line).matches()) {
-                    violations.add(path + ":" + (index + 1));
-                }
-                braceDepth += countOccurrences(line, '{') - countOccurrences(line, '}');
-            }
-            return violations.stream();
+            return fieldGetBeanViolations(path, Files.readString(path, StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new IllegalStateException("Unable to read " + path, e);
         }
     }
 
-    private static int countOccurrences(String line, char target) {
+    /**
+     * Reports every class-body field declaration initialized from {@code SpringUtils.getBean(...)}.
+     *
+     * <p>The scan works on statements, not physical lines. A declaration a formatter wrapped onto
+     * two lines, or one carrying an annotation, is the same banned shim, so a line-at-a-time matcher
+     * would let the prohibited pattern back in unnoticed. Comments and string/char literals are
+     * skipped so their contents cannot supply a stray {@code ;} or brace, and only statements at
+     * brace depth 1 count: the same lookup inside a method body is a permitted local lookup.
+     *
+     * @param path source file the violations are reported against
+     * @param source that file's contents
+     * @return {@code path:line} for each violation, line being where the declaration starts
+     */
+    private static Stream<String> fieldGetBeanViolations(Path path, String source) {
+        List<String> violations = new ArrayList<>();
+        StringBuilder statement = new StringBuilder();
+        int statementLine = 0;
+        int line = 1;
+        int braceDepth = 0;
+
+        for (int index = 0; index < source.length(); index++) {
+            char current = source.charAt(index);
+            char next = index + 1 < source.length() ? source.charAt(index + 1) : '\0';
+
+            if (current == '\n') {
+                line++;
+                appendSeparator(statement);
+                continue;
+            }
+            if (current == '/' && next == '/') {
+                int newline = source.indexOf('\n', index);
+                // Stop one short of the newline so the branch above still counts the line.
+                index = (newline < 0 ? source.length() : newline) - 1;
+                continue;
+            }
+            if (current == '/' && next == '*') {
+                int close = source.indexOf("*/", index + 2);
+                int end = close < 0 ? source.length() - 1 : close + 1;
+                line += countNewlines(source, index, end);
+                index = end;
+                appendSeparator(statement);
+                continue;
+            }
+            if (current == '"' || current == '\'') {
+                int end = endOfLiteral(source, index);
+                line += countNewlines(source, index, end);
+                index = end;
+                // The literal's contents cannot be part of a declaration; keep the statement
+                // well-formed (balanced parens for annotation skipping) without them.
+                appendSeparator(statement);
+                continue;
+            }
+            if (braceDepth == 1 && statement.isEmpty() && current == '@') {
+                // Annotations precede the declaration they document; drop them so the reported
+                // line is the declaration's own and the pattern still anchors at its start.
+                int end = endOfAnnotation(source, index);
+                line += countNewlines(source, index, end);
+                index = end;
+                continue;
+            }
+            if (current == '{' || current == '}') {
+                braceDepth += current == '{' ? 1 : -1;
+                // A member body or initializer block is not the single field declaration scanned for.
+                statement.setLength(0);
+                continue;
+            }
+            if (current == ';') {
+                if (braceDepth == 1 && FIELD_GET_BEAN.matcher(statement.toString().trim()).matches()) {
+                    violations.add(path + ":" + statementLine);
+                }
+                statement.setLength(0);
+                continue;
+            }
+            if (braceDepth == 1) {
+                if (statement.isEmpty()) {
+                    if (Character.isWhitespace(current)) {
+                        continue;
+                    }
+                    statementLine = line;
+                }
+                statement.append(current);
+            }
+        }
+
+        return violations.stream();
+    }
+
+    private static void appendSeparator(StringBuilder statement) {
+        if (!statement.isEmpty() && statement.charAt(statement.length() - 1) != ' ') {
+            statement.append(' ');
+        }
+    }
+
+    /** Returns the index of the last character of the literal starting at {@code start}. */
+    private static int endOfLiteral(String source, int start) {
+        char quote = source.charAt(start);
+        for (int index = start + 1; index < source.length(); index++) {
+            char current = source.charAt(index);
+            if (current == '\\') {
+                index++;
+            } else if (current == quote) {
+                return index;
+            }
+        }
+        return source.length() - 1;
+    }
+
+    /**
+     * Returns the index of the last character of the annotation starting at {@code start},
+     * including its parenthesized arguments when present.
+     */
+    private static int endOfAnnotation(String source, int start) {
+        int index = start + 1;
+        while (index < source.length() && (Character.isJavaIdentifierPart(source.charAt(index)) || source.charAt(index) == '.')) {
+            index++;
+        }
+        int argumentStart = index;
+        while (argumentStart < source.length() && Character.isWhitespace(source.charAt(argumentStart))) {
+            argumentStart++;
+        }
+        if (argumentStart >= source.length() || source.charAt(argumentStart) != '(') {
+            return index - 1;
+        }
+        int depth = 0;
+        for (index = argumentStart; index < source.length(); index++) {
+            char current = source.charAt(index);
+            if (current == '"' || current == '\'') {
+                // Justification strings routinely contain parentheses; skip them wholesale.
+                index = endOfLiteral(source, index);
+            } else if (current == '(') {
+                depth++;
+            } else if (current == ')' && --depth == 0) {
+                return index;
+            }
+        }
+        return source.length() - 1;
+    }
+
+    private static int countNewlines(String source, int start, int end) {
         int count = 0;
-        for (int index = 0; index < line.length(); index++) {
-            if (line.charAt(index) == target) {
+        for (int index = start; index <= end && index < source.length(); index++) {
+            if (source.charAt(index) == '\n') {
                 count++;
             }
         }

@@ -70,6 +70,27 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
         assertThat(action).isInstanceOf(actionClass);
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("constructorInjectedActions")
+    @DisplayName("should retain a public no-arg constructor for Struts instantiation")
+    void shouldRetainNoArgConstructor_forStrutsInstantiation(Class<?> actionClass) {
+        // Struts builds these actions through SpringObjectFactory under the default
+        // `name` autowire strategy (see Demographic2ActionInjectionRegressionTest for why
+        // `constructor` must not be set globally). That strategy autowires an instance
+        // Spring created from the default constructor, so dropping the no-arg constructor
+        // in favour of the injected one alone would compile, pass the instantiation test
+        // above, and then fail on the first request to the action.
+        assertThat(hasPublicNoArgConstructor(actionClass))
+                .as("%s must keep a public no-arg constructor delegating to its injected constructor,"
+                        + " otherwise Struts cannot instantiate it at runtime", actionClass.getName())
+                .isTrue();
+    }
+
+    private static boolean hasPublicNoArgConstructor(Class<?> actionClass) {
+        return Arrays.stream(actionClass.getConstructors())
+                .anyMatch(constructor -> constructor.getParameterCount() == 0);
+    }
+
     /**
      * Returns the dependency-injection entry point: the public constructor with the most
      * parameters. Actions also expose a no-arg constructor that delegates to this one via
