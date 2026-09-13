@@ -1030,6 +1030,55 @@ completion marker already exists. Both Debian and devcontainer bootstraps leave
 existing documents untouched. These files contain invented, explicitly labelled
 reports for the FAKE patients; they do not reproduce the old reports' content.
 
+### Upgrade path: alpha11 packages -> alpha12 packages
+
+Reviewed and exercised on 2026-09-13: a controlled in-place `apt-get install` of
+the three `2026.09.0~snapshot22` packages over a `2026.09.0~snapshot19` install
+(Ubuntu 26.04 container, demo dataset, first-login reset already done so the
+operator's own password was in place). Two repo scripts make it repeatable:
+`scripts/deb-upgrade-baseline.sh` (a key=value snapshot: package versions,
+Flyway history, clinical row counts, config/TLS hashes, sentinels, the admin
+hash, build tag) taken before and after, and `scripts/deb-upgrade-verify.sh`,
+which diffs the two and asserts the contract below. Both are counts, hashes and
+flags only; no PHI leaves the host.
+
+What the review established, from the maintainer scripts and the run:
+
+- **Migrations.** The a11 package ships 23 Flyway migrations, a12 ships 27. The
+  delta is exactly `V1.0.20`, `V1.0.21`, `V1.0.22` (common) and `V1.0.23` (on);
+  nothing was removed and every shared file is byte-identical, so `validate`
+  passes and `carlos-ctl db-migrate` applies the four (`applied 4 migration(s);
+  schema is at 1.0.23`). `V1.0.23` is demo-guarded: it activated the 257 seeded
+  consultation services here because every demographic is a FAKE- patient; on a
+  configured clinical install it leaves the catalogue for an administrator.
+- **Credentials.** `carlos-ctl bootstrap-admin` runs on every configure but only
+  resets an account still carrying the *published* seeded hash, so the upgrade
+  logged `nothing to reset` and the operator's password hash, PIN and
+  `forcePasswordReset` were unchanged.
+- **Configuration.** `carlos-emr.env`, `carlos.properties`, `backup.env`, the
+  self-signed certificate, province, timezone and DB name were byte-identical
+  before and after (`FRESH_ENV=0` on an upgrade; the sentinel-guarded one-time
+  migrations had already run on a11). `prerm` is a no-op on `upgrade`, and every
+  destructive `postrm` action is gated to `purge`, which still keeps the clinical
+  record.
+- **Data.** Every clinical table's row count was preserved and every stored
+  document's file is still present. The store *grew* from 21 to 62 files: a12
+  ships the synthetic HRM report files that end the `HRMReportParser: File Not
+  Found` errors, and `carlos-ctl demo-data` is additive. One consequence to
+  know: `demo-data` detects an already-loaded dataset and leaves it alone, so a
+  seed-data correction in a12 (the prescription `digital_signature_id` fix)
+  reaches **fresh** a12 installs only; an upgraded demo/dev install keeps its
+  a11 rows. Production holds no demo rows, so this is a dev/demo note.
+- **Service.** The unit came back `active` with `NRestarts=0`, `carlos-ctl
+  check` reported all checks passed, and the About page carries the new build
+  tag `2026.08.0-alpha12-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot22)` — the
+  packaged WAR is stamped even when supplied prebuilt via `CARLOS_WAR=`.
+
+Result: `deb-upgrade-verify.sh` 30/30 (a transient `allergies 17 -> 19` seen
+once was the live suite's own `allergy-add-penicillin` fixture mid-run, deleted
+in its `finally`). The full browser suite was then run against the upgraded
+install; its tally is recorded in the section below.
+
 ### Ontario consultation catalogue repair
 
 Migration `V1.0.23` activates the accidentally disabled reference catalogue only
