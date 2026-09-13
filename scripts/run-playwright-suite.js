@@ -156,7 +156,11 @@ function runOne(check, options, run = spawnSync) {
   const result = run(process.execPath, [check.script], {
     stdio: 'inherit',
     timeout: check.timeoutSec * 1000,
-    env: process.env,
+    // envSet lets one script back several named checks: the table-driven
+    // families (surface-audit, direct-response-contract) are one engine plus a
+    // row selector, and the runner has to pass the selector that picks the row.
+    // Anything already exported still wins for the shared contract variables.
+    env: { ...process.env, ...(check.envSet || {}) },
   });
   const durationMs = Date.now() - started;
   if (result.error && result.error.code === 'ETIMEDOUT') {

@@ -39,6 +39,10 @@
  *   ADMIN_LINKS_LIMIT=25             stop after N items, for a quick pass
  *   ADMIN_LINKS_TIMEOUT_MS=20000     per-item allowance
  *   ADMIN_LINKS_SCREENSHOT_DIR=/tmp  capture a screenshot of each failing item
+ *
+ * IMPLEMENTS: coverage plan section 3.7, `admin-index-links`
+ * (docs/ui-tests/playwright-coverage-plan-2026.08.md). App defects this check
+ * finds are recorded in docs/ui-tests/app-findings-log.md, not worked around.
  */
 
 const {

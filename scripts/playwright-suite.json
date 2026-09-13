@@ -1284,6 +1284,216 @@
       "timeoutSec": 300
     },
     {
+      "name": "surface-audit:billing-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "billing-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:consultations-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "consultations-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:edoc-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "edoc-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:inbox-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "inbox-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:messenger-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "messenger-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:preferences-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "preferences-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:report-index",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "report-index"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:scratch-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "scratch-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:tickler-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "tickler-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:workflow-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "workflow-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
       "name": "tickler-crud",
       "script": "scripts/tickler-crud-playwright-checks.js",
       "tiers": [

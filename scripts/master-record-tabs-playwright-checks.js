@@ -44,6 +44,10 @@
  *   MASTER_RECORD_LIMIT=0             stop after N items
  *   MASTER_RECORD_TIMEOUT_MS=20000    per-item allowance
  *   MASTER_RECORD_SCREENSHOT_DIR=     capture a screenshot of each failing item
+ *
+ * IMPLEMENTS: coverage plan section 2.4, `master-record-tabs`
+ * (docs/ui-tests/playwright-coverage-plan-2026.08.md). App defects this check
+ * finds are recorded in docs/ui-tests/app-findings-log.md, not worked around.
  */
 
 const {

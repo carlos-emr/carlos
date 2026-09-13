@@ -7,6 +7,7 @@ Comprehensive UI testing for CARLOS EMR using Playwright MCP (Model Context Prot
 - **New to UI testing?** Start with [UI-TEST-PROCESS.md](UI-TEST-PROCESS.md) - Complete testing procedures
 - **Validating the .deb packages?** Use [deb-install-validation.md](deb-install-validation.md) - Build, install into a VM, and run the whole Playwright suite through the nginx + ModSecurity front door
 - **Planning what to cover next?** Read [playwright-coverage-plan-2026.08.md](playwright-coverage-plan-2026.08.md) - measured route coverage on `release/2026.08`, harness changes to make first, and the prioritised list of checks to add
+- **Found a bug in CARLOS while testing?** Add it to [app-findings-log.md](app-findings-log.md) - verified application defects and dead routes found while building the coverage, kept separate from suite gaps
 - **Writing a new scripted browser check?** Read [clinical-workflow-browser-checks.md](clinical-workflow-browser-checks.md) - the shared harness, what the clinical checks assert and why, and the rules for adding another
 - **Testing eForm PDF fidelity?** Use [eform-pdf-render-smoke-test.md](eform-pdf-render-smoke-test.md) - Branch-focused smoke test runbook
 - **Running Test 1?** See [test-1/test-1-EXECUTION.md](test-1/test-1-EXECUTION.md) - Step-by-step execution guide

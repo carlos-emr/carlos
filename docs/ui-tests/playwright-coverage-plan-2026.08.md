@@ -115,6 +115,37 @@ has been migrated onto the new harness yet**.
 | `scripts/run-playwright-suite.js` | The runner: `--tier`, `--only`, `--skip`, `--province`, `--junit`, `--list`, `--dry-run` | `scripts/playwright-suite-manifest.test.js` |
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 
+**Checks implementing this plan, landed so far.** Each script's header names the
+section it implements, and each is UI-driven: it is entered by clicking from the
+schedule, never by a URL.
+
+| Check | Implements | Covers |
+|---|---|---|
+| `admin-index-links` | §3.7 | The Administration panel, ~120 items across its fourteen groups |
+| `master-record-tabs` | §2.4 | The patient Master Record hub |
+| `echart-navbar-modules` | §2.5 | The chart's 20 navigation modules, and that the navbars loaded at all |
+| `surface-audit:report-index` | §3.6 | The Report index and everything on it |
+| `surface-audit:inbox-surface` | §2.6 | The Inbox (the surface half of `inboxhub-filters`) |
+| `surface-audit:consultations-surface` | §3.3 | The Consultations list |
+| `surface-audit:messenger-surface` | §3.4 | Messenger |
+| `surface-audit:tickler-surface` | §3.4 | Tickler |
+| `surface-audit:edoc-surface` | §2.6 | eDoc document report |
+| `surface-audit:billing-surface` | §2.7 | Ontario billing (ON only) |
+| `surface-audit:preferences-surface` | §3.7 | Provider preferences |
+| `surface-audit:workflow-surface` | §4.4 | WorkFlow list |
+| `surface-audit:scratch-surface` | §4.4 | Scratch pad |
+
+All thirteen share one tested engine (`scripts/lib/playwright-link-audit.js`):
+catalogue what the live page offers, click every item, and attribute each finding
+to the page that broke. The ten `surface-audit:*` rows are a table in
+`scripts/lib/playwright-surfaces.js` — a new surface is four lines, not a new
+150-line script — and each is registered and reported individually.
+
+**Application defects these turn up go in
+[app-findings-log.md](app-findings-log.md)**, not into the checks. The suite's
+rule is report, don't encode: a check that pins current broken behaviour as
+expected makes the bug permanent.
+
 `scripts/eform-local-playwright-utils.js` is now a re-export of the harness plus
 the eForm-specific helpers, so **no existing check changed behaviour**: `wirePage`
 deliberately records exactly what it recorded before (no `requestfailed`, no
@@ -127,7 +158,8 @@ change to that check rather than 75 checks gaining new failure modes at once.
 workflow in §2.1 cannot be added by an agent — the YAML has to be committed by a
 human. Everything else in Phase 1 is unaffected.
 
-**What is not yet verified.** The harness and runner are unit-tested but have not
+**What is not yet verified.** The checks above, the harness and the runner are
+unit-tested but have not
 been run against a deployment: no Tomcat or MariaDB was available in the session
 that wrote them. Before anything migrates onto them, one pass of the existing
 suite through `node scripts/run-playwright-suite.js` against the devcontainer is
