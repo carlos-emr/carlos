@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -366,6 +367,38 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
             assertThat(m.getHistoryPartialRowCount()).isEqualTo(1);
             assertThat(m.getBillingHistory()).hasSize(1);
             assertThat(m.getBillingHistoryDetails()).hasSize(1);
+        } finally {
+            if (previous == null) {
+                CarlosProperties.getInstance().remove("isNewONbilling");
+            } else {
+                CarlosProperties.getInstance().setProperty("isNewONbilling", previous);
+            }
+        }
+    }
+
+    @Test
+    void shouldOmitDemographicNumber_whenNewOnBillingPairShapeRegresses() {
+        String previous = CarlosProperties.getInstance().getProperty("isNewONbilling", "");
+        CarlosProperties.getInstance().setProperty("isNewONbilling", "true");
+        try {
+            String maliciousDemoNo = "1\r\nforged-demo";
+            request.setParameter("demographic_no", maliciousDemoNo);
+            BillingClaimItemDto goodItem = newClaimItem("A001A", "401");
+            when(billingReviewImpl.getBillingHist(eq(maliciousDemoNo), eq(5), eq(0), any()))
+                    .thenReturn(List.of("not-a-header", goodItem));
+
+            try (LogCapture capture = LogCapture.forLogger(BillingShortcutPg1ViewModelAssembler.class)) {
+                BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
+
+                assertThat(m.isHistoryPartial()).isTrue();
+                assertThat(m.getHistoryPartialRowCount()).isEqualTo(1);
+                String logged = capture.messages().stream()
+                        .filter(message -> message.contains("data-shape regression"))
+                        .findFirst()
+                        .orElseThrow();
+                assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+                assertThat(logged).doesNotContain("1\r\nforged-demo", "1\\r\\nforged-demo", "forged-demo");
+            }
         } finally {
             if (previous == null) {
                 CarlosProperties.getInstance().remove("isNewONbilling");

@@ -67,11 +67,30 @@ public class EctFindMeasurementTypeUtil {
             SAXSource source = XmlUtils.createSecureJaxbSource(is);
             ret = (EctFormProp) unmarshaller.unmarshal(source);
         } catch (Exception exc) {
-            MiscUtils.getLogger().error("Error", exc);
+            MiscUtils.getLogger().error("Error ({})", exc.getClass().getSimpleName());
         }
         return ret;
     }
 
+
+    /**
+     * The measurement types a form definition declares, read from the {@link EctFormProp} JAXB
+     * bound for THIS stream. The static {@link EctFormProp#getMeasurementTypes()} accumulator is
+     * reset and refilled by every unmarshal in the JVM, so two forms opened at the same time could
+     * see each other's definitions through it; callers must not fall back to it.
+     *
+     * @return the declared measurement types (a valid definition may declare none)
+     * @throws IllegalStateException when the stream does not unmarshal as a form definition;
+     *                               an empty rule set must not stand in for a broken file, since
+     *                               a save validated against it would check nothing
+     */
+    public static Vector<EctMeasurementTypesBean> loadMeasurementTypes(InputStream is) {
+        EctFormProp formProp = getEctMeasurementsType(is);
+        if (formProp == null) {
+            throw new IllegalStateException("form definition could not be read");
+        }
+        return formProp.getMeasurements() == null ? new Vector<>() : formProp.getMeasurements();
+    }
 
     /**
      * Compare the form definition xml file with the measurementtype table in the database.
@@ -79,12 +98,10 @@ public class EctFindMeasurementTypeUtil {
      */
     static public Vector checkMeasurmentTypes(InputStream is, String formName) {
 
-        EctFormProp formProp = getEctMeasurementsType(is);
-
-        Vector measurementTypes = EctFormProp.getMeasurementTypes();
+        Vector<EctMeasurementTypesBean> measurementTypes = loadMeasurementTypes(is);
 
         for (int i = 0; i < measurementTypes.size(); i++) {
-            EctMeasurementTypesBean mt = (EctMeasurementTypesBean) measurementTypes.elementAt(i);
+            EctMeasurementTypesBean mt = measurementTypes.elementAt(i);
 
             if (!measurementTypeIsFound(mt, formName)) {
                 addMeasurementType(mt, formName);

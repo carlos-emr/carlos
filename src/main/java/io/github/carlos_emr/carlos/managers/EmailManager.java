@@ -1,8 +1,8 @@
 package io.github.carlos_emr.carlos.managers;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -40,7 +40,9 @@ import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -434,20 +436,20 @@ public class EmailManager {
      * Encrypts the email message and/or attachments as password-protected PDFs.
      *
      * This method handles encryption of PHI content for secure transmission. It converts
-     * the encrypted message to a PDF attachment and encrypts selected attachments, then
-     * appends the password clue to the email body.
+     * the encrypted message to a PDF attachment and encrypts selected attachments while
+     * leaving the fixed visible email body unchanged.
      *
      * Encryption workflow:
      * 1. Convert encrypted message text to PDF attachment (if present)
      * 2. Collect attachments to encrypt based on isAttachmentEncrypted flag
      * 3. Encrypt all selected attachments with the provided password
      * 4. Update email attachments list with encrypted files
-     * 5. Append password clue to email body
+     * 5. Preserve the fixed, PHI-free visible email body without adding the password or clue
      *
      * @param emailData EmailData the email data containing content to encrypt
      * @throws EmailSendingException if PDF encryption fails
      */
-    private void encryptEmail(EmailData emailData) throws EmailSendingException {
+    void encryptEmail(EmailData emailData) throws EmailSendingException {
         // Encrypt message and attachment
         List<EmailAttachment> encryptableAttachments = new ArrayList<>();
         if (!StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
@@ -465,8 +467,9 @@ public class EmailManager {
         }
         emailData.setAttachments(emailAttachments);
 
-        //append password clue
-        emailData.setBody(emailData.getBody() + "\n\n*****\n" + emailData.getPasswordClue().trim() + "\n*****\n");
+        // The visible MIME body is deliberately limited to the fixed secure-message notice.
+        // Passwords and clues must be communicated through a separate agreed channel; including
+        // either here would violate the merged-message PHI boundary from issue #3118.
     }
 
     /**
@@ -477,16 +480,20 @@ public class EmailManager {
      *
      * @param emailData EmailData containing the encrypted message text
      * @return EmailAttachment a new attachment with the message PDF, or null if message is empty
+     * @throws EmailSendingException if the message cannot be rendered as a PDF
      */
-    private EmailAttachment createMessageAttachment(EmailData emailData) {
+    private EmailAttachment createMessageAttachment(EmailData emailData) throws EmailSendingException {
         if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
             return null;
         }
         String htmlSafeMessage = Encode.forHtmlContent(emailData.getEncryptedMessage()).replace("\n", "<br>");
         emailData.setEncryptedMessage(htmlSafeMessage);
         Path encryptedMessagePDF = ConvertToEdoc.saveAsTempPDF(emailData);
-        EmailAttachment emailAttachment = new EmailAttachment("message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
-        return emailAttachment;
+        if (encryptedMessagePDF == null) {
+            throw new EmailSendingException("Failed to render encrypted message attachment");
+        }
+        return new EmailAttachment(
+                "message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
     }
 
     /**
@@ -500,10 +507,12 @@ public class EmailManager {
      * @param password String the password to protect the PDFs with
      * @throws EmailSendingException if PDF encryption fails for any attachment
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void encryptAttachments(List<EmailAttachment> encryptableAttachments, String password) throws EmailSendingException {
         for (EmailAttachment attachment : encryptableAttachments) {
             try {
-                Path attachmentPDFPath = Paths.get(attachment.getFilePath());
+                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
                 attachmentPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, password);
                 attachment.setFilePath(attachmentPDFPath.toString());
             } catch (IOException e) {

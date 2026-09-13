@@ -73,6 +73,38 @@ class PrivacyStatementAppendingFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should mark the appended statement as print decoration")
+    void shouldMarkAppendedStatement_asPrintDecoration() throws Exception {
+        // The statement is appended to the eForm render page too, where the render browser
+        // measures under print-media emulation (yesprint is display:block there). The
+        // completeness gate withholds a document over UNMARKED off-page content, so without
+        // carlos-print-decoration a configured confidentiality statement blocked every eForm
+        // download on a packaged install. The marker is the gate's opt-in for platform
+        // boilerplate: disclosed as decoration, never withheld over.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/eform/efmshowform_data");
+            request.setServletPath("/eform/efmshowform_data");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>form</body></html>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write(body);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString())
+                    .contains("Test confidentiality statement.")
+                    .contains("class=\"yesprint carlos-print-decoration\"");
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
     @DisplayName("should flush non-HTML writer response when statement is skipped")
     void shouldFlushNonHtmlWriterResponse_whenStatementSkipped() throws Exception {
         PrivacyStatementAppendingFilter localFilter = new PrivacyStatementAppendingFilter();

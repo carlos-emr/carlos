@@ -7,9 +7,18 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Collections;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Utility class for validating file paths to prevent path traversal attacks.
@@ -41,16 +50,45 @@ import java.util.Set;
  *
  * @since 2025-12-09
  */
+// FindSecBugs PATH_TRAVERSAL_IN: this class IS the path-validation / secure-file utility; Find Security Bugs flags its internal File/Path operations, which are the containment checks and secure temp-file creation themselves, not vulnerable sinks.
+@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "PathValidationUtils is the path-validation utility; its internal File/Path operations are the containment checks and secure temp-file creation themselves, not vulnerable sinks")
 public final class PathValidationUtils {
 
     public static final String INVALID_FILENAME_MESSAGE =
             "Invalid filename. Use letters, numbers, dots, underscores, or spaces; spaces are converted to underscores, and filenames must not start with a dot.";
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
+    public static final String PATH_COMPONENT_FILENAME_MESSAGE =
+            "Invalid filename: must not include a path.";
     private static final String BLOCKED_EXTENSION_MESSAGE =
             "Invalid filename: file extension .%s not allowed.";
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
             "jsp", "jspx", "war", "class", "jar", "jnlp");
+
+    /**
+     * Directory name of the CARLOS-owned temporary root beneath {@code java.io.tmpdir} into which the
+     * application writes its own generated PDFs (see {@code NioFileManagerImpl.saveTempFile}). Keeping
+     * these under a single named root lets {@link #isInApplicationTempDirectory(File)} distinguish
+     * CARLOS-generated temp files from arbitrary files elsewhere in the shared temp roots.
+     */
+    public static final String APPLICATION_TEMP_ROOT_NAME = "carlos-temp";
+
+    /**
+     * CARLOS-owned first-path-segment names that legitimately live directly below
+     * {@code java.io.tmpdir}: {@code carlos-temp} is written by {@code saveTempFile};
+     * {@code carlos-eform-browser-pdf-temp} is the eForm browser renderer's {@code java.io.tmpdir}
+     * fallback root.
+     */
+    private static final Set<String> TMPDIR_APPLICATION_TEMP_SEGMENTS =
+            Set.of(APPLICATION_TEMP_ROOT_NAME, "carlos-eform-browser-pdf-temp");
+
+    /**
+     * CARLOS-owned first-path-segment name below a Tomcat {@code work} root: {@code work/carlos} is
+     * the eForm browser renderer's catalina temp root. {@code carlos-temp} /
+     * {@code carlos-eform-browser-pdf-temp} are deliberately NOT accepted here — they only ever live
+     * under {@code java.io.tmpdir}.
+     */
+    private static final Set<String> WORK_APPLICATION_TEMP_SEGMENTS = Set.of("carlos");
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -59,6 +97,19 @@ public final class PathValidationUtils {
      * Uses LinkedHashSet to preserve insertion order for debugging.
      */
     private static volatile Set<String> allowedTempDirectories;
+
+    /**
+     * Lazily-initialized map of canonical temp-root path to the CARLOS-owned first segments permitted
+     * directly beneath that specific root (see {@link #buildApplicationTempRoots()}).
+     */
+    // Sonar java:S3077 ("volatile is not enough for a mutable type") does not apply: this field is
+    // only ever assigned the result of buildApplicationTempRoots(), which returns an
+    // unmodifiableMap whose values are Set.copyOf(...) — deeply immutable. Volatile is then exactly
+    // the right idiom, giving safe publication of a fully-constructed immutable value under the
+    // double-checked lock below. Swapping in a ConcurrentHashMap would make the CONTENTS mutable
+    // and lose the immutability this depends on.
+    @SuppressWarnings("java:S3077")
+    private static volatile Map<String, Set<String>> applicationTempRoots;
 
     private PathValidationUtils() {
         // Utility class - prevent instantiation
@@ -119,7 +170,7 @@ public final class PathValidationUtils {
     /**
      * Validates a user-provided filename and returns a normalized safe filename component.
      * Normalization preserves the legacy {@link MiscUtils#sanitizeFileName(String)}
-     * contract: whitespace becomes underscores, characters outside {@code [a-zA-Z0-9._]}
+     * contract: whitespace becomes underscores, characters outside {@code [a-zA-Z0-9._-]}
      * are removed, and repeated dots collapse to a single dot.
      *
      * @param userProvidedFileName the filename provided by the user
@@ -244,7 +295,7 @@ public final class PathValidationUtils {
                     || userProvidedFileName.contains("/")
                     || userProvidedFileName.contains("\\")) {
                 logger.warn("Path components not allowed in filename");
-                throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+                throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
             }
         } catch (IllegalArgumentException e) {
             logger.warn("Filename parser rejected invalid filename");
@@ -254,9 +305,68 @@ public final class PathValidationUtils {
         return validateFileName(userProvidedFileName);
     }
 
+    /**
+     * Validates a single path component without normalizing or stripping path
+     * information. Use this for directory or filename segments that must be
+     * preserved exactly, such as queue identifiers and existing queued document
+     * names.
+     *
+     * @param value the path component to validate
+     * @param label field name used in log messages
+     * @return the original value when it is a safe single component
+     * @throws FileValidationException if the value is blank, hidden, absolute,
+     * contains path separators, or is a traversal component
+     */
+    public static String validatePathComponent(String value, String label) {
+        String field = label == null || label.trim().isEmpty() ? "path component" : label;
+        if (value == null || value.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (value.indexOf('\0') >= 0) {
+            logger.warn("Invalid {}: contains null byte", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (".".equals(value) || "..".equals(value) || value.startsWith(".")) {
+            logger.warn("Invalid {}: hidden or traversal component", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+
+        try {
+            if (FilenameUtils.getPrefixLength(value) > 0
+                    || value.contains("/")
+                    || value.contains("\\")
+                    || !FilenameUtils.getName(value).equals(value)) {
+                logger.warn("Invalid {}: path components not allowed", field);
+                throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+            }
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid {}: filename parser rejected value", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
+        }
+
+        return value;
+    }
+
+    /**
+     * Applies the legacy {@code MiscUtils.sanitizeFileName} normalization: whitespace becomes
+     * underscores, characters outside the keep-class are deleted, and dot runs collapse.
+     *
+     * <p>Hyphens are kept. They were accepted by the original guard ({@code ^[a-zA-Z0-9._-]+$}) and
+     * their deletion arrived incidentally with the move to {@code MiscUtils.sanitizeFileName}
+     * ({@code 60b81ac10e3}), whose stated intent was only to replace spaces. Deleting them is not a
+     * safety property — containment comes from {@code FilenameUtils.getName},
+     * {@link #validateWithinDirectory} and the blocked-extension list, and the read paths
+     * ({@link #validatePath}, {@link #validatePathComponent}) accept hyphens unchanged. It was also
+     * inconsistent within the eForm feature: ZIP import preserves the packaged name, so the same
+     * image kept its hyphens via one route and silently lost them via the image manager. There is no
+     * database record of eForm image names ({@code EFormUtil.listImages()} is a directory scan), so
+     * the on-disk name is the contract and a silent rename permanently breaks the form referencing
+     * it.</p>
+     */
     static String normalizeFileNameCharacters(String fileName) {
         return fileName.replaceAll("\\s+", "_")
-                .replaceAll("[^a-zA-Z0-9._]", "")
+                .replaceAll("[^a-zA-Z0-9._-]", "")
                 .replaceAll("\\.+", ".");
     }
 
@@ -281,6 +391,337 @@ public final class PathValidationUtils {
         }
         validateWithinDirectory(file, allowedDir);
         return file;
+    }
+
+    /**
+     * Validates that a child file path is within the allowed directory. The child
+     * does not need to exist yet, so this helper is appropriate for creation paths.
+     *
+     * @param file the file path to validate
+     * @param allowedDir the directory the file must be within
+     * @return the validated File
+     * @throws SecurityException if the file is outside the allowed directory
+     */
+    public static File validateChildPath(File file, File allowedDir) {
+        if (file == null) {
+            throw new SecurityException("File is null");
+        }
+        validateWithinDirectory(file, allowedDir);
+        return file;
+    }
+
+    /**
+     * Canonicalizes a trusted internal path without treating it as a security boundary.
+     * Use a trusted base-directory helper instead for request, upload, or other
+     * externally controlled paths.
+     *
+     * @param file trusted file path to canonicalize
+     * @return canonicalized file
+     */
+    public static File resolveTrustedPath(File file) {
+        return resolveTrustedPath(file, "trusted file");
+    }
+
+    /**
+     * Canonicalizes a trusted internal path without treating it as a security boundary.
+     * Use a trusted base-directory helper instead for request, upload, or other
+     * externally controlled paths.
+     *
+     * @param file trusted file path to canonicalize
+     * @param label human-readable label for diagnostics
+     * @return canonicalized file
+     */
+    public static File resolveTrustedPath(File file, String label) {
+        String field = label == null || label.trim().isEmpty() ? "trusted file" : label;
+        if (file == null) {
+            throw new SecurityException("File is null");
+        }
+        try {
+            return file.getCanonicalFile();
+        } catch (IOException e) {
+            logger.error("Error resolving {}", field, e);
+            throw new SecurityException("Error resolving trusted path", e);
+        }
+    }
+
+    /**
+     * Canonicalizes a trusted file path by delegating to {@link #resolveTrustedPath(File)}.
+     * Despite the legacy name, it performs no parent-directory containment check and is not a
+     * security boundary; use a trusted base-directory helper for untrusted paths.
+     *
+     * @param file file to canonicalize
+     * @return canonicalized file
+     * @deprecated use {@link #resolveTrustedPath(File)} for trusted internal paths,
+     * or validate against a real trusted base directory.
+     */
+    @Deprecated
+    public static File validateAgainstParentDirectory(File file) {
+        return resolveTrustedPath(file);
+    }
+
+    /**
+     * Canonicalizes a configured directory path while preserving support for
+     * absolute deployment-specific locations from carlos.properties.
+     *
+     * <p>This method is for trusted configuration values, not request
+     * parameters. Use it to establish the allowed base directory before
+     * resolving user or generated children with the other validation helpers.</p>
+     *
+     * @param configuredPath configured directory path
+     * @param label human-readable label for diagnostics
+     * @return canonical directory File
+     * @throws SecurityException if the path is blank, cannot be canonicalized, or is not a directory
+     */
+    public static File validateConfiguredDirectory(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured directory");
+        }
+
+        try {
+            File directory = new File(configuredPath).getCanonicalFile();
+            if (!directory.isDirectory()) {
+                logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                throw new SecurityException("Configured path is not a directory");
+            }
+            return directory;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured directory", e);
+        }
+    }
+
+    /**
+     * Resolves an application-generated child name inside an allowed directory
+     * and validates canonical containment without applying user filename
+     * normalization. Use this only for constants or generated names controlled
+     * by application code, such as metadata files or deterministic export names.
+     *
+     * @param generatedChildName application-generated filename
+     * @param allowedDir directory the child must remain within
+     * @return validated child File
+     * @throws FileValidationException if the generated name is blank, contains a null byte,
+     *         contains a path separator, or is "." or ".."
+     * @throws SecurityException if the resolved child escapes {@code allowedDir}
+     */
+    public static File validateGeneratedChildPath(String generatedChildName, File allowedDir) {
+        if (generatedChildName == null || generatedChildName.trim().isEmpty()) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (generatedChildName.indexOf('\0') >= 0) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (generatedChildName.contains("/") || generatedChildName.contains("\\")
+                || ".".equals(generatedChildName) || "..".equals(generatedChildName)) {
+            logger.warn("Generated child path must be a single filename component");
+            throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
+        }
+
+        File path = new File(allowedDir, generatedChildName);
+        validateWithinDirectory(path, allowedDir);
+        return path;
+    }
+
+    /**
+     * Canonicalizes a configured directory path that may be created later by
+     * the caller. Existing non-directory files are rejected, but missing paths
+     * are preserved to avoid changing legacy lazy-create behavior.
+     *
+     * @param configuredPath configured directory path
+     * @param label human-readable label for diagnostics
+     * @return canonical directory File
+     */
+    public static File resolveConfiguredDirectory(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured directory");
+        }
+
+        try {
+            File directory = new File(configuredPath).getCanonicalFile();
+            if (directory.exists() && !directory.isDirectory()) {
+                logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                throw new SecurityException("Configured path is not a directory");
+            }
+            return directory;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured directory", e);
+        }
+    }
+
+    /**
+     * Resolves a trusted generated sibling beside a configured path. This is
+     * for legacy layouts that derive files by appending a fixed suffix to a
+     * configured path, such as {@code /path/outbox.timestamp}.
+     *
+     * @param configuredPath configured base path
+     * @param suffix trusted suffix to append to the configured file or directory name
+     * @param label human-readable label for diagnostics
+     * @return validated sibling File
+     */
+    public static File validateGeneratedSiblingPath(String configuredPath, String suffix, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured sibling" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty() || suffix == null || suffix.trim().isEmpty()) {
+            logger.warn("Invalid {}: blank configured path or suffix", field);
+            throw new SecurityException("Invalid configured sibling path");
+        }
+        if (suffix.indexOf('\0') >= 0 || suffix.contains("/") || suffix.contains("\\")) {
+            logger.warn("Invalid {}: suffix must be a trusted path suffix", field);
+            throw new SecurityException("Invalid configured sibling suffix");
+        }
+
+        try {
+            File configured = new File(configuredPath).getCanonicalFile();
+            File parent = configured.getParentFile();
+            if (parent == null) {
+                throw new SecurityException("Configured path has no parent directory");
+            }
+            File sibling = new File(parent, configured.getName() + suffix);
+            validateWithinDirectory(sibling, parent);
+            return sibling;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured sibling path", e);
+        }
+    }
+
+
+    /**
+     * Canonicalizes and validates a configured file path that must already exist.
+     * This is for trusted configuration values, not request parameters.
+     *
+     * @param configuredPath configured file path
+     * @param label human-readable label for diagnostics
+     * @return canonical file
+     */
+    public static File validateConfiguredFile(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured file" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured file");
+        }
+
+        try {
+            File file = new File(configuredPath).getCanonicalFile();
+            if (!file.isFile()) {
+                logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                throw new SecurityException("Configured path is not a file");
+            }
+            return file;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured file", e);
+        }
+    }
+
+    /**
+     * Canonicalizes a configured file path that may be created later by the caller.
+     * Existing non-file paths are rejected, but missing files are preserved to avoid
+     * changing legacy lazy-create behavior.
+     *
+     * @param configuredPath configured file path
+     * @param label human-readable label for diagnostics
+     * @return canonical file
+     */
+    public static File resolveConfiguredFile(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured file" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured file");
+        }
+
+        try {
+            File file = new File(configuredPath).getCanonicalFile();
+            if (file.exists() && !file.isFile()) {
+                logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                throw new SecurityException("Configured path is not a file");
+            }
+            return file;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured file", e);
+        }
+    }
+
+    /**
+     * Resolves a ZIP entry under a destination directory and validates that the
+     * canonical result remains within that directory. Directory entries are allowed.
+     *
+     * @param entry ZIP entry to resolve
+     * @param destinationDir extraction root
+     * @return validated target file for the entry
+     * @throws FileValidationException if the entry name is absolute, empty, contains a null byte,
+     *         or contains a traversal segment ("..", "/../", "/./")
+     * @throws SecurityException if the entry or destination is null, or the resolved target
+     *         escapes {@code destinationDir}
+     */
+    public static File validateZipEntryPath(ZipEntry entry, File destinationDir) {
+        if (entry == null) {
+            throw new SecurityException("ZIP entry is null");
+        }
+        if (destinationDir == null) {
+            throw new SecurityException("ZIP destination directory is null");
+        }
+
+        String entryName = entry.getName();
+        validateZipEntryNameComponent(entryName);
+        File target = new File(destinationDir, entryName.replace('\\', '/'));
+        validateWithinDirectory(target, destinationDir);
+        return target;
+    }
+
+    /**
+     * Builds a safe ZIP entry name for a file known to be under a source root.
+     *
+     * @param file file being added to the archive
+     * @param sourceRoot root directory used to compute the relative entry name
+     * @return slash-separated validated relative ZIP entry name
+     * @throws SecurityException if the file is outside {@code sourceRoot} or the derived
+     *         entry name is unsafe
+     */
+    public static String validateZipEntryName(File file, File sourceRoot) {
+        File validatedFile = validateExistingPath(file, sourceRoot);
+        try {
+            File canonicalRoot = sourceRoot.getCanonicalFile();
+            File canonicalFile = validatedFile.getCanonicalFile();
+            String rootPath = canonicalRoot.getPath();
+            String filePath = canonicalFile.getPath();
+            String relativeName;
+            if (filePath.equals(rootPath)) {
+                relativeName = canonicalFile.getName();
+            } else {
+                relativeName = filePath.substring(rootPath.length() + 1);
+            }
+            relativeName = relativeName.replace(File.separatorChar, '/');
+            validateZipEntryNameComponent(relativeName);
+            return relativeName;
+        } catch (IOException | RuntimeException e) {
+            logger.error("Error validating ZIP entry name", e);
+            throw new SecurityException("Invalid ZIP entry name", e);
+        }
+    }
+
+    private static void validateZipEntryNameComponent(String entryName) {
+        if (entryName == null || entryName.trim().isEmpty() || entryName.indexOf('\0') >= 0) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        String normalized = entryName.replace('\\', '/');
+        if (normalized.startsWith("/") || normalized.startsWith("../") || normalized.endsWith("/..") || normalized.contains("/../")) {
+            throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
+        }
+        if (normalized.equals(".") || normalized.equals("..") || normalized.contains("/./") || normalized.startsWith("./") || normalized.endsWith("/.")) {
+            throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
+        }
+        try {
+            if (FilenameUtils.getPrefixLength(normalized) > 0) {
+                throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
+            }
+        } catch (IllegalArgumentException e) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
+        }
     }
 
     // ========================================================================
@@ -334,6 +775,33 @@ public final class PathValidationUtils {
         }
 
         return new FileInputStream(validatedFile); // codeql[java/path-injection] -- validateUpload restricts to allowed temp dirs.
+    }
+
+    /**
+     * Creates a temporary file with owner-only read/write permissions on POSIX
+     * filesystems, avoiding the world-readable default of {@link File#createTempFile}
+     * for sensitive (e.g. PHI) content such as generated PDFs. Falls back to a default
+     * temporary file on non-POSIX filesystems (for example Windows).
+     *
+     * @param prefix temp file name prefix; should be a validated/generated component
+     *        (e.g. via {@link #validateGeneratedFileName(String)}), not raw user input
+     * @param suffix temp file name suffix, appended verbatim (no leading {@code .} is inserted);
+     *        may be null, in which case {@code .tmp} is used
+     * @return the created temporary File
+     * @throws IOException if the file cannot be created
+     */
+    public static File createSecureTempFile(String prefix, String suffix) throws IOException {
+        try {
+            return Files.createTempFile(prefix, suffix,
+                    PosixFilePermissions.asFileAttribute(
+                            EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)))
+                    .toFile();
+        } catch (UnsupportedOperationException e) {
+            // Non-POSIX filesystem (e.g. Windows): owner-only permissions are unavailable, so fall
+            // back to a default temp file. Log it so the degraded (default-permission) mode is auditable.
+            logger.debug("POSIX permissions unsupported on this filesystem; created temp file with default permissions");
+            return Files.createTempFile(prefix, suffix).toFile(); // NOSONAR java:S5443 - non-POSIX fallback; OWNER-only perms unsupported on this platform
+        }
     }
 
     /**
@@ -412,6 +880,75 @@ public final class PathValidationUtils {
             logger.error("Error validating file path", e);
             return false;
         }
+    }
+
+    /**
+     * Checks if a file resides within a CARLOS <em>application-owned</em> temporary subtree — a
+     * stricter boundary than {@link #isInAllowedTempDirectory(File)}.
+     *
+     * <p>{@link #isInAllowedTempDirectory(File)} accepts the entire shared temp roots
+     * ({@code java.io.tmpdir}, Tomcat {@code work}), which is appropriate for container-managed
+     * uploads. That is too broad, however, for endpoints that render or stream a caller-named temp
+     * file back to the user: any file another process left in the shared temp root would then be
+     * exposed. This method narrows acceptance to the temp subtrees CARLOS creates itself — the
+     * {@link #APPLICATION_TEMP_ROOT_NAME} root written by {@code NioFileManagerImpl.saveTempFile}
+     * and the {@code carlos-eform-browser-pdf-temp} / {@code work/carlos} roots written by the eForm
+     * browser PDF renderer — so a caller cannot point such an endpoint at an unrelated file
+     * elsewhere in the shared temp space.</p>
+     *
+     * @param file the file to check
+     * @return true if the file is within a CARLOS-owned temp subtree, false otherwise
+     */
+    public static boolean isInApplicationTempDirectory(File file) {
+        try {
+            validateApplicationTempPath(file);
+            return true;
+        } catch (SecurityException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Validates that a file lies within a CARLOS-owned temp subtree and returns its canonicalized
+     * form for further use — the parse-don't-validate companion to
+     * {@link #isInApplicationTempDirectory(File)}. Prefer this method whenever the file will be
+     * read, streamed, or deleted after the check: operating on the returned canonical file closes
+     * the check-vs-use gap the boolean guard leaves open (checking one path object, then using the
+     * original, possibly symlinked, one).
+     *
+     * @param file the file to validate; need not exist (the boundary is purely path-based)
+     * @return the canonicalized file, guaranteed to be inside a CARLOS-owned temp subtree
+     * @throws SecurityException when the file is null, cannot be canonicalized, or lies outside
+     *         every CARLOS-owned temp subtree
+     */
+    public static File validateApplicationTempPath(File file) {
+        if (file == null) {
+            throw new SecurityException("Temp path is null");
+        }
+
+        String canonicalPath;
+        try {
+            canonicalPath = file.getCanonicalPath();
+        } catch (IOException e) {
+            logger.error("Error validating application temp path", e);
+            throw new SecurityException("Cannot resolve temp path");
+        }
+        for (Map.Entry<String, Set<String>> root : getApplicationTempRoots().entrySet()) {
+            String prefix = root.getKey() + File.separator;
+            if (!canonicalPath.startsWith(prefix)) {
+                continue;
+            }
+            String remainder = canonicalPath.substring(prefix.length());
+            int separatorIndex = remainder.indexOf(File.separatorChar);
+            String firstSegment = separatorIndex >= 0 ? remainder.substring(0, separatorIndex) : remainder;
+            // Accept only the CARLOS-owned first segment that belongs to *this* root, so a
+            // segment valid under one root (e.g. carlos-temp under java.io.tmpdir) is not honoured
+            // under another (e.g. Tomcat work).
+            if (root.getValue().contains(firstSegment)) {
+                return new File(canonicalPath);
+            }
+        }
+        throw new SecurityException("Path is outside every CARLOS-owned temp subtree");
     }
 
     // ========================================================================
@@ -564,6 +1101,55 @@ public final class PathValidationUtils {
         addTempDir(dirs, System.getProperty("catalina.home"), "work");
 
         return dirs;
+    }
+
+    private static Map<String, Set<String>> getApplicationTempRoots() {
+        if (applicationTempRoots == null) {
+            synchronized (PathValidationUtils.class) {
+                if (applicationTempRoots == null) {
+                    // buildApplicationTempRoots() returns a deep-immutable map (frozen keys AND value
+                    // sets), so publishing it through this volatile reference is fully safe — nothing
+                    // can mutate it via a leaked value reference after publication.
+                    applicationTempRoots = buildApplicationTempRoots();
+                }
+            }
+        }
+        return applicationTempRoots;
+    }
+
+    /**
+     * Maps each canonical temp root to the CARLOS-owned first segments that legitimately live
+     * directly beneath it. Keying per-root — rather than testing one flat segment set against every
+     * allowed temp root — stops a caller from smuggling e.g. {@code <java.io.tmpdir>/carlos} or
+     * {@code <work>/carlos-temp} past the boundary: only the exact subtree a renderer/temp writer
+     * actually creates under a given root is accepted.
+     */
+    private static Map<String, Set<String>> buildApplicationTempRoots() {
+        Map<String, Set<String>> roots = new LinkedHashMap<>();
+        addApplicationTempRoot(roots, TMPDIR_APPLICATION_TEMP_SEGMENTS, System.getProperty("java.io.tmpdir"), null);
+        addApplicationTempRoot(roots, WORK_APPLICATION_TEMP_SEGMENTS, System.getProperty("catalina.base"), "work");
+        addApplicationTempRoot(roots, WORK_APPLICATION_TEMP_SEGMENTS, System.getProperty("catalina.home"), "work");
+        // Freeze the value sets too (not just the map): a volatile reference only guarantees safe
+        // publication of the top-level map, so the contained per-root segment sets must be immutable
+        // for the whole structure to be thread-safe after publication.
+        Map<String, Set<String>> frozen = new LinkedHashMap<>();
+        roots.forEach((root, segments) -> frozen.put(root, Set.copyOf(segments)));
+        return Collections.unmodifiableMap(frozen);
+    }
+
+    private static void addApplicationTempRoot(Map<String, Set<String>> roots, Set<String> segments, String basePath, String subDir) {
+        if (basePath == null || basePath.trim().isEmpty()) {
+            return;
+        }
+        try {
+            File dir = (subDir != null) ? new File(basePath, subDir) : new File(basePath);
+            // Merge rather than overwrite: when two configured roots canonicalize to the same directory
+            // (e.g. java.io.tmpdir == catalina.base/work on some deployments), both legitimate segment
+            // sets must be honoured, otherwise a valid carlos-temp file could fail validation.
+            roots.computeIfAbsent(dir.getCanonicalPath(), ignored -> new LinkedHashSet<>()).addAll(segments);
+        } catch (IOException e) {
+            logger.debug("Could not resolve canonical path for {}: {}", basePath, e.getMessage());
+        }
     }
 
     /**

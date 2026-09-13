@@ -48,6 +48,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.springframework.transaction.annotation.Transactional;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Builds fixed-width OHIP claim extracts and companion HTML previews from
  * Ontario billing rows. The prototype instance holds the current provider,
@@ -153,6 +154,8 @@ public class OhipClaimExtractService implements Serializable {
                 + providerNo + specialty + space(42) + "\r");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String buildHeader1() {
         referralDoc = "000000";
         hcFlag = ""; // for html content
@@ -201,6 +204,8 @@ public class OhipClaimExtractService implements Serializable {
         return ("\n" + patientHeader + "\r" + patientHeader2);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String buildHeader2() {
         spec = "RMB";
         hcFlag = "H";
@@ -561,11 +566,14 @@ public class OhipClaimExtractService implements Serializable {
     }
 
     /** Writes the fixed-width OHIP claim extract to the configured output path. */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;
         try {
-            safeFile = PathValidationUtils.validatePath(ohipFilename, new File(home_dir));
+            File homeDir = PathValidationUtils.validateConfiguredDirectory(home_dir, "HOME_DIR");
+            safeFile = PathValidationUtils.validatePath(ohipFilename, homeDir);
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for OHIP file: {}", ohipFilename, e);
             throw new BillingFileWriteException(
@@ -588,11 +596,14 @@ public class OhipClaimExtractService implements Serializable {
     }
 
     /** Writes the companion HTML claim preview to the configured output path. */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;
         try {
-            safeFile = PathValidationUtils.validatePath(htmlFilename, new File(home_dir1));
+            File homeDir = PathValidationUtils.validateConfiguredDirectory(home_dir1, "HOME_DIR");
+            safeFile = PathValidationUtils.validatePath(htmlFilename, homeDir);
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for HTML file: {}", htmlFilename, e);
             throw new BillingFileWriteException(

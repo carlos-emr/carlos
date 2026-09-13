@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyRecordService;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Composer that owns the 11 inline DAO/service lookups
@@ -265,6 +266,8 @@ public class BillingOnCorrectionRenderComposer {
         return (amount.signum() < 0 ? "-" : "") + currency.format(amount);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void composeDueDateAndUseDemoContact(BillingOnCorrectionViewModel.Builder b,
                                                  HttpServletRequest request,
                                                  BillingONCHeader1 bCh1,

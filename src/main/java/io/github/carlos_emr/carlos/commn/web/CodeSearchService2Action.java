@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,6 +60,8 @@ public class CodeSearchService2Action extends ActionSupport {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

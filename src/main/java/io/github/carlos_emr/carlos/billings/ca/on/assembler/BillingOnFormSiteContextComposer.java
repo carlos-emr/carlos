@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Composer that pre-loads the multisite + RMA / clinic-nbr context the
@@ -87,6 +88,8 @@ public class BillingOnFormSiteContextComposer {
         this.providerDao = providerDao;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     void populate(BillingOnFormViewModel.Builder b,
                   HttpServletRequest request,
                   String userNo,

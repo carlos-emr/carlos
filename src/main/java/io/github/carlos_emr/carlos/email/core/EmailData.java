@@ -8,6 +8,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Data Transfer Object (DTO) for email composition and transmission in the OpenO EMR system.
@@ -69,6 +70,54 @@ public class EmailData {
      * Use setter methods to populate the email data fields.
      */
     public EmailData() {
+    }
+
+    /**
+     * Merges the two legacy content channels ({@code body} and {@code encryptedMessage}) back into
+     * the single "Message" value the compose screen now displays (issue #3118).
+     *
+     * <p>The compose UI has one message field whose delivery is governed by the encryption toggle,
+     * but the underlying EmailLog still stores the cleartext body and the encrypted-PDF
+     * content in separate columns. When seeding the composer (fresh compose or resend), this picks
+     * the channel matching the already-resolved encryption state. If both channels are populated,
+     * only that preferred channel can be represented in the unified field; the protected channel
+     * therefore wins for encrypted drafts. The encrypted channel is never copied into an
+     * encryption-off draft; callers must first use
+     * {@link #resolveMergedMessageEncryption(boolean, String, String)} so legacy protected content
+     * fails closed instead of becoming cleartext.</p>
+     *
+     * @param isEncrypted      whether the email is (or defaults to) encrypted
+     * @param body             the cleartext body channel value (may be null)
+     * @param encryptedMessage the encrypted-PDF message channel value (may be null)
+     * @return the single message value to seed into the compose field, never null
+     */
+    public static String mergeMessage(boolean isEncrypted, String body, String encryptedMessage) {
+        String preferred = isEncrypted ? encryptedMessage : body;
+        if (!StringUtils.isNullOrEmpty(preferred)) {
+            return preferred;
+        }
+        if (isEncrypted && body != null) {
+            return body;
+        }
+        return "";
+    }
+
+    /**
+     * Resolves the encryption state used when legacy body/encrypted-message fields are merged.
+     *
+     * <p>An explicitly unencrypted draft remains unencrypted when its body is populated. If its
+     * body is empty but the legacy encrypted-message channel contains content, encryption is forced
+     * on so resending or reopening the draft cannot move that content into the cleartext body.</p>
+     *
+     * @param isEncrypted      the stored or requested encryption state
+     * @param body             the cleartext body channel value (may be null)
+     * @param encryptedMessage the encrypted-PDF message channel value (may be null)
+     * @return {@code true} when encryption was already enabled or protected content is the only
+     *         message available
+     */
+    public static boolean resolveMergedMessageEncryption(boolean isEncrypted, String body, String encryptedMessage) {
+        return isEncrypted
+                || (StringUtils.isNullOrEmpty(body) && !StringUtils.isNullOrEmpty(encryptedMessage));
     }
 
     /**
@@ -328,6 +377,8 @@ public class EmailData {
      * @param chartDisplayOption String "doNotAddAsNote" to exclude from chart, 
      *                          any other value (including null) defaults to WITH_FULL_NOTE
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setChartDisplayOption(String chartDisplayOption) {
         if (chartDisplayOption == null) {
             chartDisplayOption = "addFullNote";
@@ -380,6 +431,8 @@ public class EmailData {
      * @param transactionType String one of "EFORM", "CONSULTATION", "TICKLER", or any other value
      *                       (including null) which defaults to DIRECT
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setTransactionType(String transactionType) {
         if (transactionType == null) {
             transactionType = "DIRECT";
@@ -484,5 +537,3 @@ public class EmailData {
         this.attachments = attachments != null ? attachments : Collections.emptyList();
     }
 }
-
-

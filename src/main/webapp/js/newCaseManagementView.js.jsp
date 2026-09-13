@@ -27,6 +27,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: provide the encounter editor's client-side behavior.
+    Features: note editing, layout, clinical text insertion and prescription paste coordination.
+    Parameters: authenticated provider properties and localized server-side configuration;
+                patient and encounter context are supplied by the containing view.
+    @since 2026-09-12 (promotion documentation and safe paste diagnostics)
+--%>
     <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty"%>
     <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
     <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
@@ -37,7 +44,6 @@
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-    var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context
     var providerNo;
     var demographicNo;
@@ -101,6 +107,12 @@
         //var popup =window.open(page, "<fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
         openWindows[name] = window.open(page, name, windowprops);
 
+        if (page.indexOf("/encounter/oscarMeasurements/SetupMeasurements") !== -1
+                || page.indexOf("/encounter/oscarMeasurements/ViewTemplateFlowSheet") !== -1
+                || page.indexOf("/encounter/oscarMeasurements/ViewAddMeasurementData") !== -1) {
+            registerMeasurementWindow(openWindows[name]);
+        }
+
         if (openWindows[name] != null) {
             if (openWindows[name].opener == null) {
                 openWindows[name].opener = self;
@@ -142,8 +154,27 @@
         return encodeURIComponent(str);
     }
 
+    function registerMeasurementWindow(measurementWindow) {
+        if (measurementWindow == null) {
+            return;
+        }
+        for (var idx = 0; idx < measurementWindows.length; ++idx) {
+            if (measurementWindows[idx] === measurementWindow) {
+                return;
+            }
+        }
+        measurementWindows.push(measurementWindow);
+    }
+
+    function registerNestedMeasurementWindow(parentWindow, measurementWindow) {
+        if (!isExpectedMeasurementSource(parentWindow)) {
+            return;
+        }
+        registerMeasurementWindow(measurementWindow);
+    }
+
     function measurementLoaded(name) {
-        measurementWindows.push(openWindows[name]);
+        registerMeasurementWindow(openWindows[name]);
     }
 
     var okToClose = false;
@@ -466,36 +497,85 @@
     // --- Notes pagination state ---
     var notesOffset = 0;              // current offset into the full notes list
     var notesIncrement = 20;          // batch size for each pagination fetch
-    var notesRetrieveOk = false;      // true when the last fetch returned non-empty results
+    var notesRetrieveOk = false;      // true when the last fetch returned at least one note
     var notesCurrentTop = null;       // ID of topmost note element before pagination insert
     var notesScrollCheckInterval = null;
+    /*
+     * Fetches still in flight, and the id of the most recent one. Loads can overlap: a
+     * filter or save reload re-renders ChartNotes.jsp into #notCPP and starts a fresh
+     * offset-0 load while a pagination fetch may still be pending. The count holds off the
+     * scroll poll until every pending load has landed — a pagination fetch racing a pending
+     * initial load inserts its notes out of order. The id makes the older, superseded load a
+     * no-op at completion, so a request that fails or gets redirected cannot stop the poll
+     * the latest render just armed.
+     */
+    var notesLoadsInFlight = 0;
+    var notesLoadSequence = 0;
+    var notesActiveLoadId = 0;
+    /*
+     * Number of notes rendered by the fetch currently in flight. ChartNotesAjax.jsp sets
+     * this while its response scripts run; notesLoader() resets it to -1 before every
+     * request. Never test the raw response body for emptiness instead: that fragment always
+     * emits bootstrap scripts (maxNcId, fullView listeners), so a batch with zero notes
+     * still comes back non-empty and the "no more notes" stop condition never fires.
+     * A response that leaves this at -1 (error page, redirect, aborted request) is treated
+     * as end-of-list so the poll stops rather than walking the offset forward forever.
+     */
+    var notesLastBatchSize = -1;
     const MAXNOTES = 1000000;         // upper bound to stop pagination
+
+    /**
+     * Stops the 1s poll that loads older notes when the user is at the top of the chart.
+     * Called once the server reports the chart is fully loaded; idempotent.
+     */
+    function stopNotesScrollCheck() {
+        if (notesScrollCheckInterval !== null) {
+            clearInterval(notesScrollCheckInterval);
+            notesScrollCheckInterval = null;
+        }
+    }
+
+    /**
+     * ID of the topmost note element, or null when the notes list is empty
+     * (a brand-new chart renders only the new-note editor).
+     */
+    function notesTopElementId() {
+        var notesContainer = $("encMainDiv");
+        var firstChild = notesContainer && notesContainer.children[0];
+        return firstChild ? firstChild.id : null;
+    }
 
     /**
      * Triggered when the user scrolls to the top of the notes wrapper.
      * Loads the next batch of older notes (inserted at top of the list).
      */
     function notesIncrementAndLoadMore() {
-        if (notesRetrieveOk && $("encMainDivWrapper").scrollTop === 0) {
-            if ($("encMainDivWrapper").scrollHeight > $("encMainDivWrapper").getHeight()) {
-                notesOffset += notesIncrement;
-                notesRetrieveOk = false;
-                notesCurrentTop = $("encMainDiv").children[0].id;
-                if (notesOffset < MAXNOTES) {
-                    notesLoader(notesOffset, notesIncrement, demographicNo);
-                }
-            }
+        if (notesLoadsInFlight > 0 || !notesRetrieveOk) {
+            return;
+        }
+        var wrapper = $("encMainDivWrapper");
+        if (!wrapper || wrapper.scrollTop !== 0 || wrapper.scrollHeight <= wrapper.getHeight()) {
+            return;
+        }
+        notesOffset += notesIncrement;
+        notesRetrieveOk = false;
+        notesCurrentTop = notesTopElementId();
+        if (notesOffset < MAXNOTES) {
+            notesLoader(notesOffset, notesIncrement, demographicNo);
+        } else {
+            stopNotesScrollCheck();
         }
     }
 
     function notesLoadAll() {
         notesOffset += notesIncrement;
         notesRetrieveOk = false;
-        notesCurrentTop = $("encMainDiv").children[0].id;
-        console.log("loading all: " + " offset: " + notesOffset + " max notes: " + MAXNOTES);
+        notesCurrentTop = notesTopElementId();
         if (notesOffset < MAXNOTES) {
             notesLoader(notesOffset, MAXNOTES, demographicNo);
         }
+        // Park the offset past MAXNOTES so the scroll poll cannot re-request notes
+        // that this single full fetch already inserted.
         notesOffset += MAXNOTES;
     }
 
@@ -503,16 +583,26 @@
      * Fetches a batch of clinical notes via AJAX and inserts them at the top of #encMainDiv.
      *
      * On initial load (offset === 0), scrolls to the bottom to show the most recent notes.
-     * On pagination loads (offset > 0), preserves the current scroll position so the user
-     * can continue reading older notes without being snapped away.
+     * Pagination loads (offset > 0) do not scroll at all — scrollTop is left untouched
+     * while the older batch is inserted above, so a reader parked at the top of the pane
+     * ends up looking at the notes that just arrived. (notesCurrentTop records the previous
+     * top note for a scroll restore that was never written; nothing reads it today.)
+     *
+     * Callers are never turned away: a filter or save reload replaces #encMainDiv and issues
+     * a new initial load while an earlier one may still be pending, and the newest load must
+     * run or the surviving container is left empty. The in-flight count only holds off the
+     * scroll poll, which would otherwise stack requests behind a pending batch.
      *
      * @param {number} offset - Zero-based offset into the patient's note list (0 = newest batch)
      * @param {number} numToReturn - Maximum number of notes to fetch in this batch
      * @param {number} demoNo - Demographic (patient) number to load notes for
      */
     function notesLoader(offset, numToReturn, demoNo) {
+        var loadId = ++notesLoadSequence;
+        notesActiveLoadId = loadId;
+        notesLoadsInFlight++;
+        notesLastBatchSize = -1;
         $("notesLoading").show();
-        console.log("loading: " + " offset: " + offset + " max notes: " + numToReturn + " demo: " + demoNo);
         var params = "method=viewNotesOpt&offset=" + offset + "&numToReturn=" + numToReturn + "&demographicNo=" + demoNo;
         var params2 = jQuery("input[name='filter_providers'],input[name='filter_roles'],input[name='issues'],input[name='note_sort']").serialize();
         if (params2.length > 0) {
@@ -525,16 +615,28 @@
                 postBody: params,
                 evalScripts: true,
                 insertion: 'top',
-                onSuccess: function (data) {
-                    notesRetrieveOk = (data.responseText.replace(/\s+/g, '').length > 0);
-                    if (!notesRetrieveOk) {
-                        clearInterval(scrollCheckInterval);
-                    }
-                },
                 onComplete: function () {
-                    $("notesLoading").hide();
-                    // Only scroll to bottom on initial load (most recent notes);
-                    // pagination loads (offset > 0) preserve scroll position
+                    notesLoadsInFlight--;
+                    if (notesLoadsInFlight === 0) {
+                        $("notesLoading").hide();
+                    }
+                    if (loadId !== notesActiveLoadId) {
+                        // Superseded by a later load — its response owns the shared state
+                        // below. Without this an initial load that failed would stop the
+                        // poll the second chart render just armed, and no older note could
+                        // ever be paged in again.
+                        return;
+                    }
+                    // CarlosAjax.updater inserts the fragment and runs its scripts before
+                    // it calls onComplete, so notesLastBatchSize already holds the count
+                    // this response rendered. An empty batch means the chart is fully
+                    // loaded: stop the poll instead of requesting ever-higher offsets.
+                    notesRetrieveOk = notesLastBatchSize > 0;
+                    if (!notesRetrieveOk) {
+                        stopNotesScrollCheck();
+                    }
+                    // Only the initial load scrolls, to the newest notes at the bottom.
+                    // Pagination loads leave scrollTop alone (see the note above).
                     if (offset === 0) {
                         var wrapper = $("encMainDivWrapper");
                         if (wrapper) {
@@ -1146,6 +1248,10 @@ function updateCPPNote() {
     }
 
     function getActiveText(e) {
+        // The keyword search box is optional in the encounter layout.
+        if (!$("keyword")) {
+            return true;
+        }
         if (document.all) {
 
             text = document.selection.createRange().text;
@@ -1215,10 +1321,17 @@ function updateCPPNote() {
         let caseNoteElement = document.getElementById(caseNote);
         if (caseNoteElement) {
             caseNoteElement.value += "\n" + txt;
-            adjustCaseNote();
-            setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+            try {
+                adjustCaseNote();
+                setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+            } catch (error) {
+                // Text is already inserted. Layout/focus failure is not a failed paste.
+                console.error('Encounter text inserted; could not update layout');
+            }
+            return true;
         } else {
             console.error('Element with ID caseNote element not found.');
+            return false;
         }
     }
 
@@ -1486,6 +1599,21 @@ function updateCPPNote() {
         return true;
     }
 
+    // The note text handed to completeChangeToView() is the clinician's own typed text (the
+    // save-on-switch fragment emits it as a JavaScript string), and it is spliced into
+    // markup for insertAdjacentHTML/update below. It must be HTML-escaped first: with the
+    // WAF no longer scoring the note body for XSS, this is the only thing between a note
+    // containing a closing span tag and an image element with an onerror handler, and
+    // script running in the chart.
+    function escapeNoteText(text) {
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
     function completeChangeToView(note, newId) {
         //var newId = updatedNoteId;
         var parent = "n" + newId;
@@ -1504,7 +1632,7 @@ function updateCPPNote() {
 
         }
 
-        note = note.replace(/\n/g, "<br>");
+        note = escapeNoteText(note).replace(/\n/g, "<br>");
         if (largeNote(note)) {
             var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + newId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
             $(parent).insertAdjacentHTML('afterbegin', btmImg);
@@ -1813,6 +1941,16 @@ function updateCPPNote() {
      *
      * @param {Event} e - The click event on the note element
      */
+    // The plain text of a rendered note view: <br> elements as newlines, entities decoded.
+    function renderedNoteText(el) {
+        var clone = el.cloneNode(true);
+        var breaks = clone.getElementsByTagName("br");
+        while (breaks.length > 0) {
+            breaks[0].parentNode.replaceChild(document.createTextNode("\n"), breaks[0]);
+        }
+        return clone.textContent !== undefined ? clone.textContent : clone.innerText;
+    }
+
     function editNote(e) {
         var el = Event.element(e);
         var payload;
@@ -1890,9 +2028,12 @@ function updateCPPNote() {
         var txtId = "txt" + nId;
 
         if ($F(isFull) == "true") {
-            payload = $(txtId).innerHTML;
+            // Take the TEXT of the rendered note, not its innerHTML: the view HTML-escapes
+            // the note (escapeNoteText), and innerHTML would hand the entities back as
+            // literal "&amp;" / "&lt;" to be resaved corrupted. <br> elements become
+            // newlines first so line breaks survive the round trip.
+            payload = renderedNoteText($(txtId));
             payload = payload.replace(/^\s+|\s+$/g, "");
-            payload = payload.replace(/<br>/gi, "\n");
             payload += "\n";
         } else
             payload = "";
@@ -1900,7 +2041,12 @@ function updateCPPNote() {
         Element.remove(txtId);
         caseNote = "caseNote_note" + nId;
 
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
+        // The decoded text goes back through HTML: a textarea's content is RCDATA, so the
+        // entities decode into the editor unchanged, while a note holding a closing textarea
+        // tag or an image element with an onerror handler cannot close the element or
+        // become markup.
+        payload = escapeNoteText(payload);
+        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
@@ -2273,7 +2419,12 @@ function updateCPPNote() {
         var encType = "encTypeSelect" + noteId;
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
         var url = ctx + "/CaseManagementEntry";
-        var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURI($F(encType)) + "&noteTxt=" + encodeURI(noteTxt);
+        // encodeURIComponent, not encodeURI: encodeURI leaves & = + intact, so a note
+        // containing "H&P" or a pasted link with "&cmd=" was cut off at the first "&"
+        // on the server (ajaxsave() reads noteTxt, and the rest became stray
+        // parameters) and a "+" arrived as a space. This is the save that runs when
+        // the clinician opens another note or the new-note icon with unsaved text.
+        var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
 
         CarlosAjax.updater(
@@ -2642,11 +2793,12 @@ function updateCPPNote() {
         $("newIssueId").value = "";
         //notifyIssueUpdate();
 
-        // Refresh the encounter window's "Unresolved Issues" navbar section
-        var demographicNo = $("demographicNo").value;
-
+        // demographicNo is the module-level variable declared at the top of this file and
+        // assigned by both loaders of it (newEncounterLayout.jsp and ChartNotes.jsp).
+        // Do not read it back off the form: the chart form does not always render an
+        // element with that id, which is what broke CPP saves in #3422.
         if (typeof loadDiv === 'function' && demographicNo) {
-            var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + demographicNo + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
+            var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + encodeURIComponent(demographicNo) + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
             loadDiv('unresolvedIssueslist', reloadUrl, 0);
         }
     }
@@ -2734,7 +2886,9 @@ function updateCPPNote() {
         var id = "nc" + safeNewNoteIdx;
         var sigId = "sig" + safeNewNoteIdx;
         var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + reason + "<\/textarea>";
+        // reason is the appointment reason as typed (ChartNotesAjax.jsp hands it over as a
+        // JavaScript string), spliced into markup here: escape it like every other note text.
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
@@ -3271,7 +3425,17 @@ function autoSave() {
         frm.pEndDate.value = $F("printEndDate");
         frm.pType.value = $F("printopDates");
 
+        // The print is a top-level form submit whose response is a PDF download, and the
+        // browser fires pagehide for that navigation even though this document stays. The
+        // pagehide handler then released this window's note lock, so every draft autosave
+        // after a print answered 409 and the chart reported "edited in another window" for
+        // the rest of the encounter. Hold the lock across the submit; restore the release
+        // once the download has had time to start and this document is still here. If the
+        // response is not a download (an error page), the document is gone by then and the
+        // lock is left for the next open of this note by the same user to reclaim.
+        needToReleaseLock = false;
         frm.submit();
+        setTimeout(function () { needToReleaseLock = true; }, 3000);
 
         return false;
     }
@@ -3676,12 +3840,36 @@ function autoSave() {
 
     window.addEventListener("message", receiveMessage, false);
 
-    function receiveMessage(event) {
-        var data = event.data;
-        if (!(typeof data === 'object')) {
-            data = JSON.parse(event.data);
+    function isExpectedMeasurementSource(source) {
+        for (var idx = 0; idx < measurementWindows.length; ++idx) {
+            if (measurementWindows[idx] === source) {
+                return true;
+            }
         }
-        if (data != null && data.encounterText != null && data.encounterText.length > 0) {
+        return false;
+    }
+
+    function receiveMessage(event) {
+        if (event.origin !== window.location.origin) {
+            return;
+        }
+        if (!isExpectedMeasurementSource(event.source)) {
+            return;
+        }
+        var data = event.data;
+        if (typeof data === 'string') {
+            try {
+                data = JSON.parse(data);
+            } catch (error) {
+                return;
+            }
+        }
+        if (data == null || typeof data !== 'object'
+                || typeof data.encounterText !== 'string'
+                || String(data.demographicNo) !== String(demographicNo)) {
+            return;
+        }
+        if (data.encounterText.length > 0) {
             var x = {};
             x.responseText = data.encounterText;
             writeToEncounterNote(x);

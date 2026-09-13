@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -114,6 +115,8 @@ public class UpdatePaymentType2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private static void writeJsonResponse(HttpServletResponse response, Map<String, String> body) {
         try {
             response.setContentType("application/json");

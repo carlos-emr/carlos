@@ -5,7 +5,7 @@
 -- and cleans out generic company prefixes
 -- WARNING this alters patient data
 -- usage
--- mysql -uroot -p****** oscar_15 < tallMAN.sql
+-- mariadb -uroot -p****** oscar_15 < tallMAN.sql
 
 UPDATE `drugs` SET `special` = REPLACE(`special`, 'AFATINIB' , 'AFAtinib') WHERE `special` LIKE '%AFATINIB%' ;
 UPDATE `drugs` SET `special` = REPLACE(`special`, 'AXITINIB' , 'aXitinib') WHERE `special` LIKE '%AXITINIB%' ;

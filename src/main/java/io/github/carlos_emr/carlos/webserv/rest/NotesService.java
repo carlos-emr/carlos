@@ -42,6 +42,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
@@ -349,8 +350,13 @@ public class NotesService extends AbstractServiceImpl {
         try {
             caseManagementMgr.deleteTmpSave(providerNo, "" + demographicNo, programId);
             caseManagementMgr.tmpSave(providerNo, "" + demographicNo, programId, noteId, noteStr);
-        } catch (Throwable e) {
-            logger.error("AutoSave Error: ", e);
+        } catch (Exception e) {
+            // Autosave failed. Do NOT echo the note back with HTTP 200 as if it saved: deleteTmpSave may
+            // already have removed the previous draft and the new draft was not persisted, so the client
+            // must learn the save failed and keep its dirty in-memory copy to retry. (Narrowed from
+            // Throwable so JVM Errors are not swallowed.)
+            logger.error("AutoSave failed for the draft note; returning an error so the client retains its unsaved copy", e);
+            throw new WebApplicationException("Autosave failed", Response.Status.INTERNAL_SERVER_ERROR);
         }
 
         return note;
@@ -1524,6 +1530,14 @@ public class NotesService extends AbstractServiceImpl {
     @Path("/getGroupNoteExt/{noteId}")
     @Produces("application/json")
     public NoteExtTo1 getGroupNoteExt(@PathParam("noteId") Long noteId) {
+        // Clinical note extension data (treatment, problem description, exposure
+        // details, etc.) is eChart content; require _eChart read before returning
+        // it. Without this an OAuth/REST caller could read any note's PHI by id,
+        // and because OAuthInterceptor skips credential-less requests the call is
+        // otherwise reachable with no authentication at all (see #2798).
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "r", null)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
 
         List<CaseManagementNoteExt> lcme = new ArrayList<CaseManagementNoteExt>();
         lcme.addAll(caseManagementMgr.getExtByNote(noteId));
