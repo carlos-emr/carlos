@@ -54,6 +54,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @since 2026-01-24
  */
 public class SMTPEmailSender {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final Logger logger = MiscUtils.getLogger();
     private LoggedInInfo loggedInInfo;
 
@@ -152,38 +154,72 @@ public class SMTPEmailSender {
      */
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            String host = jsonNode.get("host").asText();
-            String port = jsonNode.get("port").asText();
-            String username = jsonNode.get("username").asText();
-            // Decrypt the at-rest credential only here, at send time. Legacy plaintext passwords
-            // pass through unchanged during the migration window. A missing/null password node is
-            // tolerated (null) rather than throwing an NPE before the send is even attempted.
-            JsonNode passwordNode = jsonNode.get("password");
-            String password = (passwordNode != null && !passwordNode.isNull())
-                    ? EmailConfigSecrets.decryptSecret(passwordNode.asText())
-                    : null;
-
-            mailSender.setHost(host);
-            mailSender.setPort(Integer.parseInt(port));
-            mailSender.setUsername(username);
-            mailSender.setPassword(password);
-
-            Properties properties = new Properties();
-            properties.put("mail.transport.protocol", "smtp");
-            properties.put("mail.smtp.auth", "true");
-            properties.put("mail.smtp.starttls.enable", "true");
-            properties.put("mail.smtp.starttls.required", "true");
-            properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
-            properties.put("mail.debug", "false");
-
-            mailSender.setJavaMailProperties(properties);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail(), e);
+        JsonNode jsonNode = parseConfig(emailConfig);
+        String host = requiredText(jsonNode, "host", emailConfig);
+        String port = requiredText(jsonNode, "port", emailConfig);
+        String username = requiredText(jsonNode, "username", emailConfig);
+        // Decrypt the at-rest credential only here, at send time. Legacy plaintext passwords
+        // pass through unchanged during the migration window. A missing/null password node is
+        // tolerated (null) rather than throwing an NPE before the send is even attempted.
+        JsonNode passwordNode = jsonNode.get("password");
+        if (passwordNode != null && !passwordNode.isNull() && !passwordNode.isValueNode()) {
+            throw invalidConfiguration(emailConfig);
         }
+        String password = (passwordNode != null && !passwordNode.isNull())
+                ? EmailConfigSecrets.decryptSecret(passwordNode.asText())
+                : null;
+
+        mailSender.setHost(host);
+        try {
+            mailSender.setPort(Integer.parseInt(port));
+        } catch (NumberFormatException e) {
+            throw invalidConfiguration(emailConfig);
+        }
+        mailSender.setUsername(username);
+        mailSender.setPassword(password);
+
+        Properties properties = new Properties();
+        properties.put("mail.transport.protocol", "smtp");
+        properties.put("mail.smtp.auth", "true");
+        properties.put("mail.smtp.starttls.enable", "true");
+        properties.put("mail.smtp.starttls.required", "true");
+        properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
+        properties.put("mail.debug", "false");
+
+        mailSender.setJavaMailProperties(properties);
         return mailSender;
+    }
+
+    protected JsonNode parseConfig(EmailConfig emailConfig) throws EmailSendingException {
+        String configJson = emailConfig != null ? emailConfig.getConfigDetailsJson() : null;
+        if (configJson == null || configJson.isBlank()) {
+            throw invalidConfiguration(emailConfig);
+        }
+        try {
+            JsonNode config = OBJECT_MAPPER.readTree(configJson);
+            if (config == null || !config.isObject()) {
+                throw invalidConfiguration(emailConfig);
+            }
+            return config;
+        } catch (IOException e) {
+            // Do not retain a Jackson cause: parse exceptions may include fragments of the config
+            // JSON, which contains the credential this change is intended to protect.
+            throw invalidConfiguration(emailConfig);
+        }
+    }
+
+    protected String requiredText(JsonNode config, String field, EmailConfig emailConfig)
+            throws EmailSendingException {
+        JsonNode value = config.get(field);
+        if (value == null || value.isNull() || value.asText().isBlank()) {
+            throw invalidConfiguration(emailConfig);
+        }
+        return value.asText();
+    }
+
+    protected EmailSendingException invalidConfiguration(EmailConfig emailConfig) {
+        String senderEmail = emailConfig != null ? emailConfig.getSenderEmail() : "unknown";
+        return new EmailSendingException("Invalid credentials configured for " + senderEmail);
     }
 
     /**

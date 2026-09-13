@@ -161,12 +161,12 @@ public class EmailManager {
      *
      * @param emailConfig the configuration whose secrets should be encrypted at rest, may be null
      */
-    private void upgradeConfigCredentialsAtRest(EmailConfig emailConfig) {
+    void upgradeConfigCredentialsAtRest(EmailConfig emailConfig) {
         if (emailConfig == null) {
             return;
         }
+        String original = emailConfig.getConfigDetailsJson();
         try {
-            String original = emailConfig.getConfigDetailsJson();
             String encrypted = EmailConfigSecrets.encryptSecrets(original);
             if (!java.util.Objects.equals(original, encrypted)) {
                 emailConfig.setConfigDetailsJson(encrypted);
@@ -175,9 +175,11 @@ public class EmailManager {
         } catch (EmailSendingException | RuntimeException e) {
             // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
             // from merge (RuntimeException, e.g. DataAccessException) may block outbound mail. The
-            // send proceeds with the existing value. The logged cause aids diagnosis and carries no
-            // plaintext secret or raw config JSON: encryptSecrets fails before the value is set, and
-            // by the time merge runs the stored value is already ciphertext.
+            // send proceeds with the existing value. Restore the detached object as well in case a
+            // merge failure happened after it was updated in memory. The logged cause aids diagnosis
+            // and carries no plaintext secret or raw config JSON: encryptSecrets fails before the
+            // value is set, and by the time merge runs the stored value is already ciphertext.
+            emailConfig.setConfigDetailsJson(original);
             logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
                     emailConfig.getId(), e);
         }
@@ -613,7 +615,7 @@ public class EmailManager {
             EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), senderFirstName,
                     senderLastName, result.getFromEmail(), demoFirstName,
                     demoLastName, toEmails, provFirstName, provLastName,
-                    result.getIsEncrypted(), null, result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+                    result.getIsEncrypted(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

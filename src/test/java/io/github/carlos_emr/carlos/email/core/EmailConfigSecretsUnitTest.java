@@ -33,7 +33,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 
@@ -54,25 +54,12 @@ class EmailConfigSecretsUnitTest {
 
     @BeforeEach
     void seedEncryptionKey() throws Exception {
-        CarlosProperties props = CarlosProperties.getInstance();
-        originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-
-        props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, EncryptionUtils.generateSecretKey());
-        EncryptionUtils.prepareSecretKeySpec();
+        originalProp = EncryptionKeyTestSupport.seedFreshKey();
     }
 
     @AfterEach
     void restoreEncryptionKey() {
-        // Restore via the public property + prepareSecretKeySpec() contract (which re-derives the
-        // spec, or resets it to null when no key is configured) rather than reflecting into the
-        // private SECRET_KEY_SPEC field.
-        CarlosProperties props = CarlosProperties.getInstance();
-        if (originalProp != null) {
-            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
-        } else {
-            props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
-        }
-        EncryptionUtils.prepareSecretKeySpec();
+        EncryptionKeyTestSupport.restoreKey(originalProp);
     }
 
     @Test
@@ -124,6 +111,29 @@ class EmailConfigSecretsUnitTest {
         // The already-encrypted value is preserved verbatim, not re-encrypted.
         assertThat(node.get("api_key").asText()).isEqualTo(encryptedApiKey);
         assertThat(EmailConfigSecrets.decryptSecret(node.get("password").asText())).isEqualTo("still-plain");
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should encrypt a scalar secret even when it was entered without JSON quotes")
+    void shouldEncryptSecret_whenValueIsNonTextualScalar() throws Exception {
+        String result = EmailConfigSecrets.encryptSecrets("{\"password\":123456}");
+
+        JsonNode password = MAPPER.readTree(result).get("password");
+        assertThat(password.isTextual()).isTrue();
+        assertThat(password.asText()).startsWith("{ENC}");
+        assertThat(EmailConfigSecrets.decryptSecret(password.asText())).isEqualTo("123456");
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should reject a structured value instead of storing it as a credential string")
+    void shouldThrowEmailSendingException_whenSecretValueIsStructured() {
+        assertThatThrownBy(() -> EmailConfigSecrets.encryptSecrets(
+                "{\"password\":{\"unexpected\":\"secret\"}}"))
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessage("Invalid email transport credential format")
+                .hasMessageNotContaining("secret");
     }
 
     @Test

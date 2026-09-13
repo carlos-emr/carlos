@@ -292,46 +292,54 @@ public class APISendGridEmailSender {
 
     // Package-private for unit testing the credential-validation branches without a live send.
     String getAPIKey() throws EmailSendingException {
-        String configJson = emailConfig != null ? emailConfig.getConfigDetailsJson() : null;
-        if (configJson == null || configJson.isBlank()) {
-            // No stored configuration at all: surface a clean credential error, never an NPE.
-            throw new EmailSendingException("Invalid credentials configured for "
-                    + (emailConfig != null ? emailConfig.getSenderEmail() : "unknown"));
-        }
+        JsonNode jsonNode = getConfigDetails();
         String apiKey;
-        try {
-            // Reuse the shared, thread-safe ObjectMapper field rather than allocating per call.
-            JsonNode jsonNode = objectMapper.readTree(configJson);
-            JsonNode apiKeyNode = jsonNode.path("api_key");
-            if (apiKeyNode.isMissingNode() || apiKeyNode.isNull() || apiKeyNode.asText().isBlank()) {
-                // Missing/blank api_key must surface as a clean credential error, not an NPE.
-                throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
-            }
-            // Decrypt the at-rest credential only here, at send time. Legacy plaintext keys pass
-            // through unchanged during the migration window.
-            apiKey = EmailConfigSecrets.decryptSecret(apiKeyNode.asText());
-        } catch (IOException e) {
-            // Intentionally no cause: a Jackson parse exception can echo a fragment of the source
-            // JSON (which holds the secret), so we keep the message sanitized (issue #3112 invariant).
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        JsonNode apiKeyNode = jsonNode.path("api_key");
+        if (apiKeyNode.isMissingNode() || apiKeyNode.isNull()
+                || !apiKeyNode.isValueNode() || apiKeyNode.asText().isBlank()) {
+            // Missing/blank api_key must surface as a clean credential error, not an NPE.
+            throw invalidCredentialsException();
         }
+        // Decrypt the at-rest credential only here, at send time. Legacy plaintext keys pass
+        // through unchanged during the migration window.
+        apiKey = EmailConfigSecrets.decryptSecret(apiKeyNode.asText());
         if (apiKey == null || apiKey.isBlank()) {
             // A stored value that decrypts to blank must not travel as an empty Authorization: Bearer.
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+            throw invalidCredentialsException();
         }
         return apiKey;
     }
 
-
     private String getEndPoint() throws EmailSendingException {
-        StringBuilder endPointBuilder = new StringBuilder();
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            endPointBuilder.append(jsonNode.get("end_point") != null ? jsonNode.get("end_point").asText() : DEFAULT_END_POINT);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        JsonNode jsonNode = getConfigDetails();
+        JsonNode endPointNode = jsonNode.get("end_point");
+        return endPointNode != null ? endPointNode.asText() : DEFAULT_END_POINT;
+    }
+
+    /**
+     * Parses and validates the shared provider configuration before either endpoint or credential
+     * access. Keeping this in one place prevents the real send path from throwing an unchecked
+     * exception before {@link #getAPIKey()} can report a sanitized credential failure.
+     */
+    private JsonNode getConfigDetails() throws EmailSendingException {
+        String configJson = emailConfig.getConfigDetailsJson();
+        if (configJson == null || configJson.isBlank()) {
+            throw invalidCredentialsException();
         }
-        return endPointBuilder.toString();
+        try {
+            JsonNode jsonNode = objectMapper.readTree(configJson);
+            if (jsonNode == null || !jsonNode.isObject()) {
+                throw invalidCredentialsException();
+            }
+            return jsonNode;
+        } catch (IOException e) {
+            // Intentionally no cause: a Jackson parse exception can echo a fragment of the source
+            // JSON (which holds the secret), so keep the exception safe for logs and the EmailLog.
+            throw invalidCredentialsException();
+        }
+    }
+
+    private EmailSendingException invalidCredentialsException() {
+        return new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
     }
 }

@@ -97,9 +97,17 @@ public final class EmailConfigSecrets {
         boolean changed = false;
         for (String field : SECRET_FIELDS) {
             JsonNode value = configObject.get(field);
-            if (value == null || !value.isTextual()) {
+            if (value == null || value.isNull()) {
                 continue;
             }
+            if (!value.isValueNode()) {
+                // An array/object cannot be a transport credential. Do not silently rewrite it into
+                // a usable-looking string; report a sanitized configuration failure instead.
+                throw new EmailSendingException("Invalid email transport credential format");
+            }
+            // Configuration is hand-authored JSON. Preserve the sender-visible value of scalar
+            // credentials such as a numeric SMTP password, while ensuring it cannot remain in
+            // plaintext merely because it was entered without JSON quotes.
             String plaintext = value.asText();
             // isEncrypted() also treats null/empty as "already handled", so empty secrets are skipped.
             if (!EncryptionUtils.isEncrypted(plaintext)) {

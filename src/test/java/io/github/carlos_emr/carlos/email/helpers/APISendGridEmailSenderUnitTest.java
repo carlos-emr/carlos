@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 
@@ -37,9 +38,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -64,32 +65,22 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
     private static final LoggedInInfo LOGGED_IN_INFO = mock(LoggedInInfo.class);
 
     private String originalProp;
+    private SecurityInfoManager securityInfoManager;
 
     @BeforeEach
     void setUp() throws Exception {
-        createAndRegisterMock(SecurityInfoManager.class);
+        securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(
+                LOGGED_IN_INFO, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
 
         // Seed a fresh process-global AES key so the encrypted-api_key case can round-trip, and
         // restore prior state afterwards. Plaintext/blank/missing cases are unaffected by the key.
-        CarlosProperties props = CarlosProperties.getInstance();
-        originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-
-        props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, EncryptionUtils.generateSecretKey());
-        EncryptionUtils.prepareSecretKeySpec();
+        originalProp = EncryptionKeyTestSupport.seedFreshKey();
     }
 
     @AfterEach
     void restoreEncryptionKey() {
-        // Restore via the public property + prepareSecretKeySpec() contract (which re-derives the
-        // spec, or resets it to null when no key is configured) rather than reflecting into the
-        // private SECRET_KEY_SPEC field.
-        CarlosProperties props = CarlosProperties.getInstance();
-        if (originalProp != null) {
-            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
-        } else {
-            props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
-        }
-        EncryptionUtils.prepareSecretKeySpec();
+        EncryptionKeyTestSupport.restoreKey(originalProp);
     }
 
     @Test
@@ -159,6 +150,23 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
 
         assertThatExceptionOfType(EmailSendingException.class)
                 .isThrownBy(sender::getAPIKey);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should report a clean send failure when the stored configuration is null")
+    void shouldThrowEmailSendingException_whenSendConfigJsonNull() {
+        EmailConfig emailConfig = new EmailConfig();
+        emailConfig.setSenderEmail("clinic@example.com");
+        emailConfig.setConfigDetailsJson(null);
+
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                LOGGED_IN_INFO, emailConfig, new String[] {"patient@example.com"},
+                "Subject line", "Body text", Collections.emptyList());
+
+        assertThatThrownBy(sender::send)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessage("Invalid credentials configured for clinic@example.com");
     }
 
     @Test
