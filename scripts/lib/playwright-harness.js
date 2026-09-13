@@ -345,22 +345,42 @@ let baselineCache = null;
  * suite as a whole can no longer detect. One reviewed file with an issue number
  * per entry makes the list a burn-down rather than a growing blind spot.
  */
+/*
+ * Entries match as LITERAL SUBSTRINGS, not regular expressions.
+ *
+ * Every entry the baseline needs is the name of the function or request at fault
+ * ("expandPreview", "getActiveText"), so compiling each one to a RegExp bought no
+ * expressiveness and cost two things: a pathological pattern committed to the
+ * file would hang the check instead of failing it, and it is a dynamic RegExp
+ * construction, which Semgrep's detect-non-literal-regexp flags on sight. A
+ * literal substring removes both. If an entry ever genuinely needs a pattern,
+ * that is a deliberate change to this loader with its own review.
+ */
+const MINIMUM_BASELINE_MATCH_LENGTH = 8;
+const REGEX_METACHARACTERS_RE = /[.*+?^${}()|[\]\\]/;
+
 function loadConsoleBaseline(baselinePath = path.join(__dirname, 'console-baseline.json')) {
   if (baselineCache && baselineCache.path === baselinePath) {
     return baselineCache.entries;
   }
   const parsed = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
   const entries = parsed.allow.map((entry) => {
-    assert(entry.pattern && entry.issue && entry.note,
-      'Every console-baseline entry needs a pattern, the issue that removes it, and a note');
-    return { ...entry, regex: new RegExp(entry.pattern) };
+    assert(entry.match && entry.issue && entry.note,
+      'Every console-baseline entry needs a match, the issue that removes it, and a note');
+    // A short fragment would blanket-suppress far more than the defect it names.
+    assert(entry.match.length >= MINIMUM_BASELINE_MATCH_LENGTH,
+      `Console-baseline match ${JSON.stringify(entry.match)} is too short to identify one defect; use the failing symbol's full name`);
+    // Fail loudly rather than silently matching a regex as literal text.
+    assert(!REGEX_METACHARACTERS_RE.test(entry.match),
+      `Console-baseline match ${JSON.stringify(entry.match)} looks like a regular expression; entries are matched as literal substrings`);
+    return { ...entry };
   });
   baselineCache = { path: baselinePath, entries };
   return entries;
 }
 
 function isBaselinedText(text, baseline) {
-  return baseline.some((entry) => entry.regex.test(text));
+  return baseline.some((entry) => String(text).includes(entry.match));
 }
 
 /**

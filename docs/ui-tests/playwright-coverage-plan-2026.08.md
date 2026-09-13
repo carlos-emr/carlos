@@ -122,6 +122,11 @@ script-MIME finding, no unexpected-dialog finding, no console baseline). Only
 `wireStrictPage` applies the strict contract, so migrating a check is a reviewed
 change to that check rather than 75 checks gaining new failure modes at once.
 
+**The CI smoke tier needs a maintainer.** `.claude/settings.json` denies Claude
+`Write(.github/**)` and `Write(.github/workflows/**)`, so the `playwright-smoke.yml`
+workflow in §2.1 cannot be added by an agent — the YAML has to be committed by a
+human. Everything else in Phase 1 is unaffected.
+
 **What is not yet verified.** The harness and runner are unit-tested but have not
 been run against a deployment: no Tomcat or MariaDB was available in the session
 that wrote them. Before anything migrates onto them, one pass of the existing
@@ -309,7 +314,8 @@ asserts the dataset facts checks rely on (which demographics have clean charts, 
 appointment dates, active consultation services after V1.0.23) so a dataset change fails in CI
 before it fails a VM run.
 
-**A CI smoke tier.** `playwright-smoke.yml` on PRs touching `src/main/webapp/**`, the
+**A CI smoke tier.** *(A maintainer has to commit this file: `.claude/settings.json`
+denies Claude write access to `.github/**`.)* `playwright-smoke.yml` on PRs touching `src/main/webapp/**`, the
 filters, `**/web/**`, `scripts/**`, `struts-*.xml`: `carlos-tomcat-dev` + MariaDB service,
 `populate_db.sh`, `make install`, `run-playwright-suite.js --tier smoke` (≤ 12 min: login,
 schedule links, application health, browser surfaces, chart first render, tickler CRUD,

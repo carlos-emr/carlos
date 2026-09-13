@@ -177,11 +177,46 @@ test('every console-baseline entry names where its removal is tracked', () => {
   const baseline = JSON.parse(fs.readFileSync(path.join(__dirname, 'lib', 'console-baseline.json'), 'utf8'));
   assert.ok(baseline.allow.length > 0);
   for (const entry of baseline.allow) {
-    assert.ok(entry.pattern, 'an entry needs a pattern');
-    assert.ok(entry.issue, `${entry.pattern} must name the issue or doc that tracks removing it`);
-    assert.ok(entry.note && entry.note.length > 40, `${entry.pattern} must explain the defect`);
-    assert.doesNotThrow(() => new RegExp(entry.pattern));
+    assert.ok(entry.match, 'an entry needs a match');
+    assert.ok(entry.issue, `${entry.match} must name the issue or doc that tracks removing it`);
+    assert.ok(entry.note && entry.note.length > 40, `${entry.match} must explain the defect`);
   }
+});
+
+test('baseline entries are literal substrings, never compiled patterns', () => {
+  // Semgrep's detect-non-literal-regexp flagged the earlier new RegExp(entry.pattern)
+  // four times. Nothing the baseline needs is a pattern, so the construct is gone
+  // rather than suppressed: a committed pathological regex would have hung a check
+  // instead of failing it.
+  const source = fs.readFileSync(path.join(__dirname, 'lib', 'playwright-harness.js'), 'utf8');
+  assert.doesNotMatch(source, /new RegExp\(/, 'the harness must not build a regex at runtime');
+});
+
+test('a baseline entry that is too short, or looks like a regex, is refused at load', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-baseline-'));
+  const write = (allow) => {
+    const file = path.join(directory, `b${Math.random().toString(36).slice(2)}.json`);
+    fs.writeFileSync(file, JSON.stringify({ allow }));
+    return file;
+  };
+  const good = { match: 'expandPreview', issue: '#1', note: 'x'.repeat(50) };
+
+  // Short fragments blanket-suppress far more than the one defect they name.
+  assert.throws(
+    () => harness.loadConsoleBaseline(write([{ ...good, match: 'null' }])),
+    /too short to identify one defect/,
+  );
+  // A regex added by mistake would otherwise match nothing and silently stop working.
+  assert.throws(
+    () => harness.loadConsoleBaseline(write([{ ...good, match: 'expand.*Preview' }])),
+    /looks like a regular expression/,
+  );
+  assert.throws(
+    () => harness.loadConsoleBaseline(write([{ match: 'expandPreview', issue: '#1' }])),
+    /needs a match, the issue/,
+  );
+  assert.equal(harness.loadConsoleBaseline(write([good])).length, 1);
+  fs.rmSync(directory, { recursive: true, force: true });
 });
 
 test('legacy wirePage records exactly what it recorded before the harness landed', async () => {
