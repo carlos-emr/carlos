@@ -160,6 +160,30 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should bound both failed acknowledgement diagnostics without reimporting an existing fax")
+    void shouldKeepAcknowledgementFailuresPrivate_whenFaxAlreadyImported() throws FaxProviderException {
+        FaxConfig config = createActiveConfig();
+        FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
+        when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
+        when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
+        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID))
+                .thenReturn(Collections.singletonList(priorRow(FaxJob.STATUS.RECEIVED, null)));
+        var failure = new FaxProviderException("PRIVATE_ACK_MESSAGE", new IllegalStateException("PRIVATE_ACK_CAUSE"), 503);
+        Mockito.doThrow(failure).when(faxProviderClient).markFaxAsRead(config, inboundFax);
+        Mockito.doThrow(failure).when(faxProviderClient).deleteFax(config, inboundFax);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            verify(faxProviderClient).markFaxAsRead(config, inboundFax);
+            verify(faxProviderClient).deleteFax(config, inboundFax);
+            verify(faxProviderClient, never()).downloadFax(any(), any());
+            verify(faxJobDao, never()).persist(any());
+            assertThat(logs.messages().stream().filter(message -> message.contains("HTTP 503")).toList()).hasSize(2);
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_ACK");
+            assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
     @DisplayName("should skip download when prior row shows imported-but-routing-failed (uppercase)")
     void shouldSkipDownload_whenPriorRowShowsImportedButRoutingFailed() throws FaxProviderException {
         // Given: post-import routing failure left an ERROR row whose statusString starts "IMPORTED..."
@@ -291,6 +315,41 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should finish importing while bounding both provider acknowledgement failures")
+    void shouldKeepAcknowledgementFailuresPrivate_whenNewFaxImported() throws Exception {
+        FaxConfig config = createActiveConfig();
+        FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
+        inboundFax.setStatus(FaxJob.STATUS.RECEIVED);
+        Mockito.doAnswer(invocation -> {
+            io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel routing = invocation.getArgument(0);
+            org.springframework.test.util.ReflectionTestUtils.setField(routing, "id", 99);
+            return null;
+        }).when(providerLabRoutingDao).persist(any());
+        when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
+        when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
+        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.emptyList());
+        FaxJob downloadedFax = new FaxJob();
+        downloadedFax.setDocument(Base64.getEncoder().encodeToString(createValidPdfBytes()));
+        when(faxProviderClient.downloadFax(config, inboundFax)).thenReturn(downloadedFax);
+        var failure = new FaxProviderException("PRIVATE_NEW_ACK_MESSAGE", new IllegalStateException("PRIVATE_NEW_ACK_CAUSE"), 503);
+        Mockito.doThrow(failure).when(faxProviderClient).markFaxAsRead(config, inboundFax);
+        Mockito.doThrow(failure).when(faxProviderClient).deleteFax(config, inboundFax);
+        try (var documents = Mockito.mockStatic(EDocUtil.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            documents.when(() -> EDocUtil.addDocumentSQL(any())).thenReturn("4242");
+            faxImporter.poll();
+            verify(faxProviderClient).markFaxAsRead(config, inboundFax);
+            verify(faxProviderClient).deleteFax(config, inboundFax);
+            var saved = ArgumentCaptor.forClass(FaxJob.class);
+            verify(faxJobDao).persist(saved.capture());
+            assertThat(saved.getValue().getStatus()).isEqualTo(FaxJob.STATUS.RECEIVED);
+            assertThat(logs.messages().stream().filter(message -> message.contains("HTTP 503")).toList()).hasSize(2);
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_NEW_ACK");
+            assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
     @DisplayName("should move the file back to incoming when the document persist throws")
     void shouldMoveFileBackToIncoming_whenDocumentPersistThrows() throws Exception {
         // Given: download and quarantine succeed but the document persist throws unchecked
@@ -308,12 +367,16 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         downloadedFax.setDocument(Base64.getEncoder().encodeToString(createValidPdfBytes()));
         when(faxProviderClient.downloadFax(config, inboundFax)).thenReturn(downloadedFax);
 
-        try (MockedStatic<EDocUtil> eDocUtilMock = Mockito.mockStatic(EDocUtil.class)) {
+        try (MockedStatic<EDocUtil> eDocUtilMock = Mockito.mockStatic(EDocUtil.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
             eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any()))
-                    .thenThrow(new RuntimeException("simulated persistence failure"));
+                    .thenThrow(new RuntimeException("PRIVATE_PERSIST_MESSAGE", new IllegalStateException("PRIVATE_PERSIST_CAUSE")));
 
             // When
             faxImporter.poll();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("Failed to persist document record"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_PERSIST");
+            assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
         }
 
         // Then: an ERROR row marks the fax pending retry, and the PDF is back under the

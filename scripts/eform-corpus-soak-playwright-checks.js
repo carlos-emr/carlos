@@ -252,7 +252,7 @@ function launchOptions() {
       const formName = packageFormName(path.join(config.corpusDir, zip));
       const result = {
         package: zip, form: formName, fid: null, fdid: null,
-        pdfBytes: 0, outcome: '', httpErrors: [], consoleErrors: [],
+        pdfBytes: 0, outcome: '', httpErrors: [], consoleErrors: [], renderIssues: [],
       };
       if (!formName) {
         result.outcome = 'SKIPPED: no form.name in eform.properties';
@@ -299,13 +299,22 @@ function launchOptions() {
         result.fdid = await form.locator('#fdid').inputValue().catch(() => null);
 
         await form.click('#remoteDownloadButton');
-        await form.waitForFunction(() => !!window.__carlosCapturedPdf, null, { timeout: config.renderTimeoutMs });
-        const pdf = Buffer.from(await form.evaluate(() => window.__carlosCapturedPdf), 'base64');
-        const safeName = formName.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60);
-        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- basename is sanitized to [A-Za-z0-9_] above and written under the configured output directory
-        fs.writeFileSync(path.join(config.outDir, `${safeName}.pdf`), pdf);
-        result.pdfBytes = pdf.length;
-        result.outcome = pdf.subarray(0, 5).toString('latin1') === '%PDF-' ? 'PDF OK' : 'NOT A PDF';
+        await form.waitForFunction(() => !!window.__carlosCapturedPdf
+          || !!document.querySelector('.missing-content-card'), null, { timeout: config.renderTimeoutMs });
+        const capturedPdf = await form.evaluate(() => window.__carlosCapturedPdf);
+        if (!capturedPdf) {
+          // The application's explicit completeness refusal is a result, not a browser timeout.
+          // Record its issue report without approving omissions or weakening the render gate.
+          result.outcome = 'PDF WITHHELD';
+          result.renderIssues = await form.locator('.missing-content-card .card-body > ul > li').allTextContents();
+        } else {
+          const pdf = Buffer.from(capturedPdf, 'base64');
+          const safeName = formName.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60);
+          // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- basename is sanitized to [A-Za-z0-9_] above and written under the configured output directory
+          fs.writeFileSync(path.join(config.outDir, `${safeName}.pdf`), pdf);
+          result.pdfBytes = pdf.length;
+          result.outcome = pdf.subarray(0, 5).toString('latin1') === '%PDF-' ? 'PDF OK' : 'NOT A PDF';
+        }
       } catch (error) {
         result.outcome = `NO PDF: ${error.message.split('\n')[0].slice(0, 120)}`;
       } finally {
