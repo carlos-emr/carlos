@@ -597,6 +597,23 @@ suite_failed=0
 #   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
 # On a fresh Ontario install, consultation-request-create and specialist-add-cpso need at least one
 # active consultationServices row (the ON seed ships them all inactive; see the coverage page, finding 21).
+# Clinical-workflow coverage scripts (docs/ui-tests/clinical-workflow-browser-checks.md). Each one
+# reaches its surface by clicking the links an operator clicks, seeds only what it needs and restores
+# it in a finally, and defaults to demographic 1 / provider 999998. Their knobs:
+#   APPOINTMENT_PROVIDER_NO=999998 APPOINTMENT_DEMOGRAPHIC_NO=1 APPOINTMENT_DAYS_AHEAD=400
+#                                (appointment-lifecycle; DAYS_AHEAD puts the booking on a far-future
+#                                day sheet so it cannot collide with a seeded appointment)
+#   MESSENGER_PROVIDER_NO=999998 (messenger-inbox-actions; enrols the provider as a local contact
+#                                through the Administration page when it is not already one, because a
+#                                hand-inserted groupMembers_tbl row does not make a recipient appear)
+#   LAB_PROVIDER_NO=999998 LAB_SEGMENT_ID=<hl7 lab_no>  (lab-acknowledge; LAB_SEGMENT_ID must be the
+#                                NEWEST lab of its accession -- the Inboxhub opens labs with
+#                                showLatest=true, which renders the newest version of the chain, so an
+#                                older segment would put the acknowledge on a row it never routed. Left
+#                                unset the check picks a qualifying lab itself.)
+#   PREVENTION_REPORT_TYPE=Flu   (prevention-recall-report; read-only, seeds and cleans up nothing)
+#   MEASUREMENT_DEMOGRAPHIC_NO=1 MEASUREMENT_GROUP=Anthropometrics MEASUREMENT_TYPE=WT
+#                                (measurement-validation)
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below

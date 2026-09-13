@@ -75,7 +75,12 @@
     "test:form-rourke2017-playwright": "node scripts/form-rourke2017-playwright-checks.js",
     "test:allergy-add-penicillin-playwright": "node scripts/allergy-add-penicillin-playwright-checks.js",
     "test:lab-macro-tickler-playwright": "node scripts/lab-macro-tickler-playwright-checks.js",
-    "test:schedule-quick-search-appointment-playwright": "node scripts/schedule-quick-search-appointment-playwright-checks.js"
+    "test:schedule-quick-search-appointment-playwright": "node scripts/schedule-quick-search-appointment-playwright-checks.js",
+    "test:appointment-lifecycle-playwright": "node scripts/appointment-lifecycle-playwright-checks.js",
+    "test:messenger-inbox-actions-playwright": "node scripts/messenger-inbox-actions-playwright-checks.js",
+    "test:lab-acknowledge-playwright": "node scripts/lab-acknowledge-playwright-checks.js",
+    "test:prevention-recall-report-playwright": "node scripts/prevention-recall-report-playwright-checks.js",
+    "test:measurement-validation-playwright": "node scripts/measurement-validation-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

@@ -1,109 +1,122 @@
 # Clinical-workflow browser checks
 
-Six `scripts/*-playwright-checks.js` scripts added in September 2026 for clinical
-workflows that had **no** browser coverage, plus the shared harness they are built
-on. They are part of the standard pass described in
+Five `scripts/*-playwright-checks.js` scripts that cover clinical work the rest of
+the suite leaves untouched. They are part of the standard pass described in
 [deb-install-validation.md](deb-install-validation.md) and run the same way as
-every other check in that suite.
+every other check there.
 
-## Why these six
-
-The suite before this pass was deep on eForms, login/logout, consultations and
-prescriptions, and empty on the workflows a clinic spends most of its day in. The
-selection was made by enumerating the Struts action surface per module and
-subtracting the routes any existing check actually navigates to — not by guessing
-which modules felt untested. The six largest clinical gaps were:
-
-| Check | Workflow | Routes that had no coverage before |
+| Check | Covers | The check next to it |
 |---|---|---|
-| `appointment-crud-playwright-checks.js` | Book, edit, advance status, cancel, delete an appointment | `appointment/AddRecord`, `appointment/UpdateRecord`, `appointment/DeleteRecord`, `providercontrol?dboperation=updateapptstatus` |
-| `allergy-crud-playwright-checks.js` | Record, amend and withdraw a patient allergy; prescriber warning | `rx/searchAllergy2`, `rx/addReaction2`, `rx/addAllergy2`, `rx/deleteAllergy2`, `rx/showAllergy?method=allergyData` |
-| `prevention-immunization-playwright-checks.js` | Record an immunization, report and print it | `prevention/ViewPreventionIndex`, `prevention/ViewAddPreventionData`, `prevention/AddPrevention`, `prevention/PreventionReport`, `prevention/printPrevention` |
-| `messenger-inbox-playwright-checks.js` | Provider-to-provider messaging, inbox lifecycle | the whole `messenger/**` module, plus `messenger` (administration) |
-| `lab-results-review-playwright-checks.js` | Review and acknowledge a lab result | `web/inboxhub/Inboxhub`, `lab/CA/ALL/ViewLabDisplay`, `oscarMDS/UpdateStatus`, `lab/CA/ALL/PrintPDF`, `lab/ViewCumulativeLabValues` |
-| `measurement-entry-playwright-checks.js` | Enter, amend and graph vitals | `encounter/oscarMeasurements/ViewAddMeasurementData`, `encounter/Measurements2`, `encounter/GraphMeasurements` |
+| `appointment-lifecycle` | Edit, advance status from the day sheet, cancel, delete an appointment (+ the `appointmentArchive` row) | `schedule-quick-search-appointment` and `echart-new-patient-notes` cover **booking**; nothing covered what happens to a booking afterwards |
+| `messenger-inbox-actions` | Mark read / unread, search and clear, archive, unarchive, and the archived box | `messenger` covers composing, sending from the messenger and the chart, and that **opening** a message marks it read |
+| `lab-acknowledge` | Acknowledge a result (`oscarMDS/UpdateStatus`), the lab PDF, cumulative values | `lab-macro-tickler` covers raising a tickler from a lab macro |
+| `prevention-recall-report` | Run the prevention recall report for a screening type | `prevention-brand-picker` covers recording an immunization on one chart |
+| `measurement-validation` | A bad vital is **refused** and writes nothing; a good one through the same form still saves | `echart-vitals-bmi` covers the happy path on the same popup |
+
+## The rule these follow: reach it the way a user reaches it
+
+Every surface is entered by clicking from where the user already is — the schedule's
+top nav, the day sheet, the Inboxhub list, the report index, the inbox's own Compose
+link. None of them is entered with a hand-built URL to the target page. That is not
+a style preference; each of the following was found by following the link instead of
+typing the address:
+
+- **The messenger compose page cannot be opened directly.** `CreateMessage.jsp`
+  redirects to `/index` when the session carries no `msgSessionBean`, and `/index`
+  renders the **login page**. A check that navigated straight to
+  `/messenger/ViewCreateMessage` would have been asserting against a login form and
+  passing.
+- **The Inboxhub row's link carries context a URL does not.** It appends
+  `providerNo`, `searchProviderNo`, `status`, `demoName` **and `showLatest=true`** to
+  the lab URL, and the acknowledge gate reads the provider context. Navigating to
+  `ViewLabDisplay` directly exercises a shape no operator ever produces — and it
+  hides the one thing that matters most about this route: on `showLatest=true`
+  `labDisplay.jsp:319` **replaces the requested segment** with the newest lab sharing
+  its accession, so the page that opens is not the segment the row named. The demo
+  dataset has one accession with 31 versions, so clicking the row for segment 1
+  renders segment 162. The check therefore routes the *newest* segment of a chain and
+  asserts the rendered acknowledge form belongs to the segment it routed; a check
+  written against the requested id acknowledges a lab that was never in the inbox.
+- **The day sheet needs its full day-search parameter set.**
+  `providercontrol?year=&month=&day=` alone answers HTTP **200 with an empty
+  document** — no error, no redirect, a blank page. Only the parameter set the
+  post-login landing page uses actually renders a schedule.
+- **The measurement entry form is opened by its group.** The eChart's Measurements
+  module opens `SetupMeasurements` for a measurement group and saves through
+  `encounter/Measurements?ajax=true`. Reaching the older `ViewAddMeasurementData`
+  form directly answers HTTP 500 unless a valid `template` is supplied, because
+  `MeasurementTemplateFlowSheetConfig.getFlowSheet()` has no null or unknown-name
+  guard — a route no UI path reaches, and a defect worth fixing rather than
+  working around in a check.
+- **The prevention recall report has exactly one UI entry**, the Preventions link on
+  the report index. Driving it from there is what notices the link disappearing.
+
+A corollary: if a route has **no** UI entry, it does not get a check.
+`prevention/printPrevention` is referenced by no JSP in the tree, so it is left
+alone rather than covered through an address only a test would know.
 
 ## What they assert, and why that shape
 
-**The database is the assertion, the page is the path.** Every check drives the UI
-the way an operator does and then asserts on the rows that reached MariaDB. A page
-that renders a success banner and writes nothing is the failure mode these
-workflows actually have, and it is invisible to a check that only reads the page.
+**The database is the assertion; the page is the path.** Each check drives the UI
+and then reads the rows that reached MariaDB. A page that shows a success banner and
+writes nothing is the failure these workflows actually have, and it is invisible to
+a check that only reads the page.
 
-**Both halves of an archive.** Three of these workflows never delete: an
-appointment delete writes `appointmentArchive` then removes the row, an allergy
-modify adds a replacement and archives the original, an allergy delete flips
-`archived`. Each check asserts both halves, because "gone from the page" is
+**Both halves of an archive.** An appointment delete writes `appointmentArchive`
+then removes the `appointment` row; an archive in the messenger flips the
+per-recipient status. Each is asserted on both sides, because "gone from the list" is
 equally true of a working archive and of one that dropped the record.
 
-**Reach the surface by clicking.** The add-appointment popup is opened from an
-empty slot link, the compose page from the inbox's Compose link, the
-add-prevention popup from the grid's prevention name. This is deliberate and it
-earned its keep immediately: navigating directly to `messenger/ViewCreateMessage`
-redirects to `/index`, which renders the **login page**, so a check that took the
-direct route would have been quietly asserting against a login form.
+**Bulk actions are pinned to the selected row.** A bulk action's failure mode is not
+"nothing happened" but "it happened to the wrong rows", so
+`messenger-inbox-actions` inspects the POST body as well as the resulting status,
+and reads the per-recipient `messagelisttbl` row — the row the inbox renders. A
+status written to the content row instead would look right in the database and
+change nothing an operator sees.
 
-**Dialogs are answered by name.** A delete, a cancel and an acknowledge are each
-gated on `confirm()` (the lab acknowledge adds a `prompt()`). The harness dismisses
-dialogs by default and a check opts in per action, so a read-only check can never
-answer "delete?" with yes by accident.
+**A known defect is tolerated by origin, never by message.** `lab-acknowledge`
+allows exactly one console error — the `Failed to fetch` that `oscarMDSIndex.js`
+`updateDocStatusInQueue` raises when the acknowledge closes its own window mid-fetch
+— and matches it on file, function and message together, so any other failure in the
+same file still fails the check. The underlying defect (that same call posts a **lab**
+segment id as a **document** id) is recorded in the script header and in the findings,
+not asserted as correct.
 
-## The shared harness
+**A refusal is proven against a matching acceptance.** `measurement-validation`
+asserts a bad value is refused AND that a good value through the same form still
+saves. Without the second half, a save that is broken for every input would pass as
+"correctly rejected".
 
-`scripts/carlos-playwright-harness.js` carries what every clinical check needs:
-BASE_URL validation (loopback/RFC1918 only unless `ALLOW_NON_LOCAL_BASE_URL=true`),
-a root-relative-only URL builder, the page recorder that turns silent 500s and
-browser exceptions into failures, a login that accepts both schedule landing
-routes, a MySQL client that passes its password through a 0600 defaults file, and
-the dialog-accept queue.
+## Conventions
 
-`scripts/eform-local-playwright-utils.js` is the eForm counterpart and is
-deliberately left alone: it carries eForm editor and attachment knowledge that
-clinical checks must not inherit.
+These use `scripts/eform-local-playwright-utils.js`, which is the suite's shared
+harness despite the eForm name: `validateBaseUrl`, `gotoApp`, `login`, `wirePage`,
+the recorder, `assertNoPageErrors`, `buildFailureDetails`. Two things about it are
+worth knowing before writing another check:
 
-Two harness behaviours are worth knowing before writing a new check:
-
-- **One dialog listener per page.** Playwright delivers a dialog to every
-  registered listener, so a second listener that accepts races the harness's
-  dismiss and whichever loses throws "already handled". Use
-  `acceptNextDialog(page, recorder, label, promptText?)`, which enqueues an intent
-  the single handler reads, and `clearPendingDialogAccepts(page)` for an action
-  that only *might* prompt.
+- **`wirePage(page, label, recorder, dialogHandler)` takes the dialog handler.**
+  There is one dialog listener per page and the fourth argument decides what it
+  does. Do not add a second `page.on('dialog')`: Playwright delivers a dialog to
+  every listener, so a second one that accepts races the default dismiss and
+  whichever loses throws "already handled" — which shows up as a delete that never
+  posts.
 - **`mysql -B` escapes its output.** Backslashes, tabs and newlines come back
   escaped, so a column holding `a\_b` reads as `a\\_b`. Normalise before comparing
   text that can contain any of them.
 
-## Fixtures a clean install does not provide
+Each check keeps its own `sql()` helper over a 0600 defaults file, as the other
+data-asserting checks in the suite do, so the MySQL password never reaches a command
+line.
 
-Two of these workflows cannot run on a freshly installed system, and that is a
-property of the install rather than of the checks:
+## Adding a sixth
 
-- **Messenger has no contacts.** `groupMembers_tbl` is empty and the shipped "doc"
-  group has no members, so the compose page renders an empty recipient list and no
-  message can be sent. The check enrols the test provider through
-  **Administration > Messenger**, which is the operator's own remedy, and removes
-  that enrolment again only if it created it.
-- **No lab is routed to a provider.** The demo dataset routes its labs to provider
-  `0`, so no provider has a reviewable inbox item. The check routes one existing
-  demo lab to the test provider and restores the routing exactly as it found it.
-
-Neither check fabricates clinical content: both reuse records the demo dataset
-already ships.
-
-## Adding a seventh
-
-Follow the three rules the existing six follow, in order of how much grief they
-save:
-
-1. **Assert the database.** If the check would still pass when the save silently
-   wrote nothing, it is not covering the workflow.
-2. **Clean up in a `finally`, keyed on a per-run marker.** A failed run must leave
-   the deployment as it found it, and a marker in a text column (reason, comment,
-   lot, subject) is what makes cleanup precise enough to run against a shared
-   test database.
-3. **Report, don't encode, a defect you find.** A check that pins current broken
-   behaviour as expected makes the bug permanent. Where a probe documents a defect
-   worth keeping an eye on, print a `NOTE` and put the assertion behind an opt-in
-   environment variable — `measurement-entry-playwright-checks.js` does this with
-   `MEASUREMENT_ASSERT_INPUT_VALIDATION` — so it can be switched on the day the fix
-   lands.
+1. **Check what the suite already covers**, per route and not per module — subtract
+   the routes existing checks actually navigate to, not the ones their names suggest.
+2. **Enter from where the user is.** If the only way to reach the surface is a URL,
+   that is a finding about the surface, not a licence to type the URL.
+3. **Assert the database.** If the check would still pass when the save wrote
+   nothing, it is not covering the workflow.
+4. **Clean up in a `finally`, keyed on a per-run marker**, so a failed run leaves
+   the deployment as it found it.
+5. **Report, don't encode, a defect.** A check that pins current broken behaviour as
+   expected makes the bug permanent.
