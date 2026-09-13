@@ -33,6 +33,9 @@
 
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <% long loadPage = System.currentTimeMillis(); %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
@@ -85,11 +88,30 @@
 //get programId
     String pgId = (String) session.getAttribute("case_program_id");
     if (pgId == null) pgId = "";
+
+    // Same-tab modes ("tab" and "focused") open eChart nav links in a browser
+    // tab instead of a sized popup window. Measurement popups are excluded
+    // (see popUpMeasurements below) because destination pages write back into
+    // this window via window.opener; leaving them as real popups is safest.
+    boolean openEncounterInTab = false;
+    LoggedInInfo navLoggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (navLoggedInInfo != null) {
+        String navProviderNo = navLoggedInInfo.getLoggedInProviderNo();
+        UserPropertyDAO navUserPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
+        UserProperty navTabProp = navUserPropertyDao.getProp(navProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
+        openEncounterInTab = navTabProp != null && "yes".equalsIgnoreCase(navTabProp.getValue());
+    }
 %>
 
 <script type="text/javascript" language=javascript>
+    var openEncounterInTab = <%=openEncounterInTab%>;
+
     function popupPage(varpage) {
         var page = "" + varpage;
+        if (openEncounterInTab) {
+            window.open(page, "_blank");
+            return;
+        }
         windowprops = "height=600,width=700,location=no,"
             + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0";
         window.open(page, "", windowprops);
@@ -112,8 +134,13 @@
 
 
         var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/messenger/ViewMessageByPosition?from=encounter&orderBy=!date&demographic_no=<%=bean.demographicNo%>&messagePosition=" + msgPosition;
-        windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-        var popup = window.open(page, "", windowprops);
+        var popup;
+        if (openEncounterInTab) {
+            popup = window.open(page, "_blank");
+        } else {
+            windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
+            popup = window.open(page, "", windowprops);
+        }
         if (popup != null) {
             if (popup.opener == null) {
                 popup.opener = self;
@@ -122,6 +149,10 @@
         popup.focus();
     }
 
+    // Measurement popups are intentionally excluded from openEncounterInTab:
+    // oscarMeasurements/Measurements.jsp writes results back into this
+    // window's encounter note via window.opener, which is safest kept as a
+    // real popup rather than folded into the tab-preference behavior.
     function popUpMeasurements(vheight, vwidth, name, varpage) { //open a new popup window
         if (varpage != 'null') {
             name.options[0].selected = true;
@@ -139,6 +170,10 @@
 
     function popupSearchPage(vheight, vwidth, varpage) { //open a new popup window
         var page = "" + varpage;
+        if (openEncounterInTab) {
+            var popup = window.open(page, "_blank");
+            return;
+        }
         windowprop = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
         var popup = window.open(page, "", windowprop);
     }

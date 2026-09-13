@@ -1004,12 +1004,16 @@
                                 String scheduleReportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
                                 String scheduleAdministrationUrl = request.getContextPath() + "/administration";
                                 String scheduleTicklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
+                                String scheduleScratchUrl = request.getContextPath() + "/Scratch";
+                                String scheduleProviderPreferenceUrl = request.getContextPath() + "/provider/ViewProviderPreference?provider_no=" + SafeEncode.forUriComponent(loggedInInfo1.getLoggedInProviderNo());
                                 String scheduleMessengerUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleMessengerUrl);
                                 String scheduleConsultationUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleConsultationUrl);
                                 String scheduleDocumentReportUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleDocumentReportUrl);
                                 String scheduleReportIndexUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleReportIndexUrl);
                                 String scheduleAdministrationUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleAdministrationUrl);
                                 String scheduleTicklerUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleTicklerUrl);
+                                String scheduleScratchUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleScratchUrl);
+                                String scheduleProviderPreferenceUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleProviderPreferenceUrl);
                             %>
                             <fmt:message var="ticklerTitle" key="global.tickler"/>
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
@@ -1145,8 +1149,7 @@
                             </security:oscarSec>
 
                             <li id="helpLink">
-                                <a href="javascript:void(0)"
-                                   onClick="popupPage(600,750,'${carlos:forJavaScriptAttribute(scheduleResourceBaseUrl)}');return false;"><fmt:message key="global.help"/></a>
+                                <a href="https://github.com/carlos-emr" target="_blank" rel="noopener noreferrer"><fmt:message key="global.help"/></a>
                             </li>
 
                             <% if (isMobileOptimized) { %>
@@ -1161,8 +1164,8 @@
             <td id="userSettings">
                 <ul id="userSettingsMenu" style="display: flex; gap:5px;">
                     <li>
-                        <a title="<fmt:message key="ScratchPad.title"/>" href="javascript: function myFunction() {return false; }"
-                           onClick="popup(800,1200,'<%= request.getContextPath() %>/Scratch','scratch')">
+                        <a title="<fmt:message key="ScratchPad.title"/>" href="#"
+                           onClick="return openScheduleSection('<%=scheduleScratchUrlForJsAttribute%>', function(u){ popup(800,1200,u,'scratch'); }, event);">
                             		<span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                                  class="bi bi-card-list" viewBox="0 0 16 16">
@@ -1173,8 +1176,8 @@
                         </a>
                     </li>
                     <li>
-                        <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
-                           onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<carlos:encode value='<%= loggedInInfo1.getLoggedInProviderNo() %>' context="uriComponent"/>')"
+                        <a href="#" style="display: flex; align-items: flex-end;"
+                           onClick="return openScheduleSection('<%=scheduleProviderPreferenceUrlForJsAttribute%>', function(u){ popupPage(800,1000,u); }, event);"
                            title='<fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
                             <span>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"

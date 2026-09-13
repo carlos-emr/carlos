@@ -182,6 +182,8 @@
     }
     String quickChartSize = props.getOrDefault("quickChartSize", "");
 
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+
     // Contact info (used on prescriptions and consult letters)
     String rxAddress = props.getOrDefault("rxAddress", "");
     String rxCity = props.getOrDefault("rxCity", "");
@@ -237,6 +239,9 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="utf-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <% if (showScheduleNav) { %>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+    <% } %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
     <title><fmt:message key="provider.providerpreference.pageTitle"/></title>
 
@@ -525,9 +530,16 @@
     </style>
 </head>
 <body>
+<% if (showScheduleNav) { %>
+    <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+<% } %>
 <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderUpdatePreference" onsubmit="return checkTypeInAll()">
 <input type="hidden" name="color_template" value="deepblue">
 <input type="hidden" name="ticklerforproviderno" value="<carlos:encode value='<%= props.getOrDefault(UserProperty.PROVIDER_FOR_TICKLER_WARNING, "") %>' context="htmlAttribute"/>">
+<% if (showScheduleNav) { %>
+<%-- Preserve scheduleNav across save so the confirmation page knows to navigate back in-tab instead of self.close(). --%>
+<input type="hidden" name="scheduleNav" value="1">
+<% } %>
 
 <%-- ═══════════════════════════════════════════════════════════════════════
      HEADER BAR - Sticky navy header matching the schedule page top bar

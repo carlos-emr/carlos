@@ -80,6 +80,20 @@
         resourcehelpHtml = rbuHtml.getValue();
     }
 
+    // Oscar.js's shared popup()/newWindow() helpers already check a global
+    // openEncounterInTab JS variable and respect the "Open Encounters in Tab"
+    // preference (see share/javascript/Oscar.js). schedulePage.js.jsp declares
+    // that variable on the schedule day view, but pages that only include this
+    // shared top bar (Search, Inbox, Administration, Dashboard, etc. via
+    // popupPage2/newWindow fallbacks below) never declared it, so those popups
+    // always ignored the preference. Resolve and declare it here too so every
+    // page using this top bar behaves the same as the schedule day view.
+    boolean openEncounterInTab = false;
+    UserProperty menuTabProp = userPropertyDao.getProp(curUser_no, UserProperty.ENCOUNTER_OPEN_IN_TAB);
+    if (menuTabProp != null) {
+        openEncounterInTab = "yes".equalsIgnoreCase(menuTabProp.getValue());
+    }
+
     Provider loggedInProvider = loggedInInfo != null ? loggedInInfo.getLoggedInProvider() : null;
     String userfirstname = loggedInProvider != null ? loggedInProvider.getFirstName() : "";
     String userlastname = loggedInProvider != null ? loggedInProvider.getLastName() : "";
@@ -109,6 +123,8 @@
     String administrationUrl = request.getContextPath() + "/administration";
     String searchUrl = request.getContextPath() + "/demographic/ViewSearch";
     String econsultUrl = request.getContextPath() + "/encounter/econsult";
+    String scratchUrl = request.getContextPath() + "/Scratch";
+    String providerPreferenceUrl = request.getContextPath() + "/provider/ViewProviderPreference?provider_no=" + SafeEncode.forUriComponent(curUser_no);
 %>
 
 <input type="hidden" value="${pageContext.servletContext.contextPath}" id="contextPath" />
@@ -324,8 +340,7 @@
                         </security:oscarSec>
                         <li id="helpLink">
                             <%if (resourcehelpHtml == "") { %>
-                            <a href="javascript:void(0)"
-                               onClick="popupPage(600,750,'<%=resourcebaseurl%>')"><fmt:message key="global.help"/></a>
+                            <a href="https://github.com/carlos-emr" target="_blank" rel="noopener noreferrer"><fmt:message key="global.help"/></a>
                             <%} else {%>
                             <div id="help-link">
                                 <a href="javascript:void(0)"
@@ -358,14 +373,14 @@
         <td id="userSettings">
             <ul id="userSettingsMenu">
                 <li>
-                    <a title="<fmt:message key='ScratchPad.title'/>" href="javascript: function myFunction() {return false; }"
-                       onClick="popup(700,1024,'<%= request.getContextPath() %>/Scratch','scratch')"><span
+                    <a title="<fmt:message key='ScratchPad.title'/>" href="#"
+                       onClick="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(scratchUrl)%>', function(u){ popup(700,1024,u,'scratch'); }, event);"><span
                             class="fa-solid fa-rectangle-list"></span></a>
                 </li>
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
-                    <a href="javascript:void(0)"
-                       onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<carlos:encode value='<%= curUser_no %>' context="uriComponent"/>')"
+                    <a href="#"
+                       onClick="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(providerPreferenceUrl)%>', function(u){ popupPage(800,1000,u); }, event);"
                        title='<fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
 
                         </security:oscarSec>
@@ -392,6 +407,12 @@
 <script>
     var scheduleNavActive = <%=scheduleNavActive%>;
     var contextPath = document.getElementById("contextPath").value;
+    // Declared globally so Oscar.js's shared popup()/newWindow() helpers (and this
+    // menu's own openMenuPopup fallbacks below) honor the "Open Encounters in Tab"
+    // preference on every page that includes this top bar, not just the schedule day view.
+    if (typeof window.openEncounterInTab === 'undefined') {
+        window.openEncounterInTab = <%=openEncounterInTab%>;
+    }
 
     function normalizeScheduleMenuNavigationMode(mode) {
         if (mode === 'tab' || mode === 'focused') {
@@ -467,6 +488,16 @@
     }
 
     function fallbackMenuPopup(height, width, url, windowName) {
+        // This fallback runs on pages that don't load share/javascript/Oscar.js
+        // (e.g. administration/index.jsp), so it can't assume Oscar.js's real
+        // popup()/isForceWindowUrl()/popupTab() are defined. Re-check the
+        // preference here directly rather than silently ignoring it.
+        if (window.openEncounterInTab && (typeof isForceWindowUrl !== 'function' || !isForceWindowUrl(url))) {
+            if (typeof popupTab === 'function') {
+                return popupTab(url);
+            }
+            return window.open(url, '_blank');
+        }
         var windowprops = "height=" + height + ",width=" + width
             + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
         var opened = window.open(url, windowName, windowprops);

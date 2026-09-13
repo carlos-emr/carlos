@@ -40,8 +40,12 @@
     String newticklerwarningwindow = null;
 
     // Load schedule navigation separately from the legacy encounter-tab flag.
-    // Junior-dev note: focused schedule navigation should not change how other
-    // screens open encounters, so the old flag remains true only in "tab" mode.
+    // Both same-tab modes ("tab" and "focused") open appointment-click encounter
+    // popups (popupWithApptNo, popUpEncounter, etc.) in a browser tab instead of
+    // a popup window; only "popup" mode keeps the popup-window behavior. This
+    // matches ProviderPropertyAction, which saves the raw legacy flag as "yes"
+    // for both "tab" and "focused" so non-schedule pages that read it directly
+    // (demographicsearchresults.jsp, demographiceditdemographic.js.jsp) agree.
     String curProviderNo = (String) session.getAttribute("user");
     boolean openEncounterInTab = false;
     String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
@@ -53,7 +57,7 @@
         scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
                 savedMode,
                 tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue()));
-        openEncounterInTab = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode);
+        openEncounterInTab = !UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP.equals(scheduleNavigationMode);
     }
     pageContext.setAttribute("scheduleNavigationModeValue", scheduleNavigationMode);
 %>
@@ -425,7 +429,7 @@ return 'popup';
 
 function applyScheduleNavigationPreference(mode) {
 scheduleNavigationMode = normalizeScheduleNavigationMode(mode);
-openEncounterInTab = scheduleNavigationMode === 'tab';
+openEncounterInTab = scheduleNavigationMode !== 'popup';
 }
 
 function handleScheduleNavigationPreferenceMessage(message) {

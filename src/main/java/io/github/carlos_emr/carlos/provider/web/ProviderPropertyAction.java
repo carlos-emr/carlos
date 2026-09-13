@@ -232,10 +232,14 @@ public class ProviderPropertyAction {
 
         try {
             dao.saveProp(providerNo, UserProperty.SCHEDULE_NAVIGATION_MODE, mode);
-            // The legacy flag is still read by non-schedule pages. Only the
-            // explicit "Tabs" mode should keep that wider behavior enabled.
-            dao.saveProp(providerNo, UserProperty.ENCOUNTER_OPEN_IN_TAB,
-                    UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(mode) ? "yes" : "no");
+            // The legacy flag is still read directly (not resolved via
+            // resolveScheduleNavigationMode) by non-schedule pages such as
+            // demographicsearchresults.jsp and demographiceditdemographic.js.jsp.
+            // Both same-tab modes ("Tab" and "Focused") should keep that wider
+            // behavior enabled; only "Popup" mode disables it.
+            boolean sameTabMode = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(mode)
+                    || UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(mode);
+            dao.saveProp(providerNo, UserProperty.ENCOUNTER_OPEN_IN_TAB, sameTabMode ? "yes" : "no");
         } catch (PersistenceException e) {
             MiscUtils.getLogger().error("Failed to save schedule navigation mode for provider {}", providerNo, e);
             throw e;

@@ -114,9 +114,10 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String ENCOUNTER_OPEN_IN_TAB = "encounter_open_in_tab";
     /**
      * Provider preference key for the schedule top-menu launch mode.
-     * Keep this separate from ENCOUNTER_OPEN_IN_TAB because the schedule shell
-     * behavior is a navigation preference, while encounter tabs affect clinical
-     * popup behavior across other screens.
+     * ProviderPropertyAction keeps ENCOUNTER_OPEN_IN_TAB in sync with this value:
+     * both same-tab modes ({@link #SCHEDULE_NAVIGATION_MODE_TAB} and
+     * {@link #SCHEDULE_NAVIGATION_MODE_FOCUSED}) set the legacy flag to "yes";
+     * only {@link #SCHEDULE_NAVIGATION_MODE_POPUP} sets it to "no".
      */
     public static final String SCHEDULE_NAVIGATION_MODE = "schedule_navigation_mode";
     public static final String SCHEDULE_NAVIGATION_MODE_POPUP = "popup";
