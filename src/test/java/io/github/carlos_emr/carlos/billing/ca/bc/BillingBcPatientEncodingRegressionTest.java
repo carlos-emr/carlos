@@ -56,8 +56,17 @@ class BillingBcPatientEncodingRegressionTest {
 
         for (String patientField : BILLING_CORRECTION_REVIEW_PATIENT_FIELDS) {
             assertUsesHtmlEncodingForScriptlet(jsp, patientField);
-            assertThat(jsp).doesNotContainPattern("<%=\\s*" + patientField + "\\s*%>");
         }
+
+        assertThat(jsp)
+                .doesNotContainPattern("Patient Name:\\s*<%=\\s*_p0_10\\s*%>")
+                .doesNotContainPattern("Health#\\s*:\\s*<%=\\s*_p0_2\\s*%>")
+                .doesNotContainPattern("Sex:\\s*<%=\\s*_p0_15\\s*%>")
+                .doesNotContainPattern("D\\.O\\.B\\.\\s*:\\s*<%=\\s*_p0_6\\s*%>")
+                .doesNotContainPattern("Address:\\s*<%=\\s*_p0_11\\s*%>")
+                .doesNotContainPattern("City:\\s*<%=\\s*_p0_13\\s*%>")
+                .doesNotContainPattern("Province:\\s*<%=\\s*_p0_12\\s*%>")
+                .doesNotContainPattern("Postal\\s+Code:\\s*<%=\\s*_p0_14\\s*%>");
     }
 
     @Test
