@@ -722,6 +722,30 @@ Which log holds what
   troubleshooting is fine; put it back afterwards, because DEBUG on this
   application can put request parameters — which is to say PHI — into the log.
 
+The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silent
+  `carlos-ctl check` reports "this installation never finished", or the database
+  section says the schema has NO tables. Finish the install:
+
+    sudo carlos-ctl finish-install
+
+  Why this can happen with an apt run that reported no error: every provisioning
+  step in the postinst is deliberately non-fatal. A database that is unreachable
+  must not leave dpkg half-configured, because that would block the other CARLOS
+  packages and anything else in the same transaction. So the failure is reported
+  on stderr, the transaction succeeds, and on a front end that never showed you
+  stderr the install simply looks finished.
+
+  What it leaves behind is recorded in /var/lib/carlos-emr/.install-incomplete,
+  and the same file is what makes carlos-emr-provision.service finish the job at
+  the next boot. The usual cause is the database: check
+  `journalctl -u mariadb` and, on a small machine, `journalctl -k | grep -i oom`
+  for a MariaDB the kernel killed under memory pressure during the install (the
+  8 GB in the requirements assumes a server, not a desktop session as well).
+
+  DrugRef "not answering XML-RPC on loopback" is usually this same failure seen
+  from the other end rather than a DrugRef problem: DrugRef is a second webapp in
+  the EMR's Tomcat, so while the EMR is not running, DrugRef answers nothing.
+
 eForm print, fax or archive fails
   Those three are the only workflows that need a browser, and it runs as its own
   service. Check, in this order:

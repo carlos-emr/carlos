@@ -141,3 +141,25 @@ Description: CARLOS EMR is installed
  /usr/share/doc/carlos-emr/README.Debian before putting patient data on this
  system — in particular the sections on backups, which are stored on this host
  only until you configure an offsite repository.
+
+Template: carlos-emr/install-incomplete
+Type: error
+Description: CARLOS EMR is installed but is NOT ready to use
+ The package could not finish provisioning the database, so this host has no
+ clinical schema, no administrator credential, and the EMR has not been
+ started. Drug lookups are silent for the same reason: DrugRef shares the
+ application server that did not start.
+ .
+ Nothing is lost and nothing needs reinstalling. The reason was reported in the
+ installation output and is recorded in /var/lib/carlos-emr/.install-incomplete
+ — most often a database server that was not running, or that went away during
+ the installation.
+ .
+ Fix that cause if it is still present, then finish the install with:
+ .
+ sudo carlos-ctl finish-install
+ .
+ It resumes exactly where the installer stopped — database settings, accounts,
+ the schema, the administrator credential and the demonstration dataset if you
+ asked for one — and then starts the EMR. It also runs by itself at the next
+ boot. Check the result with "sudo carlos-ctl check".

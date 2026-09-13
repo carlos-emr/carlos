@@ -15,12 +15,15 @@ import os
 import sys
 from typing import List, Optional
 
-from . import config, dbops, util, validate, waf
+from . import config, dbops, provision, util, validate, waf
 from .util import LIB, die, need_root
 
 _USAGE = """carlos-ctl — administration for a CARLOS EMR host
 
   carlos-ctl check                run the full deployment check (start here)
+  carlos-ctl finish-install       finish an installation whose database
+                                  provisioning did not run (idempotent; also
+                                  runs itself at the next boot)
   carlos-ctl status               systemd status of the EMR and its timers
   carlos-ctl restart              restart the EMR (applies config changes;
                                   takes ~2 minutes to redeploy)
@@ -176,6 +179,7 @@ def _cmd_logs(argv) -> int:
 
 _VERBS = {
     "check": validate.cmd_check,
+    "finish-install": provision.cmd_finish_install,
     "status": _cmd_status,
     "db": dbops.cmd_db,
     "db-dump": dbops.cmd_db_dump,

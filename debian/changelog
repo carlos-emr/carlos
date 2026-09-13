@@ -1,3 +1,39 @@
+carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
+
+  * An installation that could not provision its database no longer looks like
+    a successful one. Every database step in the package's configuration is
+    deliberately non-fatal -- a database that is unreachable must not leave
+    dpkg half-configured and block the other CARLOS packages, or anything else
+    in the same apt transaction -- so the diagnosis went to stderr and apt
+    still reported success. On a front end that never showed that stderr, the
+    result was a host that looked installed and had no clinical schema at all,
+    with nothing that ever retried: a reboot left it exactly as broken.
+    Reported by an alpha tester whose install ended with no tables in the
+    clinical database.
+  * The installer now records what it could not do in
+    /var/lib/carlos-emr/.install-incomplete and raises a debconf note at
+    critical priority, which every front end presents.
+  * A new "carlos-ctl finish-install" resumes provisioning where the installer
+    stopped -- the MariaDB settings, the least-privilege accounts, the schema,
+    the seeded administrator credential and the demonstration dataset if the
+    install asked for one -- and then starts the EMR. It is idempotent, and it
+    fails closed the same way the installer does if the published carlosdoc
+    credential cannot be replaced. It also reports a drug reference database
+    that the same failure left unseeded, and names the command that loads it.
+  * carlos-emr-provision.service runs that once at each boot, ordered before
+    carlos-emr.service, so an install interrupted by a database that went away
+    completes by itself. It is skipped outright when there is no marker, and it
+    refuses to migrate a schema that already has tables: an upgrade migration
+    stays an operator decision taken after a verified backup.
+  * "carlos-ctl check" reports an unfinished install first, before the dozen
+    unrelated-looking failures it causes, and names the command that fixes it.
+    Its table count no longer reports a query that FAILED as a database with no
+    tables, and DrugRef not answering on loopback while the EMR is stopped is
+    now reported as what it is -- DrugRef shares that application server --
+    instead of pointing at the DrugRef deployment.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 13 Sep 2026 00:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
 
   * Saving a provider's encounter-note template (Administration > Provider

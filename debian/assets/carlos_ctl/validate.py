@@ -8,7 +8,7 @@ import os
 import re
 import time
 
-from . import config, dbops, util
+from . import config, dbops, provision, util
 from .util import (
     BACKUP_ENV, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RESET, YELLOW, need_root, out, run,
 )
@@ -73,9 +73,27 @@ def cmd_check(argv) -> int:
     s = config.load()
     print(f"\nCARLOS EMR deployment check ({s.server_name})\n")
 
+    # First, because it explains most of what follows: the installer records
+    # this marker when a provisioning step did not run, and an install that
+    # ended there has no schema, no administrator credential and a stopped
+    # EMR — which then reads as a dozen unrelated failures below.
+    if provision.pending():
+        print("installation")
+        _bad(f"this installation never finished: {provision.reason()}. "
+             "Nothing is lost — finish it with 'sudo carlos-ctl finish-install' "
+             "(it resumes where the installer stopped, and runs itself at the "
+             "next boot)")
+        print()
+
     print("services")
+    # Kept for the DrugRef probe far below, which is a probe of THIS service:
+    # DrugRef is a second webapp in the same Tomcat.
+    emr_running = False
     for unit in ("mariadb", "nginx", "carlos-emr"):
-        if run(["systemctl", "is-active", "--quiet", unit]).returncode == 0:
+        active = run(["systemctl", "is-active", "--quiet", unit]).returncode == 0
+        if unit == "carlos-emr":
+            emr_running = active
+        if active:
             _ok(f"{unit} is running")
         else:
             _bad(f"{unit} is NOT running (systemctl status {unit})")
@@ -402,6 +420,14 @@ def cmd_check(argv) -> int:
                      "empty dataset (journalctl -u carlos-emr | grep -i hikari)")
             else:
                 _ok("DrugRef answers a live drug lookup over XML-RPC")
+        elif not emr_running:
+            # DrugRef is a second webapp in the EMR's Tomcat, so a stopped EMR
+            # is a silent DrugRef. Saying "is the context deployed?" here sent
+            # an alpha tester looking at DrugRef when the real failure — an
+            # install whose schema was never created — was two sections down.
+            _bad("DrugRef is not answering XML-RPC on loopback because carlos-emr is NOT "
+                 "running: DrugRef shares that Tomcat. Fix the service (see 'services' "
+                 "above); DrugRef comes back with it")
         else:
             _bad("DrugRef is not answering XML-RPC on loopback (is the /drugref2 context "
                  "deployed? carlos-ctl logs | grep drugref2)")
@@ -411,10 +437,23 @@ def cmd_check(argv) -> int:
     print("\ndatabase")
     if dbops.db_root_ok():
         _ok("MariaDB reachable as root over the unix socket")
-        n = out(["mariadb", "--protocol=socket", "--user=root", "-N", "-B", "-e",
-                 f"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{s.db_name}'"])
-        if n.isdigit() and int(n) > 100:
+        # A COUNT that FAILED and a COUNT that returned zero are different
+        # answers, and out() renders both as "" — which reported a database
+        # that could not be queried as one with no tables. Same discipline the
+        # demo-data guards already apply.
+        cp = dbops.db_root(
+            ["-N", "-B", "-e", "SELECT COUNT(*) FROM information_schema.tables "
+             f"WHERE table_schema='{s.db_name}'"], capture_output=True)
+        n = cp.stdout.strip() if cp.returncode == 0 else ""
+        if cp.returncode != 0:
+            _bad(f"could not count the tables in {s.db_name}: "
+                 f"{cp.stderr.strip() or 'the query failed'}")
+        elif n.isdigit() and int(n) > 100:
             _ok(f"{s.db_name} has {n} tables")
+        elif n == "0":
+            _bad(f"{s.db_name} has NO tables: the schema was never created. The install "
+                 "did not finish — run 'sudo carlos-ctl finish-install' (it creates the "
+                 "schema, replaces the seeded credential and starts the EMR)")
         else:
             _bad(f"{s.db_name} has only {n or 0} tables — has the schema been migrated?")
         n = out(["mariadb", "--protocol=socket", "--user=root", "-N", "-B", "-e",
@@ -423,7 +462,8 @@ def cmd_check(argv) -> int:
             _ok(f"flyway_schema_history has {n} successful migration(s)")
         else:
             _bad("flyway_schema_history is empty or missing — the application's boot-time "
-                 "schema gate will fail")
+                 "schema gate will fail ('carlos-ctl finish-install' on an install that "
+                 "never provisioned, 'carlos-ctl db-info' otherwise)")
     else:
         _bad("cannot reach MariaDB as root over the unix socket")
 

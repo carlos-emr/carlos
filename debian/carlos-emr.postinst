@@ -29,6 +29,34 @@ STATE=/var/lib/carlos-emr
 # Cleared automatically by the next successful bootstrap-admin.
 SEED_SENTINEL="${STATE}/.seed-credential-live"
 
+# Durable record that database provisioning is OWED. Every provisioning step
+# below is deliberately non-fatal — a database that is unreachable must not
+# leave dpkg half-configured and block the rest of the apt transaction — but
+# the consequence, reported by an alpha tester, is that apt exits 0 over a host
+# with no clinical schema, with the diagnosis only on a stderr stream a
+# graphical or quiet front end never showed. This marker outlives the run so
+# the failure is still there to be found: `carlos-ctl check` reports it first,
+# the debconf note at the end of this script announces it whatever the front
+# end, and carlos-emr-provision.service finishes the job at the next boot.
+# It carries what the install asked for, so the resumed run makes the same
+# decisions this one would have.
+INCOMPLETE_MARKER="${STATE}/.install-incomplete"
+
+mark_incomplete() {
+    mkdir -p "${STATE}"
+    # The reason is one of this script's own constant strings: one line, no
+    # values that could carry a newline into a KEY=value file.
+    {
+        printf 'reason=%s\n' "$1"
+        printf 'reset_admin=%s\n' "${RESET_ADMIN:-true}"
+        printf 'demo_data=%s\n' "${DEMO_DATA:-false}"
+        printf 'at=%s\n' "$(date -Is 2>/dev/null || true)"
+    } > "${INCOMPLETE_MARKER}"
+    chmod 0644 "${INCOMPLETE_MARKER}"
+    echo "carlos-emr: recorded the unfinished install in ${INCOMPLETE_MARKER}." >&2
+    echo "carlos-emr: finish it with:  sudo carlos-ctl finish-install" >&2
+}
+
 # deb-systemd-invoke rather than systemctl: it honours /usr/sbin/policy-rc.d,
 # which is how an image build or a chroot says "configure this package but do
 # not start anything". A raw systemctl call ignores that and would start a
@@ -727,6 +755,7 @@ case "$1" in
                 echo "carlos-emr:   sudo carlos-ctl db-apply-settings && sudo carlos-ctl db-users && \\" >&2
                 echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
                 echo "carlos-emr:   sudo systemctl start carlos-emr" >&2
+                mark_incomplete "the database accounts could not be provisioned"
             fi
             # Apply the schema. On a fresh database this creates everything; on
             # an existing one Flyway applies only what is pending and refuses
@@ -741,6 +770,7 @@ case "$1" in
                 echo "carlos-emr: anyway would loop through two-minute failed deployments." >&2
                 echo "carlos-emr: run 'carlos-ctl db-info' to see the state, fix the cause, then:" >&2
                 echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo systemctl start carlos-emr" >&2
+                mark_incomplete "the database schema migration failed"
             fi
             if [ "${RESET_ADMIN}" = true ]; then
                 # Fail CLOSED. If the seeded 'carlosdoc' credential cannot be
@@ -810,10 +840,16 @@ case "$1" in
         else
             MIGRATION_OK=0
             echo "carlos-emr: could not reach MariaDB as root over the unix socket." >&2
-            echo "carlos-emr: finish setup by hand once it is running:" >&2
-            echo "carlos-emr:   sudo carlos-ctl db-apply-settings && sudo carlos-ctl db-users && \\" >&2
-                echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
-            echo "carlos-emr:   sudo systemctl start carlos-emr" >&2
+            echo "carlos-emr: NOTHING has been provisioned: no accounts, no schema, no" >&2
+            echo "carlos-emr: administrator credential, and the EMR has not been started." >&2
+            mark_incomplete "MariaDB was not reachable while the package was configured"
+        fi
+
+        # Everything provisioned: drop any marker a previous failed configure
+        # left behind, so the boot-time completion and `carlos-ctl check` stop
+        # reporting a problem that this run has just fixed.
+        if [ "${MIGRATION_OK}" = 1 ]; then
+            rm -f "${INCOMPLETE_MARKER}"
         fi
 
         # --- TLS ------------------------------------------------------------
@@ -1040,6 +1076,23 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         db_input high carlos-emr/initial-credentials || true
         db_go || true
     fi
+fi
+
+# The one outcome an operator must not be able to miss. Everything above
+# reports a failed provisioning step on stderr and lets the transaction
+# succeed, which is right for dpkg and wrong for the person installing: apt
+# prints "done", and a graphical front end never showed them a stderr stream at
+# all. A debconf note is the only channel every front end presents, and it is
+# raised at critical priority so a low-priority or preseeded run still records
+# it. Outside the systemd guard above on purpose: an image or chroot build that
+# provisioned nothing needs the same notice.
+if [ "$1" = configure ] && [ -e "${INCOMPLETE_MARKER}" ]; then
+    # 'seen false' first: debconf shows a note once and then skips it, so a
+    # second failed attempt — the one an operator is most likely to be watching
+    # for — would otherwise pass in silence.
+    db_fset carlos-emr/install-incomplete seen false || true
+    db_input critical carlos-emr/install-incomplete || true
+    db_go || true
 fi
 
 exit 0

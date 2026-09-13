@@ -16,6 +16,13 @@ Documentation=https://github.com/carlos-emr/carlos
 # already waits for the database to answer before handing off to Tomcat.
 Wants=mariadb.service network-online.target
 After=mariadb.service network-online.target
+# An installation whose database provisioning did not run leaves a marker and
+# no schema; carlos-emr-provision.service finishes the job and is ordered
+# before this unit. Wants, so it is pulled in by a manual `systemctl start`
+# too, and so that a provisioning run that cannot finish never stops the EMR
+# from starting. The unit is skipped in microseconds when there is no marker.
+Wants=carlos-emr-provision.service
+After=carlos-emr-provision.service
 
 [Service]
 Type=exec

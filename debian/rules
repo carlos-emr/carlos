@@ -407,6 +407,10 @@ override_dh_makeshlibs:
 # /etc/carlos-emr/carlos.properties.
 override_dh_installsystemd:
 	dh_installsystemd --no-start --name=carlos-emr
+	# Enabled, never started here: it is a boot-time completion for an install
+	# whose provisioning did not run, and this postinst has just tried to do
+	# that provisioning itself.
+	dh_installsystemd --no-start --name=carlos-emr-provision
 	dh_installsystemd --no-start --name=carlos-emr-backup
 	dh_installsystemd --no-start --name=carlos-emr-backup-verify
 	dh_installsystemd --no-start --name=carlos-emr-cert-renew

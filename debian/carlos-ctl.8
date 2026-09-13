@@ -184,6 +184,35 @@ would not see the repository. Runs outside the timer unit's sandbox, so it
 can also restore to paths the unit itself may not write.
 .SS Provisioning
 .TP
+.B finish-install
+Finish an installation whose database provisioning did not run, and start the
+EMR. Every provisioning step in the package's postinst is deliberately
+non\-fatal \(em a database that is unreachable must not leave dpkg
+half\-configured and block the rest of an apt transaction \(em so an install
+can end with no clinical schema while apt still reports success. The postinst
+records that in
+.IR /var/lib/carlos\-emr/.install\-incomplete ,
+.B check
+reports it, and this command completes it: the MariaDB settings drop\-in, the
+accounts, the schema, the seeded administrator credential, and the
+demonstration dataset if the install asked for one.
+.IP
+It is idempotent, so a step that already succeeded is detected and skipped, and
+it can be re\-run after fixing whatever stopped the install. DrugRef answering
+nothing on loopback is usually this same failure seen from the other end: it
+shares the application server that never started.
+.IP
+.B carlos\-emr\-provision.service
+runs
+.B finish-install --boot
+once at each boot, ordered before
+.BR carlos\-emr.service ,
+so an install interrupted by a database that went away completes by itself. In
+that mode it does nothing without the marker, and it will NOT migrate a schema
+that already has tables: an upgrade migration is a decision taken after a
+verified backup, with
+.BR db-migrate .
+.TP
 .B init-config
 Re\-render AND APPLY the derived configuration from
 .IR /etc/carlos\-emr/carlos\-emr.env :
@@ -244,6 +273,12 @@ WAF policy and site exclusions.
 .TP
 .I /etc/nginx/sites-available/carlos-emr
 The front door.
+.TP
+.I /var/lib/carlos-emr/.install-incomplete
+Present when the installer could not provision the database. Names the reason
+and what the install asked for; removed by a successful
+.B finish-install
+or reconfigure.
 .SH EXIT STATUS
 .B check
 exits non\-zero when any check fails. Other commands exit non\-zero on error.
