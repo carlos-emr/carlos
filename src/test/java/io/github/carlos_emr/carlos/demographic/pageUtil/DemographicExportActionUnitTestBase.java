@@ -123,6 +123,12 @@ abstract class DemographicExportActionUnitTestBase extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
+        // requireLoggedInInfoFromSession() delegates to getLoggedInInfoFromSession() in production,
+        // but mockStatic intercepts every static on the class — the delegation never runs, so the
+        // wrapper has to be stubbed in its own right. Without this it returns null and the
+        // privilege check below is handed a null LoggedInInfo.
+        loggedInInfoMock.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(loggedInInfo);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
                 .thenReturn(true);

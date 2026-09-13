@@ -106,6 +106,12 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
+        // requireLoggedInInfoFromSession() delegates to getLoggedInInfoFromSession() in production,
+        // but mockStatic intercepts every static on the class — the delegation never runs, so the
+        // wrapper has to be stubbed in its own right. Without this it returns null, the privilege
+        // check is handed a null LoggedInInfo, and every test here dies on SecurityException.
+        loggedInInfoMock.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(RelationshipsDao.class, relationshipsDao);

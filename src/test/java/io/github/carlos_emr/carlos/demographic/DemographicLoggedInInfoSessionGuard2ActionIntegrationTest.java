@@ -41,7 +41,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @Tag("integration")
 @Tag("web")
 @Tag("demographic")
-class DemographicLoggedInInfoSessionGuard2ActionTest extends CarlosWebTestBase {
+class DemographicLoggedInInfoSessionGuard2ActionIntegrationTest extends CarlosWebTestBase {
 
     private static final String LOGGED_IN_INFO_SESSION_KEY = new LoggedInInfo().getLoggedInInfoKey();
 
