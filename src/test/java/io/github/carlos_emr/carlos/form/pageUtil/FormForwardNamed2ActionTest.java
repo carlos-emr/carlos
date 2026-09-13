@@ -102,6 +102,7 @@ class FormForwardNamed2ActionTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockResponse).setContentType("text/html;charset=UTF-8");
         verify(mockDispatcher).include(mockRequest, mockResponse);
     }
 

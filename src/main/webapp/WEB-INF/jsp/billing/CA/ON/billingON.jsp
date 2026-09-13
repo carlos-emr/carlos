@@ -988,6 +988,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                              by structured formModel site/provider data. --%>
                                         <c:choose>
                                             <c:when test="${formModel.multisite.enabled}">
+                                                <fmt:message key="oscar.billing.ca.on.billingON.selectProvider" var="billingSelectProviderLabel"/>
                                                 <script>
                                                     var _providers = {};
                                                     <c:forEach var="msite" items="${formModel.multisite.sites}">
@@ -1003,6 +1004,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                                     function changeSite(sel) {
                                                         var providerSelect = sel.form.xml_provider;
                                                         providerSelect.innerHTML = "";
+                                                        providerSelect.appendChild(new Option('<carlos:encode value='${billingSelectProviderLabel}' context='javaScript'/>', '000000'));
                                                         if (sel.value != "none") {
                                                             (_providers[sel.value] || []).forEach(function (provider) {
                                                                 var option = document.createElement("option");
@@ -1032,30 +1034,14 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                             </c:when>
                                             <c:otherwise>
                                                 <select name="xml_provider">
-                                                    <c:choose>
-                                                        <c:when test="${fn:length(formModel.providerPanel.providers) eq 1}">
-                                                            <c:forEach var="po" items="${formModel.providerPanel.providers}">
-                                                                <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
-                                                                <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
-                                                                        ${formModel.providerPanel.providerView eq fn:trim(__poPrefix) ? 'selected' : ''}>
-                                                                    <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
-                                                                </option>
-                                                            </c:forEach>
-                                                        </c:when>
-                                                        <c:otherwise>
-                                                            <option value="000000"
-                                                                    ${formModel.providerPanel.providerView eq '000000' ? 'selected' : ''}>
-                                                                <b><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></b>
-                                                            </option>
-                                                            <c:forEach var="po" items="${formModel.providerPanel.providers}">
-                                                                <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
-                                                                <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
-                                                                        ${fn:toLowerCase(formModel.providerPanel.providerView) eq fn:toLowerCase(__poPrefix) ? 'selected' : ''}>
-                                                                    <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
-                                                                </option>
-                                                            </c:forEach>
-                                                        </c:otherwise>
-                                                    </c:choose>
+                                                    <option value="000000"><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></option>
+                                                    <c:forEach var="po" items="${formModel.providerPanel.providers}">
+                                                        <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
+                                                        <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
+                                                                ${formModel.providerPanel.providerView eq fn:trim(__poPrefix) ? 'selected' : ''}>
+                                                            <carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/>
+                                                        </option>
+                                                    </c:forEach>
                                                 </select>
                                             </c:otherwise>
                                         </c:choose>

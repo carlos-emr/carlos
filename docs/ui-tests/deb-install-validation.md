@@ -595,6 +595,15 @@ export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
 # silently testing two different application processes.
 service_restarts_before="$(systemctl show carlos-emr -p NRestarts --value)"
 suite_failed=0
+# Alpha-11 tester coverage scripts (docs/ui-tests/alpha-11-tester-coverage.md). They default to
+# demographic 1 / provider 999998 and clean up after themselves; the few knobs they take:
+#   NOTE_DEMOGRAPHIC_NO=2        (echart-note-sign-bill; demographic 1's chart 500s on the demo HRM rows)
+#   BILLING_SUBMIT_DATE=2024-05-06 BILLING_OHIP_CODE=A007A BILLING_BONUS_CODE=Q040A (billing-on-submit)
+#   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
+#   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
+#   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
+# On a fresh Ontario install, consultation-request-create and specialist-add-cpso need at least one
+# active consultationServices row (the ON seed ships them all inactive; see the coverage page, finding 21).
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
@@ -973,3 +982,22 @@ SCHEMA but always populated in the dump — regressions on the null path have
 been 500s in the past, so exercise it by nulling a row explicitly
 (`UPDATE consultationRequests SET providerNo=NULL, urgency=NULL WHERE
 requestId=<id>;`) rather than assuming the dump provides one.
+
+### Demo HRM report files
+
+The demo package includes synthetic HRM XML for all 41 report filenames in the
+snapshot, plus `demo-hrm-diagnostic-imaging.xml` for the attachment PDF check.
+The legacy `.xml.<timestamp>` filenames are intentional: existing demo installs
+can rerun `carlos-ctl demo-data` to bootstrap missing files even when the SQL
+completion marker already exists. Both Debian and devcontainer bootstraps leave
+existing documents untouched. These files contain invented, explicitly labelled
+reports for the FAKE patients; they do not reproduce the old reports' content.
+
+### Ontario consultation catalogue repair
+
+Migration `V1.0.23` activates the accidentally disabled reference catalogue only
+when all 257 entries still match the shipped Ontario seed and there are no
+non-FAKE patients. It preserves custom catalogues and clinical databases because
+`02` is also the administrator's deliberate-disable value. On a configured
+clinical installation, review and enable the intended services through the
+consultation service settings. Published migration checksums remain unchanged.

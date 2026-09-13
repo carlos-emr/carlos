@@ -484,8 +484,10 @@
 
             var lots;
             var startup = false, startup2 = false;
+            var cvcLookupSequence = 0;
 
             function changeCVCName() {
+                var lookupSequence = ++cvcLookupSequence;
                 lots = null;
 
                 var snomedId = document.getElementById('cvcName').value;
@@ -509,11 +511,16 @@
                     formData.append('snomedConceptId', snomedId);
                     fetch('<%=request.getContextPath()%>/cvc', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded',
+                            'CSRF-TOKEN': (document.querySelector('input[name="CSRF-TOKEN"]') || {}).value || ''},
                         body: formData.toString()
                     })
-                    .then(function(response) { return response.json(); })
+                    .then(function(response) {
+                        if (!response.ok) throw new Error('Vaccine lot lookup failed: HTTP ' + response.status);
+                        return response.json();
+                    })
                     .then(function(data) {
+                        if (lookupSequence !== cvcLookupSequence) return;
                         if (data != null && Array.isArray(data) && data.length > 0) {
                             lot.style.display = 'none';
                             cvcLot.style.display = '';
@@ -522,10 +529,13 @@
 
                             for (var x = 0; x < data.length; x++) {
                                 var item = data[x];
-                                var d = new Date(data[x].expiryDate.time);
-                                var month = ((d.getMonth() + 1) > 9) ? (d.getMonth() + 1) : ("0" + (d.getMonth() + 1));
-                                var day = ((d.getDate()) > 9) ? (d.getDate()) : ("0" + (d.getDate()));
-                                var output = d.getFullYear() + "-" + month + "-" + day;
+                                var output = '';
+                                if (item.expiryDate && item.expiryDate.time != null) {
+                                    var d = new Date(item.expiryDate.time);
+                                    var month = String(d.getMonth() + 1).padStart(2, '0');
+                                    var day = String(d.getDate()).padStart(2, '0');
+                                    output = d.getFullYear() + '-' + month + '-' + day;
+                                }
 
                                 var opt = document.createElement('option');
                                 opt.value = item.lotNumber;
@@ -547,6 +557,12 @@
                             cvcLot.innerHTML = '';
                             lot.style.display = '';
                         }
+                    }).catch(function(error) {
+                        if (lookupSequence !== cvcLookupSequence) return;
+                        cvcLot.style.display = 'none';
+                        cvcLot.innerHTML = '';
+                        lot.style.display = '';
+                        console.error(error.message);
                     });
                 }
             }

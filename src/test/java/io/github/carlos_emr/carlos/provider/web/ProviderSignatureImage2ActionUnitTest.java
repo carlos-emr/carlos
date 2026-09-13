@@ -287,8 +287,8 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return 404 when the requested provider stamp file is missing")
-    void shouldReturn404_whenRequestedProviderStampIsMissing() {
+    @DisplayName("should return uncached 204 when the requested provider stamp file is missing")
+    void shouldReturn204_whenRequestedProviderStampIsMissing() {
         mockRequest.setParameter("providerNo", "123456");
         when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -296,7 +296,9 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NO_CONTENT);
+        assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+        assertThat(mockResponse.getHeader("Cache-Control")).contains("no-store");
         assertThat(mockResponse.getContentAsByteArray()).isEmpty();
     }
 

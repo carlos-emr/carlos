@@ -553,36 +553,16 @@ async function openNewConsultation(context) {
 
 async function prepareConsultationForm(page) {
   await assertNotErrorPage(page, 'consultation form page');
-  const specialistSelect = page.locator('#specialist');
-  assert(await specialistSelect.count(), 'Consultation page did not render the specialist selector');
-  const options = await specialistSelect.locator('option').evaluateAll((nodes) => nodes
-    .map((node) => ({ value: node.value, text: (node.textContent || '').trim() }))
-    .filter((option) => option.value && option.value !== '-1'));
-
-  let submitMode = 'button';
-  if (options.length > 0) {
-    await specialistSelect.selectOption(options[0].value);
-    await page.waitForFunction(() => {
-      const serviceField = document.forms.EctConsultationFormRequest2Form && document.forms.EctConsultationFormRequest2Form.service;
-      return serviceField && serviceField.value && serviceField.value !== '0';
-    }, { timeout: 15000 });
-  } else {
-    const serviceWasSet = await page.evaluate(() => {
-      const form = document.forms.EctConsultationFormRequest2Form;
-      if (!form || !form.service) {
-        return false;
-      }
-      const services = Array.isArray(window.consultationServices) ? window.consultationServices : [];
-      const usable = services.find((service) => service && String(service.id || '') !== '' && String(service.id) !== '-1');
-      form.service.value = usable ? String(usable.id) : '57';
-      return form.service.value && form.service.value !== '0';
-    });
-    assert(serviceWasSet, 'Consultation page did not expose a usable service id for fallback submission');
-    submitMode = 'programmatic';
+  for (const [inputSelector, hiddenSelector] of [['#serviceInput', '#service'], ['#specialistInput', '#specialist']]) {
+    await page.locator(inputSelector).click();
+    const option = page.locator('ul.ui-autocomplete:visible li.ui-menu-item').first();
+    await option.waitFor({ state: 'visible', timeout: 15000 });
+    await option.click();
+    const selectedId = await page.locator(hiddenSelector).inputValue();
+    assert(/^\d+$/.test(selectedId) && selectedId !== '0', `${inputSelector} did not populate its selected ID`);
   }
 
   await page.locator('textarea[name="appointmentNotes"]').fill(`Playwright consultation note ${Date.now()}`);
-  return submitMode;
 }
 
 async function openConsultAttachmentPanelAndAttachEform(page, fdid) {

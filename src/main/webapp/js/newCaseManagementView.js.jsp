@@ -1248,6 +1248,10 @@ function updateCPPNote() {
     }
 
     function getActiveText(e) {
+        // The keyword search box is optional in the encounter layout.
+        if (!$("keyword")) {
+            return true;
+        }
         if (document.all) {
 
             text = document.selection.createRange().text;

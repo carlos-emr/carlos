@@ -1,6 +1,12 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.ServiceSpecialistsDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
+import io.github.carlos_emr.carlos.commn.model.ServiceSpecialists;
+import io.github.carlos_emr.carlos.commn.model.ServiceSpecialistsPK;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +47,46 @@ public class ProfessionalSpecialistsManager implements Serializable {
 
     @Autowired
     private SecurityInfoManager securityInfoManager;
+
+    @Autowired
+    private ConsultationServiceDao consultationServiceDao;
+
+    @Autowired
+    private ServiceSpecialistsDao serviceSpecialistsDao;
+
+    /** Save the specialist and the selected consultation service together. Other service
+     * assignments are retained; their removal belongs to the service administration page. */
+    @Transactional
+    public void saveProfessionalSpecialist(LoggedInInfo loggedInInfo, ProfessionalSpecialist specialist) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+        String specialty = specialist.getSpecialtyType();
+        Integer serviceId = null;
+        if (specialty != null && !specialty.isBlank() && !"0".equals(specialty)) {
+            if (!specialty.matches("[0-9]{1,9}")) {
+                throw new IllegalArgumentException("Invalid consultation specialty");
+            }
+            serviceId = Integer.valueOf(specialty);
+            ConsultationServices service = consultationServiceDao.find(serviceId);
+            if (service == null || !ConsultationServiceDao.ACTIVE.equals(service.getActive())) {
+                throw new IllegalArgumentException("Consultation specialty is not active");
+            }
+        }
+        if (specialist.getId() == null) {
+            professionalSpecialistDao.persist(specialist);
+        } else {
+            professionalSpecialistDao.merge(specialist);
+        }
+        if (serviceId != null) {
+            ServiceSpecialistsPK key = new ServiceSpecialistsPK(serviceId, specialist.getId());
+            if (serviceSpecialistsDao.find(key) == null) {
+                ServiceSpecialists assignment = new ServiceSpecialists();
+                assignment.setId(key);
+                serviceSpecialistsDao.persist(assignment);
+            }
+        }
+    }
 
     /**
      * Default constructor for Spring dependency injection.

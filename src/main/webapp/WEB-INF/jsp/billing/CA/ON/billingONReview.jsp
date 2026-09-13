@@ -69,8 +69,10 @@
         var bClick = false;
 
         function onSave() {
-            var value = document.getElementById("payee").value;
-            document.getElementById("payeename").value = value;
+            var payee = document.getElementById("payee");
+            if (payee) {
+                document.getElementById("payeename").value = payee.value;
+            }
             var ret = checkTotal();
             bClick = false;
 

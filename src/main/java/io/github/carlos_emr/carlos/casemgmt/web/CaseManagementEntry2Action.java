@@ -395,23 +395,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // get the last temp note?
         else if (tmpsavenote != null && !forceNote.equals("true")) {
             logger.debug("tempsavenote is NOT NULL");
-            if (tmpsavenote.getNoteId() > 0) {
-                session.setAttribute("newNote", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                request.setAttribute("noteId", String.valueOf(tmpsavenote.getNoteId()));
-                note = caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId()));
-                logger.debug("Restoring " + String.valueOf(note.getId()));
+            CaseManagementNote original = tmpsavenote.getNoteId() > 0
+                    ? caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId())) : null;
+            note = restoreDraftNote(original, tmpsavenote.getNote(), providerNo, demono);
+            if (original == null) {
+                // Keep the draft text even if its original note no longer exists. Render it
+                // as a new note so the save and lock paths do not reuse the orphaned ID.
+                session.setAttribute("newNote", "true");
+                session.setAttribute("issueStatusChanged", "false");
+                request.setAttribute("noteId", "0");
             } else {
-                session.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                session.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                note = new CaseManagementNote();
-                note.setProviderNo(providerNo);
-                Provider prov = new Provider();
-                prov.setProviderNo(providerNo);
-                note.setProvider(prov);
-                note.setDemographic_no(demono);
+                session.setAttribute("newNote", "false");
+                request.setAttribute("noteId", String.valueOf(note.getId()));
             }
 
-            note.setNote(tmpsavenote.getNote());
             logger.debug("Restored temp note id={} noteLength={}",
                     LogSafe.sanitize(String.valueOf(note.getId())),
                     note.getNote() == null ? 0 : note.getNote().length());
@@ -678,14 +675,32 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return note;
     }
 
-    private static synchronized CasemgmtNoteLock isNoteEdited(Long note_id, Integer demographicNo, String providerNo, String ipAddress, String sessionId) {
+    /** Restore draft content without discarding text when the referenced note is missing. */
+    static CaseManagementNote restoreDraftNote(CaseManagementNote original, String draftText,
+                                               String providerNo, String demographicNo) {
+        CaseManagementNote restored = original;
+        if (restored == null) {
+            restored = new CaseManagementNote();
+            restored.setProviderNo(providerNo);
+            Provider provider = new Provider();
+            provider.setProviderNo(providerNo);
+            restored.setProvider(provider);
+            restored.setDemographic_no(demographicNo);
+        } else if (!Objects.equals(demographicNo, restored.getDemographic_no())) {
+            throw new SecurityException("Draft references a note outside this patient chart");
+        }
+        restored.setNote(draftText);
+        return restored;
+    }
+
+    static synchronized CasemgmtNoteLock isNoteEdited(Long note_id, Integer demographicNo, String providerNo, String ipAddress, String sessionId) {
         CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
         CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.findByNoteDemo(demographicNo, note_id);
 
         //We determine the lock status of the note
         if (casemgmtNoteLock != null) {
             //it has a lock; check if lock is same user
-            if (casemgmtNoteLock.getProviderNo().equals(providerNo)) {
+            if (Objects.equals(casemgmtNoteLock.getProviderNo(), providerNo)) {
                 //Same user has this note open elsewhere
                 casemgmtNoteLock.setLockedBySameUser(true);
             } else if (note_id != 0) {
@@ -1333,6 +1348,28 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /** Bind a new note to this chart's appointment, without changing an existing note's visit. */
+    static int resolveNoteAppointmentNo(CaseManagementNote note, String requestAppointmentNo,
+                                        String sessionAppointmentNo,
+                                        java.util.function.IntFunction<Appointment> findAppointment) {
+        if (note.getId() != null && note.getId() > 0) return note.getAppointmentNo();
+        String candidate = requestAppointmentNo != null ? requestAppointmentNo : sessionAppointmentNo;
+        if (candidate == null || !candidate.matches("[0-9]{1,9}") || "0".equals(candidate)) return 0;
+        int appointmentNo = Integer.parseInt(candidate);
+        Appointment appointment = findAppointment.apply(appointmentNo);
+        if (appointment == null || !String.valueOf(appointment.getDemographicNo()).equals(note.getDemographic_no())) {
+            return 0;
+        }
+        return appointmentNo;
+    }
+
+    private void bindNoteAppointment(CaseManagementNote note, HttpSession session) {
+        EctSessionBean encounter = (EctSessionBean) session.getAttribute("EctSessionBean");
+        note.setAppointmentNo(resolveNoteAppointmentNo(note, request.getParameter("appointmentNo"),
+                encounter == null ? null : encounter.appointmentNo,
+                id -> SpringUtils.getBean(OscarAppointmentDao.class).find(id)));
+    }
+
     private long noteSave() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1354,6 +1391,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return -1L;
 
+        bindNoteAppointment(note, session);
         note.setNote(noteTxt);
 
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -1515,7 +1553,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         // update appointment and add verify message to note if verified
-        EctSessionBean sessionBean = (EctSessionBean) session.getAttribute("EctSessionBean");
         String verifyStr = request.getParameter("verify");
         boolean verify = false;
         if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
@@ -1537,10 +1574,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         note.setUpdate_date(now);
-
-        if (sessionBean.appointmentNo != null && sessionBean.appointmentNo.length() > 0) {
-            note.setAppointmentNo(Integer.parseInt(sessionBean.appointmentNo));
-        }
 
         note = caseManagementMgr.saveCaseManagementNote(
                 loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
@@ -1784,6 +1817,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             newNote = false;
         }
 
+        bindNoteAppointment(note, session);
         String observationDate = request.getParameter("obsDate");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (observationDate != null && !observationDate.equals("")) {

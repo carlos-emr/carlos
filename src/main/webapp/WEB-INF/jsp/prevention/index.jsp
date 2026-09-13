@@ -1484,7 +1484,7 @@
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
-                        body: encodeURIComponent(q)
+                        body: new URLSearchParams({query: q}).toString()
                     })
                     .then(function(r) {
                         if (!r.ok) return Promise.reject('CVC query returned HTTP ' + r.status);
