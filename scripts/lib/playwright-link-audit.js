@@ -95,6 +95,11 @@ function snapshotRecorder(recorder) {
     consoleIssues: recorder.consoleIssues.length,
     badResponses: recorder.badResponses.length,
     requestFailures: recorder.requestFailures.length,
+    // Counted because a page that starts asking for confirmation blocks the
+    // user-facing flow, and a strict page records that as an unexpected dialog.
+    // Leaving it out of the snapshot made the audit blind to a whole class of
+    // break while everything it did look at stayed green.
+    unexpectedDialogs: (recorder.unexpectedDialogs || []).length,
   };
 }
 
@@ -112,6 +117,9 @@ function findingsSince(recorder, before, itemText) {
   }
   for (const entry of recorder.requestFailures.slice(before.requestFailures)) {
     problems.push(`${itemText}: ${entry.resourceType} request failed (${entry.errorText})`);
+  }
+  for (const entry of (recorder.unexpectedDialogs || []).slice(before.unexpectedDialogs || 0)) {
+    problems.push(`${itemText}: raised an unexpected ${entry.type} dialog, which was dismissed to keep the audit moving`);
   }
   return problems;
 }

@@ -304,3 +304,46 @@ test('the harness loads without playwright installed, so CI can unit-test it', (
   const topLevel = source.split('\nasync function launchBrowser')[0];
   assert.doesNotMatch(topLevel, /require\('playwright'\)/);
 });
+
+test('a failing query never carries its own text into the error a run logs', () => {
+  // execFileSync folds captured stderr into the thrown error's message, and
+  // runCheck logs that message -- so the mysql client's echo of the statement
+  // would reach the log, and a statement can carry a patient name or a note.
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: () => {
+      const error = new Error('Command failed: mysql\nERROR 1064 near \'last_name="Wolowitz"\'');
+      error.status = 1;
+      error.stderr = 'ERROR 1064 near \'last_name="Wolowitz"\'';
+      throw error;
+    },
+  });
+  try {
+    assert.throws(() => runner.value('SELECT last_name FROM demographic WHERE demographic_no = 2'), (error) => {
+      assert.ok(!/Wolowitz|last_name|SELECT/.test(error.message),
+        `the bounded message still leaks the statement: ${error.message}`);
+      assert.match(error.message, /database query failed/);
+      assert.match(error.message, /mysql exit 1/, 'the exit status is safe and worth keeping');
+      return true;
+    });
+  } finally {
+    runner.dispose();
+  }
+});
+
+test('a timed-out query is reported as a timeout, not as a generic failure', () => {
+  // The distinction is the whole point of keeping any detail at all: a timeout
+  // means the database is unreachable or wedged, a refusal means the query is
+  // wrong, and a run that cannot tell them apart wastes the next hour.
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: () => {
+      const error = new Error('Command failed');
+      error.code = 'ETIMEDOUT';
+      throw error;
+    },
+  });
+  try {
+    assert.throws(() => runner.value('SELECT 1'), /timed out after 30s/);
+  } finally {
+    runner.dispose();
+  }
+});

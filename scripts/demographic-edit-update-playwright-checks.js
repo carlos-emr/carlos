@@ -59,7 +59,7 @@
  */
 
 const {
-  assert, createSqlRunner, createRecorder, launchBrowser, login, newContext, readConfig,
+  assert, assertStrictPage, createSqlRunner, createRecorder, launchBrowser, login, newContext, readConfig,
   runCheck, sqlString,
 } = require('./lib/playwright-harness');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
@@ -78,22 +78,36 @@ const ROUND_TRIP_FIELDS = [
   // 555-01xx is the reserved fictional range, so this can never be a real number.
   { input: 'phone', column: 'phone', value: () => '555-0142' },
   { input: 'email', column: 'email', value: (marker) => `pw-${marker.toLowerCase()}@example.invalid` },
-  { input: 'chart_no', column: 'chart_no', value: (marker) => `PW${marker}` },
+  // demographic.chart_no is varchar(10) (V1__baseline_schema.sql), so the full
+  // marker does not fit. The last 8 digits of the timestamp still make a
+  // leftover row traceable to the run that wrote it, and a value that overflows
+  // the column would be truncated or rejected rather than round-tripped.
+  { input: 'chart_no', column: 'chart_no', value: (marker) => `PW${marker.slice(-8)}` },
 ];
 
 /** A column the check never writes, used to prove the update is not clobbering. */
 const UNTOUCHED_COLUMN = 'last_name';
 
+/**
+ * Put the Master Record into edit mode.
+ *
+ * It is a BUTTON that toggles in place, not a link that navigates: edit.jsp
+ * renders <button id="editBtn" onclick="showHideDetail()">, and showHideDetail()
+ * reveals #editDemographic and #updateButton without a request. Waiting for a
+ * navigation here would wait out the whole timeout and then type into inputs
+ * that are still display:none.
+ */
 async function openEditForm(masterPage, timeout) {
-  const editLink = masterPage.locator('a', { hasText: /^\s*Edit\s*$/i }).first();
-  assert(await editLink.count() > 0,
-    'The Master Record offers no Edit link, so a clinic cannot correct a patient record from it');
-  await editLink.scrollIntoViewIfNeeded().catch(() => {});
-  await Promise.all([
-    masterPage.waitForLoadState('domcontentloaded').catch(() => {}),
-    editLink.click({ timeout }),
-  ]);
-  await masterPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  const editButton = masterPage.locator('#editBtn');
+  assert(await editButton.count() > 0,
+    'The Master Record offers no Edit control, so a clinic cannot correct a patient record from it. '
+    + 'It is rendered only with _demographic write rights and only on the head record of a merge.');
+  await editButton.scrollIntoViewIfNeeded().catch(() => {});
+  await editButton.click({ timeout });
+  // The section becoming visible IS the assertion that edit mode opened; without
+  // it every fill() below would fail one at a time with a less useful message.
+  await masterPage.locator('#editDemographic').waitFor({ state: 'visible', timeout });
+  await masterPage.locator('#updateButton').waitFor({ state: 'visible', timeout });
   return masterPage;
 }
 
@@ -102,7 +116,10 @@ async function presentFields(page) {
   const present = [];
   for (const field of ROUND_TRIP_FIELDS) {
     const locator = page.locator(`[name="${field.input}"]`).first();
-    if (await locator.count() > 0) {
+    // Visible, not merely present: these inputs are in the DOM whether or not
+    // edit mode is open, so counting them would pass on a collapsed form and
+    // then fail one fill() at a time.
+    if (await locator.isVisible().catch(() => false)) {
       present.push(field);
     }
   }
@@ -121,7 +138,17 @@ async function main() {
 
   const recorder = createRecorder();
   const sql = createSqlRunner(config.mysql);
-  const browser = await launchBrowser(config);
+  // The runner has already written a 0600 option file holding MYSQL_PASSWORD, so
+  // the browser launch has to be inside its cleanup boundary: a Chromium that is
+  // missing or fails to start would otherwise leave that file in the temp
+  // directory with nothing left running to remove it.
+  let browser;
+  try {
+    browser = await launchBrowser(config);
+  } catch (error) {
+    sql.dispose();
+    throw error;
+  }
 
   let demographicNo = null;
   let original = null;
@@ -197,6 +224,12 @@ async function main() {
     }
     assert(notShown.length === 0,
       `${notShown.length} field(s) are stored correctly but the re-opened form does not show them: ${notShown.join(', ')}`);
+
+    // Everything above asserts what the database holds; this asserts what the
+    // browser reported while getting there. Without it an uncaught page error,
+    // a failed request or an unexpected dialog on the Master Record is recorded
+    // and then thrown away, which is the Phase 0 contract this suite exists for.
+    assertStrictPage(recorder);
 
     console.log(`  round-tripped ${fields.length} demographic field(s) through the UI and the database`);
     return { demographicNo, fields: fields.map((field) => field.input) };

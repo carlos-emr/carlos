@@ -20,8 +20,12 @@ unconditional), #3600 (no signal handler in 11 scripts), #2859 (measurement-grap
 Every check is described by the **clicks a user makes**, written as
 `Schedule ▸ Administration ▸ User Management ▸ Add a Provider Record`, using the labels the
 pages render in English. "Schedule" is the post-login day sheet and its top bar
-(Search · Tickler · Consultations · Msg · Inbox · Report · Billing · Administration ·
-Preferences · eDoc · Help · WorkFlow · Scratch); "Master Record" is the patient page opened
+(Search · Inbox · Tickler · Msg · Consultations · eConsult · eDoc · Report · Ref ·
+WorkFlow · Administration · Dashboard · Help, and two icon-only controls on the right,
+Scratch Pad and personal settings — there is **no** Billing control on the top bar; Ontario
+billing is reached through Administration, and the per-appointment `B` badge is a workflow,
+not a surface. `Ref` and `WorkFlow` are property-gated (`referral_menu`, `WORKFLOW`) and a
+deployment may legitimately render neither); "Master Record" is the patient page opened
 from a search result or the day sheet's M link; "Chart" is the E-Chart opened from the
 day sheet's E link or the Master Record, and "Chart ▸ ‹module›" is an item in its left
 navigation (Rx, Allergies, Consultations, Immunization, Preventions, Dx Registry, Forms,
@@ -108,10 +112,10 @@ has been migrated onto the new harness yet**.
 
 | Landed | What it is | Verified by |
 |---|---|---|
-| `scripts/lib/playwright-harness.js` | The shared harness: `readConfig`, `createSqlRunner`, `login` (forced reset + MFA + facility select), `wireStrictPage` / `assertStrictPage`, `runCheck`, the TLS gate, `SkipCheck` | `scripts/playwright-harness.test.js` (18 tests), run by `script-regressions.yml` |
+| `scripts/lib/playwright-harness.js` | The shared harness: `readConfig`, `createSqlRunner`, `login` (forced reset, facility select, and the MFA challenge **when the caller supplies an `mfaCode` callback** — the harness generates no OTP itself, and no check passes one today, so an MFA-enrolled account is refused with an assertion rather than logged in; `login-mfa` in §2.2 is what closes that), `wireStrictPage` / `assertStrictPage`, `runCheck`, the TLS gate, `SkipCheck` | `scripts/playwright-harness.test.js` (18 tests), run by `script-regressions.yml` |
 | `scripts/lib/playwright-ui.js` | The JavaScript-path helpers (`clickOpensPopup`, `clickInjectsPanel`, `expectOpenerRefresh`, `typeAutocomplete`, `pickDate`, `dataTableRows`, `pressShortcut`, `csrfTokenPresent`, `expectDialog`) and the `NAVIGATION` click map | `scripts/playwright-suite-manifest.test.js` |
 | `scripts/lib/console-baseline.json` | The suite-wide, issue-keyed allow-list that replaces per-check `allow` arrays | a test asserts every entry names where its removal is tracked |
-| `scripts/playwright-suite.json` | The manifest: 76 entries with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
+| `scripts/playwright-suite.json` | The manifest: 92 named check entries over 83 scripts (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
 | `scripts/run-playwright-suite.js` | The runner: `--tier`, `--only`, `--skip`, `--province`, `--junit`, `--list`, `--dry-run` | `scripts/playwright-suite-manifest.test.js` |
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 

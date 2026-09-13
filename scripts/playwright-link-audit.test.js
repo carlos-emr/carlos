@@ -172,3 +172,23 @@ test('the scoped selector travels with the item, so the index means the same lis
   assert.equal(located.selector, '#leftNavBar a, #rightNavBar a');
   assert.equal(located.index, 2);
 });
+
+test('an unexpected dialog on an audited page is a finding, not silence', () => {
+  // A page that starts asking for confirmation blocks the user-facing flow. The
+  // snapshot used to omit unexpectedDialogs entirely, so the audit stayed green
+  // through exactly that break.
+  const recorder = createRecorder();
+  const before = snapshotRecorder(recorder);
+  assert.equal(before.unexpectedDialogs, 0, 'the snapshot must count dialogs');
+  recorder.unexpectedDialogs.push({ label: 'admin:Manage Billing Form', type: 'confirm', text: 'Are you sure?' });
+  const problems = findingsSince(recorder, before, 'Manage Billing Form');
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /Manage Billing Form: raised an unexpected confirm dialog/);
+});
+
+test('a dialog raised before the snapshot belongs to the previous item', () => {
+  const recorder = createRecorder();
+  recorder.unexpectedDialogs.push({ label: 'earlier', type: 'alert', text: 'old' });
+  const before = snapshotRecorder(recorder);
+  assert.deepEqual(findingsSince(recorder, before, 'Issue Editor'), []);
+});

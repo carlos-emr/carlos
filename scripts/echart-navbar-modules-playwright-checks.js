@@ -55,7 +55,7 @@
  */
 
 const {
-  assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
+  assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { assertAuditClean, auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
@@ -134,6 +134,12 @@ async function main() {
     });
     const chartPage = await openChart(context, masterPage, recorder, timeout);
     await waitForNavbars(chartPage, timeout);
+
+    // Chart initialisation is the densest JavaScript in the product and it runs
+    // before any item is clicked, so auditCatalogue's per-item snapshots never
+    // see it. Assert it here or a pageerror during chart startup is recorded and
+    // discarded.
+    assertStrictPage(recorder, ['patient-search', 'master-record', 'echart']);
 
     const items = dedupe(await catalogueLinks(chartPage, { selector: NAVBAR_SELECTOR }));
     assert(items.length > 0,

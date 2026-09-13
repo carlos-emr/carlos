@@ -252,9 +252,11 @@ function parseMysqlBatchOutput(stdout) {
  * A mysql client bound to one throwaway 0600 option file.
  *
  * The password never reaches argv (it would be world-readable in /proc), stderr
- * is captured rather than inherited (a failing statement otherwise echoes the
- * clinical text it carried), and dispose() removes the option file even when the
- * check throws. 35 scripts each reimplemented a piece of this.
+ * is captured rather than inherited AND the client's own error message is
+ * replaced with a bounded one (a failing statement otherwise echoes the clinical
+ * text it carried, first through stderr and then through the thrown message
+ * runCheck logs), and dispose() removes the option file even when the check
+ * throws. 35 scripts each reimplemented a piece of this.
  */
 function createSqlRunner(mysqlConfig, options = {}) {
   const exec = options.exec || execFileSync;
@@ -269,13 +271,29 @@ function createSqlRunner(mysqlConfig, options = {}) {
   (options.writeFile || fs.writeFileSync)(optionFile, `[client]\npassword="${quoted}"\n`, { mode: 0o600 });
 
   function run(query) {
-    return exec('mysql', [
-      `--defaults-extra-file=${optionFile}`,
-      '-h', host,
-      '-u', mysqlConfig.user || 'root',
-      mysqlConfig.database || 'carlos',
-      '-N', '-B', '-e', query,
-    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+    try {
+      return exec('mysql', [
+        `--defaults-extra-file=${optionFile}`,
+        '-h', host,
+        '-u', mysqlConfig.user || 'root',
+        mysqlConfig.database || 'carlos',
+        '-N', '-B', '-e', query,
+      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+    } catch (error) {
+      // CAPTURING stderr IS NOT ENOUGH. execFileSync folds the captured stderr
+      // into the thrown error's own message, and runCheck() logs that message --
+      // so a failing statement would print the client's echo of the query, and
+      // the query can carry a patient's name or a clinical note. Rethrow a
+      // bounded reason instead: enough to tell a timeout from a refusal, and
+      // nothing of the statement or the row.
+      const timedOut = error && (error.code === 'ETIMEDOUT' || error.signal === 'SIGTERM');
+      const status = error && typeof error.status === 'number' ? ` (mysql exit ${error.status})` : '';
+      const failure = new Error(timedOut
+        ? 'the database query timed out after 30s'
+        : `the database query failed${status}; its text and any rows it carried are withheld deliberately`);
+      failure.cause = undefined;
+      throw failure;
+    }
   }
 
   return {

@@ -62,7 +62,9 @@ const {
   SkipCheck, assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
 const { clickOpensPopup } = require('./lib/playwright-ui');
-const { auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
+const {
+  auditCatalogue, catalogueLinks, dedupe, findingsSince, snapshotRecorder,
+} = require('./lib/playwright-link-audit');
 const {
   NEVER_OPEN, describeEntry, entryStrategy, surfaceByName, surfacesForProvince,
 } = require('./lib/playwright-surfaces');
@@ -120,7 +122,13 @@ async function openSurface(context, schedulePage, surface, recorder, timeout) {
 
 async function auditSurface(context, schedulePage, surface, recorder, options) {
   const { timeout, limit, screenshotDir } = options;
+  // Snapshot BEFORE the surface is opened. auditCatalogue snapshots per item, so
+  // without this the opener phase -- the landing page of the popup itself, where
+  // issue #3313 item 1 actually lived -- is the one page in the run whose errors
+  // nothing attributes to anything.
+  const beforeOpen = snapshotRecorder(recorder);
   const page = await openSurface(context, schedulePage, surface, recorder, timeout);
+  const openingFindings = findingsSince(recorder, beforeOpen, `${surface.title} (opening)`);
   try {
     const body = await page.locator('body').innerText({ timeout }).catch(() => '');
     assert(body.trim().length > 0, `${surface.title} rendered a blank page`);
@@ -141,7 +149,11 @@ async function auditSurface(context, schedulePage, surface, recorder, options) {
       timeout,
       screenshotDir,
     });
-    return { surface: surface.name, ...result };
+    return {
+      surface: surface.name,
+      ...result,
+      failures: [...openingFindings, ...result.failures],
+    };
   } finally {
     // Only close a popup; closing the schedule would strand the next surface.
     if (page !== schedulePage) {

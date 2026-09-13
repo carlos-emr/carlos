@@ -46,7 +46,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const {
-  EXIT_FAIL, EXIT_PASS, EXIT_SKIP, isLocalTlsTarget, validateBaseUrl,
+  EXIT_FAIL, EXIT_PASS, EXIT_SKIP, isLocalTlsTarget, validateBaseUrl, validateMysqlHost,
 } = require('./lib/playwright-harness');
 
 const MANIFEST_PATH = path.join(__dirname, 'playwright-suite.json');
@@ -133,6 +133,16 @@ function selectChecks(checks, options) {
 function assertSafeTarget(checks, env) {
   if (!checks.length) {
     return;
+  }
+  // THE DATABASE TARGET IS A SEPARATE QUESTION FROM THE WEB TARGET, and it is
+  // the more dangerous one: eleven checks in this suite still read MYSQL_HOST
+  // themselves rather than going through createSqlRunner, so nothing else in the
+  // run validates it. A local BASE_URL with a remote MYSQL_HOST would otherwise
+  // sail through this gate and then seed, update and delete rows in that remote
+  // database. The runner spawns every one of them, so this is the one place that
+  // can close it for all of them at once.
+  if (env.MYSQL_HOST) {
+    validateMysqlHost(env.MYSQL_HOST, env);
   }
   const baseUrl = validateBaseUrl(env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
   if (isLocalTlsTarget(baseUrl) || env.ALLOW_NON_LOCAL_BASE_URL === 'true') {

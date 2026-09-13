@@ -134,3 +134,25 @@ test('the fingerprint is null rather than a guess when it cannot be read', () =>
   assert.equal(readBuildIdentity(args, () => ({ status: 0, stdout: 'HTTP/1.1 200\r\n\r\n' })), null);
   assert.equal(readBuildIdentity({}, () => ({ status: 0, stdout: 'HTTP/1.1 200\r\nETag: "x"\r\n' })), null);
 });
+
+test('the runner refuses a remote MYSQL_HOST even when BASE_URL is local', () => {
+  // Eleven checks still read MYSQL_HOST themselves instead of going through
+  // createSqlRunner, so nothing else in the run validates it. A local BASE_URL
+  // with a remote database would otherwise seed, update and delete rows there.
+  assert.throws(
+    () => assertSafeTarget([{ name: 'x', assertsDatabase: false }], {
+      BASE_URL: 'http://127.0.0.1:8080/carlos',
+      MYSQL_HOST: 'db.example.org',
+    }),
+    /non-loopback MYSQL_HOST/,
+  );
+  // The existing opt-in still works, and an unset MYSQL_HOST is not invented.
+  assert.doesNotThrow(() => assertSafeTarget([{ name: 'x', assertsDatabase: false }], {
+    BASE_URL: 'http://127.0.0.1:8080/carlos',
+    MYSQL_HOST: 'db.example.org',
+    ALLOW_NON_LOCAL_MYSQL_HOST: 'true',
+  }));
+  assert.doesNotThrow(() => assertSafeTarget([{ name: 'x', assertsDatabase: false }], {
+    BASE_URL: 'http://127.0.0.1:8080/carlos',
+  }));
+});

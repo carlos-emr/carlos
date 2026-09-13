@@ -30,7 +30,41 @@ test('every value written is obviously synthetic', () => {
   assert.match(byInput.email, /@example\.invalid$/);
   // The marker makes a leftover row traceable to the run that wrote it.
   assert.ok(byInput.city.includes(marker));
-  assert.ok(byInput.chart_no.includes(marker));
+  // chart_no is varchar(10), so it carries only the tail of the marker -- but it
+  // must still carry enough of it to identify the run, and must still fit.
+  assert.ok(byInput.chart_no.length <= 10,
+    `chart_no is varchar(10); ${JSON.stringify(byInput.chart_no)} would be truncated or rejected`);
+  assert.ok(marker.endsWith(byInput.chart_no.replace(/^PW/, '')),
+    'the chart number must be the tail of this run\'s marker, so a leftover row is traceable');
+});
+
+test('every written value fits the column it is written to', () => {
+  // A value longer than its column is not a test failure that reads as one: on a
+  // lenient MariaDB it is silently truncated, and the round-trip comparison then
+  // fails with "the field did not reach the database" pointing at the app.
+  const schema = fs.readFileSync(path.join(
+    __dirname, '..', 'database', 'mysql', 'migration', 'common', 'V1__baseline_schema.sql',
+  ), 'utf8');
+  const start = schema.indexOf('CREATE TABLE `demographic` (');
+  assert.ok(start > 0, 'the baseline schema must declare the demographic table');
+  const table = schema.slice(start, schema.indexOf('ENGINE=', start));
+  // One literal pattern over the whole table, rather than one built per column:
+  // the repo's Semgrep rules flag new RegExp(...) and nothing here needs one.
+  const widths = Object.fromEntries(
+    [...table.matchAll(/`(\w+)` varchar\((\d+)\)/g)].map((found) => [found[1], Number(found[2])]),
+  );
+  assert.ok(Object.keys(widths).length > 10, 'the width map must not be empty, or this test proves nothing');
+  const marker = 'EDIT1700000000000';
+  for (const field of ROUND_TRIP_FIELDS) {
+    const width = widths[field.column];
+    if (!width) {
+      continue;
+    }
+    const value = field.value(marker);
+    assert.ok(value.length <= width,
+      `${field.column} is varchar(${width}) but the check writes ${value.length} characters `
+      + '-- a lenient MariaDB truncates it, and the round-trip then blames the app for a lost field');
+  }
 });
 
 test('the untouched column is genuinely untouched', () => {
