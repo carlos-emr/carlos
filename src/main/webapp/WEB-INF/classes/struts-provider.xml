@@ -74,7 +74,6 @@
         </action>
         <action name="email/emailSendAction" class="io.github.carlos_emr.carlos.email.action.EmailSend2Action">
             <result name="success">/WEB-INF/jsp/email/emailCompose.jsp</result>
-            <result name="EFORM">/eform/efmshowform_data</result>
         </action>
         <action name="setProviderStaleDate" class="io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action" method="execute">
             <result name="success">/WEB-INF/jsp/provider/setNoteStaleDate.jsp</result>

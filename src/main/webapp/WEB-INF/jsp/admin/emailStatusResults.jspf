@@ -1,6 +1,8 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:if test="${not empty emailValidationError}">
 <div class="alert alert-danger mt-1" role="alert">${carlos:forHtml(emailValidationError)}</div>
 </c:if>
@@ -34,6 +36,33 @@
                         <i class="fa-solid fa-unlock"></i> Unencrypted
                     </c:otherwise>
                 </c:choose>
+                </td>
+            </tr>
+            <tr>
+                <th><fmt:message key="email.admin.label.consent"/></th>
+                <td>
+                    <c:if test="${not empty emailStatusResult.consentMessageKey}">
+                        <fmt:message key="${emailStatusResult.consentMessageKey}"/>
+                    </c:if>
+                    <c:if test="${not empty emailStatusResult.consentId}">
+                        <c:choose>
+                            <c:when test="${not empty emailStatusResult.consentLastUpdateDisplay}">
+                                (<fmt:message key="email.admin.consentRecordAsOf">
+                                    <fmt:param value="${emailStatusResult.consentId}"/>
+                                    <fmt:param value="${emailStatusResult.consentLastUpdateDisplay}"/>
+                                </fmt:message>)
+                            </c:when>
+                            <c:otherwise>
+                                (<fmt:message key="email.admin.consentRecord">
+                                    <fmt:param value="${emailStatusResult.consentId}"/>
+                                </fmt:message>)
+                            </c:otherwise>
+                        </c:choose>
+                    </c:if>
+                    <c:if test="${emailStatusResult.consentOverride}">
+                        <span class="badge bg-warning text-dark"><fmt:message key="email.admin.label.override"/></span>
+                        <div>${carlos:forHtml(emailStatusResult.consentOverrideReason)}</div>
+                    </c:if>
                 </td>
             </tr>
         </table>
