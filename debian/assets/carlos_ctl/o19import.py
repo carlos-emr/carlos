@@ -2829,6 +2829,41 @@ def cleanup_refusal(state: Dict, state_dir: str,
             "it with --resume, or restore the pre-import snapshot.")
 
 
+def _cleanup_home_parity(ctx) -> Tuple[List[str], List[str]]:
+    """The data question --cleanup asks: are the staging rows the drop
+    would take with it still held, row for row and value for value, in
+    the homes the IMPORT owns -- `o19_archive.<table>` and the
+    `import_archived_<table>` twins?
+
+    Not `_row_parity`. That is P7's measurement, and it is right at P7:
+    the target must then equal staging to the row, with exactly the
+    break-glass and roles-ledger deltas, and hold the copied values.
+    But NEXT_STEPS puts `carlos-ctl restart`, the backup and the
+    technical review BEFORE --cleanup, and the postinst starts the
+    service as soon as `verify` is done -- so by the time an operator
+    reaches step 6 the application has started (its startup listener
+    writes `site`, `providersite`, `ProviderPreference` and audit `log`
+    rows) and has been used (a reviewed chart's `demographic` row, the
+    `program` row the startup touches). Re-running P7's parity then
+    reports every one of those as "no verified home" and --cleanup can
+    never pass on a host that followed its own instructions -- seen on
+    the Ubuntu 26.04 rehearsal, straight after a passing UI smoke.
+
+    The live tables belong to the clinic once it is live; P7 verified
+    them and the ledger records that pass under the manifest it was
+    made with (`cleanup_manifest_refusal` guards that). What the drop
+    would actually destroy is the only copy of the rows CARLOS has no
+    live home for, and THOSE homes nothing in the application ever
+    writes, so they are re-counted -- and re-digested -- here, exactly,
+    at the moment of the drop."""
+    archive = ctx.get("archive_schema", ARCHIVE_SCHEMA)
+    kept_ok, kept_bad = o19etl.preserved_parity(
+        ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive)
+    content_ok, content_bad = o19etl.preserved_content_parity(
+        ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive)
+    return kept_ok + content_ok, kept_bad + content_bad
+
+
 def cleanup_data_refusal(started: bool,
                          mismatches: Sequence[str]) -> Optional[str]:
     """Why the staging schema may not be dropped now, or None.
@@ -2842,12 +2877,13 @@ def cleanup_data_refusal(started: bool,
     A run whose ETL never started is allowed through: nothing was copied,
     so staging holds only a restore of the operator's own dump and the
     parity below would flag every table for the wrong reason. Once the
-    copy has started, every staging table holding rows must have a
-    verified home -- in the target, in `o19_archive`, or in an
-    `import_archived_` twin -- before staging goes. `--dev-target` waives
-    the ledger question, never this one: a scratch database is a reason
-    to skip bookkeeping, not a licence to drop rows that exist nowhere
-    else."""
+    copy has started, every staging table holding rows that CARLOS has
+    no live home for must still have its verified copy -- in
+    `o19_archive`, and in an `import_archived_` twin -- before staging
+    goes (`_cleanup_home_parity`; the live tables were verified at P7
+    and are in use by now). `--dev-target` waives the ledger question,
+    never this one: a scratch database is a reason to skip bookkeeping,
+    not a licence to drop rows that exist nowhere else."""
     if not started or not mismatches:
         return None
     shown = list(mismatches)[:10]
@@ -2864,8 +2900,9 @@ def cleanup_manifest_refusal(state: Dict,
     """Why the staging drop may not be gated on a parity computed now,
     or None.
 
-    Every component of `_row_parity` iterates the INSTALLED manifest's
-    TABLES; nothing re-derives them under the manifest the run was
+    Every component of `_cleanup_home_parity` iterates the INSTALLED
+    manifest's TABLES (which class each staging table is, and so which
+    homes it must have); nothing re-derives them under the manifest the run was
     actually made with, even though the ledger records it. The packaging
     makes that mismatch ordinary rather than exotic: the postinst
     upgrade gate clears as soon as `verify` is done, and NEXT_STEPS puts
@@ -2931,7 +2968,7 @@ def run_cleanup(ctx) -> None:
                 state, o19map_schema.SCHEMA_MAP_VERSION)
             if refusal:
                 die(refusal)
-        _ok, bad = _row_parity(ctx) if started else ([], [])
+        _ok, bad = _cleanup_home_parity(ctx) if started else ([], [])
         refusal = cleanup_data_refusal(started, bad)
         if refusal:
             die(refusal)

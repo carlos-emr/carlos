@@ -1218,7 +1218,7 @@ class TestCleanupEndToEnd(unittest.TestCase):
     """`--cleanup` driven through the context it is really given.
 
     The gap this closes: run_cleanup had no driver, so when the data gate
-    was added to it -- reading ctx["target_db"] through _row_parity --
+    was added to it -- reading ctx["target_db"] through the cleanup parity --
     nothing noticed that _make_ctx_for_cleanup does not build the same
     context the phases do. Every completed import's cleanup would have
     died with a KeyError, after taking the workspace lock and before
@@ -1285,7 +1285,7 @@ class TestCleanupEndToEnd(unittest.TestCase):
             self.queries.append("-- PARITY RAN")
             return ["ok"], []
 
-        with mock.patch.object(o19import, "_row_parity", parity):
+        with mock.patch.object(o19import, "_cleanup_home_parity", parity):
             o19import.run_cleanup(ctx)
         drop = next(i for i, q in enumerate(self.queries)
                     if "DROP DATABASE" in q)
@@ -1311,7 +1311,7 @@ class TestCleanupEndToEnd(unittest.TestCase):
         parity_ran = []
         err = io.StringIO()
         with mock.patch.object(
-                o19import, "_row_parity",
+                o19import, "_cleanup_home_parity",
                 lambda c: parity_ran.append(1) or ([], [])), \
                 contextlib.redirect_stderr(err):
             with self.assertRaises(SystemExit):
@@ -1335,7 +1335,7 @@ class TestCleanupEndToEnd(unittest.TestCase):
         o19etl.save_progress(self.state_dir,
                              {"tables": {"demographic": {"done": True}}})
         ctx = self.ctx()
-        with mock.patch.object(o19import, "_row_parity",
+        with mock.patch.object(o19import, "_cleanup_home_parity",
                                lambda c: (["ok"], [])):
             o19import.run_cleanup(ctx)
         self.assertTrue(any("DROP DATABASE" in q for q in self.queries))
@@ -1359,13 +1359,64 @@ class TestCleanupEndToEnd(unittest.TestCase):
                              {"tables": {"demographic": {"done": True}}})
         ctx = self.ctx()
         err = io.StringIO()
-        with mock.patch.object(o19import, "_row_parity",
+        with mock.patch.object(o19import, "_cleanup_home_parity",
                                lambda c: ([], ["cr_user: homeless"])), \
                 contextlib.redirect_stderr(err):
             with self.assertRaises(SystemExit):
                 o19import.run_cleanup(ctx)
         self.assertIn("no verified home", err.getvalue())
         self.assertFalse(any("DROP DATABASE" in q for q in self.queries))
+
+    def test_the_drop_is_gated_on_the_homes_the_import_owns(self):
+        """The dead end this closes: --cleanup re-ran P7's `_row_parity`
+        against the live target. NEXT_STEPS puts restart, backup and the
+        technical review before --cleanup, and the postinst starts the
+        service as soon as verify is done, so by then the startup
+        listener has written site/providersite/ProviderPreference/log
+        rows and a reviewed chart has moved a demographic value -- and
+        every one of them read as "no verified home". Seen on the Ubuntu
+        26.04 rehearsal straight after a passing UI smoke. The drop
+        destroys only the rows whose homes are o19_archive and the
+        import_archived_ twins, which nothing in the application writes:
+        those are re-counted and re-digested; the live tables are P7's
+        recorded business."""
+        from carlos_ctl import o19etl
+        calls = []
+        with mock.patch.object(o19etl, "preserved_parity",
+                               lambda *a: (calls.append("kept") or
+                                           (["kept ok"], []))), \
+                mock.patch.object(o19etl, "preserved_content_parity",
+                                  lambda *a: (calls.append("content") or
+                                              (["content ok"], []))), \
+                mock.patch.object(o19etl, "row_parity",
+                                  lambda *a, **k: (calls.append("LIVE")
+                                                   or ([], []))), \
+                mock.patch.object(o19etl, "copy_content_parity",
+                                  lambda *a, **k: (calls.append("LIVE")
+                                                   or ([], []))), \
+                mock.patch.object(o19etl, "merge_content_parity",
+                                  lambda *a, **k: (calls.append("LIVE")
+                                                   or ([], []))):
+            ok, bad = o19import._cleanup_home_parity(
+                {"query": self.query, "target_db": "carlos",
+                 "state_dir": self.state_dir})
+        self.assertEqual(calls, ["kept", "content"])
+        self.assertEqual((ok, bad), (["kept ok", "content ok"], []))
+
+    def test_a_missing_archive_copy_still_stops_the_drop(self):
+        from carlos_ctl import o19etl
+        with mock.patch.object(o19etl, "preserved_parity",
+                               lambda *a: ([], ["cr_user: 12 staging "
+                                                "row(s) and no copy at "
+                                                "carlos.import_archived_"
+                                                "cr_user"])), \
+                mock.patch.object(o19etl, "preserved_content_parity",
+                                  lambda *a: ([], [])):
+            ok, bad = o19import._cleanup_home_parity(
+                {"query": self.query, "target_db": "carlos",
+                 "state_dir": self.state_dir})
+        self.assertEqual(len(bad), 1)
+        self.assertIn("cr_user", bad[0])
 
 
 class TestInheritedImportRefusal(unittest.TestCase):
@@ -3407,7 +3458,7 @@ class TestTheFullProblemListSurvives(unittest.TestCase):
         self.verify(self.PROBLEMS)
         ctx = self.ctx()
         from carlos_ctl import o19roles
-        with mock.patch.object(o19import, "_row_parity",
+        with mock.patch.object(o19import, "_cleanup_home_parity",
                                lambda c: (["ok"], [])), \
                 mock.patch.object(o19roles, "verify_role_checks",
                                   lambda *a: ([], [], [], [])), \

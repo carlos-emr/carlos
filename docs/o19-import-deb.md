@@ -595,10 +595,16 @@ gate has no override.
    Cleanup is allowed after a passed verification, or while nothing has
    been written to the target (after a dry run or an aborted assessment) —
    never on a mid-import workspace, whose only resume ledger it would
-   destroy, and never while any staging table still holds rows with no
-   verified copy outside it (the refusal names the tables). That second
+   destroy, and never while any staging table CARLOS has no live home for
+   still holds rows without its verified copy in `o19_archive` and its
+   `import_archived_` twin (the refusal names the tables). That second
    check is asked of the *data* rather than of the run, so `--dev-target`
-   does not waive it.
+   does not waive it; and it is asked only of the copies the import owns,
+   which nothing in the application writes — the live tables were verified
+   at P7 and, by step 4, the EMR has been started (its startup writes
+   `site`, `providersite`, `ProviderPreference` and audit rows) and
+   reviewed, so re-measuring them here would refuse every cleanup that
+   followed these steps in order.
 
 ## What is preserved rather than migrated
 
