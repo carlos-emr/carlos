@@ -1094,7 +1094,14 @@ What the review established, from the maintainer scripts and the run:
 Result: `deb-upgrade-verify.sh` 30/30 (a transient `allergies 17 -> 19` seen
 once was the live suite's own `allergy-add-penicillin` fixture mid-run, deleted
 in its `finally`). The full browser suite was then run against the upgraded
-install; its tally is recorded in the section below.
+install: **73/76, 0 JVM restarts**. The three non-passes are the opt-in
+`eform-corpus-soak`, `eform-render` on a host missing `poppler-utils` (green
+once installed — see the harness note above), and `prescription-signature`,
+whose fixture reads as signed on an upgraded demo install for the `demo-data`
+reason above; all three pass on a fresh a12 install with the prerequisite in
+place. `lab-acknowledge` passed on the upgraded install and its
+`labDisplay_jsp.class` carries the deployed a12 source's exact mtime — compiled
+from the a12 page after the upgrade restart.
 
 ### Ontario consultation catalogue repair
 
