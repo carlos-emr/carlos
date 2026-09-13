@@ -111,8 +111,8 @@ import static org.mockito.Mockito.when;
  *       {@code submit=Save}, presence of {@code statement}, etc.). These must
  *       have their own focused {@code @Tag("unit")} test covering the
  *       mutation-intent GET-rejection path — see e.g.
- *       {@code WLMutation2ActionsTest}, {@code ViewAppointmentSelfPost2ActionTest},
- *       {@code ViewDecision2ActionTest}.</li>
+ *       {@code WLMutation2ActionsUnitTest}, {@code ViewAppointmentSelfPost2ActionUnitTest},
+ *       {@code ViewDecision2ActionUnitTest}.</li>
  *   <li>{@link #NON_MUTATOR_GATES} — read-scope gates (e.g.
  *       {@code ViewAppointment2Action}) that happen to include a
  *       {@code SC_METHOD_NOT_ALLOWED} branch for truly unsupported methods

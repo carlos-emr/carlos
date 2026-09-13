@@ -188,7 +188,7 @@ made `setParameters()` build `waitingListBean[undefined].*` selectors, so
 every row update fell through to a reposition and the edit was lost. Verified
 on the packaged install: a note holding `& < > 2+2` and a new date persist as
 a new `waitingList` row with the old one marked history
-(`WLMutation2ActionsTest` pins the page's field names against the action's
+(`WLMutation2ActionsUnitTest` pins the page's field names against the action's
 selector contract). The action also refuses `update=Y` without a usable
 `waitingListId` (missing, non-numeric or non-positive) with a 400: the
 legacy null check around the mutation never fired, because the parsed id

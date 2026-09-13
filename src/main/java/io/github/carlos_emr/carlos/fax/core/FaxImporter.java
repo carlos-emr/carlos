@@ -111,7 +111,7 @@ public class FaxImporter {
      * singleton (property changes still require a Tomcat restart), so behaviour is unchanged in
      * production — but an instance field is settable from a test, which a {@code static final}
      * initialized at class load is not. That was the sole reason the import-failure test coverage in
-     * {@code FaxImporterCriticalGapsTest} sat {@code @Disabled}.
+     * {@code FaxImporterCriticalGapsUnitTest} sat {@code @Disabled}.
      */
     private final String documentDir;
 
