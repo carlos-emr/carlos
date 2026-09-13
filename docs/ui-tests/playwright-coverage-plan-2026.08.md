@@ -134,10 +134,14 @@ schedule, never by a URL.
 | `surface-audit:preferences-surface` | §3.7 | Provider preferences |
 | `surface-audit:workflow-surface` | §4.4 | WorkFlow list |
 | `surface-audit:scratch-surface` | §4.4 | Scratch pad |
+| `demographic-edit-update` | §2.4 | Editing a patient from the Master Record, asserted against the database and restored |
+| `patient-search-modes` | §2.4 | Every patient-search mode, the active/inactive/all scope, and the browser-side date-of-birth refusal |
 
-All thirteen share one tested engine (`scripts/lib/playwright-link-audit.js`):
+The first thirteen share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
-to the page that broke. The ten `surface-audit:*` rows are a table in
+to the page that broke. The last two are workflow checks rather than audits: they
+assert what reached MariaDB, not only what rendered. The ten `surface-audit:*`
+rows are a table in
 `scripts/lib/playwright-surfaces.js` — a new surface is four lines, not a new
 150-line script — and each is registered and reported individually.
 

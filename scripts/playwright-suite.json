@@ -346,6 +346,23 @@
       ]
     },
     {
+      "name": "patient-search-modes",
+      "script": "scripts/patient-search-modes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SEARCH_MODES",
+        "SEARCH_INACTIVE_STATUSES",
+        "SEARCH_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "demographic-master-crud-smoke",
       "script": "scripts/demographic-master-crud-smoke.js",
       "tiers": [
