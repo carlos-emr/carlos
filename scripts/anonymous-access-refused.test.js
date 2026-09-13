@@ -1,0 +1,135 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+const assert = require('node:assert/strict');
+const test = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const {
+  LOGIN_REDIRECT, NOT_PROTECTED, REFUSED_STATUSES, resolveRoute, verdictFor,
+} = require('./anonymous-access-refused-playwright-checks');
+
+const SOURCE = fs.readFileSync(
+  path.join(__dirname, 'anonymous-access-refused-playwright-checks.js'), 'utf8',
+);
+const LOGIN_FILTER = fs.readFileSync(path.join(
+  __dirname, '..', 'src', 'main', 'java', 'io', 'github', 'carlos_emr', 'carlos', 'sec', 'LoginFilter.java',
+), 'utf8');
+
+const BASE = 'http://127.0.0.1:8080/carlos';
+
+/*
+ * This check asks whether an unauthenticated request can obtain patient data.
+ * Its verdict function decides that, so each way it could be too permissive gets
+ * a test -- a check that reports "refused" for a page that was served is worse
+ * than not having it.
+ */
+
+test('the expected refusal is the one LoginFilter actually performs', () => {
+  assert.match(LOGIN_FILTER, /sendRedirect\(contextPath \+ "\/logoutPage"\)/);
+  assert.match('/carlos/logoutPage', LOGIN_REDIRECT);
+  assert.deepEqual(REFUSED_STATUSES, [401, 403]);
+});
+
+test('a redirect to the login surface is a refusal', () => {
+  assert.equal(verdictFor({ url: '/x' }, 302, '/carlos/logoutPage', '', 'FAKE-SMITH'), null);
+  assert.equal(verdictFor({ url: '/x' }, 302, 'http://host/carlos/login', '', 'FAKE-SMITH'), null);
+  assert.equal(verdictFor({ url: '/x' }, 401, '', '', 'FAKE-SMITH'), null);
+  assert.equal(verdictFor({ url: '/x' }, 403, '', '', 'FAKE-SMITH'), null);
+});
+
+test('a redirect to somewhere ELSE is not a refusal', () => {
+  // Bouncing an anonymous caller onward into the application is not refusing it.
+  assert.match(
+    verdictFor({ url: '/x' }, 302, '/carlos/provider/providercontrol', '', 'FAKE-SMITH'),
+    /rather than to the login surface/,
+  );
+  assert.match(verdictFor({ url: '/x' }, 302, '', '', 'FAKE-SMITH'), /no Location header/);
+});
+
+test('a 200 is a failure even when the body looks harmless', () => {
+  // "It only returned an empty panel" is still a page served without a session.
+  const verdict = verdictFor({ url: '/x' }, 200, '', '<html><body></body></html>', 'FAKE-SMITH');
+  assert.match(verdict, /answered HTTP 200 to a session-less request/);
+  assert.match(verdict, /LoginFilter should/);
+});
+
+test('a 200 carrying the patient surname is reported as a bigger problem', () => {
+  // "Reachable" and "returned a patient's name" are different sizes of finding,
+  // and a run that conflates them buries the second.
+  const verdict = verdictFor({ url: '/x' }, 200, '', 'Patient: fake-smith, John', 'FAKE-SMITH');
+  assert.match(verdict, /contains the patient's surname/);
+  assert.match(verdict, /patient data served to an unauthenticated caller/);
+});
+
+test('the surname is never printed, only named', () => {
+  // The repo's rule: diagnostics name the field, never its content.
+  const verdict = verdictFor({ url: '/x' }, 200, '', 'FAKE-SMITH', 'FAKE-SMITH');
+  assert.ok(!verdict.includes('FAKE-SMITH'), `the message leaks the surname: ${verdict}`);
+  assert.ok(!/surname\b.*[:=]\s*\S/.test(verdict.replace("patient's surname", '')));
+});
+
+test('a too-short needle cannot match by accident', () => {
+  // A two-letter surname would match almost any HTML, turning every 200 into the
+  // severe finding and hiding which ones really leak.
+  assert.match(verdictFor({ url: '/x' }, 200, '', 'a page about ab', 'ab'), /LoginFilter should/);
+  assert.match(verdictFor({ url: '/x' }, 200, '', 'a page', ''), /LoginFilter should/);
+  // And main() refuses to run at all without a usable needle.
+  assert.match(SOURCE, /Could not read the patient surname from the Master Record/);
+});
+
+test('a 404 is not counted as an authentication finding', () => {
+  // Nothing was served either way, and reporting it would bury the real ones.
+  assert.equal(verdictFor({ url: '/x' }, 404, '', '', 'FAKE-SMITH'), null);
+});
+
+test('a 500 IS a finding, because reaching an exception means getting past the gate', () => {
+  assert.match(verdictFor({ url: '/x' }, 500, '', '', 'FAKE-SMITH'), /past the authentication gate/);
+});
+
+test('only the application\'s own URLs are probed', () => {
+  assert.equal(resolveRoute({ href: '/carlos/admin/ViewAdmin' }, BASE), `${BASE}/admin/ViewAdmin`);
+  assert.equal(resolveRoute({ href: 'https://evil.example/x' }, BASE), null, 'another origin is not ours to refuse');
+  assert.equal(resolveRoute({ href: '/other-app/x' }, BASE), null, 'another context path on the same host');
+  assert.equal(resolveRoute({ href: '' }, BASE), null);
+  assert.equal(resolveRoute({ href: 'mailto:someone@example.invalid' }, BASE), null);
+});
+
+test('the login surface and static assets are excluded, each with a reason', () => {
+  // They are not exceptions to the rule: they are supposed to answer an
+  // anonymous request, and reporting them would make the check cry wolf.
+  for (const rule of NOT_PROTECTED) {
+    assert.equal(typeof rule.reason, 'string');
+    assert.ok(rule.reason.length > 10, 'each exclusion must say why');
+  }
+  const excluded = (url) => NOT_PROTECTED.some((rule) => rule.match.test(url));
+  assert.ok(excluded(`${BASE}/logoutPage`));
+  assert.ok(excluded(`${BASE}/login`));
+  assert.ok(excluded(`${BASE}/images/favicon.ico`));
+  assert.ok(!excluded(`${BASE}/admin/ViewAdmin`), 'a real page must not be excluded');
+  assert.ok(!excluded(`${BASE}/demographic/DemographicEdit?demographic_no=2`));
+});
+
+test('the anonymous half uses a context of its own', () => {
+  // Reusing the authenticated context would carry the session cookie and test
+  // nothing at all -- the failure that would make this check permanently green.
+  assert.match(SOURCE, /browser\.newContext\(/);
+  assert.match(SOURCE, /anonymous\.request\.get/);
+  assert.ok(!/authed\.request\.get/.test(SOURCE), 'the probes must not run on the logged-in context');
+});
+
+test('the routes are catalogued from the UI, not listed or swept', () => {
+  // Comments stripped first: the header explains at length that it is NOT a
+  // struts-*.xml sweep, and matching that prose was this test failing on the
+  // very sentence promising the thing it checks.
+  const code = SOURCE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.match(code, /catalogueLinks/);
+  assert.ok(!/struts-.*\.xml/.test(code), 'a config sweep would answer a question about the config');
+  assert.ok(!/'\/admin\/ViewAdmin'|"\/demographic\/DemographicEdit"/.test(code),
+    'a hand-written route list would answer a question about the list');
+});
+
+test('the check only reads', () => {
+  for (const statement of [/createSqlRunner/, /\bINSERT\b/i, /\bDELETE\b/i, /request\.post\(/]) {
+    assert.ok(!statement.test(SOURCE), `this check may only issue GETs; found ${statement}`);
+  }
+});

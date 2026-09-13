@@ -146,6 +146,7 @@ schedule, never by a URL.
 | `mutator-get-rejection-live` | §2.2 | Every action the GET/HEAD rejection contract covers, driven through the **real** stack. Its route list is derived from `MutatorActionGetRejectionContractUnitTest`, so it cannot cover less than the unit contract does |
 | `csrf-bootstrap-audit` (static) | §2.2 | CLAUDE.md's CSRF token-bootstrapping rule, enforced across all 1,031 JSPs. Not a browser check — it needs no deployment, so it runs on every pull request |
 | `schedule-date-navigation` | §2.3 | The day sheet's month-boundary arithmetic (`day-1` on the 1st, `day+1` on the last), reached through the calendar popup — the two days a month where a clinician hits it and cannot reproduce it the next day |
+| `anonymous-access-refused` | §2.2 | Everything a clinician reaches from the Administration panel and the Master Record, re-requested from a **session-less** context. Routes catalogued from the UI, not listed |
 
 The first thirteen share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
@@ -158,6 +159,16 @@ failures (an HTML error page inside a PDF, a truncated stream) actually live. Th
 rows are a table in
 `scripts/lib/playwright-surfaces.js` — a new surface is four lines, not a new
 150-line script — and each is registered and reported individually.
+
+**The smoke tier is at its budget.** Its thirteen checks come to 3,600s of
+worst-case timeout, which is the ceiling `playwright-suite-manifest.test.js`
+enforces — a pull-request gate that can take longer than an hour is not a gate.
+`anonymous-access-refused` is registered in `core` for that reason alone, not
+because it earns less than the checks already there: it answers "can a stranger
+read patient data", which is exactly what a gate is for. Adding the next security
+check to `smoke` means taking one out, and `browser-surface` is the candidate —
+§2.1 already records that it should be folded into `master-record-tabs` and
+`admin-index-links`, both of which now exist.
 
 **Application defects these turn up go in
 [app-findings-log.md](app-findings-log.md)**, not into the checks. The suite's

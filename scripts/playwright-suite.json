@@ -428,6 +428,24 @@
       ]
     },
     {
+      "name": "anonymous-access-refused",
+      "script": "scripts/anonymous-access-refused-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "ANON_ROUTE_LIMIT",
+        "ANON_SEARCH",
+        "ANON_DEMOGRAPHIC_NO",
+        "ANON_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "schedule-date-navigation",
       "script": "scripts/schedule-date-navigation-playwright-checks.js",
       "tiers": [
