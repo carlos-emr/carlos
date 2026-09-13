@@ -320,12 +320,16 @@ async function main() {
     // field names say what was covered without saying who it happened to.
     return { fields: fields.map((field) => field.input) };
   } finally {
-    // Restore whatever was captured, even if the run threw mid-edit. Only the
-    // columns this check writes, and only this patient.
+    // EVERY CAPTURED COLUMN, not only the edited ones. UNTOUCHED_COLUMN is
+    // captured and asserted precisely because the application might clobber it,
+    // and restoring only `fields` meant that when it DID -- the one case the
+    // assertion exists to catch -- the assertion threw and this block left the
+    // shared test patient permanently modified. The check for fixture
+    // corruption must not be the thing that leaves fixture corruption behind.
     try {
       if (demographicNo && original) {
-        const assignments = fields
-          .map((field) => `\`${field.column}\` = ${original[field.column] === null ? 'NULL' : sqlString(original[field.column])}`)
+        const assignments = Object.keys(original)
+          .map((column) => `\`${column}\` = ${original[column] === null ? 'NULL' : sqlString(original[column])}`)
           .join(', ');
         if (assignments) {
           sql.execute(`UPDATE demographic SET ${assignments} WHERE demographic_no = ${Number(demographicNo)}`);

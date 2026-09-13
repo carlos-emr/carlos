@@ -21,11 +21,17 @@
  * that the first time somebody added an action, and the live check would quietly
  * stop covering it -- the failure mode the unit contract was built to prevent,
  * reintroduced one layer up. Reading the Java manifest means the live check
- * cannot cover less than the unit contract does.
+ * cannot cover less than the UNCONDITIONAL half of the unit contract.
  *
- * Only `unconditionalMutators()` is read. CONDITIONAL_MUTATORS reject GET only
- * when a mutation-intent parameter is present, so driving them without one
- * proves nothing, and NON_MUTATOR_GATES are supposed to permit GET.
+ * THAT IS THE WHOLE CLAIM, deliberately. Only `unconditionalMutators()` is read.
+ * NON_MUTATOR_GATES are supposed to permit GET, so there is nothing to drive.
+ * CONDITIONAL_MUTATORS reject GET only when a mutation-intent parameter is
+ * present -- and supplying one against a LIVE deployment is not a probe worth
+ * running: if the guard under test is broken, the request it takes to prove that
+ * is the request that performs the mutation. Those actions are covered by the
+ * focused *2ActionTest CLAUDE.md requires alongside the manifest entry, where
+ * the dependency is mocked and a failure costs nothing. Do not widen this to
+ * them without solving that first.
  */
 
 const fs = require('node:fs');

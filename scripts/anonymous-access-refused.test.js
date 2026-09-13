@@ -250,3 +250,22 @@ test('a relative Location keeps its path and loses its query', () => {
   // its own -- and losing the path would throw away the only useful half.
   assert.equal(printableRoute('/carlos/logout?demographic_no=9'), '/carlos/logout');
 });
+
+test('the default run probes the whole catalogue, not a prefix of it', () => {
+  // The default was 60. This check's claim is that NO clinician-reachable route
+  // serves a session-less request, and a capped run cannot support it: the
+  // routes past the cap were never probed, and the run still reported success.
+  // The cap stayed visible in the message and in RESULT_JSON, which is better
+  // than silence, but a partial security sweep should be something a person
+  // asks for rather than something they have to notice they got.
+  const source = require('node:fs').readFileSync(
+    require.resolve('./anonymous-access-refused-playwright-checks'), 'utf8',
+  );
+  assert.match(source, /ANON_ROUTE_LIMIT \|\| '0'/);
+  assert.ok(!/ANON_ROUTE_LIMIT \|\| '(?!0')\d+'/.test(source),
+    'a non-zero default silently makes the default run partial');
+  // 0 must still mean unlimited rather than "probe nothing".
+  assert.match(source, /limit > 0 \? routes\.slice\(0, limit\) : routes/);
+  // And an explicitly capped run must still say so.
+  assert.match(source, /PARTIAL/);
+});

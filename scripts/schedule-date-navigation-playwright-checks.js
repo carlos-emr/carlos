@@ -203,6 +203,31 @@ async function checkMonthView(schedulePage, timeout) {
     'The month view offers no Today link, so a user who opened it cannot get back to a day sheet');
   await clickAndAwaitReload(schedulePage, today, { timeout, label: "the month view's Today link" });
   const after = await shownDate(schedulePage, timeout);
+  // ASSERTED, NOT MERELY READ. `after` was returned and never compared, so a
+  // Today link that landed on some other day passed as long as the page was not
+  // blank -- the whole point of the control, untested.
+  //
+  // The oracle is TODAY, not `before`: checkMonthBoundaries runs first and walks
+  // the schedule across month ends, so `before` is wherever that walk finished,
+  // and "Today" quite correctly does not go back to it. The one day of slack
+  // absorbs the two ways this would otherwise flake -- a run crossing local
+  // midnight, and a server whose timezone differs from the runner's -- while
+  // still catching a landing months away or no navigation at all.
+  const landed = parseIso(after);
+  // parseIso returns an Invalid Date for a string it cannot read, not null, so
+  // a truthiness check here would pass and leave the comparison below to fail
+  // with a confusing message about a date that was never parsed.
+  assert(!Number.isNaN(landed.getTime()),
+    `The Today link landed on ${after}, which is not a date this check can read`);
+  // Both sides at local midnight: measured against Date.now() the tolerance
+  // would silently shrink as the day wore on, so the same deployment would pass
+  // in the morning and fail in the evening.
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const driftDays = Math.abs(landed.getTime() - todayMidnight.getTime()) / 86400000;
+  assert(driftDays <= 1,
+    `The month view's Today link landed on ${after}, which is not today (${iso(new Date())}) `
+    + 'nor within a day of it, so it does not return a user to the current day sheet');
   return { covered: true, before, after };
 }
 

@@ -375,6 +375,9 @@ function fakeAuditPage(options = {}) {
   const waitForUrlTimeouts = [];
   const screenshots = [];
   let pending = 0;
+  // The host page's markup length, so openItem can tell an in-place action from
+  // a click that did nothing. `actsInPlace` makes each click change it.
+  let markup = 100;
   const page = {
     url: () => 'http://127.0.0.1:8080/carlos/admin',
     locator(selector) {
@@ -382,14 +385,27 @@ function fakeAuditPage(options = {}) {
         nth: (index) => ({
           textContent: async () => options.textFor(index),
           scrollIntoViewIfNeeded: async () => {},
-          click: async () => { if (options.onClick) { options.onClick(index); } },
+          click: async () => {
+            if (options.actsInPlace) { markup += 1; }
+            if (options.onClick) { options.onClick(index); }
+          },
         }),
         first: () => ({ inputValue: async () => '' }),
         innerText: async () => 'a page with content',
         evaluate: async () => false,
       };
     },
-    evaluate: async () => false,
+    // Two different callers evaluate against this page: openItem probes
+    // document.body.innerHTML.length, csrfBootstrapFinding asks whether the
+    // page reads the token. Answering `markup` to both made the CSRF probe see
+    // a truthy value and report a finding for every item.
+    evaluate: async (fn) => (String(fn).includes('innerHTML.length') ? markup : false),
+    waitForFunction: async (predicate, previousLength) => {
+      // openItem's predicate reads document.body.innerHTML.length in the page.
+      // Model that here rather than running it against a real DOM.
+      if (markup !== previousLength) { return true; }
+      throw new Error('timeout');
+    },
     async screenshot({ path: outputPath }) { screenshots.push(outputPath); },
     waitForURL(predicate, waitOptions) {
       waitForUrlTimeouts.push(waitOptions.timeout);
@@ -419,9 +435,11 @@ test('a click that navigates nowhere stops waiting after the navigation-start bo
   const items = [{
     text: 'Search', index: 0, selector: 'a', href: '/search', opensPopup: false,
   }];
-  const fake = fakeAuditPage({ textFor: () => 'Search' });
+  // actsInPlace: this test is about the navigation-wait bound, so the item is
+  // one that legitimately acts in place rather than an inert one.
+  const fake = fakeAuditPage({ textFor: () => 'Search', actsInPlace: true });
   const result = await auditCatalogue({
-    context: {},
+    context: { pages: () => [] },
     hostPage: fake.page,
     items,
     recorder: createRecorder(),
@@ -436,9 +454,9 @@ test('a click that navigates nowhere stops waiting after the navigation-start bo
 
 test('the navigation-start bound never exceeds the item timeout', async () => {
   const { auditCatalogue } = require('./lib/playwright-link-audit');
-  const fake = fakeAuditPage({ textFor: () => 'Search' });
+  const fake = fakeAuditPage({ textFor: () => 'Search', actsInPlace: true });
   await auditCatalogue({
-    context: {},
+    context: { pages: () => [] },
     hostPage: fake.page,
     items: [{
       text: 'Search', index: 0, selector: 'a', href: '/search', opensPopup: false,
@@ -464,6 +482,7 @@ test('two items with the same label get two screenshots, not one overwritten', a
   const recorder = createRecorder();
   const fake = fakeAuditPage({
     textFor: () => 'Manage Billing Form',
+    actsInPlace: true,
     onClick: (index) => { recorder.pageErrors.push({ text: `ReferenceError from anchor ${index}` }); },
   });
   const items = [
@@ -475,7 +494,7 @@ test('two items with the same label get two screenshots, not one overwritten', a
     },
   ];
   const result = await auditCatalogue({
-    context: {},
+    context: { pages: () => [] },
     hostPage: fake.page,
     items,
     recorder,
@@ -555,4 +574,87 @@ test('a same-tab surface that only reloads the schedule is not treated as opened
     /did not take the schedule anywhere/,
     'a same-address reload must not count as opening the surface',
   );
+});
+
+test('an opener written as a javascript: href is catalogued, not dropped', async () => {
+  // 256 anchors across the webapp write their opener in the href rather than an
+  // onclick -- five in admin.jsp alone. They carry no onclick, so reading
+  // openers from onclick alone found no route; hasRealHref rejects javascript:
+  // (rightly, it is not a destination); and the anchor fell out of the
+  // catalogue entirely. The audits then reported a complete sweep of a surface
+  // they had never opened part of.
+  const items = await catalogue([
+    anchorDouble({ href: 'javascript: popupPage( 500, 900, "/carlos/quickBillingBC");' }, 'Quick Billing'),
+    anchorDouble({ href: 'javascript: location.href="/carlos/plain"' }, 'Same Tab'),
+  ]);
+  assert.equal(items.length, 2, 'both javascript: openers must be catalogued');
+
+  const [popup, sameTab] = items;
+  assert.equal(popup.text, 'Quick Billing');
+  assert.equal(popup.route, '/carlos/quickBillingBC');
+  assert.equal(popup.opensPopup, true, 'popupPage in a javascript: href still opens a popup');
+  assert.equal(popup.href, '', 'a javascript: href is not a destination to navigate to');
+
+  assert.equal(sameTab.route, '/carlos/plain');
+  assert.equal(sameTab.opensPopup, false);
+});
+
+test('a javascript: href with no route in it is still not catalogued', async () => {
+  // The scheme alone is not a reason to keep an anchor: href="javascript:void(0)"
+  // with no onclick goes nowhere, and cataloguing it would put an item in the
+  // sweep that can only ever be reported as "opened" without opening anything.
+  assert.deepEqual(await catalogue([anchorDouble({ href: 'javascript:void(0)' }, 'Inert')]), []);
+});
+
+test('an item whose click does nothing is a finding, not an opened page', async () => {
+  // The host page's body is non-empty whatever the click did, so an item that
+  // neither navigated nor opened a popup nor changed anything was counted as
+  // opened -- and an inert or broken control could make up the per-surface
+  // minimum on its own.
+  //
+  // Navigation is deliberately NOT the test here, unlike the surface audit:
+  // plenty of admin items legitimately inject a panel in place. The test is
+  // whether anything happened at all.
+  const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const fake = fakeAuditPage({ textFor: () => 'Inert Control' });
+  const result = await auditCatalogue({
+    context: { pages: () => [] },
+    hostPage: fake.page,
+    items: [{
+      text: 'Inert Control', index: 0, selector: 'a', href: '/x', opensPopup: false,
+    }],
+    recorder: createRecorder(),
+    labelPrefix: 'admin',
+    timeout: 1000,
+  });
+  assert.deepEqual(result.opened, [], 'a click that did nothing must not count as an opened page');
+  assert.equal(result.failures.length, 1);
+  assert.match(result.failures[0], /clicking it did nothing/);
+});
+
+test('an item that opens an unclassified popup is not reported as inert', async () => {
+  // Several CARLOS handlers reach window.open through a helper catalogueLinks'
+  // pattern does not name. Those clicks leave the host page untouched, so
+  // without counting the context's new page they would trade a false pass for a
+  // false failure -- the item works, and the audit would call it broken.
+  const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const pages = [{}];
+  const fake = fakeAuditPage({
+    textFor: () => 'Hidden Opener',
+    // The click is what opens the popup.
+    onClick: () => { pages.push({}); },
+  });
+  const result = await auditCatalogue({
+    context: { pages: () => pages },
+    hostPage: fake.page,
+    items: [{
+      text: 'Hidden Opener', index: 0, selector: 'a', href: '/x', opensPopup: false,
+    }],
+    recorder: createRecorder(),
+    labelPrefix: 'admin',
+    timeout: 1000,
+  });
+  assert.equal(pages.length, 2, 'the double must actually have opened a page, or this test proves nothing');
+  assert.deepEqual(result.failures, []);
+  assert.deepEqual(result.opened, ['Hidden Opener']);
 });

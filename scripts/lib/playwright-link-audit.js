@@ -57,6 +57,17 @@ async function catalogueLinks(page, options = {}) {
     const text = (anchor.textContent || '').replace(/\s+/g, ' ').trim();
     const href = anchor.getAttribute('href') || '';
     const onclick = anchor.getAttribute('onclick') || anchor.getAttribute('onClick') || '';
+    // A javascript: HREF IS AN OPENER TOO, and 256 anchors across the webapp
+    // write theirs that way -- five in admin.jsp alone, e.g.
+    //   <a href='javascript: popupPage(500, 900, "<ctx>/quickBillingBC");'>
+    // They carry no onclick, so reading openers from onclick alone found no
+    // route, hasRealHref rejected javascript: (rightly -- it is not a
+    // destination), and the anchor was dropped from the catalogue entirely.
+    // The audits then reported a complete sweep of a surface they had never
+    // opened part of. The body after the scheme is the same script an onclick
+    // would hold, so it is read the same way.
+    const jsHref = /^javascript:/i.test(href) ? href.replace(/^javascript:/i, '') : '';
+    const opener = onclick || jsHref;
     // Three shapes, in order, because CARLOS writes all three and an
     // absolute-only pattern dropped the other two: the item was catalogued
     // with no route, and an item with href="#" and no route was filtered out
@@ -65,8 +76,8 @@ async function catalogueLinks(page, options = {}) {
     //   absolute   popupPage(600,900,'/carlos/billing/...')
     //   relative   popupPage(..., '../encounter/IncomingEncounter?...')
     //   bare       popup(..., 'DemographicEdit?demographic_no=...')
-    const routeInOnclick = onclick.match(/["']((?:\.{1,2}\/)+[A-Za-z0-9_][^"'\s]*)["']/)
-      || onclick.match(/["'](\/[A-Za-z0-9_][A-Za-z0-9_/.-]*(?:\?[^"']*)?)["']/)
+    const routeInOnclick = opener.match(/["']((?:\.{1,2}\/)+[A-Za-z0-9_][^"'\s]*)["']/)
+      || opener.match(/["'](\/[A-Za-z0-9_][A-Za-z0-9_/.-]*(?:\?[^"']*)?)["']/)
       // Bare paths only when the token actually looks like one: it carries a
       // slash, a query string, or a server-page extension. Without that guard
       // this matches the window name and the feature string that sit in the
@@ -77,7 +88,7 @@ async function catalogueLinks(page, options = {}) {
       // many ways to match the same string -- catastrophic backtracking on an
       // unterminated quote full of slashes, which would hang the audit inside
       // the page rather than fail it (CodeQL js/redos).
-      || onclick.match(/["']([A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[^"'\s?/]*)*(?:\.(?:jsp|do|html?)\b)?(?:\?[^"']*)?)["']/);
+      || opener.match(/["']([A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[^"'\s?/]*)*(?:\.(?:jsp|do|html?)\b)?(?:\?[^"']*)?)["']/);
     const looksLikeRoute = routeInOnclick
       && (/^[./]/.test(routeInOnclick[1])
         || /[/?]/.test(routeInOnclick[1])
@@ -115,7 +126,7 @@ async function catalogueLinks(page, options = {}) {
       // branch, where it waited for a navigation that never came and then read
       // the UNCHANGED host page -- reporting the opener's own content as the
       // item's destination, which passes for every broken popup.
-      opensPopup: /popup|newWindow|postToPopup|window\.open/i.test(onclick)
+      opensPopup: /popup|newWindow|postToPopup|window\.open/i.test(opener)
         || (anchor.getAttribute('target') || '').toLowerCase() === '_blank',
     };
   }).filter(Boolean));
@@ -243,6 +254,10 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
   const startTimeout = Math.min(timeout, NAVIGATION_START_TIMEOUT);
   const navigationStarted = hostPage.waitForURL((url) => String(url) !== before, { timeout: startTimeout })
     .then(() => true, () => false);
+  // For the in-place case below: what the page looked like before the click.
+  const markupBefore = await hostPage.evaluate(() => document.body.innerHTML.length) // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code, no interpolation
+    .catch(() => -1);
+  const pagesBefore = context && typeof context.pages === 'function' ? context.pages().length : 0;
   await link.click({ timeout });
   const navigated = await navigationStarted;
   if (navigated) {
@@ -255,7 +270,33 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
     }
   }
   await hostPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
-  return { page: hostPage, isPopup: false, cameFrom: before };
+
+  // DID THE CLICK DO ANYTHING AT ALL? An item that neither navigates nor opens
+  // a popup used to be handed back as the host page, whose body is of course
+  // non-empty -- so auditCatalogue counted it as opened, and an inert or broken
+  // control could satisfy the per-surface minimum. Requiring navigation is
+  // wrong here (unlike the surface audit): plenty of admin items legitimately
+  // inject a panel in place. So the test is whether ANYTHING happened.
+  //
+  // A popup counts even when the item was not catalogued as an opener: several
+  // CARLOS handlers reach window.open through a helper this module's pattern
+  // does not name, and reporting those as "did nothing" would trade a false
+  // pass for a false failure.
+  let actedInPlace = navigated;
+  if (!actedInPlace) {
+    const pagesAfter = context && typeof context.pages === 'function' ? context.pages().length : 0;
+    actedInPlace = pagesAfter > pagesBefore;
+  }
+  if (!actedInPlace && markupBefore >= 0) {
+    actedInPlace = await hostPage.waitForFunction(
+      (previousLength) => document.body.innerHTML.length !== previousLength, // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code, no interpolation
+      markupBefore,
+      { timeout: startTimeout },
+    ).then(() => true, () => false);
+  }
+  return {
+    page: hostPage, isPopup: false, cameFrom: before, actedInPlace,
+  };
 }
 
 /**
@@ -296,13 +337,19 @@ async function auditCatalogue(options) {
         failures.push(`${item.text}: rendered an error page`);
       } else if (!body.trim()) {
         failures.push(`${item.text}: rendered a blank page`);
+      } else if (target.isPopup === false && target.actedInPlace === false) {
+        // Counted as opened before this, because the unchanged host page has a
+        // perfectly good body. An inert control could therefore make up the
+        // per-surface minimum.
+        failures.push(`${item.text}: clicking it did nothing -- no navigation, no popup, and the page did not `
+          + 'change, so whatever this item is meant to reach was never reached');
       } else {
         const csrf = await csrfBootstrapFinding(target.page, item.text);
         if (csrf) {
           failures.push(csrf);
         }
+        opened.push(item.text);
       }
-      opened.push(item.text);
     } catch (error) {
       failures.push(`${item.text}: ${String(error.message).split('\n')[0]}`);
     } finally {

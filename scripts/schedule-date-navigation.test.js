@@ -116,3 +116,28 @@ test('the check navigates only, and by clicking', () => {
     assert.ok(!statement.test(SOURCE), `moving around the schedule is read-only; found ${statement}`);
   }
 });
+
+test('the Today link landing is asserted against today, not against the page it came from', () => {
+  // `after` was read and returned and never compared, so a Today link that
+  // landed on some other day passed as long as the page was not blank.
+  //
+  // The oracle is TODAY, not `before`: checkMonthBoundaries runs first and walks
+  // the schedule across month ends, so `before` is wherever that walk finished
+  // and Today quite correctly does not return to it. A test asserting
+  // after === before would have pinned the wrong contract.
+  const source = require('node:fs').readFileSync(
+    require.resolve('./schedule-date-navigation-playwright-checks'), 'utf8',
+  );
+  const monthView = source.slice(source.indexOf('async function checkMonthView'));
+  const body = monthView.slice(0, monthView.indexOf('\n}\n'));
+  assert.match(body, /const driftDays = /);
+  assert.match(body, /driftDays <= 1/);
+  assert.ok(!/assert\(after === before/.test(body),
+    'before is the boundary walk’s landing, not today; asserting equality would pin the wrong contract');
+  // The invalid-date guard must test the parsed value, not its truthiness:
+  // parseIso returns an Invalid Date object, which is truthy.
+  assert.match(body, /Number\.isNaN\(landed\.getTime\(\)\)/);
+  // And the comparison is midnight-to-midnight, or the tolerance shrinks as the
+  // day wears on and the same deployment passes in the morning, fails at night.
+  assert.match(body, /setHours\(0, 0, 0, 0\)/);
+});

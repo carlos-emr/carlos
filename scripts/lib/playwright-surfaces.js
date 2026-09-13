@@ -45,8 +45,14 @@
  * `entry.popup` true when the control opens a new window (most of them do).
  * `optional`   the control is behind a property or module flag that a given
  *              deployment may legitimately have off (WORKFLOW, referral_menu).
- *              Absent means SKIP, not fail. Everything without this flag must be
- *              present, because "control missing" is the failure this catches.
+ *              PRESENT means a missing control is a SKIP rather than a failure,
+ *              and the string says which flag. Everything WITHOUT this key must
+ *              be present, because "control missing" is the failure this
+ *              catches -- see openSurface in surface-audit-playwright-checks.js,
+ *              which throws SkipCheck only when the key is set and asserts
+ *              otherwise. (This read "Absent means SKIP", which is the rule
+ *              backwards and would have had the next surface definition marking
+ *              a genuinely required control as skippable.)
  * `scope`      optional CSS scope for the catalogue, when only part of the
  *              surface belongs to it.
  * `minimum`    how many items the surface must offer. This is the guard against

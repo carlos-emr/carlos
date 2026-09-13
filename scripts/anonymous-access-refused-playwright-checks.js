@@ -247,7 +247,14 @@ async function main() {
   // 0 means UNLIMITED, as it does everywhere else in this suite. Reading it as a
   // literal cap made slice(0, 0) probe nothing at all and pass, because an empty
   // failures list is an empty failures list.
-  const limit = Number(process.env.ANON_ROUTE_LIMIT || '60');
+  //
+  // AND UNLIMITED IS THE DEFAULT. It used to be 60, so an ordinary run probed a
+  // PREFIX of the catalogue and still reported success -- for a check whose
+  // whole claim is "no clinician-reachable route serves a session-less
+  // request". The cap was reported in the message and in RESULT_JSON, which is
+  // better than silence, but a partial security sweep should be something a
+  // person asks for, not something they have to notice they got.
+  const limit = Number(process.env.ANON_ROUTE_LIMIT || '0');
   assert(Number.isFinite(limit) && limit >= 0, 'ANON_ROUTE_LIMIT must be a non-negative number');
   const timeout = Number(process.env.ANON_TIMEOUT_MS || '20000');
 
