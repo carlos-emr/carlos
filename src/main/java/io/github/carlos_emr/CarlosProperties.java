@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr;
 
+import io.github.carlos_emr.carlos.utility.BuildInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -41,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -78,6 +80,16 @@ public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
+    /**
+     * Keys already reported as "missing or not configured". That warning is per key per JVM, not
+     * per lookup: several of these keys are read on every page render, and at the WARN root default
+     * a per-lookup warning made the journal mostly this one line. The set is bounded as defence in
+     * depth (keys are code literals, a few hundred at most, but the lookup API is open to any
+     * caller): once {@link #MAX_MISSING_KEYS_REMEMBERED} distinct keys are held, further unknown
+     * keys are still warned about, on every lookup, and simply not remembered.
+     */
+    private static final Set<String> MISSING_KEYS_WARNED = ConcurrentHashMap.newKeySet();
+    private static final int MAX_MISSING_KEYS_REMEMBERED = 2048;
 
     /**
      * Blacklisted namespace patterns for property values that should be ignored.
@@ -97,6 +109,19 @@ public class CarlosProperties extends Properties {
         "hibernate.dialect", "io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect",
         "ColourClass", "io.github.carlos_emr.carlos.casemgmt.common.Colour"
     );
+
+    /**
+     * Once per key while the bounded set has room; every time once it is full. Never silent.
+     */
+    private static boolean shouldWarnMissingKey(String key) {
+        if (MISSING_KEYS_WARNED.contains(key)) {
+            return false;
+        }
+        if (MISSING_KEYS_WARNED.size() >= MAX_MISSING_KEYS_REMEMBERED) {
+            return true;
+        }
+        return MISSING_KEYS_WARNED.add(key);
+    }
 
     /**
      * Gets the singleton instance of CarlosProperties.
@@ -130,15 +155,17 @@ public class CarlosProperties extends Properties {
 
         // If no value, return the default if one is configured
         if (value == null) {
-            // key is caller-supplied and may carry CR/LF; sanitize before logging to
-            // prevent log forging (CodeQL log-injection). Default values come from the
-            // internal PROPERTY_DEFAULTS map and are trusted.
-            String warning = new StringBuilder()
-                .append("Property '").append(LogSafe.sanitize(key))
-                .append("' is missing or not configured. Using default value: '")
-                .append(getDefaultValue(key)).append("'.")
-                .toString();
-            MiscUtils.getLogger().warn(warning);
+            if (shouldWarnMissingKey(key)) {
+                // key is caller-supplied and may carry CR/LF; sanitize before logging to
+                // prevent log forging (CodeQL log-injection). Default values come from the
+                // internal PROPERTY_DEFAULTS map and are trusted.
+                String warning = new StringBuilder()
+                    .append("Property '").append(LogSafe.sanitize(key))
+                    .append("' is missing or not configured. Using default value: '")
+                    .append(getDefaultValue(key)).append("'.")
+                    .toString();
+                MiscUtils.getLogger().warn(warning);
+            }
             return getDefaultValue(key);
         }
 
@@ -360,12 +387,26 @@ public class CarlosProperties extends Properties {
         return getProperty("db_driver");
     }
 
+    /**
+     * Build date of the deployed WAR. Read from the in-WAR build stamp via
+     * {@link BuildInfo}, never from a properties override: a {@code buildDate} key in an
+     * operator's carlos.properties copy is ignored so it cannot mask a WAR upgrade.
+     *
+     * @return the build date, or empty when the artifact carries no stamp
+     */
     public static String getBuildDate() {
-        return carlosProperties.getProperty("buildDate");
+        return BuildInfo.getInstance().getBuildDate();
     }
 
+    /**
+     * Build tag of the deployed WAR (project version plus optional CI job / build number).
+     * Read from the in-WAR build stamp via {@link BuildInfo}, never from a properties
+     * override: a {@code buildVersion} key in an operator's carlos.properties copy is ignored.
+     *
+     * @return the build tag as described by {@link BuildInfo#getBuildTag()}
+     */
     public static String getBuildTag() {
-        return carlosProperties.getProperty("buildVersion");
+        return BuildInfo.getInstance().getBuildTag();
     }
 
     public boolean faxEnabled() {

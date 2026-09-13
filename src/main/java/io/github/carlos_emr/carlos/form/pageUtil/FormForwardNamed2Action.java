@@ -66,6 +66,9 @@ public class FormForwardNamed2Action extends ActionSupport {
             return NONE;
         }
 
+        // An included JSP cannot set response headers; establish the form's
+        // media type before including it so plain Save renders as HTML.
+        response.setContentType("text/html;charset=UTF-8");
         request.getRequestDispatcher(internalView + "?demographic_no=" + demographicNo)
                 .include(request, response);
         return NONE;

@@ -191,6 +191,19 @@ public class NavBarDisplayDAO {
         return LeftURL;
     }
 
+    /**
+     * Whether the left heading has a configured click action (popup or URL).
+     * When false, the JSP renders the heading as static text with no
+     * {@code <a>}/{@code onclick}, avoiding an apparently actionable
+     * control that has no visible effect (issue #3444).
+     *
+     * @return true if a popup or non-blank left URL is configured
+     * @since 2026-08-13
+     */
+    public boolean hasInteractiveLeftHeading() {
+        return leftPopup != null || !getLeftURL().isBlank();
+    }
+
     public void setRightURL(String url) {
         RightURL = url;
     }
