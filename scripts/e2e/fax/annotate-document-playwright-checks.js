@@ -444,12 +444,20 @@ async function main() {
     await page.locator('.tool[data-tool="text"]').click();
     page.once('dialog', dialog => dialog.accept('Synthetic note é 3618'));
     await page.locator('svg.overlay').first().click({ position: { x: 230, y: 180 } });
+    if (process.env.EXPECT_SIGNATURE_STAMP === 'true') {
+      await page.locator('.tool[data-tool="signature"]').click();
+      await page.locator('svg.overlay').first().click({ position: { x: 350, y: 250 } });
+    }
     check('preview loads the same font as the PDF composer',
       await page.evaluate(() => document.fonts.load('11px CarlosAnnotation').then(fonts => fonts.length > 0)));
     await page.locator('#btnSave').click();
     await waitForSave();
     check('ink, date and Unicode text save through the real toolbar',
       await page.locator('#status').getAttribute('class') === 'status ok');
+    if (process.env.EXPECT_SIGNATURE_STAMP === 'true') {
+      check('the provider signature stamp saves through the real toolbar',
+        await page.locator('#status').getAttribute('class') === 'status ok');
+    }
     if (process.env.ARTIFACT_DIR) {
       require('fs').mkdirSync(process.env.ARTIFACT_DIR, { recursive: true });
       await page.screenshot({ path: require('path').join(process.env.ARTIFACT_DIR, 'annotation-tools.png'), fullPage: true });

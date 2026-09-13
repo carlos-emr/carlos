@@ -34,3 +34,7 @@ npm run test:annotate-document-playwright
 ```
 
 Use the credentials for your disposable test account; do not put real credentials in a committed script. The account should have completed its first-login password change. Self-signed certificates are accepted only on loopback hosts. The script must exit zero and report no failed checks. Review the saved copies visually as well as the automated results.
+
+## Administrator upgrade check
+
+The package preserves the annotation page's stricter Content Security Policy through nginx. `carlos-ctl init-config` upgrades the old unmodified stock proxy fragment automatically. If `/etc/carlos-emr/nginx/proxy-params.conf` has local edits, it preserves them and warns instead. Back up that file, remove the exact `proxy_hide_header Content-Security-Policy;` directive, run `sudo nginx -t`, and reload nginx only if validation succeeds. Keep the front-door baseline CSP: browsers enforce both policies. Run the browser check through the HTTPS front door to verify the application's nonce policy is actually enforced.
