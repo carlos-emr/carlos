@@ -366,3 +366,33 @@ test('the DataTables wrapper fallback is only built for a bare id selector', () 
   assert.ok(!idOnly.test('#outer .dt'));
   assert.ok(!idOnly.test('#a > #b'));
 });
+
+test('a failed navigation names the page by path, never by its query string', () => {
+  // CARLOS puts PHI-correlating identifiers in the query: the Master Record is
+  // demographiccontrol?demographic_no=NNN, and demographic-edit-update calls
+  // clickAndAwaitReload on exactly that page. runCheck() writes a thrown
+  // message to stdout AND into RESULT_JSON, which CI archives, so the whole
+  // address in this message put a patient key into the artifacts of every
+  // failed save.
+  const { pathOnly } = require('./lib/playwright-ui');
+  assert.equal(
+    pathOnly('http://127.0.0.1:8080/carlos/demographic/demographiccontrol?demographic_no=42&displaymode=edit'),
+    'http://127.0.0.1:8080/carlos/demographic/demographiccontrol',
+  );
+  assert.equal(pathOnly('http://host/carlos/x#frag'), 'http://host/carlos/x');
+  assert.equal(pathOnly('http://host/carlos/x'), 'http://host/carlos/x');
+  // Not absolute, and the degenerate values a page mid-teardown can hand back.
+  assert.equal(pathOnly('about:blank'), 'about:blank');
+  assert.equal(pathOnly('/carlos/x?demographic_no=42'), '/carlos/x');
+  assert.equal(pathOnly(''), '');
+  assert.equal(pathOnly(null), '');
+  assert.equal(pathOnly(undefined), '');
+
+  // And the message actually uses it, rather than the raw url.
+  const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-ui'), 'utf8');
+  const helper = source.slice(source.indexOf('async function clickAndAwaitReload'));
+  const body = helper.slice(0, helper.indexOf('\n}\n'));
+  assert.match(body, /pathOnly\(watchPage\.url\(\)\)/);
+  assert.ok(!/\$\{watchPage\.url\(\)\}/.test(body),
+    'the raw url must not be interpolated into a message runCheck() archives');
+});

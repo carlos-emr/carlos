@@ -62,7 +62,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig,
   runCheck,
 } = require('./lib/playwright-harness');
-const { clickOpensPopup } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, clickOpensPopup } = require('./lib/playwright-ui');
 const {
   auditCatalogue, catalogueLinks, dedupe, findingsSince, snapshotRecorder,
 } = require('./lib/playwright-link-audit');
@@ -115,9 +115,28 @@ async function openSurface(context, schedulePage, surface, recorder, timeout) {
       context, label: surface.name, recorder, timeout,
     });
   }
-  await control.click({ timeout });
-  await schedulePage.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
-  await schedulePage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  // A SAME-TAB SURFACE MUST ACTUALLY GO SOMEWHERE, and this branch used to
+  // prove neither half of that. The load-state waits were armed AFTER the
+  // click, so they resolved against the schedule's own already-loaded
+  // document; and nothing asserted that a navigation happened at all. A
+  // broken handler -- or one that became an in-place/AJAX interaction --
+  // therefore returned the schedule page, catalogueLinks catalogued the
+  // SCHEDULE's links, and surface.minimum was satisfied by the schedule's own
+  // navigation. The surface reported a clean audit without ever being opened.
+  //
+  // No surface in the manifest takes this branch today (all nine entries are
+  // popup: true), so this is a latent hazard rather than a live false green --
+  // but auditSurface's finally block is written for a same-tab surface, so it
+  // is one manifest entry away from running.
+  const before = schedulePage.url();
+  await clickAndAwaitReload(schedulePage, control, {
+    timeout, label: `the ${surface.title} control`,
+  });
+  // framenavigated alone would also be satisfied by a same-address reload,
+  // which leaves the audit on the schedule just as surely.
+  assert(schedulePage.url() !== before,
+    `Clicking ${describeEntry(surface)} did not take the schedule anywhere, so ${surface.title} was never `
+    + "opened and the audit would have catalogued the schedule's own links instead");
   return schedulePage;
 }
 

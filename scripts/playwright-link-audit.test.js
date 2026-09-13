@@ -493,3 +493,66 @@ test('two items with the same label get two screenshots, not one overwritten', a
   }
   fs.rmSync(screenshotDir, { recursive: true, force: true });
 });
+
+test('a same-tab surface that goes nowhere fails instead of auditing the schedule', async () => {
+  // openSurface's non-popup branch armed its load-state waits AFTER the click,
+  // against the schedule's own already-loaded document, and asserted no
+  // navigation at all. A broken or in-place handler therefore returned the
+  // schedule page; catalogueLinks then catalogued the SCHEDULE's links and
+  // surface.minimum was satisfied by the schedule's own navigation, so the
+  // surface reported a clean audit without ever being opened.
+  const { openSurface } = require('./surface-audit-playwright-checks');
+  const surface = {
+    name: 'same-tab-surface',
+    title: 'Same Tab Surface',
+    entry: { selector: '#sameTab', popup: false },
+  };
+  // A control whose click does nothing at all -- the broken handler.
+  const inert = {
+    count: async () => 1,
+    scrollIntoViewIfNeeded: async () => {},
+    click: async () => {},
+  };
+  const schedulePage = {
+    url: () => 'http://127.0.0.1:8080/carlos/provider/providercontrol',
+    locator: () => ({ first: () => inert }),
+    mainFrame: () => ({}),
+    waitForEvent: () => new Promise((_r, reject) => {
+      setTimeout(() => reject(new Error('no navigation')), 1);
+    }),
+    waitForLoadState: async () => {},
+  };
+  await assert.rejects(
+    () => openSurface({}, schedulePage, surface, null, 50),
+    /without navigating|did not take the schedule anywhere/,
+    'a click that navigates nothing must fail the surface, not hand back the schedule',
+  );
+});
+
+test('a same-tab surface that only reloads the schedule is not treated as opened', async () => {
+  // framenavigated alone is satisfied by a same-address reload, which leaves
+  // the audit on the schedule just as surely as no navigation at all.
+  const { openSurface } = require('./surface-audit-playwright-checks');
+  const surface = {
+    name: 'same-tab-surface',
+    title: 'Same Tab Surface',
+    entry: { selector: '#sameTab', popup: false },
+  };
+  const control = {
+    count: async () => 1,
+    scrollIntoViewIfNeeded: async () => {},
+    click: async () => {},
+  };
+  const schedulePage = {
+    url: () => 'http://127.0.0.1:8080/carlos/provider/providercontrol',
+    locator: () => ({ first: () => control }),
+    mainFrame: () => ({}),
+    waitForEvent: async () => ({}),
+    waitForLoadState: async () => {},
+  };
+  await assert.rejects(
+    () => openSurface({}, schedulePage, surface, null, 50),
+    /did not take the schedule anywhere/,
+    'a same-address reload must not count as opening the surface',
+  );
+});

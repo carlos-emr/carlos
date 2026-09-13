@@ -244,6 +244,35 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
  *   navigate; the return value then says whether it did.
  * @returns true when a navigation was observed.
  */
+/**
+ * The address without its query string, for a diagnostic a human will read.
+ *
+ * CARLOS puts PHI-CORRELATING IDENTIFIERS IN THE QUERY: the Master Record is
+ * demographiccontrol?demographic_no=NNN, and clickAndAwaitReload is called on
+ * exactly that page. runCheck() writes a thrown message to stdout AND into
+ * RESULT_JSON, which CI archives, so printing the whole address put a patient
+ * key into the artifacts of every failed save. The path alone says which page
+ * did not navigate, which is the entire point of the message.
+ */
+function pathOnly(rawUrl) {
+  const raw = String(rawUrl || '');
+  try {
+    const parsed = new URL(raw);
+    // http/https only. 'about:blank' PARSES, and its origin is the string
+    // 'null' with pathname 'blank', so the generic origin+pathname form
+    // rendered it as 'nullblank' -- a diagnostic naming a page that does not
+    // exist. Every other scheme falls through to the plain cut below.
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return `${parsed.origin}${parsed.pathname}`;
+    }
+  } catch {
+    // Not absolute at all (a relative url, or an empty one on a page mid
+    // teardown). Fall through.
+  }
+  // Cut at the first delimiter rather than returning something unbounded.
+  return raw.split(/[?#]/)[0];
+}
+
 async function clickAndAwaitReload(watchPage, locator, options = {}) {
   const timeout = options.timeout || DEFAULT_TIMEOUT;
   const what = options.label || 'the control';
@@ -259,7 +288,7 @@ async function clickAndAwaitReload(watchPage, locator, options = {}) {
   const reloaded = await navigated;
   if (options.required !== false) {
     assert(reloaded,
-      `${what}: clicking left the page on ${watchPage.url()} without navigating, so anything read next `
+      `${what}: clicking left the page on ${pathOnly(watchPage.url())} without navigating, so anything read next `
       + 'would be the state before the click');
   }
   await watchPage.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
@@ -680,6 +709,7 @@ module.exports = {
   expectOpenerRefresh,
   inFrame,
   markOpener,
+  pathOnly,
   pickDate,
   pressShortcut,
   typeAutocomplete,
