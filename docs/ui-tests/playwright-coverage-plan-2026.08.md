@@ -145,6 +145,7 @@ schedule, never by a URL.
 | `inboxhub-filters` | §2.6 | The Inbox's type and review-status filters, asserted as a *partition* of the unfiltered list — which is what catches a filter that is silently ignored |
 | `mutator-get-rejection-live` | §2.2 | Every action the GET/HEAD rejection contract covers, driven through the **real** stack. Its route list is derived from `MutatorActionGetRejectionContractUnitTest`, so it cannot cover less than the unit contract does |
 | `csrf-bootstrap-audit` (static) | §2.2 | CLAUDE.md's CSRF token-bootstrapping rule, enforced across all 1,031 JSPs. Not a browser check — it needs no deployment, so it runs on every pull request |
+| `schedule-date-navigation` | §2.3 | The day sheet's month-boundary arithmetic (`day-1` on the 1st, `day+1` on the last), reached through the calendar popup — the two days a month where a clinician hits it and cannot reproduce it the next day |
 
 The first thirteen share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding

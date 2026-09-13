@@ -428,6 +428,21 @@
       ]
     },
     {
+      "name": "schedule-date-navigation",
+      "script": "scripts/schedule-date-navigation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "SCHEDULE_NAV_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "demographic-master-crud-smoke",
       "script": "scripts/demographic-master-crud-smoke.js",
       "tiers": [
