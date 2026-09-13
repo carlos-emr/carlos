@@ -4,13 +4,15 @@ Use this procedure on the patient's PDF document. Your account needs document wr
 
 1. Open the document and confirm the patient, document title, date, page count, and orientation.
 2. Select **Annotate**. Wait for each page image to load before marking it. If a page cannot load, the viewer shows an error: reload and check the page before continuing.
-3. Select Highlight, Draw, Text, Date, or Signature, then mark the page. Select a colour first. Select mode removes a mark when you click it. Date uses the workstation's local calendar date. Signature is a placement box; the stored provider stamp is applied when saved.
+3. Select Highlight, Draw, Text, Date, or Signature, then mark the page. Select a colour first. **Remove mark** deletes a mark when you click it. Date uses the workstation's local calendar date. Signature is a placement box; the stored provider stamp is applied when saved.
 4. Select **Save as new document**. Wait for the success message and new document number. **Open the saved copy**, inspect every marked page, and confirm that text, dates, signatures, and highlights are correct. The original document is retained; annotations create a separate copy. Highlights are not redactions and do not remove underlying content.
 5. To continue directly to faxing, use **Save and fax** instead. At the cover page, inspect the preview and confirm the patient, recipient, and complete fax number. Directory suggestions may include both specialists and pharmacies. Verify the selected destination before sending.
 6. Submit once. A queued fax is not proof of delivery: check its eventual status in the fax queue. Cancelling an unsent cover page removes its temporary preview and returns to the saved document; it does not delete the saved copy.
 
 ## If something fails
 
+- **Source document changed:** reopen the document and review the new version before recreating your annotations.
+- **Text extends beyond the page:** shorten the note or place it further left; do not accept clipped clinical text.
 - **Unsupported text character:** edit the text and save again. The application refuses unsupported characters rather than silently omitting them.
 - **Missing signature stamp:** ask the administrator to configure the provider's stamp, or remove the signature mark. Do not substitute another provider's signature.
 - **Save could not be confirmed:** keep the viewer open and check the patient's document list with the responsible clinician or administrator before creating another copy. A lost response can occur after a save; repeated submission may create duplicates.

@@ -148,6 +148,13 @@
 
 <main id="pages" class="pages" data-tool="select"></main>
 
+<fmt:message key="faxAnnotateViewer.label.page" var="annotatepageLabel"/>
+<fmt:message key="faxAnnotateViewer.status.saving" var="annotatesaving"/>
+<fmt:message key="faxAnnotateViewer.status.savedCopy" var="annotatesaved"/>
+<fmt:message key="faxAnnotateViewer.alert.saveFailed" var="annotatesaveFailed"/>
+<fmt:message key="faxAnnotateViewer.prompt.text" var="annotatepromptText"/>
+<fmt:message key="faxAnnotateViewer.label.signatureHere" var="annotatesignatureHere"/>
+<fmt:message key="faxAnnotateViewer.link.openSaved" var="annotateopenSaved"/>
 <script nonce="<%=cspNonce%>">
     // Server-resolved configuration for documentAnnotate.js. Every value here is either a
     // number the action parsed or a localized string; nothing is interpolated into markup.
@@ -158,13 +165,13 @@
         pageCount: ${pageCount},
         demographicNo: ${demographicNo},
         i18n: {
-            pageLabel: '<fmt:message key="faxAnnotateViewer.label.page"/>',
-            saving: '<fmt:message key="faxAnnotateViewer.status.saving"/>',
-            saved: '<fmt:message key="faxAnnotateViewer.status.savedCopy"/>',
-            saveFailed: '<fmt:message key="faxAnnotateViewer.alert.saveFailed"/>',
-            promptText: '<fmt:message key="faxAnnotateViewer.prompt.text"/>',
-            signatureHere: '<fmt:message key="faxAnnotateViewer.label.signatureHere"/>',
-            openSaved: '<fmt:message key="faxAnnotateViewer.link.openSaved"/>'
+            pageLabel: '<carlos:encode value="${annotatepageLabel}" context="javaScript"/>',
+            saving: '<carlos:encode value="${annotatesaving}" context="javaScript"/>',
+            saved: '<carlos:encode value="${annotatesaved}" context="javaScript"/>',
+            saveFailed: '<carlos:encode value="${annotatesaveFailed}" context="javaScript"/>',
+            promptText: '<carlos:encode value="${annotatepromptText}" context="javaScript"/>',
+            signatureHere: '<carlos:encode value="${annotatesignatureHere}" context="javaScript"/>',
+            openSaved: '<carlos:encode value="${annotateopenSaved}" context="javaScript"/>'
         }
     };
 </script>

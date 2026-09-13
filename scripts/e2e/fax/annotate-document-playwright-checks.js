@@ -383,7 +383,7 @@ async function main() {
 
     // Run against the deployed viewer, injecting only the named failure at its network boundary.
     async function openViewer() {
-      const dismiss = dialog => dialog.dismiss();
+      const dismiss = dialog => dialog.accept();
       page.on('dialog', dismiss);
       await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`);
       page.off('dialog', dismiss);
@@ -400,6 +400,20 @@ async function main() {
     async function waitForSave() {
       await page.waitForFunction(() => /(?:ok|error)/.test(document.getElementById('status').className));
     }
+
+    const stale = await page.evaluate(async () => {
+      const result = await fetch(window.CARLOS_ANNOTATE.contextPath
+        + '/documentManager/SaveAnnotatedDocument?docId=' + window.CARLOS_ANNOTATE.docId, {
+        method: 'POST', headers: { 'Content-Type': 'application/json',
+          'CSRF-TOKEN': document.querySelector('input[name="CSRF-TOKEN"]').value },
+        body: JSON.stringify({ sourceDigest: '0'.repeat(64), annotations: [
+          { type: 'highlight', page: 1, x: .1, y: .1, w: .2, h: .1 }
+        ] })
+      });
+      return { status: result.status, body: await result.json() };
+    });
+    check('a stale source fingerprint refuses filing with an explicit conflict',
+      stale.status === 409 && stale.body.error.includes('source document changed'));
 
     // A successful save must not suppress warnings for subsequent unsaved edits.
     await mark('draw');
@@ -450,7 +464,7 @@ async function main() {
     });
     const beforeMarks = await page.locator('#markCount').textContent();
     await page.locator('#btnSave').click();
-    await received;
+    await Promise.race([received, new Promise((_, reject) => setTimeout(() => reject(new Error('Save did not respond')), 30000))]);
     await mark('draw');
     check('edits cannot re-enable saving during an in-flight save',
       (await page.locator('#markCount').textContent()) === beforeMarks && await page.locator('#btnSave').isDisabled());
@@ -467,6 +481,18 @@ async function main() {
       (await page.locator('#status').textContent()).includes('could not be confirmed')
       && await page.locator('#btnSave').isDisabled());
     await page.unroute('**/SaveAnnotatedDocument?*');
+
+    // A failed page image is visible and cannot be annotated as an empty sheet.
+    await page.route('**/ManageDocument?method=showPage&**', route => route.fulfill({ status: 500, body: '' }));
+    page.once('dialog', dialog => dialog.accept());
+    await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`);
+    await page.waitForFunction(() => document.querySelector('.page.load-failed'));
+    check('failed page images report a visible error and do not enable saving',
+      (await page.locator('#status').textContent()).includes('could not be loaded')
+      && await page.locator('#btnSave').isDisabled());
+    await page.unroute('**/ManageDocument?method=showPage&**');
+    // No unsaved marks were present, so no before-unload dialog should have fired.
+    page.removeAllListeners('dialog');
 
     await openViewer();
     await mark();
