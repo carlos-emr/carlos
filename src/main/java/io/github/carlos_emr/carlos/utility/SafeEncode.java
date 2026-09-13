@@ -328,8 +328,7 @@ public final class SafeEncode {
         String ctx = (context == null || context.isBlank()) ? DEFAULT_CONTEXT : context;
         // Lowercase compare makes "html", "Html", "HTML", "hTML" equivalent.
         switch (ctx.toLowerCase()) {
-            case "html":
-            case "htmlcontent":
+            case "html", "htmlcontent":
                 forHtmlContent(out, value);
                 return;
             case "forhtml":
@@ -341,8 +340,7 @@ public final class SafeEncode {
             case "htmlunquotedattribute":
                 forHtmlUnquotedAttribute(out, value);
                 return;
-            case "javascript":
-            case "js":
+            case "javascript", "js":
                 forJavaScript(out, value);
                 return;
             case "javascriptattribute":
@@ -360,8 +358,7 @@ public final class SafeEncode {
             case "uricomponent":
                 forUriComponent(out, value);
                 return;
-            case "cssstring":
-            case "css":
+            case "cssstring", "css":
                 forCssString(out, value);
                 return;
             case "cssurl":

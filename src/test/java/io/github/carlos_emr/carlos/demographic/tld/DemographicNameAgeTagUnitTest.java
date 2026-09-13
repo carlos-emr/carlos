@@ -146,7 +146,7 @@ class DemographicNameAgeTagUnitTest {
 
             tag.doStartTag();
 
-            assertThat(rendered.toString()).isEqualTo(SafeEncode.forJavaScript(HOSTILE_LABEL));
+            assertThat(rendered).hasToString(SafeEncode.forJavaScript(HOSTILE_LABEL));
         }
     }
 
@@ -191,7 +191,7 @@ class DemographicNameAgeTagUnitTest {
     class JspCallSites {
 
         private static final Pattern NAMEAGE_TAG = Pattern.compile("<oscar:nameage\\b");
-        private static final Pattern ATTRIBUTE_START = Pattern.compile("([\\w:-]+)\\s*=\\s*([\"'])");
+        private static final Pattern ATTRIBUTE_START = Pattern.compile("([\\w:-]++)\\s*+=\\s*+([\"'])");
         private static final Pattern JSP_BLOCK = Pattern.compile("<%--[\\s\\S]*?--%>|<%[\\s\\S]*?%>");
 
         @Test

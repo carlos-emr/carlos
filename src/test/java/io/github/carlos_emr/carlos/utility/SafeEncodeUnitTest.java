@@ -354,9 +354,9 @@ class SafeEncodeUnitTest {
             for (String context : new String[]{null, "", "   "}) {
                 StringWriter sw = new StringWriter();
                 SafeEncode.forContext(sw, context, "<b>a & b</b>");
-                assertThat(sw.toString())
+                assertThat(sw)
                         .as("default context for %s", context)
-                        .isEqualTo(SafeEncode.forHtmlContent("<b>a & b</b>"));
+                        .hasToString(SafeEncode.forHtmlContent("<b>a & b</b>"));
             }
         }
 
