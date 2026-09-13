@@ -63,8 +63,8 @@ import org.apache.struts2.interceptor.ExceptionMappingInterceptor;
  *       {@code exceptionStack} to any page), and the log line carries no request parameters, no
  *       query string and no exception message: any of those can hold PHI. The class name, the
  *       action, the method, the request path, and the provider number (sanitised) are enough to find
- *       the site; the trace itself goes to the log through the throwable, which is what every other
- *       {@code logger.error(msg, e)} in the application already does.</li>
+ *       the site; the trace contains only bounded code locations and exception types, including causes and
+ *       suppressed failures. The original throwable is never attached to the logging event.</li>
  *   <li><b>The status is real.</b> A mapped exception used to leave the response at 200 unless the
  *       result JSP fixed it up. It is 500 now, and 403 for a {@link SecurityException}, set before
  *       the result renders when the response is still open, so AJAX callers and monitoring see the
@@ -191,8 +191,8 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
             LOGGER.warn("Authorization refused [incident {}] {} in action {} ({} {}) provider={}: {}",
                     incidentId, exceptionType, actionName, method, path, provider, refusal);
         } else {
-            LOGGER.error("Unhandled {} [incident {}] in action {} ({} {}) provider={}",
-                    exceptionType, incidentId, actionName, method, path, provider, e);
+            LOGGER.error("Unhandled {} [incident {}] in action {} ({} {}) provider={}{}",
+                    exceptionType, incidentId, actionName, method, path, provider, LogSafe.exceptionTrace(e));
         }
     }
 

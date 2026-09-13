@@ -40,11 +40,8 @@
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: NOTE_DEMOGRAPHIC_NO (2), NOTE_PROVIDER_NO (999998, must be the
- *   logged-in provider so the day sheet shows the appointment). The default
- *   is demographic 2 rather than 1: the demo seed links demographic 1 to HRM
- *   report files that never shipped, and the chart's notes panel answers
- *   500 for that patient (tracked for review).
+ * Optional: NOTE_DEMOGRAPHIC_NO (1), NOTE_PROVIDER_NO (999998, must be the
+ *   logged-in provider so the day sheet shows the appointment).
  */
 
 const { chromium } = require('playwright');
@@ -77,13 +74,14 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const demographicNo = process.env.NOTE_DEMOGRAPHIC_NO || '2';
+const demographicNo = process.env.NOTE_DEMOGRAPHIC_NO || '1';
 const providerNo = process.env.NOTE_PROVIDER_NO || '999998';
 assert(/^\d+$/.test(demographicNo) && /^\d+$/.test(providerNo), 'NOTE_DEMOGRAPHIC_NO and NOTE_PROVIDER_NO must be numeric');
 
 const stamp = `PW_NOTE_${Date.now()}`;
 const savedText = `${stamp} saved note`;
 const billedText = `${stamp} billed note`;
+let browserSessionId = null;
 
 let mysqlDefaults = null;
 function initMysqlDefaults() {
@@ -144,7 +142,10 @@ function cleanupRows() {
     sql(`DELETE FROM casemgmt_note_ext WHERE note_id=${Number(id)}`);
     sql(`DELETE FROM casemgmt_note WHERE note_id=${Number(id)}`);
   }
-  sql(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${Number(demographicNo)} AND provider_no='${escapeSql(providerNo)}'`);
+  if (browserSessionId) {
+    sql(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${Number(demographicNo)} AND provider_no='${escapeSql(providerNo)}' AND session_id='${escapeSql(browserSessionId)}'`);
+  }
+  sql(`DELETE FROM casemgmt_tmpsave WHERE demographic_no=${Number(demographicNo)} AND provider_no='${escapeSql(providerNo)}' AND note LIKE '%${escapeSql(stamp)}%'`);
   sql(`DELETE FROM appointment WHERE notes='${escapeSql(stamp)}'`);
 }
 
@@ -152,11 +153,8 @@ async function openDaySheet(context, recorder) {
   const page = await context.newPage();
   wirePage(page, 'day-sheet', recorder);
   const [year, month, day] = appointmentDate.split('-').map(Number);
-  // The logged-in provider's own day sheet, addressed the way the schedule
-  // navigates itself. Do not pass provider_no here: the day sheet treats a
-  // provider_no parameter as the week view and drops the per-appointment
-  // E / B links.
-  await gotoApp(page, config.baseUrl, `/provider/providercontrol?year=${year}&month=${month}&day=${day}&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0`);
+  // A provider filter must retain the day view and its encounter/billing links.
+  await gotoApp(page, config.baseUrl, `/provider/providercontrol?year=${year}&month=${month}&day=${day}&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0&provider_no=${encodeURIComponent(providerNo)}`);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(page, 'day sheet');
   return page;
@@ -185,9 +183,7 @@ async function typeIntoActiveNote(chart, text) {
 }
 
 async function pasteTimer(chart) {
-  // The chart layout renders the timer controls twice (same ids); the timer
-  // script drives them through getElementById, i.e. the first copy, so the
-  // check reads and clicks that same first copy.
+  // Exercise the active chart timer and the clinical prose it inserts.
   const timer = chart.locator('#aTimer').first();
   const toggle = chart.locator('#toggleTimer').first();
   // The timer text only starts changing after five seconds of elapsed time.
@@ -205,12 +201,9 @@ async function pasteTimer(chart) {
     `pasting the timer did not add the timing lines to the note: ${noteValue.slice(-120)}`);
 }
 
-// The save/sign/bill button row sits below the viewport in the encounter
-// layout (no ancestor scrolls it; tracked for review), so the buttons are
-// triggered through their own click handlers rather than a pointer click.
+// Exercise the pointer path: a dispatched event would hide unreachable controls.
 async function pressChartButton(chart, locator) {
-  await locator.first().waitFor({ state: 'attached', timeout: 30000 });
-  await locator.first().dispatchEvent('click');
+  await locator.first().click({ timeout: 15000 });
 }
 
 async function clickAndExpectSave(chart, selector, expectedMethod) {
@@ -264,10 +257,20 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 1100 } });
     await login(context, config, recorder);
+    browserSessionId = (await context.cookies()).find((cookie) => cookie.name === 'JSESSIONID')?.value || null;
+    assert(browserSessionId, 'authenticated browser session cookie is missing');
     const daySheet = await openDaySheet(context, recorder);
 
     // 1-3. Timer, Save, Sign & Save.
     const chart = await openChartFromAppointment(context, daySheet, recorder, 'echart-save');
+    for (const viewport of [{width: 1366, height: 768}, {width: 1920, height: 1400}, {width: 1600, height: 1100}]) {
+      await chart.setViewportSize(viewport);
+      const saveButton = chart.locator('#saveImg').first();
+      await saveButton.scrollIntoViewIfNeeded({timeout: 10000});
+      const bounds = await saveButton.boundingBox();
+      assert(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
+        `Save button cannot be reached at ${viewport.width}x${viewport.height}: ${JSON.stringify(bounds)}`);
+    }
     await typeIntoActiveNote(chart, savedText);
     await pasteTimer(chart);
     await clickAndExpectSave(chart, '#saveImg', 'save');
@@ -287,23 +290,13 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     }, saved.noteId, { timeout: 30000 });
     assert(saved.signed === '0', `saved note was already signed (${saved.signed})`);
     assert(/Start Time:/.test(saved.note) && /End Time:/.test(saved.note), 'saved note did not keep the pasted timer lines');
-    if (saved.appt !== appointmentNo) {
-      // Tracked for review: the encounter is set up with the appointment, but
-      // the saved note row carries appointmentNo 0.
-      console.log(`WARN saved note ${saved.noteId} carries appointmentNo ${saved.appt}, not the encounter's appointment ${appointmentNo}`);
-    }
+    assert(saved.appt === appointmentNo,
+      `saved note ${saved.noteId} carries appointmentNo ${saved.appt}, expected ${appointmentNo}`);
 
     const closed = chart.waitForEvent('close', { timeout: 30000 }).then(() => true).catch(() => false);
     await clickAndExpectSave(chart, '#signSaveImg', 'saveAndExit');
     const didClose = await closed;
-    if (!didClose) {
-      // saveAndExit lands on the chart's close page, which asks the opener to
-      // refresh and closes the window; a window that stays open must at
-      // least not be an error page.
-      await assertNotErrorPage(chart, 'chart after Sign & Save');
-      console.log(`WARN Sign & Save left the chart window open at ${chart.url().replace(/\?.*/, '')} (title "${await chart.title()}")`);
-      await chart.close().catch(() => {});
-    }
+    assert(didClose, 'Sign & Save did not close the chart window');
     const signed = latestNoteWith(savedText);
     assert(signed && signed.signed === '1', `Sign & Save did not sign the note (signed=${signed && signed.signed})`);
     assert(signed.signingProviderNo === providerNo, `signing provider was ${signed.signingProviderNo}, expected ${providerNo}`);
@@ -336,10 +329,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(billed && billed.signed === '1' && billed.signingProviderNo === providerNo, `Sign Save & Bill did not sign the note (${JSON.stringify(billed)})`);
     await chart2.close().catch(() => {});
 
-    // Known defect, tracked for review: every keystroke in the note textarea
-    // throws from getActiveText() (it writes to a "keyword" element the
-    // layout no longer renders). Anything else the browser raises fails.
-    assertNoPageErrors(recorder, null, [/Cannot set properties of null \(setting 'value'\)[\s\S]*getActiveText/]);
+    assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
     console.log(`PASS eChart note saved (${saved.noteId}), signed, and a second note (${billed.noteId}) signed and handed to billing for appointment ${appointmentNo}; timer pasted`);
