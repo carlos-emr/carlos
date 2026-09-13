@@ -53,17 +53,34 @@ test('the name predicate is a PREFIX match on the surname, as the DAO writes it'
   assert.match(sql, /d\.alias LIKE 'jo%'/);
 });
 
-test('the HIN predicate is EXACT: the DAO adds no wildcard to it', () => {
-  // This is the one mode that does not wildcard, and getting it wrong in the
-  // permissive direction would make the check tolerate an over-matching search
-  // on the most sensitive identifier on the form.
-  assert.match(DAO, /setParameter\("hin", hinStr\.trim\(\)\)/);
+test('the HIN predicate matches the overload the SEARCH PAGE calls, not the other one', () => {
+  // DemographicDaoImpl carries two HIN searches and they disagree:
+  //
+  //   searchDemographicByHIN(String)                -> hin like :hin
+  //                                                    + patientStatus != 'MERGED'
+  //                                                    + setParameter("hin", hinStr.trim())      EXACT
+  //   searchDemographicByHIN(String, int, int, ...) -> hin like :hin (+ statuses, program domain)
+  //                                                    + setParameter("hin", trim() + "%")       PREFIX
+  //
+  // demographicsearchresults.jsp:583 calls the SECOND. The first is reached
+  // only by HRM report matching, which no browser route touches.
+  //
+  // This test previously asserted the first one's text, found it in the file,
+  // and passed -- while the oracle modelled the first one's semantics. Both
+  // were self-consistently wrong about which code the browser runs, so pin the
+  // caller as well as the query.
+  assert.match(RESULTS_JSP, /searchDemographicByHIN\(keyword, limit, offset, orderBy, providerNo, outOfDomain\)/);
+  assert.match(DAO, /setParameter\("hin", hinStr\.trim\(\) \+ "%"\)/);
+
   const sql = MODES.find((mode) => mode.name === 'search_hin').predicate('d', '1234567890');
-  assert.match(sql, /d\.hin LIKE '1234567890'/);
+  assert.match(sql, /d\.hin LIKE '1234567890%'/);
+  // Prefix, never substring: a leading wildcard would let the check tolerate an
+  // over-matching search on the most sensitive identifier on the form.
   assert.ok(!/hin LIKE '%/.test(sql), 'a HIN search must not be turned into a substring match');
-  // It is also the only mode carrying the merged-record exclusion.
-  assert.match(DAO, /d\.hin like :hin and d\.patientStatus != 'MERGED'/);
-  assert.match(sql, /patient_status <> 'MERGED'/);
+  // And no MERGED clause: the overload the page calls accepts an ignoreMerged
+  // argument and never reads it, so there is nothing there to model.
+  assert.ok(!/MERGED/.test(sql),
+    'the paged HIN overload has no merged exclusion; adding one would hide merged records the page shows');
 });
 
 test('phone and address are SUBSTRING matches, and phone covers both numbers', () => {

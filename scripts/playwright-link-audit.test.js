@@ -211,8 +211,25 @@ function anchorDouble(attributes, text) {
   };
 }
 
-function catalogue(anchors) {
-  const page = { $$eval: async (selector, fn) => fn(anchors) };
+function catalogue(anchors, baseURI = 'http://carlos.test/carlos/admin/admin.jsp') {
+  // The browser-side body reads document.baseURI, which is the resolution base
+  // the anonymous-access check needs to place a bare onclick route inside the
+  // context path. Supply it the way the page would.
+  const page = {
+    $$eval: async (selector, fn) => {
+      const previous = global.document;
+      global.document = { baseURI };
+      try {
+        return fn(anchors);
+      } finally {
+        if (previous === undefined) {
+          delete global.document;
+        } else {
+          global.document = previous;
+        }
+      }
+    },
+  };
   return catalogueLinks(page);
 }
 
@@ -322,4 +339,25 @@ test('the tenth-surface audit folds its opening findings into the result', () =>
   assert.match(source, /const beforeOpen = snapshotRecorder\(recorder\)/);
   assert.match(source, /const openingFindings = findingsSince\(recorder, beforeOpen/);
   assert.match(source, /failures: \[\.\.\.openingFindings, \.\.\.result\.failures\]/);
+});
+
+test('fragment hrefs are dropped, but an opener written href="#" keeps its route', async () => {
+  const items = await catalogue([
+    anchorDouble({ href: '#custom' }, 'Custom'),
+    anchorDouble({ href: '#collapseClinical' }, 'Clinical'),
+    anchorDouble({ href: '#' }, 'Bare'),
+    // The common CARLOS opener shape: no destination in href, all of it in onclick.
+    anchorDouble({ href: '#', onclick: "popupPage(600,900,'/carlos/admin/providerAdd')" }, 'Add Provider'),
+  ]);
+  assert.deepEqual(items.map((item) => item.text), ['Add Provider']);
+  assert.equal(items[0].href, '');
+  assert.equal(items[0].route, '/carlos/admin/providerAdd');
+});
+
+test('each item carries the document it was read from, for resolving its route', async () => {
+  const items = await catalogue(
+    [anchorDouble({ href: '#', onclick: "popup(500,700,'DemographicEdit?demographic_no=1')" }, 'Edit')],
+    'http://carlos.test/carlos/demographic/demographicsearchresults.jsp',
+  );
+  assert.equal(items[0].baseURI, 'http://carlos.test/carlos/demographic/demographicsearchresults.jsp');
 });

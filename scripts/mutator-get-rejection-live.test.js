@@ -151,3 +151,24 @@ test('the session is a real logged-in provider', () => {
   // prove nothing about the method check.
   assert.match(SOURCE, /await login\(context, config, recorder\)/);
 });
+
+test('each mutator route is derived once, not twice', () => {
+  // `\s+` already matches a newline, so the same-line pattern covered the
+  // multiline form too and the "multiline" pattern matched every one of them a
+  // SECOND time. The live check then probed those mutators twice and reported
+  // an inflated route count -- the number a reader uses to judge whether
+  // coverage shrank.
+  const { routes } = mutatorRoutes();
+  const seen = routes.map((entry) => `${entry.route}|${entry.simpleName}`);
+  assert.deepEqual([...new Set(seen)].sort(), [...seen].sort(),
+    `duplicate route entries: ${seen.filter((x, i) => seen.indexOf(x) !== i).join(', ')}`);
+});
+
+test('the derivation still resolves every registered mutator', () => {
+  // The duplicate-removal above must not have been achieved by dropping the
+  // multiline declarations, which is the other way to make the list unique.
+  const { routes, unmapped } = mutatorRoutes();
+  assert.deepEqual(unmapped, [], 'every contract class must resolve to a route');
+  assert.ok(routes.length >= 20,
+    `only ${routes.length} routes derived; the contract registers far more than that`);
+});

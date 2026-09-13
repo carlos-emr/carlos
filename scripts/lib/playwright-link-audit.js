@@ -82,11 +82,25 @@ async function catalogueLinks(page, options = {}) {
       && (/^[./]/.test(routeInOnclick[1])
         || /[/?]/.test(routeInOnclick[1])
         || /\.(?:jsp|do|html?)$/i.test(routeInOnclick[1]));
-    const hasRealHref = href && href !== '#' && !/^javascript:/i.test(href);
+    // A FRAGMENT IS NOT A DESTINATION. Excluding only the exact string '#' let
+    // every in-page tab and collapse through (`href="#custom"`,
+    // `href="#collapseClinical"`, `href="#top"`). Clicking one stays on the host
+    // document, so auditCatalogue counted an unchanged page as a successful
+    // open -- inflating the coverage count, and satisfying the per-surface
+    // minimum with items that opened nothing. An onclick-derived route on the
+    // same anchor is still kept: many CARLOS openers are written
+    // `href="#" onclick="popupPage(...)"`.
+    const hasRealHref = href && !href.startsWith('#') && !/^javascript:/i.test(href);
     if (!text || text.length > 80 || (!hasRealHref && !looksLikeRoute)) {
       return null;
     }
     return {
+      // The browser's own resolution base for this anchor -- document.baseURI,
+      // which honours any <base> tag. A bare onclick route like
+      // 'DemographicEdit?demographic_no=1' means "next to the page I am on",
+      // and resolving it against the context root instead sends it outside the
+      // application. See resolveRoute in anonymous-access-refused.
+      baseURI: document.baseURI,
       // WHY THE INDEX. It is the item's identity for clicking. Two admin items
       // routinely share link text while pointing at different routes ("Search",
       // "Report", a module name under two headings); locating by text would

@@ -180,3 +180,37 @@ test('the pages this check drives as a logged-in provider are read back', () => 
   // broke while cataloguing would otherwise go unreported.
   assert.match(SOURCE, /assertStrictPage\(recorder, \['administration', 'patient-search', 'master-record'\]\)/);
 });
+
+test('a bare onclick route resolves INSIDE the application, not beside it', () => {
+  // new URL('DemographicEdit?x', 'http://h/carlos') is 'http://h/DemographicEdit'
+  // -- URL treats the last path segment as a file. That failed the context
+  // prefix test below and the route was dropped from the probe in silence, so
+  // a check answering "can a stranger reach this?" was not asking about the
+  // Master Record at all. The browser resolves against the DOCUMENT, and so
+  // does this now.
+  const page = `${BASE}/demographic/demographicsearchresults.jsp`;
+  assert.equal(
+    resolveRoute({ route: 'DemographicEdit?demographic_no=1', baseURI: page }, BASE),
+    `${BASE}/demographic/DemographicEdit?demographic_no=1`,
+  );
+  assert.equal(
+    resolveRoute({ route: '../encounter/IncomingEncounter', baseURI: page }, BASE),
+    `${BASE}/encounter/IncomingEncounter`,
+  );
+});
+
+test('without a recorded document the context path is still treated as a directory', () => {
+  // The fallback for an item catalogued before baseURI existed. Beside-the-root
+  // is the wrong answer either way; a directory is the faithful one.
+  assert.equal(
+    resolveRoute({ route: 'viewformwcb?formId=3' }, BASE),
+    `${BASE}/viewformwcb?formId=3`,
+  );
+});
+
+test('another host is still refused however it was resolved', () => {
+  const page = `${BASE}/demographic/demographicsearchresults.jsp`;
+  assert.equal(resolveRoute({ href: 'https://example.com/x', baseURI: page }, BASE), null);
+  // And a path on the same host but outside the application's context.
+  assert.equal(resolveRoute({ href: '/manager/html', baseURI: page }, BASE), null);
+});

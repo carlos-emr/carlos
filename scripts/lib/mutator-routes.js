@@ -59,12 +59,14 @@ function strutsActions(directory = STRUTS_DIR) {
     .filter((name) => name.startsWith('struts') && name.endsWith('.xml'))
     .map((name) => fs.readFileSync(path.join(directory, name), 'utf8'))
     .join('\n');
-  // Two patterns because the config is hand-formatted: the class attribute is
-  // sometimes on the same line as the name and sometimes on the next one.
-  return [
-    ...xml.matchAll(/<action\s+name="([^"]+)"\s+class="([^"]+)"/g),
-    ...xml.matchAll(/<action\s+name="([^"]+)"\s*\n\s*class="([^"]+)"/g),
-  ].map((found) => ({ route: found[1], declared: found[2] }));
+  // ONE pattern. The config is hand-formatted and puts the class attribute on
+  // the same line as the name or on the next one -- but \s+ already matches a
+  // newline, so the first pattern covered both and a second "multiline" pattern
+  // matched every multiline action a SECOND time. The live check then probed
+  // those mutators twice and reported an inflated route count, which is the
+  // number a reader uses to judge whether coverage shrank.
+  return [...xml.matchAll(/<action\s+name="([^"]+)"\s+class="([^"]+)"/g)]
+    .map((found) => ({ route: found[1], declared: found[2] }));
 }
 
 /**

@@ -7,7 +7,7 @@ const path = require('node:path');
 const {
   SURFACES, describeEntry, entryStrategy, surfaceByName, surfacesForProvince,
 } = require('./lib/playwright-surfaces');
-const { assertSafeTarget, readBuildIdentity } = require('./run-playwright-suite');
+const { assertSafeTarget, readBuildIdentity, runOne } = require('./run-playwright-suite');
 
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(__dirname, 'playwright-suite.json'), 'utf8'));
 
@@ -198,4 +198,33 @@ test('an unparseable BASE_URL disables the build probe rather than guessing', ()
   });
   assert.equal(identity, null);
   assert.equal(called, false, 'nothing should be fetched from a target that cannot be parsed');
+});
+
+test('each check runs against the environment the target gate validated', () => {
+  // main() validates BASE_URL and MYSQL_HOST out of the env it was HANDED, but
+  // runOne started each child from process.env -- so a caller passing an
+  // explicit environment gated one deployment and ran the check against
+  // another, which is precisely the disassociation assertSafeTarget exists to
+  // prevent.
+  let childEnv = null;
+  runOne(
+    { name: 'probe', script: 'scripts/probe-playwright-checks.js', timeoutSec: 5 },
+    { env: { BASE_URL: 'http://gated.test/carlos', MYSQL_HOST: '127.0.0.1' } },
+    (command, args, spawnOptions) => { childEnv = spawnOptions.env; return { status: 0 }; },
+  );
+  assert.equal(childEnv.BASE_URL, 'http://gated.test/carlos');
+  assert.equal(childEnv.MYSQL_HOST, '127.0.0.1');
+});
+
+test('an envSet entry still overrides the inherited environment', () => {
+  // The table-driven families (surface-audit, direct-response-contract) select
+  // which surface a shared script runs by envSet, so it has to win.
+  let childEnv = null;
+  runOne(
+    { name: 'surface-audit:inbox', script: 'scripts/surface-audit-playwright-checks.js', timeoutSec: 5, envSet: { SURFACE: 'inbox' } },
+    { env: { BASE_URL: 'http://gated.test/carlos', SURFACE: 'report' } },
+    (command, args, spawnOptions) => { childEnv = spawnOptions.env; return { status: 0 }; },
+  );
+  assert.equal(childEnv.SURFACE, 'inbox');
+  assert.equal(childEnv.BASE_URL, 'http://gated.test/carlos');
 });

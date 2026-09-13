@@ -84,15 +84,32 @@ const NOT_PROTECTED = [
   { match: /\/(images|css|js|library|share\/javascript|fonts)\//, reason: 'a static asset, served before any filter' },
 ];
 
-/** Absolute, same-application URL for a catalogued item, or null. */
+/**
+ * Absolute, same-application URL for a catalogued item, or null.
+ *
+ * RESOLVED THE WAY THE BROWSER RESOLVED IT. `new URL(raw, baseUrl)` with
+ * baseUrl = "http://host/carlos" treats the last segment as a FILE, so a bare
+ * onclick route -- 'DemographicEdit?demographic_no=1', 'viewformwcb?formId=3',
+ * the shapes the catalogue was taught to find -- came out as
+ * "http://host/DemographicEdit", failed the context-prefix test below, and was
+ * dropped from the probe without a word. A security check that answers "can a
+ * stranger reach this?" was quietly not asking about the Master Record.
+ *
+ * `item.baseURI` is the document the anchor actually lives in, recorded by
+ * catalogueLinks, so relative ('../encounter/...') and bare routes land exactly
+ * where the browser would put them. The fallback keeps the context path as a
+ * DIRECTORY, which is the next most faithful thing when the item predates that
+ * field.
+ */
 function resolveRoute(item, baseUrl) {
   const raw = item.href || item.route;
   if (!raw) {
     return null;
   }
+  const resolutionBase = item.baseURI || `${String(baseUrl).replace(/\/$/, '')}/`;
   let url;
   try {
-    url = new URL(raw, baseUrl);
+    url = new URL(raw, resolutionBase);
   } catch {
     return null;
   }

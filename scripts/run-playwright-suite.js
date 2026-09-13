@@ -243,7 +243,12 @@ function runOne(check, options, run = spawnSync) {
     // families (surface-audit, direct-response-contract) are one engine plus a
     // row selector, and the runner has to pass the selector that picks the row.
     // Anything already exported still wins for the shared contract variables.
-    env: { ...process.env, ...(check.envSet || {}) },
+    // The CALLER's environment, not the process's. main() validates BASE_URL
+    // and MYSQL_HOST out of the env it was handed, so reading process.env here
+    // meant a caller passing an explicit environment gated one target and ran
+    // the child against another -- exactly the disassociation assertSafeTarget
+    // exists to prevent.
+    env: { ...(options.env || process.env), ...(check.envSet || {}) },
   });
   const durationMs = Date.now() - started;
   if (result.error && result.error.code === 'ETIMEDOUT') {
@@ -333,7 +338,10 @@ function main(argv = process.argv.slice(2), env = process.env, out = console) {
   const identityBefore = readBuildIdentity(env);
   const results = selected.map((check) => {
     out.log(`\n--- ${check.name} (${check.tiers.join(',')}) ---`);
-    return runOne(check, options);
+    // `env`, not process.env: main() validated BASE_URL and MYSQL_HOST out of
+    // the environment it was HANDED, so the child has to receive that same one
+    // or the gate and the run are about different deployments.
+    return runOne(check, { ...options, env });
   });
   const identityAfter = readBuildIdentity(env);
 

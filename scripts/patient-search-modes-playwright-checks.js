@@ -127,11 +127,23 @@ const MODES = [
   {
     name: 'search_hin',
     title: 'health number',
-    // "d.hin like :hin" with NO wildcard added -- exact -- plus the merged
-    // exclusion this mode alone carries.
+    // PREFIX, and no merged exclusion. Both halves of this were wrong before,
+    // and the comment asserted the opposite of the code it described.
+    //
+    // demographicsearchresults.jsp:583 calls searchDemographicByHIN(keyword,
+    // limit, offset, orderBy, providerNo, outOfDomain), which funnels into the
+    // implementation that binds `hinStr.trim() + "%"` -- a prefix match. The
+    // exact binding lives on searchDemographicByHIN(String), a different
+    // overload used by HRM report matching, which no browser route reaches.
+    // And that implementation builds `From Demographic d where d.hin like :hin`
+    // plus statuses, program domain and order: its `ignoreMerged` parameter is
+    // accepted and never read, so there is no MERGED clause to model.
+    //
+    // As written before, any health number that is a prefix of another would
+    // have failed the "everything that matches is shown" direction.
     columns: ['hin'],
     seedValue: (row) => row[0],
-    predicate: (alias, value) => `${alias}.hin LIKE ${sqlString(value)} AND ${alias}.patient_status <> 'MERGED'`,
+    predicate: (alias, value) => `${alias}.hin LIKE ${sqlString(`${value}%`)}`,
   },
   {
     name: 'search_chart_no',
@@ -198,6 +210,43 @@ const MODES = [
 function activePredicate(alias, inactiveStatuses) {
   const list = inactiveStatuses.map((status) => sqlString(status)).join(', ');
   return `${alias}.patient_status NOT IN (${list})`;
+}
+
+/**
+ * Refuse to run where the page applies a restriction this oracle does not model.
+ *
+ * demographicsearchresults.jsp:352-360 passes `providerNo` and `outOfDomain`
+ * into every DAO call, and the DAO adds PROGRAM_DOMAIN_RESTRICTION when
+ * `providerNo != null && !outOfDomain`. `outOfDomain` starts true and is only
+ * turned off when the Caisi module is loaded AND
+ * pmm.client.search.outside.of.domain.enabled is not "true".
+ *
+ * On such a deployment the page shows a SUBSET of what this oracle expects, and
+ * the check would report "the application hid a patient it should have shown"
+ * -- a confident, specific, wrong verdict about a working search.
+ *
+ * A skip that names the condition beats modelling a program-domain join that
+ * cannot be verified without exactly that deployment to run it on. Adding the
+ * restriction blind would be trading a visible false failure for an invisible
+ * false pass.
+ */
+function assertDomainRestrictionInactive(sql) {
+  const modules = sql.value("SELECT value FROM property WHERE name = 'ModuleNames' LIMIT 1") || '';
+  if (!/caisi/i.test(modules)) {
+    return;
+  }
+  const outside = sql.value(
+    "SELECT value FROM property WHERE name = 'pmm.client.search.outside.of.domain.enabled' LIMIT 1",
+  );
+  // The JSP's own default for the property is "true", so only an explicit
+  // non-true value narrows the search.
+  if (outside !== null && outside !== '' && String(outside).trim().toLowerCase() !== 'true') {
+    throw new SkipCheck(
+      'the Caisi module is loaded and pmm.client.search.outside.of.domain.enabled is not true, so the search '
+      + 'page restricts results to the provider\'s program domain. This check\'s SQL oracle does not model that '
+      + 'restriction and would report working behaviour as a missing patient.',
+    );
+  }
 }
 
 /**
@@ -395,6 +444,7 @@ async function main() {
     : MODES;
 
   const sql = createSqlRunner(config.mysql);
+  assertDomainRestrictionInactive(sql);
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
   try {
@@ -454,5 +504,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  DEFAULT_INACTIVE_STATUSES, MODES, PAGE_LIMIT, activePredicate, main, seedFor, shownDemographicNumbers,
+  DEFAULT_INACTIVE_STATUSES, MODES, PAGE_LIMIT, activePredicate, assertDomainRestrictionInactive, main,
+  seedFor, shownDemographicNumbers,
 };
