@@ -315,6 +315,13 @@ function inFrame(page, selector = '#myFrame') {
  * Deliberately page.evaluate and NOT addInitScript: an init script would re-run
  * on reload and the sentinel would survive, which is the opposite of what this
  * has to detect.
+ *
+ * ON THE Math.random(): scanners flag the Date.now() + toString(36) shape as an
+ * insecure token. This is not a token. It is a value written into one page under
+ * test so a later read can tell whether that page was replaced; it authenticates
+ * nothing, never leaves the browser, and predicting it grants an attacker
+ * nothing because there is nobody to present it to. A CSPRNG here would cost a
+ * crypto import to make a uniqueness marker slightly more unique.
  */
 async function markOpener(page, marker = '__carlosOpenerGeneration') {
   const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
