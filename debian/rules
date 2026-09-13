@@ -289,6 +289,9 @@ override_dh_auto_install:
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
+	# The OSCAR 19 import-in-progress predicate, consulted by the unit's
+	# ExecCondition= and by the postinst (see the file's header).
+	install -m 0755 debian/assets/bin/carlos-emr-o19-guard $(STAGE)/$(LIBDIR)/carlos-emr-o19-guard
 	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlos-ctl
 	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlosctl
 	install -d $(STAGE)/usr/share/man/man8

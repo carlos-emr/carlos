@@ -192,7 +192,17 @@ Prerequisites, all of them before the command below:
 3. **Stop the service**: `carlos-ctl stop`. A real run or a `--resume` is
    refused while `carlos-emr` is running *or starting* — its startup
    listener writes rows the row-parity gate rejects, and a live session
-   could read a half-copied chart.
+   could read a half-copied chart. The unit stays *enabled* after a stop,
+   so the package also refuses to start it while an import is in progress:
+   `carlos-emr.service` runs `/usr/lib/carlos-emr/carlos-emr-o19-guard`
+   as an `ExecCondition=` on every start (a reboot, a colleague's
+   `systemctl start`, an unattended upgrade's restart), `carlos-ctl start`
+   / `restart` refuse with the same message on the terminal, and a package
+   upgrade's postinst neither migrates the schema nor starts the service.
+   The guard reads the run ledger; an import is "in progress" from the
+   first phase after the staged assessment until P7 `verify` completes,
+   and a corrupt ledger counts as in progress. Finish with `--resume` (or
+   `--cleanup` for an abandoned dry run) and the next start proceeds.
 4. **Configured backups.** The pre-import restic snapshot is the rollback
    point, and it now covers `/var/lib/carlos-emr/o19-import` as well as
    the database and the documents tree, so a restore rewinds the run's
@@ -418,7 +428,9 @@ whole import (`carlos-ctl stop`); a real run or `--resume` refuses while it
 is active, because CARLOS's startup listener writes rows (program, site,
 memberships) that the row-parity gate would then reject, and a session could
 read a half-copied chart. Start it again only after the verified import and
-the properties fragment have been applied.
+the properties fragment have been applied. Until P7 `verify` has completed
+the unit's `ExecCondition=` guard refuses every start, including the one
+a reboot would otherwise perform (step 3 above).
 
 Useful variants: `--dry-run` (stage + preflight + properties report only;
 it still runs the P0 gates — a non-stock target is refused — and it is

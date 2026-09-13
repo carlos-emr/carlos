@@ -122,6 +122,7 @@ def _cmd_lifecycle(verb: str, argv) -> int:
             f"(for other units use systemctl directly)")
     need_root(verb)
     if verb in ("start", "restart"):
+        _refuse_start_during_o19_import(verb)
         # An operator asking for a restart is never a crash loop; clear the
         # start-rate counter so systemd cannot refuse it. See
         # util.reset_emr_start_limit for why this is needed and why it does not
@@ -129,6 +130,33 @@ def _cmd_lifecycle(verb: str, argv) -> int:
         util.reset_emr_start_limit()
     os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])
     raise AssertionError("unreachable: execvp replaces the process")
+
+
+O19_GUARD = os.path.join(LIB, "carlos-emr-o19-guard")
+
+
+def _refuse_start_during_o19_import(verb: str) -> None:
+    """Refuse `start`/`restart` while an OSCAR 19 import is in progress.
+
+    carlos-emr.service already consults the same guard as ExecCondition=,
+    so systemctl would not start the EMR either -- but it reports a
+    condition failure as a clean exit 0 and a silent "condition failed"
+    in the journal, which an operator at the terminal would read as
+    "started". Run the shipped guard here first so the refusal, with its
+    remedy, lands on the terminal. The guard is the single predicate; this
+    function only relays its verdict. A host without the guard file (a
+    build that predates it) falls through to systemctl unchanged.
+    """
+    if not os.path.exists(O19_GUARD):
+        return
+    verdict = util.run([O19_GUARD], capture_output=True)
+    if verdict.returncode == 0:
+        return
+    detail = (verdict.stderr or "").strip()
+    die(f"'{verb}' refused: an OSCAR 19 import is in progress and "
+        f"carlos-emr must stay stopped until it finishes "
+        f"(see: sudo carlos-ctl import-o19 --help, --resume / --cleanup)"
+        + (f"\n{detail}" if detail else ""))
 
 
 def _cmd_cert(argv) -> int:

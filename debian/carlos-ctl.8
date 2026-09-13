@@ -48,6 +48,15 @@ Service lifecycle passthroughs.
 .B restart
 is what applies configuration changes; expect about two minutes for the
 webapp to redeploy.
+.B start
+and
+.B restart
+are refused while an OSCAR 19 import is in progress (see
+.BR import-o19 ):
+the unit's own
+.I ExecCondition=
+guard would skip such a start silently, so the verb reports the refusal and
+the remedy on the terminal instead.
 .TP
 .BR logs " [\fIjournalctl-args\fR]"
 Application server log.
@@ -290,7 +299,9 @@ are cleared only by explicit
 sign-off flags, recorded in the report. The CARLOS service must be stopped
 for a real run: a running
 .B carlos\-emr
-unit is refused (its startup writes rows the row-parity gate would reject).
+unit is refused (its startup writes rows the row-parity gate would reject),
+and while the import is in progress the unit's own guard refuses every
+start \(em a reboot's included \(em until P7 verify completes.
 .B \-\-dry-run
 stages and reports without writing to the EMR schema (its
 .B \-\-accept

@@ -46,16 +46,26 @@ for f in debian/carlos-emr.postinst debian/carlos-emr.postrm; do
   fi
 done
 
-hdr "postinst OSCAR-19-in-progress gate: full ledger matrix"
-# extracted FROM the postinst, never a copy: a duplicated predicate
-# silently stops testing the shipped one the moment it changes
-PRED=$(sed -n "/&& ! python3 -c '/,/^' \/var\/lib/p" debian/carlos-emr.postinst \
-        | sed "1s/.*python3 -c '//" | sed '$d')
-[ -n "$PRED" ] || { echo "  FAIL  could not extract the predicate"; exit 1; }
-T=$(mktemp -d)
+hdr "OSCAR-19-in-progress guard: the shipped script over the full ledger matrix"
+# The predicate ships as ONE file, debian/assets/bin/carlos-emr-o19-guard,
+# consulted by carlos-emr.service (ExecCondition=, so a reboot mid-import
+# does not start the EMR), by the postinst's o19_import_in_progress()
+# (configure and the abort-* restart) and here. Run THAT file, not a copy:
+# a duplicated predicate silently stops testing the shipped one the moment
+# it changes. Exit 1 = an import is in progress (the gate fires; the unit
+# stays down); exit 0 = it may start.
+GUARD=debian/assets/bin/carlos-emr-o19-guard
+[ -f "$GUARD" ] || { bad "$GUARD is missing"; exit 1; }
+if dash -n "$GUARD" 2>"$ERRTMP"; then ok "dash -n $GUARD"; else bad "dash -n $GUARD: $(cat "$ERRTMP")"; fi
+verdict "$(head -1 "$GUARD" | grep -q '^#!/bin/sh$'; echo $?)" \
+  "the guard runs under /bin/sh (dash), as the unit invokes it" \
+  "the guard's interpreter line is not #!/bin/sh"
+# a scratch directory WITH a space: the guard quotes its argument, and a
+# TMPDIR holding one is a perfectly valid host
+T=$(mktemp -d "${TMPDIR:-/tmp}/o19 guard.XXXXXX")
 check() { # file-content, expected-rc, label
   printf '%s' "$1" > "$T/s.json"
-  python3 -c "$PRED" "$T/s.json"; rc=$?
+  sh "$GUARD" "$T/s.json" 2>/dev/null; rc=$?
   if [ "$rc" = "$2" ]; then ok "$3 (rc=$rc)"; else bad "$3 expected rc=$2 got rc=$rc"; fi
 }
 check '{"phases":{"verify":{"status":"done"}}}'    0 "verify done  -> no gate"
@@ -70,47 +80,54 @@ check '{"inputs":{}}'                              1 "no phases key (malformed) 
 check '{"phases":[]}'                              1 "phases not a dict -> GATE"
 check '[1,2]'                                      1 "top-level array -> GATE, no traceback"
 check 'not json at all'                            1 "corrupt JSON -> GATE (fail closed)"
-check ''                                           1 "empty file -> GATE (fail closed)"
-# The WHOLE shell condition, lifted from the postinst and re-pointed at a
-# scratch ledger -- not a hand-written model of it. A model passed happily
-# against a postinst whose gate tested the wrong path (`-f .../o19-WRONG/`),
-# which can never fire: dpkg would clobber an in-progress import, and this
-# harness would still have said 30/30.
-# The predicate lives in one shell function so configure and the abort-*
-# restart cannot drift apart; lift its BODY and eval that.
-FN_START='/^o19_import_in_progress() {$/'
-COND_RAW=$(sed -n "$FN_START,/^}\$/p" debian/carlos-emr.postinst)
-LEDGER=/var/lib/carlos-emr/o19-import/state.json
-COND_LAST=$(printf '%s\n' "$COND_RAW" | tail -1)
-COND_N=$(printf '%s\n' "$COND_RAW" | wc -l)
-COND=""
-# A sed RANGE whose end pattern never matches runs to END OF FILE. Put
-# the closing brace on the condition's last line -- a reformat `dash -n`
-# accepts -- and the range swallows the rest of the postinst: 280-odd
-# lines including `rm -f /etc/nginx/sites-enabled/default`, a live
-# `mariadb --user=root` and `deb-systemd-invoke start`, all of it handed
-# to the `eval` below in a harness people run as root. `grep -c` counts
-# LINES, so the "exactly twice" guard scored 2 on that runaway text and
-# said PASS. These three bounds are what make the lift safe to eval: it
-# must have terminated on the real `}`, it must be about the size of
-# the real gate, and it must still name the ledger where both references
-# are.
-if [ -z "$COND_RAW" ]; then
-  bad "could not lift the gate condition from the postinst (shape changed?)"
-elif [ "$COND_LAST" != "}" ]; then
-  bad "the gate lift ran past its closing brace ($COND_N lines) - refusing to eval"
-elif [ "$COND_N" -gt 25 ]; then
-  bad "the lifted gate condition is $COND_N lines (expected under 25)"
-elif [ "$(printf '%s\n' "$COND_RAW" | grep -c -- "$LEDGER")" != 2 ]; then
-  # once in the [ -s ] test, once as python3's argv: if either moves, the
-  # substitution below would quietly test something else
-  bad "the postinst gate no longer references $LEDGER exactly twice"
-else
-  COND=$(printf '%s\n' "$COND_RAW" | sed '1d;$d')
-  ok "gate condition lifted from the postinst (bounded, both references)"
-fi
+# the importer writes the ledger with os.replace(), so a 0-byte file is
+# never a real mid-import state; the -s short-circuit treats it as absent,
+# exactly as the postinst's old inline condition did
+check ''                                           0 "empty file -> no gate (never a written state)"
+rm -f "$T/s.json"
+sh "$GUARD" "$T/s.json" 2>/dev/null; rc=$?
+verdict "$([ "$rc" = 0 ]; echo $?)" \
+  "no ledger at all -> no gate (a host that never imported)" \
+  "a missing ledger gated the start (rc=$rc)"
+# the refusal explains itself where the unit's journal will show it
+printf '%s' '{"phases":{"etl":{"status":"done"}}}' > "$T/s.json"
+MSG=$(sh "$GUARD" "$T/s.json" 2>&1 >/dev/null)
+verdict "$(printf '%s\n' "$MSG" | grep -q -- '--resume'; echo $?)" \
+  "a refused start names the remedy (--resume) on stderr" \
+  "the refusal message no longer names --resume: ${MSG:-<silent>}"
+# the guard reads its ONE argument and nothing from the environment: a
+# root-run ExecCondition must not be steerable by an environment file
+# shellcheck disable=SC2016  # the guard's LITERAL default, unexpanded
+VARS=$(grep -o -E '\$\{?[A-Za-z_][A-Za-z0-9_]*' "$GUARD" | sort -u | tr '\n' ' ')
+verdict "$(grep -c 'LEDGER="${1:-/var/lib/carlos-emr/o19-import/state.json}"' "$GUARD" \
+           | grep -qx 1 && [ "$VARS" = '$LEDGER ' ] && ! grep -q getenv "$GUARD"; echo $?)" \
+  "the guard names the ledger once, from its argument, not the environment" \
+  "the guard reads something beyond its positional default (variables: ${VARS:-none})"
+# Three callers, one file. The unit: ExecCondition= with the full-privilege
+# prefix (the ledger is root-only and the unit is sandboxed to carlos).
+verdict "$(grep -q '^ExecCondition=+/usr/lib/carlos-emr/carlos-emr-o19-guard$' \
+             debian/carlos-emr.carlos-emr.service; echo $?)" \
+  "carlos-emr.service consults the guard as ExecCondition=+ on every start" \
+  "carlos-emr.service no longer runs the guard as ExecCondition=+"
+# The package installs it where both point.
+verdict "$(grep -q 'install -m 0755 debian/assets/bin/carlos-emr-o19-guard $(STAGE)/$(LIBDIR)/carlos-emr-o19-guard' \
+             debian/rules; echo $?)" \
+  "debian/rules installs the guard at /usr/lib/carlos-emr" \
+  "debian/rules no longer installs the guard"
+# The postinst's predicate is the guard, negated, and fails CLOSED when
+# the file is missing (a broken unpack must not start the EMR).
+FN_BODY=$(sed -n '/^o19_import_in_progress() {$/,/^}$/p' debian/carlos-emr.postinst)
+verdict "$(printf '%s\n' "$FN_BODY" | grep -q '^    ! /usr/lib/carlos-emr/carlos-emr-o19-guard'; echo $?)" \
+  "the postinst's o19_import_in_progress() runs the shipped guard" \
+  "the postinst predicate no longer calls the shipped guard"
+verdict "$(printf '%s\n' "$FN_BODY" | grep -A3 'if \[ ! -x /usr/lib/carlos-emr/carlos-emr-o19-guard \]' | grep -q 'return 0'; echo $?)" \
+  "a missing guard reads as in progress in the postinst (fail closed)" \
+  "the postinst no longer fails closed on a missing guard"
+verdict "$(printf '%s\n' "$FN_BODY" | grep -c . | awk '{exit !($1 < 25)}'; echo $?)" \
+  "the postinst predicate is the thin wrapper it should be" \
+  "the postinst predicate grew past 25 lines (a second copy creeping in?)"
 # The condition is only half the gate. Flipping the branch body to
-# `MIGRATION_OK=1` leaves every check below passing -- the gate still
+# `MIGRATION_OK=1` leaves every check above passing -- the gate still
 # fires and still prints "NOT migrating the schema and NOT starting the
 # service" -- while postinst then runs Flyway and starts the webapp into
 # the half-copied schema anyway. So assert the consequent too, and that
@@ -143,40 +160,35 @@ verdict "$(printf '%s\n' "$ABORT_BLOCK" \
          | grep -q '^            elif o19_import_in_progress; then$'; echo $?)" \
   "the abort-* restart consults the same predicate" \
   "the abort-* restart no longer consults o19_import_in_progress"
-# Substitute a VARIABLE REFERENCE, not the path itself. `eval` reparses
-# whatever it is handed, so a scratch directory holding a space (a
-# perfectly valid TMPDIR) turned the lifted `[ -s /tmp/has space/... ]`
-# into "binary operator expected" and the harness reported a verdict the
-# postinst would never produce. Expanding ${LEDGER_T} inside the eval
-# keeps the path a single word whatever it contains.
-# shellcheck disable=SC2034  # read by the eval below, which shellcheck
-# cannot follow
-LEDGER_T="$T/state.json"
-# shellcheck disable=SC2016  # the replacement is the LITERAL text
-# `"${LEDGER_T}"`; expanding it here would put the path back into the
-# eval'd string and reintroduce the reparsing this avoids
-COND_T=$(printf '%s\n' "$COND" \
-         | sed 's|/var/lib/carlos-emr/o19-import/state.json|"${LEDGER_T}"|g')
-gate() { # file-content, expected "GATE"/"nogate"
+# The whole postinst function, run for real against a scratch ledger by
+# pointing its guard path at the shipped file: a model of it passed
+# happily against a postinst whose gate tested the wrong path once.
+FN_T=$(printf '%s\n' "$FN_BODY" | sed "s|/usr/lib/carlos-emr/carlos-emr-o19-guard|\"\${GUARD_T}\"|g")
+gate() { # file-content -> GATE / nogate, through the postinst's own function
   printf '%s' "$1" > "$T/state.json"
-  # the lifted condition is `[ -s L ] && ! python3 ...`, so it succeeds
-  # exactly when the postinst would enter its gate branch
-  if eval "$COND_T"; then echo GATE; else echo nogate; fi
+  # the shipped guard reads its ONE argument; hand it the scratch ledger
+  # by wrapping it, so the postinst function stays exactly as shipped
+  GUARD_T="$T/guard"
+  printf '#!/bin/sh\nexec sh %s "%s"\n' "$(pwd)/$GUARD" "$T/state.json" > "$GUARD_T"
+  chmod 0755 "$GUARD_T"
+  if sh -c "GUARD_T=\"\$1\"; $FN_T; if o19_import_in_progress; then echo GATE; else echo nogate; fi" _ "$GUARD_T"; then :; fi
 }
 shell_gate() { # file-content, expected, pass-message, fail-message
-  got=$(gate "$1")
-  if [ "$got" = "$2" ]; then ok "$3"; else bad "$4 (got $got)"; fi
+  got=$(gate "$1" 2>/dev/null | tail -1)
+  if [ "$got" = "$2" ]; then ok "$3"; else bad "$4 (got ${got:-<nothing>})"; fi
 }
 shell_gate '{"phases":{"verify":{"status":"started"}}}' GATE \
-  "shell condition gates a started verify" "shell condition failed to gate"
+  "the postinst function gates a started verify" "the postinst function failed to gate"
 shell_gate '{"phases":{"verify":{"status":"done"}}}' nogate \
-  "shell condition passes a finished import" "shell condition wrongly gated"
-shell_gate '' nogate \
-  "empty file short-circuits on -s (no python3 call)" \
-  "empty file behaviour changed"
+  "the postinst function passes a finished import" "the postinst function wrongly gated"
 shell_gate '{"phases":{"stage":{"status":"done"}}}' nogate \
   "an assessment leftover does not keep the EMR stopped" \
   "assessment leftover gates the upgrade"
+rm -f "$T/guard"
+got=$(sh -c "GUARD_T=\"$T/no-such-guard\"; $FN_T; if o19_import_in_progress; then echo GATE; else echo nogate; fi" 2>/dev/null | tail -1)
+verdict "$([ "$got" = GATE ]; echo $?)" \
+  "with the guard missing the postinst function fails closed (GATE)" \
+  "with the guard missing the postinst function said ${got:-<nothing>}"
 rm -rf "$T"
 
 hdr "postrm credential-shred block (lifted from the postrm)"
