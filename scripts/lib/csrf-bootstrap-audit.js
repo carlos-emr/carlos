@@ -118,8 +118,32 @@ const INLINE_BOOTSTRAP = [
   /<input[^>]*name\s*=\s*["']CSRF-TOKEN["']/i,
 ];
 
-/** The anti-pattern: a form with no action, which CSRFGuard skips. */
-const ACTIONLESS_FORM = /<form\b(?![^>]*\baction\s*=)[^>]*>/i;
+/**
+ * The anti-pattern: a form with no action, which CSRFGuard skips.
+ *
+ * Bounded-window scan for the SAME reason hasRealPostForm uses one, and this
+ * had the bug that note describes. The earlier `<form\b(?![^>]*\baction\s*=)`
+ * lookahead stops at the first `>` in the tag, and in a JSP that `>` is
+ * routinely inside an attribute value built from `<%= ... %>` -- so a form
+ * whose action came after such an attribute read as having no action at all.
+ *
+ * The verdict would have been unsatisfied either way, but the REASON is what a
+ * maintainer acts on: "remove your empty placeholder form" sends them looking
+ * for something that is not there, on a page whose real problem is that its
+ * form is a GET.
+ */
+function hasActionlessForm(source) {
+  for (const found of source.matchAll(/<form\b/gi)) {
+    const region = source.slice(found.index, found.index + FORM_WINDOW);
+    // Stop at the next <form, so one tag's action cannot excuse another's.
+    const next = region.slice(1).search(/<form\b/i);
+    const tag = next >= 0 ? region.slice(0, next + 1) : region;
+    if (!FORM_ACTION.test(tag)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function jspFiles(root = WEBAPP) {
   const found = [];
@@ -163,7 +187,7 @@ function auditSource(relativePath, source) {
         + 'through the include; equivalent, though the include is what new code should use',
     };
   }
-  if (ACTIONLESS_FORM.test(source)) {
+  if (hasActionlessForm(source)) {
     return {
       file: relativePath,
       satisfied: false,
@@ -296,7 +320,6 @@ function auditWebapp(options = {}) {
 }
 
 module.exports = {
-  ACTIONLESS_FORM,
   BOOTSTRAP_INCLUDE,
   FORM_WINDOW,
   INLINE_BOOTSTRAP,
@@ -305,6 +328,7 @@ module.exports = {
   WEBAPP,
   auditSource,
   auditWebapp,
+  hasActionlessForm,
   hasRealPostForm,
   hostsOf,
   isSelfContained,

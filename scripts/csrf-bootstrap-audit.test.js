@@ -5,7 +5,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  auditSource, auditWebapp, hasRealPostForm, isSelfContained, jspFiles,
+  auditSource, auditWebapp, hasActionlessForm,
+  hasRealPostForm, isSelfContained, jspFiles,
 } = require('./lib/csrf-bootstrap-audit');
 
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
@@ -147,4 +148,26 @@ test('every JSP in the webapp is scanned, not a subdirectory of them', () => {
   const files = jspFiles();
   assert.ok(files.length > 900, `expected the whole webapp, found ${files.length} files`);
   assert.ok(files.some((file) => file.endsWith('.jspf')), 'fragments must be scanned too');
+});
+
+test('a form whose action follows a JSP expression is not called action-less', () => {
+  // The same [^>]* trap this audit documents for hasRealPostForm: a `>` inside
+  // <%= ... %> ends the character class before the scan reaches `action=`. The
+  // verdict is unsatisfied either way here, but the REASON is what a maintainer
+  // acts on -- and "remove your empty placeholder form" sends them looking for
+  // something that is not there.
+  const realAction = '<form id="<%= "a>b" %>" action="/carlos/foo" method="get">';
+  assert.equal(hasActionlessForm(realAction), false);
+});
+
+test('the empty-placeholder anti-pattern is still caught', () => {
+  // CLAUDE.md names this one specifically: CSRFGuard skips action-less forms,
+  // so the hidden input is never populated and every AJAX POST is rejected.
+  assert.equal(hasActionlessForm('<form id="csrfForm" style="display:none;"></form>'), true);
+});
+
+test('one form with an action does not excuse a second without one', () => {
+  const both = '<form action="/carlos/save" method="post"></form>\n<form id="csrfForm"></form>';
+  assert.equal(hasActionlessForm(both), true);
+  assert.equal(hasRealPostForm(both), true);
 });
