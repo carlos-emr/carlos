@@ -321,7 +321,11 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
         // Appointment types: a bare GET (and oper=edit) renders the list/edit form; only
         // oper=save and oper=del are POST-only (see AppointmentType2ActionUnitTest).
-        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action"
+        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
+        // Facility admin: list/edit/add render on a GET (method=add only builds a transient
+        // Facility for the form); only method=delete and method=save are POST-only
+        // (see FacilityManager2ActionUnitTest).
+        "io.github.carlos_emr.carlos.facility.FacilityManager2Action"
     );
 
     /**
@@ -427,7 +431,11 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
         // demographic slice: AddDemographicRelationship2Action is the only migrated mutator gated so
         // far; the demographic package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
-        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action"
+        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
+        // facility slice: FacilityManager2Action is the first gated mutator there; the facility
+        // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional
+        // mutator). The sibling PMmodule/FacilityManager action is not gated on POST yet.
+        "io.github.carlos_emr.carlos.facility.FacilityManager2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
