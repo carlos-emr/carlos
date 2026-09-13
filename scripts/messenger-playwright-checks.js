@@ -43,12 +43,8 @@
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: MESSENGER_DEMOGRAPHIC_NO (2), MESSENGER_PROVIDER_NO (999998, the
+ * Optional: MESSENGER_DEMOGRAPHIC_NO (1), MESSENGER_PROVIDER_NO (999998, the
  *   logged-in provider, which is also the recipient so the inbox can be read).
- *   The default patient is demographic 2 rather than 1: the demo seed links
- *   demographic 1 to HRM report files that never shipped and its chart's
- *   notes panel answers 500 (tracked for review), which would trip the
- *   error-page check on the chart step.
  */
 
 const { chromium } = require('playwright');
@@ -81,7 +77,7 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const demographicNo = process.env.MESSENGER_DEMOGRAPHIC_NO || '2';
+const demographicNo = process.env.MESSENGER_DEMOGRAPHIC_NO || '1';
 const providerNo = process.env.MESSENGER_PROVIDER_NO || '999998';
 assert(/^\d+$/.test(demographicNo), 'MESSENGER_DEMOGRAPHIC_NO must be numeric');
 assert(/^\d+$/.test(providerNo), 'MESSENGER_PROVIDER_NO must be numeric');
@@ -326,6 +322,9 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await chartRowLink.click();
     await inbox.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(inbox, 'message view');
+    await inbox.locator('#viewer .toastui-editor-contents').waitFor({ state: 'visible' });
+    assert((await inbox.locator('#viewer').innerText()).includes(bodyText),
+      'message viewer did not render the stored markdown without escaped underscores');
     const linkedInput = inbox.locator(`input[title="${demographicNo}"]`).first();
     assert(await linkedInput.count(), 'message view did not render the linked patient');
     assert((await linkedInput.inputValue()).trim() === expectedPatientName, 'message view linked patient name did not match');

@@ -442,7 +442,7 @@ lxc exec carlos-test -- carlos-ctl restart
 ```bash
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
-  apt-get install -y nodejs npm
+  apt-get install -y nodejs npm poppler-utils
   cd /root && npm init -y && npm install --save-exact playwright@1.60.0
   /usr/lib/carlos-emr/chromium/chrome --version'
 ```
@@ -455,6 +455,13 @@ browser shipped to operators instead of a second downloaded browser.
 
 The scripts run from `/root/carlos` (the repo mount) so their relative fixture
 paths resolve; Node still finds Playwright via `/root/node_modules`.
+
+`eform-render-playwright-checks.js` requires `pdftotext` from `poppler-utils`.
+It checks both authored PDF pages, content beyond a narrower page container,
+and the coordinates of a percentage-positioned field. A PDF header alone
+cannot establish that the clinical content was retained. The corpus soak also
+records the application's explicit completeness refusal and its issue report;
+it does not approve omitted content to obtain a PDF.
 
 ## 6. Run the suite
 
@@ -595,8 +602,33 @@ suite_failed=0
 #   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
 #   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
 #   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
-# On a fresh Ontario install, consultation-request-create and specialist-add-cpso need at least one
-# active consultationServices row (the ON seed ships them all inactive; see the coverage page, finding 21).
+# consultation-request-create and specialist-add-cpso need at least one active consultationServices
+# row. Migration V1.0.23 (on) reactivates the seeded rows on a pristine demo/dev database (see
+# "Ontario consultation catalogue repair" below and the coverage page, finding 21), which the demo
+# install here is, so a package carrying it needs nothing; on an older package, or a configured
+# clinical install, activate one by hand first.
+# Clinical-workflow coverage scripts (docs/ui-tests/clinical-workflow-browser-checks.md). Each one
+# reaches its surface by clicking the links an operator clicks, seeds only what it needs and restores
+# it in a finally, and defaults to demographic 1 / provider 999998. Their knobs:
+#   APPOINTMENT_PROVIDER_NO=999998 APPOINTMENT_DEMOGRAPHIC_NO=1 APPOINTMENT_DAYS_AHEAD=400
+#                                (appointment-lifecycle; DAYS_AHEAD puts the booking on a far-future
+#                                day sheet so it cannot collide with a seeded appointment)
+#   MESSENGER_PROVIDER_NO=999998 (messenger-inbox-actions; enrols the provider as a local contact
+#                                through the Administration page when it is not already one, because a
+#                                hand-inserted groupMembers_tbl row does not make a recipient appear)
+#   LAB_PROVIDER_NO=999998 LAB_SEGMENT_ID=<hl7 lab_no>  (lab-acknowledge; LAB_SEGMENT_ID must be the
+#                                NEWEST lab of its accession -- the Inboxhub opens labs with
+#                                showLatest=true, which renders the newest version of the chain, so an
+#                                older segment would put the acknowledge on a row it never routed. Left
+#                                unset the check picks a qualifying lab itself.)
+#                                (prevention-recall-report takes no knob: the screening type is fixed
+#                                to Flu because the check seeds a saved demographic query naming one
+#                                65+ patient with no flu shot and asserts the report classifies them
+#                                "No Info". Without a patientSet the report returns its empty form
+#                                unchanged, so the fixture is what makes it run at all. The saved
+#                                query is the only row written and a finally removes it.)
+#   MEASUREMENT_DEMOGRAPHIC_NO=1 MEASUREMENT_GROUP=Anthropometrics MEASUREMENT_TYPE=WT
+#                                (measurement-validation)
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
@@ -684,6 +716,23 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
+- **DrugRef refreshes can remove legacy AHFS names.** The allergy browser check uses
+  `AMOXICILLIN` (typed) and `CLARITHROMYCIN` (free text), which are present in both
+  the demo reference and the current DPD extract. It requires both recording paths
+  to produce confirmed warnings; it no longer substitutes an arbitrary search
+  result or skips the typed warning. Also run with
+  `ALLERGY_CUSTOM_ALLERGEN=PWUNKNOWNALRG ALLERGY_EXPECT_UNCHECKED=true` to require
+  an explicit `Not checked` notice for an unresolved allergy. Service failures and
+  malformed responses must remain visibly incomplete, never look like a negative check.
+  The check also opens another patient in the same browser session and rechecks the
+  original tab. `ALLERGY_OTHER_DEMOGRAPHIC_NO` defaults to patient 1 (patient 2 when
+  the primary fixture is patient 1); it must name a different existing demo patient.
+
+- **The HRM PDF marker belongs to a specific report.**
+  `eform-rtl-attachment-pdf-playwright-checks.js` defaults to `RTL_HRM_DOCUMENT_NO=1`
+  and `RTL_HRM_TEXT_MARKER=SEED-HRM-ATTACHMENT-MARKER`. Override both together for
+  another fixture; the first listed report can change when missing demo files are restored.
+
 - **`allergy-rx-alert-playwright-checks.js` cleans up both allergies it records.**
   Each run uses cryptographically unique reaction markers and, in `finally`,
   inactivates every active row carrying one of those exact markers through the
@@ -747,9 +796,9 @@ Notes on the contract:
   The two dimensions run in sequence rather than as a matrix -- each body once,
   then each selection with the worst-case body, 15 prints in all -- because the
   403 rides on the note in the serialized form, not on any print checkbox.
-  Driving fifteen prints through one open encounter
-  outlives the note lock, so the eChart's own autosave answering 409 partway
-  through is expected and tolerated; a 403 from any of them is not. Each print
+  Every draft autosave must succeed, including after earlier prints. A 409
+  indicates a lost note lock and fails the check, as does a 403. Restoring an
+  existing draft during cleanup must also succeed. Each print
   must come back as a download whose bytes start with `%PDF-` and run to at
   least 1 KB: the action sets `application/pdf` before it generates, so the
   Content-Type alone would pass a truncated body. It also waits, per note
@@ -834,6 +883,13 @@ Notes on the contract:
   eChart checks (nginx `Server` header; warning when absent, failure with
   `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
   mistaken for coverage of 1100/1131.
+- **`echart-playwright-checks.js` allows 90 seconds for note pagination to settle.**
+  The chart loads 20 entries per one-second poll, including eForms and other
+  chart entries as well as encounter notes. A populated fixture can legitimately
+  need more than 30 seconds. `ECHART_NOTES_POLL_TIMEOUT_MS` accepts 5000–240000
+  milliseconds for an intentionally larger fixture; the check still requires
+  four quiet seconds and a cleared loading indicator, and fails continuous
+  pagination at the configured deadline.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the
@@ -968,3 +1024,103 @@ SCHEMA but always populated in the dump — regressions on the null path have
 been 500s in the past, so exercise it by nulling a row explicitly
 (`UPDATE consultationRequests SET providerNo=NULL, urgency=NULL WHERE
 requestId=<id>;`) rather than assuming the dump provides one.
+
+### Demo HRM report files
+
+The demo package includes synthetic HRM XML for all 41 report filenames in the
+snapshot, plus `demo-hrm-diagnostic-imaging.xml` for the attachment PDF check.
+The legacy `.xml.<timestamp>` filenames are intentional: existing demo installs
+can rerun `carlos-ctl demo-data` to bootstrap missing files even when the SQL
+completion marker already exists. Both Debian and devcontainer bootstraps leave
+existing documents untouched. These files contain invented, explicitly labelled
+reports for the FAKE patients; they do not reproduce the old reports' content.
+
+### Upgrade path: alpha11 packages -> alpha12 packages
+
+Reviewed and exercised on 2026-09-13: a controlled in-place `apt-get install` of
+the three `2026.09.0~snapshot22` packages over a `2026.09.0~snapshot19` install
+(Ubuntu 26.04 container, demo dataset, first-login reset already done so the
+operator's own password was in place). Two repo scripts make it repeatable:
+`scripts/deb-upgrade-baseline.sh` (a key=value snapshot: package versions,
+Flyway history, clinical row counts, config/TLS hashes, sentinels, the admin
+hash, build tag) taken before and after, and `scripts/deb-upgrade-verify.sh`,
+which diffs the two and asserts the contract below. Both are counts, hashes and
+flags only; no PHI leaves the host.
+
+What the review established, from the maintainer scripts and the run:
+
+- **Migrations.** The a11 package ships 23 Flyway migration *files*, a12 ships 27.
+  Files and applied rows are different numbers and it is worth keeping them apart:
+  the BC-only files never apply to an Ontario install, so this ON host went from
+  **19 applied rows to 23**, which is what `EXPECT_FLYWAY` in
+  `deb-upgrade-verify.sh` counts. The delta is exactly `V1.0.20`, `V1.0.21`,
+  `V1.0.22` (common) and `V1.0.23` (on);
+  nothing was removed and every shared file is byte-identical, so `validate`
+  passes and `carlos-ctl db-migrate` applies the four (`applied 4 migration(s);
+  schema is at 1.0.23`). `V1.0.23` is demo-guarded: it activated the 257 seeded
+  consultation services here because every demographic is a FAKE- patient; on a
+  configured clinical install it leaves the catalogue for an administrator.
+- **Credentials.** `carlos-ctl bootstrap-admin` runs on every configure but only
+  resets an account still carrying the *published* seeded hash, so the upgrade
+  logged `nothing to reset` and the operator's password hash, PIN and
+  `forcePasswordReset` were unchanged.
+- **Configuration.** `carlos-emr.env`, `carlos.properties`, `backup.env`, the
+  self-signed certificate, province, timezone and DB name were byte-identical
+  before and after (`FRESH_ENV=0` on an upgrade; the sentinel-guarded one-time
+  migrations had already run on a11). `prerm` is a no-op on `upgrade`, and every
+  destructive `postrm` action is gated to `purge`, which still keeps the clinical
+  record.
+- **Data.** Every clinical table's row count was preserved and every stored
+  document's file is still present. The store *grew* from 21 to 62 files: a12
+  ships the synthetic HRM report files that end the `HRMReportParser: File Not
+  Found` errors, and `carlos-ctl demo-data` is additive. One consequence to
+  know: `demo-data` detects an already-loaded dataset and leaves it alone, so a
+  seed-data correction in a12 (the prescription `digital_signature_id` fix)
+  reaches **fresh** a12 installs only; an upgraded demo/dev install keeps its
+  a11 rows. Production holds no demo rows, so this is a dev/demo note.
+- **Service.** The unit came back `active` with `NRestarts=0`, `carlos-ctl
+  check` reported all checks passed, and the About page carries the new build
+  tag `2026.08.0-alpha12-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot22)` — the
+  packaged WAR is stamped even when supplied prebuilt via `CARLOS_WAR=`.
+- **Compiled JSPs.** The a12 launcher (`/usr/lib/carlos-emr/carlos-emr-tomcat`)
+  runs `clear_jsp_cache` on every start, deleting compiled `org/apache/jsp`
+  classes under the Tomcat work directory, so the upgrade restart cannot serve
+  a11-compiled pages against a12 classes (the class of failure a truncated or
+  stale work directory produced during this validation). Do not try to verify
+  this from class-file timestamps: Jasper back-dates each compiled class to its
+  JSP source's mtime, and the package clamps source mtimes for reproducible
+  builds, so every class looks older than the upgrade regardless. Verify it
+  functionally — no `JasperException` in the journal after the restart, and the
+  changed pages rendering — or by comparing a changed JSP's mtime with its
+  compiled class's (equal means compiled from the deployed source).
+- **Harness prerequisite, not a package one.** a12's
+  `eform-render-playwright-checks.js` inspects the rendered PDF with
+  `pdftotext -bbox`, so `poppler-utils` (already in the harness install step
+  above) is required on the test host; the package correctly declares no
+  dependency on it. A host prepared with only `nodejs` fails that one check
+  with `spawnSync pdftotext ENOENT`.
+
+Result: `deb-upgrade-verify.sh` 30/30 (a transient `allergies 17 -> 19` seen
+once was the live suite's own `allergy-add-penicillin` fixture mid-run, deleted
+in its `finally`). The full browser suite was then run against the upgraded
+install: **73/76, 0 JVM restarts**. The three non-passes are the opt-in
+`eform-corpus-soak`, `eform-render` on a host missing `poppler-utils` (green
+once installed — see the harness note above), and `prescription-signature`,
+whose fixture reads as signed on an upgraded demo install for the `demo-data`
+reason above; all three pass on a fresh a12 install with the prerequisite in
+place. `lab-acknowledge` passed on the upgraded install and its
+`labDisplay_jsp.class` carries the deployed a12 source's exact mtime — compiled
+from the a12 page after the upgrade restart.
+
+### Ontario consultation catalogue repair
+
+Migration `V1.0.23` activates the accidentally disabled reference catalogue only
+when all 257 entries still match the shipped Ontario seed and there are no
+non-FAKE patients. It preserves custom catalogues and clinical databases because
+`02` is also the administrator's deliberate-disable value. On a configured
+clinical installation, an administrator must review the existing service IDs and
+explicitly reactivate the intended rows (`active='1'`) through database
+maintenance to retain their IDs and specialist assignments. The current
+consultation settings offer Add/Delete, without a re-enable control. Automatic
+repair cannot infer which existing inactive services were deliberately disabled.
+Published migration checksums remain unchanged.

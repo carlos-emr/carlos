@@ -70,8 +70,12 @@ below. When adding a new place to surface the build, put it behind authenticatio
 
 - **CI / release WAR**: nothing to set. The tag is the project version.
 - **Debian package** (`debian/rules`): sets `JOB_NAME=carlos-emr-deb` and
-  `BUILD_NUMBER=<deb version>` for a from-source build. A package built around
-  the published release WAR carries that WAR's stamp unchanged.
+  `BUILD_NUMBER=<deb version>` for a from-source build. A package built around a
+  prebuilt WAR (`CARLOS_WAR=`) gets the same two keys stamped into the WAR's
+  `carlos-build.properties` by `debian/stamp-war-build-identity.sh`; every other
+  key (`build.version`, `build.date`) stays as the WAR's own build wrote it. So the
+  About page identifies the package either way, and a package cannot be mistaken
+  for a bare source build because of how its WAR was supplied.
 - **carlos-podman** (`Containerfile`): sets `JOB_NAME=carlos-podman` and
   `BUILD_NUMBER=<image stamp>` so the About page identifies the running image.
 - **Local build**: leave both unset; the stamp is the version alone.

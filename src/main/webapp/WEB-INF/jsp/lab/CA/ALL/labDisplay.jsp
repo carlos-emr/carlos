@@ -210,19 +210,10 @@
         }
     }
 
-    Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
     MeasurementMapDao measurementMapDao = SpringUtils.getBean(MeasurementMapDao.class);
-    Hl7TextMessage hl7TextMessage = null;
-    if (StringUtils.isNotBlank(segmentID) && StringUtils.isNumeric(segmentID)) {
-        hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentID));
-    }
-
+    // "Date Received" is resolved further down, after showLatest has settled which segment this
+    // page actually renders. Declared here only because the header markup reads it.
     String dateLabReceived = "n/a";
-    if (hl7TextMessage != null) {
-        java.util.Date date = hl7TextMessage.getCreated();
-        String stringFormat = "yyyy-MM-dd HH:mm";
-        dateLabReceived = UtilDateUtilities.DateToString(date, stringFormat);
-    }
 
     boolean isLinkedToDemographic = false;
     ArrayList<ReportStatus> ackList = null;
@@ -280,27 +271,6 @@
     if (remoteFacilityIdString == null) // local lab
     {
 
-        HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
-        if (reqMap.get("id") != null) {
-            reqID = reqMap.get("id").toString();
-            reqTableID = reqMap.get("request_id").toString();
-        } else {
-            reqID = "";
-            reqTableID = "";
-        }
-
-
-        PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
-        for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
-            demographicID = "" + r.getDemographicNo();
-        }
-
-        if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
-            isLinkedToDemographic = true;
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
-        } else {
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
-        }
 
 
         if (showAll) {
@@ -338,6 +308,49 @@
             hl7 = Factory.getHL7Body(segmentID);
         }
 
+        // The demographic lookup and the READ audit below key on segmentID, so they run only
+        // after showLatest has had its say: with showLatest=true the Inboxhub asks for the
+        // segment on its row but this page renders the newest version of that accession
+        // (segmentIDs[last] above). Resolving the patient and writing the audit row from the
+        // REQUESTED id recorded a lab the clinician never opened and, should an accession ever
+        // be shared across patients, would have bound the page to the wrong chart.
+        HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
+        if (reqMap.get("id") != null) {
+            reqID = reqMap.get("id").toString();
+            reqTableID = reqMap.get("request_id").toString();
+        } else {
+            reqID = "";
+            reqTableID = "";
+        }
+
+
+        PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
+        for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
+            demographicID = "" + r.getDemographicNo();
+        }
+
+        if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
+            isLinkedToDemographic = true;
+            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
+        } else {
+            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
+        }
+
+    }
+
+    // Same reason as the audit above: showLatest may have swapped segmentID for the newest
+    // version of the accession, so the received date has to be read from the segment that is
+    // being rendered. Reading it earlier showed the requested version's date on a page
+    // displaying a different version's results.
+    Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
+    Hl7TextMessage hl7TextMessage = null;
+    if (StringUtils.isNotBlank(segmentID) && StringUtils.isNumeric(segmentID)) {
+        hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentID));
+    }
+    if (hl7TextMessage != null) {
+        java.util.Date date = hl7TextMessage.getCreated();
+        String stringFormat = "yyyy-MM-dd HH:mm";
+        dateLabReceived = UtilDateUtilities.DateToString(date, stringFormat);
     }
 
 request.setAttribute("duplicateOfLab", duplicateOfLab);

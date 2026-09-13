@@ -29,7 +29,10 @@
  * from the admin library, and verifies that:
  *   1. the eForm still renders in the popup without an error page
  *   2. the background image resolves through displayImage
- *   3. /previewDocs?method=renderEFormPDF returns a real PDF for the imported form
+ *   3. the downloaded PDF retains both authored pages and right-edge content
+ *   4. pagination preserves percentage-positioned field coordinates
+ *
+ * Requires pdftotext from poppler-utils to inspect the actual PDF content and positions.
  *
  * Defaults are for the local devcontainer:
  *   node scripts/eform-render-playwright-checks.js
@@ -47,6 +50,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
@@ -140,10 +144,16 @@ function formPrint() {
 <body onload="">
 <form method="post" action="" name="FormName" id="FormName">
 <!-- malformed -- comment-->
-<div id="page1" style="page-break-after:always;position:relative;">
+<div id="page1" style="page-break-after:always;position:relative;width:650px;">
 <img id="BGImage1" src="\${oscar_image_path}${bgImageName}" style="position:relative;left:0;top:0;width:750px;height:140px;">
 <input name="patient_nameL" id="patient_nameL" type="text" value="TemplateSeed" class="noborder" style="position:absolute;left:40px;top:32px;width:220px;height:22px;" oscarDB="patient_nameL">
 <input name="subject" id="subject" type="text" class="noborder" style="position:absolute;left:40px;top:72px;width:220px;height:22px;">
+<span style="position:absolute;left:50%;top:108px;font:12px Arial;">PERCENTFIELD</span>
+<span style="position:absolute;left:680px;top:108px;font:12px Arial;">RIGHTEDGE</span>
+</div>
+<div id="page2" style="page-break-after:always;position:relative;width:500px;">
+<img id="BGImage2" src="\${oscar_image_path}${bgImageName}" style="width:500px;height:160px;">
+<span style="position:absolute;left:20px;top:30px;font:12px Arial;">SECONDPAGE</span>
 </div>
 <div class="DoNotPrint" id="BottomButtons" style="position:absolute;top:180px;left:0;">
   <input value="Submit" name="SubmitButton" id="SubmitButton" type="submit" onclick="releaseDirtyFlag();">
@@ -413,6 +423,17 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     const pdfBytes = fs.readFileSync(renderedPdfPath);
     assert(pdfBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Downloaded payload was not a PDF');
     assert(pdfBytes.length > 500, `Downloaded PDF payload was unexpectedly small (${pdfBytes.length} bytes)`);
+
+    // Requires poppler-utils. Inspect the produced PDF, not just the DOM or generated CSS:
+    // clipping a narrow page div used to silently remove the right edge of a wider background.
+    const bbox = execFileSync('pdftotext', ['-bbox', renderedPdfPath, '-'], { encoding: 'utf8' });
+    const pages = [...bbox.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map(match => match[1]);
+    assert(pages.length === 2, `Expected two authored pages without blank spill pages, got ${pages.length}`);
+    assert(pages[0].includes('>RIGHTEDGE<'), 'The first PDF page silently clipped its right-edge content');
+    assert(pages[1].includes('>SECONDPAGE<'), 'The second authored page was omitted or shifted');
+    const percentField = pages[0].match(/<word\b[^>]*xMin="([0-9.]+)"[^>]*>PERCENTFIELD<\/word>/);
+    assert(percentField && Math.abs(Number(percentField[1]) - 243.75) < 0.1,
+      'PDF pagination changed the authored container width and moved its percentage-positioned field');
 
     await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     const postDownloadState = await popup.evaluate(() => ({

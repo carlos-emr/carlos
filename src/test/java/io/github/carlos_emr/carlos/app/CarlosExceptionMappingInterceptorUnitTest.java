@@ -149,6 +149,32 @@ class CarlosExceptionMappingInterceptorUnitTest {
     }
 
     @Test
+    @DisplayName("keeps messages out of the entire rendered diagnostic including causes and suppressed failures")
+    void shouldWithholdClinicalMessages_fromRenderedExceptionDiagnostic() throws Exception {
+        IllegalArgumentException cause = new IllegalArgumentException("FAKE-Patient cause");
+        IllegalStateException failure = new IllegalStateException("FAKE-Patient top", cause);
+        failure.addSuppressed(new java.io.IOException("FAKE-Patient suppressed"));
+        cause.initCause(failure); // Legal cyclic cause graphs must not loop during logging.
+        when(invocation.invoke()).thenThrow(failure);
+
+        try (LogCapture capture = LogCapture.forLogger(CarlosExceptionMappingInterceptor.class)) {
+            assertThat(interceptor.intercept(invocation)).isEqualTo("error");
+            assertThat(capture.events()).hasSize(1);
+            var event = capture.events().get(0);
+            String rendered = org.apache.logging.log4j.core.layout.PatternLayout.newBuilder()
+                    .withPattern("%m%n%throwable").build().toSerializable(event);
+            assertThat(rendered).doesNotContain("FAKE-Patient", QUERY_VALUE, "jsessionid")
+                    .contains("IllegalStateException", "IllegalArgumentException", "IOException",
+                            "CarlosExceptionMappingInterceptorUnitTest", "incident");
+            assertThat(event.getThrown()).isNull();
+        }
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(failure.getCause()).isSameAs(cause);
+        assertThat(cause.getCause()).isSameAs(failure);
+        assertThat(failure.getMessage()).isEqualTo("FAKE-Patient top");
+    }
+
+    @Test
     @DisplayName("maps a SecurityException to the security result with a 403 and a WARN line naming the security object")
     void shouldMapSecurityException_toSecurityErrorWith403() throws Exception {
         when(invocation.invoke()).thenThrow(new SecurityException("missing required sec object (_con)"));

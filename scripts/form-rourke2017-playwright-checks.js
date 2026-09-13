@@ -25,10 +25,8 @@
  *   3. Save and Exit (window.confirm accepted in-page): asserts the
  *      formRourke2017 row carries the patient, the auto-populated identity
  *      and the typed values, and that the form window closed itself. The
- *      plain Save button's post-save redirect (/form/forwardname with the
- *      legacy .jsp form_link) is probed afterwards and reported as a WARN
- *      when it answers an error page, since it currently does on a stock
- *      install (tracked for review) while the row itself is saved;
+ *      plain Save redirect is checked with both legacy and extensionless
+ *      form links; both must render the stored values as HTML;
  *   4. reopens the latest form through forwardshortcutname?formId=latest and
  *      asserts the values render back.
  *
@@ -215,13 +213,16 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(saved.provider === providerNo, `saved provider was ${saved.provider}`);
     assert(await page.evaluate(() => window.__closed === true).catch(() => true), 'Save and Exit did not close the form window');
 
-    // Plain Save's redirect target (known defect on a stock install: the
-    // form_link still names the legacy .jsp and forwardname answers 500).
+    // Both legacy and extensionless links must render the saved form as HTML.
     const redirectProbe = await context.newPage();
-    const saveRedirect = await gotoApp(redirectProbe, config.baseUrl, `/form/forwardname?form_link=formrourke2017complete.jsp&demographic_no=${encodeURIComponent(demographicNo)}&formId=${encodeURIComponent(saved.id)}`);
-    const redirectType = saveRedirect ? (saveRedirect.headers()['content-type'] || '') : '';
-    if (!saveRedirect || saveRedirect.status() >= 400 || !/text\/html/i.test(redirectType) || !(await redirectProbe.locator('#frmP1').count())) {
-      console.log(`WARN plain Save's post-save redirect (/form/forwardname?form_link=formrourke2017complete.jsp) answered HTTP ${saveRedirect && saveRedirect.status()} content-type "${redirectType}" without rendering the form; the row is saved, but Save lands on a broken page`);
+    wirePage(redirectProbe, 'rourke-save-redirect', recorder);
+    for (const formLink of ['formrourke2017complete.jsp', 'formrourke2017complete']) {
+      const saveRedirect = await gotoApp(redirectProbe, config.baseUrl, `/form/forwardname?form_link=${formLink}&demographic_no=${encodeURIComponent(demographicNo)}&formId=${encodeURIComponent(saved.id)}`);
+      assert(saveRedirect && saveRedirect.status() === 200, `${formLink} did not return HTTP 200`);
+      assert(/text\/html/i.test(saveRedirect.headers()['content-type'] || ''), `${formLink} did not return HTML`);
+      assert(await redirectProbe.locator('#frmP1').count(), `${formLink} did not render the saved form`);
+      assert((await redirectProbe.locator('input[name="p1_ht1w"]').inputValue()) === visit.height,
+        `${formLink} lost the saved height`);
     }
     await redirectProbe.close();
 
@@ -234,9 +235,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await reopened.close();
     await page.close();
 
-    // The form page declares no favicon, so the browser probes /favicon.ico at
-    // the server root and logs the 404 (tracked for review, not a form defect).
-    const consoleIssues = recorder.consoleIssues.filter((entry) => !/\/favicon\.ico$/.test((entry.location && entry.location.url) || ''));
+    const consoleIssues = recorder.consoleIssues;
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);

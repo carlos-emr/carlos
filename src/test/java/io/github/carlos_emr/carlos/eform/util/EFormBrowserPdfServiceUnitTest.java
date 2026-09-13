@@ -352,10 +352,13 @@ class EFormBrowserPdfServiceUnitTest {
                 // never spill a blank page), region-capture clipping parity, no inter-page gaps, and a
                 // forced break after every page BUT the last (a trailing forced break would emit a
                 // blank final page on forms that author inline page-break-after on the last div).
-                .contains("#page1 { height: 1056px !important; margin: 0 !important; overflow: hidden !important;"
+                .contains("#page1 { height: 1056px !important; margin: 0 !important; overflow: visible !important;"
+                        + " clip-path: polygon(0 0, 816px 0, 816px 1056px, 0 1056px) !important;"
                         + " break-inside: avoid !important; break-after: page !important; }")
-                .contains("#page2 { height: 1056px !important; margin: 0 !important; overflow: hidden !important;"
-                        + " break-inside: avoid !important; break-after: auto !important; }");
+                .contains("#page2 { height: 1056px !important; margin: 0 !important; overflow: visible !important;"
+                        + " clip-path: polygon(0 0, 816px 0, 816px 1056px, 0 1056px) !important;"
+                        + " break-inside: avoid !important; break-after: auto !important; }")
+                .doesNotContain("width:");
     }
 
     @Test
@@ -370,6 +373,8 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("@page carlosPage2 { size: 1056px 816px; margin: 0; }")
                 .contains("#page1 { page: carlosPage1; height: 1056px !important;")
                 .contains("#page2 { page: carlosPage2; height: 816px !important;")
+                .contains("clip-path: polygon(0 0, 816px 0, 816px 1056px, 0 1056px) !important;")
+                .contains("clip-path: polygon(0 0, 1056px 0, 1056px 816px, 0 816px) !important;")
                 .contains("break-after: page !important; }")
                 .contains("break-after: auto !important; }");
     }
@@ -383,6 +388,7 @@ class EFormBrowserPdfServiceUnitTest {
         // Ceil, so a fractional content box is never a hair too small to hold its content.
         assertThat(css)
                 .contains("@page { size: 816px 1056px; margin: 0; }")
+                .contains("clip-path: polygon(0 0, 816px 0, 816px 1056px, 0 1056px) !important;")
                 .contains("#page1 { height: 1056px !important;");
     }
 

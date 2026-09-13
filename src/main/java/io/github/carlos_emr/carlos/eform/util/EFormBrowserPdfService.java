@@ -2007,13 +2007,18 @@ public class EFormBrowserPdfService {
      * needed any): its {@code height} is pinned to the printed page height so the div's flow extent
      * can never exceed one page (a fractional-height background otherwise spills a mostly-blank
      * page and shifts every later field off its background — the "extra blank pages between pages,
-     * checkboxes misaligned" corpus regression), {@code overflow: hidden} clips content past the
-     * page box exactly as the region capture did, {@code margin: 0} removes inter-page gaps, and
+     * checkboxes misaligned" corpus regression), a clip path limits painting to the measured
+     * page region, {@code margin: 0} removes inter-page gaps, and
      * {@code break-after: page} forces each div onto its own printed page. The LAST div instead gets
      * {@code break-after: auto} so a form whose final div carries an authored inline
      * {@code page-break-after: always} does not emit a trailing blank page ({@code !important} in an
      * author stylesheet outranks a non-important inline declaration, so these rules win over inline
      * authored styles in both directions).</p>
+     *
+     * <p>The measured region can be wider than the authored div (for example, a 750px container
+     * with an 850px background). Overflow clipping at the div's width silently truncates clinical
+     * content despite a correctly sized PDF page. Keep the authored width so percentage-positioned
+     * fields do not move, and clip at the measured region instead.</p>
      *
      * <p>Sizes are px (Chromium converts to the PDF's points at 96dpi), matching the legacy raster
      * path's {@code px * 72/96} page boxes. Returns empty CSS for an empty list (never injected).</p>
@@ -2048,7 +2053,10 @@ public class EFormBrowserPdfService {
             }
             css.append(" height: ").append(cssPx(page.height())).append(" !important;")
                     .append(" margin: 0 !important;")
-                    .append(" overflow: hidden !important;")
+                    .append(" overflow: visible !important;")
+                    .append(" clip-path: polygon(0 0, ").append(cssPx(page.width())).append(" 0, ")
+                    .append(cssPx(page.width())).append(' ').append(cssPx(page.height()))
+                    .append(", 0 ").append(cssPx(page.height())).append(") !important;")
                     .append(" break-inside: avoid !important;")
                     .append(" break-after: ").append(last ? "auto" : "page").append(" !important; }\n");
         }

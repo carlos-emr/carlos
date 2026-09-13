@@ -877,6 +877,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         String contextPath = request.getContextPath();
         String forward = contextPath + "/encounter/oscarConsultationRequest/ViewConfirmConsultationRequest?de=" + demographicNo;
+        Object savedTransactionType = request.getAttribute("transType");
+        if ("1".equals(savedTransactionType) || "2".equals(savedTransactionType)) {
+            forward += "&transType=" + savedTransactionType;
+        }
         // A genuine signature failure was flagged as a request attribute above, but this is a 302
         // redirect to a separate request, so request attributes do not survive. Re-encode the signal as
         // a query parameter (a non-sensitive constant) so the confirmation page can render the warning.

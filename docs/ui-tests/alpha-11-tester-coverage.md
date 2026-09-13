@@ -1,3 +1,12 @@
+> Promotion follow-up: the observations below describe the original alpha11
+> investigation. PR #3644 imports these checks with stricter assertions for
+> alpha12: editor/billing exceptions, missing signatures, lost appointment IDs,
+> broken form redirects, inaccessible save controls, and missing specialist
+> assignments now fail the checks. Patient ticklers are checked in the patient
+> view, and the default chart patient is now demographic 1. The vaccine check
+> also exercises local CVC lot lookup. See the promotion PR for current results;
+> historical warnings below are not accepted promotion outcomes.
+
 # Alpha 11 tester report → Playwright coverage map
 
 An alpha-11 tester (main branch) reported the workflows below as working. This
@@ -161,7 +170,11 @@ these are fixed by this change.
     no selectable consultation service and no specialty on Add Specialist
     until an admin activates them. The dev/demo database hides this because
     `development.sql` truncates the table and reseeds six active services, and
-    the additive demo build excludes the table.
+    the additive demo build excludes the table. **Fixed** in `release/2026.08`
+    by `V1.0.23__activate_legacy_consultation_services.sql`, which reactivates the
+    257 seeded rows only on a pristine demo/dev database (all rows still match the
+    shipped Ontario seed at `02` and every demographic is a FAKE- patient), and
+    leaves a configured clinical install for an administrator to curate.
 22. (deb, fixed in `release/2026.08`) The alpha-11 WAF policy inspects
     `ARGS:caseNote_note` with the full CRS set, so any encounter note with a
     line starting `Start `, `Type `, `Find ` (Windows-RCE rule 932115, e.g.
