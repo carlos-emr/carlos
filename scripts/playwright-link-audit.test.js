@@ -272,3 +272,18 @@ test('the navigation wait is armed before the click, not after it', () => {
   // scoped to this item's label finds nothing recorded under it and passes.
   assert.match(openItem, /relabelStrictPage\(hostPage, label\)/);
 });
+
+test('a hostile onclick cannot hang the catalogue inside the page', async () => {
+  // CodeQL js/redos on the bare-path pattern: with '/' allowed inside the
+  // segment class, `(?:\/[^...]*)*` could split the same string exponentially
+  // many ways, so an unterminated quote full of slashes backtracked forever.
+  // The catalogue runs inside the browser, so that is a hang rather than a
+  // failure -- and onclick text can carry a name somebody typed into an eForm.
+  const hostile = `popupPage(600,900,"0${'/'.repeat(64)}`;
+  const started = Date.now();
+  const items = await catalogue([anchorDouble({ href: '#', onclick: hostile }, 'Hostile')]);
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < 1000, `cataloguing took ${elapsed}ms; the route pattern is backtracking`);
+  // Unterminated, so there is no route to find -- the point is that it returns.
+  assert.deepEqual(items, []);
+});

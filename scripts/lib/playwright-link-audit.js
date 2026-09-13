@@ -72,7 +72,12 @@ async function catalogueLinks(page, options = {}) {
       // this matches the window name and the feature string that sit in the
       // same argument list ('_blank', 'width=600'), and the audit would report
       // a route for every opener whether or not it found one.
-      || onclick.match(/["']([A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[^"'\s?]*)*(?:\.(?:jsp|do|html?)\b)?(?:\?[^"']*)?)["']/);
+      // The segment class excludes '/' deliberately. With '/' inside it, a
+      // segment could be split at any slash and (?:\/[^...]*)* had exponentially
+      // many ways to match the same string -- catastrophic backtracking on an
+      // unterminated quote full of slashes, which would hang the audit inside
+      // the page rather than fail it (CodeQL js/redos).
+      || onclick.match(/["']([A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[^"'\s?/]*)*(?:\.(?:jsp|do|html?)\b)?(?:\?[^"']*)?)["']/);
     const looksLikeRoute = routeInOnclick
       && (/^[./]/.test(routeInOnclick[1])
         || /[/?]/.test(routeInOnclick[1])
