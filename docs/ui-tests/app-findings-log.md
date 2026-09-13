@@ -15,6 +15,11 @@ Status values: `open` (verified, no issue filed), `issue-filed`, `fixed`,
 `needs-live-check` (verified statically, wants confirmation against a running
 deployment).
 
+**All nine findings below are filed as [issue #3665](https://github.com/carlos-emr/carlos/issues/3665)**,
+one ticket covering the whole pass. A finding keeps `needs-live-check` where that
+is still true of it — being filed does not make a source-search result a
+confirmed one.
+
 ---
 
 ## 1. Unreachable routes — no UI entry
@@ -33,6 +38,8 @@ have silently had a feature taken away.
 | 4 | `encounter/immunization/config/*` (the immunization **set** configuration pages, e.g. `ViewImmunizationSetDisplay`) | **0** references. `CreateImmunizationSetInit.jsp` posts to `CreateInitImmunization`, but nothing links to `CreateImmunizationSetInit.jsp` itself, so the whole set-configuration area has no way in. | `needs-live-check` |
 | 5 | `provider/ViewProviderEncounterHistory` | Referenced only as a `dboperation` dispatch-table entry in `providercontrol.jsp` (`{"encounterhistory", "/provider/ViewProviderEncounterHistory"}`), and `dboperation=encounterhistory` is referenced only by `providerencounterhistory.jsp` itself. Nothing sets it, so the dispatch entry is never taken. | `needs-live-check` |
 
+All five are filed as #3665.
+
 **Why `needs-live-check` rather than `open`:** all five were verified by source
 search, which cannot see a link built at runtime from a database row or a
 property. A pass against a running deployment should confirm each before any of
@@ -47,11 +54,12 @@ to name the issue that removes it; these two can only name a docs paragraph.
 
 | # | Defect | Where | Status |
 |---|---|---|---|
-| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature. Remedy: make the request conditional on the provider having a stored signature | alpha-11 observation 6; tolerated by `scripts/lib/console-baseline.json` | `open` |
-| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on **every keystroke** (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders). Until it is fixed, no check can type into a chart note and assert a clean console | alpha-11 observation 15; tolerated by `scripts/lib/console-baseline.json` | `open` |
+| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature. Remedy: make the request conditional on the provider having a stored signature | alpha-11 observation 6; tolerated by `scripts/lib/console-baseline.json`; filed as #3665 | `issue-filed` |
+| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on **every keystroke** (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders). Until it is fixed, no check can type into a chart note and assert a clean console | alpha-11 observation 15; tolerated by `scripts/lib/console-baseline.json`; filed as #3665 | `issue-filed` |
 
-Neither has a GitHub issue yet; both need one filed, and the console-baseline
-entry should then cite the issue instead of this log.
+Both are now filed as #3665, and both console-baseline entries cite it. Delete
+the entry in the same change that fixes the defect, or the suite stays blind to
+the next occurrence.
 
 ## 2a. Clinical calculators answer confidently on input they cannot use
 
@@ -64,7 +72,7 @@ it is the figure a prescribing decision is made on.
 | # | Defect | Where | Status |
 |---|---|---|---|
 | 8 | **A blank age is treated as 50.** `calculate()` reads `document.calCorArDi.age.value` as a string and tests `age <= 54` first; `"" <= 54` coerces to `0 <= 54`, so an empty box silently selects the youngest age band and prints its probability. Reproduce: open the calculator, leave Age empty, pick any T-score, press Calculate — it reports the 50-year-old figure. Remedy: refuse a non-numeric or out-of-range age instead of computing one | `src/main/webapp/WEB-INF/jsp/encounter/calculators/OsteoporoticFracture.jsp:203-221` (`var age = ...value` then the `age <= 54` ladder); the same shape at `CoronaryArteryDiseaseRiskPrediction.jsp:230-242` | `open` |
-| 9 | **A non-numeric age selects the OLDEST band.** Every comparison against `NaN` is false, so the ladder falls through to its final `else` and sets `ageGroup = 8` — the 85-and-over row. A typo in the age box therefore produces the highest-risk answer on the table with no indication anything went wrong. The coronary calculator has the mirror-image fault: its `ageGroup` is a page-level variable (`var ageGroup = 0` outside the function), so a `NaN` age leaves it at **the value the previous calculation set**, while `ageFactor` does fall back to 0 — an answer assembled from two different patients' ages. Remedy: the same validation as finding 8 | `OsteoporoticFracture.jsp:218-219` (the unguarded final `else`); `CoronaryArteryDiseaseRiskPrediction.jsp:54` (the page-level `ageGroup`) and `:232-243` (the ladder with no final `else`) | `open` |
+| 9 | **A non-numeric age selects the OLDEST band.** Every comparison against `NaN` is false, so the ladder falls through to its final `else` and sets `ageGroup = 8` — the 85-and-over row. A typo in the age box therefore produces the highest-risk answer on the table with no indication anything went wrong. The coronary calculator has the mirror-image fault: its `ageGroup` is a page-level variable (`var ageGroup = 0` outside the function), so a `NaN` age leaves it at **the value the previous calculation set**, while `ageFactor` does fall back to 0 — an answer assembled from two different patients' ages. Remedy: the same validation as finding 8 | `OsteoporoticFracture.jsp:218-219` (the unguarded final `else`); `CoronaryArteryDiseaseRiskPrediction.jsp:54` (the page-level `ageGroup`) and `:232-243` (the ladder with no final `else`); filed as #3665 | `issue-filed` |
 
 Verified by reading the source and by evaluating the same comparison ladder
 directly: `"" → band 1`, `"abc" → band 8`, `"54" → band 1`, `"55" → band 2`.
@@ -94,9 +102,11 @@ Recorded so the same candidates are not re-investigated.
 1. A finding here is **not** a reason to weaken a check. The suite's rule is
    report, don't encode: a check that pins current broken behaviour as expected
    makes the bug permanent.
-2. When an issue is filed, set the Status cell to `issue-filed`, name the issue
-   in the Defect cell, and update the console-baseline entry's `issue` field to
-   the issue number so the burn-down is traceable from either direction.
+2. When an issue is filed, set the Status cell to `issue-filed` with the issue
+   number, and update the console-baseline entry's `issue` field to the same
+   number so the burn-down is traceable from either direction. Filing does not
+   upgrade a `needs-live-check` finding: those stay as they are until a live pass
+   confirms them.
 3. When a fix lands, delete the console-baseline entry in the same change —
    otherwise the suite stays blind to the next occurrence.
 4. **This file is enforced, not remembered.** `scripts/app-findings-log.test.js`
