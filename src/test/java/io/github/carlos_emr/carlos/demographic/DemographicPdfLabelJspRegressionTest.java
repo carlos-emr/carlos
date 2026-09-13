@@ -62,7 +62,7 @@ class DemographicPdfLabelJspRegressionTest {
                 "notes")) {
             assertEncodes(jsp, expression, "html");
         }
-        assertEncodes(jsp, "d.getDemographicNo()", "htmlAttribute");
+        assertEncodes(jsp, "demographicNoLabel", "htmlAttribute");
         assertEncodes(jsp, "referralDisplayName", "htmlAttribute");
         assertEncodes(jsp, "referralScriptDisplayName", "javaScript");
         assertEncodes(jsp, "referralNo", "javaScript");
@@ -84,6 +84,35 @@ class DemographicPdfLabelJspRegressionTest {
                     .as(rawSink)
                     .doesNotContain(rawSink);
         }
+    }
+
+    /**
+     * The {@code value} attribute of {@code <carlos:encode>} is declared as
+     * {@code java.lang.String} in {@code carlos-tag.tld}. Jasper passes a
+     * request-time scriptlet expression straight into {@code setValue(String)},
+     * so a non-String expression such as the Integer {@code getDemographicNo()}
+     * breaks JSP translation at runtime. CI does not precompile JSPs (that needs
+     * {@code mvn package -Pjspc}), so this guard is the only thing standing
+     * between such a regression and a 500 on the label page.
+     */
+    @Test
+    @DisplayName("should not pass non-String expressions to the encode tag")
+    void shouldNotPassNonStringExpressions_toEncodeTag() throws IOException {
+        String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
+
+        for (String nonStringExpression : List.of(
+                "d.getDemographicNo()",
+                "age")) {
+            assertThat(jsp)
+                    .as("%s must be staged as a String before reaching <carlos:encode>", nonStringExpression)
+                    .doesNotContainPattern("(?s)<carlos:encode\\b(?:(?!/>).)*\\bvalue=[\"']<%=\\s*"
+                            + Pattern.quote(nonStringExpression)
+                            + "\\s*%>");
+        }
+
+        assertThat(jsp)
+                .as("demographicNo is staged as a null-safe String")
+                .contains("String demographicNoLabel = Objects.toString(d.getDemographicNo(), \"\");");
     }
 
     private static void assertEncodes(String jsp, String expression, String context) {

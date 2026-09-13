@@ -154,6 +154,11 @@
             out.println("failed!!!");
         } else {
 
+            // <carlos:encode> declares value as java.lang.String, so a non-String
+            // expression (demographicNo is an Integer) would fail JSP translation.
+            // Stage it as a null-safe String before it reaches the tag.
+            String demographicNoLabel = Objects.toString(d.getDemographicNo(), "");
+
             //----------------------------REFERRAL DOCTOR------------------------------
             fd = d.getFamilyDoctor();
             if (fd == null) {
@@ -184,7 +189,7 @@
         <table width="100%" class="MainTableLeftColumn">
             <tr>
                 <td class="RowTop" colspan="3" align="center" bgcolor="#EEEEFF">
-                    <b>Record</b> (<carlos:encode value='<%=d.getDemographicNo()%>' context="html"/>)
+                    <b>Record</b> (<carlos:encode value='<%=demographicNoLabel%>' context="html"/>)
                     <carlos:encode value='<%=d.getLastName()%>' context="html"/>,
                     <carlos:encode value='<%=d.getFirstName()%>' context="html"/>
                     <carlos:encode value='<%=d.getSex()%>' context="html"/>
@@ -193,7 +198,7 @@
             </tr>
             <tr>
                 <td align="left"
-                    title="<carlos:encode value='<%=d.getDemographicNo()%>' context='htmlAttribute'/>"><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><carlos:encode value='<%=d.getLastName()%>' context="html"/>
+                    title="<carlos:encode value='<%=demographicNoLabel%>' context='htmlAttribute'/>"><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><carlos:encode value='<%=d.getLastName()%>' context="html"/>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>: </b></td>
                 <td align="left"><carlos:encode value='<%=d.getFirstName()%>' context="html"/>
