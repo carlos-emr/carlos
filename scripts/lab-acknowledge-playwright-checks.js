@@ -391,7 +391,7 @@ async function openLabFromInboxhub(context, inboxhub) {
  */
 async function checkLabPdf(popup, token) {
   const url = appUrl(config.baseUrl, `/lab/CA/ALL/PrintPDF?segmentID=${encodeURIComponent(segmentId)}`);
-  const result = await popup.evaluate(async ({ target, csrfToken, segment }) => {
+  const result = await popup.evaluate(async ({ target, csrfToken, segment }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- all values are passed as Playwright arguments, not interpolated into code: target is built by appUrl from the loopback-restricted validateBaseUrl result, csrfToken is read from the app's own hidden CSRF-TOKEN input on this page, and segment is a digits-validated lab id (LAB_SEGMENT_ID regex or the database's own lab_no)
     const response = await fetch(target, {
       method: 'POST',
       credentials: 'same-origin',
