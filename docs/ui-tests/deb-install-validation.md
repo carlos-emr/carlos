@@ -588,6 +588,15 @@ export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
 # silently testing two different application processes.
 service_restarts_before="$(systemctl show carlos-emr -p NRestarts --value)"
 suite_failed=0
+# Alpha-11 tester coverage scripts (docs/ui-tests/alpha-11-tester-coverage.md). They default to
+# demographic 1 / provider 999998 and clean up after themselves; the few knobs they take:
+#   NOTE_DEMOGRAPHIC_NO=2        (echart-note-sign-bill; demographic 1's chart 500s on the demo HRM rows)
+#   BILLING_SUBMIT_DATE=2024-05-06 BILLING_OHIP_CODE=A007A BILLING_BONUS_CODE=Q040A (billing-on-submit)
+#   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
+#   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
+#   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
+# On a fresh Ontario install, consultation-request-create and specialist-add-cpso need at least one
+# active consultationServices row (the ON seed ships them all inactive; see the coverage page, finding 21).
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
