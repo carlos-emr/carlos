@@ -3,7 +3,7 @@
 -- inactive services. Repair only the exact untouched seed, and only before
 -- clinical patients exist (the public FAKE demo dataset is also eligible).
 -- Configured catalogues and databases holding real patients are left intact;
--- administrators can enable their intended services in consultation settings.
+-- administrators must review and explicitly reactivate their intended rows.
 CREATE TEMPORARY TABLE carlos_on_service_seed_repair (
     serviceId INT PRIMARY KEY,
     serviceDesc VARCHAR(255) NOT NULL,

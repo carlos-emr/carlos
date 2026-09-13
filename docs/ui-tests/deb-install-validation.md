@@ -999,5 +999,9 @@ Migration `V1.0.23` activates the accidentally disabled reference catalogue only
 when all 257 entries still match the shipped Ontario seed and there are no
 non-FAKE patients. It preserves custom catalogues and clinical databases because
 `02` is also the administrator's deliberate-disable value. On a configured
-clinical installation, review and enable the intended services through the
-consultation service settings. Published migration checksums remain unchanged.
+clinical installation, an administrator must review the existing service IDs and
+explicitly reactivate the intended rows (`active='1'`) through database
+maintenance to retain their IDs and specialist assignments. The current
+consultation settings offer Add/Delete, without a re-enable control. Automatic
+repair cannot infer which existing inactive services were deliberately disabled.
+Published migration checksums remain unchanged.

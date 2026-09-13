@@ -395,7 +395,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // get the last temp note?
         else if (tmpsavenote != null && !forceNote.equals("true")) {
             logger.debug("tempsavenote is NOT NULL");
-            CaseManagementNote original = tmpsavenote.getNoteId() > 0
+            CaseManagementNote original = tmpsavenote.getNoteId() != null && tmpsavenote.getNoteId() > 0
                     ? caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId())) : null;
             note = restoreDraftNote(original, tmpsavenote.getNote(), providerNo, demono);
             if (original == null) {
@@ -689,7 +689,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         } else if (!Objects.equals(demographicNo, restored.getDemographic_no())) {
             throw new SecurityException("Draft references a note outside this patient chart");
         }
-        restored.setNote(draftText);
+        restored.setNote(draftText == null ? "" : draftText);
         return restored;
     }
 

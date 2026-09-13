@@ -527,4 +527,12 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
         }
     }
 
+    @Test
+    void shouldRenderEmptyDraft_whenLegacyDraftTextIsNull() {
+        CaseManagementNote restored = CaseManagementEntry2Action.restoreDraftNote(null, null, "999998", "1");
+        assertThat(restored.getNote()).isEmpty();
+        assertThat(restored.getAuditString()).contains("Issues");
+        assertThat(restored.getId()).isNull();
+    }
+
 }
