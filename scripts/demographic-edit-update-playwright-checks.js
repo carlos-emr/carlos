@@ -315,7 +315,10 @@ async function main() {
 
     console.log(`  round-tripped ${fields.length} demographic field(s) through the UI and the database, `
       + `and the edit added ${added.length} audit row(s)`);
-    return { demographicNo, fields: fields.map((field) => field.input) };
+    // No demographicNo: runCheck() serialises this into RESULT_JSON, which CI
+    // archives, and it joins straight back to the patient this run edited. The
+    // field names say what was covered without saying who it happened to.
+    return { fields: fields.map((field) => field.input) };
   } finally {
     // Restore whatever was captured, even if the run threw mid-edit. Only the
     // columns this check writes, and only this patient.

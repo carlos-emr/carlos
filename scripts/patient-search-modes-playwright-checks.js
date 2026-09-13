@@ -105,8 +105,16 @@ const MODES = [
       // Refused rather than coerced: Number('1 OR 1=1') is NaN, which would
       // build syntactically invalid SQL and fail with a message about MySQL
       // syntax instead of about the value that was wrong.
-      assert(/^\d+$/.test(String(value).trim()),
-        `a demographic number search takes digits only, got ${JSON.stringify(String(value))}`);
+      // The SHAPE, not the value. This guard exists because a numeric column
+      // compared against an unchecked string is a future injection point -- but
+      // the value reaching it comes from this check's own SELECT over
+      // demographic_no, so printing it would put a patient-joining identifier
+      // into stdout and RESULT_JSON to tell the reader something they can
+      // re-derive in one query.
+      const candidate = String(value).trim();
+      assert(/^\d+$/.test(candidate),
+        `a demographic number search takes digits only; the seeded value was ${candidate.length} character(s) `
+        + `and ${/^\d*$/.test(candidate) ? 'empty' : 'contained a non-digit'}`);
       return `${alias}.demographic_no = ${Number(value)}`;
     },
   },

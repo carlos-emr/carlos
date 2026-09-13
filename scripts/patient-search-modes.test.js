@@ -233,3 +233,20 @@ test('the option file is removed when the run cannot even start', () => {
   assert.ok(launchIndex > -1 && skipIndex > -1 && disposeIndex > launchIndex && disposeIndex > skipIndex,
     'both the skip and the browser launch must be inside the cleanup boundary');
 });
+
+test('the digits-only guard names the shape of a bad value, never the value', () => {
+  // The value reaching this guard comes from the check's own SELECT over
+  // demographic_no, so echoing it puts a patient-joining identifier into stdout
+  // and RESULT_JSON in exchange for telling the reader something one query
+  // would re-derive.
+  const mode = MODES.find((candidate) => candidate.name === 'search_demographic_no');
+  let message = '';
+  try {
+    mode.predicate('d', "1 OR '1'='1");
+  } catch (error) {
+    message = error.message;
+  }
+  assert.match(message, /digits only/);
+  assert.ok(!message.includes("1 OR '1'='1"), `the rejected value was echoed: ${message}`);
+  assert.match(message, /\d+ character\(s\)/);
+});

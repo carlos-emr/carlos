@@ -180,3 +180,12 @@ test('a column that is NULL is told apart from one holding the text "NULL"', () 
   assert.match(SOURCE, /before\[index \* 2 \+ 1\] === '1' \? null : before\[index \* 2\]/,
     'the flag, not the parsed token, must decide whether the original was NULL');
 });
+
+test('the result written to RESULT_JSON names no patient', () => {
+  // runCheck() serialises main()'s return value to disk and CI archives it;
+  // demographic_no joins straight back to the patient this run edited.
+  const returned = SOURCE.slice(SOURCE.lastIndexOf('return {'), SOURCE.length);
+  assert.ok(!/return \{ demographicNo/.test(SOURCE),
+    'the result must not carry the demographic number');
+  assert.match(returned, /return \{\s*\n?\s*fields: fields\.map/);
+});

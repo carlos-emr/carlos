@@ -59,7 +59,8 @@
  */
 
 const {
-  SkipCheck, assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
+  SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig,
+  runCheck,
 } = require('./lib/playwright-harness');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 const {

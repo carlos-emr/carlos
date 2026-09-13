@@ -173,7 +173,17 @@ async function checkItem(context, masterPage, menu, item, timeout) {
     }
 
     // The same session, by cookie, fetching the address the application built.
-    const response = await context.request.get(produced.url, { timeout });
+    // maxRedirects: 0 so a redirect stays a redirect: followed, an expired
+    // session turns into a 200 HTML login page and assertIsPdf reports "not a
+    // PDF" -- true, useless, and pointing at the wrong thing. The status and
+    // Location say what actually happened.
+    const response = await context.request.get(produced.url, { timeout, maxRedirects: 0 });
+    if (response.status() >= 300 && response.status() < 400) {
+      const location = response.headers().location || '(no Location header)';
+      throw new Error(`${item.label}: the download redirected (HTTP ${response.status()}) to `
+        + `${String(location).split(/[?#]/)[0]} instead of serving a PDF; the session is probably not what the `
+        + 'check thinks it is');
+    }
     const body = await response.body();
     assertIsPdf(item, response.status(), response.headers()['content-type'] || '', body);
     return { item: item.label, kind: produced.kind, bytes: body.length };
