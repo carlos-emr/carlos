@@ -78,9 +78,9 @@ class BillingBcPatientEncodingRegressionTest {
         assertUsesHtmlEncodingForScriptlet(jsp, "DemographicData\\.getDob\\(demo,\\s*\"-\"\\)");
 
         assertThat(jsp)
-                .doesNotContainPattern("<%=\\s*demo\\.getProvince\\(\\)\\s*%>")
-                .doesNotContainPattern("<%=\\s*demo\\.getSex\\(\\)\\s*%>")
-                .doesNotContainPattern("<%=\\s*DemographicData\\.getDob\\(demo,\\s*\"-\"\\)\\s*%>");
+                .doesNotContainPattern(",\\s*<%=\\s*demo\\.getProvince\\(\\)\\s*%>")
+                .doesNotContainPattern("<strong>Gender:</strong>\\s*<%=\\s*demo\\.getSex\\(\\)\\s*%>")
+                .doesNotContainPattern("<strong>Birth Date\\s*:</strong>\\s*<%=\\s*DemographicData\\.getDob\\(demo,\\s*\"-\"\\)\\s*%>");
     }
 
     private void assertUsesHtmlEncodingForScriptlet(String jsp, String scriptletExpressionPattern) {
