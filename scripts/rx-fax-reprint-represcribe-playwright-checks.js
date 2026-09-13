@@ -76,6 +76,7 @@ const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { browserErrorClass } = require('./browser-error-class');
 
 // Node keeps the brackets on an IPv6 URL hostname ('http://[::1]/' -> '[::1]'), so a bare '::1'
 // entry in a host set would never match. Strip them before every comparison.
@@ -236,19 +237,9 @@ function sql(query) {
       '-N', '-B', mysqlDatabase, '-e', query,
     ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
   } catch (e) {
-    // Neither the query nor raw stderr may reach the log. MySQL echoes the offending SQL back in
-    // its "near '...'" fragment, and this check's queries carry demographic and script numbers,
-    // which are PHI-correlating. Keep only the first stderr line with quoted fragments and digit
-    // runs redacted, and never include the query itself.
-    const raw = String((e && e.stderr) || (e && e.message) || e);
-    // The mysql client writes a '----' rule and then ECHOES THE STATEMENT before the ERROR line,
-    // so taking the first line would both hide the real reason and print back the very query text
-    // withheld above. Pick the ERROR line itself, and say nothing specific when there isn't one.
-    const errorLine = raw.split('\n').find((l) => l.startsWith('ERROR '));
-    const detail = errorLine
-      ? errorLine.replace(/'[^']*'/g, "'<redacted>'").replace(/\d+/g, '<n>').slice(0, 160)
-      : 'no ERROR line in client output';
-    throw new Error(`SQL failed: ${detail}`);
+    // Database error lines can contain clinical text even after quoted fragments
+    // and numbers are removed. Keep only a fixed outcome, never client output.
+    throw new Error(e && e.code === 'ETIMEDOUT' ? 'database query timed out' : 'database query failed');
   }
 }
 
@@ -326,7 +317,7 @@ function seedPharmacyFax() {
 function cleanupFixtures() {
   const attempt = (label, fn) => {
     try { fn(); } catch (e) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${String(e.message || e).slice(0, 200)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(e)}` });
     }
   };
   let scripts = [];
@@ -350,7 +341,7 @@ function cleanupFixtures() {
 }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(130); });
+  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(signal === 'SIGTERM' ? 143 : 130); });
 }
 
 // --- page wiring -------------------------------------------------------------
@@ -371,31 +362,9 @@ function safeUrl(rawUrl) {
   }
 }
 
-// Page errors that are known, pre-existing, and outside this PR's diff. Each entry must name the
-// issue tracking it: an unexplained entry here would let a real regression pass unnoticed. They are
-// recorded in `visited` so a run still shows them, but they do not fail the check.
-const KNOWN_PAGE_ERRORS = [
-  {
-    // ViewScript2.jsp's printPharmacy() writes into the preview iframe from an async fetch callback
-    // without waiting for that iframe to parse, so #pharmInfo is null when the fetch wins the race.
-    // Untouched by this branch; surfaced here only because this is the first check to exercise a
-    // patient whose preferred pharmacy is populated.
-    issue: 3578,
-    match: (message, stack) => /setting 'innerHTML'/.test(message) && /expandPreview|reducePreview/.test(stack),
-  },
-];
-
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    const message = String(error.message || error);
-    const stack = String(error.stack || '');
-    const known = KNOWN_PAGE_ERRORS.find((k) => k.match(message, stack));
-    if (known) {
-      visited.push({ label, type: 'known-pageerror', issue: known.issue, text: message.slice(0, 200) });
-      return;
-    }
-    const where = stack.split('\n').slice(1, 4).join(' | ');
-    findings.push({ label, type: 'pageerror', text: `${message}${where ? ` @ ${where}` : ''}`.slice(0, 500) });
+    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
   });
   page.on('dialog', (dialog) => {
     // Only the custom-drug confirm() is expected, and only while the flag is set. Any other
@@ -404,7 +373,7 @@ function wirePage(page, label) {
       dialog.accept().catch(() => {});
       return;
     }
-    findings.push({ label, type: 'unexpected-dialog', text: `${dialog.type()}: ${dialog.message()}`.slice(0, 300) });
+    findings.push({ label, type: 'unexpected-dialog', text: `unexpected ${dialog.type()} dialog` });
     dialog.dismiss().catch(() => {});
   });
 }
@@ -700,11 +669,11 @@ async function checkStampSurvivesPadActivity(modalFrame, scriptId) {
     if (typeof window.signatureHandler !== 'function') return false;
     window.signatureHandler({ target: { onbeforeunload: null }, isSave: false, isDirty: true });
     return true;
-  }).catch((e) => String(e && e.message ? e.message : e));
+  }).catch(() => false);
   if (invoked !== true) {
     findings.push({
       label: 'pad', type: 'handler-not-invoked',
-      text: `could not raise the pad's signatureHandler on script ${scriptId}, so the Fax-stays-enabled assertion would prove nothing: ${invoked}`,
+      text: 'could not invoke the pad signatureHandler; Fax-stays-enabled assertion cannot run',
     });
     return;
   }
@@ -797,6 +766,6 @@ async function runChecks(context) {
   }
 })().catch((error) => {
   try { cleanupFixtures(); } finally { removeSecretsDir(); }
-  console.error(error);
+  console.error(`FAIL rx-fax-reprint-represcribe: ${browserErrorClass(error)}`);
   process.exit(1);
 });

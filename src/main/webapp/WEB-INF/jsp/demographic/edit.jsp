@@ -711,51 +711,6 @@
 
             <%}%>
 
-            function add2url(txt) {
-                var reasonLabel = "reason=";
-                var encTypeLabel = "encType=";
-                var beg = encURL.indexOf(reasonLabel);
-                beg += reasonLabel.length;
-                var end = encURL.indexOf("&", beg);
-                var part1 = encURL.substring(0, beg);
-                var part2 = encURL.substr(end);
-                encURL = part1 + encodeURI(txt) + part2;
-                beg = encURL.indexOf(encTypeLabel);
-                beg += encTypeLabel.length;
-                end = encURL.indexOf("&", beg);
-                part1 = encURL.substring(0, beg);
-                part2 = encURL.substr(end);
-                encURL = part1 + encodeURI(txt) + part2;
-                popupEChart(710, 1024, encURL);
-                return false;
-            }
-
-            function customReason() {
-                var txtInput;
-                var list = document.getElementById("listCustom");
-                if (list.style.display == "block")
-                    list.style.display = "none";
-                else {
-                    list.style.display = "block";
-                    txtInput = document.getElementById("txtCustom");
-                    txtInput.focus();
-                }
-
-                return false;
-            }
-
-            function grabEnterCustomReason(event) {
-
-                var txtInput = document.getElementById("txtCustom");
-                if (window.event && window.event.keyCode == 13) {
-                    add2url(txtInput.value);
-                } else if (event && event.which == 13) {
-                    add2url(txtInput.value);
-                }
-
-                return true;
-            }
-
             function addToPatientSet(demoNo, patientSet) {
                 if (patientSet == "-") return;
                 var form = document.createElement('form');

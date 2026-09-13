@@ -6,14 +6,15 @@
  * Prerequisites:
  *   - CARLOS is running locally, usually at http://localhost:8080/carlos
  *   - Playwright is available in node_modules or globally
- *   - A Chromium executable exists at CHROMIUM_PATH or CHROME_PATH, or Playwright's
- *     default browser is installed
+ *   - A Chromium executable exists at CHROME_PATH (legacy: CHROMIUM_PATH) or Playwright's default browser
  *
  * Useful env vars:
  *   BASE_URL=http://localhost:8080/carlos
- *   CARLOS_USER=carlosdoc
- *   CARLOS_PASSWORD=carlos2026
- *   CARLOS_PIN=2026
+ *   TEST_USER=carlosdoc
+ *   TEST_PASSWORD=carlos2026
+ *   TEST_PIN=2026
+ *   CARLOS_USER / CARLOS_PASSWORD / CARLOS_PIN remain accepted as legacy aliases
+ *   CHROME_PATH=/path/to/chrome-or-chromium
  *   HEADLESS=false
  *   KEEP_OPEN=true
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
@@ -23,19 +24,15 @@ const { chromium } = require('playwright');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://localhost:8080/carlos'),
-  username: process.env.CARLOS_USER || 'carlosdoc',
-  password: process.env.CARLOS_PASSWORD || 'carlos2026',
-  pin: process.env.CARLOS_PIN || '2026',
+  username: process.env.TEST_USER || process.env.CARLOS_USER || 'carlosdoc',
+  password: process.env.TEST_PASSWORD || process.env.CARLOS_PASSWORD || 'carlos2026',
+  pin: process.env.TEST_PIN || process.env.CARLOS_PIN || '2026',
   // Empty by default so Playwright uses its own bundled chromium; a pinned
   // build path (e.g. the devcontainer's) would break on any other install
-  // (deb, CI) where that exact revision is not present. Override CHROMIUM_PATH
-  // only to force a specific binary (e.g. the packaged eForm-render chromium).
-  // CHROME_PATH is what every scripts/*-playwright-checks.js reads and what the
-  // deb-install runbook's single environment block exports; CHROMIUM_PATH is kept
-  // first for compatibility with anyone who already sets it. Accepting both is why
-  // this check stops silently falling back to a Playwright-downloaded browser on a
-  // packaged install, where only the vendored Chromium exists.
-  chromiumPath: process.env.CHROMIUM_PATH || process.env.CHROME_PATH || '',
+  // (deb, CI) where that exact revision is not present. Override CHROME_PATH
+  // (or legacy CHROMIUM_PATH) only to force a specific binary, such as the
+  // packaged eForm-render Chromium.
+  chromiumPath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',
   headless: process.env.HEADLESS !== 'false',
   keepOpen: process.env.KEEP_OPEN === 'true',
   timeout: Number(process.env.PLAYWRIGHT_TIMEOUT || 30000),
@@ -63,6 +60,9 @@ const results = [];
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }

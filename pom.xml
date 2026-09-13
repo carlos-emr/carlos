@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-alpha11</version>
+    <version>2026.08.0-alpha12</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -19,7 +19,7 @@
         <url>https://github.com/carlos-emr/carlos</url>
         <connection>scm:git:https://github.com/carlos-emr/carlos.git</connection>
         <developerConnection>scm:git:ssh://git@github.com:carlos-emr/carlos.git</developerConnection>
-        <tag>2026.08.0-alpha11</tag>
+        <tag>2026.08.0-alpha12</tag>
     </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -1757,9 +1757,17 @@
                         <include>**/messenger/**/*Test.java</include>
                         <include>**/provider/**/*Test.java</include>
                         <include>**/managers/**/*Test.java</include>
+                        <include>**/i18n/**/*Test.java</include>
                         <include>**/*IntegrationTest.java</include>
                         <include>**/*UnitTest.java</include>
                         <include>**/*RegressionTest.java</include>
+                        <!-- Promotion-touched legacy test names must run without -Dtest. -->
+                        <include>**/eform/actions/AddEForm2Action*Test.java</include>
+                        <include>**/DocumentDelete2ActionTest.java</include>
+                        <include>**/DocumentUndelete2ActionTest.java</include>
+                        <include>**/RxRePrescribe2ActionTest.java</include>
+                        <include>**/SimpleXmlRpcClientTest.java</include>
+                        <include>**/WLMutation2ActionsTest.java</include>
                     </includes>
                     <argLine>
                        @{argLine}

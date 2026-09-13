@@ -26,7 +26,7 @@
     Contains action mappings for patient encounters, consultations, clinical documentation, measurements, and chart display.
 -->
 <struts>
-    <package name="encounter" namespace="/" extends="struts-default" strict-method-invocation="true">
+    <package name="encounter" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -418,6 +418,10 @@
         <action name="encounter/RequestConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest?error=true</result>
+            <!-- The action's own rejections (malformed ids, a request that is not this patient's):
+                 back to the form, whose alert reads the errorMessage attribute the action set.
+                 Unmapped until 2026-09, so each of them crashed into the generic error page. -->
+            <result name="input">/encounter/ViewRequest?error=true</result>
             <result name="failESend">/encounter/ViewRequest</result>
             <result name="printpdf">/encounter/oscarConsultationRequest/printPdf</result>
             <result name="printIndivica">/encounter/oscarConsultationRequest/printPdf2</result>
@@ -428,6 +432,7 @@
             <result name="attachform">/form/forwardshortcutname</result>
         </action>
         <action name="encounter/oscarConsultationRequest/ConsultationFormFax" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action">
+            <result name="faxUncertain">/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp</result>
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest?error=true</result>
             <result name="attachform">/form/forwardshortcutname</result>
@@ -614,7 +619,7 @@
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
-            <interceptor-ref name="defaultStack"/>
+            <interceptor-ref name="carlosDefaultStack"/>
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
             <result name="input">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>

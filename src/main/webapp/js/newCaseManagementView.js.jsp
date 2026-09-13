@@ -27,6 +27,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: provide the encounter editor's client-side behavior.
+    Features: note editing, layout, clinical text insertion and prescription paste coordination.
+    Parameters: authenticated provider properties and localized server-side configuration;
+                patient and encounter context are supplied by the containing view.
+    @since 2026-09-12 (promotion documentation and safe paste diagnostics)
+--%>
     <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty"%>
     <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
     <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
@@ -37,7 +44,6 @@
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-    var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context
     var providerNo;
     var demographicNo;
@@ -495,12 +501,13 @@
     var notesCurrentTop = null;       // ID of topmost note element before pagination insert
     var notesScrollCheckInterval = null;
     /*
-     * Fetches still in flight, and the id of the most recent one. Both are needed because
-     * the encounter layout renders ChartNotes.jsp twice, so two offset-0 loads overlap on
-     * every chart open. The count holds off the scroll poll until BOTH have landed — a
-     * pagination fetch racing a pending initial load inserts its notes out of order. The
-     * id makes the older, superseded load a no-op at completion, so a first request that
-     * fails or gets redirected cannot stop the poll the second render just armed.
+     * Fetches still in flight, and the id of the most recent one. Loads can overlap: a
+     * filter or save reload re-renders ChartNotes.jsp into #notCPP and starts a fresh
+     * offset-0 load while a pagination fetch may still be pending. The count holds off the
+     * scroll poll until every pending load has landed — a pagination fetch racing a pending
+     * initial load inserts its notes out of order. The id makes the older, superseded load a
+     * no-op at completion, so a request that fails or gets redirected cannot stop the poll
+     * the latest render just armed.
      */
     var notesLoadsInFlight = 0;
     var notesLoadSequence = 0;
@@ -581,10 +588,10 @@
      * ends up looking at the notes that just arrived. (notesCurrentTop records the previous
      * top note for a scroll restore that was never written; nothing reads it today.)
      *
-     * Callers are never turned away: the encounter layout renders ChartNotes.jsp twice on
-     * open (the second render replaces #encMainDiv), so both initial loads must run or the
-     * surviving container is left empty. The in-flight count only holds off the scroll
-     * poll, which would otherwise stack requests behind a pending batch.
+     * Callers are never turned away: a filter or save reload replaces #encMainDiv and issues
+     * a new initial load while an earlier one may still be pending, and the newest load must
+     * run or the surviving container is left empty. The in-flight count only holds off the
+     * scroll poll, which would otherwise stack requests behind a pending batch.
      *
      * @param {number} offset - Zero-based offset into the patient's note list (0 = newest batch)
      * @param {number} numToReturn - Maximum number of notes to fetch in this batch
@@ -1310,10 +1317,17 @@ function updateCPPNote() {
         let caseNoteElement = document.getElementById(caseNote);
         if (caseNoteElement) {
             caseNoteElement.value += "\n" + txt;
-            adjustCaseNote();
-            setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+            try {
+                adjustCaseNote();
+                setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+            } catch (error) {
+                // Text is already inserted. Layout/focus failure is not a failed paste.
+                console.error('Encounter text inserted; could not update layout');
+            }
+            return true;
         } else {
             console.error('Element with ID caseNote element not found.');
+            return false;
         }
     }
 
@@ -1581,6 +1595,21 @@ function updateCPPNote() {
         return true;
     }
 
+    // The note text handed to completeChangeToView() is the clinician's own typed text (the
+    // save-on-switch fragment emits it as a JavaScript string), and it is spliced into
+    // markup for insertAdjacentHTML/update below. It must be HTML-escaped first: with the
+    // WAF no longer scoring the note body for XSS, this is the only thing between a note
+    // containing a closing span tag and an image element with an onerror handler, and
+    // script running in the chart.
+    function escapeNoteText(text) {
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
     function completeChangeToView(note, newId) {
         //var newId = updatedNoteId;
         var parent = "n" + newId;
@@ -1599,7 +1628,7 @@ function updateCPPNote() {
 
         }
 
-        note = note.replace(/\n/g, "<br>");
+        note = escapeNoteText(note).replace(/\n/g, "<br>");
         if (largeNote(note)) {
             var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + newId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
             $(parent).insertAdjacentHTML('afterbegin', btmImg);
@@ -1908,6 +1937,16 @@ function updateCPPNote() {
      *
      * @param {Event} e - The click event on the note element
      */
+    // The plain text of a rendered note view: <br> elements as newlines, entities decoded.
+    function renderedNoteText(el) {
+        var clone = el.cloneNode(true);
+        var breaks = clone.getElementsByTagName("br");
+        while (breaks.length > 0) {
+            breaks[0].parentNode.replaceChild(document.createTextNode("\n"), breaks[0]);
+        }
+        return clone.textContent !== undefined ? clone.textContent : clone.innerText;
+    }
+
     function editNote(e) {
         var el = Event.element(e);
         var payload;
@@ -1985,9 +2024,12 @@ function updateCPPNote() {
         var txtId = "txt" + nId;
 
         if ($F(isFull) == "true") {
-            payload = $(txtId).innerHTML;
+            // Take the TEXT of the rendered note, not its innerHTML: the view HTML-escapes
+            // the note (escapeNoteText), and innerHTML would hand the entities back as
+            // literal "&amp;" / "&lt;" to be resaved corrupted. <br> elements become
+            // newlines first so line breaks survive the round trip.
+            payload = renderedNoteText($(txtId));
             payload = payload.replace(/^\s+|\s+$/g, "");
-            payload = payload.replace(/<br>/gi, "\n");
             payload += "\n";
         } else
             payload = "";
@@ -1995,7 +2037,12 @@ function updateCPPNote() {
         Element.remove(txtId);
         caseNote = "caseNote_note" + nId;
 
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
+        // The decoded text goes back through HTML: a textarea's content is RCDATA, so the
+        // entities decode into the editor unchanged, while a note holding a closing textarea
+        // tag or an image element with an onerror handler cannot close the element or
+        // become markup.
+        payload = escapeNoteText(payload);
+        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
@@ -2368,7 +2415,12 @@ function updateCPPNote() {
         var encType = "encTypeSelect" + noteId;
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
         var url = ctx + "/CaseManagementEntry";
-        var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURI($F(encType)) + "&noteTxt=" + encodeURI(noteTxt);
+        // encodeURIComponent, not encodeURI: encodeURI leaves & = + intact, so a note
+        // containing "H&P" or a pasted link with "&cmd=" was cut off at the first "&"
+        // on the server (ajaxsave() reads noteTxt, and the rest became stray
+        // parameters) and a "+" arrived as a space. This is the save that runs when
+        // the clinician opens another note or the new-note icon with unsaved text.
+        var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
 
         CarlosAjax.updater(
@@ -2830,7 +2882,9 @@ function updateCPPNote() {
         var id = "nc" + safeNewNoteIdx;
         var sigId = "sig" + safeNewNoteIdx;
         var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + reason + "<\/textarea>";
+        // reason is the appointment reason as typed (ChartNotesAjax.jsp hands it over as a
+        // JavaScript string), spliced into markup here: escape it like every other note text.
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
@@ -3367,7 +3421,17 @@ function autoSave() {
         frm.pEndDate.value = $F("printEndDate");
         frm.pType.value = $F("printopDates");
 
+        // The print is a top-level form submit whose response is a PDF download, and the
+        // browser fires pagehide for that navigation even though this document stays. The
+        // pagehide handler then released this window's note lock, so every draft autosave
+        // after a print answered 409 and the chart reported "edited in another window" for
+        // the rest of the encounter. Hold the lock across the submit; restore the release
+        // once the download has had time to start and this document is still here. If the
+        // response is not a download (an error page), the document is gone by then and the
+        // lock is left for the next open of this note by the same user to reclaim.
+        needToReleaseLock = false;
         frm.submit();
+        setTimeout(function () { needToReleaseLock = true; }, 3000);
 
         return false;
     }
