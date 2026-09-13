@@ -361,3 +361,135 @@ test('each item carries the document it was read from, for resolving its route',
   );
   assert.equal(items[0].baseURI, 'http://carlos.test/carlos/demographic/demographicsearchresults.jsp');
 });
+
+/*
+ * A fake host page good enough to drive auditCatalogue without a browser.
+ *
+ * Every item is treated as one that acts IN PLACE: waitForURL settles by
+ * rejecting (the page never leaves), which is the common case on the admin
+ * surface and the case both tests below are about. onClick lets a test push a
+ * browser finding at the moment the item is clicked, so findingsSince attributes
+ * it to that item.
+ */
+function fakeAuditPage(options = {}) {
+  const waitForUrlTimeouts = [];
+  const screenshots = [];
+  let pending = 0;
+  const page = {
+    url: () => 'http://127.0.0.1:8080/carlos/admin',
+    locator(selector) {
+      return {
+        nth: (index) => ({
+          textContent: async () => options.textFor(index),
+          scrollIntoViewIfNeeded: async () => {},
+          click: async () => { if (options.onClick) { options.onClick(index); } },
+        }),
+        first: () => ({ inputValue: async () => '' }),
+        innerText: async () => 'a page with content',
+        evaluate: async () => false,
+      };
+    },
+    evaluate: async () => false,
+    async screenshot({ path: outputPath }) { screenshots.push(outputPath); },
+    waitForURL(predicate, waitOptions) {
+      waitForUrlTimeouts.push(waitOptions.timeout);
+      pending += 1;
+      // Settle on a COMPRESSED clock so the test does not sit through the real
+      // wait. What is asserted is the timeout the audit ASKED FOR, which is the
+      // thing the fix changes; the fake's own delay is irrelevant to that.
+      return new Promise((_resolve, reject) => {
+        setTimeout(() => { pending -= 1; reject(new Error('no navigation')); }, 1);
+      });
+    },
+    waitForLoadState: async () => {},
+    goBack: async () => {},
+  };
+  return {
+    page, waitForUrlTimeouts, screenshots, pendingWaiters: () => pending,
+  };
+}
+
+test('a click that navigates nowhere stops waiting after the navigation-start bound', async () => {
+  // waitForURL used to be armed with the FULL per-item timeout while a separate
+  // settle timer ended the race at 4s. Every in-place item -- most of the admin
+  // surface -- therefore left a live waiter on the page for another 16s whose
+  // result nothing reads, and a long sweep ran several of them at once. The
+  // bound belongs on waitForURL itself.
+  const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const items = [{
+    text: 'Search', index: 0, selector: 'a', href: '/search', opensPopup: false,
+  }];
+  const fake = fakeAuditPage({ textFor: () => 'Search' });
+  const result = await auditCatalogue({
+    context: {},
+    hostPage: fake.page,
+    items,
+    recorder: createRecorder(),
+    labelPrefix: 'admin',
+    timeout: 20000,
+  });
+  assert.deepEqual(result.opened, ['Search']);
+  assert.deepEqual(fake.waitForUrlTimeouts, [4000],
+    'the navigation wait must carry NAVIGATION_START_TIMEOUT, not the item timeout');
+  assert.equal(fake.pendingWaiters(), 0, 'no navigation waiter may outlive the item it belongs to');
+});
+
+test('the navigation-start bound never exceeds the item timeout', async () => {
+  const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const fake = fakeAuditPage({ textFor: () => 'Search' });
+  await auditCatalogue({
+    context: {},
+    hostPage: fake.page,
+    items: [{
+      text: 'Search', index: 0, selector: 'a', href: '/search', opensPopup: false,
+    }],
+    recorder: createRecorder(),
+    labelPrefix: 'admin',
+    timeout: 1500,
+  });
+  assert.deepEqual(fake.waitForUrlTimeouts, [1500],
+    'a caller asking for less than 4s must not be given more');
+});
+
+test('two items with the same label get two screenshots, not one overwritten', async () => {
+  // catalogueLinks keeps same-text items apart by index on purpose (two admin
+  // entries routinely share a label and point at different routes). The
+  // screenshot name was built from the label alone, so the second failure
+  // overwrote the first and that item's evidence was gone from the artifacts.
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const screenshotDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-audit-'));
+  const recorder = createRecorder();
+  const fake = fakeAuditPage({
+    textFor: () => 'Manage Billing Form',
+    onClick: (index) => { recorder.pageErrors.push({ text: `ReferenceError from anchor ${index}` }); },
+  });
+  const items = [
+    {
+      text: 'Manage Billing Form', index: 4, selector: 'a', href: '/billing/form', opensPopup: false,
+    },
+    {
+      text: 'Manage Billing Form', index: 9, selector: 'a', href: '/billing/other', opensPopup: false,
+    },
+  ];
+  const result = await auditCatalogue({
+    context: {},
+    hostPage: fake.page,
+    items,
+    recorder,
+    labelPrefix: 'admin',
+    timeout: 1000,
+    screenshotDir,
+  });
+  assert.equal(result.failures.length, 2, 'both items must report their own finding');
+  assert.equal(fake.screenshots.length, 2);
+  assert.equal(new Set(fake.screenshots).size, 2,
+    `both screenshots landed on the same file: ${fake.screenshots.join(', ')}`);
+  for (const item of items) {
+    assert.ok(fake.screenshots.some((name) => path.basename(name).startsWith(`admin-${item.index}-`)),
+      `no screenshot is attributable to item ${item.index}: ${fake.screenshots.join(', ')}`);
+  }
+  fs.rmSync(screenshotDir, { recursive: true, force: true });
+});

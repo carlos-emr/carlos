@@ -229,18 +229,22 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
   // has not started loading yet, so the audit read the OPENER's body and
   // reported it as this item's destination -- a pass for every item whose page
   // is broken.
-  const navigationStarted = hostPage.waitForURL((url) => String(url) !== before, { timeout })
+  //
+  // BOUNDED BY NAVIGATION_START_TIMEOUT, NOT BY THE ITEM TIMEOUT. Plenty of
+  // admin items inject a panel in place and never navigate at all; waiting the
+  // full timeout on each of those would add minutes to a 120-item sweep for no
+  // signal. This used to be a Promise.race against a settle timer while
+  // waitForURL still carried the full item timeout -- so every in-place item
+  // left a waiter alive on the page for another (timeout - 4s), and a long
+  // sweep accumulated several of them at once for a result nothing reads.
+  // Putting the bound on waitForURL itself gives the same answer at the same
+  // moment with nothing left pending: the rejection on timeout IS the "did not
+  // navigate" signal.
+  const startTimeout = Math.min(timeout, NAVIGATION_START_TIMEOUT);
+  const navigationStarted = hostPage.waitForURL((url) => String(url) !== before, { timeout: startTimeout })
     .then(() => true, () => false);
   await link.click({ timeout });
-  // Bounded, because plenty of admin items inject a panel in place and never
-  // navigate at all; waiting the full timeout on each of those would add
-  // minutes to a 120-item sweep for no signal.
-  let settleTimer;
-  const settled = new Promise((resolve) => {
-    settleTimer = setTimeout(() => resolve(false), Math.min(timeout, NAVIGATION_START_TIMEOUT));
-  });
-  const navigated = await Promise.race([navigationStarted, settled]);
-  clearTimeout(settleTimer);
+  const navigated = await navigationStarted;
   if (navigated) {
     await hostPage.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
     // Same page object, new document: without the relabel it keeps the label
@@ -305,7 +309,12 @@ async function auditCatalogue(options) {
       const browserFindings = findingsSince(recorder, before, item.text);
       failures.push(...browserFindings);
       if (screenshotDir && browserFindings.length && target) {
-        const safeName = `${labelPrefix}-${item.text.replace(/[^A-Za-z0-9]+/g, '-').slice(0, 40)}`;
+        // item.index disambiguates. The name was labelPrefix + sanitised text
+        // alone, and admin surfaces routinely carry two items with the SAME
+        // text pointing at different routes (see the note on index in
+        // catalogueLinks) -- so the second failure's screenshot overwrote the
+        // first one's and the evidence for that item was simply gone.
+        const safeName = `${labelPrefix}-${item.index}-${item.text.replace(/[^A-Za-z0-9]+/g, '-').slice(0, 40)}`;
         await screenshot(target.page, screenshotDir, safeName).catch(() => {});
       }
       if (target && target.isPopup) {
