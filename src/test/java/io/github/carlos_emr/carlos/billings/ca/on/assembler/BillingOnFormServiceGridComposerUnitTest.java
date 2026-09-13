@@ -161,4 +161,27 @@ class BillingOnFormServiceGridComposerUnitTest {
         BillingOnFormViewModel model = b.build();
         assertThat(model.getServiceGrid().serviceTypes()).containsExactly("OFC", "HOS");
     }
+    @Test
+    void shouldUseOntarioGeneralPractice_whenSharedGpDefaultHasNoForm() {
+        when(ctlBillingServiceDao.findServiceTypesByStatus("A")).thenReturn(java.util.List.of(
+                new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow("MFP", "General Practice")));
+        BillingOnFormViewModel.Builder builder = BillingOnFormViewModel.builder().ctlBillForm("GP");
+        composer.compose(builder, "GP", new Date(), new Date(), new Demographic());
+        BillingOnFormViewModel model = builder.build();
+        assertThat(model.getRequestContext().ctlBillForm()).isEqualTo("MFP");
+        assertThat(model.getBillForm().defaultFormName()).isEqualTo("General Practice");
+    }
+
+    @Test
+    void shouldPreserveClinicGeneralPractice_whenGpFormExists() {
+        when(ctlBillingServiceDao.findServiceTypesByStatus("A")).thenReturn(java.util.List.of(
+                new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow("MFP", "General Practice"),
+                new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow("GP", "Clinic Practice")));
+        BillingOnFormViewModel.Builder builder = BillingOnFormViewModel.builder().ctlBillForm("GP");
+        composer.compose(builder, "GP", new Date(), new Date(), new Demographic());
+        BillingOnFormViewModel model = builder.build();
+        assertThat(model.getRequestContext().ctlBillForm()).isEqualTo("GP");
+        assertThat(model.getBillForm().defaultFormName()).isEqualTo("Clinic Practice");
+    }
+
 }

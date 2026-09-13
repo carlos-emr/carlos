@@ -39,6 +39,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.dashboard.display.beans.GraphPlot;
 import io.github.carlos_emr.carlos.managers.DashboardManagerImpl;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -171,6 +172,8 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
     /**
      * Value is the query result and key is the column (or result) alias
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static GraphPlot[] createGraphPlots(Map<String, ?> row) {
 
         List<GraphPlot> graphPlots = null;

@@ -835,7 +835,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
         // If there are new extras, batch persists them
         if (!newExtras.isEmpty()) {
-            consultationRequestExtDao.batchPersist(newExtras);
+            consultationRequestExtDao.batchPersistAtomically(newExtras);
         }
     }
 

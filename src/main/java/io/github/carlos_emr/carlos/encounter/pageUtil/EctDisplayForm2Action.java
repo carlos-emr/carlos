@@ -49,6 +49,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctDisplayForm2Action extends EctDisplayAction {
 
@@ -57,6 +58,8 @@ public class EctDisplayForm2Action extends EctDisplayAction {
     private String cmd = "forms";
     private String menuId = "1";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 

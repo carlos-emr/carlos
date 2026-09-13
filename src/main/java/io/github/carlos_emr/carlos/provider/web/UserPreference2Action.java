@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
@@ -468,7 +469,10 @@ public class UserPreference2Action extends ActionSupport {
                     }
                 }
             }
-            sb.append("<input name=\"pref." + UserProperty.ENCOUNTER_FORM_NAME + "\" value=\"" + lvb.getValue() + "\" type=\"checkbox\" " + checked + "/>" + lvb.getLabel() + "\n");
+            sb.append("<input name=\"pref.").append(UserProperty.ENCOUNTER_FORM_NAME)
+                    .append("\" value=\"").append(SafeEncode.forHtmlAttribute(lvb.getValue()))
+                    .append("\" type=\"checkbox\" ").append(checked)
+                    .append("/>").append(SafeEncode.forHtmlContent(lvb.getLabel())).append("\n");
             sb.append("<br/>\n");
         }
         return sb.toString();
@@ -502,7 +506,10 @@ public class UserPreference2Action extends ActionSupport {
                     }
                 }
             }
-            sb.append("<input name=\"pref." + UserProperty.EFORM_NAME + "\" value=\"" + lvb.getValue() + "\" type=\"checkbox\" " + checked + "/>" + lvb.getLabel() + "\n");
+            sb.append("<input name=\"pref.").append(UserProperty.EFORM_NAME)
+                    .append("\" value=\"").append(SafeEncode.forHtmlAttribute(lvb.getValue()))
+                    .append("\" type=\"checkbox\" ").append(checked)
+                    .append("/>").append(SafeEncode.forHtmlContent(lvb.getLabel())).append("\n");
             sb.append("<br/>\n");
         }
         return sb.toString();

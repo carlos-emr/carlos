@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.action.ServletRequestAware;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Admin form gate for the GST percent setting: GET renders the current
  * percent (via {@link GstControlViewModel}), POST parses the submitted
@@ -66,6 +67,8 @@ public class GstControl2Action extends ActionSupport implements ServletRequestAw
         this.request = request;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {

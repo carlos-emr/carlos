@@ -42,6 +42,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.io.File;
 import java.io.ByteArrayOutputStream;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -192,10 +193,54 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
         String result = executeAction(action);
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         @SuppressWarnings("unchecked")
         List<String> warnings = (List<String>) getMockRequest().getAttribute("warnings");
         assertThat(warnings).contains(NO_VALID_XML_WARNING);
         assertThat(getMockRequest().getAttribute("importlog")).isNotNull();
+        assertThat(getMockResponse().getContentType()).contains("application/json");
+        assertThat(getMockResponse().getContentAsString())
+                .contains(NO_VALID_XML_WARNING)
+                .contains("importLog");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/tmp/report.pdf", "C:/reports/report.pdf", "C:\\reports\\report.pdf"})
+    @DisplayName("should identify absolute report paths without constructing File objects")
+    void shouldIdentifyAbsoluteReportPaths_withoutConstructingFileObjects(String path) throws Exception {
+        assertThat(invokeIsAbsoluteReportPath(path)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should allow relative report paths")
+    void shouldAllowRelativeReportPaths_whenPathIsRelative() throws Exception {
+        assertThat(invokeIsAbsoluteReportPath("reports/result.pdf")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should reject report paths containing null characters")
+    void shouldRejectReportPath_whenPathContainsNullCharacter() throws Exception {
+        assertThat(invokeIsAbsoluteReportPath("reports/result.pdf\0")).isTrue();
+    }
+
+    @Test
+    @DisplayName("should extract report file name from platform-neutral separators")
+    void shouldExtractReportFileName_fromPlatformNeutralSeparators() throws Exception {
+        assertThat(invokeExtractReportFileName("nested/result.pdf")).isEqualTo("result.pdf");
+        assertThat(invokeExtractReportFileName("nested\\result.pdf")).isEqualTo("result.pdf");
+        assertThat(invokeExtractReportFileName("nested/result.pdf/")).isEqualTo("result.pdf");
+        assertThat(invokeExtractReportFileName("result.pdf")).isEqualTo("result.pdf");
+    }
+
+    private boolean invokeIsAbsoluteReportPath(String path) throws Exception {
+        Method method = ImportDemographicDataAction42Action.class.getDeclaredMethod("isAbsoluteReportPath", String.class);
+        method.setAccessible(true);
+        return (Boolean) method.invoke(action, path);
+    }
+
+    private String invokeExtractReportFileName(String path) throws Exception {
+        Method method = ImportDemographicDataAction42Action.class.getDeclaredMethod("extractReportFileName", String.class);
+        method.setAccessible(true);
+        return (String) method.invoke(action, path);
     }
 }
