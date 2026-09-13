@@ -282,6 +282,11 @@ not value checking as such.
 names the break-glass administrator created before the seeded clinician is
 removed; it is required for a real import and refused only by
 .BR \-\-dry-run .
+The name must be 1 to 30 letters or digits, the only user-name shape the
+CARLOS login accepts; the same rule is reported, not enforced, for the
+clinic's own logins (preflight finding
+.IR security-login-name ,
+P7 advisory).
 The clinic's role matrix is merged under CARLOS's seeded grants
 (CARLOS wins on the same role and object, clinic rows append) and
 clinic-custom roles receive the CARLOS-era privileges of the closest stock

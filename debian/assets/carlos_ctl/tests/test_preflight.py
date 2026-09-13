@@ -14,11 +14,16 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import tempfile
+from pathlib import Path
 import unittest
 
 from carlos_ctl import o19_preflight as pf
+from carlos_ctl import o19etl
+
+ROOT = Path(__file__).resolve().parents[4]
 
 
 class FakeDb(object):
@@ -81,7 +86,10 @@ class FakeDb(object):
             if " WHERE " in sql:
                 where = sql.split(" WHERE ", 1)[1]
                 lane = None
-                if " REGEXP " in where:
+                # the charset scan's "bad" lane is `col IS NOT NULL AND
+                # col REGEXP ...`; the login-name check's `NOT REGEXP`
+                # is an ordinary where_counts predicate
+                if " IS NOT NULL AND " in where and " REGEXP " in where:
                     lane = "bad"
                 elif ") AND (" in where:
                     lane = "multi"
@@ -793,6 +801,7 @@ class TestRoleAdvisories(unittest.TestCase):
                 ("secUserRole", "activeyn IS NULL"): 3,
                 ("provider", "NOT IN (SELECT provider_no"): 2,
                 ("security", "b_ExpireSet = 1"): 1,
+                ("security", "BINARY user_name NOT REGEXP"): 2,
                 ("preventions", "BINARY prevention_type IN ('"): 2,
                 ("Facility", "disabled = 0"): 1,
                 ("eform", "Rich Text Letter"): 1,
@@ -812,6 +821,7 @@ class TestRoleAdvisories(unittest.TestCase):
         ids = {f["id"]: f for f in report["findings"]}
         for fid in ("roles-custom", "roles-activeyn-null",
                     "roles-providers-without-active-role", "security-locked",
+                    "security-login-name",
                     "prevention-legacy-types", "rtl-legacy-form",
                     "property-removed-module-keys",
                     "indicator-templates-dropped-refs"):
@@ -820,6 +830,8 @@ class TestRoleAdvisories(unittest.TestCase):
         # a list: a role name may carry a comma
         self.assertEqual(ids["roles-custom"]["data"]["roles"],
                          ["Triage Nurse"])
+        self.assertTrue(ids["security-login-name"]["title"]
+                        .startswith("2 login(s) will be refused"))
         self.assertEqual(ids["property-removed-module-keys"]["data"],
                          {"INTEGRATOR_": 2})
         self.assertEqual(ids["indicator-templates-dropped-refs"]["data"],
@@ -832,8 +844,30 @@ class TestRoleAdvisories(unittest.TestCase):
         report = pf.run_checks(db, properties=clean_props())
         ids = {f["id"] for f in report["findings"]}
         for fid in ("roles-custom", "roles-activeyn-null", "security-locked",
-                    "rtl-legacy-form", "prevention-legacy-types"):
+                    "security-login-name", "rtl-legacy-form",
+                    "prevention-legacy-types"):
             self.assertNotIn(fid, ids)
+
+    def test_login_name_rule_matches_the_engine_and_login2action(self):
+        # three copies of one rule: the standalone preflight (imports
+        # nothing), the engine, and the Java login they both describe.
+        # Login2Action is the authority; the Python copies are pinned to
+        # it so a change there fails here instead of at a clinic's login.
+        self.assertEqual(pf.LOGIN_NAME_PATTERN,
+                         o19etl.LOGIN_NAME_PATTERN)
+        java = (ROOT / "src/main/java/io/github/carlos_emr/carlos/login/"
+                "Login2Action.java").read_text()
+        m = re.search(r'Pattern\.matches\("([^"]+)", userName\)', java)
+        self.assertIsNotNone(m, "Login2Action's user-name rule moved")
+        self.assertEqual("^" + m.group(1) + "$", pf.LOGIN_NAME_PATTERN)
+        self.assertEqual(java.count('Pattern.matches("[a-zA-Z0-9]{1,30}"'),
+                         2, "the login and the forced-reset re-auth both")
+        rule = re.compile(pf.LOGIN_NAME_PATTERN)
+        for ok_name in ("carlosdoc", "A", "x" * 30, "Dr2"):
+            self.assertTrue(rule.match(ok_name), ok_name)
+        for bad in ("dr.smith", "j_doe", "it@clinic", "ops-2", "x" * 31,
+                    "", "a b"):
+            self.assertFalse(rule.match(bad), bad)
 
     def test_missing_facility_or_clinic_blocks(self):
         db = FakeDb(base_tables(Facility=1, clinic=0),

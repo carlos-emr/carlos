@@ -288,19 +288,44 @@ def unsafe_identifiers(src_info: Dict[str, Dict[str, dict]]) -> List[str]:
     return bad
 
 
-ADMIN_USER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@\-]{0,29}$")
+# CARLOS's login accepts exactly this user-name shape and nothing else
+# (Login2Action: `Pattern.matches("[a-zA-Z0-9]{1,30}", userName)`, else
+# the name becomes "Invalid Username" and the attempt fails before any
+# password check). OSCAR 19 has no such rule, so a clinic can carry
+# logins with '.', '_', '@' or '-' that CARLOS will refuse; those are
+# reported (preflight `security-login-name`, P7 roles advisory), never
+# renamed. The break-glass admin is CREATED by the import, so for it the
+# rule is enforced: an earlier, wider pattern accepted `it.admin` and
+# produced an administrator who could never log in (Ubuntu 26.04
+# rehearsal). o19_preflight.py carries a standalone copy of this pattern;
+# tests pin the two together and both to Login2Action's.
+LOGIN_NAME_PATTERN = "^[a-zA-Z0-9]{1,30}$"
+LOGIN_NAME_RE = re.compile(LOGIN_NAME_PATTERN)
+ADMIN_USER_RE = LOGIN_NAME_RE
 
 
 def validate_admin_user(name: Optional[str]) -> str:
     """The break-glass user name is interpolated into account SQL run as
-    database root and must fit security.user_name (varchar 30): plain
-    characters only, no quoting tricks."""
+    database root, must fit security.user_name (varchar 30), and must be
+    a name CARLOS's login accepts (see LOGIN_NAME_PATTERN): letters and
+    digits only, no quoting tricks."""
     if not name or not ADMIN_USER_RE.match(name):
         raise ValueError(
-            "--admin-user must start with a letter or digit and run to "
-            "at most 30 characters of letters, digits, '_', '.', '@' or "
-            "'-' (got {0!r})".format(name))
+            "--admin-user must be 1 to 30 letters or digits (A-Z, a-z, "
+            "0-9) -- CARLOS's login accepts no other characters, so a "
+            "name with '.', '_', '@' or '-' could never sign in "
+            "(got {0!r})".format(name))
     return name
+
+
+def login_name_violations_sql(schema: str) -> str:
+    """The `security.user_name` values in `schema` that CARLOS's login
+    would refuse as "Invalid Username" (outside LOGIN_NAME_PATTERN).
+    BINARY: the pattern is case-insensitive by construction, but a
+    case-insensitive collation must not be what decides it."""
+    return ("SELECT user_name FROM `{0}`.security WHERE BINARY user_name "
+            "NOT REGEXP '{1}' ORDER BY user_name"
+            .format(schema, LOGIN_NAME_PATTERN))
 
 
 def enum_values(column_type: str) -> List[str]:

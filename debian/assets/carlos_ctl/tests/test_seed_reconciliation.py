@@ -166,16 +166,37 @@ class TestRowParityExpectations(unittest.TestCase):
 
 class TestAdminUserSafety(unittest.TestCase):
 
-    """--admin-user reaches SQL, so its accepted class is narrow."""
+    """--admin-user reaches SQL, so its accepted class is narrow -- and
+    it is exactly CARLOS's login rule ([A-Za-z0-9]{1,30}), because an
+    administrator the login refuses by name is no break-glass at all.
+    The Ubuntu 26.04 rehearsal created `rehearsal.admin` under the
+    earlier, wider pattern and every login attempt failed with
+    "Invalid Username" before the password was looked at."""
     def test_plain_names_pass(self):
-        for name in ("breakglass", "it.admin@clinic", "ops-2", "A"):
+        for name in ("breakglass", "Admin2", "A", "x" * 30, "0day"):
             self.assertEqual(o19etl.validate_admin_user(name), name)
+
+    def test_names_the_carlos_login_refuses_are_refused(self):
+        # accepted before: each would have produced an admin who could
+        # never sign in
+        for bad in ("it.admin@clinic", "ops-2", "rehearsal.admin",
+                    "a_b", "x" * 31):
+            with self.assertRaises(ValueError) as cm:
+                o19etl.validate_admin_user(bad)
+            self.assertIn("letters or digits", str(cm.exception))
 
     def test_quotes_and_sql_fragments_are_refused(self):
         for bad in ("x'; DROP TABLE security; --", "a b", "", None,
-                    "x" * 31, "-lead", "semi;colon"):
+                    "-lead", "semi;colon"):
             with self.assertRaises(ValueError):
                 o19etl.validate_admin_user(bad)
+
+    def test_login_name_violations_sql_shape(self):
+        sql = o19etl.login_name_violations_sql("carlos")
+        self.assertEqual(
+            sql, "SELECT user_name FROM `carlos`.security WHERE BINARY "
+                 "user_name NOT REGEXP '^[a-zA-Z0-9]{1,30}$' "
+                 "ORDER BY user_name")
 
     def test_seed_statements_refuse_unsafe_user(self):
         with self.assertRaises(ValueError):

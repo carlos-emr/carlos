@@ -1157,6 +1157,19 @@ def verify_role_checks(query: Callable, dst_schema: str,
                           "go-live (see roles-details.txt)".format(
                               len(locked)))
         private.append("expired logins: " + ", ".join(r[0] for r in locked))
+    # CARLOS's login rejects any user name outside [A-Za-z0-9]{1,30}
+    # before it looks at the password; OSCAR 19 never had that rule, so a
+    # clinic's `dr.smith` imports intact and can never sign in. Reported,
+    # not renamed: a login name is something its owner knows.
+    odd_names = query(o19etl.login_name_violations_sql(dst_schema))
+    if odd_names:
+        advisories.append("{0} login(s) carry a user name CARLOS's login "
+                          "refuses (only letters and digits, at most 30) "
+                          "— rename them in Administration > Security "
+                          "before go-live (see roles-details.txt)"
+                          .format(len(odd_names)))
+        private.append("logins CARLOS refuses by name: "
+                       + ", ".join(r[0] for r in odd_names))
     jobs = n("SELECT COUNT(*) FROM `{0}`.OscarJobType".format(dst_schema))
     if not jobs:
         advisories.append("OscarJobType is empty: the job scheduler has no "

@@ -302,7 +302,8 @@ importer therefore reconciles the role matrix instead of choosing one side:
 - P7 verifies the guarantees (roles present, admin usable, facility/clinic/program
   rows, memberships, seed floor) and reports clinic-data conditions as advisories
   (active accounts with no active role, roles granting nothing, expired logins,
-  empty `OscarJobType`, RTL not current). Row parity tolerates the appended rows
+  user names outside CARLOS's `[a-zA-Z0-9]{1,30}` login rule, empty
+  `OscarJobType`, RTL not current). Row parity tolerates the appended rows
   the roles ledger recorded, and only those. The ledger records what the database
   holds AFTER each write (the same "rows without a staging twin" count parity
   measures) and persists every decision (who gets activated, who gets the

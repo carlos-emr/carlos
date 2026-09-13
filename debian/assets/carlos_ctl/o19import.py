@@ -3160,7 +3160,8 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
         ap.add_argument("--admin-user", metavar="NAME",
                         help="break-glass admin account created before the "
                              "seeded clinician is removed (required for a "
-                             "real import)")
+                             "real import; 1-30 letters or digits, the "
+                             "only user-name shape CARLOS's login accepts)")
         ap.add_argument("--role-template", action="append", default=[],
                         metavar="CUSTOM=STOCK",
                         help="grant a clinic-custom role the CARLOS-era "

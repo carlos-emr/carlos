@@ -898,7 +898,8 @@ class TestVerifyRoleChecks(unittest.TestCase):
             "admin_active": "2", "admin_grant": "1", "facility": "1",
             "clinic": "1", "program": "1", "missing": "0", "unlinked": "0",
             "grants": "600", "no_role": [], "no_grant": [], "locked": [],
-            "jobs": "1", "spelling_drift": "0", "broken_forms": [],
+            "odd_names": [], "jobs": "1", "spelling_drift": "0",
+            "broken_forms": [],
             "rtl": [["12", "Rich Text Letter", "1",
                      "Rich Text Letter Generator 2026.3.0",
                      "1", "0", "1"]],
@@ -934,6 +935,8 @@ class TestVerifyRoleChecks(unittest.TestCase):
                 return answers["no_grant"]
             if "b_ExpireSet = 1" in sql:
                 return answers["locked"]
+            if "NOT REGEXP" in sql:
+                return answers["odd_names"]
             if "OscarJobType" in sql:
                 return [[answers["jobs"]]]
             if "encounterForm e WHERE" in sql:
@@ -1116,6 +1119,29 @@ class TestVerifyRoleChecks(unittest.TestCase):
         self.assertIn("Ghost", joined)  # role names are not PHI
         self.assertTrue(any("p7, p8" in line for line in private))
         self.assertTrue(any("olduser" in line for line in private))
+
+    def test_logins_carlos_refuses_by_name_are_an_advisory(self):
+        # OSCAR 19 allowed `dr.smith`; CARLOS's login (Login2Action,
+        # [a-zA-Z0-9]{1,30}) refuses it before the password is checked.
+        # An advisory with the count in report.txt, the names in the
+        # private file, and no rename.
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(odd_names=[["dr.smith"], ["j_doe"]]),
+            "carlos", "100001", 513)
+        self.assertEqual(bad, [])
+        hits = [a for a in adv if "user name CARLOS's login refuses" in a]
+        self.assertEqual(len(hits), 1, adv)
+        self.assertTrue(hits[0].startswith("2 login(s)"), hits[0])
+        self.assertIn("Administration > Security", hits[0])
+        self.assertNotIn("dr.smith", "\n".join(adv))
+        self.assertIn("logins CARLOS refuses by name: dr.smith, j_doe",
+                      private)
+
+    def test_clean_login_names_raise_no_advisory(self):
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(), "carlos", "100001", 513)
+        self.assertFalse(any("refuses" in a for a in adv), adv)
+        self.assertFalse(any("refuses by name" in p for p in private))
 
 
 class TestSeedAdminClone(unittest.TestCase):

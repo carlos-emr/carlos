@@ -240,9 +240,14 @@ sudo carlos-ctl import-o19 \
 ```
 
 `--admin-user` names the break-glass administrator created before the
-seeded clinician is removed. It must start with a letter or a digit and
-run to at most 30 characters of letters, digits, `_`, `.`, `@` or `-`; it may not be the seeded `carlosdoc`; and it
-may not collide with a login the dump already carries.
+seeded clinician is removed. It must be 1 to 30 letters or digits and
+nothing else — the only user-name shape CARLOS's login accepts (a name
+with `.`, `_`, `@` or `-` would be created and could never sign in); it
+may not be the seeded `carlosdoc`; and it may not collide with a login
+the dump already carries. The same rule is why the preflight and the P7
+roles check list the clinic's own logins that fall outside it: OSCAR 19
+never enforced it, and such an account imports intact but is refused at
+the CARLOS login until it is renamed in Administration > Security.
 
 The host needs, before the run: roughly 2.5 times the **uncompressed** dump
 free on the server's data directory (staging restore, the copy into the
@@ -392,7 +397,8 @@ being the categories where access is GAINED;
 `roles-details.txt` names the providers whose assignments were activated
 (provider = role), whose dormant admin rows were left alone, who received
 the fallback membership, who hold an assignment to a re-added CARLOS-only
-role, who hold no role, and whose logins are expired. Prevention type codes
+role, who hold no role, whose logins are expired, and whose user names
+CARLOS's login refuses (letters and digits only). Prevention type codes
 the importer knows (`Flu`, `VZ`, …) are
 normalised to the Health Canada codes with an exact, case-sensitive match;
 codes it cannot map stay as they are and are listed for review (they render
@@ -567,7 +573,8 @@ gate has no override.
    it names them in `pristine-details.txt` (root-only) — a login name is a
    person, so the sweep line in `report.txt` gives only the count. Confirm each clinic-custom role's privileges in
    Administration > Security (the report names the template role used),
-   and deal with expired or role-less accounts before go-live.
+   and deal with expired, role-less or unloginable-by-name accounts
+   before go-live.
 4. `carlos-ctl import-o19 --cleanup` — drops the staging schema and the
    throwaway staging account, removes the extracted bundle and retires the
    run's `state.json`, ETL ledger, report, private files and the properties

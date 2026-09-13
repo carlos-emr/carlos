@@ -3048,6 +3048,37 @@ def check_expired_logins(c):
                 "go-live."))
 
 
+# CARLOS's login accepts exactly this user-name shape (Login2Action:
+# `Pattern.matches("[a-zA-Z0-9]{1,30}", userName)`); anything else is
+# refused as "Invalid Username" before the password is looked at. OSCAR
+# 19 has no such rule. Standalone copy of carlos_ctl.o19etl
+# .LOGIN_NAME_PATTERN (this file imports nothing from the package); the
+# unit tests pin the two together.
+LOGIN_NAME_PATTERN = "^[a-zA-Z0-9]{1,30}$"
+
+
+def check_login_names(c):
+    """Accounts whose user name CARLOS's login will refuse outright."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
+    if "security" in tables:
+        # BINARY so a case-insensitive collation is not what decides
+        # it; the pattern is case-insensitive by construction anyway
+        n = count_live("security", "BINARY user_name NOT REGEXP '{0}'"
+                       .format(LOGIN_NAME_PATTERN))
+        if n:
+            findings.append(finding(
+                "security-login-name", ADVISORY,
+                "{0} login(s) will be refused after import (user name "
+                "outside CARLOS's letters-and-digits rule)".format(n),
+                "CARLOS accepts a login name of 1 to 30 letters or digits "
+                "and nothing else; OSCAR 19 allowed '.', '_', '@' and "
+                "'-'. The import copies the names as they are and lists "
+                "them in roles-details.txt - rename those accounts in "
+                "Administration > Security before go-live."))
+
+
 def check_prevention_types(c):
     """Prevention type codes CARLOS cannot render."""
     count_live = c.count_live
@@ -3628,6 +3659,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
     check_facility_and_clinic(c)
     check_roles_and_assignments(c)
     check_expired_logins(c)
+    check_login_names(c)
     check_prevention_types(c)
     check_rich_text_letter(c)
     check_removed_module_properties(c)
