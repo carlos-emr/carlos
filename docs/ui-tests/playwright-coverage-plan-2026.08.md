@@ -107,8 +107,9 @@ Save / Sign / Bill buttons through their handlers because the row sits below the
 ## 0. What has landed so far
 
 Phase 0 of §5 (the shared harness, the suite manifest and the runner) is in the
-repository. Nothing else in this document is implemented, and **no browser check
-has been migrated onto the new harness yet**.
+repository, and **22 checks implementing this plan have landed on it** — listed
+in the second table below, which is the authoritative account of what exists.
+Everything else in this document is still a plan.
 
 | Landed | What it is | Verified by |
 |---|---|---|

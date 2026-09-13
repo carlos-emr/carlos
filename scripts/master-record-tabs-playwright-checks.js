@@ -98,8 +98,12 @@ async function openMasterRecord(context, schedulePage, recorder, options) {
   // go to the chart, prescriptions, tickler and consultations instead.
   const results = searchPage.locator('a[title="Master Demographic File"]');
   const resultCount = await results.count();
+  // The TERM IS NOT IN THE MESSAGE. MASTER_RECORD_SEARCH is a patient surname,
+  // and runCheck() writes a thrown message to stdout and into RESULT_JSON,
+  // which CI archives. Naming the variable instead of its value loses nothing:
+  // whoever set it can read it back, and nobody else needs to.
   assert(resultCount > 0,
-    `The patient search for ${JSON.stringify(searchTerm)} returned no rows; set MASTER_RECORD_SEARCH to a surname present in this dataset`);
+    'The patient search returned no rows; set MASTER_RECORD_SEARCH to a surname present in this dataset');
 
   // Prefer the configured patient so the run is deterministic across datasets;
   // fall back to the first row rather than failing on a dataset that lacks it.
@@ -132,13 +136,21 @@ async function openMasterRecord(context, schedulePage, recorder, options) {
   const landed = masterPage.url().match(/demographic_no=(\d+)/);
   assert(landed, `The Master Record popup did not land on a demographic page (${masterPage.url().split('?')[0]})`);
   if (chosenNo) {
+    // Neither number is printed: both are PHI-correlating identifiers, and the
+    // only thing a reader needs is that the popup opened a DIFFERENT record
+    // than the row that was clicked -- which is what the assertion says.
     assert(landed[1] === chosenNo,
-      `Clicked the row for demographic ${chosenNo} but landed on ${landed[1]}`);
+      'The Master Record popup opened a different patient record than the result row that was clicked, '
+      + 'so everything audited after this belongs to the wrong patient');
   }
 
   const body = await masterPage.locator('body').innerText({ timeout }).catch(() => '');
   assert(body.trim().length > 0, 'The Master Record rendered a blank page');
-  return { masterPage, searchPage, demographicNo: landed[1] };
+  // demographicNo is deliberately NOT returned. No caller reads it -- all five
+  // destructure { masterPage } alone -- and a PHI-correlating identifier
+  // crossing a module boundary only has to be spread into one returned object
+  // to reach RESULT_JSON.
+  return { masterPage, searchPage };
 }
 
 async function main() {
