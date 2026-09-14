@@ -29,36 +29,70 @@
 
 package io.github.carlos_emr.carlos.utility;
 
-import java.util.Date;
-
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Look-ups for a patient's next scheduled appointment, rendered for display.
+ *
+ * <p>Callers pass the demographic number as the raw string they hold (a request
+ * parameter, a JSP attribute), so every parse and range decision lives here
+ * rather than being repeated (and skipped) at each call site.</p>
+ *
+ * @since 2026-02-04
+ */
 public class AppointmentUtil {
 
+    /** Displayed when there is no next appointment to show, including for input this class rejects. */
     private static final String NONE = "(none)";
 
     private AppointmentUtil() {
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * Returns the date of the patient's next appointment, formatted for display.
+     *
+     * @param demographicNo demographic number as held by the caller; surrounding whitespace is
+     *                      ignored, and anything that is not a positive {@code int} (null, blank,
+     *                      the literal {@code "null"}, non-numeric text, a value too large for
+     *                      {@code int}) is treated as no patient rather than as demographic 0
+     * @return the next appointment date as {@code yyyy-MM-dd}, or {@code "(none)"} when the input
+     *         identifies no patient, the patient has no next appointment, or that appointment
+     *         carries no date
+     */
     public static String getNextAppointment(String demographicNo) {
-        Date nextApptDate = null;
-        if (demographicNo != null && !demographicNo.equalsIgnoreCase("") && !demographicNo.equalsIgnoreCase("null")) {
+        Integer demographicId = parseDemographicNo(demographicNo);
+        if (demographicId == null) {
             return NONE;
         }
 
         OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
-        Appointment appt = dao.findNextAppointment(ConversionUtils.fromIntString(demographicNo));
-        if (appt == null) {
+        Appointment appt = dao.findNextAppointment(demographicId);
+        if (appt == null || appt.getAppointmentDate() == null) {
             return NONE;
         }
 
-        return ConversionUtils.toDateString(nextApptDate);
+        return ConversionUtils.toDateString(appt.getAppointmentDate());
+    }
+
+    /**
+     * Parses a demographic number, returning {@code null} for anything that does not identify a
+     * patient. Parsing here rather than through {@code ConversionUtils.fromIntString} is
+     * deliberate: that helper maps a parse failure (an overflowing number included) to 0, which
+     * would send a lookup for demographic 0 to the database instead of failing closed.
+     */
+    private static Integer parseDemographicNo(String demographicNo) {
+        if (demographicNo == null) {
+            return null;
+        }
+        try {
+            int parsed = Integer.parseInt(demographicNo.trim());
+            return parsed > 0 ? parsed : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
 }
