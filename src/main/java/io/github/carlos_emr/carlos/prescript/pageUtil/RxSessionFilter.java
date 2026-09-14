@@ -24,7 +24,9 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -96,8 +98,9 @@ public class RxSessionFilter implements Filter {
         }
 
         RxWorkspaceRegistry registry = RxWorkspaceRegistry.getOrCreate(session);
-        if (context.value == null && isEntryRequest(route, request)) {
-            createWorkspace(request, response, registry, demographic.value, providerNo);
+        String entryRoute = entryRoute(route, request);
+        if (context.value == null && entryRoute != null) {
+            createWorkspace(request, response, registry, demographic.value, providerNo, entryRoute);
             return;
         }
 
@@ -157,7 +160,8 @@ public class RxSessionFilter implements Filter {
             HttpServletResponse response,
             RxWorkspaceRegistry registry,
             int demographicNo,
-            String providerNo) throws IOException {
+            String providerNo,
+            String entryRoute) throws IOException {
         if (demographicNo <= 0) {
             reject(request, response, "rx_demographic_missing");
             return;
@@ -166,7 +170,7 @@ public class RxSessionFilter implements Filter {
             LaunchContext launchContext = launchContextResolver.resolve(request, demographicNo, providerNo);
             RxWorkspaceRegistry.RxWorkspace workspace = registry.create(
                     demographicNo, providerNo, launchContext.appointmentNo(), launchContext.programId());
-            redirectWithContext(request, response, workspace.getContextId());
+            redirectWithContext(request, response, entryRoute, workspace.getContextId());
         } catch (InvalidLaunchContextException e) {
             reject(request, response, e.errorCode);
         } catch (RxWorkspaceRegistry.WorkspaceLimitException e) {
@@ -291,8 +295,16 @@ public class RxSessionFilter implements Filter {
         return new ContextParameter(parameterContext != null ? parameterContext : headerContext, invalid);
     }
 
-    private static boolean isEntryRequest(String route, HttpServletRequest request) {
-        return ENTRY_ROUTES.contains(route) && "GET".equalsIgnoreCase(request.getMethod());
+    private static String entryRoute(String route, HttpServletRequest request) {
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            for (String allowedRoute : ENTRY_ROUTES) {
+                if (allowedRoute.equals(route)) {
+                    // Return the server-owned constant, never the raw request URI.
+                    return allowedRoute;
+                }
+            }
+        }
+        return null;
     }
 
     private static String currentProviderNo(HttpServletRequest request) {
@@ -355,21 +367,24 @@ public class RxSessionFilter implements Filter {
 
     @SuppressFBWarnings(
             value = "UNVALIDATED_REDIRECT",
-            justification = "Location retains the current mapped Rx request path and adds an opaque context UUID")
+            justification = "Location uses a server-owned entry route under the servlet context with URL-encoded parameters")
     private static void redirectWithContext(
-            HttpServletRequest request, HttpServletResponse response, String contextId) {
-        StringBuilder location = new StringBuilder(request.getRequestURI());
-        String query = request.getQueryString();
-        if (query != null && !query.isBlank()) {
-            location.append('?').append(query).append('&');
-        } else {
-            location.append('?');
+            HttpServletRequest request, HttpServletResponse response, String entryRoute, String contextId) {
+        StringBuilder location = new StringBuilder(request.getContextPath()).append(entryRoute).append('?');
+        for (Map.Entry<String, String[]> parameter : request.getParameterMap().entrySet()) {
+            if (CONTEXT_PARAMETER.equals(parameter.getKey())) {
+                continue;
+            }
+            for (String value : parameter.getValue()) {
+                location.append(URLEncoder.encode(parameter.getKey(), StandardCharsets.UTF_8)).append('=')
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8)).append('&');
+            }
         }
         location.append(CONTEXT_PARAMETER).append('=')
                 .append(contextId);
         response.setStatus(HttpServletResponse.SC_SEE_OTHER);
         // nosemgrep: java.servlets.security.audit.url-rewriting.url-rewriting,java.lang.security.audit.url-rewriting.url-rewriting -- Rx workspace UUID, not a login session ID.
-        response.setHeader("Location", location.toString()); // NOSONAR -- same-origin request URI; not an open redirect.
+        response.setHeader("Location", location.toString()); // NOSONAR -- allowlisted path and encoded query values.
     }
 
     @SuppressFBWarnings(
