@@ -2,10 +2,17 @@
 
 The OpenRouter gateway plugs into the existing CARLOS HTTP agent. It processes the
 whole eligible synthetic chart through the existing full-record pipeline, with no
-three-point limit. The default test model is `google/gemini-2.5-flash`, restricted
-to the `google-vertex` provider. Inference runs remotely and does not need local GPU
+three-point limit. The default test model is `qwen/qwen3.5-9b`, restricted
+to the `deepinfra` provider. Inference runs remotely and does not need local GPU
 passthrough. Python 3's standard library is sufficient; no package install or
 container rebuild is needed when the current summarizer build is already deployed.
+
+Qwen 3.5 9B is the smallest Qwen 3.5 model listed in OpenRouter's
+[model catalog](https://openrouter.ai/api/v1/models) as of 2026-09-14; local
+Qwen 3.5 2B is not listed. The selected [DeepInfra endpoint](https://openrouter.ai/api/v1/models/qwen/qwen3.5-9b/endpoints)
+advertises structured outputs and appears in the
+[ZDR endpoint catalog](https://openrouter.ai/api/v1/endpoints/zdr). Comparing this
+hosted 9B model with local 2B changes both model size and inference hardware.
 
 Only the three committed NHS development fixtures are supported. CARLOS verifies
 the complete authorized chart; the gateway separately checks outgoing clinical text
@@ -67,7 +74,7 @@ cd /workspace/.git/codex-worktrees/summary-cache
    `carlos2026`, PIN `2026`. Open the **eChart** for `NHSSYN001`, `NHSSYN002` or
    `NHSSYN003`, then **Patient overview → Generate AI draft**. Opening the eChart
    first supplies the program context needed to read the notes. The generated
-   draft identifies `OpenRouter / google/gemini-2.5-flash` as its configured agent.
+   draft identifies `OpenRouter / qwen/qwen3.5-9b` as its configured agent.
 
 5. To return to local Qwen, keep the local Ollama server on port 11436 running and use:
 
@@ -88,7 +95,7 @@ clinical.ai_summary_generation.enabled=true
 clinical.ai_summary_generation.agent=http
 clinical.ai_summary_generation.http.port=11437
 clinical.ai_summary_generation.http.path=/v1/clinical-summary
-clinical.ai_summary_generation.http.name=OpenRouter / google/gemini-2.5-flash
+clinical.ai_summary_generation.http.name=OpenRouter / qwen/qwen3.5-9b
 clinical.ai_summary_generation.http.timeoutSeconds=600
 ```
 
@@ -136,8 +143,8 @@ gateway. Automatic/free model routers are not supported by this configuration.
 
 A successful structural check does not prove medical accuracy or completeness.
 The OpenRouter change has automated mock-transport and loopback HTTP tests, but
-no authenticated cloud generation or measured end-to-end speed without the user's
-key. Use the existing evidence panel and full-record evaluation tooling to compare
+no authenticated cloud generation or measured end-to-end speed has been run.
+The private-key preflight checks authentication without requesting inference. Use the existing evidence panel and full-record evaluation tooling to compare
 outputs; larger models are not a guarantee of accuracy.
 
 ## Troubleshooting

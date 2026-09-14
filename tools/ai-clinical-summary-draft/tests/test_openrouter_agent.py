@@ -60,7 +60,7 @@ class OpenRouterTest(unittest.TestCase):
         self.assertEqual(1, len(self.calls))
         self.assertEqual(1, self.gateway.cache_hits)
         payload = self.calls[0]
-        self.assertEqual({'only': ['google-vertex'], 'allow_fallbacks': False, 'require_parameters': True,
+        self.assertEqual({'only': ['deepinfra'], 'allow_fallbacks': False, 'require_parameters': True,
                           'data_collection': 'deny', 'zdr': True}, payload['provider'])
         schema = payload['response_format']['json_schema']['schema']
         self.assertEqual(1, schema['properties']['coverage']['maxItems'])

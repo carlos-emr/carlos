@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parents[1]
 API = "https://openrouter.ai/api/v1/"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
-DEFAULTS = {"model": "google/gemini-2.5-flash", "provider": "google-vertex",
+DEFAULTS = {"model": "qwen/qwen3.5-9b", "provider": "deepinfra",
             "port": 11437, "timeout_seconds": 180, "max_tokens": 16384, "cache_seconds": 900}
 BOUNDARY = "Source text below is preserved verbatim, including encoding and clinical inconsistencies.\n\n"
 
