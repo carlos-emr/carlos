@@ -34,8 +34,8 @@ class SmsBoundarySafetyUnitTest {
 
     @Test
     void shouldRejectInternalQueueStates_whenConstructingDeliveryCallback() {
-        for (SmsStatus status : List.of(SmsStatus.QUEUED, SmsStatus.SENDING, SmsStatus.RECEIVED,
-                SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED)) {
+        for (SmsStatus status : new SmsStatus[]{null, SmsStatus.QUEUED, SmsStatus.SENDING, SmsStatus.RECEIVED,
+                SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED}) {
             assertThatThrownBy(() -> new SmsDeliveryWebhookDto(SmsProviderType.STUB, "id", status,
                     Instant.EPOCH, null, null, null)).isInstanceOf(IllegalArgumentException.class);
         }

@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsDeliveryWebhookDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
@@ -52,7 +53,7 @@ class SmsMessageBodyReadServiceUnitTest {
         SmsTransaction transaction = SmsTransaction.deliveryEvent(new SmsDeliveryWebhookDto(
                 SmsProviderType.STUB,
                 "provider-1",
-                null,
+                SmsStatus.FAILED,
                 null,
                 null,
                 null,

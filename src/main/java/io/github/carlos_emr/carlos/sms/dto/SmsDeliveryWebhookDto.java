@@ -30,7 +30,6 @@ public record SmsDeliveryWebhookDto(
     }
 
     public SmsDeliveryWebhookDto {
-        status = status == null ? SmsStatus.FAILED : status;
         if (status != SmsStatus.SENT && status != SmsStatus.DELIVERED && status != SmsStatus.FAILED) {
             throw new IllegalArgumentException("delivery status must be SENT, DELIVERED or FAILED");
         }
