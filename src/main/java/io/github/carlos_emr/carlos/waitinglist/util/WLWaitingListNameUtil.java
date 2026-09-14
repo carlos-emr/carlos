@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.commn.model.WaitingListName;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class WLWaitingListNameUtil {
 
@@ -107,6 +108,8 @@ public class WLWaitingListNameUtil {
      * Currently it seems rather hard to implement the roll back function due to using existing DBHandler, so using the
      * alternate synchronized feature for the 2 methods involved instead ...
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static public void updateWaitingListName(String wlNameId, String wlName, String groupNo, String providerNo)
             throws Exception {
 

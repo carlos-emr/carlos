@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Controller for managing laboratory and medical document data in the InboxHub system.
@@ -393,6 +394,8 @@ public class LabDataController {
      * @param typeFilterValue String optional document type filter ("doc", "lab", "hrm"),
      *                        or null to preserve existing type flags
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void sanitizeInboxFormQuery(LoggedInInfo loggedInInfo, InboxhubQuery query, String demographicFilter, String typeFilterValue) {
         String loggedInProviderNo = (String) loggedInInfo.getSession().getAttribute("user");
         Provider loggedInProvider = ProviderData.getProvider(loggedInProviderNo);
@@ -542,6 +545,8 @@ public class LabDataController {
         return encodedUrl;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private List<LabResultData> filterOldLabVersions(List<LabResultData> labs) {
         HashMap<String, LabResultData> labMap = new HashMap<>();
 

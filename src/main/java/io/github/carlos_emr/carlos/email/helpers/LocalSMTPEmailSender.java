@@ -13,6 +13,7 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
@@ -62,6 +63,8 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
         return mailSender;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean isLocalhost(String host) {
         return "localhost".equalsIgnoreCase(host) || 
             "127.0.0.1".equals(host) || 

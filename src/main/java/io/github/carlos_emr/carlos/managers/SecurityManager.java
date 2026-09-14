@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.Misc;
 import org.apache.cxf.common.util.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.SecurityArchiveDao;
@@ -41,8 +42,11 @@ import org.springframework.stereotype.Service;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class SecurityManager {
@@ -85,6 +89,10 @@ public class SecurityManager {
         LogAction.addLogSynchronous(loggedInInfo, "SecurityManager.updateSecurityRecord", "id=" + security.getId());
     }
 
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "\"0\" is a policy threshold sentinel (zero past passwords to check), "
+                    + "not a credential; compared against the pastPasswordsToNotUse config property")
+    // "0" = policy threshold, not a password — prevents false positive on method name containing "password"
     public boolean checkPasswordAgainstPrevious(String newPassword, String providerNo) {
         //check previous passwords policy if the password is being changed
         String previousPasswordPolicy = CarlosProperties.getInstance().getProperty("password.pastPasswordsToNotUse", "0");
@@ -127,6 +135,16 @@ public class SecurityManager {
 	}
 
 	/**
+	 * Encode the given PIN using the configured password hashing algorithm.
+	 *
+	 * @param pin The PIN to hash.
+	 * @return The hashed PIN.
+	 */
+	public String encodePin(CharSequence pin) {
+		return this.encodePassword(pin);
+	}
+
+	/**
 	 * Validates the password against the provided sec's stored password. If the password is valid and an upgrade
 	 * is needed to the existing stored password, the stored password will be upgraded.
 	 *
@@ -141,6 +159,117 @@ public class SecurityManager {
 				logger.error("Error while upgrading password hash");
 		}
 		return isValid;
+	}
+
+	/**
+	 * Validates a raw PIN against the stored PIN value without mutating the security record.
+	 *
+	 * <p>Modern hashes are verified with the configured password hashing algorithm. Legacy plaintext
+	 * and legacy encrypted PIN values are still accepted during authentication, but callers must
+	 * defer any upgrade persistence until after the full login has succeeded.</p>
+	 *
+	 * @param rawPin The PIN supplied by the user.
+	 * @param security The security record containing the stored PIN.
+	 * @return True when the supplied PIN matches the stored PIN in either modern or legacy form.
+	 */
+	public boolean validatePin(CharSequence rawPin, Security security) {
+		if (rawPin == null || rawPin.length() < 3 || security == null || security.getPin() == null) {
+			return false;
+		}
+
+		String storedPin = security.getPin();
+		if (isModernHash(storedPin)) {
+			return this.matchesModernHash(rawPin, storedPin);
+		}
+		return this.matchesLegacyPin(rawPin, storedPin);
+	}
+
+	/**
+	 * True when the stored credential carries a {@link org.springframework.security.crypto.password.DelegatingPasswordEncoder}
+	 * algorithm tag such as {@code {bcrypt}}.
+	 *
+	 * <p>Untagged values are legacy PINs: plaintext digits, or {@code Misc.encryptPIN} output. The
+	 * encoder map currently registers the deprecated SHA encoder under a null algorithm id, so
+	 * handing it a legacy value happens to return false rather than throw - but that is a detail of
+	 * how the map is built, not a contract we should depend on. Deciding the storage format here
+	 * keeps the legacy comparison reachable by construction, and stops a tagged-but-corrupt hash
+	 * from being retried as though it were legacy plaintext. PIN characters are digits, and
+	 * {@code Misc.encryptPIN} derives its first output character from the first digit's code point,
+	 * so no legacy form can begin with '{'.</p>
+	 *
+	 * @param storedValue The credential value as stored in the security row.
+	 * @return True when the value is tagged with a hashing algorithm id.
+	 */
+	private static boolean isModernHash(String storedValue) {
+		return storedValue != null && storedValue.startsWith("{");
+	}
+
+	/**
+	 * Verifies a raw value against a tagged hash without letting malformed stored data reach the
+	 * caller as an exception.
+	 *
+	 * <p>An unknown algorithm id raises {@code IllegalArgumentException} out of the delegating
+	 * encoder. Such a value is unusable credential data rather than a match, and returning false
+	 * keeps a corrupt security row from turning the login path into a 500.</p>
+	 */
+	private boolean matchesModernHash(CharSequence rawValue, String storedHash) {
+		try {
+			return this.matchesPassword(rawValue, storedHash);
+		} catch (IllegalArgumentException e) {
+			logger.warn("Stored PIN hash could not be evaluated; treating as non-matching");
+			return false;
+		}
+	}
+
+	/**
+	 * Reports whether a validated PIN should be re-hashed with the current algorithm.
+	 *
+	 * @param security The security record containing the stored PIN.
+	 * @return True when the stored PIN is a legacy value or a tagged hash below current strength.
+	 */
+	public boolean isPinHashUpgradeNeeded(Security security) {
+		if (security == null || security.getPin() == null) {
+			return false;
+		}
+
+		String storedPin = security.getPin();
+		if (!isModernHash(storedPin)) {
+			return true;
+		}
+
+		try {
+			return EncryptionUtils.isPasswordHashUpgradeNeeded(storedPin);
+		} catch (IllegalArgumentException e) {
+			// BCryptPasswordEncoder.upgradeEncoding throws on a value tagged {bcrypt} whose body is
+			// not bcrypt-shaped. Such a hash cannot be strengthened in place and no PIN can match
+			// it, so reporting "no upgrade" is the fail-safe answer.
+			logger.warn("Stored PIN hash could not be evaluated for upgrade; leaving it unchanged");
+			return false;
+		}
+	}
+
+	/**
+	 * Upgrades a validated PIN to the current hashing algorithm when the stored representation is
+	 * legacy or otherwise needs rehashing.
+	 *
+	 * @param rawPin The PIN supplied by the user.
+	 * @param security The security record containing the stored PIN.
+	 * @return True when no upgrade is needed or when the upgrade was persisted successfully.
+	 */
+	public boolean upgradePinHashIfNeeded(CharSequence rawPin, Security security) {
+		if (rawPin == null || rawPin.length() < 3 || security == null || security.getPin() == null) {
+			return false;
+		}
+
+		if (!this.validatePin(rawPin, security)) {
+			return false;
+		}
+
+		if (!this.isPinHashUpgradeNeeded(security)) {
+			return true;
+		}
+
+		return this.upgradeSavePinHash(rawPin, security);
 	}
 
 	/**
@@ -173,6 +302,67 @@ public class SecurityManager {
 		this.securityDao.merge(security);
                 return true;
             }
+
+	/**
+	 * Hashes the supplied PIN, stores it on the security record, and persists the change.
+	 *
+	 * @param rawPin The raw PIN to hash.
+	 * @param security The security record to update.
+	 * @return True if the hash was generated, verified, and persisted.
+	 */
+	public boolean upgradeSavePinHash(CharSequence rawPin, Security security) {
+		if (rawPin == null || security == null) {
+			return false;
+		}
+
+		String expectedStoredPin = security.getPin();
+		if (expectedStoredPin == null || security.getSecurityNo() == null) {
+			return false;
+		}
+
+		String hash = this.encodePin(rawPin);
+
+		if (!this.matchesPassword(rawPin, hash)) // should never happen, but if the PIN upgrade fails.
+			return false;
+
+		// The Security instance handed to us was read at the start of the login request and the
+		// upgrade is deferred until the login completes, so the row may have changed in between
+		// (self-service PIN change, admin edit, or a concurrent migration on another node).
+		// Guarding inside the UPDATE rather than read-then-write keeps that check atomic; merging
+		// the stale object would roll a newer PIN back to a hash of the old one.
+		Date pinUpdateDate = new Date();
+		int rowsUpdated = this.securityDao.updatePinHashIfUnchanged(
+				security.getSecurityNo(), expectedStoredPin, hash, pinUpdateDate);
+
+		if (rowsUpdated == 0) {
+			// Someone changed the PIN between authentication and here. Their value is newer than
+			// ours, so leaving it alone is the correct outcome, not a failure to report.
+			logger.info("Skipping PIN hash upgrade; stored PIN changed since authentication");
+			return true;
+		}
+
+		// The bulk update bypasses the persistence context, so align the caller's copy by hand.
+		security.setPin(hash);
+		security.setPinUpdateDate(pinUpdateDate);
+		return true;
+	}
+
+	private boolean matchesLegacyPin(CharSequence rawPin, String storedPin) {
+		String rawPinValue = rawPin.toString();
+		return constantTimeEquals(rawPinValue, storedPin) || constantTimeEquals(encryptLegacyPin(rawPinValue), storedPin);
+	}
+
+	@SuppressWarnings("deprecation")
+	private String encryptLegacyPin(String rawPin) {
+		return Misc.encryptPIN(rawPin);
+	}
+
+	private boolean constantTimeEquals(String first, String second) {
+		if (first == null || second == null) {
+			return false;
+		}
+		return MessageDigest.isEqual(first.getBytes(StandardCharsets.UTF_8), second.getBytes(StandardCharsets.UTF_8));
+	}
 
     public Security findByProviderNo(LoggedInInfo loggedInInfo, String providerNo) {
 

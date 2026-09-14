@@ -61,6 +61,9 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     void shouldAllowSelectOnlyQueries_forAdminReportBoundary() {
         assertThatCode(() -> validateSafeSelectQuery("select demographic_no from demographic"))
                 .doesNotThrowAnyException();
+        assertThatCode(() -> validateSafeSelectQuery(
+                "select 'update delete create drop' as instruction from demographic"))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -136,6 +139,20 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> validateSafeSelectQuery("select * from demographic UnIoN select * from provider"))
                 .isInstanceOf(SQLException.class)
                 .hasMessageContaining("UNION");
+    }
+
+    @Test
+    @DisplayName("should reject SQL-mode-dependent backslash quote escapes")
+    void shouldRejectBackslashQuotedSql_whenSqlModeIsUnknown() {
+        String ambiguousSql = "select 'safe\\' union select provider_no from provider";
+
+        assertThatThrownBy(() -> LegacyJdbcQuery.trustedSelectSql(ambiguousSql))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("comment or statement separator");
+        assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(ambiguousSql))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("comment or statement separator");
+        assertThat(LegacyJdbcQuery.containsUnsafeSqlControlToken(ambiguousSql)).isTrue();
     }
 
     @Test

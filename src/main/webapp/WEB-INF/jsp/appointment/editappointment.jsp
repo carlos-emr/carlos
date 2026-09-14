@@ -20,6 +20,17 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%--
+    Edits an existing appointment, including scheduling details, status, notes,
+    recurring/group actions, and receipt generation.
+
+    Request parameters include appointment_no and the appointment's editable
+    demographic, provider, date, time, status, and scheduling fields. Update &
+    Receipt validates the form, reserves the named receipt window during the
+    user gesture, and reuses that window after the update succeeds.
+
+    @since 2026-07-30
+--%>
 <!DOCTYPE html>
 
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -79,7 +90,6 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
@@ -92,6 +102,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="report.appointmentReceipt.title" var="appointmentReceiptTitle"/>
+<fmt:message key="appointment.editappointment.msgReceiptPending" var="appointmentReceiptPending"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -391,6 +403,15 @@
                 saveTemp = 2;
             }
 
+            function reserveAppointmentReceiptWindow() {
+                var receiptWindow = popupFocusPage(350, 750, '', 'appointmentReceipt');
+                if (receiptWindow != null) {
+                    var receiptDocument = receiptWindow.document;
+                    receiptDocument.title = '${carlos:forJavaScript(appointmentReceiptTitle)}';
+                    receiptDocument.body.textContent = '${carlos:forJavaScript(appointmentReceiptPending)}';
+                }
+            }
+
             function onButCancel() {
                 var aptStat = document.EDITAPPT.status.value;
                 if (aptStat.indexOf('B') === 0) {
@@ -418,9 +439,15 @@
                     }
                 }
                 if (saveTemp === 2) {
-                    return calculateEndTime();
-                } else
-                    return true;
+                    if (!calculateEndTime()) {
+                        document.EDITAPPT.printReceipt.value = '';
+                        return false;
+                    }
+                    if (document.EDITAPPT.printReceipt.value === '1') {
+                        reserveAppointmentReceiptWindow();
+                    }
+                }
+                return true;
             }
 
             function calculateEndTime() {
@@ -995,7 +1022,7 @@
                     >
 
 				<input type="number" name="duration" id="duration" class="form-control"
-                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :SafeEncode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"
+                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :SafeEncode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                onblur="calculateEndTime();">
                     </td>
                 </tr>
@@ -1384,7 +1411,7 @@
                     <% }%>
                     <input type="submit" id="printReceiptButton" class="btn btn-secondary"
                            formaction="<%=request.getContextPath() %>/appointment/UpdateRecord"
-                           onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';"
+                           onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';onButUpdate();"
                            value="<fmt:message key='appointment.editappointment.btnPrintReceipt'/>">
                     <input type="hidden" name="printReceipt" value="">
                     <input type="submit" class="btn btn-danger" id="deleteButton"

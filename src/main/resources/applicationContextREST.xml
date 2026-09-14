@@ -132,11 +132,9 @@
             <ref bean="jsonProvider"/>
             <!-- Optional: accept x-www-form-urlencoded bodies -->
             <bean class="org.apache.cxf.jaxrs.provider.FormEncodingProvider"/>
+            <!-- Render OAuth1Exception with its carried HTTP status instead of a 500 -->
+            <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuth1ExceptionMapper"/>
         </jaxrs:providers>
-
-        <jaxrs:features>
-            <cxf:logging/>
-        </jaxrs:features>
 
         <jaxrs:extensionMappings>
             <entry key="xml"  value="application/xml"/>

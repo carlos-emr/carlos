@@ -95,6 +95,20 @@
         text-decoration: underline;
     }
 
+    /* Save & Next stays unmistakably grey until a patient is selected; Bootstrap's
+       default disabled state keeps the primary blue and reads as clickable.
+       pointer-events must come back on: Bootstrap's .btn:disabled removes hit testing,
+       which would silently kill both the tooltip and the not-allowed cursor. The
+       disabled attribute still prevents activation, so the button stays unclickable. */
+    #save:disabled {
+        background-color: #adb5bd;
+        border-color: #adb5bd;
+        color: #495057;
+        opacity: 1;
+        cursor: not-allowed;
+        pointer-events: auto;
+    }
+
     /* Constrain the left panel so fields don't extend off-page */
     #incoming-docs-wrapper > table { width: 100%; table-layout: fixed; }
     #incoming-docs-wrapper > table > tbody > tr > td:first-child { width: 380px; overflow: hidden; }
@@ -206,10 +220,13 @@
     String errorMessage = "";
     String pdfNo = "";
     String pdfDirParam = request.getParameter("pdfDir");
-    // Validate pdfDir against whitelist to prevent path traversal (CWE-22)
-    String pdfDir = ("Fax".equals(pdfDirParam) || "Mail".equals(pdfDirParam)
-            || "File".equals(pdfDirParam) || "Refile".equals(pdfDirParam))
-            ? pdfDirParam : "Fax";
+    // Validate pdfDir against the incoming document folder allowlist to prevent path traversal
+    // (CWE-22). The allowlist is configurable, so the fallback has to come from it too --
+    // hardcoding "Fax" here made the first page load throw on any install whose configured
+    // folders do not include it.
+    List<String> allowedPdfDirs = IncomingDocUtil.getAllowedIncomingDocFolders();
+    String pdfDir = IncomingDocUtil.isAllowedIncomingDocFolder(pdfDirParam)
+            ? pdfDirParam : IncomingDocUtil.getDefaultIncomingDocFolder();
     String pdfDirectory = IncomingDocUtil.getIncomingDocumentFilePath(queueIdStr, pdfDir);
     String pdfAction = request.getParameter("pdfAction") == null ? "" : request.getParameter("pdfAction");
     String pdfPageNumber = request.getParameter("pdfPageNumber") == null ? "1" : request.getParameter("pdfPageNumber");
@@ -235,8 +252,8 @@
 
 
     IncomingDocUtil myIncomingDocUtil = new IncomingDocUtil();
-    ArrayList pdfList = myIncomingDocUtil.getDocList(pdfDirectory);
-    ArrayList pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
+    List<String> pdfList = myIncomingDocUtil.getDocList(pdfDirectory);
+    List<String> pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
 
     pdfNo = request.getParameter("pdfNo") == null ? "1" : request.getParameter("pdfNo");
     int pdfNoInt;
@@ -252,7 +269,7 @@
 
     int PdfIndex = pdfNoInt - 1;
     if (pdfList.size() >= 1 && PdfIndex <= (pdfList.size() - 1)) {
-        pdfName = (String) pdfList.get(PdfIndex);
+        pdfName = pdfList.get(PdfIndex);
     } else {
         pdfName = "";
     }
@@ -513,6 +530,24 @@
             }
         }
 
+        // The explanation belongs to the disabled state only. checkSave() in
+        // demographicProviderAutocomplete.js can re-disable the button when the typed
+        // value no longer matches a selected patient, so both the visible help and the
+        // tooltip are synchronized after each state change.
+        function syncSaveTooltip() {
+            var saveObj = document.getElementById('save');
+            var saveHelp = document.getElementById('save-disabled-help');
+            if (saveObj.disabled) {
+                saveObj.setAttribute('title', saveObj.getAttribute('data-disabled-title'));
+                saveObj.setAttribute('aria-describedby', 'save-disabled-help');
+                saveHelp.hidden = false;
+            } else {
+                saveObj.removeAttribute('title');
+                saveObj.removeAttribute('aria-describedby');
+                saveHelp.hidden = true;
+            }
+        }
+
         function loadRecentDemo(thisdemoid, thisDemoName) {
             var demogObj = document.getElementById('demofind');
             var autodemoObj = document.getElementById('autocompletedemo');
@@ -521,6 +556,7 @@
             demogObj.value = thisdemoid;
             autodemoObj.value = thisDemoName;
             saveObj.disabled = false;
+            syncSaveTooltip();
 
         }
 
@@ -568,8 +604,11 @@
             }
             console.log("pdfName " + pdfName);
             if (pdfName.length === 0) {
+                // No viewable document is selected (or its name failed path validation).
+                // Show a clear message rather than an empty <iframe src=""> that just
+                // renders as a blank right-hand pane with no explanation.
                 document.getElementById('pgnum') ? document.getElementById('pgnum').innerHTML = '' : '';
-                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<iframe	src=""  width="800" height="900" ></iframe>' : '';
+                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<div style="padding:16px;color:#555;">No document is available to preview.</div>' : '';
             } else {
                 document.getElementById('pgnum').innerHTML = pn + ' of <span class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">' + totalPage + '</span>';
 
@@ -664,6 +703,9 @@
                 return false;
             }
 
+            // "File" is the shipped folder for documents filed straight to the chart, so the
+            // missing-recipient prompt is skipped there. A folder added through
+            // ALLOWED_INCOMING_DOC_FOLDERS is treated like the other queues and still prompts.
             if (document.PdfInfoForm.pdfDir.value != "File") {
                 var flagproviderObj = document.getElementsByName('flagproviders');
                 if (flagproviderObj.length == 0) {
@@ -891,10 +933,20 @@
                         <tr>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Fax');"><fmt:message key="dms.incomingDocs.fax"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Mail');"><fmt:message key="dms.incomingDocs.mail"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','File');"><fmt:message key="dms.incomingDocs.file"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Refile');"><fmt:message key="dms.incomingDocs.refile"/></button>
+                                    <%
+                                        for (String allowedPdfDir : allowedPdfDirs) {
+                                            String pdfDirLabelKey = IncomingDocUtil.getIncomingDocFolderLabelKey(allowedPdfDir);
+                                    %>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','<carlos:encode value='<%= allowedPdfDir %>' context="javaScriptAttribute"/>');"><%
+                                        if (pdfDirLabelKey != null) {
+                                    %><fmt:message key="<%= pdfDirLabelKey %>"/><%
+                                        } else {
+                                    %><carlos:encode value='<%= allowedPdfDir %>' context="html"/><%
+                                        }
+                                    %></button>
+                                    <%
+                                        }
+                                    %>
                                 </div>
                             </td>
                         </tr>
@@ -912,8 +964,8 @@
                                                     <option value=""><fmt:message key="dms.incomingDocs.selectPDF"/></option>
                                                     <%
                                                         for (int p = 0; p < pdfList.size(); p++) {
-                                                            String docName = (String) pdfList.get(p);
-                                                            String docModifiedDate = (String) pdfListModifiedDate.get(p);
+                                                            String docName = pdfList.get(p);
+                                                            String docModifiedDate = pdfListModifiedDate.get(p);
                                                     %>
                                                     <option value="<carlos:encode value='<%= docName %>' context="htmlAttribute"/>" title="<carlos:encode value='<%= docName %>' context="htmlAttribute"/>"><%=p + 1%>
                                                         ) <carlos:encode value='<%= docModifiedDate %>' context="html"/>
@@ -1137,7 +1189,7 @@
                                     <input id="saved" type="hidden" name="saved" value="false"/>
                                     <input type="hidden" name="demog" value="-1" id="demofind"/>
                                     <input tabIndex="<%=tabIndex++%>" type="text" id="autocompletedemo"
-                                           onchange="checkSave('')" name="demographicKeyword" style="width:100%;"/>
+                                           onchange="checkSave('');syncSaveTooltip();" name="demographicKeyword" style="width:100%;"/>
                                     <div id="autocomplete_choices" class="autocomplete"></div>
                                 </td>
                             </tr>
@@ -1206,9 +1258,17 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2" align="left"><p>
-                                    <p><button type="submit" onclick="return checkDocument();" name="save"
-                                              tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm">Save & Next</button></td>
+                                <td colspan="2" align="left">
+                                    <fmt:message key="dms.incomingDocs.selectPatientToSave" var="selectPatientToSaveMessage"/>
+                                    <button type="submit" onclick="return checkDocument();" name="save"
+                                            tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm"
+                                            title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
+                                            data-disabled-title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
+                                            aria-describedby="save-disabled-help"><fmt:message key="inboxmanager.document.SaveAndNext"/></button>
+                                    <div id="save-disabled-help" class="form-text text-muted">
+                                        <carlos:encode value='${selectPatientToSaveMessage}' context="html"/>
+                                    </div>
+                                </td>
                             </tr>
                         </table>
                     </form>
@@ -1266,6 +1326,7 @@
                         selectedDemos.push(document.getElementById('autocompletedemo').value);
 
                         document.getElementById('save').disabled = false;
+                        syncSaveTooltip();
 
                         if (document.PdfInfoForm.pdfDir.value != "File") {
                             var MRPName = document.getElementById('MRPName').value;

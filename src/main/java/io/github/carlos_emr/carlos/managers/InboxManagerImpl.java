@@ -64,6 +64,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class InboxManagerImpl implements InboxManager {
@@ -76,6 +77,8 @@ public class InboxManagerImpl implements InboxManager {
     private SecUserRoleDao secUserRoleDao;
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public InboxManagerResponse getInboxResults(LoggedInInfo loggedInInfo, InboxManagerQuery query) {
         CommonLabResultData comLab = new CommonLabResultData();
         String providerNo = loggedInInfo.getLoggedInProviderNo();
