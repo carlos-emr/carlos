@@ -22,7 +22,14 @@ function fixture(fetch, type = 'DIRECT') {
   const context = vm.createContext({
     document: { getElementById: id => controls[id] },
     window: { close: () => events.push('close') },
-    FormData: class { constructor(value) { assert.equal(value, form); } },
+    URLSearchParams,
+    FormData: class {
+      constructor(value) { assert.equal(value, form); }
+      *[Symbol.iterator]() {
+        yield ["OWASP_CSRFTOKEN", "synthetic-csrf-token"];
+        yield ["emailPDFPasswordToken", "opaque-compose-token"];
+      }
+    },
     fetch
   });
   vm.runInContext(handler, context);
@@ -35,6 +42,9 @@ test('direct cancellation waits for server cleanup before closing', async () => 
     assert.ok(url.endsWith('/email/emailSendAction?method=cancel'));
     assert.equal(options.method, 'POST');
     assert.equal(options.credentials, 'same-origin');
+    assert.ok(options.body instanceof URLSearchParams);
+    assert.equal(options.body.get('OWASP_CSRFTOKEN'), 'synthetic-csrf-token');
+    assert.equal(options.body.get('emailPDFPasswordToken'), 'opaque-compose-token');
     return new Promise(resolve => { acknowledge = resolve; });
   });
   const pending = f.cancel();

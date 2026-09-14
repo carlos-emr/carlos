@@ -1081,7 +1081,8 @@
             const response = await fetch(cancelUrl, {
                 method: 'POST',
                 credentials: 'same-origin',
-                body: new FormData(emailComposeForm)
+                // Preserve normal form encoding so CSRF filters can read the token before Struts.
+                body: new URLSearchParams(new FormData(emailComposeForm))
             });
             if (response.status !== 204) {
                 throw new Error('Cancellation was not acknowledged');
