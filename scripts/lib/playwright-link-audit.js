@@ -35,7 +35,7 @@
  */
 
 const {
-  assert, relabelStrictPage, screenshot, withoutQueryStrings,
+  assert, relabelStrictPage, screenshot, withoutQueryStrings, wireStrictPage,
 } = require('./playwright-harness');
 const { clickOpensPopup } = require('./playwright-ui');
 
@@ -296,7 +296,11 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
   // For the in-place case below: what the page looked like before the click.
   const markupBefore = await hostPage.evaluate(() => document.body.innerHTML.length) // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code, no interpolation
     .catch(() => -1);
-  const pagesBefore = context && typeof context.pages === 'function' ? context.pages().length : 0;
+  // COPIED, not aliased. The comparison below asks which page is new, so it
+  // needs the list as it was BEFORE the click -- and a caller whose pages()
+  // hands back its own live array would otherwise have that array grow under
+  // the snapshot, leaving nothing to find.
+  const pagesBefore = context && typeof context.pages === 'function' ? [...context.pages()] : [];
   await link.click({ timeout });
   const navigated = await navigationStarted;
   if (navigated) {
@@ -323,8 +327,35 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
   // pass for a false failure.
   let actedInPlace = navigated;
   if (!actedInPlace) {
-    const pagesAfter = context && typeof context.pages === 'function' ? context.pages().length : 0;
-    actedInPlace = pagesAfter > pagesBefore;
+    // THE POPUP IS THE DESTINATION, not merely evidence that something
+    // happened. Recording "a page appeared" and then auditing the HOST was a
+    // pass for every uncatalogued opener: the popup was never wired for strict
+    // diagnostics, so its startup errors went unrecorded; its body was never
+    // read, so an error page in it read as a clean host page; and nothing
+    // closed it, because the cleanup below only closes a target marked
+    // isPopup. Handing it back as the target puts it through the whole of
+    // auditCatalogue -- error-page test, blank test, CSRF probe, screenshot on
+    // failure, and the close.
+    //
+    // Wired here rather than at the 'page' event, which has already fired by
+    // now: a startup failure in its first document is genuinely unrecoverable
+    // at this point. An item catalogued as an opener goes through
+    // clickOpensPopup instead, which wires inside the event continuation and
+    // does catch those. This path is the fallback for handlers whose
+    // window.open the catalogue's pattern does not name, and a late wire beats
+    // no wire and no close.
+    const appeared = (context && typeof context.pages === 'function' ? context.pages() : [])
+      .find((candidate) => !pagesBefore.includes(candidate));
+    if (appeared) {
+      if (recorder) {
+        wireStrictPage(appeared, label, recorder, {});
+      }
+      await appeared.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+      await appeared.waitForLoadState('networkidle', { timeout }).catch(() => {});
+      return {
+        page: appeared, isPopup: true, cameFrom: before, actedInPlace: true,
+      };
+    }
   }
   if (!actedInPlace && markupBefore >= 0) {
     actedInPlace = await hostPage.waitForFunction(

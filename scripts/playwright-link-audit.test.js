@@ -632,17 +632,37 @@ test('an item whose click does nothing is a finding, not an opened page', async 
   assert.match(result.failures[0], /clicking it did nothing/);
 });
 
+/**
+ * A popup double: enough of a Playwright page for the audit to read it, probe
+ * it and close it.
+ *
+ * @param body what body.innerText returns -- the destination's content
+ */
+function fakePopup(body) {
+  const state = { closed: false, listeners: [] };
+  state.page = {
+    url: () => 'http://127.0.0.1:8080/carlos/admin/popup',
+    locator: () => ({ innerText: async () => body, first: () => ({ count: async () => 0 }), count: async () => 0 }),
+    evaluate: async () => false,
+    waitForLoadState: async () => {},
+    on: (event, handler) => { state.listeners.push(event); void handler; },
+    close: async () => { state.closed = true; },
+  };
+  return state;
+}
+
 test('an item that opens an unclassified popup is not reported as inert', async () => {
   // Several CARLOS handlers reach window.open through a helper catalogueLinks'
   // pattern does not name. Those clicks leave the host page untouched, so
   // without counting the context's new page they would trade a false pass for a
   // false failure -- the item works, and the audit would call it broken.
   const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const popup = fakePopup('a popup with content');
   const pages = [{}];
   const fake = fakeAuditPage({
     textFor: () => 'Hidden Opener',
     // The click is what opens the popup.
-    onClick: () => { pages.push({}); },
+    onClick: () => { pages.push(popup.page); },
   });
   const result = await auditCatalogue({
     context: { pages: () => pages },
@@ -657,6 +677,55 @@ test('an item that opens an unclassified popup is not reported as inert', async 
   assert.equal(pages.length, 2, 'the double must actually have opened a page, or this test proves nothing');
   assert.deepEqual(result.failures, []);
   assert.deepEqual(result.opened, ['Hidden Opener']);
+  // THE POPUP IS THE DESTINATION. Counting it only as evidence that something
+  // happened, then auditing the untouched host page, passed every uncatalogued
+  // opener no matter what its popup contained -- and left the page open.
+  assert.ok(popup.listeners.length > 0, 'the popup must be wired for strict diagnostics, not just counted');
+  assert.equal(popup.closed, true, 'the popup must be closed, or a long sweep leaks one page per opener');
+});
+
+test('a broken popup from an unclassified opener is a failure, not a clean host page', async () => {
+  const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const popup = fakePopup('HTTP Status 500 - Internal Server Error');
+  const pages = [{}];
+  const fake = fakeAuditPage({
+    textFor: () => 'Hidden Opener',
+    onClick: () => { pages.push(popup.page); },
+  });
+  const result = await auditCatalogue({
+    context: { pages: () => pages },
+    hostPage: fake.page,
+    items: [{
+      text: 'Hidden Opener', index: 0, selector: 'a', href: '/x', opensPopup: false,
+    }],
+    recorder: createRecorder(),
+    labelPrefix: 'admin',
+    timeout: 1000,
+  });
+  assert.deepEqual(result.opened, []);
+  assert.deepEqual(result.failures, ['Hidden Opener: rendered an error page']);
+  assert.equal(popup.closed, true);
+});
+
+test('a blank popup from an unclassified opener is a failure too', async () => {
+  const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const popup = fakePopup('   ');
+  const pages = [{}];
+  const fake = fakeAuditPage({
+    textFor: () => 'Hidden Opener',
+    onClick: () => { pages.push(popup.page); },
+  });
+  const result = await auditCatalogue({
+    context: { pages: () => pages },
+    hostPage: fake.page,
+    items: [{
+      text: 'Hidden Opener', index: 0, selector: 'a', href: '/x', opensPopup: false,
+    }],
+    recorder: createRecorder(),
+    labelPrefix: 'admin',
+    timeout: 1000,
+  });
+  assert.deepEqual(result.failures, ['Hidden Opener: rendered a blank page']);
 });
 
 test('the administration shell keeps its route in rel, and that is catalogued', async () => {
