@@ -1051,8 +1051,8 @@ def main(argv=None):
                 raise ValueError("Resume configuration differs from the preserved campaign")
         else:
             campaign_copy.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-        base_prompt = (DRAFT / "prompt.txt").read_text(encoding="utf-8")
-        base_schema = read_json(DRAFT / "output-schema.json")
+        base_prompt = (BASE / "legacy-prompt.txt").read_text(encoding="utf-8")
+        base_schema = read_json(BASE / "legacy-output-schema.json")
         rows = []
         for case, candidate, seed, repetition in matrix:
             print(f"Running {case['case_id']} / {candidate['id']} / seed {seed} / {repetition}", flush=True)

@@ -25,7 +25,7 @@ final class ClinicalSummaryGenerationCache {
     private int bytes;
 
     ClinicalSummaryGenerationCache() {
-        this(16, 16 * 1024 * 1024, Duration.ofMinutes(15), System::nanoTime);
+        this(128, 16 * 1024 * 1024, Duration.ofMinutes(15), System::nanoTime);
     }
 
     ClinicalSummaryGenerationCache(int maxEntries, int maxBytes, Duration ttl, LongSupplier clock) {
@@ -41,7 +41,7 @@ final class ClinicalSummaryGenerationCache {
         chart.remove(java.util.List.of("artifact_id", "generated_at"));
         ObjectNode contract = request.deepCopy();
         contract.remove("request_id");
-        ObjectNode material = JSON.createObjectNode().put("cache_contract", 1).put("agent", identity);
+        ObjectNode material = JSON.createObjectNode().put("cache_contract", 2).put("agent", identity);
         material.set("chart", chart);
         material.set("request", contract);
         try {

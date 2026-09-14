@@ -172,7 +172,7 @@
     <div id="pane-splitter" class="pane-splitter js-control" role="separator" tabindex="0" aria-label="Resize source evidence" aria-orientation="vertical" aria-controls="evidence" aria-valuemin="24" aria-valuemax="55" aria-valuenow="28" hidden><i class="fa-solid fa-grip-lines-vertical" aria-hidden="true"></i></div>
     <aside id="evidence" class="evidence-panel" aria-labelledby="evidence-heading">
         <div class="panel-top">
-            <div class="evidence-heading"><h2 id="evidence-heading">Source evidence</h2><p id="evidence-subtitle"><c:choose><c:when test="${summaryArtifact.patient_context.synthetic}">Complete synthetic source documents</c:when><c:otherwise>Recorded fields and full included note text</c:otherwise></c:choose></p></div>
+            <div class="evidence-heading"><h2 id="evidence-heading">Source evidence</h2><p id="evidence-subtitle"><c:choose><c:when test="${summaryArtifact.patient_context.synthetic}">Complete synthetic source documents</c:when><c:otherwise>Recorded fields and available source text</c:otherwise></c:choose></p></div>
             <div class="evidence-controls js-control" hidden>
                 <button type="button" id="previous-claim" class="icon-button" title="Previous statement" aria-label="Previous statement" disabled><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>
                 <button type="button" id="next-claim" class="icon-button" title="Next statement" aria-label="Next statement" disabled><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>

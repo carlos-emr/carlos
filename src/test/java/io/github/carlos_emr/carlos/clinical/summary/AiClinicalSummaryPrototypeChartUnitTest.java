@@ -5,6 +5,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
+import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -25,7 +26,7 @@ class AiClinicalSummaryPrototypeChartUnitTest extends CarlosUnitTestBase {
     private final DemographicManager demographics = mock(DemographicManager.class);
     private final CaseManagementManager notes = mock(CaseManagementManager.class);
     private final RxManager medications = mock(RxManager.class);
-    private final AllergyManager allergies = mock(AllergyManager.class);
+    private final AllergyDao allergies = mock(AllergyDao.class);
     private final LoggedInInfo user = mock(LoggedInInfo.class);
     private final HttpSession session = mock(HttpSession.class);
     private final CarlosProperties properties = mock(CarlosProperties.class);
@@ -38,7 +39,7 @@ class AiClinicalSummaryPrototypeChartUnitTest extends CarlosUnitTestBase {
         registerMock(DemographicManager.class, demographics);
         registerMock(CaseManagementManager.class, notes);
         registerMock(RxManager.class, medications);
-        registerMock(AllergyManager.class, allergies);
+        registerMock(AllergyDao.class, allergies);
         settings = mockStatic(CarlosProperties.class);
         settings.when(CarlosProperties::getInstance).thenReturn(properties);
         when(user.getSession()).thenReturn(session);
@@ -90,7 +91,7 @@ class AiClinicalSummaryPrototypeChartUnitTest extends CarlosUnitTestBase {
         when(notes.isClientInProgramDomain("test-provider", "42")).thenReturn(false);
         assertThatThrownBy(this::load).isInstanceOf(SecurityException.class);
         verifyNoInteractions(demographics, medications, allergies);
-        verify(notes, never()).getNotes(anyString(), anyInt());
+        verify(notes, never()).getNotes(anyString());
     }
 
     @Test
@@ -110,7 +111,7 @@ class AiClinicalSummaryPrototypeChartUnitTest extends CarlosUnitTestBase {
         assertThat(artifact.getView().get("validation").toString())
                 .contains("medications_unavailable", "allergies_unavailable", "notes_unavailable");
         verifyNoInteractions(medications, allergies);
-        verify(notes, never()).getNotes(anyString(), anyInt());
+        verify(notes, never()).getNotes(anyString());
         logActionMock.verify(() -> LogAction.addLogSynchronous(user, "ClinicalSummary.read", "demographicNo=42"));
     }
 
@@ -124,13 +125,13 @@ class AiClinicalSummaryPrototypeChartUnitTest extends CarlosUnitTestBase {
         when(drug.getDrugName()).thenReturn("Example medication");
         when(drug.getSpecial()).thenReturn("Recorded instructions\n<script>example</script>");
         when(drug.isDiscontinued()).thenReturn(true);
-        when(medications.getDrugs(user, 42, RxStatus.CURRENT)).thenReturn(List.of(drug));
+        when(medications.getDrugs(user, 42, RxStatus.ALL)).thenReturn(List.of(drug));
         Allergy allergy = mock(Allergy.class);
         when(allergy.getId()).thenReturn(8);
         when(allergy.getDemographicNo()).thenReturn(42);
         when(allergy.getDescription()).thenReturn("Example allergen");
         when(allergy.getReaction()).thenReturn("Recorded rash");
-        when(allergies.getActiveAllergies(user, 42)).thenReturn(List.of(allergy));
+        when(allergies.findAllergies(42)).thenReturn(List.of(allergy));
         ClinicalSummaryArtifact artifact = load();
         assertThat(artifact.getClaimsById()).containsOnlyKeys("claim-rx-7", "claim-allergy-8");
         assertThat(artifact.getClaimsById().get("claim-rx-7").get("text").toString())
@@ -143,7 +144,7 @@ class AiClinicalSummaryPrototypeChartUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(user, "_rx", "r", 42)).thenReturn(true);
         Drug foreign = mock(Drug.class);
         when(foreign.getDemographicId()).thenReturn(43);
-        when(medications.getDrugs(user, 42, RxStatus.CURRENT)).thenReturn(List.of(foreign));
+        when(medications.getDrugs(user, 42, RxStatus.ALL)).thenReturn(List.of(foreign));
         assertThatThrownBy(this::load).isInstanceOf(SecurityException.class).hasMessage("Chart source patient mismatch");
     }
 
@@ -158,12 +159,12 @@ class AiClinicalSummaryPrototypeChartUnitTest extends CarlosUnitTestBase {
         when(locked.isLocked()).thenReturn(true);
         CaseManagementNote archived = note(5L);
         when(archived.isArchived()).thenReturn(true);
-        when(notes.getNotes("42", 51)).thenReturn(List.of(allowed, denied, unsigned, locked, archived));
+        when(notes.getNotes("42")).thenReturn(List.of(allowed, denied, unsigned, locked, archived));
         when(notes.filterNotes(user, "test-provider", List.of(allowed, denied), "12")).thenReturn(List.of(allowed));
         ClinicalSummaryArtifact artifact = load();
         verify(notes).filterNotes(user, "test-provider", List.of(allowed, denied), "12");
         assertThat(artifact.getClaimsById()).containsOnlyKeys("claim-note-1");
-        assertThat(artifact.getClaimsById().get("claim-note-1").get("text").toString()).endsWith("... [excerpt]");
+        assertThat(artifact.getClaimsById().get("claim-note-1").get("text").toString()).isEqualTo("Full note ".repeat(40));
         assertThat(artifact.getView().get("sources").toString()).contains("Full note ".repeat(40));
         assertThat(artifact.getView().get("sources").toString()).doesNotContain("note-2", "note-3", "note-4", "note-5");
     }
@@ -174,6 +175,18 @@ class AiClinicalSummaryPrototypeChartUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> provider.load(user, ClinicalSummaryRequest.chart(43)))
                 .isInstanceOf(SecurityException.class);
         verify(demographics, never()).getDemographic(user, Integer.valueOf(43));
+    }
+
+    @Test
+    void includesEligibleNotesBeyondTheFormerFiftyNoteLimit() {
+        when(session.getAttribute("case_program_id")).thenReturn("12");
+        var history = java.util.stream.LongStream.rangeClosed(1, 65).mapToObj(this::note).toList();
+        when(notes.getNotes("42")).thenReturn(history);
+        when(notes.filterNotes(user, "test-provider", history, "12")).thenReturn(history);
+        var result = load();
+        assertThat(result.getClaimsById()).hasSize(65).containsKey("claim-note-65");
+        assertThat(result.getClaimsById().get("claim-note-65").get("text")).isEqualTo("Full note ".repeat(40));
+        verify(notes, never()).getNotes(anyString(), anyInt());
     }
 
     private CaseManagementNote note(long id) {

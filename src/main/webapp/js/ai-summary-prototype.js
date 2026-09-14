@@ -18,7 +18,7 @@
             button.querySelector("i").className = "fa-solid fa-spinner fa-spin";
             button.querySelector("span").textContent = "Generating draft...";
             generationForm.setAttribute("aria-busy", "true");
-            status.textContent = "Waiting for the configured agent. This may take several minutes; no chart changes will be made.";
+            status.textContent = "Preparing the summary from the included record. Longer records can take several minutes; the completed draft will appear here.";
         });
         window.addEventListener("pageshow", event => {
             if (event.persisted && submitting) {

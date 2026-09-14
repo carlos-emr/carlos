@@ -40,7 +40,7 @@ def run_agent(request):
     if not isinstance(request["output_schema"], dict):
         raise ValueError("Missing output schema")
     sources = request["sources"]
-    if not isinstance(sources, list) or not 1 <= len(sources) <= 60:
+    if not isinstance(sources, list) or not sources:
         raise ValueError("Invalid sources")
     ids = set()
     patient_ids = set()

@@ -37,6 +37,9 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
 
 public interface ConsultResponseDao extends AbstractDao<ConsultationResponse> {
+    /** Complete patient-scoped history, including completed records and records without a linked provider. */
+    List<ConsultationResponse> findByDemographicNo(Integer demographicNo);
+
     int getConsultationCount(ConsultationResponseSearchFilter filter);
 
     List<Object[]> search(ConsultationResponseSearchFilter filter);

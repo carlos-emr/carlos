@@ -1,0 +1,200 @@
+/* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
+package io.github.carlos_emr.carlos.clinical.summary;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentProtocol.JSON;
+
+/** Bounded model calls over every source, with lossless host assembly rather than a lossy reduce call. */
+final class ClinicalSummaryGenerationPipeline {
+    // Serialized bytes, including prompt and schema. Leaves room for output in a 16K context.
+    static final int REQUEST_BYTES = 10000;
+    private final ClinicalSummaryAgent agent;
+    private final ClinicalSummaryGenerationCache cache;
+    private final String identity;
+
+    ClinicalSummaryGenerationPipeline(ClinicalSummaryAgent agent, ClinicalSummaryGenerationCache cache, String identity) {
+        this.agent = agent;
+        this.cache = cache;
+        this.identity = identity;
+    }
+
+    JsonNode generate(ObjectNode snapshot, ObjectNode request) throws IOException {
+        List<ObjectNode> requests = new ArrayList<>();
+        partition(request, requests);
+        List<JsonNode> outputs = new ArrayList<>();
+        for (ObjectNode part : requests) run(snapshot, part, requests.size() > 1, outputs);
+        return outputs.size() == 1 ? outputs.getFirst() : merge(outputs, snapshot.get("sources"));
+    }
+
+    private void partition(ObjectNode request, List<ObjectNode> requests) throws IOException {
+        if (JSON.writeValueAsBytes(request).length <= REQUEST_BYTES) {
+            requests.add(request);
+            return;
+        }
+        if (request.get("sources").size() == 1) {
+            for (ObjectNode part : split(request)) partition(part, requests);
+            return;
+        }
+        ObjectNode batch = request.deepCopy();
+        ArrayNode sources = batch.putArray("sources");
+        String kind = "";
+        for (JsonNode source : request.get("sources")) {
+            String nextKind = source.get("id").asText().split("-", 2)[0];
+            if (!sources.isEmpty() && !kind.equals(nextKind)) {
+                requests.add(batch.deepCopy());
+                sources.removeAll();
+            }
+            kind = nextKind;
+            sources.add(source.deepCopy());
+            if (JSON.writeValueAsBytes(batch).length > REQUEST_BYTES) {
+                sources.remove(sources.size() - 1);
+                if (!sources.isEmpty()) requests.add(batch.deepCopy());
+                sources.removeAll();
+                sources.add(source.deepCopy());
+                if (JSON.writeValueAsBytes(batch).length > REQUEST_BYTES) {
+                    partition(batch.deepCopy(), requests);
+                    sources.removeAll();
+                }
+            }
+        }
+        if (!sources.isEmpty()) requests.add(batch.deepCopy());
+        // Stable sequential packing keeps earlier batches reusable when a note is appended.
+        requests.forEach(part -> part.put("request_id", UUID.randomUUID().toString()));
+    }
+
+    private void run(ObjectNode snapshot, ObjectNode request, boolean cachePart, List<JsonNode> outputs) throws IOException {
+        ObjectNode part = snapshot.deepCopy();
+        part.set("sources", request.get("sources").deepCopy());
+        for (String field : List.of("claims", "sections", "coverage", "fact_ledger", "validation")) part.putArray(field);
+        // Each part depends only on its own evidence and patient scope. An unrelated chart edit
+        // invalidates the final-result cache, but need not regenerate unchanged source portions.
+        String key = cachePart && cache != null && identity != null ? ClinicalSummaryGenerationCache.key(part, request, identity) : null;
+        verifyRevision();
+        if (key != null) {
+            ClinicalSummaryArtifact hit = cache.get(key);
+            if (hit != null) {
+                outputs.add(output(JSON.valueToTree(hit.getView())));
+                return;
+            }
+        }
+        JsonNode generated;
+        try {
+            generated = agent.generate(request.deepCopy());
+        } catch (ClinicalSummaryOutputLimitException exhausted) {
+            // Never accept a truncated JSON response. Retry smaller input portions, or fail the
+            // whole draft if a minimal portion still cannot be completed.
+            for (ObjectNode smaller : split(request)) run(snapshot, smaller, true, outputs);
+            return;
+        }
+        ClinicalSummaryGenerationService.validateGenerated(generated, part.get("sources"), true);
+        for (String field : List.of("sections", "claims", "coverage")) part.set(field, generated.get(field).deepCopy());
+        ClinicalSummaryArtifact validated = new ClinicalSummaryArtifact(part);
+        if (!validated.isRenderable()) throw new IllegalArgumentException("Invalid source portion");
+        verifyRevision();
+        if (key != null) cache.put(key, validated);
+        outputs.add(generated);
+    }
+
+    private void verifyRevision() throws IOException {
+        if (identity != null && !identity.equals(agent.cacheIdentity())) {
+            throw new IOException("Model revision changed during generation");
+        }
+    }
+
+    private static ObjectNode output(ObjectNode artifact) {
+        ObjectNode result = JSON.createObjectNode();
+        for (String field : List.of("sections", "claims", "coverage")) result.set(field, artifact.get(field));
+        return result;
+    }
+
+    private static List<ObjectNode> split(ObjectNode request) throws IOException {
+        ArrayNode sources = (ArrayNode) request.get("sources");
+        ObjectNode left = request.deepCopy().put("request_id", UUID.randomUUID().toString());
+        ObjectNode right = request.deepCopy().put("request_id", UUID.randomUUID().toString());
+        ArrayNode first = left.putArray("sources");
+        ArrayNode second = right.putArray("sources");
+        if (sources.size() > 1) {
+            for (int i = 0; i < sources.size(); i++) (i < sources.size() / 2 ? first : second).add(sources.get(i).deepCopy());
+        } else {
+            ObjectNode source = (ObjectNode) sources.get(0);
+            String text = source.path("text").asText();
+            if (text.length() < 1024) throw new IOException("Source portion cannot be completed within model limits");
+            int middle = text.length() / 2;
+            // Prefer a paragraph boundary, then a sentence boundary. Preserve surrounding context
+            // on both sides; never drop text, split a surrogate pair, or discard a long final tail.
+            int boundary = text.lastIndexOf('\n', middle);
+            if (boundary < middle / 2) boundary = text.lastIndexOf(". ", middle);
+            if (boundary >= middle / 2) middle = boundary + 1;
+            int end = Math.min(text.length(), middle + 128);
+            int start = Math.max(0, middle - 128);
+            if (end < text.length() && Character.isLowSurrogate(text.charAt(end))) end++;
+            if (start > 0 && Character.isLowSurrogate(text.charAt(start))) start--;
+            first.add(source.deepCopy().put("text", text.substring(0, end)));
+            second.add(source.deepCopy().put("text", text.substring(start)));
+        }
+        return List.of(left, right);
+    }
+
+    private static ObjectNode merge(List<JsonNode> outputs, JsonNode sources) {
+        ObjectNode result = JSON.createObjectNode();
+        ArrayNode sections = result.putArray("sections");
+        ArrayNode claims = result.putArray("claims");
+        ArrayNode coverage = result.putArray("coverage");
+        Map<String, ObjectNode> unique = new LinkedHashMap<>();
+        Map<String, ArrayNode> members = new LinkedHashMap<>();
+        Map<String, List<JsonNode>> reviews = new LinkedHashMap<>();
+        for (JsonNode part : outputs) {
+            Map<String, JsonNode> claimSections = new LinkedHashMap<>();
+            for (JsonNode section : part.get("sections")) {
+                for (JsonNode id : section.get("claim_ids")) claimSections.put(id.asText(), section);
+            }
+            for (JsonNode claim : part.get("claims")) {
+                String normalized = claim.get("text").asText().strip();
+                ObjectNode existing = unique.get(normalized);
+                if (existing == null) {
+                    existing = claim.deepCopy();
+                    existing.put("id", "claim-" + (unique.size() + 1));
+                    unique.put(normalized, existing);
+                    claims.add(existing);
+                    JsonNode section = claimSections.get(claim.get("id").asText());
+                    ArrayNode ids = members.computeIfAbsent(section.get("id").asText(), id ->
+                            sections.addObject().put("id", id).put("title", section.get("title").asText()).putArray("claim_ids"));
+                    ids.add(existing.get("id").asText());
+                } else {
+                    Set<String> ids = new LinkedHashSet<>();
+                    existing.get("source_ids").forEach(id -> ids.add(id.asText()));
+                    claim.get("source_ids").forEach(id -> ids.add(id.asText()));
+                    ArrayNode citations = existing.putArray("source_ids");
+                    ids.forEach(citations::add);
+                }
+            }
+            for (JsonNode entry : part.get("coverage")) {
+                reviews.computeIfAbsent(entry.get("source_id").asText(), id -> new ArrayList<>()).add(entry);
+            }
+        }
+        Set<String> cited = new LinkedHashSet<>();
+        claims.forEach(claim -> claim.get("source_ids").forEach(id -> cited.add(id.asText())));
+        for (JsonNode source : sources) {
+            String id = source.get("id").asText();
+            List<JsonNode> entries = reviews.get(id);
+            if (entries == null || entries.isEmpty()) throw new IllegalArgumentException("Unprocessed source");
+            boolean excluded = entries.stream().allMatch(entry -> "excluded".equals(entry.get("status").asText()));
+            Set<String> reasons = new LinkedHashSet<>();
+            entries.forEach(entry -> reasons.add(entry.get("status").asText() + ": " + entry.get("reason").asText()));
+            coverage.addObject().put("source_id", id)
+                    .put("status", cited.contains(id) ? "cited" : excluded ? "excluded" : "reviewed_not_cited")
+                    .put("reason", id + " — all " + entries.size() + " portions processed. " + String.join("; ", reasons));
+        }
+        return result;
+    }
+}

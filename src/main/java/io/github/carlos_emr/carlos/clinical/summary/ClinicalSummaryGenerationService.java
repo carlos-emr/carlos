@@ -26,9 +26,6 @@ public final class ClinicalSummaryGenerationService {
     public static final String CACHE_ENABLED_PROPERTY = "clinical.ai_summary_generation.cache.enabled";
     private static final ClinicalSummaryGenerationCache CACHE = new ClinicalSummaryGenerationCache();
     private static final Semaphore CAPACITY = new Semaphore(1);
-    private static final int MAX_CLAIMS = 20;
-    private static final int MAX_CLAIM_LENGTH = 240;
-    private static final int MAX_COVERAGE_REASON_LENGTH = 160;
     private static final Map<String, String> SECTION_TITLES = Map.of(
             "clinical_overview", "Clinical overview",
             "active_problems", "Active problems",
@@ -36,6 +33,10 @@ public final class ClinicalSummaryGenerationService {
             "results_observations", "Results and observations",
             "plan_follow_up", "Plan and follow-up");
     private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}]+");
+    private static final Map<String, String> LEXICAL_EXPANSIONS = Map.of(
+            "\\bhr\\b", "heart rate", "\\bbp\\b", "blood pressure", "\\brr\\b", "respiratory rate",
+            "\\bspo2\\b", "oxygen saturation", "\\bhf\\b", "heart failure", "\\bf/u\\b", "follow up",
+            "\\bwks?\\b", "weeks");
     private static final Pattern SOURCE_METADATA = Pattern.compile(
             "(?i)(?:\\b(source (?:note|admission|patient) id|demographic (?:number|id)|"
                     + "recorded gender identity|synthetic nhs test patient|imported development fixture|"
@@ -75,43 +76,26 @@ public final class ClinicalSummaryGenerationService {
                     .put("instructions", resource("generation-prompt.txt"));
             request.set("sources", snapshot.get("sources").deepCopy());
             request.set("output_schema", JSON.readTree(resource("generation-schema.json")));
-            if (JSON.writeValueAsBytes(request).length > MAX_REQUEST_BYTES) {
-                throw new ClinicalSummaryGenerationException("The source bundle exceeds this prototype's context limit. No chart data was sent.");
-            }
             String name = agent.displayName();
             if (name == null || name.isBlank() || name.length() > 224 || name.chars().anyMatch(Character::isISOControl)) {
                 throw new IllegalArgumentException("Invalid agent name");
             }
             // Eligibility precedes metadata lookup and every cache hit. The action separately
             // reloads authorized evidence before and after this call, including on cache hits.
-            String identity = cache == null ? null : agent.cacheIdentity();
-            String cacheKey = identity == null ? null : ClinicalSummaryGenerationCache.key(snapshot, request, identity);
+            String identity = agent.cacheIdentity();
+            String cacheKey = cache == null || identity == null ? null : ClinicalSummaryGenerationCache.key(snapshot, request, identity);
             if (cacheKey != null) {
                 ClinicalSummaryArtifact hit = cache.get(cacheKey);
                 if (hit != null) return hit;
             }
-            // Adapters receive an isolated data copy, never the chart artifact or CARLOS session.
-            JsonNode generated = agent.generate(request.deepCopy());
-            if (JSON.writeValueAsBytes(generated).length > MAX_RESPONSE_BYTES) {
-                throw new IllegalArgumentException("Oversized agent output");
-            }
-            exactFields(generated, Set.of("sections", "claims", "coverage"));
-            validateRows(generated, "sections", Set.of("id", "title", "claim_ids"), SECTION_TITLES.size());
-            validateRows(generated, "claims", Set.of("id", "text", "source_ids"), MAX_CLAIMS);
-            validateRows(generated, "coverage", Set.of("source_id", "status", "reason"), 60);
-            if (generated.get("claims").isEmpty()) throw new IllegalArgumentException("Empty agent draft");
-            validateReadableDraft(generated, snapshot.get("sources"));
+            JsonNode generated = new ClinicalSummaryGenerationPipeline(agent, cache, identity).generate(snapshot, request);
+            validateGenerated(generated, snapshot.get("sources"), false);
             for (String key : Set.of("sections", "claims", "coverage")) {
                 snapshot.set(key, generated.get(key).deepCopy());
             }
             snapshot.put("artifact_id", "ai-" + UUID.randomUUID()).put("generated_at", Instant.now().toString())
                     .put("model", name + " (unverified draft)");
             ArrayNode findings = (ArrayNode) snapshot.get("validation");
-            for (JsonNode finding : findings) {
-                if ("partial_chart".equals(finding.path("code").asText())) {
-                    ((ObjectNode) finding).put("message", "AI draft covers only the included source snapshot. Labs, documents, forms and other chart sections are not included. Missing information is not a negative clinical finding.");
-                }
-            }
             findings.addObject().put("severity", "warning").put("code", "ai_review_required")
                     .put("message", "Unverified AI draft for synthetic testing only. Reference checks do not establish support, clinical accuracy or completeness. Nothing has been saved to the chart.")
                     .putArray("source_ids");
@@ -138,6 +122,18 @@ public final class ClinicalSummaryGenerationService {
         }
     }
 
+    static void validateGenerated(JsonNode generated, JsonNode sources, boolean allowEmpty) throws IOException {
+        if (JSON.writeValueAsBytes(generated).length > MAX_RESPONSE_BYTES) {
+            throw new IllegalArgumentException("Oversized agent output");
+        }
+        exactFields(generated, Set.of("sections", "claims", "coverage"));
+        validateRows(generated, "sections", Set.of("id", "title", "claim_ids"), SECTION_TITLES.size());
+        validateRows(generated, "claims", Set.of("id", "text", "source_ids"), Integer.MAX_VALUE);
+        validateRows(generated, "coverage", Set.of("source_id", "status", "reason"), sources.size());
+        if (!allowEmpty && generated.get("claims").isEmpty()) throw new IllegalArgumentException("Empty agent draft");
+        validateReadableDraft(generated, sources);
+    }
+
     private static void validateRows(JsonNode generated, String name, Set<String> fields, int max) {
         JsonNode rows = generated.path(name);
         if (!rows.isArray() || rows.size() > max) throw new IllegalArgumentException("Invalid agent collection");
@@ -155,7 +151,7 @@ public final class ClinicalSummaryGenerationService {
                 throw new IllegalArgumentException("Invalid clinical section");
             }
         }
-        if (sectionIds.isEmpty()) throw new IllegalArgumentException("Missing clinical sections");
+        if (sectionIds.isEmpty() != generated.get("claims").isEmpty()) throw new IllegalArgumentException("Missing clinical sections");
 
         Map<String, Set<String>> sourceWords = new HashMap<>();
         for (JsonNode source : sources) {
@@ -164,13 +160,13 @@ public final class ClinicalSummaryGenerationService {
         }
         Set<String> uniqueClaims = new HashSet<>();
         for (JsonNode claim : generated.get("claims")) {
-            String claimText = boundedText(claim, "text", MAX_CLAIM_LENGTH);
+            String claimText = boundedText(claim, "text", Integer.MAX_VALUE);
             if (hasLineBreak(claimText) || SOURCE_METADATA.matcher(claimText).find()
-                    || !uniqueClaims.add(normalize(claimText))) {
+                    || !uniqueClaims.add(claimText.strip())) {
                 throw new IllegalArgumentException("Unreadable or duplicate clinical claim");
             }
             JsonNode references = claim.path("source_ids");
-            if (!references.isArray() || references.isEmpty() || references.size() > 8) {
+            if (!references.isArray() || references.isEmpty() || references.size() > sources.size()) {
                 throw new IllegalArgumentException("Invalid claim citations");
             }
             Set<String> citedWords = new HashSet<>();
@@ -189,7 +185,7 @@ public final class ClinicalSummaryGenerationService {
 
         Set<String> uniqueReasons = new HashSet<>();
         for (JsonNode entry : generated.get("coverage")) {
-            String reason = boundedText(entry, "reason", MAX_COVERAGE_REASON_LENGTH);
+            String reason = boundedText(entry, "reason", Integer.MAX_VALUE);
             if (hasLineBreak(reason) || !uniqueReasons.add(normalize(reason))) {
                 throw new IllegalArgumentException("Unreadable or duplicate coverage reason");
             }
@@ -208,14 +204,16 @@ public final class ClinicalSummaryGenerationService {
         return value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0;
     }
 
-    private static String normalize(String value) {
+    static String normalize(String value) {
         return Normalizer.normalize(value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)
                 .replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
     }
 
     private static Set<String> words(String value) {
         Set<String> result = new HashSet<>();
-        Matcher matcher = WORD.matcher(Normalizer.normalize(value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT));
+        String expanded = Normalizer.normalize(value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+        for (var entry : LEXICAL_EXPANSIONS.entrySet()) expanded = expanded.replaceAll(entry.getKey(), entry.getValue());
+        Matcher matcher = WORD.matcher(expanded);
         while (matcher.find()) {
             String word = matcher.group();
             if (word.length() >= 3) result.add(word);

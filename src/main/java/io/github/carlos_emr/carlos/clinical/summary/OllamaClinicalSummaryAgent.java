@@ -44,7 +44,7 @@ public final class OllamaClinicalSummaryAgent implements ClinicalSummaryAgent {
             if (model.equals(tag.path("name").asText()) && tag.path("digest").isTextual()
                     && tag.path("digest").asText().matches("(?:sha256:)?[a-f0-9]{64}")) {
                 return "ollama:" + port + ":" + model + ":" + tag.get("digest").asText()
-                        + ":" + version.get("version").asText() + ":no-think:temp0:ctx65536:predict4096";
+                        + ":" + version.get("version").asText() + ":no-think:temp0:ctx16384:predict4096";
             }
         }
         return null;
@@ -68,11 +68,15 @@ public final class OllamaClinicalSummaryAgent implements ClinicalSummaryAgent {
                 .put("prompt", JSON.writeValueAsString(bundle)).put("stream", false).put("think", false)
                 .put("keep_alive", "5m");
         payload.set("format", request.get("output_schema").deepCopy());
-        payload.putObject("options").put("temperature", 0).put("num_ctx", 65536).put("num_predict", 4096);
+        payload.putObject("options").put("temperature", 0).put("num_ctx", 16384).put("num_predict", 4096);
         byte[] body = JSON.writeValueAsBytes(payload);
         if (body.length > MAX_REQUEST_BYTES) throw new IllegalArgumentException("Ollama context limit exceeded");
         verifyLocalModel();
         JsonNode response = post(port, "/api/generate", body, timeoutMs);
+        if (response != null && model.equals(response.path("model").asText())
+                && response.path("done").asBoolean() && "length".equals(response.path("done_reason").asText())) {
+            throw new ClinicalSummaryOutputLimitException();
+        }
         if (response == null || !response.isObject() || !response.path("done").isBoolean()
                 || !response.path("done").booleanValue() || !"stop".equals(response.path("done_reason").asText())
                 || !model.equals(response.path("model").asText()) || !response.path("response").isTextual()) {
