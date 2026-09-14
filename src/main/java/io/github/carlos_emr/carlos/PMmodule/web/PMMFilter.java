@@ -81,7 +81,9 @@ public class PMMFilter implements Filter {
         HttpSession session = request.getSession();
 
         String oscarUser = (String) session.getAttribute("user");
-        if (oscarUser == null || oscarUser.trim().isEmpty()) {
+        // isBlank(), not trim().isEmpty(): trim() only strips code points <= U+0020, so a session
+        // user of Unicode whitespace (for example U+2003) would otherwise reach getProgramDomain().
+        if (oscarUser == null || oscarUser.isBlank()) {
             logger.warn("Unauthenticated access attempt to PMmodule blocked: method={}, uri={}, remote={}",
                     LogSafe.sanitize(request.getMethod()),
                     LogSafe.sanitizeUri(request.getRequestURI()),

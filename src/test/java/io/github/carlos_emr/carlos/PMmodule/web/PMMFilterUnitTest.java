@@ -65,8 +65,10 @@ class PMMFilterUnitTest extends CarlosUnitTestBase {
         verify(chain, never()).doFilter(any(), any());
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"", "   ", "\t\n"})
+    // \u2003 (EM SPACE) pins the isBlank() contract: String.trim() only strips code points up to
+    // U+0020, so a trim()-based guard would let this value through to the PMmodule handlers.
+    @ParameterizedTest(name = "user=[{0}]")
+    @ValueSource(strings = {"", "   ", "\t\n", "\u2003"})
     @DisplayName("should redirect to logout page and stop chain when user blank")
     void shouldRedirectToLogoutPage_whenUserBlank(String oscarUser)
             throws ServletException, IOException {
