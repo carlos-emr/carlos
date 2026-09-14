@@ -26,6 +26,24 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 @DisplayName("EmailStatusResult")
 class EmailStatusResultUnitTest {
     @Test
+    @DisplayName("should format missing name components without throwing or adding separators")
+    void shouldReturnSafeFullNames_whenNameComponentsMissing() {
+        EmailStatusResult result = new EmailStatusResult();
+
+        assertThat(result.getSenderFullName()).isEmpty();
+        assertThat(result.getRecipientFullName()).isEmpty();
+        assertThat(result.getProviderFullName()).isEmpty();
+
+        result.setSenderFullName("CLINIC", null);
+        result.setRecipientFullName(null, "PATIENT");
+        result.setProviderFullName("DOCTOR", null);
+
+        assertThat(result.getSenderFullName()).isEqualTo("Clinic");
+        assertThat(result.getRecipientFullName()).isEqualTo("Patient");
+        assertThat(result.getProviderFullName()).isEqualTo("Doctor");
+    }
+
+    @Test
     @DisplayName("should defensively copy consent last update date")
     void shouldDefensivelyCopyConsentLastUpdateDate_whenApplyingSnapshot() {
         Date sourceDate = new Date(1_000L);

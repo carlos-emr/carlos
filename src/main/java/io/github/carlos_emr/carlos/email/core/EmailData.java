@@ -1,6 +1,6 @@
 package io.github.carlos_emr.carlos.email.core;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -25,6 +25,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * through optional email encryption with password protection and encrypted attachments. All
  * email transactions are logged for audit trail purposes and can be linked to specific patient
  * charts and healthcare providers.</p>
+ *
+ * <p>Optional fields that downstream email handling expects to be non-null are initialized to
+ * safe defaults. In particular, attachments default to a mutable empty list and chart display defaults
+ * to {@link ChartDisplayOption#WITHOUT_NOTE}.</p>
  * 
  * <p>Typical usage:</p>
  * <pre>
@@ -59,20 +63,18 @@ public class EmailData {
     private String passwordClue;
     private boolean isEncrypted;
     private boolean isAttachmentEncrypted;
-    private ChartDisplayOption chartDisplayOption;
+    private ChartDisplayOption chartDisplayOption = ChartDisplayOption.WITHOUT_NOTE;
     private String internalComment;
     private TransactionType transactionType;
     private Integer demographicNo;
     private String providerNo;
     private String additionalParams;
-    private List<EmailAttachment> attachments;
+    private List<EmailAttachment> attachments = new ArrayList<>();
     private boolean consentOverride;
     private String consentOverrideReason;
 
     /**
      * Default constructor for creating an empty EmailData instance.
-     * All fields are initialized to their default values (null for objects, false for booleans).
-     * Use setter methods to populate the email data fields.
      */
     public EmailData() {
     }
@@ -372,7 +374,7 @@ public class EmailData {
      * @param chartDisplayOption ChartDisplayOption the chart display setting
      */
     public void setChartDisplayOption(ChartDisplayOption chartDisplayOption) {
-        this.chartDisplayOption = chartDisplayOption;
+        this.chartDisplayOption = chartDisplayOption != null ? chartDisplayOption : ChartDisplayOption.WITHOUT_NOTE;
     }
 
     /**
@@ -380,13 +382,13 @@ public class EmailData {
      * Convenience method for parsing request parameters.
      * 
      * @param chartDisplayOption String "doNotAddAsNote" to exclude from chart, 
-     *                          any other value (including null) defaults to WITH_FULL_NOTE
+     *                          null defaults to WITHOUT_NOTE; other non-null values select WITH_FULL_NOTE
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setChartDisplayOption(String chartDisplayOption) {
         if (chartDisplayOption == null) {
-            chartDisplayOption = "addFullNote";
+            chartDisplayOption = "doNotAddAsNote";
         }
         this.chartDisplayOption = "doNotAddAsNote".equalsIgnoreCase(chartDisplayOption) ? ChartDisplayOption.WITHOUT_NOTE : ChartDisplayOption.WITH_FULL_NOTE;
     }
@@ -539,7 +541,7 @@ public class EmailData {
      * @param attachments List&lt;EmailAttachment&gt; the list of attachments; null values are converted to empty list
      */
     public void setAttachments(List<EmailAttachment> attachments) {
-        this.attachments = attachments != null ? attachments : Collections.emptyList();
+        this.attachments = attachments != null ? attachments : new ArrayList<>();
     }
 
     /** @return whether the provider requested an unknown-consent override */

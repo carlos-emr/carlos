@@ -51,6 +51,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="org.apache.commons.lang3.math.NumberUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
@@ -231,8 +232,12 @@
             <form method="post" action="${pageContext.request.contextPath}/admin/SecurityUpdate" name="updatearecord" onsubmit="return onsub()">
                 <%
                     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
-                    Integer securityId = Integer.valueOf(request.getParameter("keyword"));
-                    Security security = securityDao.find(securityId);
+                    // The "keyword" request parameter is the security record id supplied by the
+                    // search-results link. It is attacker-controllable, so it is parsed defensively:
+                    // NumberUtils.toInt() yields the -1 sentinel for missing, blank, non-numeric and
+                    // out-of-range input instead of throwing NumberFormatException into errorpage.jsp.
+                    int securityId = NumberUtils.toInt(request.getParameter("keyword"), -1);
+                    Security security = securityId > 0 ? securityDao.find(securityId) : null;
 
                     if (security == null) {
                 %>
