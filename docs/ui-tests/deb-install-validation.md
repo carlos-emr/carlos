@@ -671,9 +671,11 @@ suite_failed=0
 #                                appointment column. ONE PREREQUISITE the dataset does not provide --
 #                                the field is rendered only when workflow_enhance is true, which the
 #                                package ships false, so set it in /etc/carlos-emr/carlos.properties
-#                                and `carlos-ctl restart` before the loop; the check fails with that
-#                                instruction rather than passing vacuously when it is off. It seeds one
-#                                appointment for tomorrow and deletes it in a finally.)
+#                                and `carlos-ctl restart` before the loop; with it off the check
+#                                reports SKIP (exit 2) naming the property rather than passing
+#                                vacuously, so a run that never set it finishes green WITHOUT having
+#                                exercised the column -- read the skip, do not read it as a pass. It
+#                                seeds one appointment for tomorrow and deletes it in a finally.)
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
