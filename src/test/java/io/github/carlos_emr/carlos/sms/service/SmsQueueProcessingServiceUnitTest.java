@@ -23,6 +23,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 @Tag("unit")
 @Tag("service")
@@ -356,8 +360,8 @@ class SmsQueueProcessingServiceUnitTest {
     void shouldBlockQueuedSend_whenConsentIsNoLongerAllowed() {
         SmsTransaction transaction = queuedTransaction();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
-        SmsProviderClientResolver resolver = org.mockito.Mockito.mock(SmsProviderClientResolver.class);
-        SmsSendRateLimitService limiter = org.mockito.Mockito.mock(SmsSendRateLimitService.class);
+        SmsProviderClientResolver resolver = mock(SmsProviderClientResolver.class);
+        SmsSendRateLimitService limiter = mock(SmsSendRateLimitService.class);
         SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, resolver, new SmsRetryCalculator(), limiter,
                 new DeferredSmsConsentService(() -> false));
 
@@ -372,11 +376,11 @@ class SmsQueueProcessingServiceUnitTest {
     void shouldReconcileWithoutResending_whenProviderAcceptsThenThrows() {
         SmsTransaction transaction = queuedTransaction();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
-        SmsProviderClient client = org.mockito.Mockito.mock(SmsProviderClient.class);
-        org.mockito.Mockito.when(client.providerType()).thenReturn(SmsProviderType.STUB);
-        org.mockito.Mockito.when(client.send(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString()))
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        when(client.send(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString()))
                 .thenThrow(new IllegalStateException("synthetic timeout after acceptance"));
-        org.mockito.Mockito.when(client.lookupMessageStatus(org.mockito.ArgumentMatchers.anyString(),
+        when(client.lookupMessageStatus(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.isNull())).thenReturn(SmsProviderMessageStatusDto.found(
                         SmsProviderSendResultDto.accepted("accepted-once", SmsStatus.SENT)));
         SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, new SmsProviderClientResolver(List.of(client)),
@@ -390,7 +394,7 @@ class SmsQueueProcessingServiceUnitTest {
         worker.processDueMessages(1);
 
         assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENT);
-        org.mockito.Mockito.verify(client, org.mockito.Mockito.times(1)).send(
+        verify(client, times(1)).send(
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("sms-transaction-1"));
     }
 

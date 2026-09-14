@@ -86,7 +86,7 @@ public class SmsQueueScheduler {
 
     private int batchSize() {
         long configuredBatchSize = longProperty(BATCH_SIZE_PROPERTY, DEFAULT_BATCH_SIZE);
-        return (int) Math.max(1L, Math.min(Integer.MAX_VALUE, configuredBatchSize));
+        return Math.clamp(configuredBatchSize, 1, Integer.MAX_VALUE);
     }
 
     private long longProperty(String propertyName, long defaultValue) {

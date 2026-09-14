@@ -28,7 +28,7 @@ class SmsBoundarySafetyUnitTest {
                 SmsProviderMessageStatusDto.unavailable(sensitive, sensitive),
                 SmsConsentDecisionDto.blocked(SmsStatus.CONSENT_BLOCKED, sensitive, sensitive),
                 SmsSendResultDto.validationFailed(List.of(sensitive)));
-        assertThat(records).allSatisfy(value -> assertThat(value.toString())
+        assertThat(records).hasSize(7).allSatisfy(value -> assertThat(value.toString())
                 .contains("redacted").doesNotContain(sensitive, "14165551212", "1234567"));
     }
 
@@ -55,7 +55,8 @@ class SmsBoundarySafetyUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new SmsInboundWebhookDto(SmsProviderType.STUB, oversized, null, null,
                 "synthetic", Instant.EPOCH, null)).isInstanceOf(IllegalArgumentException.class);
+        String oversizedClientReference = "x".repeat(65);
         assertThatThrownBy(() -> new SmsDeliveryWebhookDto(SmsProviderType.STUB, "id", SmsStatus.DELIVERED,
-                Instant.EPOCH, null, null, "x".repeat(65), null)).isInstanceOf(IllegalArgumentException.class);
+                Instant.EPOCH, null, null, oversizedClientReference, null)).isInstanceOf(IllegalArgumentException.class);
     }
 }

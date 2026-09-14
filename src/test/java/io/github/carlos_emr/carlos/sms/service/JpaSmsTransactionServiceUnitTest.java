@@ -149,10 +149,8 @@ class JpaSmsTransactionServiceUnitTest {
         current.markSending(Date.from(Instant.parse("2026-06-08T11:59:00Z")));
         when(smsTransactionDao.find(42L)).thenReturn(current);
 
-        assertThatThrownBy(() -> recorder.markSending(
-                claimed,
-                Date.from(Instant.parse("2026-06-08T12:00:00Z"))
-        )).isInstanceOf(SmsTransactionClaimConflictException.class);
+        Date attemptedAt = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
+        assertThatThrownBy(() -> recorder.markSending(claimed, attemptedAt)).isInstanceOf(SmsTransactionClaimConflictException.class);
 
         verify(smsTransactionDao).find(42L);
         verify(smsTransactionDao, never()).merge(any());

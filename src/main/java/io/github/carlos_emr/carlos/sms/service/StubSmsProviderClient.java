@@ -62,17 +62,13 @@ public class StubSmsProviderClient implements SmsProviderClient {
 
     @Override
     public Optional<SmsInboundWebhookDto> parseInboundWebhook(String payload, Map<String, String> headers) {
-        if (payload == null || headers == null) {
-            return Optional.empty();
-        }
+        // The outbound-only stub has no callback payload format to parse.
         return Optional.empty();
     }
 
     @Override
     public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(String payload, Map<String, String> headers) {
-        if (payload == null || headers == null) {
-            return Optional.empty();
-        }
+        // The outbound-only stub has no callback payload format to parse.
         return Optional.empty();
     }
 }

@@ -54,8 +54,7 @@ class SmsQueuePersistenceIntegrationTest extends CarlosTestBase {
 
         List<SmsTransaction> firstClaim = smsTransactionDao.claimDueOutboundQueue(SmsProviderType.STUB, claimAt, 2);
 
-        assertThat(firstClaim).hasSize(2);
-        assertThat(firstClaim).allSatisfy(t -> {
+        assertThat(firstClaim).hasSize(2).allSatisfy(t -> {
             assertThat(t.getStatus()).isEqualTo(SmsStatus.SENDING);
             assertThat(t.getAttemptCount()).isEqualTo(1);
             assertThat(t.getClaimToken()).isNotBlank();

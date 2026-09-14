@@ -228,8 +228,8 @@ class SmsQueueServiceUnitTest {
             throw new IllegalStateException("synthetic consent outage");
         }, recorder, worker, new SmsDefaultProviderResolver(() -> "STUB"));
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.enqueueAndProcessNow(
-                SmsSendCommand.patientMessage(123, "416-555-1212", "Synthetic message", "999998")))
+        SmsSendCommand command = SmsSendCommand.patientMessage(123, "416-555-1212", "Synthetic message", "999998");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.enqueueAndProcessNow(command))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(recorder.transactions()).isEmpty();
         org.mockito.Mockito.verifyNoInteractions(worker);

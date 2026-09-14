@@ -89,7 +89,7 @@ public class SmsProviderRateLimit extends AbstractModel<SmsProviderType> {
     }
 
     public SmsProviderType getProviderType() {
-        return providerType;
+        return getId();
     }
 
     public int getSendCount() {

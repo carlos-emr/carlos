@@ -28,11 +28,9 @@ public final class SmsProviderMetadataSanitizer {
             }
 
             String key = safeKey(entry.getKey());
-            if (key == null || isSensitiveKey(key)) {
-                continue;
+            if (key != null && !isSensitiveKey(key)) {
+                sanitized.put(trimTo(key, MAX_KEY_LENGTH), trimTo(entry.getValue(), MAX_VALUE_LENGTH));
             }
-
-            sanitized.put(trimTo(key, MAX_KEY_LENGTH), trimTo(entry.getValue(), MAX_VALUE_LENGTH));
         }
 
         if (sanitized.isEmpty()) {

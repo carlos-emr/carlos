@@ -56,8 +56,9 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     void shouldPreserveInboundMessage_whenDeliveryCallbackTargetsIt() {
         SmsTransaction inbound = recorder.recordInboundMessage(new SmsInboundWebhookDto(SmsProviderType.STUB,
                 "inbound-target", "+14165551212", "+14165550000", "synthetic reply", Instant.EPOCH, null));
-        assertThatThrownBy(() -> recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(SmsProviderType.STUB,
-                "inbound-target", SmsStatus.DELIVERED, Instant.now(), null, null, null)))
+        SmsDeliveryWebhookDto callback = new SmsDeliveryWebhookDto(SmsProviderType.STUB,
+                "inbound-target", SmsStatus.DELIVERED, Instant.now(), null, null, null);
+        assertThatThrownBy(() -> recorder.recordDeliveryEvent(callback))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(inbound.getStatus()).isEqualTo(SmsStatus.RECEIVED);
     }
@@ -70,9 +71,10 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
                 SmsProviderType.STUB, SmsConsentDecisionDto.permit());
         outbound.markProviderResult(SmsProviderSendResultDto.accepted("correct-provider-id", SmsStatus.SENT));
         entityManager.flush();
-        assertThatThrownBy(() -> recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(SmsProviderType.STUB,
+        SmsDeliveryWebhookDto callback = new SmsDeliveryWebhookDto(SmsProviderType.STUB,
                 "wrong-provider-id", SmsStatus.DELIVERED, Instant.now(), null, null,
-                outbound.getClientReferenceId(), null))).isInstanceOf(IllegalArgumentException.class);
+                outbound.getClientReferenceId(), null);
+        assertThatThrownBy(() -> recorder.recordDeliveryEvent(callback)).isInstanceOf(IllegalArgumentException.class);
         assertThat(outbound.getStatus()).isEqualTo(SmsStatus.SENT);
     }
 
