@@ -167,6 +167,9 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 // renders it today -- so the widget's own response is the surface to assert on, and
 // typing into the widget is what makes the application produce it.
 async function searchRow(page, lastName) {
+  // A trailing comma explicitly selects surname search. Without it, the widget
+  // can interpret a synthetic surname such as Pr3668 as a health-card number.
+  const searchTerm = `${lastName},`;
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
   await assertNotErrorPage(page, 'schedule');
   const quickSearch = page.locator('#quickSearch');
@@ -177,8 +180,8 @@ async function searchRow(page, lastName) {
   const [response] = await Promise.all([
     page.waitForResponse((candidate) => candidate.request().method() === 'POST'
       && new URL(candidate.url()).pathname.endsWith('/demographic/SearchDemographic')
-      && new URLSearchParams(candidate.request().postData() || '').get('term') === lastName, { timeout: 30000 }),
-    page.keyboard.type(lastName, { delay: 40 }),
+      && new URLSearchParams(candidate.request().postData() || '').get('term') === searchTerm, { timeout: 30000 }),
+    page.keyboard.type(searchTerm, { delay: 40 }),
   ]);
   assert(response.status() === 200, `quick search answered HTTP ${response.status()}`);
   const contentType = (response.headers()['content-type'] || '');
