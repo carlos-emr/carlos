@@ -78,31 +78,32 @@ public class ClinicLocationDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find clinic locations by clinic number")
         void shouldFindClinicLocations_byClinicNo() throws Exception {
-            int clinicNo1 = 101;
-            int clinicNo2 = 202;
+            int clinicNo1 = 910101;
+            int clinicNo2 = 910202;
 
             ClinicLocation clinicLocation1 = new ClinicLocation();
             EntityDataGenerator.generateTestDataForModelClass(clinicLocation1);
             clinicLocation1.setClinicNo(clinicNo1);
+            clinicLocation1.setClinicLocationNo("A-910101");
             dao.persist(clinicLocation1);
 
             ClinicLocation clinicLocation2 = new ClinicLocation();
             EntityDataGenerator.generateTestDataForModelClass(clinicLocation2);
             clinicLocation2.setClinicNo(clinicNo2);
+            clinicLocation2.setClinicLocationNo("Z-910202");
             dao.persist(clinicLocation2);
 
             ClinicLocation clinicLocation3 = new ClinicLocation();
             EntityDataGenerator.generateTestDataForModelClass(clinicLocation3);
             clinicLocation3.setClinicNo(clinicNo1);
+            clinicLocation3.setClinicLocationNo("B-910101");
             dao.persist(clinicLocation3);
 
-            List<ClinicLocation> expectedResult = Arrays.asList(clinicLocation1, clinicLocation3);
             List<ClinicLocation> result = dao.findByClinicNo(clinicNo1);
 
-            assertThat(result).hasSize(expectedResult.size());
-            for (int i = 0; i < expectedResult.size(); i++) {
-                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
-            }
+            assertThat(result)
+                    .extracting(ClinicLocation::getId)
+                    .containsExactly(clinicLocation1.getId(), clinicLocation3.getId());
         }
 
         @Test
@@ -144,8 +145,8 @@ public class ClinicLocationDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should search bill location by clinic no and clinic location no")
         void shouldSearchBillLocation_byClinicNoAndClinicLocationNo() throws Exception {
-            int clinicNo1 = 101;
-            int clinicNo2 = 202;
+            int clinicNo1 = 910101;
+            int clinicNo2 = 910202;
             int clinicNo3 = 303;
 
             String clinicLocationNo1 = "111";

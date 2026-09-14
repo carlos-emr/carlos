@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -81,6 +82,8 @@ public class Demographic2Action extends ActionSupport {
         return getSubdivisionCodes();
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String getSubdivisionCodes()
             throws Exception {
 
@@ -131,6 +134,8 @@ public class Demographic2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String getCountryAndProvinceCodes()
             throws Exception {
 
@@ -185,6 +190,8 @@ public class Demographic2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String getAddressAndPhoneHistoryAsJson()
             throws Exception {
 

@@ -31,6 +31,7 @@
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.QueueDao"%>
+<%@page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO"%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider"%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty"%>
@@ -88,8 +89,12 @@
     }
 
     uProp = userPropertyDAO.getProp(user_no, UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
-    String destFolder = "Mail";
-    if (uProp != null) {
+    // The remembered folder is a stored preference, not a live allowlist check: an install that
+    // reconfigures ALLOWED_INCOMING_DOC_FOLDERS would otherwise preselect (and upload into) a
+    // folder the write path now rejects.
+    List<String> allowedDestFolders = IncomingDocUtil.getAllowedIncomingDocFolders();
+    String destFolder = allowedDestFolders.contains("Mail") ? "Mail" : IncomingDocUtil.getDefaultIncomingDocFolder();
+    if (uProp != null && IncomingDocUtil.isAllowedIncomingDocFolder(uProp.getValue())) {
         destFolder = uProp.getValue();
     }
     String context = request.getContextPath();
@@ -250,10 +255,20 @@
              <div class="mb-3" id="destFolderDiv">
                 <label for="destFolderDrop" class="fields"><fmt:message key="dms.documentUploader.folder" />:</label>
                     <select onchange="javascript:setDestFolder(this);"  id="destFolderDrop"  name="destFolderDrop" class="form-select">
-                        <option value="Fax" <%=( destFolder.equals("Fax") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.fax" /></option>
-                        <option value="Mail" <%=( destFolder.equals("Mail") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.mail" /></option>
-                        <option value="File" <%=( destFolder.equals("File") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.file" /></option>
-                        <option value="Refile" <%=( destFolder.equals("Refile") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.refile" /></option>
+                        <%
+                            for (String allowedDestFolder : allowedDestFolders) {
+                                String destFolderLabelKey = IncomingDocUtil.getIncomingDocFolderLabelKey(allowedDestFolder);
+                        %>
+                        <option value="<carlos:encode value='<%= allowedDestFolder %>' context="htmlAttribute"/>" <%=( destFolder.equals(allowedDestFolder) ? " selected" : "")%> ><%
+                            if (destFolderLabelKey != null) {
+                        %><fmt:message key="<%= destFolderLabelKey %>" /><%
+                            } else {
+                        %><carlos:encode value='<%= allowedDestFolder %>' context="html"/><%
+                            }
+                        %></option>
+                        <%
+                            }
+                        %>
                     </select>
               </div>
 

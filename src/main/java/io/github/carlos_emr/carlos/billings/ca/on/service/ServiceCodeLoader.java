@@ -69,13 +69,36 @@ public class ServiceCodeLoader {
         return ret;
     }
 
-    public Properties getCodeDescByNames(List serviceCodeNames) {
+    /**
+     * Maps each requested service code to its description.
+     *
+     * <p>{@code billingservice.description} is nullable and the shipped Ontario
+     * reference data contains rows with no description (A505C, K041A, R381C and
+     * others). {@link Properties} is a {@code Hashtable}, so a null value passed
+     * to {@code setProperty} throws — which on the bill review screen means an
+     * unhandled NPE and a "CARLOS Error: 500" for any claim that happens to
+     * include one of those codes. A missing description is a blank cell, not a
+     * failed review, so it becomes the empty string.
+     *
+     * <p>A null {@code service_code} is dropped rather than coalesced: it cannot
+     * serve as a map key (the same {@code Hashtable} constraint), and a row with
+     * no code is not something a caller can look up by code anyway.
+     *
+     * @param serviceCodeNames service codes to look up
+     * @return code-to-description map; codes with no stored description map to
+     *         the empty string, codes not on file are simply absent, and rows
+     *         with a null code are omitted
+     */
+    public Properties getCodeDescByNames(List<String> serviceCodeNames) {
         Properties ret = new Properties();
-        List<String> serviceCodeList = new ArrayList<String>();
-        serviceCodeList.addAll(serviceCodeNames);
-        List<BillingService> bs = dao.findByServiceCodes(serviceCodeList);
+        List<BillingService> bs = dao.findByServiceCodes(serviceCodeNames);
         for (BillingService b : bs) {
-            ret.setProperty(b.getServiceCode(), b.getDescription());
+            String code = b.getServiceCode();
+            if (code == null) {
+                continue;
+            }
+            String description = b.getDescription();
+            ret.setProperty(code, description == null ? "" : description);
         }
         return ret;
     }

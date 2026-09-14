@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ProgramManagerImpl implements ProgramManager {
 
@@ -379,6 +380,8 @@ public class ProgramManagerImpl implements ProgramManager {
         return programDao.getProgramsByType(null, Program.COMMUNITY_TYPE, null).toArray(new Program[0]);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<LabelValueBean> getProgramBeans(String providerNo) {
         if (providerNo == null || "".equalsIgnoreCase(providerNo.trim())) return new ArrayList<LabelValueBean>();
         ArrayList<LabelValueBean> pList = new ArrayList<LabelValueBean>();
