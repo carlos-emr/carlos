@@ -112,21 +112,14 @@ class LoginCheckLoginLockExpiryUnitTest {
         lockList.remove(LAN_IP);
     }
 
-    /** Drives the production failure path until the username is locked out. */
-    private LoginCheckLogin lockOutUserName() {
+    /**
+     * Drives the production failure path until the entry is blocked. Whether that entry is keyed
+     * by username or by IP is decided by the {@code login_lock} value the caller has set, so this
+     * serves both modes.
+     */
+    private LoginCheckLogin recordFailuresUntilBlocked() {
         LoginCheckLogin loginCheck = new LoginCheckLogin();
         // The block check is also what initializes the shared LoginList, as in Login2Action.
-        assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isFalse();
-
-        for (int attempt = 0; attempt < MAX_FAILED_TIMES; attempt++) {
-            loginCheck.updateLoginList(WAN_IP, USER_NAME);
-        }
-        return loginCheck;
-    }
-
-    /** Drives the production failure path in IP-keyed mode until the address is blocked. */
-    private LoginCheckLogin lockOutIp() {
-        LoginCheckLogin loginCheck = new LoginCheckLogin();
         assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isFalse();
 
         for (int attempt = 0; attempt < MAX_FAILED_TIMES; attempt++) {
@@ -157,7 +150,7 @@ class LoginCheckLoginLockExpiryUnitTest {
     @Test
     @DisplayName("should block the username while the tracking window is still open")
     void shouldBlockUserName_whenWindowStillOpen() {
-        LoginCheckLogin loginCheck = lockOutUserName();
+        LoginCheckLogin loginCheck = recordFailuresUntilBlocked();
 
         assertThat(trackedEntry()).isNotNull();
         assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isTrue();
@@ -166,7 +159,7 @@ class LoginCheckLoginLockExpiryUnitTest {
     @Test
     @DisplayName("should release the username lockout once the tracking window has elapsed")
     void shouldReleaseUserNameLockout_whenWindowElapsed() {
-        LoginCheckLogin loginCheck = lockOutUserName();
+        LoginCheckLogin loginCheck = recordFailuresUntilBlocked();
         assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isTrue();
 
         expireTrackingWindow();
@@ -178,7 +171,7 @@ class LoginCheckLoginLockExpiryUnitTest {
     @Test
     @DisplayName("should require the full attempt allowance again after a lockout expires")
     void shouldRequireFullAllowanceAgain_whenLockoutExpired() {
-        LoginCheckLogin loginCheck = lockOutUserName();
+        LoginCheckLogin loginCheck = recordFailuresUntilBlocked();
         expireTrackingWindow();
         assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isFalse();
 
@@ -196,7 +189,7 @@ class LoginCheckLoginLockExpiryUnitTest {
     @Test
     @DisplayName("should evict every expired entry, not only the username being checked")
     void shouldEvictEveryExpiredEntry_whenAnyUserNameChecked() {
-        LoginCheckLogin loginCheck = lockOutUserName();
+        LoginCheckLogin loginCheck = recordFailuresUntilBlocked();
         loginCheck.updateLoginList(WAN_IP, OTHER_USER_NAME);
         expireTrackingWindow(USER_NAME);
         expireTrackingWindow(OTHER_USER_NAME);
@@ -227,7 +220,7 @@ class LoginCheckLoginLockExpiryUnitTest {
     @DisplayName("should block the IP while its tracking window is still open")
     void shouldBlockIp_whenWindowStillOpen() {
         CarlosProperties.getInstance().setProperty("login_lock", "false");
-        LoginCheckLogin loginCheck = lockOutIp();
+        LoginCheckLogin loginCheck = recordFailuresUntilBlocked();
 
         assertThat(trackedEntry(WAN_IP)).isNotNull();
         assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isTrue();
@@ -237,7 +230,7 @@ class LoginCheckLoginLockExpiryUnitTest {
     @DisplayName("should release the IP block once its tracking window has elapsed")
     void shouldReleaseIpBlock_whenWindowElapsed() {
         CarlosProperties.getInstance().setProperty("login_lock", "false");
-        LoginCheckLogin loginCheck = lockOutIp();
+        LoginCheckLogin loginCheck = recordFailuresUntilBlocked();
         assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isTrue();
 
         expireTrackingWindow(WAN_IP);
