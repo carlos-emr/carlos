@@ -1557,7 +1557,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
     @jakarta.persistence.Transient
 
-    public GregorianCalendar getBirthDay() {
+    // Declared as Calendar, not GregorianCalendar, to match setBirthDay(Calendar).
+    // A JavaBean property whose getter and setter disagree on type is malformed:
+    // property introspectors look for a setter matching the GETTER's return type,
+    // so a GregorianCalendar return made them demand setBirthDay(GregorianCalendar)
+    // and fail when it was absent. Live-caught as EclipseLink MOXy aborting the
+    // whole JAXB context ("No JAXB context can be created") on any deployment
+    // that exercised it. The instance returned is still a GregorianCalendar.
+    public Calendar getBirthDay() {
         GregorianCalendar cal = null;
 
         if (dateOfBirth != null && monthOfBirth != null && yearOfBirth != null) {
@@ -1808,7 +1815,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         sb.append("' target='_blank'>");
 
         if (getTitle() != null && getTitle().length() > 0) {
-            sb.append(SafeEncode.forHtmlContent(getTitle())).append(" ");
+            sb.append(SafeEncode.forHtmlContent(getTitle()));
+            sb.append(" ");
         }
 
         sb.append(SafeEncode.forHtmlContent(getFormattedName()));
@@ -1822,7 +1830,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             String pronouns = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPronouns", "Pronouns");
             sb.append(pronouns);
             sb.append("</div>");
-            sb.append(SafeEncode.forHtml(getPronoun()));
+            sb.append(SafeEncode.forHtmlContent(getPronoun()));
             sb.append("</div>");
         }
 
@@ -1873,11 +1881,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             String hinLabel = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
             sb.append(hinLabel);
 			sb.append(" (");
-            sb.append(SafeEncode.forHtml(getHcType()));
+            sb.append(SafeEncode.forHtmlContent(getHcType()));
 			sb.append(")</div>");
-			sb.append(SafeEncode.forHtml(getHin()));
+			sb.append(SafeEncode.forHtmlContent(getHin()));
 			sb.append("&nbsp;");
-			sb.append(SafeEncode.forHtml(getVer()));
+			sb.append(SafeEncode.forHtmlContent(getVer()));
             sb.append("</div>");
         }
 

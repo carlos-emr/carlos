@@ -85,7 +85,12 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
             // get favorite
             RxPrescriptionData.Favorite fav =
-                    rxData.getFavorite(favoriteId);
+                    RxFavoriteOwnership.requireOwnedFavorite(request, response, favoriteId);
+            if (fav == null) {
+                // 403 already written by the ownership check; NONE keeps Struts from
+                // resolving a result on top of the committed error response.
+                return NONE;
+            }
 
             // create Prescription
             RxPrescriptionData.Prescription rx =
@@ -126,7 +131,12 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
             // get favorite
             RxPrescriptionData.Favorite fav =
-                    rxData.getFavorite(favoriteId);
+                    RxFavoriteOwnership.requireOwnedFavorite(request, response, favoriteId);
+            if (fav == null) {
+                // 403 already written by the ownership check; NONE keeps Struts from
+                // resolving a result on top of the committed error response.
+                return NONE;
+            }
 
             // create Prescription
             RxPrescriptionData.Prescription rx =

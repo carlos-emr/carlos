@@ -73,13 +73,17 @@ git push --force-with-lease
 #### Manual DCO Confirmation (Alternate)
 
 If you cannot amend your commits (e.g., force-push is not possible), an authorized user
-can retroactively confirm DCO sign-off by posting a PR comment with the exact phrase:
+with `write` or higher repository permission can retroactively confirm DCO sign-off after
+reviewing the connected history. The comment must contain the exact phrase followed by
+the current full 40-character PR head SHA:
 
-> Confirming DCO sign off for all commits
+```text
+Confirming DCO sign off for all commits at <full-pr-head-sha>
+```
 
-This will re-trigger the DCO check and allow it to pass. Only users with an established
-repository relationship (OWNER, MEMBER, COLLABORATOR, or CONTRIBUTOR) can use this
-alternate confirmation. First-time contributors must use the commit sign-off method.
+This will re-trigger the DCO check and allow it to pass only for that exact revision. Any
+subsequent push changes the PR head SHA and requires a new maintainer confirmation.
+Contributors without `write` access must use the commit sign-off method.
 
 ## Ways to Contribute
 
@@ -265,12 +269,20 @@ make install --run-integration-tests  # Integration tests (requires database)
 
 CARLOS uses `develop` as the default integration branch for the next release train.
 Normal feature and bug-fix pull requests target `develop`. High-priority fixes for a
-supported release target its `release/YYYY.MM` maintenance branch, and release-preparation
-pull requests promote exact versions to `main`. **Do not work directly on a protected
+supported release start from and target the oldest affected `release/YYYY.MM`
+maintenance branch. Current-train release preparation and narrowly scoped
+release-infrastructure corrections may target `main`. **Do not work directly on a protected
 branch** — always create a topic branch.
 
 The canonical [release process](docs/release-process.md) defines CalVer versions, supported
 release lines, forward merges, snapshots, tags, and release publication.
+
+After an approved supported-release fix merges, maintainers forward-merge its maintenance
+branch into every newer supported line and then `develop`, preserving the version and SCM
+metadata on the target branch. Do not open duplicate cherry-pick PRs.
+Published Flyway migration
+files are checksum-frozen; any migration-number collision must be resolved by renumbering
+only an unreleased migration on the newer target line.
 
 ### Internal vs. External Contributors
 
@@ -346,7 +358,12 @@ All changes — from internal and external contributors alike — must go throug
 request. Direct pushes to `develop`, `main`, and other protected branches are not allowed.
 
 - **Target `develop` for normal work**; use `release/YYYY.MM` only for an approved
-  supported-release fix, and `main` only for release preparation
+  supported-release fix; use `main` only for current-train release preparation or a
+  necessary, narrowly scoped release-infrastructure correction
+- **Keep snapshot metadata on work branches**; release preparation alone changes the
+  project version and SCM tag to the exact release value
+- **Never create, move, delete, or reuse release tags**; maintainers create an annotated
+  tag only after the exact release commit has passed review and checks
 - **Reference related issues** (e.g., `fixes #123`)
 - **Include a clear description** of what changed and why
 - **Add tests** for new functionality

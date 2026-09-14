@@ -77,10 +77,15 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo loggedInInfo;
     private SecurityInfoManager securityInfoManager;
     private ClinicDAO clinicDAO;
+    private io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao consultationRequestDao;
     private DocumentAttachmentManager documentAttachmentManager;
     private NioFileManager nioFileManager;
     private FaxJobDao faxJobDao;
     private FaxConfigDao faxConfigDao;
+    private FaxManager faxManager;
+
+    @org.junit.jupiter.api.io.TempDir
+    Path temporaryDirectory;
 
     private EctConsultationFormFax2Action action;
 
@@ -91,8 +96,15 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfo = mock(LoggedInInfo.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         clinicDAO = mock(ClinicDAO.class);
+        consultationRequestDao = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao.class);
+        io.github.carlos_emr.carlos.commn.model.ConsultationRequest consultation =
+                new io.github.carlos_emr.carlos.commn.model.ConsultationRequest();
+        consultation.setDemographicId(123);
+        when(consultationRequestDao.find(456)).thenReturn(consultation);
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         nioFileManager = mock(NioFileManager.class);
+        when(nioFileManager.getOscarDocument(any(Path.class))).thenAnswer(call ->
+                temporaryDirectory.resolve(((Path) call.getArgument(0)).getFileName()).toRealPath());
         faxJobDao = mock(FaxJobDao.class);
         faxConfigDao = mock(FaxConfigDao.class);
 
@@ -102,7 +114,8 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(NioFileManager.class, nioFileManager);
         registerMock(FaxJobDao.class, faxJobDao);
         registerMock(FaxConfigDao.class, faxConfigDao);
-        registerMock(FaxManager.class, mock(FaxManager.class));
+        faxManager = mock(FaxManager.class);
+        registerMock(FaxManager.class, faxManager);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -124,10 +137,32 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         action.setRecipientFaxNumber("9876543210");
 
         FaxConfig config = mock(FaxConfig.class);
+        when(config.isActive()).thenReturn(true);
         when(config.getFaxNumber()).thenReturn("1234567890");
         when(config.getAccountName()).thenReturn("Test Account");
         when(faxConfigDao.findAll(null, null)).thenReturn(java.util.List.of(config));
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, "123")).thenReturn(true);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"!!!!!!!", "+1 (23)-4", "       ", "inactive", "null-sender"})
+    @DisplayName("should reject invalid normalized destinations and inactive sender accounts before file promotion")
+    void shouldRejectInvalidFaxDetails_beforePromotion(String scenario) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        if ("inactive".equals(scenario) || "null-sender".equals(scenario)) {
+            FaxConfig config = mock(FaxConfig.class);
+            when(config.getFaxNumber()).thenReturn("inactive".equals(scenario) ? "1234567890" : null);
+            when(config.isActive()).thenReturn(!"inactive".equals(scenario));
+            when(faxConfigDao.findAll(null, null)).thenReturn(java.util.List.of(config));
+        } else {
+            action.setRecipientFaxNumber(scenario);
+        }
+        assertThat(action.execute()).isEqualTo("error");
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxJobDao);
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @AfterEach
@@ -140,6 +175,132 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"1234567", "12345678", "123456789", "1234567890123456"})
+    @DisplayName("should reject destinations outside SRFax rules before publishing documents")
+    void shouldRejectSrfaxDestination_beforePromotion(String destination) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        FaxConfig selected = faxConfigDao.findAll(null, null).get(0);
+        when(selected.getProviderType()).thenReturn(FaxConfig.ProviderType.SRFAX);
+        action.setRecipientFaxNumber(destination);
+        assertThat(action.execute()).isEqualTo("error");
+        org.mockito.Mockito.verifyNoInteractions(nioFileManager, faxJobDao);
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("should require patient-scoped consultation write before standalone faxing but preserve cancel")
+    void shouldRejectStandaloneFax_whenConsultationWriteIsDenied() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, "123")).thenReturn(false);
+        org.assertj.core.api.Assertions.assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required consultation write access");
+        org.mockito.Mockito.verifyNoInteractions(consultationRequestDao, documentAttachmentManager, nioFileManager, faxConfigDao, faxJobDao);
+        action.setMethod("cancel");
+        assertThat(action.execute()).isEqualTo("cancel");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "wrong-patient", "null-patient", "invalid-id", "conflicting-alias"})
+    @DisplayName("should reject an unbound consultation before rendering or reading fax accounts")
+    void shouldRejectConsultation_whenNotBoundToAuthorizedPatient(String scenario) {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        io.github.carlos_emr.carlos.commn.model.ConsultationRequest consultation =
+                new io.github.carlos_emr.carlos.commn.model.ConsultationRequest();
+        consultation.setDemographicId("wrong-patient".equals(scenario) ? Integer.valueOf(999)
+                : "conflicting-alias".equals(scenario) ? Integer.valueOf(123) : null);
+        when(consultationRequestDao.find(456)).thenReturn("missing".equals(scenario) ? null : consultation);
+        if ("invalid-id".equals(scenario)) {
+            action.setRequestId("not-an-id");
+        }
+        if ("conflicting-alias".equals(scenario)) {
+            request.setParameter("reqId", "999");
+        }
+        org.assertj.core.api.Assertions.assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxConfigDao, faxJobDao, clinicDAO);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS", "post"})
+    @DisplayName("should reject every non-POST fax submission before rendering or queueing")
+    void shouldRejectFax_beforeSideEffectsWhenMethodIsNotPost(String method) {
+        request.setMethod(method);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        assertThat(action.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxConfigDao, faxJobDao);
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.anyInt());
+        action.setMethod("cancel");
+        assertThat(action.execute()).isEqualTo("cancel");
+    }
+
+    @Test
+    @DisplayName("should reject final fax submission before rendering when account read is denied")
+    void shouldRejectFax_beforeRenderingWhenFaxReadIsDenied() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(false);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_fax)");
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxConfigDao, faxJobDao);
+        action.setMethod("cancel");
+        assertThat(action.execute()).isEqualTo("cancel");
+    }
+
+    @Test
+    @DisplayName("should reject faxing before rendering when consultation fax is disabled")
+    void shouldRejectFax_beforeRenderingWhenFeatureIsDisabled() {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        io.github.carlos_emr.CarlosProperties properties = mock(io.github.carlos_emr.CarlosProperties.class);
+        when(properties.isConsultationFaxEnabled()).thenReturn(false);
+        try (MockedStatic<io.github.carlos_emr.CarlosProperties> propertiesMock = mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
+            propertiesMock.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(properties);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> action.execute())
+                    .isInstanceOf(SecurityException.class).hasMessage("consultation fax is disabled");
+            verify(properties).isConsultationFaxEnabled();
+            org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxJobDao);
+            action.setMethod("cancel");
+            assertThat(action.execute()).isEqualTo("cancel");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should not expose renderer exception details to the browser or logs")
+    void shouldHideRendererDetails_whenPdfGenerationFails(boolean unchecked) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        String details = "SensitiveFixturePatient /private/attachment.pdf token=fixture-secret";
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
+                .thenThrow(unchecked ? new IllegalStateException(details)
+                        : new io.github.carlos_emr.carlos.utility.PDFGenerationException(details));
+        try (io.github.carlos_emr.carlos.test.logging.LogCapture capture =
+                io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormFax2Action.class)) {
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(capture.messages()).anyMatch(message -> message.contains("PDF preparation failed"));
+            assertThat(capture.messages().toString())
+                    .doesNotContain("SensitiveFixturePatient", "/private/", "fixture-secret", "attachment.pdf");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
+        assertThat(request.getAttribute("errorMessage")).asString()
+                .contains("consultation PDF could not be prepared")
+                .doesNotContain("SensitiveFixturePatient", "/private/", "fixture-secret", "attachment.pdf");
+        org.mockito.Mockito.verifyNoInteractions(nioFileManager, faxJobDao);
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
     @Test
     @DisplayName("should return the error result when the rendered fax PDF cannot be promoted into the document store")
     void shouldReturnError_whenFaxPdfPromotionReturnsNull() throws Exception {
@@ -147,17 +308,210 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         // Faxing now also requires _fax write (mirrors Fax2Action); grant it so the test reaches the
         // PDF-promotion path it is exercising rather than stopping at the authorization gate.
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull())).thenReturn(true);
         Path rendered = Paths.get("/tmp/consult-fax-source.pdf");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(rendered);
         when(nioFileManager.promoteApplicationTempFile(rendered))
-                .thenThrow(new FilePromotionException("test failure"));
+                .thenThrow(new FilePromotionException("SensitiveFixturePatient /private/fax.pdf", new java.io.IOException("fixture-secret")));
 
-        String result = action.execute();
+        String result;
+        try (var capture = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormFax2Action.class)) {
+            result = action.execute();
+            assertThat(capture.messages().toString()).contains("aborting fax (FilePromotionException)")
+                    .doesNotContain("SensitiveFixturePatient", "/private/", "fixture-secret");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
 
         assertThat(result).isEqualTo("error");
         assertThat(request.getAttribute("errorMessage")).asString()
                 .contains("could not be stored");
         verify(nioFileManager).promoteApplicationTempFile(rendered);
         verify(faxJobDao, never()).persist(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"application-temp", "outside", "symlink"})
+    @DisplayName("should remove only contained application-temp PDFs when promotion fails")
+    void shouldCleanRenderedSource_whenPromotionFails(String scenario) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path root = java.nio.file.Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"), "carlos-temp"));
+        Path ownedDirectory = java.nio.file.Files.createTempDirectory(root, "consult-fax-test-");
+        Path outside = java.nio.file.Files.writeString(temporaryDirectory.resolve("outside.pdf"), "outside fixture");
+        Path rendered = "outside".equals(scenario) ? outside : ownedDirectory.resolve("rendered.pdf");
+        if ("symlink".equals(scenario)) java.nio.file.Files.createSymbolicLink(rendered, outside);
+        else if (!"outside".equals(scenario)) java.nio.file.Files.writeString(rendered, "rendered fixture");
+        try {
+            when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(rendered);
+            when(nioFileManager.promoteApplicationTempFile(rendered)).thenThrow(new FilePromotionException("fixture failure"));
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(java.nio.file.Files.exists(rendered)).isEqualTo(!"application-temp".equals(scenario));
+            assertThat(java.nio.file.Files.readString(outside)).isEqualTo("outside fixture");
+            verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        } finally {
+            if (!"outside".equals(scenario)) java.nio.file.Files.deleteIfExists(rendered);
+            java.nio.file.Files.deleteIfExists(ownedDirectory);
+        }
+    }
+
+    @Test
+    void shouldRetainFaxArtifacts_whenCommitAcknowledgementIsUncertain() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path pdf = java.nio.file.Files.writeString(temporaryDirectory.resolve("consult.pdf"), "fixture PDF");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+        when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+        org.mockito.Mockito.doThrow(new IllegalStateException("commit acknowledgement lost: SensitiveFixturePatient"))
+                .when(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo), any(), eq(456));
+        try (MockedStatic<io.github.carlos_emr.carlos.documentManager.EDocUtil> edoc = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class);
+             MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths = mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class);
+             io.github.carlos_emr.carlos.test.logging.LogCapture capture =
+                     io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormFax2Action.class)) {
+            edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(1);
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(any(java.io.File.class), any(java.io.File.class)))
+                    .thenReturn(pdf.toFile());
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateApplicationTempPath(pdf.toFile()))
+                    .thenThrow(new SecurityException("fixture is outside application temp"));
+            String result = action.execute();
+            assertThat(pdf).exists();
+            assertThat(result).isEqualTo("faxUncertain");
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(request.getAttribute("faxSuccessful")).isNull();
+            assertThat(capture.messages().toString()).doesNotContain("SensitiveFixturePatient");
+            assertThat(capture.events())
+                    .filteredOn(event -> event.getMessage().getFormattedMessage().contains("outcome is uncertain"))
+                    .singleElement().satisfies(event -> assertThat(event.getThrown()).isNull());
+            paths.verify(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(
+                    any(java.io.File.class), any(java.io.File.class)), never());
+            verify(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo), any(), eq(456));
+        }
+    }
+
+    @Test
+    @DisplayName("should clean preparation files and not queue when cover generation throws an unchecked exception")
+    void shouldCleanPreparation_whenCoverGenerationThrowsRuntimeException() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path pdf = java.nio.file.Files.writeString(temporaryDirectory.resolve("prepare.pdf"), "fixture PDF");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+        when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+        action.setCoverpage(true);
+        when(faxManager.addCoverPage(any(), any(), any(), any(), eq(pdf)))
+                .thenThrow(new IllegalStateException("sensitive fixture rendering failure"));
+        try (MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths =
+                mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(any(java.io.File.class), any(java.io.File.class)))
+                    .thenReturn(pdf.toFile());
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateApplicationTempPath(pdf.toFile()))
+                    .thenThrow(new SecurityException("fixture is outside application temp"));
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(pdf).doesNotExist();
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MIDDLEWARE", "SRFAX"})
+    void shouldReportQueued_whenSecondaryAuditFailsAfterCommit(String providerType) throws Exception {
+        boolean srfax = "SRFAX".equals(providerType);
+        action.setRecipientFaxNumber(srfax ? "+44 20 7946 0100" : "+1 (987) 654-3210");
+        if (srfax) action.setFaxRecipients(new String[]{"\"name\":\"Duplicate\",\"fax\":\"011442079460100\""});
+        FaxConfig selected = faxConfigDao.findAll(null, null).get(0);
+        when(selected.getProviderType()).thenReturn(FaxConfig.ProviderType.valueOf(providerType));
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path pdf = java.nio.file.Files.writeString(temporaryDirectory.resolve("queued.pdf"), "fixture PDF");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+        when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+        try (MockedStatic<io.github.carlos_emr.carlos.documentManager.EDocUtil> edoc = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class)) {
+            edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(1);
+            logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
+                    io.github.carlos_emr.carlos.log.LogConst.SENT,
+                    io.github.carlos_emr.carlos.log.LogConst.CON_FAX, "CONSULT 456"))
+                    .thenThrow(new IllegalStateException("secondary log unavailable"));
+            assertThat(action.execute()).isEqualTo("success");
+            assertThat(pdf).exists();
+            assertThat(request.getAttribute("faxSuccessful")).isEqualTo(true);
+            verify(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo),
+                    org.mockito.ArgumentMatchers.argThat(jobs -> jobs.size() == 1
+                            && (srfax ? "+442079460100" : "19876543210").equals(jobs.get(0).getDestination())), eq(456));
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, -1})
+    @DisplayName("should reject unreadable consultation PDFs before persisting any recipient")
+    void shouldRejectNonPositivePageCount_beforePersistence(int pages) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path pdf = java.nio.file.Files.writeString(temporaryDirectory.resolve("invalid-pages.pdf"), "fixture PDF");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+        when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+        try (MockedStatic<io.github.carlos_emr.carlos.documentManager.EDocUtil> edoc = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class);
+             MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths = mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(pages);
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(any(java.io.File.class), any(java.io.File.class)))
+                    .thenReturn(pdf.toFile());
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateApplicationTempPath(pdf.toFile()))
+                    .thenThrow(new SecurityException("fixture is outside application temp"));
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(pdf).doesNotExist();
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        }
+    }
+
+    @Test
+    void shouldUseNonRetryingWarningView_whenFaxOutcomeIsUncertain() throws Exception {
+        String mapping = java.nio.file.Files.readString(Paths.get("src/main/webapp/WEB-INF/classes/struts-encounter.xml"));
+        assertThat(mapping).contains("<result name=\"faxUncertain\">/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp</result>");
+        String view = java.nio.file.Files.readString(Paths.get("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp"));
+        assertThat(view).contains("id=\"consult-fax-uncertain\"", "consultation.fax.uncertain.message", "ViewDisplayDemographicConsultationRequests")
+                .contains("<html lang=\"<carlos:encode", "pageContext.request.locale.toLanguageTag()");
+        assertThat(view).doesNotContain("<form", "setTimeout", "history.back", "finishPage(");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldCleanUnqueuedFilesThroughTheLiveDocumentFallback(boolean staleConfiguredRoot) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        io.github.carlos_emr.CarlosProperties properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String oldBase = properties.getProperty("BASE_DOCUMENT_DIR");
+        String oldDocument = properties.getProperty("DOCUMENT_DIR");
+        Path documentRoot = java.nio.file.Files.createDirectories(temporaryDirectory.resolve("document"));
+        Path pdf = java.nio.file.Files.writeString(documentRoot.resolve("fallback.pdf"), "fixture PDF");
+        Path outside = java.nio.file.Files.writeString(temporaryDirectory.resolve("outside.pdf"), "keep");
+        try {
+            properties.setProperty("BASE_DOCUMENT_DIR", temporaryDirectory.toString());
+            if (staleConfiguredRoot) properties.setProperty("DOCUMENT_DIR", temporaryDirectory.resolve("missing").toString());
+            else properties.remove("DOCUMENT_DIR");
+            var liveFiles = new io.github.carlos_emr.carlos.managers.NioFileManagerImpl();
+            org.mockito.Mockito.doAnswer(call ->
+                    liveFiles.getOscarDocument((Path) call.getArgument(0)))
+                    .when(nioFileManager).getOscarDocument(any(Path.class));
+            when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+            when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+            try (MockedStatic<io.github.carlos_emr.carlos.documentManager.EDocUtil> edoc =
+                         mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class)) {
+                edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(0);
+                assertThat(action.execute()).isEqualTo("error");
+                assertThat(pdf).doesNotExist();
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(action, "cleanupAttemptFiles",
+                        java.util.Set.of(outside), java.util.List.of());
+                assertThat(outside).exists();
+                verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+            }
+        } finally {
+            if (oldBase == null) properties.remove("BASE_DOCUMENT_DIR"); else properties.setProperty("BASE_DOCUMENT_DIR", oldBase);
+            if (oldDocument == null) properties.remove("DOCUMENT_DIR"); else properties.setProperty("DOCUMENT_DIR", oldDocument);
+        }
     }
 }

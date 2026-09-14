@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -32,6 +32,10 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -135,9 +139,13 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), eq("u"), any()))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> service.completeTicklers(payload("{\"ticklers\":[1]}")))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+        assertThatExceptionOfType(WebApplicationException.class)
+                .isThrownBy(() -> service.completeTicklers(payload("{\"ticklers\":[1]}")))
+                .satisfies(exception -> {
+                    assertThat(exception.getResponse().getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
+                    assertThat(exception.getResponse().getMediaType()).isEqualTo(MediaType.TEXT_PLAIN_TYPE);
+                    assertThat(exception.getResponse().getEntity()).isEqualTo("Access Denied");
+                });
         verify(ticklerManager, never()).completeTickler(any(), any(), any());
     }
 
@@ -148,9 +156,13 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), eq("u"), any()))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> service.deleteTicklers(payload("{\"ticklers\":[1]}")))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+        assertThatExceptionOfType(WebApplicationException.class)
+                .isThrownBy(() -> service.deleteTicklers(payload("{\"ticklers\":[1]}")))
+                .satisfies(exception -> {
+                    assertThat(exception.getResponse().getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
+                    assertThat(exception.getResponse().getMediaType()).isEqualTo(MediaType.TEXT_PLAIN_TYPE);
+                    assertThat(exception.getResponse().getEntity()).isEqualTo("Access Denied");
+                });
         verify(ticklerManager, never()).deleteTickler(any(), any(), any());
     }
 

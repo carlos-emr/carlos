@@ -12,7 +12,10 @@
 # Containers Managed:
 # - carlos-tomcat-dev: Development container with Java 21, Tomcat, Maven, Node.js
 # - carlos-mariadb-dev: MariaDB database container with schema initialization scripts
-# - carlos-drugref: DrugRef2 service container with Java 11
+# - carlos-drugref-dev: DrugRef2 service container with Java 21
+#   (the bare "carlos-drugref" ghcr name is reserved for the DEPLOYMENT image
+#   published by the carlos-podman repo's Publish Images workflow — dev images
+#   all carry the -dev suffix)
 #
 # Freshness Check Strategy:
 # 1. Calculate SHA256 hash of Dockerfile + build context for each container
@@ -29,7 +32,7 @@
 # - Manual dispatch for forced rebuilds (with force_rebuild option)
 #
 # License:
-# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# This GitHub Workflow file is part of the CARLOS EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 
 name: Development Container Images
@@ -89,6 +92,37 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
+
+      - name: Verify carlos Compose environment
+        run: |
+          echo "Verifying Compose does not replace the image JVM options..."
+          compose_config="$(docker compose -f .devcontainer/docker-compose.yml config --format json)"
+          compose_has_catalina_opts="$(jq -r '
+            (.services.carlos.environment // {}) | has("CATALINA_OPTS")
+          ' <<< "$compose_config")"
+          if [ "$compose_has_catalina_opts" != "false" ]; then
+            echo "ERROR: carlos Compose configuration must inherit CATALINA_OPTS from the development image"
+            exit 1
+          fi
+
+          echo "Verifying sensitive development ports bind to host loopback..."
+          while read -r target published; do
+            if ! jq -e \
+                --argjson target "$target" \
+                --arg published "$published" \
+                '[.services.carlos.ports[] | select(
+                    .target == $target
+                    and (.published | tostring) == $published
+                    and .host_ip == "127.0.0.1"
+                )] | length == 1' <<< "$compose_config" > /dev/null; then
+              echo "ERROR: carlos port $published:$target must bind exactly once to 127.0.0.1"
+              exit 1
+            fi
+          done <<'EOF'
+          8080 8080
+          8443 8443
+          8000 18000
+          EOF
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -177,7 +211,7 @@ jobs:
           # Check each container (name, output_name, context_path, extra_context)
           check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
           check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared/my.cnf"
-          check_container "drugref" "drugref" ".devcontainer/drugref" ""
+          check_container "drugref-dev" "drugref" ".devcontainer/drugref" ""
 
   # ===========================================================================
   # Build and push tomcat-dev container
@@ -213,8 +247,21 @@ jobs:
       - name: Test tomcat-dev container
         run: |
           echo "Testing container starts correctly..."
-          docker run -d --name test-tomcat carlos-tomcat-dev:test tail -f /dev/null
-          sleep 5
+          docker run -d --name test-tomcat carlos-tomcat-dev:test catalina.sh run
+          trap 'docker rm -f test-tomcat > /dev/null 2>&1 || true' EXIT
+
+          echo "Waiting for development HTTPS..."
+          for attempt in $(seq 1 30); do
+            if docker exec test-tomcat curl -kfsS -o /dev/null https://localhost:8443/; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo "ERROR: development HTTPS did not become ready"
+              docker logs test-tomcat
+              exit 1
+            fi
+            sleep 2
+          done
 
           # Verify key components are present
           echo "Verifying Maven..."
@@ -226,11 +273,26 @@ jobs:
           echo "Verifying Tomcat..."
           docker exec test-tomcat ls -la /usr/local/tomcat/
 
+          echo "Verifying JavaMelody development override..."
+          docker exec test-tomcat sh -eu -c '
+            matches=0
+            for option in $CATALINA_OPTS; do
+              case "$option" in
+                -Djavamelody.system-actions-enabled=*)
+                  [ "$option" = "-Djavamelody.system-actions-enabled=true" ]
+                  matches=$((matches + 1))
+                  ;;
+              esac
+            done
+            [ "$matches" -eq 1 ]
+          '
+
           echo "Verifying Node.js..."
           docker exec test-tomcat node --version
 
           echo "All tests passed!"
           docker stop test-tomcat && docker rm test-tomcat
+          trap - EXIT
 
       - name: Save tested tomcat-dev image
         run: |
@@ -368,7 +430,7 @@ jobs:
             # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
             if docker logs test-mariadb 2>&1 | grep -q "Database initialization complete!"; then
               # Verify database state to avoid false positives from reused logs
-              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM carlos.provider;" 2>/dev/null || echo 0)
               if [ "$provider_count" -gt 0 ]; then
                 echo "Database initialization complete and provider table populated (count=$provider_count)."
                 initialized=true
@@ -389,8 +451,8 @@ jobs:
 
           # Verify all databases exist
           echo "Verifying databases..."
-          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "carlos" > /dev/null || { echo "ERROR: carlos database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "carlos_test" > /dev/null || { echo "ERROR: carlos_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           echo "All databases verified!"
 
@@ -483,10 +545,10 @@ jobs:
         env:
           CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
         run: |
-          echo "Building carlos-drugref container..."
+          echo "Building carlos-drugref-dev container..."
           docker buildx build \
             --load \
-            -t carlos-drugref:test \
+            -t carlos-drugref-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
@@ -495,7 +557,7 @@ jobs:
       - name: Test drugref container
         run: |
           echo "Testing container starts correctly..."
-          docker run -d --name test-drugref -p 8081:8080 carlos-drugref:test
+          docker run -d --name test-drugref -p 8081:8080 carlos-drugref-dev:test
 
           echo "Waiting for Tomcat to start..."
           ready=false
@@ -537,13 +599,13 @@ jobs:
       - name: Save tested drugref image
         run: |
           mkdir -p "$RUNNER_TEMP/container-images"
-          docker save carlos-drugref:test -o "$RUNNER_TEMP/container-images/carlos-drugref.tar"
+          docker save carlos-drugref-dev:test -o "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
 
       - name: Upload tested drugref image
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: carlos-drugref-image
-          path: ${{ runner.temp }}/container-images/carlos-drugref.tar
+          name: carlos-drugref-dev-image
+          path: ${{ runner.temp }}/container-images/carlos-drugref-dev.tar
           retention-days: 1
 
   publish-drugref:
@@ -557,7 +619,7 @@ jobs:
       - name: Download tested drugref image
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: carlos-drugref-image
+          name: carlos-drugref-dev-image
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
@@ -569,7 +631,7 @@ jobs:
 
       - name: Push tested drugref container
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref-dev
           CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
@@ -584,14 +646,14 @@ jobs:
             printf '%s-latest' "$safe_ref"
           }
 
-          docker load -i "$RUNNER_TEMP/container-images/carlos-drugref.tar"
-          docker tag carlos-drugref:test "$IMAGE:${{ github.sha }}"
+          docker load -i "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
+          docker tag carlos-drugref-dev:test "$IMAGE:${{ github.sha }}"
           CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
-          docker tag carlos-drugref:test "$IMAGE:$CACHE_TAG"
+          docker tag carlos-drugref-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
-            docker tag carlos-drugref:test "$IMAGE:latest"
+            docker tag carlos-drugref-dev:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
