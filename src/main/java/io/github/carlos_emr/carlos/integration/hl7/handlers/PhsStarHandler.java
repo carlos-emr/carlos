@@ -139,8 +139,10 @@ public class PhsStarHandler extends BasePhsStarHandler {
                 logger.debug("Found demographic:" + records.get(0).getDemographicNo());
                 return records.get(0).getDemographicNo();
             } else if (records.size() > 1) {
-                logger.debug("Found multiple demographics with health card " + hc.getId() + " " + hc.getAuthority());
-                throw new HL7Exception("Found multiple records with same HC!!!! - " + hc.getId() + " " + hc.getAuthority());
+                // Do NOT log or embed the health card number / authority (PHI) — including in the
+                // exception message, which propagates into logs and error surfaces.
+                logger.debug("Found multiple demographics matching the provided health card");
+                throw new HL7Exception("Found multiple demographic records matching the provided health card");
             }
         }
 

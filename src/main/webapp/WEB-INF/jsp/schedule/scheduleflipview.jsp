@@ -57,8 +57,6 @@
     //multisite starts =====================
     private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
     private JdbcApptImpl jdbc = new JdbcApptImpl();
-    private List<Site> sites;
-    private String[] curScheduleMultisite;
 
     private String getSiteHTML(String scDate, String provider_no, List<Site> sites) {
         if (!bMultisites) return "";
@@ -69,11 +67,13 @@
         return "<span style='background-color:" + color + "'>" + SafeEncode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
 %>
-<% if (bMultisites) {
-    SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-    sites = siteDao.getAllSites();
-}
-//multisite ends =======================
+<% 
+    List<Site> sites = null;
+    if (bMultisites) {
+        SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
+        sites = siteDao.getAllSites();
+    }
+    //multisite ends =======================
 %>
 
 <%
@@ -108,7 +108,6 @@
              scope="page"/>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -118,7 +117,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>

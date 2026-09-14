@@ -56,7 +56,20 @@
     String formClass = "DischargeSummary";
     String formLink = "formDischargeSummary.jsp";
     String formLink_printPreview = "formDischargeSummaryPrint.jsp";
-    int programNo = Integer.parseInt((String) request.getSession().getAttribute(SessionConstants.CURRENT_PROGRAM_ID));
+    // A program id is only in the session once a program has been selected (CAISI); a
+    // clinic that does not use programs has none, and parsing null here made the form a
+    // 500. With 0 the record lookup simply finds no program name and the form opens.
+    String currentProgramId = (String) request.getSession().getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
+    int programNo = 0;
+    if (currentProgramId != null && !currentProgramId.isBlank()) {
+        try {
+            // providercontrol.jsp copies this session value from a request parameter, so a
+            // non-blank but non-numeric value can reach here; fall back to 0 rather than 500.
+            programNo = Integer.parseInt(currentProgramId.trim());
+        } catch (NumberFormatException programIdNotNumeric) {
+            programNo = 0;
+        }
+    }
     int demoNo = Integer.parseInt(request.getParameter("demographic_no"));
     int formId = Integer.parseInt(request.getParameter("formId"));
     int provNo = Integer.parseInt((String) session.getAttribute("user"));

@@ -35,6 +35,7 @@ import java.util.HashMap;
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.cxf.binding.soap.SoapFault;
 import org.apache.cxf.binding.soap.SoapMessage;
@@ -42,6 +43,7 @@ import org.apache.cxf.transport.http.AbstractHTTPDestination;
 import org.apache.cxf.ws.security.wss4j.WSS4JInInterceptor;
 import org.apache.logging.log4j.Logger;
 import org.apache.wss4j.common.WSS4JConstants;
+import org.apache.wss4j.common.ext.WSSecurityException;
 import org.apache.wss4j.dom.handler.WSHandlerConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.annotation.PostConstruct;
@@ -86,7 +88,7 @@ public class AuthenticationInWSS4JInterceptor extends WSS4JInInterceptor impleme
         message.put("ws-security.ut.validator", oscarUsernameTokenValidator);
 
         try {
-            super.handleMessage(message);
+            performSecurityCheck(message);
 
             // if it gets here that means it succeeded
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
@@ -105,8 +107,66 @@ public class AuthenticationInWSS4JInterceptor extends WSS4JInInterceptor impleme
             oscarLog.setIp(ip);
             LogAction.addLogSynchronous(oscarLog);
 
-            throw (e);
+            // Map the WS-Security failure to the most appropriate HTTP status so the
+            // Soap*FaultOutInterceptor propagates it as the response code; otherwise CXF
+            // defaults the fault to HTTP 500 and bad credentials read as a server error.
+            // CXF has already replaced the fault body with a safe (obscured) message, so
+            // only the status code is differentiated here -- no extra detail is leaked.
+            e.setStatusCode(resolveFaultStatusCode(e));
+
+            throw e;
         }
+    }
+
+    /**
+     * Runs the inbound WS-Security processing (delegates to {@link WSS4JInInterceptor}).
+     * Extracted as a seam so the surrounding authentication logging and HTTP status
+     * mapping can be unit-tested without standing up a full CXF/WSS4J SOAP pipeline.
+     */
+    protected void performSecurityCheck(SoapMessage message) {
+        super.handleMessage(message);
+    }
+
+    /**
+     * Maps a WS-Security processing failure to an HTTP status without disclosing which
+     * check failed:
+     * <ul>
+     *   <li>401 for authentication failures (bad/absent credentials or token);</li>
+     *   <li>400 for client-side malformed, invalid, unsupported, or expired security headers;</li>
+     *   <li>500 when the failure cannot be positively attributed to the request (callback,
+     *       configuration, or parse errors), so genuine server faults are not mislabelled as
+     *       authentication failures.</li>
+     * </ul>
+     */
+    static int resolveFaultStatusCode(SoapFault fault) {
+        WSSecurityException wss = findWssCause(fault);
+        if (wss == null) {
+            return HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+        }
+        return switch (wss.getErrorCode()) {
+            case FAILED_AUTHENTICATION, SECURITY_TOKEN_UNAVAILABLE ->
+                    HttpServletResponse.SC_UNAUTHORIZED;
+            // FAILED_CHECK is "the signature or decryption was invalid" -- i.e. inbound
+            // verification of client-supplied data failed. Mapped to 400 (not 401)
+            // deliberately: it avoids disclosing whether the credentials were structurally
+            // invalid versus recognized-but-wrong.
+            case MESSAGE_EXPIRED, INVALID_SECURITY, INVALID_SECURITY_TOKEN,
+                 UNSUPPORTED_SECURITY_TOKEN, UNSUPPORTED_ALGORITHM, FAILED_CHECK ->
+                    HttpServletResponse.SC_BAD_REQUEST;
+            // FAILED_SIGNATURE ("Signature creation failed"), FAILED_ENCRYPTION, FAILURE,
+            // SECURITY_ERROR and anything else are server-side or not reliably attributable
+            // to the request -> treat as an unexpected server error.
+            default -> HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+        };
+    }
+
+    private static WSSecurityException findWssCause(Throwable t) {
+        for (Throwable cause = t; cause != null; cause = cause.getCause()) {
+            if (cause instanceof WSSecurityException wss) {
+                return wss;
+            }
+        }
+        return null;
     }
 
     @Override
