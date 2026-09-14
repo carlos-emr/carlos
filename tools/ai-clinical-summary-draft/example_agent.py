@@ -21,8 +21,8 @@ def unique_object(pairs):
     return result
 
 
-def run_agent(request):
-    """Replace this function with your agent, preserving the response contract."""
+def validate_request(request):
+    """Validate the versioned transport contract, independently of inference."""
     expected = {"contract_version", "request_id", "workflow", "data_classification",
                 "instructions", "sources", "output_schema"}
     if not isinstance(request, dict) or set(request) != expected:
@@ -44,8 +44,7 @@ def run_agent(request):
         raise ValueError("Invalid sources")
     ids = set()
     patient_ids = set()
-    claims = []
-    for index, source in enumerate(sources):
+    for source in sources:
         if not isinstance(source, dict) or set(source) != {"id", "patient_id", "title", "date", "text"}:
             raise ValueError("Invalid source fields")
         if any(not isinstance(value, str) or not value.strip() for value in source.values()):
@@ -55,11 +54,18 @@ def run_agent(request):
             raise ValueError("Invalid or duplicate source ID")
         ids.add(source_id)
         patient_ids.add(source["patient_id"])
-        claims.append({"id": f"demo-{index + 1}",
-                       "text": f"The contract demonstration received {source['title']} dated {source['date']}.",
-                       "source_ids": [source_id]})
     if len(patient_ids) != 1:
         raise ValueError("Mixed patient sources")
+    return request
+
+
+def run_agent(request):
+    """Replace this function with your agent, preserving the response contract."""
+    validate_request(request)
+    sources = request["sources"]
+    claims = [{"id": f"demo-{index + 1}",
+               "text": f"The contract demonstration received {source['title']} dated {source['date']}.",
+               "source_ids": [source["id"]]} for index, source in enumerate(sources)]
     return {
         "contract_version": 1,
         "request_id": request["request_id"],

@@ -75,6 +75,7 @@ Malformed reference structure fails before the JSP receives any artifact.
 
 ## Generate from CARLOS
 
+For faster synthetic testing through OpenRouter, use the [step-by-step setup](OPENROUTER.md).
 For a different agent framework, see [the pluggable agent API](AGENT_API.md).
 The instructions below use the default local Ollama adapter.
 

@@ -12,6 +12,9 @@ an existing agent needs a small wrapper that translates this request and respons
 Its internal workflow may involve multiple models, steps or tools; CARLOS supplies
 no database credentials, session tokens, chart-write tools or conversation memory.
 
+A ready-to-run [OpenRouter testing gateway](OPENROUTER.md) implements this contract,
+with private key configuration, verified synthetic text checks and bounded memory caching.
+
 ## Configure an HTTP agent
 
 Run your gateway on numeric loopback in the same network namespace as CARLOS.
