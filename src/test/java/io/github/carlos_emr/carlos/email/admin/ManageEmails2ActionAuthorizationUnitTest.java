@@ -5,6 +5,8 @@
  */
 package io.github.carlos_emr.carlos.email.admin;
 
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -23,6 +25,9 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -31,6 +36,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
  * Verifies authorization boundaries for administrative email resend operations.
@@ -43,6 +49,59 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @Tag("security")
 @DisplayName("Manage email resend authorization")
 class ManageEmails2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
+
+    @Test
+    @DisplayName("should require a new password when copying an encrypted email")
+    void shouldNotExposeStoredPassword_whenCopyingEncryptedEmail() {
+        SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        EmailComposeManager emailComposeManager = createAndRegisterMock(EmailComposeManager.class);
+        createAndRegisterMock(DemographicManager.class);
+        createAndRegisterMock(EmailManager.class);
+        createAndRegisterMock(DocumentAttachmentManager.class);
+        createAndRegisterMock(FormsManager.class);
+        createAndRegisterMock(PdfPreviewCapabilityService.class);
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.READ), isNull()))
+                .thenReturn(true);
+
+        EmailLog log = new EmailLog();
+        Demographic demographic = new Demographic();
+        demographic.setDemographicNo(123);
+        log.setDemographic(demographic);
+        log.setEmailAttachments(List.of());
+        log.setIsEncrypted(true);
+        log.setIsAttachmentEncrypted(true);
+        log.setBody("");
+        log.setEncryptedMessage("Message to copy");
+        log.setPassword("historical-pdf-fixture");
+        log.setPasswordClue("Use the separately provided clue");
+        log.setChartDisplayOption(EmailLog.ChartDisplayOption.WITHOUT_NOTE);
+        when(emailComposeManager.prepareEmailForResend(any(), eq(42))).thenReturn(log);
+        when(emailComposeManager.getEmailConsentStatus(any(), eq(123)))
+                .thenReturn(new String[]{"Email", "OPT_IN", "email.consent.status.optIn"});
+        when(emailComposeManager.getRecipients(any(), eq(123)))
+                .thenReturn(new List<?>[]{List.of(), List.of()});
+        when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/admin/email/resend");
+        request.setParameter("logId", "42");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        request.getSession().setAttribute("emailPDFPassword", "stale-session-fixture");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+        }
+
+        assertThat(request.getAttribute("emailPDFPassword")).isEqualTo("");
+        assertThat(request.getAttribute("emailPDFPasswordClue")).isEqualTo(log.getPasswordClue());
+        assertThat(request.getAttribute("message")).isEqualTo("Message to copy");
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
+        assertThat(log.getPassword()).isEqualTo("historical-pdf-fixture");
+    }
 
     @Test
     @DisplayName("should authorize before loading an email for resend")

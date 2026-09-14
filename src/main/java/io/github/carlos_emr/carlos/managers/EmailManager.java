@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
@@ -85,6 +86,12 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 @Service
 public class EmailManager {
+    static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
+    private static final String UNKNOWN_NAME_PART = "Unknown";
+    private static final String SENDER_NAME_PART = "Sender";
+    private static final String PATIENT_NAME_PART = "Patient";
+    private static final String PROVIDER_NAME_PART = "Provider";
+
     private final Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -119,27 +126,15 @@ public class EmailManager {
     }
 
     /**
-     * Sends an email with optional encryption and creates a corresponding email log entry.
+     * Sends email after authorization, active sender validation and the current consent gate.
+     * Missing or inactive sender accounts return a transient FAILED log with a safe message;
+     * that result has no database id, outbox row, consent audit or transport attempt.
+     * Valid accounts retain consent snapshots, credential migration, encryption and status auditing.
      *
-     * This method orchestrates the complete email sending workflow including field sanitization,
-     * outbox preparation, optional encryption, transmission, and status tracking. If configured
-     * to display in the patient chart, it also creates a case management note documenting the
-     * email communication.
-     *
-     * The method performs the following steps:
-     * 1. Validates user has _email WRITE privilege
-     * 2. Sanitizes email data fields
-     * 3. Resolves current patient consent and records it on the email log
-     * 4. Returns the log in BLOCKED status without creating a sender when consent denies the send
-     * 5. Encrypts message and/or attachments if requested
-     * 6. Sends email via configured email server
-     * 7. Updates log status to SUCCESS or FAILED
-     * 8. Creates a chart note for successful sends configured for WITH_FULL_NOTE display
-     *
-     * @param loggedInInfo LoggedInInfo the logged-in user session information
-     * @param emailData EmailData containing email subject, body, recipients, attachments, and configuration options
-     * @return EmailLog the persisted email log entry with final status and metadata
-     * @throws RuntimeException if user lacks _email WRITE privilege
+     * @param loggedInInfo the authenticated session
+     * @param emailData the message, recipients and sending options
+     * @return the persisted send/consent result, or a transient sender-configuration failure
+     * @throws RuntimeException if the caller lacks email write privilege
      */
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
@@ -147,8 +142,15 @@ public class EmailManager {
         }
 
         sanitizeEmailFields(emailData);
+        EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
+        if (emailConfig == null) {
+            logger.warn("Email send failed before transport: sender configuration is missing or inactive; senderConfigId={}",
+                    emailData.getSenderConfigId());
+            return createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
+        }
         EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
-        EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
+        EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
+        upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
         applyConsentSnapshot(emailLog, consentResult, emailData);
         logPreparedEmail(loggedInInfo, emailLog);
         if (isBlockedByConsent(consentResult, emailData)) {
@@ -178,6 +180,40 @@ public class EmailManager {
     }
 
     /**
+     * Transparently upgrades an email configuration's transport secrets to at-rest encryption on
+     * first use (the send path), so hand-inserted plaintext {@code emailConfig.configDetails} rows
+     * are migrated the first time they are used to send.
+     *
+     * <p>The upgrade is best-effort: if the encryption key is unavailable, or the persistence of the
+     * re-encrypted row fails, the row is left as-is and the send proceeds with the existing
+     * (plaintext) value rather than blocking outbound mail. Already-encrypted rows are detected by
+     * {@link EmailConfigSecrets} and produce no database write. Neither the secret nor the raw
+     * {@code configDetails} JSON is ever logged.</p>
+     *
+     * @param emailConfig the configuration whose secrets should be encrypted at rest, may be null
+     */
+    void upgradeConfigCredentialsAtRest(EmailConfig emailConfig) {
+        if (emailConfig == null || emailConfig.getId() == null) {
+            return;
+        }
+        String original = emailConfig.getConfigDetailsJson();
+        try {
+            String encrypted = EmailConfigSecrets.encryptSecrets(original);
+            if (!java.util.Objects.equals(original, encrypted)
+                    && emailConfigDao.encryptCredentialsIfUnchanged(emailConfig.getId(), original, encrypted)) {
+                emailConfig.setConfigDetailsJson(encrypted);
+            }
+        } catch (EmailSendingException | RuntimeException e) {
+            // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
+            // (RuntimeException, e.g. DataAccessException) may block outbound mail. The detached
+            // object is changed only after persistence succeeds. The DAO binds only the account ID
+            // and encrypted JSON, never the plaintext credential, keeping database errors safe.
+            logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
+                    emailConfig.getId(), e);
+        }
+    }
+
+    /**
      * Prepares an email for sending by creating and persisting an email log entry in the outbox.
      *
      * This method creates a comprehensive email log record that captures all email metadata,
@@ -201,13 +237,14 @@ public class EmailManager {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
-        if (emailData.getSenderConfigId() == null) {
-            throw new IllegalArgumentException("Sender email configuration ID is required");
-        }
-        EmailConfig emailConfig = emailConfigDao.findActiveEmailConfigById(emailData.getSenderConfigId());
+        EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
         if (emailConfig == null) {
-            throw new IllegalArgumentException("No active email configuration found for ID " + emailData.getSenderConfigId());
+            throw new IllegalArgumentException("sender email configuration is missing or inactive");
         }
+        return prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
+    }
+
+    private EmailLog prepareEmailForOutbox(LoggedInInfo loggedInInfo, EmailData emailData, EmailConfig emailConfig) {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
         Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
 
@@ -228,6 +265,38 @@ public class EmailManager {
         emailLogDao.persist(emailLog);
 
         return emailLog;
+    }
+
+    private EmailConfig findActiveSenderEmailConfig(EmailData emailData) {
+        if (emailData.getSenderConfigId() == null) {
+            return null;
+        }
+        return emailConfigDao.findActiveEmailConfigById(emailData.getSenderConfigId());
+    }
+
+    private EmailLog createFailedEmailLog(EmailData emailData, String errorMessage) {
+        EmailLog emailLog = new EmailLog();
+        emailLog.setFromEmail("");
+        emailLog.setToEmail(emailData.getRecipients());
+        emailLog.setSubject(nullToEmpty(emailData.getSubject()));
+        emailLog.setBody(nullToEmpty(emailData.getBody()));
+        emailLog.setStatus(EmailStatus.FAILED);
+        emailLog.setErrorMessage(errorMessage);
+        emailLog.setEncryptedMessage(nullToEmpty(emailData.getEncryptedMessage()));
+        emailLog.setPassword(nullToEmpty(emailData.getPassword()));
+        emailLog.setPasswordClue(nullToEmpty(emailData.getPasswordClue()));
+        emailLog.setIsEncrypted(emailData.getIsEncrypted());
+        emailLog.setIsAttachmentEncrypted(emailData.getIsAttachmentEncrypted());
+        emailLog.setChartDisplayOption(emailData.getChartDisplayOption());
+        emailLog.setInternalComment(nullToEmpty(emailData.getInternalComment()));
+        emailLog.setTransactionType(emailData.getTransactionType());
+        emailLog.setAdditionalParams(nullToEmpty(emailData.getAdditionalParams()));
+        setEmailAttachments(emailLog, emailData.getAttachments());
+        return emailLog;
+    }
+
+    private String nullToEmpty(String value) {
+        return value != null ? value : "";
     }
 
     /**
@@ -633,14 +702,81 @@ public class EmailManager {
             EmailConfig emailConfig = result.getEmailConfig();
             Demographic demographic = result.getDemographic();
             Provider provider = result.getProvider();
-            EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), emailConfig.getSenderFirstName(),
-                    emailConfig.getSenderLastName(), result.getFromEmail(), demographic.getFirstName(),
-                    demographic.getLastName(), String.join(", ", result.getToEmail()), provider.getFirstName(), provider.getLastName(),
-                    result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+            // Preserve null-safe names and aliases without exposing the stored PDF password.
+            EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), getSenderFirstName(emailConfig),
+                    getSenderLastName(emailConfig), nullToEmpty(result.getFromEmail()), getDemographicFirstName(demographic),
+                    getDemographicLastName(demographic), String.join(", ", result.getToEmail()), getProviderFirstName(provider), getProviderLastName(provider),
+                    result.getIsEncrypted(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResult.applyConsentSnapshot(result);
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);
         return emailStatusResults;
+    }
+
+    private String getSenderFirstName(EmailConfig emailConfig) {
+        return getDisplayNamePart(emailConfig != null ? emailConfig.getSenderFirstName() : null, UNKNOWN_NAME_PART);
+    }
+
+    private String getSenderLastName(EmailConfig emailConfig) {
+        return getDisplayNamePart(emailConfig != null ? emailConfig.getSenderLastName() : null, SENDER_NAME_PART);
+    }
+
+    private String getDemographicFirstName(Demographic demographic) {
+        if (getAliasOnlyDemographicName(demographic) != null) {
+            return "";
+        }
+        return getDisplayNamePart(demographic != null ? demographic.getFirstName() : null, UNKNOWN_NAME_PART);
+    }
+
+    private String getDemographicLastName(Demographic demographic) {
+        String aliasOnlyName = getAliasOnlyDemographicName(demographic);
+        if (aliasOnlyName != null) {
+            return aliasOnlyName;
+        }
+        String lastName = getDisplayNamePart(demographic != null ? demographic.getLastName() : null, PATIENT_NAME_PART);
+        String aliasName = getDemographicAliasName(demographic);
+        return aliasName != null ? lastName + " " + aliasName : lastName;
+    }
+
+    private String getProviderFirstName(Provider provider) {
+        return getDisplayNamePart(provider != null ? provider.getFirstName() : null, UNKNOWN_NAME_PART);
+    }
+
+    private String getProviderLastName(Provider provider) {
+        return getDisplayNamePart(provider != null ? provider.getLastName() : null, PROVIDER_NAME_PART);
+    }
+
+    private String getAliasOnlyDemographicName(Demographic demographic) {
+        if (demographic == null || !isBlank(demographic.getFirstName()) || !isBlank(demographic.getLastName())) {
+            return null;
+        }
+
+        return getDemographicAliasName(demographic);
+    }
+
+    private String getDemographicAliasName(Demographic demographic) {
+        if (demographic == null) {
+            return null;
+        }
+        String alias = trimToNull(demographic.getAlias());
+        return alias != null ? "(" + alias + ")" : null;
+    }
+
+    private String getDisplayNamePart(String value, String fallback) {
+        String trimmedValue = trimToNull(value);
+        return trimmedValue != null ? trimmedValue : fallback;
+    }
+
+    private boolean isBlank(String value) {
+        return trimToNull(value) == null;
+    }
+
+    private String trimToNull(String value) {
+        if (StringUtils.isNullOrEmpty(value)) {
+            return null;
+        }
+        String trimmedValue = value.trim();
+        return trimmedValue.isEmpty() ? null : trimmedValue;
     }
 }

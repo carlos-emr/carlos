@@ -126,6 +126,41 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should preserve the compose draft when sender configuration fails without an outbox id")
+    void shouldPreserveComposeDraft_whenSenderConfigurationFails() {
+        grantEmailWritePrivilege();
+        prepareValidUnencryptedMessage();
+        request.setMethod("POST");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("receiverEmailAddress", "patient@example.invalid");
+        request.setParameter("subjectEmail", "Synthetic appointment reminder");
+        request.setParameter("patientChartOption", "doNotAddAsNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        LoggedInInfo.getLoggedInInfoFromSession(request).setLoggedInProvider(
+                new io.github.carlos_emr.carlos.commn.model.Provider("999998"));
+        EmailLog failure = new EmailLog();
+        failure.setStatus(EmailStatus.FAILED);
+        failure.setErrorMessage("Email sender account is not configured or is inactive.");
+        when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class))).thenReturn(failure);
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(failure.getId()).isNull();
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
+        assertThat(request.getAttribute("emailLog")).isSameAs(failure);
+        assertThat(request.getAttribute("message")).isEqualTo("Appointment reminder");
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(false);
+        assertThat(request.getAttribute("subjectEmail")).isEqualTo("Synthetic appointment reminder");
+        assertThat(request.getAttribute("demographicId")).isEqualTo("123");
+        org.mockito.ArgumentCaptor<EmailData> sent = org.mockito.ArgumentCaptor.forClass(EmailData.class);
+        verify(emailManager).sendEmail(any(LoggedInInfo.class), sent.capture());
+        assertThat(sent.getValue().getSenderConfigId()).isNull();
+        verifyNoInteractions(eformDataManager);
+    }
+
+    @Test
     @DisplayName("should reject GET cancel without consuming session attachments")
     void shouldRejectGetCancel_withoutConsumingSessionAttachments() {
         grantEmailWritePrivilege();

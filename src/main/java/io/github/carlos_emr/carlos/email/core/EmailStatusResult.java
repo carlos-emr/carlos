@@ -42,7 +42,6 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private String providerLastName;
     private String recipientEmail;
     private boolean isEncrypted;
-    private String password;
     private EmailStatus status;
     private String errorMessage;
     private Date created;
@@ -72,14 +71,13 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @param providerFirstName String the first name of the associated healthcare provider
      * @param providerLastName String the last name of the associated healthcare provider
      * @param isEncrypted boolean flag indicating whether the email was encrypted
-     * @param password String the encryption password (if applicable)
      * @param status EmailStatus the current delivery status of the email
      * @param errorMessage String any error message associated with failed delivery (may be null)
      * @param created Date the timestamp when the email was created/sent
      */
     public EmailStatusResult(Integer logId, String subject, String senderFirstName, String senderLastName, String senderEmail,
                              String recipientFirstName, String recipientLastName, String recipientEmail, String providerFirstName,
-                             String providerLastName, boolean isEncrypted, String password, EmailStatus status,
+                             String providerLastName, boolean isEncrypted, EmailStatus status,
                              String errorMessage, Date created) {
         this.logId = logId;
         this.subject = subject;
@@ -92,7 +90,6 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         this.providerLastName = providerLastName;
         this.recipientEmail = recipientEmail;
         this.isEncrypted = isEncrypted;
-        this.password = password;
         this.status = status;
         this.errorMessage = errorMessage;
         this.created = created;
@@ -171,12 +168,12 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     }
 
     /**
-     * Gets the sender's full name formatted as "FirstName LastName" in camel case.
+     * Gets the sender's full name formatted as "FirstName LastName" with name capitalization.
      *
      * @return String the formatted sender's full name
      */
     public String getSenderFullName() {
-        return toCamelCase(senderFirstName) + " " + toCamelCase(senderLastName);
+        return formatFirstNameLastName(senderFirstName, senderLastName);
     }
 
     /**
@@ -245,12 +242,12 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     }
 
     /**
-     * Gets the recipient's full name formatted as "FirstName LastName" in camel case.
+     * Gets the recipient's full name formatted as "FirstName LastName" with name capitalization.
      *
      * @return String the formatted recipient's full name
      */
     public String getRecipientFullName() {
-        return toCamelCase(recipientFirstName) + " " + toCamelCase(recipientLastName);
+        return formatFirstNameLastName(recipientFirstName, recipientLastName);
     }
 
     /**
@@ -301,12 +298,20 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     }
 
     /**
-     * Gets the provider's full name formatted as "LastName, FirstName" in camel case.
+     * Gets the provider's full name formatted as "LastName, FirstName" with name capitalization.
      *
      * @return String the formatted provider's full name
      */
     public String getProviderFullName() {
-        return toCamelCase(providerLastName) + ", " + toCamelCase(providerFirstName);
+        String firstName = formatNamePart(providerFirstName);
+        String lastName = formatNamePart(providerLastName);
+        if (firstName.isEmpty()) {
+            return lastName;
+        }
+        if (lastName.isEmpty()) {
+            return firstName;
+        }
+        return lastName + ", " + firstName;
     }
 
     /**
@@ -363,33 +368,6 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      */
     public void setIsEncrypted(boolean isEncrypted) {
         this.isEncrypted = isEncrypted;
-    }
-
-    /**
-     * Gets the encryption password.
-     *
-     * <p><strong>Security Note:</strong> This password is used for email encryption in a
-     * healthcare context where emails may contain PHI. Handle this value with appropriate
-     * security measures: do not log it, avoid exposing it in error messages, and clear it
-     * from memory when no longer needed.</p>
-     *
-     * @return String the encryption password (may be null if not encrypted)
-     */
-    public String getPassword() {
-        return password;
-    }
-
-    /**
-     * Sets the encryption password.
-     *
-     * <p><strong>Security Note:</strong> This password is used for email encryption in a
-     * healthcare context where emails may contain PHI. Ensure this value is handled
-     * securely and not logged or exposed in error messages.</p>
-     *
-     * @param password String the encryption password to set
-     */
-    public void setPassword(String password) {
-        this.password = password;
     }
 
     /** @return the consent state captured for the displayed send attempt */
@@ -545,20 +523,32 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         return createdLocalDateTime.format(formatter);
     }
 
-    /**
-     * Converts a string to Title Case format (first letter uppercase, rest lowercase).
-     *
-     * <p><strong>Note:</strong> Despite the method name, this produces Title Case
-     * (e.g., "Firstname") rather than true camelCase (e.g., "firstName"). This is
-     * the expected behavior for formatting person names in this class.</p>
-     *
-     * @param inputString String the input string to convert
-     * @return String the Title Case formatted string
-     * @throws NullPointerException if inputString is null
-     * @throws StringIndexOutOfBoundsException if inputString is empty
-     */
-    private String toCamelCase(String inputString) {
-        return Character.toUpperCase(inputString.charAt(0)) + inputString.substring(1).toLowerCase();
+    /** Formats a legal name part while preserving the original spelling of a parenthesized alias. */
+    private String formatNamePart(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String name = value.trim();
+        if (name.startsWith("(") && name.endsWith(")")) {
+            return name;
+        }
+        int aliasStart = name.indexOf(" (");
+        if (aliasStart > 0 && name.endsWith(")")) {
+            return formatNamePart(name.substring(0, aliasStart)) + name.substring(aliasStart);
+        }
+        return Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private String formatFirstNameLastName(String firstName, String lastName) {
+        String formattedFirstName = formatNamePart(firstName);
+        String formattedLastName = formatNamePart(lastName);
+        if (formattedFirstName.isEmpty()) {
+            return formattedLastName;
+        }
+        if (formattedLastName.isEmpty()) {
+            return formattedFirstName;
+        }
+        return formattedFirstName + " " + formattedLastName;
     }
 
     /**

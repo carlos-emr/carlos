@@ -165,6 +165,13 @@ public final class Login2Action extends ActionSupport {
      * and runbooks are migrated at the same time.</p>
      */
     private static final String LOG_PRE = "Login!@#$: ";
+    /**
+     * Audit reason for login attempts that failed because the authentication provider itself threw.
+     *
+     * <p>Deliberately distinct from a credential verdict: no password check completed, so an
+     * authentication or database outage must not be reported to auditors as bad-password traffic.</p>
+     */
+    private static final String AUDIT_REASON_AUTH_PROVIDER_ERROR = "auth_provider_error";
     /** Default for {@code password_min_length} when the property is absent or malformed. */
     private static final int DEFAULT_POLICY_MIN_LENGTH = 8;
     /** Default for {@code password_min_groups} when the property is absent or malformed. */
@@ -641,6 +648,10 @@ public final class Login2Action extends ActionSupport {
             logger.warn("Expired password: user={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip));
             cl.updateLoginList(ip, userName);
+            // No audit row is written here: LoginCheckLoginBean.cleanNullObjExpire() has already
+            // persisted the durable "expired" login row synchronously before auth() returned the
+            // ["expired"] marker. Adding a second row here would double-count the attempt and
+            // misreport an expiry as a credential failure.
             String expiredMessage = message("login.errorAccountExpired");
             String newURL = loginFailedRedirectUrl(expiredMessage);
 
@@ -659,6 +670,10 @@ public final class Login2Action extends ActionSupport {
             logger.debug("go to normal directory");
 
             cl.updateLoginList(ip, userName);
+            // No audit row is written here: every credential verdict that lands in this branch
+            // (bad password, bad/missing PIN, unknown user) already passed through
+            // LoginCheckLoginBean.cleanNullObj(), which persists the durable "failed" login row
+            // synchronously. A second row here would inflate failed-attempt audit counts.
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
@@ -1740,6 +1755,15 @@ public final class Login2Action extends ActionSupport {
     /**
      * Counts authentication-provider exceptions as failed attempts so exception-triggering probes do
      * not bypass the same lockout path as ordinary credential failures.
+     *
+     * <p>This path also writes the durable audit row itself. Every other failure verdict is audited
+     * inside {@link LoginCheckLoginBean}, but an exception aborts {@code auth()} before that write
+     * happens, leaving the attempt invisible to the {@code log} table. The row carries
+     * {@link #AUDIT_REASON_AUTH_PROVIDER_ERROR} rather than a credential reason.</p>
+     *
+     * @param cl login-check facade holding the in-memory rate-limiter state
+     * @param ip remote address of the failed attempt
+     * @param userName submitted login name, recorded for audit correlation
      */
     private void recordAuthenticationExceptionFailure(LoginCheckLogin cl, String ip, String userName) {
         try {
@@ -1748,6 +1772,11 @@ public final class Login2Action extends ActionSupport {
             logger.warn("Unable to update login-failure counter after authentication exception: user={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip), updateFailure);
         }
+        // The provider threw before reaching a credential verdict, so LoginCheckLoginBean never ran
+        // its own audit write. This is the one failed-login path with no durable record, and it is
+        // logged under a distinct reason so an authentication/database outage is not reported as a
+        // wave of bad-password attempts.
+        LogAction.addLog(userName, "login", "failed", AUDIT_REASON_AUTH_PROVIDER_ERROR, ip);
     }
 
     /**

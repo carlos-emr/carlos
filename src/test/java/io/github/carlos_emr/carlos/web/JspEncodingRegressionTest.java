@@ -41,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JspEncodingRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
+    private static final Path WEBAPP_ROOT = resolveProjectPath(Path.of("src/main/webapp"));
     private static final String SAFE_ENCODE_IMPORT_PATTERN =
             "<%@\\s*page\\s+import\\s*=\\s*\"io\\.github\\.carlos_emr\\.carlos\\.utility\\.SafeEncode\"\\s*%>";
     private static final String SAFE_TEXTAREA_RENDER_PATTERN =
@@ -62,6 +63,32 @@ class JspEncodingRegressionTest {
                 .doesNotContain("'<%= session.getAttribute(\"resourceID\") %>'")
                 .contains("SafeEncode.forJavaScript(")
                 .contains("session.getAttribute(\"resourceID\")");
+    }
+
+    /**
+     * Password-policy character groups are configuration-driven, so they reach the browser as JSP
+     * scriptlet output inside JavaScript string literals. They must use the CARLOS null-safe
+     * encoder rather than Spring's {@code JavaScriptUtils.javaScriptEscape(...)}: an unset
+     * property yields {@code null}, which {@code javaScriptEscape} dereferences, and only
+     * {@code SafeEncode} is the repository-standard JSP encoder that CI enforces.
+     */
+    @Test
+    void shouldEncodePasswordPolicyValues_inJavaScriptStrings() throws Exception {
+        String forcePasswordResetJsp = readJsp("login/forcepasswordreset.jsp");
+        String checkPasswordJsJsp = readWebAsset("js/checkPassword.js.jsp");
+
+        assertThat(forcePasswordResetJsp)
+                .doesNotContain("JavaScriptUtils.javaScriptEscape(")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_lower_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_upper_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_digits\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_special\"))");
+        assertThat(checkPasswordJsJsp)
+                .doesNotContain("JavaScriptUtils.javaScriptEscape(")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_lower_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_upper_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_digits\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_special\"))");
     }
 
     @Test
@@ -581,6 +608,11 @@ class JspEncodingRegressionTest {
 
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
+    }
+
+    /** Reads a JSP served directly from the webapp root (outside {@code WEB-INF/jsp}). */
+    private static String readWebAsset(String relativePath) throws Exception {
+        return Files.readString(WEBAPP_ROOT.resolve(relativePath));
     }
 
     private static String carlosEncodePattern(String scriptletExpressionPattern, String context) {
