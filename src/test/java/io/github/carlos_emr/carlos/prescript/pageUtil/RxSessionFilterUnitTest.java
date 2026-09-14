@@ -5,13 +5,22 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
+import io.github.carlos_emr.carlos.prescript.gate.ViewPrintDrugProfile22Action;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -40,6 +49,53 @@ class RxSessionFilterUnitTest {
     private static final String CONTEXT_PATH = "/carlos";
     private final RxSessionFilter filter = new RxSessionFilter(
             (request, demographicNo, providerNo) -> new RxSessionFilter.LaunchContext(null, "7"));
+
+    @Test
+    void shouldLoadWorkspacePatient_whenOpeningDrugProfileDirectly() throws Exception {
+        try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(AllergyDao.class)).thenReturn(mock(AllergyDao.class));
+            spring.when(() -> SpringUtils.getBean(DemographicManager.class)).thenReturn(mock(DemographicManager.class));
+            MockHttpSession session = session("provider-1");
+            RxPatientData.Patient otherPatient = mock(RxPatientData.Patient.class);
+            when(otherPatient.getDemographicNo()).thenReturn(202);
+            session.setAttribute("Patient", otherPatient);
+            MockHttpServletRequest entry = request(session, "GET", "/rx/ViewPrintDrugProfile2");
+            entry.addParameter("demographic_no", "101");
+            MockHttpServletResponse redirect = new MockHttpServletResponse();
+            filter.doFilter(entry, redirect, (req, res) -> {});
+
+            String contextId = parameter(redirect.getHeader("Location"), "rxContextId");
+            MockHttpServletRequest profile = request(session, "GET", "/rx/ViewPrintDrugProfile2");
+            profile.addParameter("demographic_no", "101");
+            profile.addParameter("rxContextId", contextId);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            SecurityInfoManager security = mock(SecurityInfoManager.class);
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            RxPatientData.Patient patient = mock(RxPatientData.Patient.class);
+            when(patient.getDemographicNo()).thenReturn(101);
+            when(security.hasPrivilege(loggedInInfo, "_rx", "r", null)).thenReturn(true);
+
+            spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
+            try (MockedStatic<RxPatientData> patients = mockStatic(RxPatientData.class)) {
+                patients.when(() -> RxPatientData.getPatient(loggedInInfo, 101)).thenReturn(patient);
+                filter.doFilter(profile, response, (req, res) -> {
+                    HttpServletRequest scoped = (HttpServletRequest) req;
+                    assertThat(scoped.getSession().getAttribute("Patient")).isNull();
+                    try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
+                         MockedStatic<LoggedInInfo> login = mockStatic(LoggedInInfo.class)) {
+                        servlet.when(ServletActionContext::getRequest).thenReturn(scoped);
+                        login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(scoped)).thenReturn(loggedInInfo);
+                        assertThat(new ViewPrintDrugProfile22Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+                        assertThat(scoped.getSession().getAttribute("Patient")).isSameAs(patient);
+                    } catch (Exception e) {
+                        throw new ServletException(e);
+                    }
+                });
+            }
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(session.getAttribute("Patient")).isSameAs(otherPatient);
+        }
+    }
 
     @Test
     void entryRequestCreatesWorkspaceAndRedirectsWithOpaqueContext() throws Exception {
