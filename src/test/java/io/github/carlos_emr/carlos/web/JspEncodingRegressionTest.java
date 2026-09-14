@@ -606,6 +606,197 @@ class JspEncodingRegressionTest {
         }
     }
 
+    /**
+     * {@code rx/WriteScript.jsp} is the prescribing form. Provider-entered drug metadata reaches
+     * HTML body, HTML attribute and URL-query sinks on the same render, and the ODB formulary
+     * links nest the DIN inside a JavaScript string inside an {@code onclick} attribute.
+     * {@code forUriComponent} percent-encodes everything outside the unreserved set, so a single
+     * encode covers all three nesting layers of those links.
+     */
+    @Test
+    @DisplayName("should encode Rx prescribing form values in HTML, attribute and URI contexts")
+    @Tag("security")
+    void shouldEncodeWriteScriptValues_inHtmlAttributeAndUriContexts() throws Exception {
+        String writeScriptJsp = readJsp("rx/WriteScript.jsp");
+
+        assertThat(writeScriptJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .containsPattern(carlosEncodePattern("patient\\.getFirstName\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("patient\\.getSurname\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("thisForm\\.getGenericName\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("thisForm\\.getBrandName\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("thisForm\\.getRegionalIdentifier\\(\\)", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern("compString", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern("spec\\[i\\]", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern("spec\\[i\\]", "html"))
+                .containsPattern(carlosEncodePattern("freq\\[i\\]\\.getFreqCode\\(\\)", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern("freq\\[i\\]\\.getFreqCode\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("allerg\\[allergIndex\\]\\.getDescription\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("allerg\\[allergIndex\\]\\.getReaction\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("regionalIdentifier", "uriComponent"))
+                // The negative lookbehind is what keeps these assertions from contradicting the
+                // positive ones above: the same scriptlet nested inside a
+                // <carlos:encode value='<%= ... %>'/> wrapper is preceded by "value='", so only a
+                // bare sink can match.
+                .doesNotContainPattern("(?<!value=')<%=\\s*spec\\[i\\]\\s*%>")
+                .doesNotContainPattern("(?<!value=')<%=\\s*freq\\[i\\]\\.getFreqCode\\(\\)\\s*%>")
+                .doesNotContainPattern("(?<!value=')<%=\\s*compString\\s*%>")
+                .doesNotContainPattern("(?<!value=')<%=\\s*regionalIdentifier\\s*%>")
+                .doesNotContain("for <%= patient.getFirstName() %> <%= patient.getSurname() %>")
+                // The field dump used to be an HTML comment, so its scriptlets still executed and
+                // wrote raw prescription values into the response body. As a JSP comment nothing
+                // inside it is evaluated, which is why the DIN assignment it used to hide has to
+                // stay live above it for the ODB links and the Limited Use lookup.
+                .contains("<%--\nDemographicNo:")
+                .doesNotContain("<!--\nDemographicNo:")
+                .contains("        regionalIdentifier = thisForm.getRegionalIdentifier();")
+                .doesNotContain("<% regionalIdentifier = thisForm.getRegionalIdentifier(); %>");
+    }
+
+    /**
+     * {@code rx/ViewScript2.jsp} and {@code rx/InteractionDisplay.jsp} render stored drug names,
+     * interaction commentary and the address book straight into the script view. The generic name
+     * additionally reaches a JavaScript string inside an {@code href="javascript:..."} attribute.
+     */
+    @Test
+    @DisplayName("should encode Rx script view and interaction values in HTML and JavaScript contexts")
+    @Tag("security")
+    void shouldEncodeRxScriptViewValues_inHtmlAndJavaScriptContexts() throws Exception {
+        String viewScriptJsp = readJsp("rx/ViewScript2.jsp");
+        String interactionDisplayJsp = readJsp("rx/InteractionDisplay.jsp");
+        String showPreviousPrintsJsp = readJsp("rx/ShowPreviousPrints.jsp");
+        String sideLinksJsp = readJsp("rx/SideLinksNoEditFavorites2.jsp");
+
+        assertThat(viewScriptJsp)
+                .containsPattern(carlosEncodePattern("rx\\.getGenericName\\(\\)", "javaScriptAttribute"))
+                .containsPattern(carlosEncodePattern("rx\\.getGenericName\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("rx\\.getBrandName\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("te", "html"))
+                .contains("SafeEncode.forJavaScript(pharmacy.getFax())")
+                // No raw-sink assertion for te: the page-size <select> lower down reuses the same
+                // local name for hardcoded literals ("A4 page", ...), so a file-wide negative would
+                // fail on markup that is not a sink at all.
+                .doesNotContain("href=\"javascript:ShowDrugInfo('<%= rx.getGenericName() %>');\"");
+
+        assertThat(interactionDisplayJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .containsPattern(carlosEncodePattern("interactions\\[i\\]\\.affectingdrug", "html"))
+                .containsPattern(carlosEncodePattern("interactions\\[i\\]\\.affecteddrug", "html"))
+                .containsPattern(carlosEncodePattern("interactions\\[i\\]\\.comment", "html"))
+                .doesNotContain("<%=interactions[i].comment%>")
+                .doesNotContain("<%=interactions[i].affectingdrug%>");
+
+        assertThat(showPreviousPrintsJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .containsPattern(carlosEncodePattern("providerName", "html"))
+                .containsPattern(carlosEncodePattern("drp", "html"))
+                .containsPattern(carlosEncodePattern(
+                        "providerDao\\.getProvider\\(originalProviderNo\\)\\.getFormattedName\\(\\)", "html"))
+                .doesNotContainPattern("(?<!value=')<%=providerName %>")
+                .doesNotContainPattern("(?<!value=')<%=drp%>");
+
+        // The favorite id is an int, so it cannot itself carry markup; it is still encoded so the
+        // handler stays safe if the column ever widens to a free-text key.
+        assertThat(sideLinksJsp)
+                .containsPattern(carlosEncodePattern(
+                        "String\\.valueOf\\(favorites\\[j\\]\\.getFavoriteId\\(\\)\\)", "javaScriptAttribute"))
+                .doesNotContain("onclick=\"goSD3('<%= favorites[j].getFavoriteId() %>');\"");
+    }
+
+    /**
+     * The Rx record, drug-profile print and preview pages render stored prescription data, patient
+     * demographics and clinic configuration. Two things are pinned here beyond the encoder calls:
+     *
+     * <ul>
+     *   <li>{@code CarlosEncodeTag.setValue} takes a {@code String} and Jasper passes a scripting
+     *       expression to the typed setter without EL coercion, so every non-{@code String}
+     *       expression has to be converted before it reaches the tag or the page cannot compile.</li>
+     *   <li>{@code Preview2.jsp} splits the prescription body on the stash separator {@code ";"}
+     *       and encodes each segment on its own. Encoding first and replacing {@code ";"} afterwards
+     *       would cut the entity references the encoder emits ({@code &amp;} -> {@code &amp<br />}).</li>
+     * </ul>
+     */
+    @Test
+    @DisplayName("should encode Rx record, profile and preview values in HTML and attribute contexts")
+    @Tag("security")
+    void shouldEncodeRxRecordAndPreviewValues_inHtmlAndAttributeContexts() throws Exception {
+        String displayRxRecordJsp = readJsp("rx/DisplayRxRecord.jsp");
+        String printDrugProfileJsp = readJsp("rx/PrintDrugProfile2.jsp");
+        String previewJsp = readJsp("rx/Preview2.jsp");
+        String selectReasonJsp = readJsp("rx/SelectReason.jsp");
+        String chooseAllergyJsp = readJsp("rx/ChooseAllergy2.jsp");
+
+        assertThat(displayRxRecordJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .containsPattern(carlosEncodePattern(
+                        "providerDao\\.getProviderName\\(drug\\.getProviderNo\\(\\)\\)", "html"))
+                .containsPattern(carlosEncodePattern("drug\\.getDosageDisplay\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("StringUtils\\.trimToEmpty\\(drug\\.getComment\\(\\)\\)", "html"))
+                .contains("${carlos:forHtml(pharmacy.name)}")
+                .contains("${carlos:forHtml(ProblemCode)}")
+                .doesNotContain("${ pharmacy.name }")
+                .doesNotContain("${ ProblemCode }")
+                // Date, Integer, Boolean and boolean getters converted for the String-typed setter.
+                .contains("String.valueOf(drug.getEndDate())")
+                .contains("String.valueOf(drug.getRepeat())")
+                .contains("String.valueOf(drug.isNoSubs())")
+                .contains("drug.getRefillDuration() != null ? String.valueOf(drug.getRefillDuration()) : \"\"")
+                .contains("drug.getRefillQuantity() != null ? String.valueOf(drug.getRefillQuantity()) : \"\"")
+                .contains("drug.getShortTerm() != null ? String.valueOf(drug.getShortTerm()) : \"\"");
+
+        assertThat(printDrugProfileJsp)
+                .containsPattern(carlosEncodePattern("surname", "html"))
+                .containsPattern(carlosEncodePattern("firstName", "html"))
+                .contains("${carlos:forHtml(patient.hin)}")
+                .contains("${carlos:forHtml(patient.sex)}")
+                .doesNotContain("<%=surname%>, <%=firstName%>")
+                .doesNotContain("${patient.hin}")
+                // drug.getRxDate() is a java.util.Date.
+                .containsPattern(carlosEncodePattern("String\\.valueOf\\(drug\\.getRxDate\\(\\)\\)", "html"));
+
+        assertThat(previewJsp)
+                .contains("encodedOutLine.append(SafeEncode.forHtmlContent(outLineSegments[segment]));")
+                .contains("<%=fullOutLineHtml%>")
+                .doesNotContain("<%=fullOutLine%>")
+                .containsPattern(carlosEncodePattern("strRxNoNewLines\\.toString\\(\\)", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern("finalPhone", "html"))
+                .containsPattern(carlosEncodePattern("finalFax", "html"))
+                .containsPattern(carlosEncodePattern("doctorName", "html"))
+                .containsPattern(carlosEncodePattern("provider\\.getClinicAddress\\(\\)", "html"))
+                .contains("${carlos:forHtml(infirmaryView_programAddress)}")
+                .contains("${carlos:forHtmlAttribute(bandNumber)}")
+                // RX_FOOTER and FORMS_PROMOTEXT are documented as footer text, not markup.
+                .contains("out.write(SafeEncode.forHtml(io.github.carlos_emr.CarlosProperties"
+                        + ".getInstance().getProperty(\"RX_FOOTER\")));")
+                .contains("SafeEncode.forHtml(io.github.carlos_emr.CarlosProperties"
+                        + ".getInstance().getProperty(\"FORMS_PROMOTEXT\"))")
+                .doesNotContain("<%= io.github.carlos_emr.CarlosProperties.getInstance()"
+                        + ".getProperty(\"FORMS_PROMOTEXT\") %>")
+                .doesNotContain("value=\"<%= strRxNoNewLines.toString() %>\"")
+                // rx.getPrintDate() is a java.util.Date.
+                .contains("String.valueOf(rx.getPrintDate())");
+
+        assertThat(selectReasonJsp)
+                .containsPattern(carlosEncodePattern("drugReason\\.getCodingSystem\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("drugReason\\.getCode\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("dx\\.getDxresearchCode\\(\\)", "html"))
+                .doesNotContain("<%=request.getAttribute(\"message\") %>")
+                .doesNotContain("<%=drugReason.getCodingSystem() %>")
+                // request.getAttribute is Object, getDateCoded a Date and getId an Integer.
+                .contains("String.valueOf(request.getAttribute(\"message\"))")
+                .contains("String.valueOf(drugReason.getDateCoded())")
+                .contains("String.valueOf(drugReason.getId())");
+
+        assertThat(chooseAllergyJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("${carlos:forHtml(allergy.value.description)}")
+                .contains("${carlos:forHtml(allergy.description)}")
+                .contains("${carlos:forHtml(drugClass[1])}")
+                .doesNotContain("${allergy.value.description}")
+                .doesNotContain("${allergy.description}")
+                .doesNotContain("${drugClass[1]}");
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }

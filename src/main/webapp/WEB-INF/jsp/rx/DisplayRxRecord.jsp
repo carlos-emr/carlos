@@ -233,7 +233,7 @@
                 </tr>
                 <tr>
                     <td class="label">Rx End Date:</td>
-                    <td><carlos:encode value='<%= drug.getEndDate() %>' context="html"/>
+                    <td><carlos:encode value='<%= String.valueOf(drug.getEndDate()) %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -305,7 +305,7 @@
                 </tr>
                 <tr>
                     <td class="label">Repeats:</td>
-                    <td><carlos:encode value='<%= drug.getRepeat() %>' context="html"/>
+                    <td><carlos:encode value='<%= String.valueOf(drug.getRepeat()) %>' context="html"/>
                     </td>
                 </tr>
                 <tr style="height:15px">
@@ -313,12 +313,12 @@
                 </tr>
                 <tr>
                     <td class="label">Refill Duration:</td>
-                    <td><carlos:encode value='<%= drug.getRefillDuration() != null ? drug.getRefillDuration() : "" %>' context="html"/>
+                    <td><carlos:encode value='<%= drug.getRefillDuration() != null ? String.valueOf(drug.getRefillDuration()) : "" %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Refill Quantity:</td>
-                    <td><carlos:encode value='<%= drug.getRefillQuantity() != null ? drug.getRefillQuantity() : "" %>' context="html"/>
+                    <td><carlos:encode value='<%= drug.getRefillQuantity() != null ? String.valueOf(drug.getRefillQuantity()) : "" %>' context="html"/>
                     </td>
                 </tr>
                 <tr style="height:15px">
@@ -384,7 +384,7 @@
                 </tr>
                 <tr>
                     <td class="label">Short Term:</td>
-                    <td><carlos:encode value='<%= drug.getShortTerm() != null ? drug.getShortTerm() : "" %>' context="html"/>
+                    <td><carlos:encode value='<%= drug.getShortTerm() != null ? String.valueOf(drug.getShortTerm()) : "" %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -480,7 +480,7 @@
 
                 <tr>
                     <td class="label">Substitution Not Allowed:</td>
-                    <td><carlos:encode value='<%= drug.isNoSubs() %>' context="html"/>
+                    <td><carlos:encode value='<%= String.valueOf(drug.isNoSubs()) %>' context="html"/>
                     </td>
                 </tr>
 

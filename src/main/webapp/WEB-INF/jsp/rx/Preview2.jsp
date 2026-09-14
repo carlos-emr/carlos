@@ -447,7 +447,17 @@
                                 </b><br>
                                 <c:choose>
                                     <c:when test="${empty infirmaryView_programAddress}">
-                                        <carlos:encode value='<%= provider.getClinicName().replaceAll("\\(\\d{6}\\)", "") %>' context="html"/><br>
+                                        <%
+                                            /*
+                                             * The billing-number suffix is stripped here rather than inline in the
+                                             * <carlos:encode value="..."/> attribute: JSP attribute-value unquoting
+                                             * collapses "\\(" to "\(" before the expression reaches the generated
+                                             * servlet, which is an invalid Java escape and fails JSP compilation.
+                                             */
+                                            String clinicNameWithoutBillingNo =
+                                                    provider.getClinicName().replaceAll("\\(\\d{6}\\)", "");
+                                        %>
+                                        <carlos:encode value='<%= clinicNameWithoutBillingNo %>' context="html"/><br>
                                         <carlos:encode value='<%= provider.getClinicAddress() %>' context="html"/><br>
                                         <carlos:encode value='<%= provider.getClinicCity() %>' context="html"/>&nbsp;&nbsp;<carlos:encode value='<%= provider.getClinicProvince() %>' context="html"/>&nbsp;&nbsp;
                                         <carlos:encode value='<%= provider.getClinicPostal() %>' context="html"/>
@@ -641,10 +651,10 @@
                             <td height=55px colspan="2">
 										<span style="float:right; font-size:10px;">
 											<fmt:message key="RxPreview.msgReprintBy"/> <carlos:encode value='<%= ProviderData.getProviderName(strUser) %>' context="html"/> <br>
-											<fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<carlos:encode value='<%= rx.getPrintDate() %>' context="html"/> <br>
+											<fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<carlos:encode value='<%= String.valueOf(rx.getPrintDate()) %>' context="html"/> <br>
 											<fmt:message key="RxPreview.msgTimesPrinted"/>:&nbsp;<carlos:encode value='<%= String.valueOf(rx.getNumPrints()) %>' context="html"/>
 										</span>
-                                <input type="hidden" name="origPrintDate" value="<carlos:encode value='<%= rx.getPrintDate() %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="origPrintDate" value="<carlos:encode value='<%= String.valueOf(rx.getPrintDate()) %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="numPrints" value="<carlos:encode value='<%= String.valueOf(rx.getNumPrints()) %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="rxReprint" value="true"/>
                             </td>
@@ -678,15 +688,34 @@
 
                             for (i = 0; i < bean.getStashSize(); i++) {
                                 rx = bean.getStashItem(i);
+                                /*
+                                 * getFullOutLine() is assembled from provider-entered Drug.special text, so it
+                                 * must be HTML-encoded before it reaches the response. ";" is the stash's
+                                 * internal line separator, so the text is split on ";" first and each segment
+                                 * is encoded on its own before the intentional <br /> separators are joined back
+                                 * in. Encoding the whole string and then replacing ";" would corrupt the entity
+                                 * references the encoder emits (for example "&amp;" -> "&amp<br />").
+                                 * fullOutLine keeps the unencoded shape only so the "prescription is empty"
+                                 * length heuristic below behaves exactly as it did before encoding was added.
+                                 */
                                 String fullOutLine = rx.getFullOutLine().replaceAll(";", "<br />");
+                                String[] outLineSegments = rx.getFullOutLine().split(";", -1);
+                                StringBuilder encodedOutLine = new StringBuilder();
+                                for (int segment = 0; segment < outLineSegments.length; segment++) {
+                                    if (segment > 0) {
+                                        encodedOutLine.append("<br />");
+                                    }
+                                    encodedOutLine.append(SafeEncode.forHtmlContent(outLineSegments[segment]));
+                                }
+                                String fullOutLineHtml = encodedOutLine.toString();
 
                                 if (fullOutLine == null || fullOutLine.length() <= 6) {
                                     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
-                                    fullOutLine = "<span style=\"color:red;font-size:16;font-weight:bold\">An error occurred, please write a new prescription.</span><br />" + fullOutLine;
+                                    fullOutLineHtml = "<span style=\"color:red;font-size:16;font-weight:bold\">An error occurred, please write a new prescription.</span><br />" + fullOutLineHtml;
                                 }
                         %>
                         <tr style="page-break-inside: avoid;">
-                            <td colspan=2 style><%=fullOutLine%>
+                            <td colspan=2 style><%=fullOutLineHtml%>
                             </td>
                         </tr>
 

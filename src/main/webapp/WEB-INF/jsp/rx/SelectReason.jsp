@@ -217,7 +217,7 @@
             <td style="border-left: 2px solid #A9A9A9;">
 
                 <%if (request.getAttribute("message") != null) { %>
-                <span style="color:red;"><carlos:encode value='<%= request.getAttribute("message") %>' context="html"/></span>
+                <span style="color:red;"><carlos:encode value='<%= String.valueOf(request.getAttribute("message")) %>' context="html"/></span>
                 <%} %>
 
                 <form action="${pageContext.request.contextPath}/rx/RxReason" method="post" id="rxReasonForm">
@@ -304,7 +304,7 @@
                                         </td>
                                         <td><carlos:encode value='<%= drugReason.getProviderNo() %>' context="html"/>
                                         </td>
-                                        <td><carlos:encode value='<%= drugReason.getDateCoded() %>' context="html"/>
+                                        <td><carlos:encode value='<%= String.valueOf(drugReason.getDateCoded()) %>' context="html"/>
                                         </td>
                                         <td>
                                             <a onclick="toggleArchiveMenu('archive<%=drugReason.getId()%>')"
@@ -323,7 +323,7 @@
                                                         </legend>
                                                         <input type="hidden" name="method" value="archiveReason"/>
                                                         <input type="hidden" name="reasonId"
-                                                               value="<carlos:encode value='<%= drugReason.getId() %>' context="htmlAttribute"/>"/>
+                                                               value="<carlos:encode value='<%= String.valueOf(drugReason.getId()) %>' context="htmlAttribute"/>"/>
                                                         Reason: <input type="text" name="archiveReason"/>
                                                         <input type="submit" value="Archive"/>
                                                     </fieldset>

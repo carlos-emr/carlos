@@ -915,6 +915,17 @@
             String drugId = thisForm.getGCN_SEQNO();
         }
     %>
+    <%
+        /*
+         * The field dump below used to be an HTML comment, which meant the scriptlet
+         * expressions still executed and wrote raw prescription values into the response body.
+         * It is now a JSP comment, so nothing inside it is evaluated -- which is why this
+         * assignment, previously buried at the end of that block, has to live out here.
+         * regionalIdentifier (the DIN) is read further down by the ODB formulary links and the
+         * Limited Use lookup.
+         */
+        regionalIdentifier = thisForm.getRegionalIdentifier();
+    %>
     <%--
 DemographicNo:   <%= thisForm.getDemographicNo() %><br>
 RxDate:          <%= thisForm.getRxDate() %><br>
@@ -943,9 +954,6 @@ regional ident:  <%= thisForm.getRegionalIdentifier() %><br>
 Custom Instruct: <%= thisForm.getCustomInstr() %><br>
 Outside ProName: <%= thisForm.getOutsideProviderName() %><br>
 Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
-
-<% regionalIdentifier = thisForm.getRegionalIdentifier(); %>
-
 --%>
     <%
 
@@ -1051,7 +1059,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         </b>
                                         <%if (compString != null) {%>
                                         <a href="javascript: function myFunction() {return false; }"
-                                           title="<%=compString%>"><fmt:message key="WriteScript.msgComponents"/></a>
+                                           title="<carlos:encode value='<%= compString %>' context="htmlAttribute"/>"><fmt:message key="WriteScript.msgComponents"/></a>
                                         <%}%>
                                     </td>
                                     <td valign=top rowspan=9>
@@ -1074,9 +1082,9 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <b title="<carlos:encode value='<%= thisForm.getRegionalIdentifier() %>' context="htmlAttribute"/>"><carlos:encode value='<%= thisForm.getBrandName() %>' context="html"/>
                                         </b>
                                         <oscar:oscarPropertiesCheck property="SHOW_ODB_LINK" value="yes">
-                                            <!--a href="javascript: function myFunction() {return false; }" onclick="javascript:popup(700,630,'http://216.176.50.202/formulary/SearchServlet?searchType=singleQuery&phrase=exact&keywords=<%=regionalIdentifier%>','ODBInfo')">ODB info</a-->
+                                            <!--a href="javascript: function myFunction() {return false; }" onclick="javascript:popup(700,630,'http://216.176.50.202/formulary/SearchServlet?searchType=singleQuery&phrase=exact&keywords=<carlos:encode value='<%= regionalIdentifier %>' context="uriComponent"/>','ODBInfo')">ODB info</a-->
                                             <a href="javascript: function myFunction() {return false; }"
-                                               onclick="javascript:popup(725,690,'http://216.176.50.202/formulary/SearchServlet?sort=genericName&section=1&pcg=%25&manufacturerID=%25&keywords=<%=regionalIdentifier%>&searchType=drugID&Search=Search&phrase=exact','ODBInfo')">ODB
+                                               onclick="javascript:popup(725,690,'http://216.176.50.202/formulary/SearchServlet?sort=genericName&section=1&pcg=%25&manufacturerID=%25&keywords=<carlos:encode value='<%= regionalIdentifier %>' context="uriComponent"/>&searchType=drugID&Search=Search&phrase=exact','ODBInfo')">ODB
                                                 info</a>
                                         </oscar:oscarPropertiesCheck>
                                     </td>
@@ -1358,7 +1366,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                     </div>
                                                     <oscar:oscarPropertiesCheck property="billregion" value="ON">
                                                         <a target="_new"
-                                                           href="https://www.healthinfo.moh.gov.on.ca/formulary/SearchServlet?searchType=drugID&keywords=<%=regionalIdentifier%>">ODB
+                                                           href="https://www.healthinfo.moh.gov.on.ca/formulary/SearchServlet?searchType=drugID&keywords=<carlos:encode value='<%= regionalIdentifier %>' context="uriComponent"/>">ODB
                                                             lookup</a>
                                                         <%
                                                             ArrayList<LimitedUseCode> luList = LimitedUseLookup.getLUInfoForDin(regionalIdentifier);
