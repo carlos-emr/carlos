@@ -210,6 +210,29 @@ jobs:
           $setup = Start-Process -FilePath $installers[0].FullName -ArgumentList '/S', "/D=$installPath" -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "Installer exited with $($setup.ExitCode)" }
           if (!(Test-Path "$installPath/mycarlos-tauri-poc.exe")) { throw "Installed application is missing" }
+      - name: Verify installed app launches without a console
+        shell: python
+        run: |
+          import os
+          import struct
+          from pathlib import Path
+
+          app = Path(os.environ["RUNNER_TEMP"]) / "mycarlos-install-smoke" / "mycarlos-tauri-poc.exe"
+          data = app.read_bytes()
+          if data[:2] != b"MZ":
+              raise SystemExit("Installed application is not a Windows executable")
+          pe_offset = struct.unpack_from("<I", data, 0x3c)[0]
+          if data[pe_offset:pe_offset + 4] != b"PE\0\0":
+              raise SystemExit("Installed application has no PE header")
+          optional_header = pe_offset + 24
+          if struct.unpack_from("<H", data, optional_header)[0] != 0x20b:
+              raise SystemExit("Expected a PE32+ application")
+          # Subsystem is at offset 68 in the PE32+ optional header.
+          # IMAGE_SUBSYSTEM_WINDOWS_GUI = 2; WINDOWS_CUI = 3 opens a console.
+          subsystem = struct.unpack_from("<H", data, optional_header + 68)[0]
+          if subsystem != 2:
+              raise SystemExit(f"Installed app must use the Windows GUI subsystem, got {subsystem}")
+          print("Installed app uses the Windows GUI subsystem; no console is allocated at launch.")
       - name: Prepare Windows download
         shell: pwsh
         run: |

@@ -24,6 +24,11 @@ Windows may warn about an unknown publisher or block this unsigned build, partic
 managed computers. Do not disable Windows security controls to install it. An installer produced
 successfully by CI is build evidence; physical-device installation testing remains required.
 
+The application uses the Windows GUI subsystem even in evaluation/debug builds, so opening it
+from Start does not also open a terminal. CI checks the installed executable's subsystem before
+publishing the download. Earlier evaluation installers only hid the console in release builds;
+install a newer build if a terminal appears alongside the app.
+
 To erase evaluation data, use **Security > Erase entire vault** before uninstalling. App removal
 can leave app-data files behind, and vault reset cannot erase readable exports.
 
