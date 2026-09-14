@@ -48,7 +48,6 @@ import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -84,6 +83,8 @@ public class AddEForm2Action extends ActionSupport {
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
     private static final String ERROR_ATTRIBUTE = "error";
     private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
+    private static final String PDF_EDOC_FAILURE_MESSAGE =
+            "This eForm (and attachments, if applicable) could not be added to this patient’s documents.";
     private static final String PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE =
             "Some content of this eForm could not be rendered. Review the omissions below before downloading it.";
     private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
@@ -106,14 +107,14 @@ public class AddEForm2Action extends ActionSupport {
      * Validates an eform_link value against the expected key format.
      *
      * <p>Returns the value unchanged if it matches the expected format, or {@code null}
-     * if the value is invalid or null. Non-null invalid values are logged at WARN level.</p>
+     * if the value is invalid or null. Non-null invalid values produce a bounded warning without echoing the value.</p>
      *
      * @param eformLink the raw eform_link parameter value (may be null)
      * @return the validated eform_link, or null if invalid
      */
     static String validateEformLink(String eformLink) {
         if (eformLink != null && !EFORM_LINK_PATTERN.matcher(eformLink).matches()) {
-            logger.warn("Invalid eform_link parameter rejected: {}", LogSafe.sanitize(eformLink));
+            logger.warn("Invalid eform_link parameter rejected");
             return null;
         }
         return eformLink;
@@ -136,7 +137,8 @@ public class AddEForm2Action extends ActionSupport {
     public String execute() {
 
         String method = request.getMethod();
-        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+        if (!"POST".equals(method)) {
+            response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -152,9 +154,23 @@ public class AddEForm2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         boolean fax = "true".equals(request.getParameter("faxEForm"));
+        // `print=true` is the legacy contract of library/eforms/printControl.js: the "PDF" and
+        // "Submit & PDF" buttons it injects beside SubmitButton (the Rich Text Letter loads it, and
+        // the eForm Generator / Visual Editor emit it into every generated clinic eForm). Before
+        // this alias the flag resolved to a `print` result that struts-eform.xml never mapped — a
+        // latent error page, masked in practice by a printControl.js bug that never appended the
+        // input at all, so those buttons were a plain Save with no PDF. It is folded into the
+        // save-and-download workflow below, which is what the toolbar's Download PDF button does.
+        // The accompanying `skipSave` flag cannot mean "no save": every render works from a stored
+        // fdid, so there is no "PDF without saving" path to route it to. It still carries the
+        // clinician's intent — "PDF" (skipSave=true) is a preview, "Submit & PDF" (skipSave=false)
+        // is a submission — and that is what decides the template side effects below.
         boolean print = "true".equals(request.getParameter("print"));
+        boolean printPreviewOnly = print && "true".equals(request.getParameter("skipSave"));
+        // "Submit & PDF": a submission, so it writes the template and closes its window afterwards.
+        boolean submitAndPdf = print && !printPreviewOnly;
         boolean saveAsEdoc = "true".equals(request.getParameter("saveAsEdoc"));
-        boolean isDownloadEForm = "true".equals(request.getParameter("saveAndDownloadEForm"));
+        boolean isDownloadEForm = "true".equals(request.getParameter("saveAndDownloadEForm")) || print;
         boolean isEmailEForm = "true".equals(request.getParameter("emailEForm"));
 
         String[] attachedDocuments = (request.getParameterValues("docNo") != null ? request.getParameterValues("docNo") : new String[0]);
@@ -287,7 +303,7 @@ public class AddEForm2Action extends ActionSupport {
             try {
                 curForm.addImagePathPlaceholders(imagePathPlaceHolders);
             } catch (Exception e) {
-                logger.error("Error retrieving image path placeholders from eForm submission.", e);
+                logger.error("Unable to process eForm image placeholders ({})", e.getClass().getSimpleName());
             }
 
             String fdid = eformDataManager.saveEformData(loggedInInfo, curForm) + "";
@@ -304,7 +320,7 @@ public class AddEForm2Action extends ActionSupport {
                 if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
                     se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
                 } else {
-                    logger.warn("Invalid eform_link rejected: {}", LogSafe.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSafe (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                    logger.warn("Invalid eform_link rejected");
                 }
             }
 
@@ -323,11 +339,17 @@ public class AddEForm2Action extends ActionSupport {
             // them: writeEformTemplate assigns a fresh UUID and persists unconditionally, so it is
             // not idempotent and a later retry would duplicate rather than reconcile.
             //
-            // The condition reproduces that `else` exactly — fax, print, download and email each
-            // return before reaching it, and each has its own reason not to write the template.
-            // Hoisting this WITHOUT the condition would run it on those paths too and duplicate
-            // every note, which is a worse defect than the one being fixed here.
-            if (!fax && !print && !isDownloadEForm && !isEmailEForm) {
+            // The condition reproduces that `else` — fax, download and email each return before
+            // reaching it, and each has its own reason not to write the template. Hoisting this
+            // WITHOUT the condition would run it on those paths too and duplicate every note, which
+            // is a worse defect than the one being fixed here.
+            //
+            // The printControl.js buttons are the exception. Until the alias above, "PDF" and
+            // "Submit & PDF" reached this block as a plain save (their print flag never arrived),
+            // so a generated eForm's chart notes, ticklers, preventions and consults were created.
+            // "Submit & PDF" is still a submission and keeps that behaviour; only the "PDF" preview
+            // (skipSave=true) skips it, matching what its label promises.
+            if (!fax && !isEmailEForm && (!isDownloadEForm || submitAndPdf)) {
                 //write template message to echart
                 String program_no = new EctProgram(se).getProgram(providerNo);
                 String path = request.getRequestURL().toString();
@@ -346,16 +368,14 @@ public class AddEForm2Action extends ActionSupport {
                     // general handler this was a dead end with no way to review and proceed.
                     return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
                 } catch (PDFGenerationException e) {
-                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
+                    setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
                     return "error";
                 }
             }
 
             if (fax) {
-                redirectToPreparedFax(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
-                return NONE;
-            } else if (print) {
-                return "print";
+                prepareFaxHandoff(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
+                return "faxPreparation";
             } else if (isDownloadEForm) {
                 /*
                  * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
@@ -375,7 +395,7 @@ public class AddEForm2Action extends ActionSupport {
                     // being swallowed by the general handler is exactly why an incomplete download
                     // was a dead end with no way for the clinician to review the omissions and
                     // decide. Mirrors the fax path.
-                    return offerDownloadApproval(loggedInInfo, e, fdid, demographic_no);
+                    return offerDownloadApproval(loggedInInfo, e, fdid, demographic_no, submitAndPdf);
                 } catch (PDFGenerationException e) {
                     setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
@@ -384,6 +404,7 @@ public class AddEForm2Action extends ActionSupport {
                 request.setAttribute("eFormPDF", pdfBase64);
                 request.setAttribute("eFormPDFName", fileName);
                 request.setAttribute("isDownload", "true");
+                flagSubmissionAutoClose(submitAndPdf);
 
                 request.setAttribute("fdid", fdid);
                 request.setAttribute("parentAjaxId", "eforms");
@@ -419,10 +440,8 @@ public class AddEForm2Action extends ActionSupport {
                  * This form id is sent to the fax action to render it as a faxable PDF.
                  * A preview is returned to the user once the form is rendered.
                  */
-                redirectToPreparedFax(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
-                return NONE;
-            } else if (print) {
-                return "print";
+                prepareFaxHandoff(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
+                return "faxPreparation";
             } else if (isDownloadEForm) {
                 /*
                  * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
@@ -439,7 +458,7 @@ public class AddEForm2Action extends ActionSupport {
                     request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
                 } catch (EformContentUnavailableException e) {
                     // Same subclass-before-superclass ordering as the save branch above.
-                    return offerDownloadApproval(loggedInInfo, e, prev_fdid, demographic_no);
+                    return offerDownloadApproval(loggedInInfo, e, prev_fdid, demographic_no, submitAndPdf);
                 } catch (PDFGenerationException e) {
                     setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
@@ -448,6 +467,7 @@ public class AddEForm2Action extends ActionSupport {
                 request.setAttribute("eFormPDF", pdfBase64);
                 request.setAttribute("eFormPDFName", fileName);
                 request.setAttribute("isDownload", "true");
+                flagSubmissionAutoClose(submitAndPdf);
 
                 request.setAttribute("fdid", prev_fdid);
                 request.setAttribute("parentAjaxId", "eforms");
@@ -477,7 +497,7 @@ public class AddEForm2Action extends ActionSupport {
                     // general handler this was a dead end with no way to review and proceed.
                     return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
                 } catch (PDFGenerationException e) {
-                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
+                    setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
                     return "error";
                 }
             }
@@ -490,7 +510,7 @@ public class AddEForm2Action extends ActionSupport {
             try {
                 matchManager.<Demographic>processEvent(client, IMatchManager.Event.CLIENT_CREATED);
             } catch (MatchManagerException e) {
-                MiscUtils.getLogger().error("Error while processing MatchManager.processEvent(Client)", e);
+                MiscUtils.getLogger().error("Error while processing MatchManager.processEvent(Client) ({})", e.getClass().getSimpleName());
             }
 		}
 
@@ -498,9 +518,8 @@ public class AddEForm2Action extends ActionSupport {
         return closeWithPdfPreview(loggedInInfo, demographic_no, fdid);
 	}
 	
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin fax action path built from the current context path with encoded query parameters.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin fax action path built from the current context path with encoded query parameters")
-    private void redirectToPreparedFax(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
+    /** Prepares a narrow POST handoff only after the original protected eForm save. */
+    private void prepareFaxHandoff(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
         StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
         faxForward.append("?method=").append("prepareFax");
         faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
@@ -516,11 +535,10 @@ public class AddEForm2Action extends ActionSupport {
         if (letterheadFax != null && !letterheadFax.isEmpty()) {
             faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
         }
-        try {
-            response.sendRedirect(faxForward.toString());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        // Do not replay the saved form body with a 307: signatures and rich text have
+        // save-route-specific WAF allowances and are not inputs to fax preparation.
+        request.setAttribute("preparedFaxTarget", faxForward.toString());
+        response.setHeader("Cache-Control", "no-store");
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin email compose path built from the current context path with an encoded eForm id.
@@ -575,8 +593,25 @@ public class AddEForm2Action extends ActionSupport {
         try {
             return generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
         } catch (RuntimeException e) {
-            logger.warn("Falling back to a generic PDF preview filename for demographic {}", LogSafe.sanitize(demographicNo), e);
+            logger.warn("Using a generic eForm PDF preview filename ({})", e.getClass().getSimpleName());
             return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + PDF_PREVIEW_FALLBACK_SUFFIX;
+        }
+    }
+
+    /**
+     * Marks the download result page for auto-close when the download was a "Submit & PDF"
+     * submission (the {@code print} flag without {@code skipSave}).
+     *
+     * <p>A submission closes its window once the result page has started the download and shown
+     * the saved alert, exactly as the floating toolbar does after a plain Submit.
+     * {@code printControl.js} used to do this with a blind 3 s timer that could fire before the
+     * server-rendered PDF arrived. The "PDF" preview and the toolbar's own Download PDF keep the
+     * window open, so they pass {@code false}. Both download branches go through here so the two
+     * paths cannot drift apart.</p>
+     */
+    private void flagSubmissionAutoClose(boolean submission) {
+        if (submission) {
+            request.setAttribute("isSuccess_Autoclose", "true");
         }
     }
 
@@ -592,12 +627,20 @@ public class AddEForm2Action extends ActionSupport {
      * <p>Every category the report carries is surfaced. The approval digest binds to the complete
      * issue set, so a category the clinician was never shown is one they cannot meaningfully have
      * approved.</p>
+     *
+     * @param autoClose whether the refused download was a "Submit & PDF" submission. The approval
+     *     page posts to a render-only route, so the intent has to travel with it: without this the
+     *     approved download would arrive without the auto-close the submission promised.
      */
     private String offerDownloadApproval(LoggedInInfo loggedInInfo, EformContentUnavailableException e,
-            String fdid, String demographicNo) {
-        return offerRenderApproval(loggedInInfo, e, fdid, demographicNo,
+            String fdid, String demographicNo, boolean autoClose) {
+        String result = offerRenderApproval(loggedInInfo, e, fdid, demographicNo,
                 EFormRenderApprovalService.Operation.DOWNLOAD, PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE,
                 "eform/downloadEFormPdf", "eform.renderMissingContent.btnApproveAndDownload");
+        if (autoClose && "missingContent".equals(result)) {
+            request.setAttribute("approvalAutoClose", "true");
+        }
+        return result;
     }
 
     /**
@@ -623,7 +666,14 @@ public class AddEForm2Action extends ActionSupport {
         try {
             requestFdid = Integer.parseInt(fdid);
         } catch (NumberFormatException | NullPointerException parseFailure) {
-            setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
+            // This helper is shared by the download and the save-as-eDoc paths, so the fallback
+            // has to follow the operation. It used to be hardcoded to the download wording, which
+            // told a clinician who had clicked "Add to documents" that the eForm "could not be
+            // downloaded" -- naming an action they never took and leaving them unsure whether the
+            // document had been filed.
+            setPdfError(operation == EFormRenderApprovalService.Operation.EDOC
+                    ? PDF_EDOC_FAILURE_MESSAGE
+                    : PDF_DOWNLOAD_FAILURE_MESSAGE, e);
             return "error";
         }
         String token = approvalService.issue(request, loggedInInfo, requestFdid, demographicNo,
@@ -641,7 +691,12 @@ public class AddEForm2Action extends ActionSupport {
         request.setAttribute("failedContentResources", report.failedContentResources());
         request.setAttribute("excludedContentElements", report.excludedContentElements());
         request.setAttribute("severeConsoleErrors", report.severeConsoleErrors());
+        // PHI-safe per-error descriptions (type + line:col) for the informed-override screen.
+        // Display only: NOT part of the completeness report and NOT bound into the approval
+        // digest, which stays anchored to the counts above.
+        request.setAttribute("severeConsoleErrorDetails", e.getSevereConsoleDetails());
         request.setAttribute("containedInteractions", report.containedInteractions());
+        request.setAttribute("decorativeExcludedElements", report.decorativeExcludedElements());
         request.setAttribute("signatureMissing", report.signatureMissing());
         request.setAttribute("timerCompatibilityFailure", report.timerCompatibilityFailure());
         request.setAttribute("stabilizationCapped", report.stabilizationCapped());
@@ -662,13 +717,13 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     private void setPdfError(String message, Exception e) {
-        logger.error(message, e);
+        logger.error("eForm PDF preparation failed ({})", e.getClass().getSimpleName());
         request.setAttribute(ERROR_ATTRIBUTE, "true");
         request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message);
     }
 
     private void setPdfWarning(String message, Exception e) {
-        logger.warn(message, e);
+        logger.warn("eForm PDF preview unavailable ({})", e.getClass().getSimpleName());
         request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message);
     }
 

@@ -75,18 +75,17 @@ public class ManageFaxes2Action extends Fax2Action {
 
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity")
     @Override
     public String execute() {
         String method = request.getParameter("method");
         // CancelFax/ResendFax/SetCompleted mutate fax jobs (and CancelFax reaches the provider);
-        // they must never ride a GET/HEAD. This gate has to run HERE because these methods
+        // they require exact POST. This gate has to run HERE because these methods
         // dispatch before the parent's verb gate in super.execute() is ever reached.
         // manageFaxes.jsp issues all three via POST, so no UI change is required.
         boolean mutator = "CancelFax".equals(method) || "ResendFax".equals(method) || "SetCompleted".equals(method);
         String httpMethod = request.getMethod();
-        if (mutator && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
+        if (mutator && !"POST".equals(httpMethod)) {
+            response.setHeader("Allow", "POST");
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
             return NONE;
         }
@@ -181,9 +180,11 @@ public class ManageFaxes2Action extends Fax2Action {
                         result.put("message", faxJob.getStatusString());
                     }
                 } catch (FaxProviderException e) {
-                    // Provider exception messages never carry credentials (provider-client contract).
-                    log.error("Provider cancel failed for fax row id {}", faxJob.getId(), e);
-                    result.put("message", e.getMessage() == null ? "Cancel failed" : e.getMessage());
+                    // Even credential-scrubbed transport errors can contain clinical filenames
+                    // or provider response text. Do not expose them in the admin response/log.
+                    log.error("Provider cancel could not be confirmed for fax row id {} (HTTP {}, type={})",
+                            faxJob.getId(), e.getHttpStatus(), e.getClass().getSimpleName());
+                    result.put("message", "Unable to confirm fax cancellation. Check the fax status before retrying.");
                 }
             } else {
                 log.info("Fax row id {} not in a cancellable state ({})", faxJob.getId(), faxJob.getStatus());
@@ -297,7 +298,7 @@ public class ManageFaxes2Action extends Fax2Action {
                 dateBegin = calendar.getTime();
             } catch (ParseException e) {
                 dateBegin = null;
-                MiscUtils.getLogger().error("UNPARSEABLE DATE " + dateBeginStr);
+                MiscUtils.getLogger().error("Unparseable fax status start date");
             }
         }
         if (dateEndStr != null && !dateEndStr.isEmpty()) {
@@ -311,7 +312,7 @@ public class ManageFaxes2Action extends Fax2Action {
 
             } catch (ParseException e) {
                 dateEnd = null;
-                MiscUtils.getLogger().error("UNPARSEABLE DATE " + dateEndStr);
+                MiscUtils.getLogger().error("Unparseable fax status end date");
             }
         }
 

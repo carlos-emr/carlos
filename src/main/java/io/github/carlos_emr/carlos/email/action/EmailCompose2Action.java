@@ -17,6 +17,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
+import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -175,7 +176,8 @@ public class EmailCompose2Action extends ActionSupport {
      * <ul>
      *   <li>transactionType (TransactionType) - set to EFORM for transaction logging</li>
      *   <li>emailConsentName (String) - patient consent form name</li>
-     *   <li>emailConsentStatus (String) - patient email consent status (Yes/No)</li>
+     *   <li>emailConsentStatus (String) - stable patient email-consent state code</li>
+     *   <li>emailConsentMessageKey (String) - resource key for the localized state label</li>
      *   <li>receiverName (String) - formatted patient name for display</li>
      *   <li>receiverEmailList (List) - list of valid recipient email addresses</li>
      *   <li>invalidReceiverEmailList (List) - list of invalid email addresses</li>
@@ -183,6 +185,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>emailPDFPassword (String) - generated PDF passphrase shown with the encryption controls</li>
      *   <li>emailPDFPasswordClue (String) - provider delivery instruction</li>
      *   <li>emailPDFPasswordToken (String) - per-compose token used to consume prepared submission state</li>
+     *   <li>message (String) - unified message for encrypted or cleartext delivery</li>
      *   <li>demographicId (String) - patient demographic identifier</li>
      *   <li>fdid (String) - form data ID</li>
      *   <li>fid (String) - validated form ID or null if invalid</li>
@@ -299,14 +302,10 @@ public class EmailCompose2Action extends ActionSupport {
             }
         } catch (PDFGenerationException | RuntimeException e) {
             workingDirectory.close();
-            logger.error(e.getMessage(), e);
-            return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed. \\n\\n" + e.getMessage());
+            logger.error("Unable to prepare email attachments; causeType={}", e.getClass().getName());
+            return emailComposeError(request, "This eForm and its attachments could not be prepared for email. Please reopen the compose window and try again.");
         }
 
-        Object isEmailEncrypted = session.getAttribute("isEmailEncrypted");
-        Object isEmailAttachmentEncrypted = isTrue(isEmailEncrypted)
-                ? session.getAttribute("isEmailAttachmentEncrypted")
-                : false;
         EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
         try {
             emailPdfPasswordSubmissionState = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
@@ -329,6 +328,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("transactionType", TransactionType.EFORM);
         request.setAttribute("emailConsentName", emailConsent[0]);
         request.setAttribute("emailConsentStatus", emailConsent[1]);
+        request.setAttribute("emailConsentMessageKey", emailConsent[2]);
         request.setAttribute("receiverName", receiverName);
         request.setAttribute("receiverEmailList", receiverEmailList[0]);
         request.setAttribute("invalidReceiverEmailList", receiverEmailList[1]);
@@ -338,8 +338,19 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("emailAttachmentList", emailAttachmentList);
         request.setAttribute("senderEmail", senderEmail);
         request.setAttribute("subjectEmail", subjectEmail);
-        request.setAttribute("bodyEmail", bodyEmail);
-        request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
+        // The compose screen now has a single "Message" field (issue #3118). Seed it from the
+        // channel matching the encryption state. For encrypted drafts where both legacy channels
+        // contain content, the protected channel deliberately wins: there is no reliable way to
+        // distinguish a meaningful historical cleartext body from the fixed notice stored by the
+        // unified workflow.
+        // Fail closed when older entry points do not seed either session flag: only an explicit
+        // Boolean false may open the composer with message or attachment encryption disabled.
+        boolean isEmailEncrypted = !Boolean.FALSE.equals(session.getAttribute("isEmailEncrypted"));
+        boolean isEmailAttachmentEncrypted =
+                !Boolean.FALSE.equals(session.getAttribute("isEmailAttachmentEncrypted"));
+        isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
+                isEmailEncrypted, bodyEmail, encryptedMessageEmail);
+        request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
         request.setAttribute("emailPatientChartOption", emailPatientChartOption);
         request.setAttribute(DEMOGRAPHIC_ID_KEY, demographicId);
         request.setAttribute("fdid", emailFdid);

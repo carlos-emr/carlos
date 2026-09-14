@@ -6,7 +6,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 
 /**
  * Represents the result of an email status query in the OpenO EMR email system.
@@ -43,6 +45,12 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private EmailStatus status;
     private String errorMessage;
     private Date created;
+    private boolean resolvable;
+    private EmailConsentStatus consentStatus;
+    private Integer consentId;
+    private Date consentLastUpdateDate;
+    private boolean consentOverride;
+    private String consentOverrideReason;
 
     /**
      * Default constructor for creating an empty EmailStatusResult instance.
@@ -161,12 +169,12 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     }
 
     /**
-     * Gets the sender's full name formatted as "FirstName LastName" in camel case.
+     * Gets the sender's full name formatted as "FirstName LastName" with name capitalization.
      *
      * @return String the formatted sender's full name
      */
     public String getSenderFullName() {
-        return toCamelCase(senderFirstName) + " " + toCamelCase(senderLastName);
+        return formatFirstNameLastName(senderFirstName, senderLastName);
     }
 
     /**
@@ -235,12 +243,12 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     }
 
     /**
-     * Gets the recipient's full name formatted as "FirstName LastName" in camel case.
+     * Gets the recipient's full name formatted as "FirstName LastName" with name capitalization.
      *
      * @return String the formatted recipient's full name
      */
     public String getRecipientFullName() {
-        return toCamelCase(recipientFirstName) + " " + toCamelCase(recipientLastName);
+        return formatFirstNameLastName(recipientFirstName, recipientLastName);
     }
 
     /**
@@ -291,12 +299,20 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     }
 
     /**
-     * Gets the provider's full name formatted as "LastName, FirstName" in camel case.
+     * Gets the provider's full name formatted as "LastName, FirstName" with name capitalization.
      *
      * @return String the formatted provider's full name
      */
     public String getProviderFullName() {
-        return toCamelCase(providerLastName) + ", " + toCamelCase(providerFirstName);
+        String firstName = formatNamePart(providerFirstName);
+        String lastName = formatNamePart(providerLastName);
+        if (firstName.isEmpty()) {
+            return lastName;
+        }
+        if (lastName.isEmpty()) {
+            return firstName;
+        }
+        return lastName + ", " + firstName;
     }
 
     /**
@@ -355,6 +371,71 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         this.isEncrypted = isEncrypted;
     }
 
+    /** @return the consent state captured for the displayed send attempt */
+    public EmailConsentStatus getConsentStatus() {
+        return consentStatus;
+    }
+
+    /**
+     * Copies the persisted consent audit fields into this display result. The mutable consent date
+     * is defensively copied and absent fields remain {@code null} or empty.
+     *
+     * @param emailLog the persisted email log containing the consent snapshot
+     */
+    public void applyConsentSnapshot(EmailLog emailLog) {
+        this.consentStatus = emailLog.getConsentStatus();
+        this.consentId = emailLog.getConsentId();
+        this.consentLastUpdateDate = copyDate(emailLog.getConsentLastUpdateDate());
+        this.consentOverride = emailLog.getConsentOverride();
+        this.consentOverrideReason = emailLog.getConsentOverrideReason();
+    }
+
+    /** @return the source consent-record identifier, or {@code null} */
+    public Integer getConsentId() {
+        return consentId;
+    }
+
+    /** @return a defensive copy of the source consent record's update time */
+    public Date getConsentLastUpdateDate() {
+        return copyDate(consentLastUpdateDate);
+    }
+
+    /** @return whether a documented unknown-consent override permitted the send */
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    /** @return the recorded override reason, or {@code null} */
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    /** @return the resource-bundle key for the consent status or a legacy not-recorded label */
+    public String getConsentMessageKey() {
+        EmailConsentStatus displayStatus = getConsentStatus();
+        return displayStatus != null
+                ? displayStatus.getMessageKey()
+                : "email.consent.status.notRecorded";
+    }
+
+    /**
+     * Formats the snapshotted consent update date as {@code yyyy-MM-dd}, or returns an empty string
+     * when the snapshot has no update date.
+     *
+     * @return the formatted consent update date
+     */
+    public String getConsentLastUpdateDisplay() {
+        Date lastUpdate = getConsentLastUpdateDate();
+        if (lastUpdate == null) {
+            return "";
+        }
+        return new SimpleDateFormat("yyyy-MM-dd").format(lastUpdate);
+    }
+
+    private static Date copyDate(Date date) {
+        return date != null ? new Date(date.getTime()) : null;
+    }
+
     /**
      * Gets the current delivery status of the email.
      *
@@ -410,6 +491,18 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     }
 
     /**
+     * Indicates whether the current status may be manually resolved. Fresh PENDING records are
+     * intentionally not actionable while their transport request may still be running.
+     */
+    public boolean isResolvable() {
+        return resolvable;
+    }
+
+    public void setResolvable(boolean resolvable) {
+        this.resolvable = resolvable;
+    }
+
+    /**
      * Gets the creation date formatted as "yyyy-MM-dd".
      *
      * @return String the formatted creation date
@@ -443,20 +536,32 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         return createdLocalDateTime.format(formatter);
     }
 
-    /**
-     * Converts a string to Title Case format (first letter uppercase, rest lowercase).
-     *
-     * <p><strong>Note:</strong> Despite the method name, this produces Title Case
-     * (e.g., "Firstname") rather than true camelCase (e.g., "firstName"). This is
-     * the expected behavior for formatting person names in this class.</p>
-     *
-     * @param inputString String the input string to convert
-     * @return String the Title Case formatted string
-     * @throws NullPointerException if inputString is null
-     * @throws StringIndexOutOfBoundsException if inputString is empty
-     */
-    private String toCamelCase(String inputString) {
-        return Character.toUpperCase(inputString.charAt(0)) + inputString.substring(1).toLowerCase();
+    /** Formats a legal name part while preserving the original spelling of a parenthesized alias. */
+    private String formatNamePart(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String name = value.trim();
+        if (name.startsWith("(") && name.endsWith(")")) {
+            return name;
+        }
+        int aliasStart = name.indexOf(" (");
+        if (aliasStart > 0 && name.endsWith(")")) {
+            return formatNamePart(name.substring(0, aliasStart)) + name.substring(aliasStart);
+        }
+        return Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private String formatFirstNameLastName(String firstName, String lastName) {
+        String formattedFirstName = formatNamePart(firstName);
+        String formattedLastName = formatNamePart(lastName);
+        if (formattedFirstName.isEmpty()) {
+            return formattedLastName;
+        }
+        if (formattedLastName.isEmpty()) {
+            return formattedFirstName;
+        }
+        return formattedFirstName + " " + formattedLastName;
     }
 
     /**

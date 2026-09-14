@@ -17,16 +17,14 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.Consent;
-import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -62,23 +60,22 @@ public class EmailComposeManager {
     @Autowired
     private EmailLogDaoImpl emailLogDao;
     @Autowired
-    private UserPropertyDAO userPropertyDAO;
-
-    @Autowired
     private DemographicManager demographicManager;
     @Autowired
     private DocumentAttachmentManager documentAttachmentManager;
     @Autowired
     private FormsManager formsManager;
     @Autowired
-    private PatientConsentManager patientConsentManager;
-    @Autowired
     private SecurityInfoManager securityInfoManager;
+    @Autowired
+    private EmailConsentResolver emailConsentResolver;
+
     /**
      * Prepares an existing email for resending by retrieving its log entry.
      *
      * This method retrieves the email log for a previously sent email to allow resending
-     * with the same content and attachments. Requires READ privilege on the _email security object.
+     * with the same content and attachments. Requires email READ privilege and access to the
+     * associated patient record before any message content is returned.
      *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param emailLogId Integer the unique identifier of the email log entry to retrieve
@@ -87,10 +84,21 @@ public class EmailComposeManager {
      */
     public EmailLog prepareEmailForResend(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);
+        if (emailLog == null || emailLog.getDemographic() == null
+                || emailLog.getDemographic().getDemographicNo() == null) {
+            return null;
+        }
+        Integer demographicNo = emailLog.getDemographic().getDemographicNo();
+        String patientId = String.valueOf(demographicNo);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, patientId)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, patientId)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Access to the email patient record is denied");
+        }
         return emailLog;
     }
 
@@ -130,10 +138,8 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String eFormId : attachedEFormIds) {
             Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, Integer.parseInt(eFormId));
-            if (eFormPDFPath != null) {
-                eFormPDFPath = ownGeneratedPdf(eFormPDFPath, workingDirectory);
-                emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, Integer.parseInt(eFormId), getFileSize(eFormPDFPath)));
-            }
+            eFormPDFPath = ownGeneratedPdf(eFormPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, Integer.parseInt(eFormId), getFileSize(eFormPDFPath)));
         }
 
         return emailAttachments;
@@ -169,10 +175,8 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String eDocId : attachedEDocIds) {
             Path eDocPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, Integer.parseInt(eDocId));
-            if (eDocPDFPath != null) {
-                eDocPDFPath = ownGeneratedPdf(eDocPDFPath, workingDirectory);
-                emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, Integer.parseInt(eDocId), getFileSize(eDocPDFPath)));
-            }
+            eDocPDFPath = ownGeneratedPdf(eDocPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, Integer.parseInt(eDocId), getFileSize(eDocPDFPath)));
         }
 
         return emailAttachments;
@@ -208,10 +212,8 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String labId : attachedLabIds) {
             Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(labId));
-            if (labPDFPath != null) {
-                labPDFPath = ownGeneratedPdf(labPDFPath, workingDirectory);
-                emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, Integer.parseInt(labId), getFileSize(labPDFPath)));
-            }
+            labPDFPath = ownGeneratedPdf(labPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, Integer.parseInt(labId), getFileSize(labPDFPath)));
         }
 
         return emailAttachments;
@@ -252,10 +254,8 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String hrmId : attachedHRMIds) {
             Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, Integer.parseInt(hrmId));
-            if (hrmPDFPath != null) {
-                hrmPDFPath = ownGeneratedPdf(hrmPDFPath, workingDirectory);
-                emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, Integer.parseInt(hrmId), getFileSize(hrmPDFPath)));
-            }
+            hrmPDFPath = ownGeneratedPdf(hrmPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, Integer.parseInt(hrmId), getFileSize(hrmPDFPath)));
         }
 
         return emailAttachments;
@@ -297,10 +297,8 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String formId : attachedFormIds) {
             Path formPDFPath = formsManager.renderForm(request, response, Integer.parseInt(formId), demographicId);
-            if (formPDFPath != null) {
-                formPDFPath = ownGeneratedPdf(formPDFPath, workingDirectory);
-                emailAttachments.add(new EmailAttachment(formPDFPath.getFileName().toString(), formPDFPath.toString(), DocumentType.FORM, Integer.parseInt(formId), getFileSize(formPDFPath)));
-            }
+            formPDFPath = ownGeneratedPdf(formPDFPath, workingDirectory);
+            emailAttachments.add(new EmailAttachment(formPDFPath.getFileName().toString(), formPDFPath.toString(), DocumentType.FORM, Integer.parseInt(formId), getFileSize(formPDFPath)));
         }
 
         return emailAttachments;
@@ -328,12 +326,13 @@ public class EmailComposeManager {
      * Retrieves the email communication consent status for a patient.
      *
      * This method checks the patient's consent status for email communications based on the configured
-     * consent type in user properties. Returns a two-element array containing the consent type name
-     * and the consent status (Unknown, Explicit Opt-In, or Explicit Opt-Out).
+     * consent type in user properties. Returns the consent type name, stable status code, and
+     * resource-bundle key used to localize the status at the view boundary.
      *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param demographicId Integer the patient demographic ID to check consent for
-     * @return String[] array with two elements: [0] consent type name, [1] consent status description
+     * @return String[] array with three elements: [0] consent type name, [1] status code,
+     *         [2] status message key
      * @throws RuntimeException if the user lacks the required _email READ privilege
      */
     public String[] getEmailConsentStatus(LoggedInInfo loggedInInfo, Integer demographicId) {
@@ -341,24 +340,8 @@ public class EmailComposeManager {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
-        String UNKNOWN = "Unknown", OPTIN = "Explicit Opt-In", OPTOUT = "Explicit Opt-Out";
-        UserProperty userProperty = userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION);
-        if (userProperty == null || StringUtils.isNullOrEmpty(userProperty.getValue())) {
-            return new String[]{"", UNKNOWN};
-        }
-
-        String property = userProperty.getValue().split("[,;\\s()]+")[0];
-        ConsentType consentType = patientConsentManager.getConsentType(property);
-        if (consentType == null || !consentType.isActive()) {
-            return new String[]{"", UNKNOWN};
-        }
-
-        Consent consent = patientConsentManager.getConsentByDemographicAndConsentType(loggedInInfo, demographicId, consentType);
-        if (consent == null) {
-            return new String[]{consentType.getName(), UNKNOWN};
-        }
-
-        return consent.getPatientConsented() ? new String[]{consentType.getName(), OPTIN} : new String[]{consentType.getName(), OPTOUT};
+        EmailConsentResult consent = emailConsentResolver.resolve(loggedInInfo, demographicId);
+        return new String[]{consent.getConsentName(), consent.getStatusCode(), consent.getMessageKey()};
     }
 
     /**
@@ -371,18 +354,7 @@ public class EmailComposeManager {
      * @return Boolean TRUE if email consent is properly configured with an active consent type, FALSE otherwise
      */
     public Boolean isEmailConsentConfigured() {
-        UserProperty userProperty = userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION);
-        if (userProperty == null || StringUtils.isNullOrEmpty(userProperty.getValue())) {
-            return Boolean.FALSE;
-        }
-
-        String property = userProperty.getValue().split("[,;\\s()]+")[0];
-        ConsentType consentType = patientConsentManager.getConsentType(property);
-        if (consentType == null || !consentType.isActive()) {
-            return Boolean.FALSE;
-        }
-
-        return Boolean.TRUE;
+        return emailConsentResolver.isConfigured();
     }
 
     /**
@@ -546,6 +518,9 @@ public class EmailComposeManager {
             Path generatedPdf,
             EmailComposeWorkingDirectory workingDirectory
     ) throws PDFGenerationException {
+        if (generatedPdf == null) {
+            throw new PDFGenerationException("A selected email attachment could not be rendered");
+        }
         if (workingDirectory == null) {
             return generatedPdf;
         }

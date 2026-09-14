@@ -205,6 +205,63 @@ class EmailComposeSubmissionStateServiceUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("foreign sessions cannot consume another session's token")
+    void shouldRejectForeignSession_withoutDestroyingOwnerState() {
+        var service = new EmailComposeSubmissionStateService();
+        var owner = new MockHttpServletRequest();
+        var foreign = new MockHttpServletRequest();
+        try {
+            String token = service.store(owner.getSession(), "secret", "separate", List.of());
+            owner.setParameter(TOKEN_PARAMETER_NAME, token);
+            foreign.getSession();
+            foreign.setParameter(TOKEN_PARAMETER_NAME, token);
+            assertThat(service.consume(foreign)).isNull();
+            try (var state = service.consume(owner)) {
+                assertThat(state).isNotNull();
+                assertThat(state.emailPDFPassword()).isEqualTo("secret");
+            }
+            assertThat(service.consume(owner)).isNull();
+        } finally {
+            service.shutdown();
+        }
+    }
+
+    @Test
+    @DisplayName("concurrent submissions transfer token ownership exactly once")
+    void shouldAllowOnlyOneConcurrentConsumer() throws Exception {
+        var service = new EmailComposeSubmissionStateService();
+        var owner = new MockHttpServletRequest();
+        var directory = createWorkingDirectory();
+        Path ownedPath = directory.path();
+        String token = service.store(owner.getSession(), "secret", "separate", List.of(),
+                EmailComposeSubmissionStateService.EmailComposeSubmissionContext.direct("123"), directory);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var calls = new ArrayList<java.util.concurrent.Future<EmailComposeSubmissionStateService.EmailComposeSubmissionState>>();
+            for (int i = 0; i < 2; i++) {
+                var request = new MockHttpServletRequest();
+                request.setSession(owner.getSession());
+                request.setParameter(TOKEN_PARAMETER_NAME, token);
+                calls.add(executor.submit(() -> {
+                    start.await();
+                    return service.consume(request);
+                }));
+            }
+            start.countDown();
+            int winners = 0;
+            for (var call : calls) {
+                try (var state = call.get(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                    if (state != null) winners++;
+                }
+            }
+            assertThat(winners).isEqualTo(1);
+            assertThat(ownedPath).doesNotExist();
+        } finally {
+            service.shutdown();
+        }
+    }
+
     private static final class MutableClock extends Clock {
         private Instant instant;
 

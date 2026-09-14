@@ -62,7 +62,10 @@
 <fmt:message var="lblProviderStampMissing" key="eform.renderIssue.providerStampMissing"/>
 <fmt:message var="lblTimerCompatibilityFailure" key="eform.renderIssue.timerCompatibilityFailure"/>
 <fmt:message var="lblSevereConsoleErrors" key="eform.renderIssue.severeConsoleErrors"/>
+<fmt:message var="lblSevereConsoleErrorDetails" key="eform.renderIssue.severeConsoleErrorDetails"/>
+<fmt:message var="lblSevereConsoleErrorsMore" key="eform.renderIssue.severeConsoleErrorsMore"/>
 <fmt:message var="lblContainedInteractions" key="eform.renderIssue.containedInteractions"/>
+<fmt:message var="lblDecorativeExcludedElements" key="eform.renderIssue.decorativeExcludedElements"/>
 <fmt:message var="lblStabilizationCapped" key="eform.renderIssue.stabilizationCapped"/>
 <fmt:message var="lblLabDecisionSupportStubbed" key="eform.renderIssue.labDecisionSupportStubbed"/>
 
@@ -384,10 +387,30 @@
                             + "\n${carlos:forJavaScript(lblTimerCompatibilityFailure)}: " + data.timerCompatibilityFailure
                             + "\n${carlos:forJavaScript(lblSevereConsoleErrors)}: " + data.severeConsoleErrors
                             + "\n${carlos:forJavaScript(lblContainedInteractions)}: " + data.containedInteractions
+                            + "\n${carlos:forJavaScript(lblDecorativeExcludedElements)}: " + data.decorativeExcludedElements
                             + "\n${carlos:forJavaScript(lblStabilizationCapped)}: " + data.stabilizationCapped
                             + "\n${carlos:forJavaScript(lblLabDecisionSupportStubbed)}: " + data.labDecisionSupportStubbed;
+                        // PHI-safe per-error descriptions (script error type + source location only)
+                        // so the clinician can judge the errors before approving the override.
+                        let severeConsoleDetailText = "";
+                        if (Array.isArray(data.severeConsoleErrorDetails) && data.severeConsoleErrorDetails.length) {
+                            severeConsoleDetailText = "\n${carlos:forJavaScript(lblSevereConsoleErrorDetails)}:";
+                            data.severeConsoleErrorDetails.forEach(function (severeConsoleErrorDetail) {
+                                severeConsoleDetailText += "\n  \u2022 " + severeConsoleErrorDetail;
+                            });
+                            // The detail list is deduplicated and capped (10 mirrors the renderer's
+                            // MAX_CONSOLE_DETAILS). Show the overflow only when the cap actually
+                            // truncated the list — below the cap, a higher count means repeats of the
+                            // shown lines, not hidden distinct errors.
+                            var severeConsoleErrorsMore =
+                                Number(data.severeConsoleErrors) - data.severeConsoleErrorDetails.length;
+                            if (data.severeConsoleErrorDetails.length >= 10 && severeConsoleErrorsMore > 0) {
+                                severeConsoleDetailText += "\n  \u2022 "
+                                    + "${carlos:forJavaScript(lblSevereConsoleErrorsMore)}".replace("{0}", severeConsoleErrorsMore);
+                            }
+                        }
                         if (data.renderApproval
-                                && confirm(data.errorMessage + details + "\n\nApprove these issues and render?")) {
+                                && confirm(data.errorMessage + details + severeConsoleDetailText + "\n\nApprove these issues and render?")) {
                             getPdf(attachmentName, attachmentId, parameters
                                 + "&renderApproval=" + encodeURIComponent(data.renderApproval));
                         }
