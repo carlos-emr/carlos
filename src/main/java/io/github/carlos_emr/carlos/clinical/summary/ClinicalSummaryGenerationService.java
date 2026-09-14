@@ -23,6 +23,8 @@ import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentP
 /** Host-owned safety and artifact assembly. Every adapter passes through the same checks. */
 public final class ClinicalSummaryGenerationService {
     public static final String ENABLED_PROPERTY = "clinical.ai_summary_generation.enabled";
+    public static final String CACHE_ENABLED_PROPERTY = "clinical.ai_summary_generation.cache.enabled";
+    private static final ClinicalSummaryGenerationCache CACHE = new ClinicalSummaryGenerationCache();
     private static final Semaphore CAPACITY = new Semaphore(1);
     private static final int MAX_CLAIMS = 20;
     private static final int MAX_CLAIM_LENGTH = 240;
@@ -44,11 +46,18 @@ public final class ClinicalSummaryGenerationService {
             "report", "reported", "source", "that", "the", "their", "there", "this", "was", "were",
             "with", "without");
     private final ClinicalSummaryAgent agent;
+    private final ClinicalSummaryGenerationCache cache;
 
-    public ClinicalSummaryGenerationService() { this(ClinicalSummaryAgents.configured()); }
+    public ClinicalSummaryGenerationService() {
+        this(ClinicalSummaryAgents.configured(), "true".equals(io.github.carlos_emr.CarlosProperties.getInstance()
+                .getProperty(CACHE_ENABLED_PROPERTY, "true")) ? CACHE : null);
+    }
 
-    public ClinicalSummaryGenerationService(ClinicalSummaryAgent agent) {
+    public ClinicalSummaryGenerationService(ClinicalSummaryAgent agent) { this(agent, CACHE); }
+
+    ClinicalSummaryGenerationService(ClinicalSummaryAgent agent, ClinicalSummaryGenerationCache cache) {
         this.agent = Objects.requireNonNull(agent);
+        this.cache = cache;
     }
 
     public ClinicalSummaryArtifact generate(ClinicalSummaryArtifact chart) throws ClinicalSummaryGenerationException {
@@ -72,6 +81,14 @@ public final class ClinicalSummaryGenerationService {
             String name = agent.displayName();
             if (name == null || name.isBlank() || name.length() > 224 || name.chars().anyMatch(Character::isISOControl)) {
                 throw new IllegalArgumentException("Invalid agent name");
+            }
+            // Eligibility precedes metadata lookup and every cache hit. The action separately
+            // reloads authorized evidence before and after this call, including on cache hits.
+            String identity = cache == null ? null : agent.cacheIdentity();
+            String cacheKey = identity == null ? null : ClinicalSummaryGenerationCache.key(snapshot, request, identity);
+            if (cacheKey != null) {
+                ClinicalSummaryArtifact hit = cache.get(cacheKey);
+                if (hit != null) return hit;
             }
             // Adapters receive an isolated data copy, never the chart artifact or CARLOS session.
             JsonNode generated = agent.generate(request.deepCopy());
@@ -98,7 +115,17 @@ public final class ClinicalSummaryGenerationService {
             findings.addObject().put("severity", "warning").put("code", "ai_review_required")
                     .put("message", "Unverified AI draft for synthetic testing only. Reference checks do not establish support, clinical accuracy or completeness. Nothing has been saved to the chart.")
                     .putArray("source_ids");
-            return new ClinicalSummaryArtifact(snapshot);
+            ClinicalSummaryArtifact artifact = new ClinicalSummaryArtifact(snapshot);
+            if (cacheKey != null && artifact.isRenderable()) {
+                // Model replacement during inference must not populate the previous revision's cache.
+                // Metadata failure after successful inference only disables this cache insertion.
+                try {
+                    if (identity.equals(agent.cacheIdentity())) cache.put(cacheKey, artifact);
+                } catch (IOException unavailable) {
+                    // The validated result remains usable for this request, with no cache entry.
+                }
+            }
+            return artifact;
         } catch (SocketTimeoutException timeout) {
             throw new ClinicalSummaryGenerationException("Agent generation timed out. The chart extract is unchanged.");
         } catch (IOException unavailable) {

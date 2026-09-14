@@ -160,3 +160,13 @@ isolated request copy and validates output before combining it with host evidenc
 Register a server-configured implementation explicitly in `ClinicalSummaryAgents`
 when using it from the web action. This route requires a rebuild; HTTP does not.
 In-process adapters are trusted code and must implement their own execution bounds.
+
+## Result caching
+
+The built-in HTTP adapter does not cache results: protocol v1 does not expose an
+immutable revision for the gateway's downstream models, prompts and tools. The
+Ollama adapter supports the bounded memory cache documented in README.md. An
+in-process Java adapter can opt in with `cacheIdentity()`, returning a stable
+revision covering every output-affecting setting and revalidating the backend on
+every call. Its default `null` return disables caching. Display names must never
+be used as revision identifiers. Existing HTTP gateways require no changes.

@@ -23,10 +23,12 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String MODEL = "qwen3.5:2b";
     private HttpServer server;
+    private final ClinicalSummaryGenerationCache cache = new ClinicalSummaryGenerationCache();
     private ClinicalSummaryArtifact chart;
     private ObjectNode generated;
     private ObjectNode payload;
     private String show = "{}";
+    private String digest;
     private String doneReason = "stop";
     private int showStatus = 200;
     private final AtomicInteger generations = new AtomicInteger();
@@ -58,6 +60,21 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
             }
             byte[] bytes = show.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(showStatus, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.createContext("/api/tags", exchange -> {
+            ObjectNode response = MAPPER.createObjectNode();
+            ArrayNode models = response.putArray("models");
+            if (digest != null) models.addObject().put("name", MODEL).put("digest", digest);
+            byte[] bytes = MAPPER.writeValueAsBytes(response);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.createContext("/api/version", exchange -> {
+            byte[] bytes = "{\"version\":\"0.33.3\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
             exchange.getResponseBody().write(bytes);
             exchange.close();
         });
@@ -97,7 +114,7 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     }
 
     private ClinicalSummaryGenerationService generator() {
-        return new ClinicalSummaryGenerationService(new OllamaClinicalSummaryAgent(server.getAddress().getPort(), MODEL, 2000));
+        return new ClinicalSummaryGenerationService(new OllamaClinicalSummaryAgent(server.getAddress().getPort(), MODEL, 2000), cache);
     }
 
     @Test
@@ -114,6 +131,33 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
         assertThat(payload.path("format").path("type").asText()).isEqualTo("object");
         assertThat(MAPPER.readTree(payload.path("prompt").asText()).size()).isEqualTo(1);
         assertThat(draft.isRenderable()).isTrue();
+    }
+
+    @Test
+    void shouldReuseDraftAcrossServices_whenOllamaDigestAndEvidenceMatch() throws Exception {
+        digest = "a".repeat(64);
+        var first = generator().generate(chart);
+        assertThat(generator().generate(chart).getView()).isEqualTo(first.getView());
+        assertThat(generations.get()).isEqualTo(1);
+        digest = "b".repeat(64);
+        generator().generate(chart);
+        assertThat(generations.get()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldRecheckLocalModel_whenDraftIsCached() throws Exception {
+        digest = "a".repeat(64);
+        generator().generate(chart);
+        show = "{\"remote_model\":\"cloud\"}";
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("unavailable");
+        assertThat(generations.get()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRegenerateWithoutCache_whenModelDigestIsMissing() throws Exception {
+        generator().generate(chart);
+        generator().generate(chart);
+        assertThat(generations.get()).isEqualTo(2);
     }
 
     @Test
