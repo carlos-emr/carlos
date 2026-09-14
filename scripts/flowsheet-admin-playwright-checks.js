@@ -38,7 +38,7 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only when intentionally targeting a non-local test database
  *   A non-local BASE_URL also requires an explicit MYSQL_HOST for that same disposable test environment
@@ -82,7 +82,7 @@ if (!baseUrlIsLocal && !process.env.MYSQL_HOST) {
 const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'db');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const displayName = `PW Flowsheet 3400 ${Date.now()} ${randomBytes(4).toString('hex')}`;
 
 const mysqlDefaults = createMysqlDefaultsFile();

@@ -257,7 +257,7 @@ function leaseBrowser() {
 async function verifyPreviewClose(inModal) {
     const jsp = fs.readFileSync('src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp', 'utf8');
     const start = jsp.indexOf('function resetStashAndClose()');
-    const end = jsp.indexOf('function onPrint2(', start);
+    const end = jsp.indexOf('var pendingNotesSave', start);
     assert.ok(start >= 0 && end > start, 'Preview close handler must be present');
     const events = [];
     let workspaceActive = true;

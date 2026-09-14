@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -98,8 +99,8 @@
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
         <form action="<%= request.getContextPath()%>/rx/copyFavorite2" method="post">
             <input type="hidden" name="dispatch" value="refresh"/>
-            <input type="hidden" name="userProviderNo" value="<%=providerNo%>"/>
-            <input type="hidden" name="copyProviderNo" value="<%=copyProviderNo%>"/>
+            <input type="hidden" name="userProviderNo" value="<carlos:encode value='<%=providerNo%>' context='htmlAttribute'/>"/>
+            <input type="hidden" name="copyProviderNo" value="<carlos:encode value='<%=copyProviderNo%>' context='htmlAttribute'/>"/>
 
             <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" width="100%">
                 <%@ include file="TopLinks.jsp"%>
@@ -149,9 +150,9 @@
                                                                     continue;
                                                                 }
                                                         %>
-                                                            <option value="<%=((String) allProviders.get(p))%>"
-                                                                <%=((String) allProviders.get(p)).equalsIgnoreCase(copyProviderNo) ? "SELECTED" : ""%>>
-                                                                <%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>
+                                                            <option value="<carlos:encode value='<%=((String) allProviders.get(p))%>' context='htmlAttribute'/>"
+                                                                <%=((String) allProviders.get(p)).equalsIgnoreCase(copyProviderNo) ? "selected=\"selected\"" : ""%>>
+                                                                <carlos:encode value='<%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>' context="html"/>
                                                             </option>
                                                         <% } %>
                                                     </select>
@@ -165,22 +166,22 @@
                                                 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line1">
                                                     <td colspan="2">
-                                                        <b>Favorite Name:</b>
-                                                        <input type="hidden" name="fldFavoriteId${i}" value="${fav.id}"/>
-                                                        <input type="text" size="50" name="fldFavoriteName${i}" class="tblRow" value="${fav.favoriteName}"/>
+                                                        <label for="fldFavoriteName${i}"><b>Favorite Name:</b></label>
+                                                        <input type="hidden" name="fldFavoriteId${i}" value="${carlos:forHtmlAttribute(fav.id)}"/>
+                                                        <input type="text" id="fldFavoriteName${i}" size="50" name="fldFavoriteName${i}" class="tblRow" value="${carlos:forHtmlAttribute(fav.favoriteName)}"/>
                                                     </td>
                                                 </tr>
                                                 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line2">
-                                                    <td><b>Brand Name:</b>${fav.bn}</td>
-                                                    <td colspan="5"><b>Generic Name:</b>${fav.gn}</td>
+                                                    <td><b>Brand Name:</b>${carlos:forHtmlContent(fav.bn)}</td>
+                                                    <td colspan="5"><b>Generic Name:</b>${carlos:forHtmlContent(fav.gn)}</td>
                                                 </tr>
 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line3">
-                                                    <td><b>Take:</b>
-                                                        <input type="text" name="fldTakeMin${i}" class="tblRow" size="3" value="${fav.takeMin}"/>
-                                                        <span>to</span>
-                                                        <input type="text" name="fldTakeMax${i}" class="tblRow" size="3" value="${fav.takeMax}"/>
+                                                    <td><label for="fldTakeMin${i}"><b>Take:</b></label>
+                                                        <input type="text" id="fldTakeMin${i}" name="fldTakeMin${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMin)}"/>
+                                                        <label for="fldTakeMax${i}">to</label>
+                                                        <input type="text" id="fldTakeMax${i}" name="fldTakeMax${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMax)}"/>
                                                     </td>
                                                 </tr>
                                             </c:forEach>

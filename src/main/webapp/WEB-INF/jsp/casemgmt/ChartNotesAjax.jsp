@@ -854,6 +854,11 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
 <script type="text/javascript">
     maxNcId = <%=maxId%>;
+    // Batch size for notesLoader() in newCaseManagementView.js.jsp. It is the only way the
+    // client can tell an exhausted chart from a full batch: this fragment always emits these
+    // bootstrap scripts, so even a zero-note response has a non-empty body. Without it the
+    // scroll poll keeps requesting higher and higher offsets and the throbber never clears.
+    notesLastBatchSize = <%=noteSize%>;
 </script>
 
 
