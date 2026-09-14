@@ -26,6 +26,7 @@
 package io.github.carlos_emr.carlos.utils;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import java.util.GregorianCalendar;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.PMmodule.model.FieldDefinition;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Utility {
@@ -326,15 +328,15 @@ public class Utility {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static ArrayList getTemplate(String pathLoc, String dir, String filename) {
         FieldDefinition fDev = null; // clientImageMgr.getClientImage(demoNo);
         ArrayList list = new ArrayList();
         String fileDir = pathLoc + "/" + dir + "/" + filename;
         try {
 
-            BufferedReader in = null;
-            try {
-                in = new BufferedReader(new FileReader(fileDir));
+            try (BufferedReader in = new BufferedReader(new FileReader(PathValidationUtils.resolveTrustedPath(new File(fileDir))))) {
                 String str;
                 if (fileDir.indexOf("/in/") > -1) {
                     while ((str = in.readLine()) != null) {
@@ -356,13 +358,9 @@ public class Utility {
                         list.add(fDev);
                     }
                 }
-                in.close();
 
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Uh oh, got an IOException error!", e);
-            } finally {
-                if (in != null)
-                    in.close();
             }
 
         } catch (Exception e) {

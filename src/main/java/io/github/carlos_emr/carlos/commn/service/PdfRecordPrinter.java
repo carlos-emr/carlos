@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
@@ -331,6 +332,8 @@ public class PdfRecordPrinter {
      * @param invoiceNo Integer the billing invoice number to render
      * @param locale Locale for date formatting
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void printBillingInvoice(Integer invoiceNo, Locale locale) {
         CarlosProperties props = CarlosProperties.getInstance();
         InputStream is = null;
@@ -341,7 +344,7 @@ public class PdfRecordPrinter {
             if (templateFilepath.isEmpty())
                 is = this.getClass().getClassLoader().getResourceAsStream(BILLING_INVOICE_TEMPLATE_FILE);
             else
-                is = new FileInputStream(templateFilepath);
+                is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(templateFilepath)));
             //get Jasper Report
 
             JasperReport jasperReport = JasperCompileManager.compileReport(is);
@@ -368,7 +371,7 @@ public class PdfRecordPrinter {
                                 if (imagePath.isEmpty()) {
                                     //DO NOTHING imageIS = this.getClass().getClassLoader().getResourceAsStream(OSCAR_LOGO_FILE);
                                 } else {
-                                    imageIS = new FileInputStream(imagePath);
+                                    imageIS = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(imagePath)));
                                 }
                                 parameters.put(paramName, imageIS);
                             } else if (paramName.equals("billing_print_date")) {
@@ -901,11 +904,16 @@ public class PdfRecordPrinter {
             File tempFile = null;
             try {
                 tempFile = File.createTempFile("graphicImg", ".png");
-                FileOutputStream fos = new FileOutputStream(tempFile);
-                convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
+                // try-with-resources so the stream is closed even when convertToImage throws
+                // (e.g. SecurityException for a missing image), avoiding a FileOutputStream leak.
+                try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tempFile))) {
+                    convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
+                }
                 logger.debug("converted image is " + tempFile.getName());
-                fos.close();
-            } catch (IOException e) {
+            } catch (IOException | SecurityException e) {
+                // SecurityException is thrown by PathValidationUtils.validateConfiguredFile when the
+                // referenced eForm diagram image is missing/invalid. Skip that one diagram (as the
+                // legacy FileNotFoundException path did) rather than aborting the whole record PDF.
                 logger.error("Error", e);
                 if (tempFile != null) {
                     tempFile.delete();

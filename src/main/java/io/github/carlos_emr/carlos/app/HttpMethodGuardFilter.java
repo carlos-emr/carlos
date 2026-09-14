@@ -130,7 +130,10 @@ public class HttpMethodGuardFilter implements Filter {
             "save", "delete", "update", "create", "remove",
             "submit", "merge", "archive", "assign", "transfer",
             "approve", "reject", "toggle", "complete", "process",
-            "cancel", "close"
+            "cancel", "close",
+            // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;
+            // classify it as a mutation so GET/HEAD are rejected before the action runs.
+            "resetmfa"
     );
 
     /**
@@ -151,11 +154,18 @@ public class HttpMethodGuardFilter implements Filter {
                                           // action name 'createdate' matches the unconditional
                                           // "create" mutator prefix, so we exempt it here and rely
                                           // on the action's own POST check for mutations.
-            "addappointment"             // ViewAppointmentWrite2Action — view gate that loads the
+            "addappointment",            // ViewAppointmentWrite2Action — view gate that loads the
                                           // add-appointment form. The name starts with "add" so it
                                           // matches MUTATOR_ACTION_PREFIXES, but the action itself
                                           // only renders a JSP — the actual write goes through
                                           // appointment/AddRecord (which IS a POST-only mutator).
+            "addrelation"                // AddDemographicRelationship2Action (demographic "Add
+                                          // Relation" popup, edit-view.jsp): GET with only `demo`
+                                          // renders the contact-search form (AddAlternateContact.jsp).
+                                          // The actual relationship persist only fires when
+                                          // linkingDemo+relation are present, and the action itself
+                                          // rejects that case with 405 unless the request is POST —
+                                          // see AddDemographicRelationship2Action.execute().
     );
 
     /**
@@ -298,7 +308,8 @@ public class HttpMethodGuardFilter implements Filter {
             "/eformViewForPdfGenerationServlet",
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
-            "/EFormImageViewForPdfGenerationServlet"
+            "/EFormImageViewForPdfGenerationServlet",
+            "/EFormApCacheForPdfGenerationServlet"
     );
 
     /**

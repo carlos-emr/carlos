@@ -45,6 +45,8 @@ import java.util.Map;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.pdf.AcroFields;
 import org.openpdf.text.pdf.AcroFields.Item;
@@ -146,6 +148,8 @@ public class PDFController {
      *
      * @param filePath String the absolute path to the PDF template file
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public PDFController(String filePath) {
         if (setFilePath(new File(filePath))) {
             _init();
@@ -194,8 +198,9 @@ public class PDFController {
 
     private boolean setFilePath(File file) {
 
-        if (file.exists()) {
-            this.filePath = file;
+        File validatedFile = PathValidationUtils.resolveTrustedPath(file);
+        if (validatedFile.exists()) {
+            this.filePath = validatedFile;
             return Boolean.TRUE;
         }
 
@@ -204,6 +209,8 @@ public class PDFController {
         return Boolean.FALSE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public boolean setFilePath(String filePath) {
         return setFilePath(new File(filePath));
     }
@@ -378,6 +385,8 @@ public class PDFController {
      * @param outPath : outPut path for completed PDF.
      * @param pdfPath : the absolute path to an editable pdf template.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void writeDataToPDF(String pdfPath, String outPath, Object data, String[] pages, String fileId) {
 
         if (pages.length <= 0) {
@@ -407,17 +416,16 @@ public class PDFController {
             FileOutputStream fos = null;
             try {
 
-                if (!getOutputPath().endsWith("/")) {
-                    setOutputPath(getOutputPath() + "/");
-                }
-
-                setOutputPath(getOutputPath() + fileId + "_" + new Date().getTime() +
+                File outputDir = PathValidationUtils.resolveConfiguredDirectory(getOutputPath(), "BPMH output path");
+                String generatedName = PathValidationUtils.validateGeneratedFileName(fileId + "_" + new Date().getTime() +
                         "_" + getFilePath().getName());
+                File outputFile = PathValidationUtils.validateGeneratedChildPath(generatedName, outputDir);
+                setOutputPath(outputFile.getAbsolutePath());
 
-                setFileName(new File(getOutputPath()).getName());
+                setFileName(outputFile.getName());
 
                 if (getStamper() == null) {
-                    fos = new FileOutputStream(getOutputPath());
+                    fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(getOutputPath())));
                     try {
                         setStamper(new PdfStamper(getReader(), fos));
                     } catch (Exception e) {

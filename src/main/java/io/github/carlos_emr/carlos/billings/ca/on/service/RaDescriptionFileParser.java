@@ -37,6 +37,7 @@ import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaDescriptionViewModel;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Parses fixed-width OHIP RA description files and builds the XML fragments
@@ -54,6 +55,8 @@ public class RaDescriptionFileParser {
         INCOMPLETE_HEADER
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public ParsedFile parse(String filename) {
         ParsedFile out = new ParsedFile();
         if (filename == null || filename.isEmpty()) {

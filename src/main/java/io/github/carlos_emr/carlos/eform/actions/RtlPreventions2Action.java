@@ -35,12 +35,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <ul>
  *   <li>Requires {@code _eform} read privilege via {@link SecurityInfoManager}</li>
  *   <li>Input validated: {@code demographic_no} must match {@code \d+} regex</li>
- *   <li>Output encoded: all prevention types and dates use {@link Encode#forHtml(String)}</li>
+ *   <li>Output encoded: all prevention types and dates use {@link SafeEncode#forHtml(String)}</li>
  * </ul>
  *
  * <h3>Why This Exists</h3>
@@ -68,8 +68,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * into the RTL editor iframe via the {@code doHtml()} JavaScript function.</p>
  *
  * <h3>Struts Mapping</h3>
- * <p>Mapped as {@code eform/rtlPreventions} in {@code struts.xml}. The RTL
- * eForm calls it via {@code $.ajax({url: "../eform/rtlPreventions", ...})}.</p>
+ * <p>Mapped as {@code eform/rtlPreventions} in {@code struts-eform.xml}, with an
+ * {@code eform/rtlPreventions.do} compatibility alias: the shipped Rich Text Letter
+ * form_html calls {@code $.ajax({url: "../eform/rtlPreventions.do", ...})}, and that
+ * HTML lives in every installed database, so the alias is what the button actually hits.</p>
  *
  * @see io.github.carlos_emr.carlos.managers.PreventionManager#getPreventionsByDemographicNo
  * @since 2026-03-22
@@ -89,10 +91,10 @@ public class RtlPreventions2Action extends ActionSupport {
     /**
      * Handles the AJAX request from the RTL eForm's Preventions button.
      *
-     * <p>Writes HTML directly to the response and returns {@code null} to bypass
+     * <p>Writes HTML directly to the response and returns {@code NONE} to bypass
      * Struts result dispatch (no JSP view — the response IS the view).</p>
      *
-     * @return String always {@code null} (response written directly)
+     * @return String always {@code NONE} (response written directly)
      * @throws IOException if the response stream cannot be written to
      */
     @Override
@@ -100,7 +102,7 @@ public class RtlPreventions2Action extends ActionSupport {
         // Mandatory security check — same _eform privilege used by all eForm endpoints
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
-            throw new SecurityException("missing required security object _eform");
+            throw new SecurityException("missing required sec object (_eform)");
         }
 
         // Validate demographic_no: must be digits only. The regex check prevents
@@ -108,7 +110,7 @@ public class RtlPreventions2Action extends ActionSupport {
         String demoNoParam = request.getParameter("demographic_no");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic_no");
-            return null;
+            return NONE;
         }
 
         Integer demographicNo;
@@ -116,7 +118,7 @@ public class RtlPreventions2Action extends ActionSupport {
             demographicNo = Integer.parseInt(demoNoParam);
         } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic_no");
-            return null;
+            return NONE;
         }
         try {
             // PreventionManager enforces circle-of-care access via loggedInInfo
@@ -139,8 +141,8 @@ public class RtlPreventions2Action extends ActionSupport {
                         ? DATE_FORMAT.format(p.getPreventionDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate())
                         : "";
                     // OWASP-encode both values before inserting into HTML
-                    html.append("<tr><td>").append(Encode.forHtml(type))
-                        .append("</td><td>").append(Encode.forHtml(date))
+                    html.append("<tr><td>").append(SafeEncode.forHtml(type))
+                        .append("</td><td>").append(SafeEncode.forHtml(date))
                         .append("</td></tr>");
                 }
                 html.append("</table>");
@@ -159,6 +161,6 @@ public class RtlPreventions2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to retrieve prevention data");
             }
         }
-        return null;
+        return NONE;
     }
 }

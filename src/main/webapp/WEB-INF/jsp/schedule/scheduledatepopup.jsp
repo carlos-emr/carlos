@@ -30,7 +30,6 @@
 --%>
 
 <%! boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
-<%! String[] bgColors; %>
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -41,7 +40,6 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -49,6 +47,7 @@
 
 <jsp:useBean id="scheduleDateBean" class="java.util.Hashtable" scope="session"/>
 <%
+    String[] bgColors = null;
     String year = request.getParameter("year");
     String month = MyDateFormat.getDigitalXX(Integer.parseInt(request.getParameter("month")));
     String day = MyDateFormat.getDigitalXX(Integer.parseInt(request.getParameter("day")));
@@ -71,7 +70,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>

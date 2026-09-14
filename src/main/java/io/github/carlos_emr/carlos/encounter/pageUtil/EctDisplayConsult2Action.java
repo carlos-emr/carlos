@@ -128,7 +128,9 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
                     date = formatter.parse(dateStr);
                     serviceDateStr = DateUtils.formatDate(date, request.getLocale());
                     //if we are after cut off date and not completed set to red
-                    if (date.before(cutoffDate) && !status.equals("4")) {
+                    // Legacy/imported requests can have no status. Keep them visible and
+                    // overdue; only an explicit completed status suppresses the warning.
+                    if (date.before(cutoffDate) && !"4".equals(status)) {
                         item.setColour(red);
                     }
                 } catch (ParseException ex) {

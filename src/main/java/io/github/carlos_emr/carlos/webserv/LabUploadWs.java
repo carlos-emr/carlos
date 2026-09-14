@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import jakarta.jws.WebParam;
 import jakarta.jws.WebService;
@@ -251,6 +252,8 @@ public class LabUploadWs extends AbstractWs {
         return returnMessageHandler;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: request filename is validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "request filename is validated for directory containment via PathValidationUtils before use")
     private String importLab(String fileName, String labContent, LabType labType, String oscarProviderNo)
             throws Exception {
         HttpServletRequest request = getHttpServletRequest();

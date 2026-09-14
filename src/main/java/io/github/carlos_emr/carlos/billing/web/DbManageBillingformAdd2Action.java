@@ -77,10 +77,12 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
      * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
@@ -125,7 +127,7 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
             cdc.setStatus("A");
             ctlDiagCodeDao.persist(cdc);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to add billing form for typeid={}", typeid, e);
+            MiscUtils.getLogger().error("Failed to add billing form ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to add billing form");
             return NONE;
         }
@@ -146,6 +148,8 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
      * @param group3     group 3 description
      * @throws Exception if the redirect fails
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private void redirectWithError(String errMessage, String typeid, String type,
                                    String group1, String group2, String group3) throws Exception {
         String url = request.getContextPath() + "/billing/CA/ON/ManageBillingform"

@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -89,7 +90,11 @@
                     }
                     if (request.getAttribute("status") == null) {
 
-                %> <form action="${pageContext.request.contextPath}/EditPhoneNum" method="post">
+                %>
+                <% if (Boolean.TRUE.equals(request.getAttribute("phoneError"))) { %>
+                    <span style="color:red">Invalid phone/fax number. Use only digits, spaces, and the characters + - ( ) . x (max 40).</span><br/>
+                <% } %>
+                <form action="${pageContext.request.contextPath}/EditPhoneNum" method="post">
 
 			
 				<span style="color:blue"><fmt:message key='provider.editRxPhone.msgInstructions'/>
@@ -102,7 +107,14 @@
                 <br/>
 
 
-                <input type="text" name="faxNumber" value="<%=phoneNum%>" size="40"/>
+                <%-- Labelled explicitly: the field previously had no label at all, so a screen
+                     reader announced only "edit text" with no indication of what to enter. The
+                     surrounding blue instruction block is not programmatically associated with the
+                     input, so it does not serve as one. Reuses the existing
+                     provider.editRxFax.msgProviderFaxNumber key, which is present in all five
+                     locale bundles. --%>
+                <label for="faxNumber"><fmt:message key='provider.editRxFax.msgProviderFaxNumber'/></label>
+                <input type="text" id="faxNumber" name="faxNumber" value="<%= SafeEncode.forHtmlAttribute(phoneNum) %>" size="40"/>
                 <br>
 
                 <input type="submit" onclick="return validate();"
@@ -110,7 +122,7 @@
             </form> <%
             } else if (((String) request.getAttribute("status")).equals("complete")) {
             %> <fmt:message key="provider.editRxPhone.msgSuccess"/> <br>
-                <%=phoneNum%> <%
+                <%= SafeEncode.forHtmlContent(phoneNum) %> <%
                 }
             %>
             </td>

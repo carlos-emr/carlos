@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.w3c.dom.NodeList;
@@ -103,7 +104,7 @@ public class OutcomesDashboard2Action extends ActionSupport {
 
         ObjectNode o = objectMapper.createObjectNode();
 
-        response.getWriter().print(o.toString());
+        JsonResponseWriter.write(response, o);
 
         return null;
     }

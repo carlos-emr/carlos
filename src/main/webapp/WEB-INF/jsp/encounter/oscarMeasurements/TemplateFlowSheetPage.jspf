@@ -343,13 +343,18 @@ div.headPrevention p {
     }
 
 
-    function fsPopup(width,height,url,window) {
+    function fsPopup(width,height,url,windowName) {
     	<%
     		SecurityManager securityMgr = new SecurityManager();
     		if(securityMgr.hasWriteAccess("_flowsheet."+mFlowsheet.getName(),roleName$)) {
     	%>
 
-    	return popup(width,height,url,window);
+	var measurementPopup = popup(width,height,url,windowName);
+	if (measurementPopup != null && window.opener != null && !window.opener.closed
+			&& typeof window.opener.registerNestedMeasurementWindow === "function") {
+		window.opener.registerNestedMeasurementWindow(window, measurementPopup);
+	}
+	return measurementPopup;
     	<%}%>
     }
 </script>
