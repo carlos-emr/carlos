@@ -4,6 +4,12 @@
 > an encrypted durable-vault vertical slice, but it has not passed the security, privacy, signing,
 > physical-device, or release gates required for PHI. It is not connected to CARLOS EMR.
 
+**[Download the Windows evaluation build](https://github.com/carlos-emr/carlos/actions/workflows/mycarlos-tauri-poc.yml?query=branch%3Apoc%2F3474-tauri-v2)**
+— open the newest successful run and select **myCarlos-Windows-x64-Evaluation** under Artifacts
+(GitHub sign-in required). Extract the ZIP, run `myCarlos-Evaluation-Windows-x64-setup.exe`,
+and launch **myCarlos Evaluation** from Start. The download includes sample PDFs.
+See [Windows installation and signing](WINDOWS.md) for details.
+
 This directory began as the framework-selection proof of concept for the patient-held record proposed in
 [`carlos-emr/carlos#3474`](https://github.com/carlos-emr/carlos/issues/3474). It uses one responsive
 React/TypeScript web UI with a narrow Rust boundary and Tauri's native document picker. The branch

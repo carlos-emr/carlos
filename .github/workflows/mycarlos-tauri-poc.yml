@@ -179,8 +179,8 @@ jobs:
           retention-days: 7
 
   windows:
-    # Installer signing and release packaging are separate gates. This job validates the native
-    # application and vault on Windows without presenting an unsigned NSIS installer as evidence.
+    # This downloadable installer is unsigned synthetic-data evaluation evidence.
+    # Publisher signing and patient-release approval remain separate gates.
     name: Windows native build
     runs-on: windows-2025
     timeout-minutes: 35
@@ -197,8 +197,62 @@ jobs:
         run: rustup toolchain install 1.98.0 --profile minimal
       - run: npm ci
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
-      - run: npm run tauri build -- --debug --no-bundle
+      - name: Build Windows evaluation installer
+        run: npm run tauri build -- --debug --bundles nsis
       - run: git diff --exit-code -- src-tauri/Cargo.lock
+      - name: Verify Windows installation
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem src-tauri/target/debug/bundle/nsis/*-setup.exe)
+          if ($installers.Count -ne 1) { throw "Expected exactly one Windows installer" }
+          $installPath = Join-Path $env:RUNNER_TEMP 'mycarlos-install-smoke'
+          $setup = Start-Process -FilePath $installers[0].FullName -ArgumentList '/S', "/D=$installPath" -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Installer exited with $($setup.ExitCode)" }
+          if (!(Test-Path "$installPath/mycarlos-tauri-poc.exe")) { throw "Installed application is missing" }
+      - name: Prepare Windows download
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem src-tauri/target/debug/bundle/nsis/*-setup.exe)
+          if ($installers.Count -ne 1) { throw "Expected exactly one Windows installer" }
+          New-Item -ItemType Directory -Path windows-download | Out-Null
+          $installer = 'myCarlos-Evaluation-Windows-x64-setup.exe'
+          Copy-Item $installers[0].FullName "windows-download/$installer"
+          Copy-Item WINDOWS_DOWNLOAD.txt windows-download/START-HERE.txt
+          Copy-Item dev-data windows-download/sample-files -Recurse
+          $hash = (Get-FileHash "windows-download/$installer" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $installer" | Set-Content windows-download/SHA256SUMS.txt -Encoding utf8
+          $commit = git rev-parse HEAD
+          @(
+            'myCarlos Windows x64 evaluation — unsigned; synthetic data only'
+            "Source commit: $commit"
+            "Build: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          ) | Set-Content windows-download/BUILD.txt -Encoding utf8
+      - name: Upload Windows installer
+        id: windows-download
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: myCarlos-Windows-x64-Evaluation
+          path: mycarlos-tauri-poc/windows-download/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Show Windows download link
+        shell: pwsh
+        env:
+          DOWNLOAD_URL: ${{ steps.windows-download.outputs.artifact-url }}
+        run: |
+          @(
+            '## Download myCarlos for Windows'
+            ''
+            "[Download Windows x64 evaluation installer]($env:DOWNLOAD_URL)"
+            ''
+            'Sign in to GitHub, download and extract the ZIP, then open myCarlos-Evaluation-Windows-x64-setup.exe.'
+            'Launch myCarlos Evaluation from Start. No Node, Rust, or developer tools are needed.'
+            'The ZIP includes sample PDFs and START-HERE.txt. Internet access is needed if WebView2 must be installed.'
+            ''
+            '**Unsigned evaluation build — synthetic data only. Windows may warn or block installation.**'
+            'This download expires after 30 days; newer successful runs provide fresh downloads.'
+          ) | Add-Content $env:GITHUB_STEP_SUMMARY
 
   macos:
     name: macOS native build
