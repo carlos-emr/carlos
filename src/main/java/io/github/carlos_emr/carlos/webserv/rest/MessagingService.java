@@ -48,7 +48,7 @@ import org.springframework.stereotype.Component;
 @Path("/messaging")
 @Component("messagingService")
 @Consumes(MediaType.APPLICATION_JSON)
-@Produces(MediaType.APPLICATION_JSON)
+@Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
 public class MessagingService extends AbstractServiceImpl {
 
     @Autowired
@@ -80,12 +80,28 @@ public class MessagingService extends AbstractServiceImpl {
 
     @GET
     @Path("/count")
+    @Produces(MediaType.APPLICATION_JSON)
     public int getMyUnreadMessages(@QueryParam("demoAttachedOnly") boolean demoAttachedOnly) {
         Provider provider = getCurrentProvider();
 
         int count = messagingManager.getMyInboxMessageCount(getLoggedInInfo(), provider.getProviderNo(), demoAttachedOnly);
 
         return count;
+    }
+
+    /**
+     * Supplies a well-formed XML representation for clients of the legacy XML media type.
+     *
+     * @param demoAttachedOnly whether to count only messages attached to patients
+     * @return the same count as the JSON endpoint, wrapped in an XML count element
+     */
+    @GET
+    @Path("/count")
+    @Produces(MediaType.APPLICATION_XML)
+    public jakarta.xml.bind.JAXBElement<Integer> getUnreadMessageCountXml(
+            @QueryParam("demoAttachedOnly") boolean demoAttachedOnly) {
+        return new jakarta.xml.bind.JAXBElement<>(new javax.xml.namespace.QName("count"),
+                Integer.class, getMyUnreadMessages(demoAttachedOnly));
     }
 
 }

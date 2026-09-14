@@ -56,7 +56,7 @@ import org.springframework.stereotype.Component;
 @Path("/demographics/merge")
 @Component("demographicMergeService")
 @Consumes(MediaType.APPLICATION_JSON)
-@Produces(MediaType.APPLICATION_JSON)
+@Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
 public class DemographicMergeService extends AbstractServiceImpl {
 
 

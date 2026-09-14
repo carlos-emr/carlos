@@ -54,6 +54,21 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private PharmacyInfoDao mockPharmacyInfoDao;
 
+    @Test
+    void shouldPreserveXml_whenPharmacyClientRequestsIt() throws Exception {
+        PharmacyInfo pharmacy = new PharmacyInfo();
+        pharmacy.setId(1);
+        pharmacy.setName("Legacy XML Pharmacy");
+        when(mockPharmacyInfoDao.find((Object) 1)).thenReturn(pharmacy);
+        try (Response response = request().path("/pharmacies/1")
+                .replaceHeader("Accept", "application/xml").get()) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMediaType().toString()).startsWith("application/xml");
+            var xml = io.github.carlos_emr.carlos.utility.XmlUtils.toDocument(response.readEntity(String.class));
+            assertThat(xml.getElementsByTagName("name").item(0).getTextContent()).isEqualTo("Legacy XML Pharmacy");
+        }
+    }
+
     @Override
     protected Object getServiceBean() {
         PharmacyService service = new PharmacyService();

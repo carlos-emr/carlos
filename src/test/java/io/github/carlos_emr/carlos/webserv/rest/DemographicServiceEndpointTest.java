@@ -95,6 +95,21 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
 
+    @Test
+    void shouldPreserveXml_whenDemographicListClientRequestsIt() throws Exception {
+        var demo = createTestDemographic(17, "Synthetic", "XmlPatient");
+        when(mockDemographicManager.getActiveDemographicCount(any(LoggedInInfo.class))).thenReturn(1L);
+        when(mockDemographicManager.getActiveDemographics(any(LoggedInInfo.class), eq(0), eq(10)))
+                .thenReturn(List.of(demo));
+        try (Response response = request().path("/demographics").query("offset", 0).query("limit", 10)
+                .replaceHeader("Accept", "application/xml").get()) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMediaType().toString()).startsWith("application/xml");
+            var xml = io.github.carlos_emr.carlos.utility.XmlUtils.toDocument(response.readEntity(String.class));
+            assertThat(xml.getElementsByTagName("lastName").item(0).getTextContent()).isEqualTo("XmlPatient");
+        }
+    }
+
     @Override
     protected Object getServiceBean() {
         DemographicService service = new DemographicService();

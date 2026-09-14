@@ -54,6 +54,13 @@ The restored harness also passed all ten self-tests with two concurrent JUnit
 workers. The Surefire discovery guard includes the new `EndpointTest` suffix,
 matching the POM; the guard and four seed-security checks pass together.
 
+Four compatibility tests also reproduced HTTP 406 responses for XML clients of
+pharmacy lookup, demographic listing, demographic merges and message counts.
+The affected classes must advertise both JSON and XML; methods with their own
+explicit media types retain those contracts. The message-count XML representation wraps the number in a `count` element.
+The generic list response declares its concrete JAXB item types so nonempty
+XML lists can be serialized.
+
 ## Application findings
 
 The replacement PR description lists the fixed defects and remaining findings.

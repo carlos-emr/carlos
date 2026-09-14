@@ -55,7 +55,7 @@ import org.springframework.stereotype.Component;
 @Path("/pharmacies/")
 @Component("pharmacyService")
 @Consumes(MediaType.APPLICATION_JSON)
-@Produces(MediaType.APPLICATION_JSON)
+@Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
 public class PharmacyService extends AbstractServiceImpl {
 
     @Autowired

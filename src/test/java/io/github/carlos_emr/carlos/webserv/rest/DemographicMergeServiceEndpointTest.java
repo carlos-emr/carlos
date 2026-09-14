@@ -57,6 +57,21 @@ class DemographicMergeServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private DemographicManager mockDemographicManager;
 
+    @Test
+    void shouldPreserveXml_whenMergeClientRequestsIt() throws Exception {
+        DemographicMerged merged = new DemographicMerged();
+        merged.setDemographicNo(17);
+        when(mockDemographicManager.getMergedDemographics(any(LoggedInInfo.class), eq(100)))
+                .thenReturn(List.of(merged));
+        try (Response response = request().path("/demographics/merge/100")
+                .replaceHeader("Accept", "application/xml").get()) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMediaType().toString()).startsWith("application/xml");
+            var xml = io.github.carlos_emr.carlos.utility.XmlUtils.toDocument(response.readEntity(String.class));
+            assertThat(xml.getElementsByTagName("demographicNo").item(0).getTextContent()).isEqualTo("17");
+        }
+    }
+
     @Override
     protected Object getServiceBean() {
         DemographicMergeService service = new DemographicMergeService();

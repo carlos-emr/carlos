@@ -62,6 +62,20 @@ class MessagingServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private Provider mockProvider;
 
+    @Test
+    void shouldReturnXmlCount_whenCountClientRequestsIt() throws Exception {
+        when(mockMessagingManager.getMyInboxMessageCount(any(LoggedInInfo.class), eq("999998"), anyBoolean()))
+                .thenReturn(5);
+        try (Response response = request().path("/messaging/count")
+                .replaceHeader("Accept", "application/xml").get()) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMediaType().toString()).startsWith("application/xml");
+            var xml = io.github.carlos_emr.carlos.utility.XmlUtils.toDocument(response.readEntity(String.class));
+            assertThat(xml.getDocumentElement().getTagName()).isEqualTo("count");
+            assertThat(xml.getDocumentElement().getTextContent()).isEqualTo("5");
+        }
+    }
+
     @Override
     protected Object getServiceBean() {
         MessagingService service = new MessagingService();
