@@ -988,6 +988,22 @@
       ]
     },
     {
+      "name": "login-failure-host-header",
+      "script": "scripts/login-failure-host-header-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "LOGIN_FAILURE_SCREENSHOT_DIR"
+      ]
+    },
+    {
       "name": "logout-broadcast",
       "script": "scripts/logout-broadcast-playwright-checks.js",
       "tiers": [
