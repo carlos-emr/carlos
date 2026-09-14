@@ -1,5 +1,9 @@
 carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
 
+  * Summarize expected existing-index/column notes during schema creation instead
+    of showing them as duplicate-key/column warnings. Preserve all other warnings
+    and migration errors; published migration SQL and checksums are unchanged.
+    Test the logging boundary against the WAR's Flyway API during package builds.
   * An installation that could not provision its database no longer looks like
     a successful one. Every database step in the package's configuration is
     deliberately non-fatal -- a database that is unreachable must not leave

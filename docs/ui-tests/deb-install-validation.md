@@ -1173,3 +1173,68 @@ was observed; the VM had no swap. These checks use existing backup/drill history
 and do not claim a new backup/restore drill. An initial missing-DrugRef failure
 was traced to the test overlay hiding the companion webapp; the overlay was
 corrected with the published DrugRef payload before the passing final checks.
+
+### PR #3666 existing-schema note regression validation (2026-09-13)
+
+The Debian Flyway launcher now summarizes successful guarded statements that
+find an existing index (1061) or column (1060). Published migration SQL and
+checksums are unchanged. Only those exact JDBC messages from Flyway's SQL-warning
+logger are counted; other warnings, error logs and migration failures retain
+their existing handling. A Flyway logger/message-format change leaves the
+unrecognized warnings visible. The package build tests this behavior against
+the WAR's actual Flyway API, including its logging-configuration resets.
+
+Real JDBC tests on MariaDB 11.8 verify all of these boundaries:
+
+| Fixture | Result |
+| --- | --- |
+| Guarded existing index and column | Exit 0; one informational summary counts both |
+| Duplicate-data and truncation warnings in the same successful migration | 1062 and 1265 warning messages remain visible |
+| Unguarded duplicate index | Exit 1; 1061 failure remains visible |
+| Unguarded duplicate column | Exit 1; 1060 failure remains visible |
+| Duplicate-data insert | Exit 1; 1062 failure remains visible |
+| Invalid SQL | Exit 1; 1064 failure remains visible |
+
+The fresh Ontario demo schema was created through a real `dpkg-reconfigure` in
+the same Ubuntu 26.04 VM, with 8 GiB RAM, 2 vCPUs, no swap and a 4 GiB Java heap.
+It applied all 23 migrations, validated the schema and loaded the demonstration
+dataset. The seven duplicate-index and 21 duplicate-column warning lines were
+replaced with:
+
+```text
+schema setup: 7 index(es) and 21 column(s) were already present; kept their existing definitions.
+```
+
+This uses the checksum-verified published alpha12 main/DrugRef payloads, the PR's
+installer source overlay and the newly compiled launcher, with a new test
+schema on an existing VM. It is not a newly built or published DEB. MariaDB
+version/deprecation warnings remain visible. The launcher build/test, 18
+install-recovery tests, five packaging regressions and both province migration
+version checks pass.
+
+The host subsequently crashed during application deployment. The saved log
+confirms migration validation and demo loading, but the configure command's
+final result and browser acceptance were interrupted and are not recorded as
+passes. The host reboot cleared the RAM-backed test payload. No persistent
+kernel panic/OOM record was found in the previous boot's journal, so these
+results do not establish the crash's cause. Further VM work must run without
+concurrent compilation and with host memory pressure monitored.
+
+After recovering the same published payload to persistent storage, the 8 GiB
+VM resumed without concurrent compilation. MariaDB recovered the new schema
+with 23 successful migrations, 3,000 demo patients, 431 clinical tables and the
+demo completion marker; DrugRef retained 18 tables. `carlos-ctl check` and
+Playwright passed generated login/password reset, prescribing (`amox`: 47
+results, HTTP 200), eChart writes/autosave and application-health routes. At
+completion, the EMR was active with zero automatic restarts and about 4.0 GiB
+service memory; the guest kernel check found no OOM kill. Existing backup/drill
+history was checked; no new backup/restore drill was performed.
+
+The host was subsequently restarted after a second reported OOM crash. The
+five-second host monitor's last persisted samples showed approximately 10.6
+GiB available, zero swap use and zero memory PSI. The previous-boot journal
+again contained no persistent OOM/panic event. These readings do not establish
+which virtualization layer exhausted memory. The application acceptance tests
+completed before this interruption, but the overall host/VM environment cannot
+be declared stable from this run. Compilation and VM operation must remain
+separate, and nested-VM checks are paused pending the outer memory budget.

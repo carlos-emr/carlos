@@ -722,6 +722,18 @@ Which log holds what
   troubleshooting is fine; put it back afterwards, because DEBUG on this
   application can put request parameters — which is to say PHI — into the log.
 
+Schema setup reports that indexes or columns were already present
+  Fresh installs create the baseline schema and then run the same guarded
+  migrations used for upgrades. Some indexes and columns already exist in that
+  baseline. The installer summarizes those successful no-ops in one line:
+
+    schema setup: 7 index(es) and 21 column(s) were already present; kept their existing definitions.
+
+  The counts can differ by schema. This replaces MariaDB's confusing duplicate
+  key-name (1061) and column-name (1060) warning lines. It does not suppress
+  duplicate DATA errors (1062), other warnings or failed SQL statements. A
+  migration that fails still needs investigation; follow its recovery message.
+
 The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silent
   `carlos-ctl check` reports "this installation never finished", or the database
   section says the schema has NO tables. Finish the install:
