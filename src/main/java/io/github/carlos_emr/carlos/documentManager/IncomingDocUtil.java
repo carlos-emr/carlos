@@ -917,7 +917,9 @@ public final class IncomingDocUtil {
         try {
             resource.close();
         } catch (Exception e) {
-            MiscUtils.getLogger().error(message, e);
+            // exceptionTrace, not the throwable: a close failure here carries the queue or temp PDF
+            // path in its message, and this runs during cleanup of patient documents.
+            MiscUtils.getLogger().error("{}: {}", message, LogSafe.exceptionTrace(e));
         }
     }
 

@@ -195,6 +195,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     private static String saveFile(InputStream stream, String filename) {
         String retVal = null;
 
+        File partialOutput = null;
+
         try (InputStream uploadStream = stream) {
             // Construct the target filename with timestamp
             String targetFileName = "LabUpload." + filename + "." + (new Date()).getTime();
@@ -207,6 +209,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 MiscUtils.getLogger().error("Invalid generated lab upload filename; upload not written");
                 return null;
             }
+
+            partialOutput = targetFile;
 
             // CREATE_NEW: the generated name is only millisecond-unique and a truncating open
             // destroyed the colliding upload's lab. The output is also closed by try-with-resources
@@ -227,10 +231,33 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             return null;
 
         } catch (IOException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
+            // As in the PathNet writer: the collision case is handled above, so a file present here
+            // belongs to this call and must not be left looking like a complete lab.
+            deletePartialOutput(partialOutput);
+            // exceptionTrace rather than the throwable: a filesystem exception message here is the
+            // generated path, whose basename embeds the uploaded lab filename.
+            MiscUtils.getLogger().error("Error writing CML lab upload: {}", LogSafe.exceptionTrace(ioe));
             return null;
         }
         return retVal;
+    }
+
+    /**
+     * Removes a partially written upload. Only ever called for a destination this invocation
+     * created exclusively via {@code CREATE_NEW}, so it cannot discard another upload's output.
+     *
+     * @param outputFile the destination to remove, or {@code null} if none was created
+     */
+    private static void deletePartialOutput(File outputFile) {
+        if (outputFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(outputFile.toPath());
+        } catch (IOException deleteException) {
+            MiscUtils.getLogger().error("Error deleting partial lab upload output ({})",
+                    deleteException.getClass().getSimpleName());
+        }
     }
 
     private File importFile;

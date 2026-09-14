@@ -152,13 +152,33 @@ class IncomingDocUtilExtractListUnitTest {
     }
 
     @Test
-    @DisplayName("should not echo the rejected specification in the failure message")
-    void shouldNotEchoSpec_inRejectionMessage() {
+    @DisplayName("should report the rejected specification without the document name")
+    void shouldReportRejectedSpec_withoutDocumentName() {
+        // The sanitized page specification IS echoed, by design: page numbers are the caller's own
+        // input rather than patient data, and repeating them is what makes the error actionable.
+        // What must not appear is the document filename - which is why buildExtractList takes only
+        // the specification and the page count, and never the name. Asserting the absence of a
+        // filename the method cannot see would be vacuous, so this pins the actionable half.
         assertThatThrownBy(() -> parse("9999"))
                 .isInstanceOf(InvocationTargetException.class)
                 .extracting(Throwable::getCause)
                 .extracting(Throwable::getMessage)
                 .asString()
-                .contains("Invalid Pages to Extract");
+                .contains("Invalid Pages to Extract")
+                .contains("9999");
+    }
+
+    @Test
+    @DisplayName("should sanitize control characters in the rejected specification")
+    void shouldSanitizeSpec_whenItCarriesControlCharacters() {
+        // LogSafe.sanitize escapes CR/LF so a crafted specification cannot forge log lines or
+        // inject newlines into a message that reaches a JSP error page.
+        assertThatThrownBy(() -> parse("1\r\n2"))
+                .isInstanceOf(InvocationTargetException.class)
+                .extracting(Throwable::getCause)
+                .extracting(Throwable::getMessage)
+                .asString()
+                .doesNotContain("\r")
+                .doesNotContain("\n");
     }
 }

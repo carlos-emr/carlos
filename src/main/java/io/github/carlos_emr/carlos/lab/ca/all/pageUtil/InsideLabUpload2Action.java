@@ -57,6 +57,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -194,7 +195,9 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
                 return FileStatus.EXISTS;
             }
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error occurred while processing uploaded lab file", e);
+            // exceptionTrace: Files.newInputStream failures carry the validated path, whose
+            // basename comes from the uploaded lab filename.
+            MiscUtils.getLogger().error("Error occurred while processing uploaded lab file: {}", LogSafe.exceptionTrace(e));
             return FileStatus.FAILED;
         }
 

@@ -224,6 +224,13 @@ public class LabUploadWs extends AbstractWs {
 
         try (ByteArrayInputStream is = new ByteArrayInputStream(contents)) {
             String filePath = Utilities.savePdfFile(is, fileName);
+            if (filePath == null) {
+                // savePdfFile returns null on an invalid destination, a name collision or a failed
+                // write. Passing that to the handler returned null from this method instead of the
+                // initialized failure JSON.
+                logger.error("PDF save returned no path; aborting upload");
+                return returnMessageHandler;
+            }
             HttpServletRequest request = getHttpServletRequest();
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
 

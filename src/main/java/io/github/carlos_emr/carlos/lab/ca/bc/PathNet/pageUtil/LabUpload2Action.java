@@ -171,6 +171,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         String retVal = null;
         boolean isAdded = true;
 
+        File outputFile = null;
+
         try (InputStream uploadStream = stream) {
             //retrieve the file data
             // ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -181,7 +183,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             String place = props.getProperty("DOCUMENT_DIR");
 
             File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "PathNet lab upload directory");
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+            outputFile = PathValidationUtils.validateGeneratedChildPath(
                     PathValidationUtils.validateGeneratedFileName("LabUpload." + filename + "." + (new Date()).getTime()),
                     baseDir);
             // CREATE_NEW: the generated name is only millisecond-unique and a truncating open
@@ -195,6 +197,10 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
             return isAdded = false;
         } catch (IOException | SecurityException ioe) {
+            // Remove any partial output: the collision case is handled above, so a file existing
+            // here was created by this call. Left behind, it would look like a complete lab to the
+            // import scan.
+            deletePartialOutput(outputFile);
             // exceptionTrace: the message of a filesystem exception here is the generated path,
             // whose basename embeds the caller-supplied lab filename.
             MiscUtils.getLogger().error("Error writing PathNet lab upload: {}", LogSafe.exceptionTrace(ioe));
@@ -202,6 +208,24 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
 
         return isAdded;
+    }
+
+    /**
+     * Removes a partially written upload. Only ever called for a destination this invocation
+     * created exclusively via {@code CREATE_NEW}, so it cannot discard another upload's output.
+     *
+     * @param outputFile the destination to remove, or {@code null} if none was created
+     */
+    private static void deletePartialOutput(File outputFile) {
+        if (outputFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(outputFile.toPath());
+        } catch (IOException deleteException) {
+            MiscUtils.getLogger().error("Error deleting partial lab upload output ({})",
+                    deleteException.getClass().getSimpleName());
+        }
     }
 
     private File importFile;
