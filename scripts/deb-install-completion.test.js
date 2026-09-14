@@ -160,9 +160,18 @@ print("ok")
   assert.match(provision, /dpkg-reconfigure carlos-emr-drugref/);
   assert.match(provision, /table_schema='drugref2'/);
 
-  // One repair at a time: the boot provisioner and a manual run can overlap,
-  // and each would generate its own administrator credential.
+  // One repair at a time: the boot provisioner, a manual run and the postinst
+  // all provision with the same verbs, and each would generate its own
+  // administrator credential. THE SAME lock file in all three.
   assert.match(provision, /fcntl\.LOCK_EX \| fcntl\.LOCK_NB/);
+  assert.match(provision, /LOCK = os\.path\.join\(STATE, "\.finish-install\.lock"\)/);
+  assert.match(postinst, /PROVISION_LOCK="\$\{STATE\}\/\.finish-install\.lock"/);
+  assert.match(postinst, /flock -w 300 9/);
+  // Taken before the first provisioning verb, and the database section refuses
+  // to run at all without it.
+  assert.ok(postinst.indexOf('acquire_provision_lock ||') <
+    postinst.indexOf('carlos-ctl init-config'));
+  assert.match(postinst, /if \[ "\$\{PROVISION_LOCK_HELD\}" = 0 \]; then/);
   // The sentinel is the per-start guard; when it cannot be written the mask is
   // the only containment left, and recovery has to lift it again.
   assert.match(provision, /"systemctl", "mask", "carlos-emr\.service"/);

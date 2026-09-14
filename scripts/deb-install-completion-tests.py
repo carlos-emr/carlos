@@ -44,6 +44,12 @@ class RecoveryFailures(unittest.TestCase):
             p._LOCK_HANDLE = None
 
     def run_recovery(self, argv=None):
+        # Each call stands in for a separate process, which would hold its own
+        # provisioning lock and drop it on exit. Release the previous call's so
+        # a test that invokes the command twice does not contend with itself —
+        # the external hold in the concurrency tests is a different descriptor
+        # and is deliberately left in place.
+        self._release_lock()
         try:
             return p.cmd_finish_install(argv or [])
         except SystemExit as e:
@@ -319,16 +325,32 @@ class RecoveryFailures(unittest.TestCase):
         self.assertEqual(self.run_recovery(['--boot']), 0)
         self.mocks['reset_emr_start_limit'].assert_called()
 
-    def test_concurrent_repair_is_refused_rather_than_racing_bootstrap_admin(self):
+    def _hold_lock(self):
         import fcntl
         held = open(p.LOCK, 'w')
         self.addCleanup(held.close)
         fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_concurrent_repair_is_refused_rather_than_racing_bootstrap_admin(self):
+        self._hold_lock()
         self.assertNotEqual(self.run_recovery(), 0)
         # Refused before any provisioning: the other run owns all of it.
         self.mocks['_wait_for_db'].assert_not_called()
         self.mocks['cmd_bootstrap_admin'].assert_not_called()
         self.mocks['run'].assert_not_called()
+        self.assertTrue(self.marker.exists())
+
+    def test_boot_yields_the_lock_to_the_run_that_holds_it(self):
+        # carlos-emr.postinst takes this same lock with flock(1), so an
+        # unattended upgrade at boot can legitimately hold it. That is not a
+        # failure of the boot: the other run is doing the work, and failing the
+        # unit would only put a red unit on a host being provisioned correctly.
+        self._hold_lock()
+        self.assertEqual(self.run_recovery(['--boot']), 0)
+        self.mocks['_wait_for_db'].assert_not_called()
+        self.mocks['cmd_bootstrap_admin'].assert_not_called()
+        self.mocks['run'].assert_not_called()
+        # And the marker survives, so whichever run finishes clears it.
         self.assertTrue(self.marker.exists())
 
 # Saved before setUp patches them; the tests that exercise the real functions

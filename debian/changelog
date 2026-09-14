@@ -45,6 +45,13 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     a later successful recovery unmasks it. A failure before the credential has
     been replaced now says so, rather than leaving an operator to assume the
     published password is already gone.
+  * The package's own configure joins that lock too, with flock(1). Only
+    serializing recovery against recovery left the real race open: an
+    unattended upgrade or a dpkg-reconfigure can overlap the boot-time
+    provisioner. A configure that cannot take the lock within five minutes
+    provisions nothing and records the install as unfinished, and a boot-time
+    recovery that finds the lock held leaves the work to whoever holds it
+    rather than failing its unit.
   * "carlos-ctl check" reports an unfinished install first, before the dozen
     unrelated-looking failures it causes, and names the command that fixes it.
     Its table count no longer reports a query that FAILED as a database with no

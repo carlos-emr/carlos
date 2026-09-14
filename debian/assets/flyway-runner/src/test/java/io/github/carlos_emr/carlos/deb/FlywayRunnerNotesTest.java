@@ -78,13 +78,18 @@ public final class FlywayRunnerNotesTest {
         FlywayRunner.ExistingObjectNotes resetNotes = new FlywayRunner.ExistingObjectNotes(type -> resetSink);
         LogFactory.setFallbackLogCreator(resetNotes);
         LogFactory.setConfiguration(configuration);
-        Log evolving = LogFactory.getLog(DefaultSqlScriptExecutor.class);
-        evolving.warn(INDEX);
+        LogFactory.getLog(DefaultSqlScriptExecutor.class).warn(INDEX);
+        // RE-FETCH after the reset rather than reusing the reference above: what
+        // has to survive is the LOOKUP, because Flyway asks LogFactory for its
+        // logger again on each operation. Logging through a logger obtained
+        // before the reset would still reach the old decorator and pass even if
+        // the reset handed Flyway an undecorated one.
         LogFactory.setConfiguration(configuration);
-        evolving.warn(COLUMN);
+        Log refetched = LogFactory.getLog(DefaultSqlScriptExecutor.class);
+        refetched.warn(COLUMN);
         require(resetSink.events.isEmpty(), "expected notes must remain summarized after configuration resets");
         require(summary(resetNotes).contains("1 index(es) and 1 column(s)"), "both notes must survive reset");
-        evolving.warn("retained warning after reset");
+        refetched.warn("retained warning after reset");
         require(resetSink.events.equals(List.of("warn:retained warning after reset")),
                 "real warnings must still pass through after a reset");
         System.out.println("PASS Flyway existing-object notes, warnings, errors, delegation and configuration resets");

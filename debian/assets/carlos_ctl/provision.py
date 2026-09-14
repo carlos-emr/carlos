@@ -164,15 +164,21 @@ def _table_count(db_name: str) -> Optional[int]:
 _LOCK_HANDLE = None
 
 
-def _acquire_lock() -> None:
+def _acquire_lock(boot: bool = False) -> bool:
     """Hold an exclusive, non-blocking lock for the whole repair.
 
-    The boot provisioner and an operator can invoke this verb at the same time.
-    Without the lock both would clear the same schema checks and both would call
-    bootstrap-admin, which writes initial-admin.txt before it updates `security`
-    — so the file left on disk could name the other run's password — and they
-    would also race the marker clearing and the service start. The lock is held
-    for the life of the process (the descriptor stays open) and goes with it.
+    Three things provision this database with the same carlos-ctl verbs: this
+    command by hand, carlos-emr-provision.service at boot, and
+    carlos-emr.postinst (which takes this same file with flock(1)). Any two of
+    them overlapping would clear the same schema checks and both call
+    bootstrap-admin, which writes initial-admin.txt before it updates
+    `security` — so the file left on disk could name the other run's password —
+    and they would race the marker and the service state too.
+
+    Returns False when the lock is held and this is a boot run: another
+    provisioning run owns the work, so the boot has nothing to do and nothing
+    to complain about. A hand-run repair is told instead. The lock is held for
+    the life of the process (the descriptor stays open) and goes with it.
     """
     import fcntl
 
@@ -187,10 +193,16 @@ def _acquire_lock() -> None:
     try:
         fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
-        die("another 'carlos-ctl finish-install' is already running (the boot-time "
-            "carlos-emr-provision.service is one) — wait for it to finish, then check "
-            "the result with 'carlos-ctl check'")
+        if boot:
+            log("another CARLOS provisioning run holds the provisioning lock (an apt "
+                "transaction, or a repair run by hand); leaving the work to it")
+            return False
+        die("another CARLOS provisioning run is already in progress — the boot-time "
+            "carlos-emr-provision.service, or an apt transaction configuring the "
+            "package. Wait for it to finish, then check the result with "
+            "'carlos-ctl check'")
     _LOCK_HANDLE = handle
+    return True
 
 
 def _succeeded(fn, *args) -> bool:
@@ -335,7 +347,8 @@ def cmd_finish_install(argv) -> int:
     need_root("finish-install")
     if boot and not pending():
         return 0
-    _acquire_lock()
+    if not _acquire_lock(boot):
+        return 0
     reset_admin = _answer("reset_admin", True)
     demo_data = _answer("demo_data", False)
     # Every failure before bootstrap-admin carries this; see _SEED_NOTE.

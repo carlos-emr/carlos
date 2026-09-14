@@ -65,6 +65,34 @@ mark_incomplete() {
     echo "carlos-emr: finish it with:  sudo carlos-ctl finish-install" >&2
 }
 
+# The SAME lock carlos-ctl finish-install takes (provision.LOCK). This script
+# runs the identical provisioning verbs, so serializing only finish-install
+# against finish-install left the real race open: an unattended upgrade or a
+# dpkg-reconfigure can overlap the boot-time provisioner, and both would then
+# call bootstrap-admin -- which writes initial-admin.txt before it updates
+# `security`, so the file left on disk could name the other run's password --
+# and race the marker and the service state as well.
+#
+# Held on fd 9 for the remainder of the script (closed when it exits). Waits
+# rather than refuses, because the other holder is normally seconds from done;
+# a wait that times out records the install as unfinished and skips
+# provisioning, which is the same non-fatal contract as every other step here.
+# flock(1) is util-linux and always present in practice; without it this
+# behaves exactly as it did before the lock existed.
+PROVISION_LOCK="${STATE}/.finish-install.lock"
+acquire_provision_lock() {
+    command -v flock >/dev/null 2>&1 || return 0
+    mkdir -p "${STATE}" 2>/dev/null || return 0
+    exec 9>"${PROVISION_LOCK}" 2>/dev/null || return 0
+    if flock -w 300 9; then
+        return 0
+    fi
+    echo "carlos-emr: another CARLOS provisioning run (carlos-ctl finish-install, or the" >&2
+    echo "carlos-emr: boot-time carlos-emr-provision.service) held the provisioning lock for" >&2
+    echo "carlos-emr: five minutes; this configure did NOT provision the database." >&2
+    return 1
+}
+
 clear_incomplete() {
     # Only a run that actually PROVISIONED may declare that nothing is owed.
     # MIGRATION_OK=0 without a mark_incomplete above means this configure
@@ -772,6 +800,11 @@ case "$1" in
         fi
 
         # --- render, provision, migrate -------------------------------------
+        # Taken before the first provisioning verb and released when this
+        # script exits: everything below is what finish-install also does.
+        PROVISION_LOCK_HELD=1
+        acquire_provision_lock || PROVISION_LOCK_HELD=0
+
         # Guarded: init-config exits non-zero when nginx cannot be tested or
         # reloaded — including for reasons OUTSIDE this package (another
         # vhost's broken config). Front-door trouble is loud but must never
@@ -799,8 +832,12 @@ case "$1" in
         # perfectly healthy install.
         SEED_CREDENTIAL_LIVE=0
         # The predicate is o19_import_in_progress() above; db-migrate and
-        # the service start both read MIGRATION_OK.
-        if o19_import_in_progress; then
+        # the service start both read MIGRATION_OK. The lock comes first: with
+        # another provisioning run in the database, nothing below may run.
+        if [ "${PROVISION_LOCK_HELD}" = 0 ]; then
+            MIGRATION_OK=0
+            mark_incomplete "another provisioning run held the provisioning lock"
+        elif o19_import_in_progress; then
             MIGRATION_OK=0
             echo "carlos-emr: an OSCAR 19 import is in progress (see" >&2
             echo "carlos-emr:   /var/lib/carlos-emr/o19-import/report.txt)." >&2

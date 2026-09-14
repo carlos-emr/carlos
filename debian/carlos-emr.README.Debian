@@ -794,10 +794,15 @@ The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silen
   resume the import (`carlos-ctl import-o19 ... --resume`), and the install
   finishes itself at the next boot.
 
-  Only one repair runs at a time. The boot-time provisioner and an operator can
-  invoke finish-install at the same moment, and both would otherwise generate an
-  administrator credential; the second run is refused with a message naming the
-  first. Wait for it, then confirm with `carlos-ctl check`.
+  Only one provisioning run at a time. The boot-time provisioner, an operator
+  running finish-install, and the package's own configure (an unattended upgrade
+  or a dpkg-reconfigure) all provision with the same commands, and any two of
+  them would otherwise generate an administrator credential each; they share one
+  lock. A second run by hand is refused with a message naming the first — wait
+  for it, then confirm with `carlos-ctl check`. At boot the recovery leaves the
+  work to whoever holds the lock, and a configure that cannot take it within
+  five minutes provisions nothing and records the install as unfinished, so it
+  is completed later rather than racing.
 
 eForm print, fax or archive fails
   Those three are the only workflows that need a browser, and it runs as its own

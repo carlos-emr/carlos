@@ -1239,11 +1239,12 @@ positive control also passed with a 4 GiB heap on the same 8 GiB VM.
 | Real DrugRef dataset with its marker temporarily renamed | Warns about a potentially incomplete/older seed, preserves data and requests backup/administrator review |
 
 Automated coverage comprises 592 passing Node script tests, including the
-recovery harness's 30 Python behavioral tests. Fault injection covers required
+recovery harness's 31 Python behavioral tests. Fault injection covers required
 step return codes and exceptions, marker write/delete failures, credential
 containment and re-enablement, failed service starts, and DrugRef query failures.
 It also covers the cases a concurrent or gated repair creates: a second
-finish-install refused while one holds the lock, a masked unit when the
+finish-install refused while one holds the lock, a boot-time recovery that
+yields to whoever holds it, a masked unit when the
 credential guard cannot be written and its unmasking once the credential is
 replaced, a unit left merely disabled with no sentinel to key recovery from,
 and an OSCAR 19 import in progress (refused by hand, left pending at boot,
