@@ -40,6 +40,8 @@ import org.mockito.MockitoAnnotations;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -109,6 +111,66 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
         assertThat(persisted.getBRemotelockset()).isZero();
         assertThat(persisted.getPasswordUpdateDate()).isNotNull();
         assertThat(persisted.getPinUpdateDate()).isNotNull();
+        verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
+    }
+
+    /** Everything a valid add-provider POST needs except the PIN field. */
+    private void stubAddProviderRequestWithoutPin() {
+        when(pageContext.getRequest()).thenReturn(request);
+        when(pageContext.getSession()).thenReturn(session);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getParameter("password")).thenReturn(RAW_PASSWORD);
+        when(request.getParameter("provider_no")).thenReturn("999998");
+        when(request.getParameter("user_name")).thenReturn("carlosdoc");
+        when(request.getParameter("b_ExpireSet")).thenReturn("0");
+        when(request.getParameter("b_LocalLockSet")).thenReturn("0");
+        when(request.getParameter("b_RemoteLockSet")).thenReturn("0");
+        when(request.getParameter("forcePasswordReset")).thenReturn(null);
+        when(securityManager.encodePassword(RAW_PASSWORD)).thenReturn(HASHED_PASSWORD);
+        when(securityDao.findByProviderNo("999998")).thenReturn(Collections.emptyList());
+        when(securityDao.findByUserName("carlosdoc")).thenReturn(Collections.emptyList());
+    }
+
+    @Test
+    @DisplayName("should persist provider without PIN when the PIN field is absent")
+    void shouldPersistProviderWithoutPin_whenPinFieldIsAbsent() {
+        // The add form omits the PIN controls entirely when legacy PINs are globally disabled, so
+        // the parameter is null. Hashing it anyway stamps a pinUpdateDate on an account that has
+        // no PIN; the empty-string case below is worse still, because the encoder happily returns
+        // a valid bcrypt hash of "" and the row then looks PIN-protected.
+        stubAddProviderRequestWithoutPin();
+        when(request.getParameter("pin")).thenReturn(null);
+        when(request.getParameter("enableMfa")).thenReturn(null);
+        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
+
+        helper.addProvider(pageContext);
+
+        verify(securityDao).persist(securityCaptor.capture());
+        Security persisted = securityCaptor.getValue();
+        assertThat(persisted.getPin()).isNull();
+        assertThat(persisted.getPinUpdateDate()).isNull();
+        assertThat(persisted.getPassword()).isEqualTo(HASHED_PASSWORD);
+        verify(securityManager, never()).encodePin(any());
+        verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
+    }
+
+    @Test
+    @DisplayName("should persist provider without PIN when MFA disables the PIN controls")
+    void shouldPersistProviderWithoutPin_whenMfaDisablesThePinControls() {
+        // Selecting MFA disables the PIN inputs, so the value arrives empty rather than absent.
+        stubAddProviderRequestWithoutPin();
+        when(request.getParameter("pin")).thenReturn("");
+        when(request.getParameter("enableMfa")).thenReturn("1");
+        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
+
+        helper.addProvider(pageContext);
+
+        verify(securityDao).persist(securityCaptor.capture());
+        Security persisted = securityCaptor.getValue();
+        assertThat(persisted.getPin()).isNull();
+        assertThat(persisted.getPinUpdateDate()).isNull();
+        assertThat(persisted.isUsingMfa()).isTrue();
+        verify(securityManager, never()).encodePin(any());
         verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
     }
 

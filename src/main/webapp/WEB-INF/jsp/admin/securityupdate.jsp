@@ -59,8 +59,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     if (!"POST".equalsIgnoreCase(request.getMethod())) {
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
@@ -86,8 +84,16 @@
         <%
 	SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
 
-            String sPin = request.getParameter("pin");
-            if (CarlosProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(request.getParameter("pin"));
+            // "****" is the unchanged-PIN sentinel rendered by securityupdatesecurity.jsp. Anything
+            // else is a real new PIN and is stored as a salted hash; a blank submission clears the
+            // PIN. Legacy Misc.encryptPIN storage is read-only now - existing values are still
+            // accepted at login and migrated there, but nothing writes that format any more.
+            String submittedPin = request.getParameter("pin");
+            boolean isPinSubmitted = submittedPin != null && !"****".equals(submittedPin);
+            String sPin = null;
+            if (isPinSubmitted && !submittedPin.isEmpty()) {
+                sPin = securityManager.encodePin(submittedPin);
+            }
 
             int rowsAffected = 0;
 
@@ -112,9 +118,9 @@
                     s.setPasswordUpdateDate(new java.util.Date());
                 }
 
-                if (request.getParameter("pin") == null || !"****".equals(request.getParameter("pin"))) {
+                if (isPinSubmitted) {
                     s.setPin(sPin);
-                    s.setPinUpdateDate(new java.util.Date());
+                    s.setPinUpdateDate(sPin == null ? null : new java.util.Date());
                 }
 
                 if (request.getParameter("forcePasswordReset") != null && request.getParameter("forcePasswordReset").equals("1")) {

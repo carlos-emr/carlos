@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
-import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -353,14 +352,7 @@ public final class LoginCheckLoginBean {
     }
 
     private boolean requiresDeferredPinHashUpgrade(Security security) {
-        String storedPin = security.getPin();
-        if (storedPin == null) {
-            return false;
-        }
-        if (!storedPin.startsWith("{")) {
-            return true;
-        }
-        return EncryptionUtils.isPasswordHashUpgradeNeeded(storedPin);
+        return this.securityManager.isPinHashUpgradeNeeded(security);
     }
 
     /**

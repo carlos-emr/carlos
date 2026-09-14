@@ -78,7 +78,7 @@ public class SecurityAddSecurityHelper {
         ServletRequest request = pageContext.getRequest();
 
 		String digestedPassword = this.securityManager.encodePassword(request.getParameter("password"));
-		String digestedPin = this.securityManager.encodePin(request.getParameter("pin"));
+		String digestedPin = this.encodeOptionalPin(request.getParameter("pin"));
 
         String userName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
         if (!userName.matches(USER_NAME_PATTERN)) {
@@ -108,7 +108,9 @@ public class SecurityAddSecurityHelper {
         }
 
         s.setPasswordUpdateDate(new Date());
-        s.setPinUpdateDate(new Date());
+        // Only stamp a PIN update when a PIN was actually stored, so a PIN-less account does not
+        // look like it has a freshly rotated PIN.
+        s.setPinUpdateDate(digestedPin == null ? null : new Date());
 
 		if (request.getParameter("enableMfa") != null && request.getParameter("enableMfa").equals("1")) {
 			s.setUsingMfa(Boolean.TRUE);
@@ -124,6 +126,25 @@ public class SecurityAddSecurityHelper {
         LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_SECURITY, userName, request.getRemoteAddr());
 
         return "admin.securityaddsecurity.msgAdditionSuccess";
+    }
+
+    /**
+     * Hashes a submitted PIN, tolerating its absence.
+     *
+     * <p>The add form omits the PIN controls entirely when legacy PINs are globally disabled, and
+     * disables them when MFA is selected; a disabled input is not submitted. In both cases the
+     * request parameter is null. Hashing unconditionally would throw out of the password encoder
+     * and fail provider creation before the record is ever persisted, so a missing or blank PIN is
+     * preserved as no PIN at all.</p>
+     *
+     * @param rawPin The submitted PIN value, possibly null.
+     * @return The hashed PIN, or null when no PIN was supplied.
+     */
+    private String encodeOptionalPin(String rawPin) {
+        if (rawPin == null || rawPin.trim().isEmpty()) {
+            return null;
+        }
+        return this.securityManager.encodePin(rawPin);
     }
 
     /**

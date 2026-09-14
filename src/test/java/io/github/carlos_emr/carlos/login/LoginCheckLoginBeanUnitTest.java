@@ -187,6 +187,9 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
         } finally {
             restoreProperty(MfaManager.MFA_LEGACY_PIN_ENABLE, originalLegacyPinSetting);
         }
+    }
+
+    @Test
     @DisplayName("should sanitize username for expired credential audit log")
     void shouldSanitizeUsername_forExpiredCredentialAuditLog() {
         String username = "expired\r\n<script>";
@@ -287,6 +290,7 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
         when(secUserRoleDao.getUserRoles(security.getProviderNo())).thenReturn(Collections.emptyList());
         when(securityManager.validatePin(pin, security)).thenReturn(true);
         when(securityManager.validatePassword(password, security)).thenReturn(true);
+        when(securityManager.isPinHashUpgradeNeeded(security)).thenReturn(true);
         when(securityManager.upgradeSavePinHash(pin, security)).thenThrow(new RuntimeException("boom"));
 
         try {
@@ -318,6 +322,7 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
         when(secUserRoleDao.getUserRoles(security.getProviderNo())).thenReturn(Collections.emptyList());
         when(securityManager.validatePin(pin, security)).thenReturn(true);
         when(securityManager.validatePassword(password, security)).thenReturn(true);
+        when(securityManager.isPinHashUpgradeNeeded(security)).thenReturn(true);
         when(securityManager.upgradeSavePinHash(pin, security)).thenReturn(true);
 
         try {
@@ -349,6 +354,8 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
         when(secUserRoleDao.getUserRoles(security.getProviderNo())).thenReturn(Collections.emptyList());
         when(securityManager.validatePin(pin, security)).thenReturn(true);
         when(securityManager.validatePassword(password, security)).thenReturn(true);
+        // Stored PIN is already a current-strength hash, so nothing should be rewritten.
+        when(securityManager.isPinHashUpgradeNeeded(security)).thenReturn(false);
 
         try {
             LoginCheckLoginBean bean = new LoginCheckLoginBean();
@@ -368,9 +375,13 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
 
     private Security pinProtectedSecurity() {
         Security security = new Security();
+        security.setSecurityNo(4242);
         security.setProviderNo("999998");
         security.setPassword("{bcrypt}$2a$10$abcdefghijklmnopqrstuu7V7GZt1WT0fDfDJW7wZzY8ZzY8ZzY8Z");
-        security.setPin("{bcrypt}pin");
+        // A structurally valid bcrypt hash, not a placeholder: the stored PIN reaches
+        // BCryptPasswordEncoder's parser through the hash-upgrade check, which throws on anything
+        // that is tagged {bcrypt} but not actually bcrypt-shaped.
+        security.setPin("{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy");
         security.setBLocallockset(0);
         security.setBRemotelockset(1);
         security.setBExpireset(0);
