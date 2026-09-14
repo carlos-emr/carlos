@@ -53,6 +53,13 @@ test('manifest entries are well formed and uniquely named', () => {
   }
 });
 
+test('standalone checks never require a database', () => {
+  for (const check of checks.filter((entry) => entry.tiers.includes('standalone'))) {
+    assert.equal(check.assertsDatabase, false,
+      `${check.name} requires a database but standalone promises no deployment or database`);
+  }
+});
+
 test('the smoke tier stays small enough to gate a pull request', () => {
   const smoke = checks.filter((check) => check.tiers.includes('smoke'));
   assert.ok(smoke.length > 0, 'there must be a smoke tier for CI to run');
