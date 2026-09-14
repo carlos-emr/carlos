@@ -130,7 +130,10 @@ public class Utilities {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String saveFile(InputStream stream, String filename) {
-        try {
+        // try-with-resources on the caller's stream: directory resolution and filename validation
+        // below can return or throw before writeUploadToNewFile is reached, and callers such as
+        // LabUploadWs pass a raw stream with no finally of their own.
+        try (InputStream uploadStream = stream) {
             File safeDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, safeDir);
 
@@ -146,7 +149,7 @@ public class Utilities {
                         LogSafe.sanitize(safeDir.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
 
-            return writeUploadToNewFile(stream, outputFile) ? outputFile.getPath() : null;
+            return writeUploadToNewFile(uploadStream, outputFile) ? outputFile.getPath() : null;
         } catch (IOException ioe) {
             logger.error("Error processing file: {}", LogSafe.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
@@ -239,7 +242,7 @@ public class Utilities {
     public static String savePdfFile(InputStream stream, String filename) {
         String retVal = null;
         File outputFile = null;
-        try {
+        try (InputStream uploadStream = stream) {
             if (filename == null || filename.isBlank()) {
                 throw new IllegalArgumentException("Filename cannot be null or empty");
             }
@@ -259,26 +262,31 @@ public class Utilities {
                     PathValidationUtils.validateGeneratedFileName("DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf"),
                     baseDir);
 
-            try (OutputStream os = new FileOutputStream(outputFile)) {
+            // CREATE_NEW like saveFile: the generated name is only millisecond-unique, and
+            // FileOutputStream truncated a colliding destination, destroying the other upload's
+            // document rather than failing.
+            try (OutputStream os = Files.newOutputStream(outputFile.toPath(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 int bytesRead;
-                while ((bytesRead = stream.read()) != -1) {
+                while ((bytesRead = uploadStream.read()) != -1) {
                     os.write(bytesRead);
                 }
             }
-            stream.close();
 
             // Assigned only after a complete write, matching saveFile: callers such as
             // LabUploadWs.uploadPDF feed this straight to a parser, so a path to a partial
             // document is worse than no path at all.
             retVal = outputFile.toString();
 
-        } catch (FileNotFoundException fnfe) {
-            deletePartialOutput(outputFile);
-            logger.error("Error", fnfe);
-            return retVal;
+        } catch (FileAlreadyExistsException nameCollision) {
+            // The destination belongs to another in-flight upload; leave it untouched.
+            logger.error("Generated PDF upload name is already in use; upload not written");
+            return null;
         } catch (IOException ioe) {
             deletePartialOutput(outputFile);
-            logger.error("Error", ioe);
+            // exceptionTrace, not the throwable: an IOException message here is the generated path,
+            // whose basename embeds the caller-supplied lab filename.
+            logger.error("Error writing PDF upload: {}", LogSafe.exceptionTrace(ioe));
             return retVal;
         } catch (IllegalArgumentException | SecurityException iae) {
             logger.error("Invalid filename: {}", LogSafe.sanitize(filename), iae); // NOSONAR javasecurity:S5145 — sanitized with LogSafe

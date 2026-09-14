@@ -53,7 +53,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.List;
 
@@ -127,7 +129,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     try {
                         localFile = PathValidationUtils.validateExistingDocumentPath(localFileName);
                     } catch (IOException | SecurityException e) {
-                        _logger.error("Invalid file path: {}", LogSafe.sanitize(localFileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        // localFileName is the generated saved-file path, whose basename embeds the
+                        // caller-supplied lab filename; log the rejection, not the path.
+                        _logger.error("Saved lab file path failed validation; upload not processed");
                         outcome = OUTCOME_ACCESS_DENIED;
                         request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                         return SUCCESS;
@@ -191,7 +195,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     private static String saveFile(InputStream stream, String filename) {
         String retVal = null;
 
-        try {
+        try (InputStream uploadStream = stream) {
             // Construct the target filename with timestamp
             String targetFileName = "LabUpload." + filename + "." + (new Date()).getTime();
 
@@ -199,27 +203,27 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             try {
                 targetFile = PathValidationUtils.validatePath(targetFileName, PathValidationUtils.getRequiredDocumentDirectory());
             } catch (IOException | SecurityException e) {
-                MiscUtils.getLogger().error("Invalid filename: {}", LogSafe.sanitize(targetFileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                // The generated name embeds the caller-supplied lab filename; log the failure, not it.
+                MiscUtils.getLogger().error("Invalid generated lab upload filename; upload not written");
                 return null;
             }
 
-            retVal = targetFile.getCanonicalPath();
-            MiscUtils.getLogger().debug(retVal);
-
-            //write the  file to the file specified
-            OutputStream bos = new FileOutputStream(targetFile);
-            int bytesRead = 0;
-            while ((bytesRead = stream.read()) != -1) {
-                bos.write(bytesRead);
+            // CREATE_NEW: the generated name is only millisecond-unique and FileOutputStream
+            // truncated a colliding destination, destroying the other upload's lab. The output is
+            // also closed by try-with-resources now, rather than only on the success path.
+            try (OutputStream bos = Files.newOutputStream(targetFile.toPath(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                int bytesRead = 0;
+                while ((bytesRead = uploadStream.read()) != -1) {
+                    bos.write(bytesRead);
+                }
             }
-            bos.close();
 
-            //close the stream
-            stream.close();
-        } catch (FileNotFoundException fnfe) {
+            // Assigned only after a complete write: a path to a partial lab is worse than none.
+            retVal = targetFile.getCanonicalPath();
+        } catch (FileAlreadyExistsException nameCollision) {
 
-            MiscUtils.getLogger().debug("File not found");
-            MiscUtils.getLogger().error("Error", fnfe);
+            MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
             return null;
 
         } catch (IOException ioe) {

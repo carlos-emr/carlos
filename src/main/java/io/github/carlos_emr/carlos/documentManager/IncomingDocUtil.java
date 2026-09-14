@@ -820,7 +820,9 @@ public final class IncomingDocUtil {
     }
 
     private static boolean markPagesForExtraction(ArrayList<String> extractList, String pageSpec, int pageCount) {
-        String[] rangeList = pageSpec.split("-");
+        // Limit -1 keeps trailing empty segments, so an incomplete range such as "1-" stays a
+        // two-element spec with an empty bound and is rejected instead of collapsing to page 1.
+        String[] rangeList = pageSpec.split("-", -1);
         if (rangeList.length == 1) {
             return markExtractPage(extractList, rangeList[0], pageCount);
         }

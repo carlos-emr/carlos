@@ -37,6 +37,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -49,7 +50,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -168,7 +171,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         String retVal = null;
         boolean isAdded = true;
 
-        try {
+        try (InputStream uploadStream = stream) {
             //retrieve the file data
             // ByteArrayOutputStream baos = new ByteArrayOutputStream();
             //InputStream stream = file.getInputStream();
@@ -181,21 +184,20 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             File outputFile = PathValidationUtils.validateGeneratedChildPath(
                     PathValidationUtils.validateGeneratedFileName("LabUpload." + filename + "." + (new Date()).getTime()),
                     baseDir);
-            retVal = outputFile.getPath();
-            MiscUtils.getLogger().debug(retVal);
-            try (OutputStream bos = new FileOutputStream(outputFile)) {
-                stream.transferTo(bos);
+            // CREATE_NEW: the generated name is only millisecond-unique and FileOutputStream
+            // truncated a colliding destination, destroying the other upload's lab.
+            try (OutputStream bos = Files.newOutputStream(outputFile.toPath(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                uploadStream.transferTo(bos);
             }
-
-            stream.close();
-        } catch (FileNotFoundException fnfe) {
-
-            MiscUtils.getLogger().debug("File not found");
-            MiscUtils.getLogger().error("Error", fnfe);
+            retVal = outputFile.getPath();
+        } catch (FileAlreadyExistsException nameCollision) {
+            MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
             return isAdded = false;
-
         } catch (IOException | SecurityException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
+            // exceptionTrace: the message of a filesystem exception here is the generated path,
+            // whose basename embeds the caller-supplied lab filename.
+            MiscUtils.getLogger().error("Error writing PathNet lab upload: {}", LogSafe.exceptionTrace(ioe));
             return isAdded = false;
         }
 

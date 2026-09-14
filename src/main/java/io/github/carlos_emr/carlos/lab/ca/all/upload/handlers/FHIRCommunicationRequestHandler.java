@@ -162,6 +162,12 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             ByteArrayInputStream is = new ByteArrayInputStream(document);
             String incomingDocumentFilename = communicationRequest.getIdentifierFirstRep().getValue().replace('/', '-') + "_" + (new Date().getTime()) + ".pdf";
             String filePath = Utilities.savePdfFile(is, incomingDocumentFilename);
+            if (filePath == null) {
+                // savePdfFile returns null when the destination is invalid, the name collides, or the
+                // write fails. Dereferencing it turned that into an NPE instead of a parse failure.
+                logger.error("PDF save returned no path; not creating a document record");
+                return null;
+            }
 
             int fileNameIdx = filePath.lastIndexOf("/");
             filePath = filePath.substring(fileNameIdx + 1);
