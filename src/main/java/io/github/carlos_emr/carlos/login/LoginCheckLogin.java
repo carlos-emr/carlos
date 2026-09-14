@@ -197,6 +197,12 @@ public final class LoginCheckLogin {
      * <p>Username-based locking is more effective against distributed brute force
      * attacks where attackers use multiple IPs to target a single account.
      *
+     * <p>Expired entries are dropped here, which is what bounds a username lockout to
+     * {@code login_max_duration}. Callers return as soon as this reports a block, so
+     * {@link #updateLockList} never runs for a blocked username and cannot expire the entry
+     * on its behalf; without the sweep below only an administrator using {@code UnLock2Action}
+     * could release the account.
+     *
      * @param ip String the client IP address (used for LAN detection)
      * @param userName String the username attempting to log in
      * @return boolean true if username is blocked, false if allowed to attempt login
@@ -218,8 +224,19 @@ public final class LoginCheckLogin {
             llist = LoginList.getLoginListInstance();
         }
 
-        // Check if this username is blocked (status == 0 means blocked)
-        if (llist.get(userName) != null && ((LoginInfoBean) llist.get(userName)).getStatus() == 0) bBlock = true;
+        GregorianCalendar now = new GregorianCalendar();
+        LoginInfoBean entry = (LoginInfoBean) llist.get(userName);
+        if (entry != null) {
+            if (entry.getTimeOutStatus(now)) {
+                // Tracking window elapsed: release the entry so the next failure opens a
+                // fresh window, mirroring the eviction the IP path does in isBlock(String).
+                llist.remove(userName);
+            }
+            // Otherwise the window is still open (status == 0 means blocked)
+            else if (entry.getStatus() == 0) {
+                bBlock = true;
+            }
+        }
 
         return bBlock;
     }
