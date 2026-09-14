@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -36,8 +37,10 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -61,7 +64,9 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
 
     private static final Integer TICKLER_NO = 7;
     private static final Long NOTE_ID = 42L;
-    private static final String OWNING_DEMOGRAPHIC_NO = "100";
+    private static final Integer OWNING_DEMOGRAPHIC_ID = 100;
+    private static final String OWNING_DEMOGRAPHIC_NO = String.valueOf(OWNING_DEMOGRAPHIC_ID);
+    private static final Integer SAVE_TICKLER_ID = 1;
     private static final String PROVIDER_NO = "provider1";
 
     @Mock
@@ -72,6 +77,9 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private ProviderManager providerMgr;
+
+    @Mock
+    private TicklerDao ticklerDao;
 
     @Mock
     private CaseManagementNote note;
@@ -95,6 +103,7 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
         injectDependency(service, "caseManagementMgr", caseManagementMgr);
         injectDependency(service, "securityInfoManager", securityInfoManager);
         injectDependency(service, "providerMgr", providerMgr);
+        injectDependency(service, "ticklerDao", ticklerDao);
 
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), any(), any())).thenReturn(true);
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), any(), any())).thenReturn(true);
@@ -110,7 +119,7 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("ticklerGetNote should return the note when caller is in the patient's program domain")
-    void ticklerGetNote_shouldReturnNote_whenCallerInProgramDomain() {
+    void shouldReturnTicklerNote_whenCallerInProgramDomain() {
         when(caseManagementMgr.getLatestLinkByTableId(CaseManagementNoteLink.TICKLER, Long.valueOf(TICKLER_NO))).thenReturn(linkTo(NOTE_ID));
         when(caseManagementMgr.getNote(NOTE_ID.toString())).thenReturn(note);
         when(note.getDemographic_no()).thenReturn(OWNING_DEMOGRAPHIC_NO);
@@ -125,7 +134,7 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("ticklerGetNote should not return the note when it is outside the caller's program domain")
-    void ticklerGetNote_shouldNotReturnNote_whenNoteNotInCallerProgramDomain() {
+    void shouldNotReturnTicklerNote_whenNoteOutsideCallerProgramDomain() {
         when(caseManagementMgr.getLatestLinkByTableId(CaseManagementNoteLink.TICKLER, Long.valueOf(TICKLER_NO))).thenReturn(linkTo(NOTE_ID));
         when(caseManagementMgr.getNote(NOTE_ID.toString())).thenReturn(note);
         when(note.getDemographic_no()).thenReturn(OWNING_DEMOGRAPHIC_NO);
@@ -139,7 +148,7 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("ticklerGetNote should deny access when caller lacks _tickler privilege")
-    void ticklerGetNote_shouldDenyAccess_whenCallerLacksTicklerPrivilege() {
+    void shouldDenyTicklerGetNote_whenCallerLacksTicklerPrivilege() {
         when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), any(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.ticklerGetNote(TICKLER_NO)).isInstanceOf(RuntimeException.class);
@@ -150,15 +159,15 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
         ObjectNode json = mapper.createObjectNode();
         json.put("note", "note text");
         ObjectNode tickler = mapper.createObjectNode();
-        tickler.put("id", 1);
-        tickler.put("demographicNo", Integer.valueOf(OWNING_DEMOGRAPHIC_NO));
+        tickler.put("id", SAVE_TICKLER_ID);
+        tickler.put("demographicNo", OWNING_DEMOGRAPHIC_ID);
         json.set("tickler", tickler);
         return json;
     }
 
     @Test
     @DisplayName("ticklerSaveNote should deny access when demographicNo is outside the caller's program domain")
-    void ticklerSaveNote_shouldDenyAccess_whenDemographicNoNotInCallerProgramDomain() {
+    void shouldDenyTicklerSaveNote_whenDemographicNoOutsideCallerProgramDomain() {
         when(caseManagementMgr.isClientInProgramDomain(any(List.class), any(List.class))).thenReturn(false);
         when(caseManagementMgr.isClientReferredInProgramDomain(any(List.class), eq(OWNING_DEMOGRAPHIC_NO))).thenReturn(false);
         ObjectNode json = ticklerSaveNoteJson();
@@ -169,11 +178,50 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("ticklerSaveNote should deny access when caller lacks _eChart write privilege")
-    void ticklerSaveNote_shouldDenyAccess_whenCallerLacksEChartPrivilege() {
+    void shouldDenyTicklerSaveNote_whenCallerLacksEChartPrivilege() {
         when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), any(), any())).thenReturn(false);
         ObjectNode json = ticklerSaveNoteJson();
 
         assertThatThrownBy(() -> service.ticklerSaveNote(json))
                 .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("ticklerSaveNote should deny access when the tickler belongs to a different patient")
+    void shouldDenyTicklerSaveNote_whenTicklerBelongsToAnotherPatient() {
+        // The caller is authorized for OWNING_DEMOGRAPHIC_ID, but the tickler id they supplied
+        // resolves to no tickler for that patient -- it is another patient's tickler.
+        when(ticklerDao.findByTicklerNoDemo(SAVE_TICKLER_ID, OWNING_DEMOGRAPHIC_ID)).thenReturn(Collections.emptyList());
+        ObjectNode json = ticklerSaveNoteJson();
+
+        assertThatThrownBy(() -> service.ticklerSaveNote(json))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("ticklerSaveNote should deny access when the payload carries no tickler id")
+    void shouldDenyTicklerSaveNote_whenTicklerIdMissing() {
+        ObjectNode json = ticklerSaveNoteJson();
+        ((ObjectNode) json.get("tickler")).remove("id");
+
+        assertThatThrownBy(() -> service.ticklerSaveNote(json))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("ticklerSaveNote should deny access when noteId references another patient's note")
+    void shouldDenyTicklerSaveNote_whenNoteIdBelongsToAnotherPatient() {
+        Tickler tickler = new Tickler();
+        tickler.setId(SAVE_TICKLER_ID);
+        tickler.setDemographicNo(OWNING_DEMOGRAPHIC_ID);
+        when(ticklerDao.findByTicklerNoDemo(SAVE_TICKLER_ID, OWNING_DEMOGRAPHIC_ID)).thenReturn(List.of(tickler));
+        when(caseManagementMgr.getNote(NOTE_ID.toString())).thenReturn(note);
+        when(note.getDemographic_no()).thenReturn("999");
+
+        ObjectNode json = ticklerSaveNoteJson();
+        json.put("noteId", NOTE_ID.intValue());
+
+        assertThatThrownBy(() -> service.ticklerSaveNote(json))
+                .isInstanceOf(AccessDeniedException.class);
     }
 }

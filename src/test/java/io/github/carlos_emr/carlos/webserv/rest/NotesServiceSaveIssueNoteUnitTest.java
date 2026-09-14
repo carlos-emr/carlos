@@ -28,9 +28,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -62,6 +65,9 @@ class NotesServiceSaveIssueNoteUnitTest extends CarlosUnitTestBase {
     @Mock
     private SecurityInfoManager securityInfoManager;
 
+    @Mock
+    private ProgramManager2 programManager2;
+
     private NotesService service;
     private LoggedInInfo loggedInInfo;
 
@@ -80,6 +86,7 @@ class NotesServiceSaveIssueNoteUnitTest extends CarlosUnitTestBase {
         };
         injectDependency(service, "caseManagementMgr", caseManagementMgr);
         injectDependency(service, "securityInfoManager", securityInfoManager);
+        injectDependency(service, "programManager2", programManager2);
 
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("w"), any()))
                 .thenReturn(true);
@@ -125,6 +132,27 @@ class NotesServiceSaveIssueNoteUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(false);
 
         NoteIssueTo1 noteIssue = minimalNoteIssue();
+
+        assertThatThrownBy(() -> service.saveIssueNote(DEMOGRAPHIC_NO, noteIssue))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("should deny access when the payload's noteId belongs to another patient")
+    void shouldDenyAccess_whenNoteIdBelongsToAnotherPatient() {
+        // The caller is authorized for DEMOGRAPHIC_NO but the edit payload names another
+        // patient's note; without the ownership check the new revision would be written into
+        // that patient's UUID chain.
+        ProgramProvider programProvider = new ProgramProvider();
+        programProvider.setProgramId(5L);
+        when(programManager2.getCurrentProgramInDomain(any(), eq(PROVIDER_NO))).thenReturn(programProvider);
+
+        CaseManagementNote otherPatientsNote = new CaseManagementNote();
+        otherPatientsNote.setDemographic_no("999");
+        when(caseManagementMgr.getNote("4242")).thenReturn(otherPatientsNote);
+
+        NoteIssueTo1 noteIssue = minimalNoteIssue();
+        noteIssue.getEncounterNote().setNoteId(4242);
 
         assertThatThrownBy(() -> service.saveIssueNote(DEMOGRAPHIC_NO, noteIssue))
                 .isInstanceOf(AccessDeniedException.class);

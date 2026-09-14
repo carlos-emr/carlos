@@ -78,6 +78,7 @@ import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementIssueNotesDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
@@ -172,6 +173,9 @@ public class NotesService extends AbstractServiceImpl {
 
     @Autowired
     private SecUserRoleDao secUserRoleDao;
+
+    @Autowired
+    private TicklerDao ticklerDao;
 
 
     @POST
@@ -312,6 +316,16 @@ public class NotesService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Stores the in-progress draft ("autosave") of an encounter note for a patient.
+     *
+     * @param demographicNo patient the draft belongs to
+     * @param note          the draft note; its {@code noteId} names the note being edited
+     * @return the draft that was stored, or {@code null} if it had no text
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} write privilege,
+     *         is not authorized to access this demographicNo, or the draft's {@code noteId}
+     *         references a note that does not belong to this patient
+     */
     @POST
     @Path("/{demographicNo}/tmpSave")
     @Consumes("application/json")
@@ -325,6 +339,14 @@ public class NotesService extends AbstractServiceImpl {
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //  LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProvider().getProviderNo();
 
+        // Ownership check (IDOR hardening, issue #2839 class): this endpoint writes a draft
+        // row keyed by the caller-supplied demographicNo, so gate it the same way the rest
+        // of this class does before any draft is stored.
+        String demoNo = String.valueOf(demographicNo);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)
+                || !isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
 
         String programId = getProgram(loggedInInfo, providerNo);
         String noteStr = note.getNote();
@@ -334,6 +356,13 @@ public class NotesService extends AbstractServiceImpl {
             Integer.parseInt(noteId);
         } catch (Exception e) {
             noteId = null;
+        }
+
+        // The draft carries a noteId that getCurrentNote later restores from. Bind it to
+        // this patient here as well so a draft can never be seeded with another patient's
+        // note id in the first place (defence in depth with the getCurrentNote check).
+        if (noteId != null && Integer.parseInt(noteId) > 0) {
+            requireOwnedNote(noteId, demoNo, "w");
         }
 		
 		/* NOT SURE HOW TO HANDLE LOCKS YET!!
@@ -387,6 +416,16 @@ public class NotesService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Creates a clinical encounter note for a patient from a raw JSON payload.
+     *
+     * @param demographicNo patient the note belongs to
+     * @param jsonNote      the note, either bare or wrapped in an {@code encounterNote} field
+     * @return the persisted note, or {@code null} if it had no text
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} write privilege,
+     *         is not authorized to access this demographicNo, or the payload's {@code uuid}
+     *         names a revision chain belonging to a different patient
+     */
     @POST
     @Path("/{demographicNo}/save")
     @Consumes("application/json")
@@ -413,13 +452,25 @@ public class NotesService extends AbstractServiceImpl {
 
         String demo = "" + demographicNo;
 
+        // Ownership check (IDOR hardening, issue #2839 class): like saveIssueNote, this
+        // endpoint had no privilege or ownership check at all and wrote a note for whatever
+        // demographicNo the caller put in the path.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)
+                || !isNoteAccessAllowed(loggedInInfo, providerNo, demo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
+
         CaseManagementNote caseMangementNote = new CaseManagementNote();
 
         caseMangementNote.setDemographic_no(demo);
         caseMangementNote.setProvider(provider);
         caseMangementNote.setProviderNo(providerNo);
 
+        // A caller-supplied UUID names a revision chain, and the note-history /
+        // getNotesByUUID lookups are UUID-wide rather than demographic-scoped, so an
+        // unchecked UUID here would append this patient's note to another patient's chain.
         if (note.getUuid() != null && !note.getUuid().trim().equals("")) {
+            requireOwnedUuid(note.getUuid(), demo, "w");
             caseMangementNote.setUuid(note.getUuid());
         }
 
@@ -704,14 +755,21 @@ public class NotesService extends AbstractServiceImpl {
 
         CaseManagementNote caseMangementNote = new CaseManagementNote();
         boolean newNote = false;
+        CaseManagementNote existingNote = null;
 
         // we don't want to try to remove an issue from a new note so we test here
         if (note.getNoteId() == null || note.getNoteId() == 0) {
             newNote = true;
         } else {
             boolean extChanged = true; //false
+            // The payload's noteId is a *second* caller-supplied identifier, independent of
+            // the demographicNo authorized above: require it to resolve to a note owned by
+            // that same patient (IDOR hardening, issue #2839 class). The note history and
+            // getNotesByUUID lookups are UUID-wide and not scoped by demographic, so an
+            // unbound noteId would let a caller graft a revision into another patient's
+            // UUID chain -- hiding that patient's current note and mixing the two charts.
+            existingNote = requireOwnedNote(noteId, demo, "w");
             // if note has not changed don't save
-            caseManagementMgr.getNote(noteId);
             if (note.getNote().equals(note.getNote()) && issue.isIssueChange() && !extChanged && note.isArchived())
                 return null;
         }
@@ -722,12 +780,12 @@ public class NotesService extends AbstractServiceImpl {
             if (note.isArchived()) {
                 caseMangementNote.setArchived(true);
             }
-            note.setRevision(Integer.parseInt(note.getRevision()) + 1 + "");
-        }
-
-
-        if (note.getUuid() != null && !note.getUuid().trim().equals("")) {
-            caseMangementNote.setUuid(note.getUuid());
+            // Revision and UUID come from the ownership-checked entity, never from the
+            // request body: both identify the revision chain the new row is appended to.
+            // For a genuinely new note the DAO assigns a fresh UUID (CaseManagementNoteDAO
+            // .saveNote), so an unbound caller-supplied UUID is simply not honoured here.
+            note.setRevision(String.valueOf(Integer.parseInt(existingNote.getRevision()) + 1));
+            caseMangementNote.setUuid(existingNote.getUuid());
         }
 
         String noteTxt = note.getNote();
@@ -821,14 +879,12 @@ public class NotesService extends AbstractServiceImpl {
          *
          */
 
-        //String ongoing = null; // figure out this
-        String lastSavedNoteString = null;
-        String user = loggedInInfo.getLoggedInProvider().getProviderNo();
-        String remoteAddr = ""; // Not sure how to get this
-
+        // The commented-out saveCaseManagementNote(...) call below is the legacy Struts path
+        // kept for reference; its ongoing/verify/user/remoteAddr/lastSavedNoteString locals
+        // were removed because nothing reads them (CodeQL "unread local variable").
         //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote, issuelist, cpp, ongoing, verify, loggedInInfo.getLocale(), now, userName, user, remoteAddr, lastSavedNoteString);
 
-        String savedStr = caseManagementMgr.saveNote(cpp, caseMangementNote, providerNo, userName, null, note.getRoleName());
+        caseManagementMgr.saveNote(cpp, caseMangementNote, providerNo, userName, null, note.getRoleName());
         caseManagementMgr.saveCPP(cpp, providerNo);
 
         caseManagementMgr.getEditors(caseMangementNote);
@@ -1222,7 +1278,11 @@ public class NotesService extends AbstractServiceImpl {
             logger.debug("tempsavenote is NOT NULL == noteId :{}", tmpsavenote.getNoteId());
             if (tmpsavenote.getNoteId() > 0) {
 //				session.setAttribute("newNote", "false");
-                note = caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId()));
+                // The restored draft's noteId originates from a caller-supplied tmpSave
+                // payload, so it is no more trusted than the explicit nId branch below:
+                // check it belongs to this patient before returning the stored note's
+                // uuid/provider/encounter metadata (IDOR hardening, issue #2839 class).
+                note = requireOwnedNote(String.valueOf(tmpsavenote.getNoteId()), demoNo, "r");
                 logger.debug("Restoring {}", note.getId());
             } else {
                 logger.debug("creating new note");
@@ -1575,6 +1635,58 @@ public class NotesService extends AbstractServiceImpl {
         return note;
     }
 
+    /**
+     * Parses an id that upstream code builds with {@code String.valueOf(...)}, which yields
+     * the literal text {@code "null"} (and a NumberFormatException on parse) whenever the
+     * underlying Integer was absent -- {@link #getProgram} and {@link #resolveCurrentProgramNo}
+     * both do this when the provider has no program affiliation and no "OSCAR" program row
+     * exists. Returns {@code null} instead of throwing so callers can fail closed with a
+     * diagnosable message rather than leaking a raw NumberFormatException to the client.
+     *
+     * @param value id text, possibly {@code null} or non-numeric
+     * @return the parsed id, or {@code null} if it is absent or not a number
+     */
+    private static Integer parseIdOrNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Verifies that a caller-supplied note UUID either starts a brand-new revision chain or
+     * belongs to a chain already owned by {@code demoNo} (IDOR hardening, issue #2839 class).
+     *
+     * <p>The UUID is what ties note revisions together, and both the note-history view and
+     * {@code getNotesByUUID} resolve it without any demographic filter. Copying an unchecked
+     * UUID out of a request body would therefore let a caller authorized for one patient
+     * append a revision to a different patient's chain, hiding that patient's current note
+     * and mixing the two clinical histories.</p>
+     *
+     * @param uuid    caller-supplied revision-chain identifier; blank/null is a no-op
+     * @param demoNo  the already-authorized patient's demographic number
+     * @param action  privilege action to report on denial ("r" or "w")
+     * @throws AccessDeniedException if any existing note on that chain belongs to another patient
+     */
+    private void requireOwnedUuid(String uuid, String demoNo, String action) {
+        if (uuid == null || uuid.trim().isEmpty()) {
+            return;
+        }
+        List<CaseManagementNote> chain = caseManagementMgr.getNotesByUUID(uuid);
+        if (chain == null) {
+            return;
+        }
+        for (CaseManagementNote existing : chain) {
+            if (!demoNo.equals(existing.getDemographic_no())) {
+                throw new AccessDeniedException(SEC_OBJECT_ECHART, action);
+            }
+        }
+    }
+
     /** Resolves and assigns the reporting provider's role and program team for a note, defaulting to "0" on lookup failure. */
     private void assignReporterRoleAndTeam(CaseManagementNote caseMangementNote, String providerNo, String programId, Integer demographicNo) {
         ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
@@ -1634,7 +1746,11 @@ public class NotesService extends AbstractServiceImpl {
                     cmi.setIssue(is);
                     cmi.setProgram_id(programManager2.getCurrentProgramInDomain(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo()).getProgramId().intValue());
                     cmi.setType(is.getRole());
-                    cmi.setDemographic_no(Integer.valueOf(demo));
+                    Integer demographicId = parseIdOrNull(demo);
+                    if (demographicId == null) {
+                        throw new IllegalStateException("cannot create the case issue: unresolved demographic id");
+                    }
+                    cmi.setDemographic_no(demographicId);
                 }
                 cmi.setAcute(i.isAcute());
                 cmi.setCertain(i.isCertain());
@@ -1677,13 +1793,21 @@ public class NotesService extends AbstractServiceImpl {
         if (cIssue == null) {
             Date creationDate = new Date();
 
+            Integer demographicId = parseIdOrNull(demo);
+            Integer programIdValue = parseIdOrNull(programId);
+            if (demographicId == null || programIdValue == null) {
+                // getProgram() falls back to String.valueOf(<Integer>) and can hand us the
+                // literal "null"; fail with context instead of a bare NumberFormatException.
+                throw new IllegalStateException("cannot create the CPP issue: unresolved demographic or program id");
+            }
+
             cIssue = new CaseManagementIssue();
             cIssue.setAcute(false);
             cIssue.setCertain(false);
-            cIssue.setDemographic_no(Integer.valueOf(demo));
+            cIssue.setDemographic_no(demographicId);
             cIssue.setIssue_id(cppIssue.getId());
             cIssue.setMajor(false);
-            cIssue.setProgram_id(Integer.parseInt(programId));
+            cIssue.setProgram_id(programIdValue);
             cIssue.setResolved(false);
             cIssue.setType(cppIssue.getRole());
             cIssue.setUpdate_date(creationDate);
@@ -1842,27 +1966,25 @@ public class NotesService extends AbstractServiceImpl {
     @Consumes("application/json")
     public RestResponse<String> ticklerSaveNote(ObjectNode json) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
+        LoggedInInfo loggedInInfo = this.getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "w", null)) {
             throw new RuntimeException("Access Denied");
         }
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SEC_OBJECT_ECHART, "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)) {
             throw new RuntimeException("Access Denied");
         }
 
-        logger.info("The config " + json.toString());
-
+        // PHI: the request body carries clinical note text plus patient/tickler identifiers.
+        // Nothing from it is logged here -- a rejected request must not leave the caller's
+        // payload in the log, so authorization runs before any of it is written out.
         String strNote = json.get("note") != null ? json.get("note").asText() : null;
         Integer noteId = json.get("noteId") != null ? json.get("noteId").asInt() : null;
 
-        logger.info("want to save note id " + noteId + " with value " + strNote);
-
         ObjectNode tickler = (ObjectNode) json.get("tickler");
-        Integer ticklerId = tickler.get("id") != null ? tickler.get("id").asInt() : null;
-        Integer demographicNo = tickler.get("demographicNo") != null ? tickler.get("demographicNo").asInt() : null;
+        Integer ticklerId = (tickler == null || tickler.get("id") == null) ? null : tickler.get("id").asInt();
+        Integer demographicNo = (tickler == null || tickler.get("demographicNo") == null)
+                ? null : tickler.get("demographicNo").asInt();
 
-        logger.info("tickler id " + ticklerId + ", demographicNo " + demographicNo);
-
-        LoggedInInfo loggedInInfo = this.getLoggedInInfo();
         Provider loggedInProvider = loggedInInfo.getLoggedInProvider();
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -1871,6 +1993,15 @@ public class NotesService extends AbstractServiceImpl {
         // before creating or updating any note for this patient.
         String demoNo = demographicNo == null ? null : String.valueOf(demographicNo);
         if (!isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
+
+        // The tickler id is a *second* caller-supplied identifier: being authorized for
+        // demographicNo does not prove the tickler belongs to that same patient. Without
+        // this, a writer for patient A could link A's note to patient B's tickler, and the
+        // legacy CaseManagementEntry2Action.ticklerGetNote -- which resolves the link by
+        // tickler id alone -- would then surface A's clinical text under B's tickler.
+        if (ticklerId == null || ticklerDao.findByTicklerNoDemo(ticklerId, demographicNo).isEmpty()) {
             throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
         }
 
@@ -1918,7 +2049,10 @@ public class NotesService extends AbstractServiceImpl {
 
         caseManagementMgr.saveNoteSimple(cmn);
 
-        logger.info("note id is " + cmn.getId());
+        // PHI-correlating identifier: keep it at debug, never alongside note content.
+        if (logger.isDebugEnabled()) {
+            logger.debug("tickler note saved noteId={}", cmn.getId());
+        }
 
 
         //save link, so we know what tickler this note is linked to
@@ -1976,6 +2110,15 @@ public class NotesService extends AbstractServiceImpl {
 
         CaseManagementIssue cmi = caseManagementMgr.getIssueById(demographicNo.toString(), issue.getId().toString());
         if (cmi == null) {
+            // programNo comes from resolveCurrentProgramNo(), which returns null when the
+            // caller has no program affiliation at all; bail out the same way the missing
+            // "TicklerNote" issue type does rather than throwing NumberFormatException.
+            Integer programId = parseIdOrNull(programNo);
+            if (programId == null) {
+                logger.warn("cannot create the TicklerNote issue without a resolvable program id");
+                return null;
+            }
+
             //save issue..this will make it a "cpp looking" issue in the eChart
             cmi = new CaseManagementIssue();
             cmi.setAcute(false);
@@ -1983,7 +2126,7 @@ public class NotesService extends AbstractServiceImpl {
             cmi.setDemographic_no(demographicNo);
             cmi.setIssue_id(issue.getId());
             cmi.setMajor(false);
-            cmi.setProgram_id(Integer.parseInt(programNo));
+            cmi.setProgram_id(programId);
             cmi.setResolved(false);
             cmi.setType(issue.getRole());
             cmi.setUpdate_date(creationDate);

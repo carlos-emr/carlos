@@ -16,6 +16,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -28,35 +30,34 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
-import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.NoteTo1;
 
 /**
- * Unit tests for the ownership check added to
- * {@link NotesService#getCurrentNote(Integer, ObjectNode)}.
+ * Unit tests for the ownership checks added to
+ * {@link NotesService#tmpSaveNote(Integer, NoteTo1)}.
  *
- * <p>Regression coverage for issue #2839's IDOR class: this endpoint took
- * demographicNo directly from the caller with no privilege or ownership
- * check at all.</p>
+ * <p>Regression coverage for issue #2839's IDOR class. The autosave endpoint wrote a draft
+ * row for whatever demographicNo the caller put in the path, with no privilege or ownership
+ * check, and stored a caller-supplied noteId alongside it. {@code getCurrentNote} later
+ * restores that noteId, so an unchecked draft was a way to stage a cross-patient note
+ * read.</p>
  *
- * @since 2026-07-06
+ * @since 2026-09-14
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("NotesService.getCurrentNote unit tests")
+@DisplayName("NotesService.tmpSaveNote unit tests")
 @Tag("unit")
 @Tag("fast")
-class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
+class NotesServiceTmpSaveNoteUnitTest extends CarlosUnitTestBase {
 
     private static final Integer DEMOGRAPHIC_NO = 100;
     private static final String PROVIDER_NO = "provider1";
@@ -90,7 +91,7 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
         injectDependency(service, "securityInfoManager", securityInfoManager);
         injectDependency(service, "programManager2", programManager2);
 
-        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), any()))
+        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("w"), any()))
                 .thenReturn(true);
         lenient().when(caseManagementMgr.isClientInProgramDomain(any(List.class), any(List.class)))
                 .thenReturn(true);
@@ -98,67 +99,55 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
     }
 
-    private ObjectNode emptyJson() {
-        return new ObjectMapper().createObjectNode();
+    private NoteTo1 draft(Integer noteId) {
+        NoteTo1 note = new NoteTo1();
+        note.setNote("draft text");
+        note.setNoteId(noteId);
+        return note;
     }
 
     @Test
-    @DisplayName("should deny access when caller lacks _eChart read privilege")
+    @DisplayName("should deny access when caller lacks _eChart write privilege")
     void shouldDenyAccess_whenCallerLacksEChartPrivilege() {
-        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), any())).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("w"), any())).thenReturn(false);
 
-        ObjectNode json = emptyJson();
+        NoteTo1 note = draft(0);
 
-        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
+        assertThatThrownBy(() -> service.tmpSaveNote(DEMOGRAPHIC_NO, note))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
     @DisplayName("should deny access when demographicNo is outside the caller's program domain")
-    void shouldDenyAccess_whenDemographicNoNotInCallerProgramDomain() {
+    void shouldDenyAccess_whenDemographicNoOutsideCallerProgramDomain() {
         when(caseManagementMgr.isClientInProgramDomain(any(List.class), any(List.class))).thenReturn(false);
         when(caseManagementMgr.isClientReferredInProgramDomain(any(List.class), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(false);
 
-        ObjectNode json = emptyJson();
+        NoteTo1 note = draft(0);
 
-        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
+        assertThatThrownBy(() -> service.tmpSaveNote(DEMOGRAPHIC_NO, note))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    @DisplayName("should deny access when the patient has an eChart access opt-out override")
-    void shouldDenyAccess_whenPatientHasOptOutOverride() {
-        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(false);
-
-        ObjectNode json = emptyJson();
-
-        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
-                .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
-    @DisplayName("should deny access when a restored autosave draft points at another patient's note")
-    void shouldDenyAccess_whenRestoredDraftNoteBelongsToAnotherPatient() {
-        // A draft can be seeded through /{demographicNo}/tmpSave with any noteId, so the note
-        // the draft restores must be re-checked against this patient before it is returned.
+    @DisplayName("should deny access when the draft references another patient's note")
+    void shouldDenyAccess_whenDraftNoteBelongsToAnotherPatient() {
         ProgramProvider programProvider = new ProgramProvider();
         programProvider.setProgramId(5L);
         when(programManager2.getCurrentProgramInDomain(any(), eq(PROVIDER_NO))).thenReturn(programProvider);
-
-        CaseManagementTmpSave draft = new CaseManagementTmpSave();
-        draft.setNoteId(4242);
-        draft.setNote("draft text");
-        when(caseManagementMgr.restoreTmpSave(eq(PROVIDER_NO), eq(String.valueOf(DEMOGRAPHIC_NO)), eq("5")))
-                .thenReturn(draft);
 
         CaseManagementNote otherPatientsNote = new CaseManagementNote();
         otherPatientsNote.setDemographic_no("999");
         when(caseManagementMgr.getNote("4242")).thenReturn(otherPatientsNote);
 
-        ObjectNode json = emptyJson();
+        NoteTo1 note = draft(4242);
 
-        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
+        assertThatThrownBy(() -> service.tmpSaveNote(DEMOGRAPHIC_NO, note))
                 .isInstanceOf(AccessDeniedException.class);
+
+        // Nothing was written: the previous draft must not be deleted on a rejected call.
+        verify(caseManagementMgr, never()).deleteTmpSave(any(), any(), any());
+        verify(caseManagementMgr, never()).tmpSave(any(), any(), any(), any(), any());
     }
 }
