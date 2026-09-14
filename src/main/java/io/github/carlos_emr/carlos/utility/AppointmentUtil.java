@@ -29,8 +29,14 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
-import io.github.carlos_emr.carlos.commn.model.Appointment;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -67,14 +73,44 @@ public class AppointmentUtil {
         if (demographicId == null) {
             return NONE;
         }
+        return getNextAppointments(Set.of(demographicId)).get(demographicId);
+    }
 
-        OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
-        Appointment appt = dao.findNextAppointment(demographicId);
-        if (appt == null || appt.getAppointmentDate() == null) {
-            return NONE;
+    /**
+     * Returns the next appointment date of each of many patients, formatted for display.
+     *
+     * <p>One query for the whole set. A caller rendering a list -- the patient search returns up to
+     * 100 rows per keystroke -- must use this rather than calling
+     * {@link #getNextAppointment(String)} per row.</p>
+     *
+     * @param demographicIds patients to look up; null entries are ignored
+     * @return a map holding an entry for every non-null id passed: the next appointment date as
+     *         {@code yyyy-MM-dd}, or {@code "(none)"} for a patient with no next appointment or
+     *         whose next appointment carries no date
+     */
+    public static Map<Integer, String> getNextAppointments(Collection<Integer> demographicIds) {
+        Map<Integer, String> nextAppointments = new HashMap<>();
+        if (demographicIds == null || demographicIds.isEmpty()) {
+            return nextAppointments;
+        }
+        Set<Integer> wanted = new LinkedHashSet<>();
+        for (Integer demographicId : demographicIds) {
+            if (demographicId != null) {
+                wanted.add(demographicId);
+            }
+        }
+        if (wanted.isEmpty()) {
+            return nextAppointments;
         }
 
-        return ConversionUtils.toDateString(appt.getAppointmentDate());
+        OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
+        Map<Integer, Date> dates = dao.findNextAppointmentDates(wanted);
+        for (Integer demographicId : wanted) {
+            Date nextAppointmentDate = dates.get(demographicId);
+            nextAppointments.put(demographicId,
+                    nextAppointmentDate == null ? NONE : ConversionUtils.toDateString(nextAppointmentDate));
+        }
+        return nextAppointments;
     }
 
     /**

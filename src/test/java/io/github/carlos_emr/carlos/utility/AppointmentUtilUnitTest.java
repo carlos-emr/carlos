@@ -22,16 +22,22 @@
 package io.github.carlos_emr.carlos.utility;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
-import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +48,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for {@link AppointmentUtil}, the next-appointment lookup behind the patient
@@ -59,6 +66,7 @@ class AppointmentUtilUnitTest extends CarlosUnitTestBase {
 
     private static final String NONE = "(none)";
     private static final int DEMOGRAPHIC_NO = 123;
+    private static final int OTHER_DEMOGRAPHIC_NO = 456;
 
     private OscarAppointmentDao appointmentDao;
 
@@ -98,46 +106,85 @@ class AppointmentUtilUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should return the next appointment date")
         void shouldReturnFormattedDate_whenNextAppointmentExists() {
-            Appointment appointment = new Appointment();
-            appointment.setAppointmentDate(date(2026, Calendar.JULY, 15));
-            when(appointmentDao.findNextAppointment(DEMOGRAPHIC_NO)).thenReturn(appointment);
+            when(appointmentDao.findNextAppointmentDates(anyCollection()))
+                .thenReturn(Map.of(DEMOGRAPHIC_NO, date(2026, Calendar.JULY, 15)));
 
             assertThat(AppointmentUtil.getNextAppointment(String.valueOf(DEMOGRAPHIC_NO)))
                 .isEqualTo("2026-07-15");
-            verify(appointmentDao).findNextAppointment(DEMOGRAPHIC_NO);
+            assertThat(requestedIds()).containsExactly(DEMOGRAPHIC_NO);
         }
 
         @Test
         @DisplayName("should ignore surrounding whitespace")
         void shouldReturnFormattedDate_whenDemographicNoIsPadded() {
-            Appointment appointment = new Appointment();
-            appointment.setAppointmentDate(date(2026, Calendar.JULY, 15));
-            when(appointmentDao.findNextAppointment(DEMOGRAPHIC_NO)).thenReturn(appointment);
+            when(appointmentDao.findNextAppointmentDates(anyCollection()))
+                .thenReturn(Map.of(DEMOGRAPHIC_NO, date(2026, Calendar.JULY, 15)));
 
             assertThat(AppointmentUtil.getNextAppointment("  " + DEMOGRAPHIC_NO + "  "))
                 .isEqualTo("2026-07-15");
-            verify(appointmentDao).findNextAppointment(DEMOGRAPHIC_NO);
+            assertThat(requestedIds()).containsExactly(DEMOGRAPHIC_NO);
         }
 
         @Test
         @DisplayName("should return the sentinel when the patient has no next appointment")
         void shouldReturnNone_whenNoAppointmentExists() {
-            when(appointmentDao.findNextAppointment(DEMOGRAPHIC_NO)).thenReturn(null);
+            when(appointmentDao.findNextAppointmentDates(anyCollection())).thenReturn(Map.of());
 
             assertThat(AppointmentUtil.getNextAppointment(String.valueOf(DEMOGRAPHIC_NO)))
                 .isEqualTo(NONE);
-            verify(appointmentDao).findNextAppointment(DEMOGRAPHIC_NO);
+            assertThat(requestedIds()).containsExactly(DEMOGRAPHIC_NO);
+        }
+    }
+
+    /**
+     * The list form is what the patient search uses: it returns up to 100 rows per keystroke, so
+     * one query for the whole page is the contract, not one query per row.
+     */
+    @Nested
+    @DisplayName("many patients at once")
+    class BatchLookup {
+
+        @Test
+        @DisplayName("should resolve every patient in one query")
+        void shouldReturnAnEntryPerPatient_inOneLookup() {
+            when(appointmentDao.findNextAppointmentDates(anyCollection()))
+                .thenReturn(Map.of(DEMOGRAPHIC_NO, date(2026, Calendar.JULY, 15)));
+
+            Map<Integer, String> nextAppointments =
+                AppointmentUtil.getNextAppointments(Arrays.asList(DEMOGRAPHIC_NO, OTHER_DEMOGRAPHIC_NO));
+
+            assertThat(nextAppointments)
+                .containsEntry(DEMOGRAPHIC_NO, "2026-07-15")
+                .containsEntry(OTHER_DEMOGRAPHIC_NO, NONE);
+            verify(appointmentDao, times(1)).findNextAppointmentDates(anyCollection());
         }
 
         @Test
-        @DisplayName("should return the sentinel when the next appointment carries no date")
-        void shouldReturnNone_whenAppointmentDateIsMissing() {
-            when(appointmentDao.findNextAppointment(DEMOGRAPHIC_NO)).thenReturn(new Appointment());
+        @DisplayName("should ask about each patient once when a patient repeats")
+        void shouldDeduplicateIds_whenTheSamePatientRepeats() {
+            when(appointmentDao.findNextAppointmentDates(anyCollection())).thenReturn(Map.of());
 
-            assertThat(AppointmentUtil.getNextAppointment(String.valueOf(DEMOGRAPHIC_NO)))
-                .isEqualTo(NONE);
-            verify(appointmentDao).findNextAppointment(DEMOGRAPHIC_NO);
+            AppointmentUtil.getNextAppointments(Arrays.asList(DEMOGRAPHIC_NO, DEMOGRAPHIC_NO, null));
+
+            assertThat(requestedIds()).containsExactly(DEMOGRAPHIC_NO);
         }
+
+        @Test
+        @DisplayName("should return an empty map without a lookup when there is nothing to look up")
+        void shouldReturnEmptyMap_forNoUsableIds() {
+            assertThat(AppointmentUtil.getNextAppointments(null)).isEmpty();
+            assertThat(AppointmentUtil.getNextAppointments(Collections.emptyList())).isEmpty();
+            assertThat(AppointmentUtil.getNextAppointments(Collections.singletonList(null))).isEmpty();
+
+            verifyNoInteractions(appointmentDao);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Integer> requestedIds() {
+        ArgumentCaptor<Collection<Integer>> captor = ArgumentCaptor.forClass(Collection.class);
+        verify(appointmentDao).findNextAppointmentDates(captor.capture());
+        return List.copyOf(captor.getValue());
     }
 
     private static Date date(int year, int month, int day) {
