@@ -158,7 +158,11 @@
                                         <td align="left" class="Header" width="50"></td>
                                     </tr>
                                     <c:forEach var="waitingListBean" items="${waitingList.waitingList}" varStatus="ctr">
-                                        <input type="hidden" name="demographicNo" id="demographicNo" indexed="true"/>
+                                        <%-- The row's fields are named waitingListBean[i].x: setParameters() reads the
+                                             index out of the name and the update posts them under those names, which
+                                             is the shape SetupDisplayWaitingList requires. The plain names left over
+                                             from the Struts 1 indexed tags never reached the action. --%>
+                                        <input type="hidden" name="waitingListBean[${ctr.index}].demographicNo" value="${carlos:forHtmlAttribute(waitingListBean.demographicNo)}"/>
 
                                         <c:set var="styleClass" value="${(ctr.index % 2 == 0) ? 'data5' : 'data2'}"/>
 
@@ -177,14 +181,16 @@
                                                    onClick="updateWaitingList('${carlos:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>
                                         <td class="${styleClass}">
-                                            <textarea cols="45" name="note" indexed="true" class="data3" onblur="setParameters(this);"></textarea>
+                                            <fmt:message key="oscarwaitinglist.displayWaitingList.note" var="waitingListNoteLabel"/>
+                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListNoteLabel)}" class="data3" onblur="setParameters(this);">${carlos:forHtmlContent(waitingListBean.note)}</textarea>
                                         </td>
                                         <td class="${styleClass}">
-                                            <input type="text" name="onListSince" indexed="true" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
+                                            <fmt:message key="oscarwaitinglist.displayWaitingList.dateOfRequest" var="waitingListDateLabel"/>
+                                            <input type="text" name="waitingListBean[${ctr.index}].onListSince" value="${carlos:forHtmlAttribute(waitingListBean.onListSince)}" id="waitingListOnListSince_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListDateLabel)}" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="referral_date_cal_${ctr.index}">
                                             <script type="text/javascript">
                                                 Calendar.setup({
-                                                    inputField: "waitingListBean[${ctr.index}].onListSince",
+                                                    inputField: "waitingListOnListSince_${ctr.index}",
                                                     ifFormat: "%Y-%m-%d",
                                                     showsTime: false,
                                                     button: "referral_date_cal_${ctr.index}",
@@ -268,7 +274,7 @@
             var indexNum1 = thisObjName.indexOf("[");
             var indexNum2 = thisObjName.indexOf("]");
 
-            var wlcount = 0;
+            var wlCount = 0;
             if (indexNum1 > 0) {
                 wlCount = thisObjName.substring(indexNum1 + 1, indexNum2);
             }

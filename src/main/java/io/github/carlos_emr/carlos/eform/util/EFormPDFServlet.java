@@ -57,7 +57,9 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.printing.FontSettings;
 import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -137,6 +139,18 @@ public class EFormPDFServlet extends HttpServlet {
     public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
 
+        // This servlet is mapped at /eform/createpdf in web.xml, so it is reachable by direct URL
+        // independently of PrintPDF2Action — the only route that forwards here. LoginFilter covers
+        // authentication, but until now nothing checked AUTHORIZATION: any authenticated user could
+        // generate a PDF for any demographic. Scoped to the requested patient, matching the check
+        // the calling action now performs.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_eform", "r", req.getParameter("demographic_no"))) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
+
         ByteArrayOutputStream baosPDF = null;
         FileInputStream fis = null;
         File tmpFile = null;
@@ -170,22 +184,14 @@ public class EFormPDFServlet extends HttpServlet {
                     baosPDF.writeTo(fos);
                 }
             }
-            StringBuilder sbFilename = new StringBuilder();
-            sbFilename.append("filename_");
-            sbFilename.append(".pdf");
+            String filename = "filename_.pdf";
 
             // set the Cache-Control header
             res.setHeader("Cache-Control", "max-age=0");
             res.setDateHeader("Expires", 0);
             res.setContentType("application/pdf");
 
-            // The Content-disposition value will be inline
-
-            StringBuilder sbContentDispValue = new StringBuilder();
-            sbContentDispValue.append("inline; filename="); //inline - display
-            sbContentDispValue.append(sbFilename);
-
-            res.setHeader("Content-disposition", sbContentDispValue.toString());
+            res.setHeader("Content-disposition", "inline; filename=\"" + filename + "\"");
             res.setContentLength((int) tmpFile.length());
 
             ServletOutputStream sout = res.getOutputStream();
@@ -276,7 +282,7 @@ public class EFormPDFServlet extends HttpServlet {
             List<List<List<String>>> xMeasurementValues = new ArrayList<List<List<String>>>();
             List<List<List<String>>> yMeasurementValues = new ArrayList<List<List<String>>>();
             for (int idx = 0; idx < numPages; ++idx) {
-                MiscUtils.getLogger().debug("Adding page " + idx);
+                MiscUtils.getLogger().debug("Adding page {}", idx);
                 xMeasurementValues.add(new ArrayList<List<String>>());
                 yMeasurementValues.add(new ArrayList<List<String>>());
             }
@@ -322,15 +328,15 @@ public class EFormPDFServlet extends HttpServlet {
                 Properties[] tempPropertiesArray;
                 if (i <= graphicCfg.length) {
                     tempPropertiesArray = graphicCfg[i - 1];
-                    MiscUtils.getLogger().debug("Plotting page " + i);
+                    MiscUtils.getLogger().debug("Plotting page {}", i);
                 } else {
                     tempPropertiesArray = null;
-                    MiscUtils.getLogger().debug("Skipped Plotting page " + i);
+                    MiscUtils.getLogger().debug("Skipped Plotting page {}", i);
                 }
 
                 //if there are properties to plot
                 if (tempPropertiesArray != null) {
-                    MiscUtils.getLogger().debug("TEMP PROP LENGTH " + tempPropertiesArray.length);
+                    MiscUtils.getLogger().debug("TEMP PROP LENGTH {}", tempPropertiesArray.length);
                     for (int k = 0; k < tempPropertiesArray.length; k++) {
 
                         //initialise with measurement values which are mapped to config file by form get graphic function
@@ -591,7 +597,8 @@ public class EFormPDFServlet extends HttpServlet {
                 }
 
                 xMeasurementValues.get(page).get(section).add((String) req.getAttribute(temp.toString()));
-                MiscUtils.getLogger().debug("Setting xMeasurementDate to {}", LogSafe.sanitize((String) req.getAttribute(temp.toString())));
+                // Log the coordinate key only, never the measurement date value (growth-chart PHI).
+                MiscUtils.getLogger().debug("Setting xMeasurementDate for key {}", LogSafe.sanitize(temp.toString()));
 
                 temp = new StringBuilder("yVal_");
                 temp = temp.append(elementNum);
@@ -600,7 +607,8 @@ public class EFormPDFServlet extends HttpServlet {
                 MiscUtils.getLogger().debug("Key {}", LogSafe.sanitize(temp.toString()));
                 tempValue = (String) req.getAttribute(temp.toString());
                 yMeasurementValues.get(page).get(section).add(tempValue);
-                MiscUtils.getLogger().debug("Setting yMeasurementValue to {}", LogSafe.sanitize(tempValue));
+                // Log the coordinate key only, never the measurement value (growth-chart PHI).
+                MiscUtils.getLogger().debug("Setting yMeasurementValue for key {}", LogSafe.sanitize(temp.toString()));
             } else {
                 props.setProperty(temp.toString(), req.getAttribute(temp.toString()).toString());
             }
@@ -781,8 +789,9 @@ public class EFormPDFServlet extends HttpServlet {
             else if (temp.toString().equals("__className"))
                 className = tempValue;
             else {
-                MiscUtils.getLogger().debug("Adding xDate {} VAL: {}", LogSafe.sanitize(temp.toString()), LogSafe.sanitize(props.getProperty(temp.toString())));
-                MiscUtils.getLogger().debug("Adding yHeight {} VAL: {}", LogSafe.sanitize(tempValue), LogSafe.sanitize(props.getProperty(tempValue)));
+                // Log the coordinate keys only, never the plotted measurement values (growth-chart PHI).
+                MiscUtils.getLogger().debug("Adding xDate for key {}", LogSafe.sanitize(temp.toString()));
+                MiscUtils.getLogger().debug("Adding yHeight for key {}", LogSafe.sanitize(tempValue));
                 xDate.add(props.getProperty(temp.toString()));
                 yHeight.add(props.getProperty(tempValue));
             }

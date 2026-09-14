@@ -563,7 +563,11 @@ public class DrugTransfer {
 
         DrugTransfer transfer = new DrugTransfer();
 
-        BeanUtils.copyProperties(drug, transfer);
+        // Drug.pastMed is a nullable Boolean (default null) while DrugTransfer.pastMed is a
+        // primitive boolean; copying it directly faults when unboxing null. Skip it here and set
+        // it via Drug.isPastMed(), which coalesces null to false.
+        BeanUtils.copyProperties(drug, transfer, "pastMed");
+        transfer.setPastMed(drug.isPastMed());
 
         return (transfer);
     }

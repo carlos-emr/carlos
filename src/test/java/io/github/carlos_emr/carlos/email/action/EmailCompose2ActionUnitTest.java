@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -39,16 +40,19 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         DemographicManager demographicManager = mock(DemographicManager.class);
         EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        PdfPreviewCapabilityService pdfPreviewCapabilityService = mock(PdfPreviewCapabilityService.class);
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
         request.getSession(false).setAttribute("emailPDFPassword", "existing-password");
         request.getSession(false).setAttribute("emailPDFPasswordClue", "existing-clue");
         request.addParameter("fid", "abc\r\nforged-fid");
-        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());

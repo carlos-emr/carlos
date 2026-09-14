@@ -116,6 +116,28 @@ class AuthorizeResourceUnitTest {
     }
 
     @Test
+    @DisplayName("should redirect to HTTP callback when nonce is valid")
+    void shouldRedirectToHttpCallback_whenNonceValid() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("http://app.example/callback");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        when(provider.finalizeAuthorization(token, "999")).thenReturn("verifier-123");
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(303);
+        assertThat(result.getLocation())
+                .hasToString("http://app.example/callback?oauth_token=request-token&oauth_verifier=verifier-123");
+        verify(provider).finalizeAuthorization(token, "999");
+    }
+
+    @Test
     @DisplayName("should append redirect parameters with ampersand when callback already has query")
     void shouldAppendRedirectParameters_whenCallbackAlreadyHasQuery() {
         OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
@@ -135,6 +157,29 @@ class AuthorizeResourceUnitTest {
         assertThat(result.getLocation())
                 .hasToString("https://app.example/callback?existing=1&oauth_token=request-token"
                         + "&oauth_verifier=verifier-123");
+        verify(provider).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should append verifier before callback fragment")
+    void shouldAppendVerifierBeforeCallbackFragment_whenNonceValid() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("https://app.example/callback?next=1#done");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        when(provider.finalizeAuthorization(token, "999")).thenReturn("verifier-123");
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(303);
+        assertThat(result.getLocation())
+                .hasToString("https://app.example/callback?next=1&oauth_token=request-token"
+                        + "&oauth_verifier=verifier-123#done");
         verify(provider).finalizeAuthorization(token, "999");
     }
 
