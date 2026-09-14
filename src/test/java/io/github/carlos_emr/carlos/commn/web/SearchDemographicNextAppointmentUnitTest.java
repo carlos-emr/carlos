@@ -52,8 +52,8 @@ import static org.mockito.Mockito.*;
 
 /** Tests the appointment utility through the real patient-search JSON action. */
 // @Isolated because the workflow_enhance switch this contract turns on lives in the process-wide
-// CarlosProperties singleton, and Surefire runs this suite on four threads: without it a
-// concurrent test reads whichever value happened to be set, or restores one over this class's.
+// CarlosProperties singleton. If JUnit in-process parallelism is enabled, a concurrent test
+// must not read or restore this class's temporary value. Surefire forks are separate JVMs.
 @Isolated
 @DisplayName("Patient search next appointment contract")
 class SearchDemographicNextAppointmentUnitTest extends CarlosUnitTestBase {

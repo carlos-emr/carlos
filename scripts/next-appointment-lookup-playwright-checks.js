@@ -168,6 +168,7 @@ async function main({ throwIfCancelled = () => {} } = {}) {
     throw error;
   }
 
+  let primaryError;
   try {
     throwIfCancelled();
     // Never printed: it is a patient's name.
@@ -214,15 +215,27 @@ async function main({ throwIfCancelled = () => {} } = {}) {
     assertStrictPage(recorder);
     console.log('  the next-appointment column tracked the seeded appointment and returned to its original value');
     return { seeded: true };
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
-    try {
-      sql.execute(`DELETE FROM appointment WHERE notes = ${sqlString(stamp)}`);
-    } finally {
+    // Attempt every cleanup operation and retain the original diagnostic if
+    // cleanup also fails; a finally exception must not erase the failed assertion.
+    const cleanupErrors = [];
+    for (const cleanup of [
+      () => sql.execute(`DELETE FROM appointment WHERE notes = ${sqlString(stamp)}`),
+      () => sql.dispose(),
+      () => browser.close(),
+    ]) {
       try {
-        sql.dispose();
-      } finally {
-        await browser.close();
+        await cleanup();
+      } catch (error) {
+        cleanupErrors.push(error);
       }
+    }
+    if (cleanupErrors.length) {
+      const detail = cleanupErrors.map((error) => error.message).join('; ');
+      throw new Error(`${primaryError ? `${primaryError.message}; ` : ''}cleanup failed: ${detail}`);
     }
     throwIfCancelled();
   }

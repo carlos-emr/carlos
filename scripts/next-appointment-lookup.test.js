@@ -65,7 +65,10 @@ function scenario(options = {}) {
       } };
     },
     newContext: async () => ({}),
-    login: async () => page,
+    login: async () => {
+      if (options.loginFails) throw new Error('synthetic original login failure');
+      return page;
+    },
   };
   const mod = { exports: {} };
   const requireStub = (name) => {
@@ -162,3 +165,16 @@ for (const value of ['0', '-1', 'NaN', 'Infinity']) {
     assert.deepEqual(check.events, []);
   });
 }
+
+
+test('cleanup failure preserves the original failure diagnostic and attempts every cleanup', async () => {
+  const check = scenario({ loginFails: true, cleanupFails: true, disposeFails: true, closeFails: true });
+  const result = await check.run();
+  assert.equal(result.outcome, 'FAIL');
+  assert.match(result.detail, /original login failure/);
+  assert.match(result.detail, /cleanup failed/);
+  assert.match(result.detail, /synthetic cleanup failure/);
+  assert.match(result.detail, /synthetic dispose failure/);
+  assert.match(result.detail, /synthetic browser close failure/);
+  assert.deepEqual(check.events.slice(-3), ['delete', 'dispose', 'close']);
+});
