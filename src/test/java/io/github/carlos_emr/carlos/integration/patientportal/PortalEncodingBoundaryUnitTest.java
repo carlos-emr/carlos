@@ -69,8 +69,8 @@ class PortalEncodingBoundaryUnitTest {
         try (var transport = new PatientPortalHttpClientExchange(Duration.ofSeconds(5), Duration.ofSeconds(5))) {
             var settings = new PatientPortalSettings("https://portal.example", "clinic",
                     PortalSecret.of("synthetic-service-token-0000000001"),
-                    PortalSecret.of(PortalTestKeys.PRIVATE_KEY), Duration.ofSeconds(5),
-                    Duration.ofSeconds(5), Set.of());
+                    PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary", Duration.ofSeconds(5),
+                    Duration.ofSeconds(5), Duration.ofSeconds(20), Set.of());
             // Only this test redirects the request to a loopback socket; production settings stay HTTPS-only.
             var service = new PatientPortalService(settings, request -> transport.send(
                     ClassicRequestBuilder.copy(request).setUri("http://127.0.0.1:"

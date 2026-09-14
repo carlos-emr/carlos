@@ -63,7 +63,34 @@ class PatientPortalSettingsUnitTest {
         properties.put(CLINIC_ID_KEY, "maplecreek");
         properties.put(SERVICE_TOKEN_KEY, TOKEN);
         properties.put(STAFF_ASSERTION_KEY, ASSERTION_PRIVATE_KEY);
+        properties.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary");
         return properties;
+    }
+
+    @Test
+    void shouldRejectMissingOrInvalidKeyId_beforeAnyRequest() {
+        for (String keyId : new String[] {null, "", " ", "bad/key", "bad\nkey", "é", "k".repeat(65)}) {
+            Map<String, String> properties = validProperties();
+            properties.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, keyId);
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(PatientPortalSettings.STAFF_ASSERTION_KEY_ID);
+        }
+    }
+
+    @Test
+    void shouldBoundRequestDeadline_withinAssertionLifetime() {
+        for (String timeout : new String[] {"0", "-1", "60000", "60001", "9223372036854775807"}) {
+            Map<String, String> properties = validProperties();
+            properties.put(PatientPortalSettings.REQUEST_TIMEOUT_KEY, timeout);
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(PatientPortalSettings.REQUEST_TIMEOUT_KEY);
+        }
+        Map<String, String> properties = validProperties();
+        properties.put(PatientPortalSettings.REQUEST_TIMEOUT_KEY, "1234");
+        assertThat(PatientPortalSettings.fromProperties(properties).requestTimeout())
+                .isEqualTo(Duration.ofMillis(1234));
     }
 
     @Nested
@@ -89,6 +116,8 @@ class PatientPortalSettingsUnitTest {
 
             assertThat(settings.connectTimeout()).isEqualTo(Duration.ofMillis(5000));
             assertThat(settings.readTimeout()).isEqualTo(Duration.ofMillis(15000));
+            assertThat(settings.requestTimeout()).isEqualTo(Duration.ofSeconds(20));
+            assertThat(settings.staffAssertionKeyId()).isEqualTo("primary");
         }
 
         @Test
@@ -160,8 +189,10 @@ class PatientPortalSettingsUnitTest {
                             "maplecreek",
                             PortalSecret.of("  " + TOKEN + "  "),
                             PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                            "primary",
                             Duration.ofSeconds(5),
                             Duration.ofSeconds(15),
+                            Duration.ofSeconds(20),
                             java.util.Set.of());
 
             assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
@@ -232,8 +263,10 @@ class PatientPortalSettingsUnitTest {
                                             "maplecreek",
                                             PortalSecret.of(TOKEN),
                                             PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                                            "primary",
                                             Duration.ofSeconds(5),
                                             Duration.ofSeconds(15),
+                                            Duration.ofSeconds(20),
                                             java.util.Set.of()))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
@@ -248,8 +281,10 @@ class PatientPortalSettingsUnitTest {
                                             "maplecreek",
                                             PortalSecret.of(TOKEN),
                                             PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                                            "primary",
                                             Duration.ZERO,
                                             Duration.ofSeconds(15),
+                                            Duration.ofSeconds(20),
                                             java.util.Set.of()))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
@@ -264,8 +299,10 @@ class PatientPortalSettingsUnitTest {
                                             "maplecreek",
                                             PortalSecret.of(TOKEN),
                                             PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                                            "primary",
                                             Duration.ofNanos(1),
                                             Duration.ofSeconds(15),
+                                            Duration.ofSeconds(20),
                                             Set.of()))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(CONNECT_TIMEOUT_KEY);
@@ -281,8 +318,10 @@ class PatientPortalSettingsUnitTest {
                                             "maplecreek",
                                             PortalSecret.of(TOKEN),
                                             PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                                            "primary",
                                             Duration.ofSeconds(Long.MAX_VALUE),
                                             Duration.ofSeconds(15),
+                                            Duration.ofSeconds(20),
                                             Set.of()))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(CONNECT_TIMEOUT_KEY);
@@ -298,8 +337,10 @@ class PatientPortalSettingsUnitTest {
                                             "maplecreek",
                                             null,
                                             PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                                            "primary",
                                             Duration.ofSeconds(5),
                                             Duration.ofSeconds(15),
+                                            Duration.ofSeconds(20),
                                             java.util.Set.of()))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
@@ -554,8 +595,10 @@ class PatientPortalSettingsUnitTest {
                                             "maplecreek",
                                             PortalSecret.of(TOKEN),
                                             PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                                            "primary",
                                             Duration.ofSeconds(5),
                                             Duration.ofSeconds(15),
+                                            Duration.ofSeconds(20),
                                             pins))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);

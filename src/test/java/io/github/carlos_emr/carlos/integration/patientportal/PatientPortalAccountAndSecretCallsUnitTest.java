@@ -79,7 +79,8 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                                 PatientPortalSettings.CLINIC_ID_KEY, "maplecreek",
                                 PatientPortalSettings.SERVICE_TOKEN_KEY, TOKEN,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY,
-                                PortalTestKeys.PRIVATE_KEY)),
+                                PortalTestKeys.PRIVATE_KEY,
+                                PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary")),
                 exchange);
     }
 

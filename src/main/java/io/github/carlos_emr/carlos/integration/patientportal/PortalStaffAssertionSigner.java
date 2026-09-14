@@ -23,14 +23,20 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -39,12 +45,9 @@ import java.util.function.Supplier;
  * Creates the short-lived provider assertion required by the portal's internal API.
  *
  * <p>The bearer token authenticates the CARLOS workload. This assertion separately attests the
- * authenticated provider, configured clinic, and permissions derived inside CARLOS. The
- * current portal assertion schema does not include the endpoint or patient identifier, so TLS and
- * CARLOS's patient-access checks remain security boundaries; this signature must not be described
- * as patient binding. The portal checks that {@code jti} is a UUID but does not keep a replay
- * store, so a fresh identifier is audit correlation rather than a one-use guarantee. The portal
- * accepts a compact {@code
+ * authenticated provider, configured clinic, permissions, and exact HTTP request. The portal
+ * consumes each {@code jti} atomically and selects the verification key by {@code kid}. Patient
+ * access is still checked in CARLOS before signing. The portal accepts a compact {@code
  * base64url(json).base64url(ed25519-signature)} value; it is deliberately not a JWT and has no
  * caller-controlled algorithm field.
  *
@@ -97,7 +100,8 @@ final class PortalStaffAssertionSigner {
         this.objectMapper = objectMapper;
     }
 
-    String sign(PatientPortalStaffContext staff, String clinicId) {
+    String sign(PatientPortalStaffContext staff, String clinicId, String keyId,
+            String method, URI uri, byte[] body) {
         if (staff == null) {
             throw new IllegalArgumentException("portal staff context is required");
         }
@@ -111,6 +115,8 @@ final class PortalStaffAssertionSigner {
         payload.put("provider_id", staff.providerId());
         payload.put("provider_name", staff.providerName());
         payload.put("clinic_id", clinicId);
+        payload.put("kid", keyId);
+        payload.put("request_hash", requestHash(method, uri, body));
         ArrayNode permissions = payload.putArray("permissions");
         staff.sortedPermissions().forEach(permissions::add);
 
@@ -123,6 +129,29 @@ final class PortalStaffAssertionSigner {
                     + "."
                     + ENCODER.encodeToString(signature.sign());
         } catch (GeneralSecurityException | JsonProcessingException exception) {
+            throw new PatientPortalConfigurationException(SIGNING_FAILED, exception);
+        }
+    }
+
+    /**
+     * Matches the portal's staff_request_hash: four UTF-8/byte components, each prefixed by
+     * its unsigned eight-byte big-endian length. Never decode or reorder the path/query.
+     */
+    static String requestHash(String method, URI uri, byte[] body) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            String path = uri.getRawPath();
+            String query = uri.getRawQuery();
+            for (byte[] component : new byte[][] {
+                    method.toUpperCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII),
+                    (path == null || path.isEmpty() ? "/" : path).getBytes(StandardCharsets.UTF_8),
+                    (query == null ? "" : query).getBytes(StandardCharsets.UTF_8),
+                    body}) {
+                digest.update(ByteBuffer.allocate(Long.BYTES).putLong(component.length).array());
+                digest.update(component);
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException exception) {
             throw new PatientPortalConfigurationException(SIGNING_FAILED, exception);
         }
     }

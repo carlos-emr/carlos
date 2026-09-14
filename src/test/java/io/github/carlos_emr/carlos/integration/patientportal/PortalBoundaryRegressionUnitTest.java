@@ -55,8 +55,8 @@ class PortalBoundaryRegressionUnitTest {
     private PatientPortalService service(String body) {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
                 PortalSecret.of("synthetic-service-token-0000000001"),
-                PortalSecret.of(PortalTestKeys.PRIVATE_KEY), Duration.ofSeconds(1),
-                Duration.ofSeconds(1), Set.of());
+                PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary", Duration.ofSeconds(1),
+                Duration.ofSeconds(1), Duration.ofSeconds(20), Set.of());
         return new PatientPortalService(settings, request -> new PatientPortalHttpResponse(201, body));
     }
 
@@ -167,8 +167,8 @@ class PortalBoundaryRegressionUnitTest {
     void withholdsArbitraryTextInErrorDetails() {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
                 PortalSecret.of("synthetic-service-token-0000000001"),
-                PortalSecret.of(PortalTestKeys.PRIVATE_KEY), Duration.ofSeconds(1),
-                Duration.ofSeconds(1), Set.of());
+                PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary", Duration.ofSeconds(1),
+                Duration.ofSeconds(1), Duration.ofSeconds(20), Set.of());
         var client = new PatientPortalService(settings, request -> new PatientPortalHttpResponse(
                 409, "{\"detail\":\"SyntheticSecretToken123\"}"));
         var failure = catchThrowableOfType(() -> client.listInvites(123, staff()), PatientPortalException.class);
@@ -184,6 +184,7 @@ class PortalBoundaryRegressionUnitTest {
                 PatientPortalSettings.SERVICE_TOKEN_KEY,
                 "synthetic-service-token-0000000001",
                 PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY,
+                                PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
                 PatientPortalSettings.CERTIFICATE_PINS_KEY, pins);
         assertThatThrownBy(() -> PatientPortalSettings.fromProperties(values))
                 .isInstanceOf(PatientPortalConfigurationException.class);
