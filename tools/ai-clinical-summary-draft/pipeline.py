@@ -1,0 +1,116 @@
+# Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later.
+"""Bounded full-record passes, shared by the standalone runner and its quality checks."""
+import copy
+import json
+
+from validate_artifact import require
+
+REQUEST_BYTES = 10000
+
+
+class OutputLimitError(Exception):
+    """The model reached its token budget; discard the response and split the input."""
+
+
+def split(sources):
+    if len(sources) > 1:
+        middle = len(sources) // 2
+        return copy.deepcopy(sources[:middle]), copy.deepcopy(sources[middle:])
+    require(len(sources) == 1, "No sources to split")
+    source = sources[0]
+    text = source["text"]
+    require(len(text) >= 1024, "A minimal source portion could not be completed; no partial draft was accepted")
+    middle = len(text) // 2
+    boundary = text.rfind("\n", 0, middle + 1)
+    if boundary < middle // 2:
+        boundary = text.rfind(". ", 0, middle + 1)
+    if boundary >= middle // 2:
+        middle = boundary + 1
+    return ([dict(source, text=text[:middle + 128])],
+            [dict(source, text=text[max(0, middle - 128):])])
+
+
+def plan(sources, prompt, schema):
+    # Match the host request budget rather than a point or character limit on the summary.
+    request = {"contract_version": 1, "request_id": "0" * 36, "workflow": "patient-overview",
+               "data_classification": "verified-synthetic", "instructions": prompt,
+               "sources": sources, "output_schema": schema}
+    if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) <= REQUEST_BYTES:
+        return [copy.deepcopy(sources)]
+    if len(sources) == 1:
+        return [part for half in split(sources) for part in plan(half, prompt, schema)]
+    batches, batch, kind = [], [], ""
+    for source in sources:
+        next_kind = source["id"].split("-", 1)[0]
+        if batch and next_kind != kind:
+            batches.append(batch)
+            batch = []
+        kind = next_kind
+        batch.append(copy.deepcopy(source))
+        request["sources"] = batch
+        if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > REQUEST_BYTES:
+            batch.pop()
+            if batch:
+                batches.append(batch)
+            batch = [copy.deepcopy(source)]
+            request["sources"] = batch
+            if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > REQUEST_BYTES:
+                batches.extend(plan(batch, prompt, schema))
+                batch = []
+    if batch:
+        batches.append(batch)
+    return batches
+
+
+def merge(outputs, sources):
+    if len(outputs) == 1:
+        return outputs[0]
+    result = {"sections": [], "claims": [], "coverage": []}
+    unique, sections, reviews = {}, {}, {}
+    for output in outputs:
+        membership = {claim_id: section for section in output["sections"] for claim_id in section["claim_ids"]}
+        for claim in output["claims"]:
+            key = claim["text"].strip()
+            if key in unique:
+                existing = unique[key]
+                existing["source_ids"] = list(dict.fromkeys(existing["source_ids"] + claim["source_ids"]))
+                continue
+            new = dict(copy.deepcopy(claim), id=f"claim-{len(unique) + 1}")
+            unique[key] = new
+            result["claims"].append(new)
+            section = membership[claim["id"]]
+            if section["id"] not in sections:
+                sections[section["id"]] = dict(section, claim_ids=[])
+                result["sections"].append(sections[section["id"]])
+            sections[section["id"]]["claim_ids"].append(new["id"])
+        for entry in output["coverage"]:
+            reviews.setdefault(entry["source_id"], []).append(entry)
+    cited = {source_id for claim in result["claims"] for source_id in claim["source_ids"]}
+    for source in sources:
+        source_id = source["id"]
+        entries = reviews.get(source_id, [])
+        require(entries, "Unprocessed source")
+        status = "cited" if source_id in cited else (
+            "excluded" if all(entry["status"] == "excluded" for entry in entries) else "reviewed_not_cited")
+        reasons = list(dict.fromkeys(f"{entry['status']}: {entry['reason']}" for entry in entries))
+        result["coverage"].append({"source_id": source_id, "status": status,
+                                   "reason": f"{source_id} — all {len(entries)} portions processed. " + "; ".join(reasons)})
+    return result
+
+
+def generate(sources, prompt, schema, infer, validate_part):
+    outputs = []
+
+    def run(part):
+        try:
+            output = infer(part)
+        except OutputLimitError:
+            for smaller in split(part):
+                run(smaller)
+            return
+        validate_part(part, output)
+        outputs.append(output)
+
+    for part in plan(sources, prompt, schema):
+        run(part)
+    return merge(outputs, sources)

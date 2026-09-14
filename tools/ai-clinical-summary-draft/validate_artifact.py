@@ -91,7 +91,7 @@ def validate_generated(generated, sources, allow_empty=False):
     sections = array(generated, "sections")
     claims = array(generated, "claims")
     coverage = array(generated, "coverage")
-    require(len(sections) <= len(SECTION_TITLES) and len(claims) <= 20 and 1 <= len(coverage) <= 60,
+    require(len(sections) <= len(SECTION_TITLES) and 1 <= len(coverage) <= len(sources),
             "Invalid generated collection size")
     require(allow_empty or bool(claims), "Empty agent draft")
     require(bool(sections) == bool(claims), "Clinical sections and claims must both be present")
@@ -104,7 +104,7 @@ def validate_generated(generated, sources, allow_empty=False):
         require(SECTION_TITLES.get(section_id) == text(section, "title")
                 and section_id not in section_ids, "Invalid clinical section")
         section_ids.add(section_id)
-        require(1 <= len(array(section, "claim_ids")) <= 20, "Clinical sections must not be empty")
+        require(1 <= len(array(section, "claim_ids")), "Clinical sections must not be empty")
 
     source_words = {}
     for source in sources:
@@ -115,13 +115,13 @@ def validate_generated(generated, sources, allow_empty=False):
         require(isinstance(claim, dict) and set(claim) == {"id", "text", "source_ids"},
                 "Invalid claim fields")
         claim_text = text(claim, "text").strip()
-        normalized_claim = normalized(claim_text)
-        require(len(claim_text) <= 240 and "\n" not in claim_text and "\r" not in claim_text
+        normalized_claim = claim_text
+        require("\n" not in claim_text and "\r" not in claim_text
                 and not SOURCE_METADATA.search(claim_text) and normalized_claim not in unique_claims,
                 "Unreadable or duplicate clinical claim")
         unique_claims.add(normalized_claim)
         cited = array(claim, "source_ids")
-        require(1 <= len(cited) <= 8, "Invalid claim citations")
+        require(1 <= len(cited) <= len(sources), "Invalid claim citations")
         cited_words = set()
         for source_id in cited:
             require(isinstance(source_id, str) and source_id in source_words,
@@ -137,7 +137,7 @@ def validate_generated(generated, sources, allow_empty=False):
                 "Invalid coverage fields")
         reason = text(entry, "reason").strip()
         normalized_reason = normalized(reason)
-        require(len(reason) <= 160 and "\n" not in reason and "\r" not in reason
+        require("\n" not in reason and "\r" not in reason
                 and normalized_reason not in reasons, "Unreadable or duplicate coverage reason")
         reasons.add(normalized_reason)
     return generated

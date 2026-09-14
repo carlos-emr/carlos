@@ -1,0 +1,1214 @@
+{
+  "schema_version": 1,
+  "case_id": "full-record",
+  "description": "33 distinct labelled facts across 11 clinical sources; chronology, conflicting orders and patient reports, doses, units, negatives and pending plans.",
+  "bundle": {
+    "patient_context": {
+      "id": "synthetic-full-record",
+      "label": "Synthetic complete-record evaluation",
+      "synthetic": true
+    },
+    "sources": [
+      {
+        "id": "note-history",
+        "patient_id": "synthetic-full-record",
+        "title": "History note",
+        "date": "2026-06-01",
+        "text": "Heart failure was diagnosed in 2023.\nNo previous myocardial infarction is recorded.\nAppendectomy was performed in 2004.\nThe patient stopped smoking in 2018.\nThe patient's mother had type 2 diabetes."
+      },
+      {
+        "id": "rx-history",
+        "patient_id": "synthetic-full-record",
+        "title": "Prescription records, not confirmed current use",
+        "date": "2026-07-01",
+        "text": "The July 1 prescription records furosemide 40 mg every morning.\nThe July 1 prescription records ramipril 5 mg daily.\nThe July 1 prescription records spironolactone 25 mg daily.\nThe July 1 prescription records aspirin 75 mg daily."
+      },
+      {
+        "id": "note-meds",
+        "patient_id": "synthetic-full-record",
+        "title": "Medication reconciliation",
+        "date": "2026-08-02",
+        "text": "On August 2, the patient reported taking ramipril 2.5 mg daily after reducing the dose because of dizziness.\nCardiology stopped aspirin on July 20; this conflicts with the earlier prescription list."
+      },
+      {
+        "id": "allergy-record",
+        "patient_id": "synthetic-full-record",
+        "title": "Allergy record",
+        "date": "2026-08-02",
+        "text": "Penicillin caused a childhood rash; no anaphylaxis was reported with that reaction."
+      },
+      {
+        "id": "lab-renal",
+        "patient_id": "synthetic-full-record",
+        "title": "Laboratory report; final results",
+        "date": "2026-08-03",
+        "text": "Potassium was 4.8 mmol/L on August 3.\nCreatinine was 104 micromol/L on August 3.\nEstimated glomerular filtration rate was 62 mL/min/1.73 m2 on August 3.\nHaemoglobin was 124 g/L on August 3."
+      },
+      {
+        "id": "measurement-vitals",
+        "patient_id": "synthetic-full-record",
+        "title": "Clinic measurements",
+        "date": "2026-08-04",
+        "text": "Blood pressure was 118/70 mmHg on August 4.\nHeart rate was 76 beats per minute on August 4.\nOxygen saturation was 97% on room air on August 4.\nWeight was 72.4 kg on August 4."
+      },
+      {
+        "id": "document-echo",
+        "patient_id": "synthetic-full-record",
+        "title": "Echocardiogram report",
+        "date": "2026-07-15",
+        "text": "Left ventricular ejection fraction was 40% on the July 15 echocardiogram.\nThe July 15 echocardiogram recorded mild mitral regurgitation.\nThe July 15 echocardiogram showed no pericardial effusion."
+      },
+      {
+        "id": "consult-plan",
+        "patient_id": "synthetic-full-record",
+        "title": "Cardiology consultation plan",
+        "date": "2026-08-04",
+        "text": "Cardiology follow-up was planned in six weeks from August 4.\nRepeat renal function blood tests were planned in one week from August 4.\nThe recorded plan asks the patient to measure weight daily."
+      },
+      {
+        "id": "eform-symptoms",
+        "patient_id": "synthetic-full-record",
+        "title": "Stored follow-up form",
+        "date": "2026-08-04",
+        "text": "Dizziness had resolved by August 4.\nNo orthopnoea was reported on August 4.\nLeg oedema had improved by August 4."
+      },
+      {
+        "id": "prevention-record",
+        "patient_id": "synthetic-full-record",
+        "title": "Immunization record",
+        "date": "2026-08-04",
+        "text": "Influenza vaccination was declined on August 4.\nShingles vaccination was offered on August 4, but administration is not recorded."
+      },
+      {
+        "id": "hrm-discharge",
+        "patient_id": "synthetic-full-record",
+        "title": "Hospital discharge report",
+        "date": "2026-07-09",
+        "text": "The patient was admitted on July 5 for fluid overload.\nThe patient was discharged home on July 9."
+      }
+    ],
+    "fact_ledger": [
+      {
+        "id": "fact-1",
+        "category": "History note",
+        "text": "Heart failure was diagnosed in 2023.",
+        "source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-2",
+        "category": "History note",
+        "text": "No previous myocardial infarction is recorded.",
+        "source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-3",
+        "category": "History note",
+        "text": "Appendectomy was performed in 2004.",
+        "source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-4",
+        "category": "History note",
+        "text": "The patient stopped smoking in 2018.",
+        "source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-5",
+        "category": "History note",
+        "text": "The patient's mother had type 2 diabetes.",
+        "source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-6",
+        "category": "Prescription records, not confirmed current use",
+        "text": "The July 1 prescription records furosemide 40 mg every morning.",
+        "source_ids": [
+          "rx-history"
+        ]
+      },
+      {
+        "id": "fact-7",
+        "category": "Prescription records, not confirmed current use",
+        "text": "The July 1 prescription records ramipril 5 mg daily.",
+        "source_ids": [
+          "rx-history"
+        ]
+      },
+      {
+        "id": "fact-8",
+        "category": "Prescription records, not confirmed current use",
+        "text": "The July 1 prescription records spironolactone 25 mg daily.",
+        "source_ids": [
+          "rx-history"
+        ]
+      },
+      {
+        "id": "fact-9",
+        "category": "Prescription records, not confirmed current use",
+        "text": "The July 1 prescription records aspirin 75 mg daily.",
+        "source_ids": [
+          "rx-history"
+        ]
+      },
+      {
+        "id": "fact-10",
+        "category": "Medication reconciliation",
+        "text": "On August 2, the patient reported taking ramipril 2.5 mg daily after reducing the dose because of dizziness.",
+        "source_ids": [
+          "note-meds"
+        ]
+      },
+      {
+        "id": "fact-11",
+        "category": "Medication reconciliation",
+        "text": "Cardiology stopped aspirin on July 20; this conflicts with the earlier prescription list.",
+        "source_ids": [
+          "note-meds"
+        ]
+      },
+      {
+        "id": "fact-12",
+        "category": "Allergy record",
+        "text": "Penicillin caused a childhood rash; no anaphylaxis was reported with that reaction.",
+        "source_ids": [
+          "allergy-record"
+        ]
+      },
+      {
+        "id": "fact-13",
+        "category": "Laboratory report; final results",
+        "text": "Potassium was 4.8 mmol/L on August 3.",
+        "source_ids": [
+          "lab-renal"
+        ]
+      },
+      {
+        "id": "fact-14",
+        "category": "Laboratory report; final results",
+        "text": "Creatinine was 104 micromol/L on August 3.",
+        "source_ids": [
+          "lab-renal"
+        ]
+      },
+      {
+        "id": "fact-15",
+        "category": "Laboratory report; final results",
+        "text": "Estimated glomerular filtration rate was 62 mL/min/1.73 m2 on August 3.",
+        "source_ids": [
+          "lab-renal"
+        ]
+      },
+      {
+        "id": "fact-16",
+        "category": "Laboratory report; final results",
+        "text": "Haemoglobin was 124 g/L on August 3.",
+        "source_ids": [
+          "lab-renal"
+        ]
+      },
+      {
+        "id": "fact-17",
+        "category": "Clinic measurements",
+        "text": "Blood pressure was 118/70 mmHg on August 4.",
+        "source_ids": [
+          "measurement-vitals"
+        ]
+      },
+      {
+        "id": "fact-18",
+        "category": "Clinic measurements",
+        "text": "Heart rate was 76 beats per minute on August 4.",
+        "source_ids": [
+          "measurement-vitals"
+        ]
+      },
+      {
+        "id": "fact-19",
+        "category": "Clinic measurements",
+        "text": "Oxygen saturation was 97% on room air on August 4.",
+        "source_ids": [
+          "measurement-vitals"
+        ]
+      },
+      {
+        "id": "fact-20",
+        "category": "Clinic measurements",
+        "text": "Weight was 72.4 kg on August 4.",
+        "source_ids": [
+          "measurement-vitals"
+        ]
+      },
+      {
+        "id": "fact-21",
+        "category": "Echocardiogram report",
+        "text": "Left ventricular ejection fraction was 40% on the July 15 echocardiogram.",
+        "source_ids": [
+          "document-echo"
+        ]
+      },
+      {
+        "id": "fact-22",
+        "category": "Echocardiogram report",
+        "text": "The July 15 echocardiogram recorded mild mitral regurgitation.",
+        "source_ids": [
+          "document-echo"
+        ]
+      },
+      {
+        "id": "fact-23",
+        "category": "Echocardiogram report",
+        "text": "The July 15 echocardiogram showed no pericardial effusion.",
+        "source_ids": [
+          "document-echo"
+        ]
+      },
+      {
+        "id": "fact-24",
+        "category": "Cardiology consultation plan",
+        "text": "Cardiology follow-up was planned in six weeks from August 4.",
+        "source_ids": [
+          "consult-plan"
+        ]
+      },
+      {
+        "id": "fact-25",
+        "category": "Cardiology consultation plan",
+        "text": "Repeat renal function blood tests were planned in one week from August 4.",
+        "source_ids": [
+          "consult-plan"
+        ]
+      },
+      {
+        "id": "fact-26",
+        "category": "Cardiology consultation plan",
+        "text": "The recorded plan asks the patient to measure weight daily.",
+        "source_ids": [
+          "consult-plan"
+        ]
+      },
+      {
+        "id": "fact-27",
+        "category": "Stored follow-up form",
+        "text": "Dizziness had resolved by August 4.",
+        "source_ids": [
+          "eform-symptoms"
+        ]
+      },
+      {
+        "id": "fact-28",
+        "category": "Stored follow-up form",
+        "text": "No orthopnoea was reported on August 4.",
+        "source_ids": [
+          "eform-symptoms"
+        ]
+      },
+      {
+        "id": "fact-29",
+        "category": "Stored follow-up form",
+        "text": "Leg oedema had improved by August 4.",
+        "source_ids": [
+          "eform-symptoms"
+        ]
+      },
+      {
+        "id": "fact-30",
+        "category": "Immunization record",
+        "text": "Influenza vaccination was declined on August 4.",
+        "source_ids": [
+          "prevention-record"
+        ]
+      },
+      {
+        "id": "fact-31",
+        "category": "Immunization record",
+        "text": "Shingles vaccination was offered on August 4, but administration is not recorded.",
+        "source_ids": [
+          "prevention-record"
+        ]
+      },
+      {
+        "id": "fact-32",
+        "category": "Hospital discharge report",
+        "text": "The patient was admitted on July 5 for fluid overload.",
+        "source_ids": [
+          "hrm-discharge"
+        ]
+      },
+      {
+        "id": "fact-33",
+        "category": "Hospital discharge report",
+        "text": "The patient was discharged home on July 9.",
+        "source_ids": [
+          "hrm-discharge"
+        ]
+      }
+    ]
+  },
+  "expectations": {
+    "facts": [
+      {
+        "id": "fact-1",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "heart failure"
+          ],
+          [
+            "2023"
+          ]
+        ],
+        "required_source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-2",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "myocardial infarction|heart attack"
+          ],
+          [
+            "no|not|without"
+          ]
+        ],
+        "required_source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-3",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "appendectomy|appendicectomy"
+          ],
+          [
+            "2004"
+          ]
+        ],
+        "required_source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-4",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "smok|tobacco"
+          ],
+          [
+            "2018"
+          ]
+        ],
+        "required_source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-5",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "mother|maternal"
+          ],
+          [
+            "diabet"
+          ]
+        ],
+        "required_source_ids": [
+          "note-history"
+        ]
+      },
+      {
+        "id": "fact-6",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "furosemide"
+          ],
+          [
+            "40"
+          ],
+          [
+            "morning|daily|once"
+          ]
+        ],
+        "required_source_ids": [
+          "rx-history"
+        ]
+      },
+      {
+        "id": "fact-7",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "ramipril"
+          ],
+          [
+            "(?<![.0-9])5\\s*mg"
+          ],
+          [
+            "prescri|July 1|07-01|record|order"
+          ]
+        ],
+        "required_source_ids": [
+          "rx-history"
+        ]
+      },
+      {
+        "id": "fact-8",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "spironolactone"
+          ],
+          [
+            "25"
+          ],
+          [
+            "daily|once"
+          ]
+        ],
+        "required_source_ids": [
+          "rx-history"
+        ]
+      },
+      {
+        "id": "fact-9",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "aspirin"
+          ],
+          [
+            "75"
+          ],
+          [
+            "prescri|July 1|07-01|record|order"
+          ]
+        ],
+        "required_source_ids": [
+          "rx-history"
+        ]
+      },
+      {
+        "id": "fact-10",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "ramipril"
+          ],
+          [
+            "2[.]5"
+          ],
+          [
+            "dizz"
+          ],
+          [
+            "reduc|lower"
+          ]
+        ],
+        "required_source_ids": [
+          "note-meds"
+        ]
+      },
+      {
+        "id": "fact-11",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "aspirin"
+          ],
+          [
+            "stop|discontinu"
+          ],
+          [
+            "July 20|07-20|20 July"
+          ]
+        ],
+        "required_source_ids": [
+          "note-meds"
+        ]
+      },
+      {
+        "id": "fact-12",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "penicillin"
+          ],
+          [
+            "rash"
+          ],
+          [
+            "no anaphylaxis|without anaphylaxis|anaphylaxis.{0,20}not"
+          ]
+        ],
+        "required_source_ids": [
+          "allergy-record"
+        ]
+      },
+      {
+        "id": "fact-13",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "potassium"
+          ],
+          [
+            "4[.]8"
+          ],
+          [
+            "mmol"
+          ]
+        ],
+        "required_source_ids": [
+          "lab-renal"
+        ]
+      },
+      {
+        "id": "fact-14",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "creatinine"
+          ],
+          [
+            "104"
+          ],
+          [
+            "micromol|umol|\u00b5mol|\u03bcmol"
+          ]
+        ],
+        "required_source_ids": [
+          "lab-renal"
+        ]
+      },
+      {
+        "id": "fact-15",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "estimated glomerular|eGFR"
+          ],
+          [
+            "62"
+          ]
+        ],
+        "required_source_ids": [
+          "lab-renal"
+        ]
+      },
+      {
+        "id": "fact-16",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "ha?emoglobin|hemoglobin"
+          ],
+          [
+            "124"
+          ],
+          [
+            "g/L"
+          ]
+        ],
+        "required_source_ids": [
+          "lab-renal"
+        ]
+      },
+      {
+        "id": "fact-17",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "blood pressure|BP"
+          ],
+          [
+            "118/70"
+          ]
+        ],
+        "required_source_ids": [
+          "measurement-vitals"
+        ]
+      },
+      {
+        "id": "fact-18",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "heart rate|pulse"
+          ],
+          [
+            "76"
+          ]
+        ],
+        "required_source_ids": [
+          "measurement-vitals"
+        ]
+      },
+      {
+        "id": "fact-19",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "oxygen|saturation|SpO2"
+          ],
+          [
+            "97"
+          ],
+          [
+            "room air"
+          ]
+        ],
+        "required_source_ids": [
+          "measurement-vitals"
+        ]
+      },
+      {
+        "id": "fact-20",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "weight|weigh"
+          ],
+          [
+            "72[.]4"
+          ],
+          [
+            "kg"
+          ]
+        ],
+        "required_source_ids": [
+          "measurement-vitals"
+        ]
+      },
+      {
+        "id": "fact-21",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "ejection fraction|LVEF"
+          ],
+          [
+            "40"
+          ]
+        ],
+        "required_source_ids": [
+          "document-echo"
+        ]
+      },
+      {
+        "id": "fact-22",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "mitral regurgitation"
+          ],
+          [
+            "mild"
+          ]
+        ],
+        "required_source_ids": [
+          "document-echo"
+        ]
+      },
+      {
+        "id": "fact-23",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "pericardial effusion"
+          ],
+          [
+            "no|without|absent"
+          ]
+        ],
+        "required_source_ids": [
+          "document-echo"
+        ]
+      },
+      {
+        "id": "fact-24",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "cardiolog"
+          ],
+          [
+            "follow|review"
+          ],
+          [
+            "six weeks|6 weeks"
+          ]
+        ],
+        "required_source_ids": [
+          "consult-plan"
+        ]
+      },
+      {
+        "id": "fact-25",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "renal|kidney"
+          ],
+          [
+            "one week|1 week"
+          ],
+          [
+            "repeat|test|check"
+          ]
+        ],
+        "required_source_ids": [
+          "consult-plan"
+        ]
+      },
+      {
+        "id": "fact-26",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "weight|weigh"
+          ],
+          [
+            "daily|every day"
+          ]
+        ],
+        "required_source_ids": [
+          "consult-plan"
+        ]
+      },
+      {
+        "id": "fact-27",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "dizz"
+          ],
+          [
+            "resolv|no longer"
+          ]
+        ],
+        "required_source_ids": [
+          "eform-symptoms"
+        ]
+      },
+      {
+        "id": "fact-28",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "orthopnoea|orthopnea"
+          ],
+          [
+            "no|denie|without"
+          ]
+        ],
+        "required_source_ids": [
+          "eform-symptoms"
+        ]
+      },
+      {
+        "id": "fact-29",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "leg|peripheral"
+          ],
+          [
+            "oedema|edema|swell"
+          ],
+          [
+            "improv|reduc"
+          ]
+        ],
+        "required_source_ids": [
+          "eform-symptoms"
+        ]
+      },
+      {
+        "id": "fact-30",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "influenza|flu vaccin"
+          ],
+          [
+            "declin|refus"
+          ]
+        ],
+        "required_source_ids": [
+          "prevention-record"
+        ]
+      },
+      {
+        "id": "fact-31",
+        "critical": true,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "shingles|zoster"
+          ],
+          [
+            "offer"
+          ],
+          [
+            "not|no|unknown"
+          ]
+        ],
+        "required_source_ids": [
+          "prevention-record"
+        ]
+      },
+      {
+        "id": "fact-32",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "admi"
+          ],
+          [
+            "July 5|07-05|5 July"
+          ],
+          [
+            "fluid overload"
+          ]
+        ],
+        "required_source_ids": [
+          "hrm-discharge"
+        ]
+      },
+      {
+        "id": "fact-33",
+        "critical": false,
+        "required": true,
+        "section_ids": [
+          "clinical_overview",
+          "active_problems",
+          "medications_allergies",
+          "results_observations",
+          "plan_follow_up"
+        ],
+        "pattern_groups": [
+          [
+            "discharg"
+          ],
+          [
+            "home"
+          ],
+          [
+            "July 9|07-09|9 July"
+          ]
+        ],
+        "required_source_ids": [
+          "hrm-discharge"
+        ]
+      }
+    ],
+    "excluded_source_ids": [],
+    "coverage": {
+      "note-history": [
+        "cited"
+      ],
+      "rx-history": [
+        "cited"
+      ],
+      "note-meds": [
+        "cited"
+      ],
+      "allergy-record": [
+        "cited"
+      ],
+      "lab-renal": [
+        "cited"
+      ],
+      "measurement-vitals": [
+        "cited"
+      ],
+      "document-echo": [
+        "cited"
+      ],
+      "consult-plan": [
+        "cited"
+      ],
+      "eform-symptoms": [
+        "cited"
+      ],
+      "prevention-record": [
+        "cited"
+      ],
+      "hrm-discharge": [
+        "cited"
+      ]
+    },
+    "forbidden_patterns": []
+  }
+}

@@ -262,16 +262,6 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     }
 
     @Test
-    void rejectsOversizedContextBeforeGeneration() {
-        ObjectNode input = MAPPER.valueToTree(chart.getView());
-        ((ObjectNode) input.get("sources").get(0)).put("text", "x".repeat(60000));
-        ClinicalSummaryArtifact oversized = new ClinicalSummaryArtifact(input);
-        scope.when(() -> SyntheticSummaryScope.isEligible(oversized)).thenReturn(true);
-        assertThatThrownBy(() -> generator().generate(oversized)).hasMessageContaining("context limit");
-        assertThat(generations.get()).isZero();
-    }
-
-    @Test
     void allowsOnlyLocalModelTagsAndValidPorts() {
         assertThatThrownBy(() -> new OllamaClinicalSummaryAgent(11434, "qwen3.5:cloud", 1000))
                 .isInstanceOf(IllegalArgumentException.class);

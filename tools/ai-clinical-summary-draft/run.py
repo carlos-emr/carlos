@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import uuid
+import pipeline
 from urllib.error import URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
@@ -69,7 +70,7 @@ def build_artifact(bundle, generated, model, artifact_id, timestamp, allow_empty
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", choices=LOCAL_MODELS, default="qwen3.5:4b")
+    parser.add_argument("--model", choices=LOCAL_MODELS, default="qwen3.5:2b")
     parser.add_argument("--port", type=int, default=11434)
     parser.add_argument("--input", type=Path, default=ROOT / "sample-input.json")
     parser.add_argument("--dry-run", action="store_true")
@@ -93,25 +94,53 @@ def main(argv=None):
         payload = {"model": args.model, "system": prompt,
                    "prompt": json.dumps({"sources": bundle["sources"]}),
                    "format": schema, "stream": False, "think": False, "keep_alive": "5m",
-                   "options": {"temperature": 0, "num_ctx": 65536, "num_predict": 4096}}
+                   "options": {"temperature": 0, "num_ctx": 16384, "num_predict": 4096}}
         output = ROOT / "runs" / run_id
         require(output.resolve().is_relative_to(ROOT), "Runs directory must stay inside tool directory")
         if args.dry_run:
             print(json.dumps({"dry_run": True, "model": args.model,
                               "endpoint": f"http://127.0.0.1:{args.port}/api/generate",
-                              "artifact": str(output / "artifact.json")}, indent=2))
+                              "artifact": str(output / "artifact.json"),
+                              "passes": len(pipeline.plan(bundle["sources"], prompt, schema))}, indent=2))
             return 0
         info = request_json(args.port, "show", {"model": args.model})
         require(isinstance(info, dict) and not info.get("remote_model") and not info.get("remote_host"),
                 "Cloud-backed models are not permitted")
         output.mkdir(parents=True, exist_ok=False)
-        (output / "request.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-        response = request_json(args.port, "generate", payload)
-        (output / "response.json").write_text(json.dumps(response, indent=2) + "\n", encoding="utf-8")
-        require(isinstance(response, dict) and response.get("done") is True
-                and response.get("done_reason") == "stop" and response.get("model") == args.model
-                and isinstance(response.get("response"), str), "Generation did not complete")
-        generated = loads_json(response["response"])
+        attempts = []
+
+        def infer(sources):
+            if attempts:
+                info = request_json(args.port, "show", {"model": args.model})
+                require(isinstance(info, dict) and not info.get("remote_model") and not info.get("remote_host"),
+                        "Cloud-backed models are not permitted")
+            request = copy.deepcopy(payload)
+            request["prompt"] = json.dumps({"sources": sources}, ensure_ascii=False)
+            attempt = len(attempts) + 1
+            directory = output if attempt == 1 else output / f"pass-{attempt}"
+            directory.mkdir(exist_ok=True)
+            (directory / "request.json").write_text(json.dumps(request, indent=2) + "\n", encoding="utf-8")
+            response = request_json(args.port, "generate", request)
+            (directory / "response.json").write_text(json.dumps(response, indent=2) + "\n", encoding="utf-8")
+            require(isinstance(response, dict), "Unreadable model response")
+            attempts.append({"attempt": attempt, "source_ids": [source["id"] for source in sources],
+                             **{key: response.get(key) for key in ("done_reason", "total_duration", "load_duration",
+                                                                  "prompt_eval_count", "prompt_eval_duration", "eval_count", "eval_duration")}})
+            (output / "timings.json").write_text(json.dumps(attempts, indent=2) + "\n", encoding="utf-8")
+            print(f"Completed model pass {attempt}: {response.get('done_reason', 'incomplete')}", flush=True)
+            require(isinstance(response, dict) and response.get("done") is True
+                    and response.get("model") == args.model and isinstance(response.get("response"), str),
+                    "Generation did not complete")
+            if response.get("done_reason") == "length":
+                raise pipeline.OutputLimitError()
+            require(response.get("done_reason") == "stop", "Generation did not complete")
+            return loads_json(response["response"])
+
+        def validate_part(sources, generated):
+            part = dict(bundle, sources=sources, fact_ledger=[])
+            build_artifact(part, generated, args.model, run_id, timestamp, allow_empty=True)
+
+        generated = pipeline.generate(bundle["sources"], prompt, schema, infer, validate_part)
         artifact = build_artifact(bundle, generated, args.model, run_id, timestamp)
         (output / "artifact.json").write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
         print(f"Research artifact: {output / 'artifact.json'}")

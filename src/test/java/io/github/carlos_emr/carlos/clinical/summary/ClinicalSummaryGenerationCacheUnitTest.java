@@ -121,7 +121,7 @@ class ClinicalSummaryGenerationCacheUnitTest {
         assertThatThrownBy(() -> generate(chart)).hasMessageContaining("failed validation");
         output = valid;
         replaceDuringGeneration = true;
-        generate(chart);
+        assertThatThrownBy(() -> generate(chart)).hasMessageContaining("unavailable");
         replaceDuringGeneration = false;
         revision = "model-revision-1";
         generate(chart);

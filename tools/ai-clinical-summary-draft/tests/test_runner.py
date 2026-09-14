@@ -55,7 +55,7 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stderr)
 
     def test_generated_artifact_preserves_source_and_ledger(self):
-        result = run.build_artifact(self.bundle, self.generated, "qwen3.5:4b",
+        result = run.build_artifact(self.bundle, self.generated, "qwen3.5:2b",
                                     "run-1", "2026-09-08T00:00:00Z")
         for key in self.bundle:
             self.assertEqual(self.bundle[key], result[key])
@@ -65,7 +65,7 @@ class RunnerTest(unittest.TestCase):
         for field in ("sources", "validation", "patient_context", "fact_ledger"):
             generated = dict(self.generated, **{field: []})
             with self.subTest(field=field), self.assertRaises(ValueError):
-                run.build_artifact(self.bundle, generated, "qwen3.5:4b", "run-1", "2026-09-08T00:00:00Z")
+                run.build_artifact(self.bundle, generated, "qwen3.5:2b", "run-1", "2026-09-08T00:00:00Z")
 
     def test_generated_quality_failures_are_rejected(self):
         duplicate = copy.deepcopy(self.generated)
@@ -93,7 +93,7 @@ class RunnerTest(unittest.TestCase):
 
         for generated in invalid:
             with self.subTest(generated=generated), self.assertRaises(ValueError):
-                run.build_artifact(self.bundle, generated, "qwen3.5:4b",
+                run.build_artifact(self.bundle, generated, "qwen3.5:2b",
                                    "run-1", "2026-09-08T00:00:00Z")
 
     def test_common_clinical_abbreviations_support_fluent_claims(self):
@@ -138,7 +138,7 @@ class RunnerTest(unittest.TestCase):
                 generated = copy.deepcopy(self.generated)
                 if not valid:
                     generated["claims"][0]["source_ids"] = ["invented"]
-                response = {"done": True, "done_reason": "stop", "model": "qwen3.5:4b",
+                response = {"done": True, "done_reason": "stop", "model": "qwen3.5:2b",
                             "response": json.dumps(generated)}
                 with patch.object(run, "ROOT", root), patch.object(run, "request_json", side_effect=[{}, response]):
                     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
@@ -157,7 +157,7 @@ class RunnerTest(unittest.TestCase):
             root = Path(directory)
             for name in ("sample-input.json", "prompt.txt", "output-schema.json"):
                 (root / name).write_bytes((ROOT / name).read_bytes())
-            response = {"done": True, "done_reason": "stop", "model": "qwen3.5:4b",
+            response = {"done": True, "done_reason": "stop", "model": "qwen3.5:2b",
                         "response": json.dumps(self.generated)}
             with patch.object(run, "ROOT", root), \
                     patch.object(run, "request_json", side_effect=[{}, response]) as request:
@@ -165,7 +165,7 @@ class RunnerTest(unittest.TestCase):
                     self.assertEqual(0, run.main([]))
             payload = request.call_args_list[1].args[2]
             self.assertEqual({"sources"}, set(json.loads(payload["prompt"])))
-            self.assertEqual(65536, payload["options"]["num_ctx"])
+            self.assertEqual(16384, payload["options"]["num_ctx"])
             self.assertEqual(4096, payload["options"]["num_predict"])
             self.assertEqual("5m", payload["keep_alive"])
 

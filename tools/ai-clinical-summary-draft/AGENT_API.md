@@ -39,7 +39,11 @@ inside your gateway, never in CARLOS browser requests or the protocol payload.
 Remote gateways, authentication negotiation, streaming and asynchronous jobs are
 not implemented in v1. The configured read timeout is 1-1800 seconds (default
 600), not an overall workflow deadline. CARLOS permits one generation at a time
-across all adapters, with a 60,000-byte request and 4 MiB response limit.
+across all adapters. The host partitions the full source snapshot into requests of at most
+10,000 serialized bytes; transport requests are capped at 60,000 bytes and responses/final generated JSON at 4 MiB.
+Each request may contain only a portion of the chart or a consecutive, overlapping
+portion of one long source. Use only the supplied text and IDs. The host validates
+every response, assembles all claims, and retains the original full sources for review.
 
 **The HTTP gateway is trusted operator code.** Loopback does not guarantee its
 downstream inference stays local. Review its providers, tools, retention and
@@ -106,14 +110,17 @@ section. Sections use one of the five fixed ID/title pairs in the supplied schem
 Clinical overview, Active problems, Medications and allergies, Results and
 observations, or Plan and follow-up. Omit empty sections. Coverage must account
 for every supplied source exactly once and match actual claim citations. Return
-1-20 short single-paragraph claims, 1-5 sections and 1-60 coverage entries.
-Coverage reasons are source-specific and at most 160 characters. See
+as many atomic single-paragraph claims as the supplied clinical content requires.
+There is no claim-count, character, citation-count or source-count cap. Return zero
+claims and sections only when the supplied portion contains no clinical facts.
+There are at most five sections; coverage must account for every supplied source.
+Coverage reasons must be source-specific. See
 [CONTRACT.md](CONTRACT.md) for all rendering invariants.
 
 Do not return sources, model names, timestamps, patient context, fact ledger or
 validation findings. CARLOS rejects extra fields, duplicate JSON keys, wrong
 request IDs/versions, non-completed statuses, invalid references, oversized output
-malformed responses, duplicate normalized claim prose or coverage reasons,
+malformed responses, identical claim prose or normalized duplicate coverage reasons,
 fixture metadata presented as clinical claims, and claims without basic lexical
 overlap with their cited evidence. The lexical check recognizes a small fixed set
 of common clinical abbreviations and their expanded forms. Agent exception
