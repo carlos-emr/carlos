@@ -500,3 +500,56 @@ test('login works through the authentication stages in whatever order they arriv
   assert.match(body, /const STAGES = \d+;/);
   assert.match(body, /login is still on \$\{pathOnly\(page\.url\(\)\)\} after working through/);
 });
+
+/*
+ * WHAT LEAVES THE HARNESS WHEN A CHECK FAILS.
+ *
+ * buildFailureDetails is the one place recorded browser noise crosses out of the
+ * run and into a failure message. CARLOS puts demographic_no in the query string
+ * of nearly every clinical URL, and CLAUDE.md names it a PHI-correlating
+ * operational identifier: it joins straight back to a patient row. Stripping it
+ * from the structured `url` field was only half the job -- a pageerror's stack
+ * and a console message quote the address they were working on, in prose, in
+ * `text` and `message`. Those went out untouched.
+ */
+test('recorded urls are reduced to their path, losing the identifiers in the query', () => {
+  const details = harness.buildFailureDetails({
+    badResponses: [{ status: 500, url: 'https://host/carlos/casemgmt/forward.jsp?demographicNo=12345&providerNo=999' }],
+    consoleIssues: [], pageErrors: [], requestFailures: [], dialogs: [],
+  });
+  // The ORIGIN stays on purpose -- which host answered is diagnostic and is not
+  // PHI. It is the query that carries demographicNo and providerNo.
+  assert.equal(details.badResponses[0].url, 'https://host/carlos/casemgmt/forward.jsp');
+  assert.equal(details.badResponses[0].status, 500, 'the status is the finding and must survive');
+});
+
+test('the message text is stripped too, not just the url field', () => {
+  const details = harness.buildFailureDetails({
+    badResponses: [],
+    consoleIssues: [{ type: 'error', text: 'Failed to load /carlos/demographic/demographiccontrol.jsp?demographicNo=12345' }],
+    pageErrors: [{ message: 'TypeError at https://host/carlos/oscarMDS/Search.do?demographicNo=778 line 4' }],
+    requestFailures: [{ errorText: 'net::ERR_ABORTED loading /carlos/lab/lab.jsp?segmentID=44&demographicNo=901' }],
+    dialogs: [{ reason: 'confirm on /carlos/appointment/edit.jsp?appointment_no=55' }],
+  });
+  for (const value of [
+    details.consoleIssues[0].text,
+    details.pageErrors[0].message,
+    details.requestFailures[0].errorText,
+    details.dialogs[0].reason,
+  ]) {
+    assert.ok(!/demographicNo|appointment_no|segmentID|providerNo/i.test(value),
+      `an identifier survived into a failure message: ${value}`);
+    assert.ok(!value.includes('?'), `a query string survived into a failure message: ${value}`);
+  }
+  // The message itself is the finding; stripping must not gut it.
+  assert.ok(details.pageErrors[0].message.startsWith('TypeError'));
+  assert.ok(details.consoleIssues[0].text.startsWith('Failed to load'));
+});
+
+test('entries that are not objects pass through rather than throwing', () => {
+  const details = harness.buildFailureDetails({
+    badResponses: ['a bare string', null],
+    consoleIssues: [], pageErrors: [], requestFailures: [], dialogs: [],
+  });
+  assert.deepEqual(details.badResponses, ['a bare string', null]);
+});

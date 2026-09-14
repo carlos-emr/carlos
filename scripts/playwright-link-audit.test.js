@@ -826,3 +826,46 @@ test('a title-strategy surface that matches nothing resolves to null, not to the
   };
   assert.equal(await resolveControl(page, { entry: { title: /nothing matches this/i, popup: true } }), null);
 });
+
+test('the per-surface limit bounds attempts, not successes', () => {
+  // `opened` counts only items that opened cleanly, so with SURFACE_LIMIT=1 a
+  // first item that failed or was skipped left the loop running through the
+  // whole catalogue -- the opposite of what a budget is for, and it turns a
+  // quick diagnostic run into the full sweep it was meant to avoid.
+  const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-link-audit'), 'utf8');
+  const audit = source.slice(source.indexOf('async function auditCatalogue'));
+  const body = audit.slice(0, audit.indexOf('\n}\n'));
+  assert.match(body, /let attempted = 0;/);
+  assert.match(body, /if \(limit && attempted >= limit\)/);
+  assert.ok(!/opened\.length >= limit/.test(body),
+    'a failed or skipped item still consumes the budget');
+  // And the counter increments before the item is processed, or a throw would
+  // let the same item be retried against the budget forever.
+  assert.ok(body.indexOf('attempted += 1;') < body.indexOf('target = await openItem'));
+});
+
+test('the browser-side CSRF audit knows about the shared helper too', () => {
+  // The static audit was widened to carlos-ajax.js; this one was not, so the
+  // six known violations would still have opened clean in every surface audit
+  // that touches them. GET and HEAD stay excluded for the same reason: the
+  // helper injects no token for them.
+  const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-link-audit'), 'utf8');
+  const finding = source.slice(source.indexOf('async function csrfBootstrapFinding'));
+  const body = finding.slice(0, finding.indexOf('\n}\n'));
+  assert.match(body, /CarlosAjax/);
+  assert.match(body, /\['GET', 'HEAD'\]/);
+
+  // The predicate itself, run the way the page would run it.
+  const mutates = (inline) => {
+    const calls = [...inline.matchAll(/\bCarlosAjax\s*\.\s*(?:request|updater|post)\s*\(/g)];
+    return calls.some((call) => {
+      const options = inline.slice(call.index, call.index + 400);
+      const method = options.match(/\bmethod\s*:\s*['"]([A-Za-z]+)['"]/);
+      return !method || !['GET', 'HEAD'].includes(method[1].toUpperCase());
+    });
+  };
+  assert.equal(mutates('CarlosAjax.request(url, { parameters: p });'), true, 'no method means POST');
+  assert.equal(mutates("CarlosAjax.updater('dd', url, { method: 'GET' });"), false);
+  assert.equal(mutates("CarlosAjax.updater('dd', url, { method: 'POST', parameters: p });"), true);
+  assert.equal(mutates('somethingElse.request(url);'), false);
+});

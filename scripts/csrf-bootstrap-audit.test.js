@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const {
   auditSource, auditWebapp, hasActionlessForm,
-  hasRealPostForm, isSelfContained, jspFiles,
+  hasRealPostForm, isSelfContained, jspFiles, sendsMutatingViaSharedHelper,
 } = require('./lib/csrf-bootstrap-audit');
 
 const BASELINE = JSON.parse(fs.readFileSync(path.join(__dirname, 'lib', 'csrf-bootstrap-baseline.json'), 'utf8'));
@@ -229,4 +229,61 @@ test('one form with an action does not excuse a second without one', () => {
   const both = '<form action="/carlos/save" method="post"></form>\n<form id="csrfForm"></form>';
   assert.equal(hasActionlessForm(both), true);
   assert.equal(hasRealPostForm(both), true);
+});
+
+
+/*
+ * THE SHARED HELPER, AND THE METHOD IT SENDS WITH.
+ *
+ * share/javascript/carlos-ajax.js reads input[name="CSRF-TOKEN"] on the caller's
+ * behalf, so a page that never mentions the token is still governed by the rule
+ * when it calls CarlosAjax. That widening is what surfaced finding 10. But the
+ * helper only attaches a token to a mutating request: GET and HEAD go without
+ * one, and CSRFGuard does not check them. Treating a GET-only caller as
+ * applicable would pad the floor with pages the rule does not govern -- and a
+ * floor padded with pages that can never violate is exactly the kind of number
+ * that makes a guard look healthier than it is.
+ */
+test('a page that only GETs through the shared helper is not governed by the rule', () => {
+  const page = '<html><body><script>CarlosAjax.request("/carlos/lookup", { method: "GET" });</script></body></html>';
+  assert.equal(sendsMutatingViaSharedHelper(page), false);
+  assert.equal(auditSource('get-only.jsp', page), null,
+    'a GET through the helper carries no token, so the bootstrapping rule has nothing to say about it');
+});
+
+test('the shared helper defaults to POST, so a call with no method is governed', () => {
+  const page = '<html><body><script>CarlosAjax.request("/carlos/save", { data: payload });</script></body></html>';
+  assert.equal(sendsMutatingViaSharedHelper(page), true);
+  const verdict = auditSource('default-method.jsp', page);
+  assert.ok(verdict, 'CarlosAjax.request() defaults to POST; an absent method is the common CARLOS case');
+  assert.equal(verdict.satisfied, false);
+});
+
+test('one mutating call is enough, even on a page whose other calls are reads', () => {
+  const page = [
+    '<html><body><script>',
+    '  CarlosAjax.request("/carlos/lookup", { method: "GET" });',
+    '  CarlosAjax.request("/carlos/save", { method: "POST" });',
+    '</script></body></html>',
+  ].join('\n');
+  assert.equal(sendsMutatingViaSharedHelper(page), true,
+    'the read does not excuse the write; the page still needs a populated token');
+});
+
+test('HEAD is a read too', () => {
+  const page = '<html><body><script>CarlosAjax.request("/carlos/ping", { method: "HEAD" });</script></body></html>';
+  assert.equal(sendsMutatingViaSharedHelper(page), false);
+});
+
+test('the six pinned violations all arrive through the shared helper, not their own source', () => {
+  // Every baseline entry is a page the ORIGINAL applicability test -- token read
+  // and AJAX send both in the page's own source -- never looked at. That is the
+  // whole of why the audit reported the webapp clean. If one of them ever starts
+  // reading the token for itself this stops being true, and the "how this was
+  // missed" note in the findings log would need rewriting with it.
+  for (const file of BASELINE.known) {
+    const source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+    assert.equal(sendsMutatingViaSharedHelper(source), true,
+      `${file} is pinned as a violation, so it must still reach the rule through CarlosAjax`);
+  }
 });

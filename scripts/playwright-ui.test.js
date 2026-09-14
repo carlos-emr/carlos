@@ -483,3 +483,30 @@ test('a popup is wired before the awaiting code resumes, not after', async () =>
   assert.ok(body.indexOf('wireStrictPage') < body.indexOf('await target.click'),
     'the wiring must be set up before the click, or the popup can outrun it');
 });
+
+test('a popup that fails its own checks is closed, not leaked', async () => {
+  // assertNotErrorPage() and the load-state wait both throw, and the caller
+  // never receives the page when they do -- so auditCatalogue's finally, which
+  // closes popups, has nothing to close. A 120-item admin sweep with several
+  // broken popups leaked one Playwright page each and kept going, which
+  // exhausts the browser for a reason unrelated to anything under test.
+  const { clickOpensPopup } = require('./lib/playwright-ui');
+  let closed = false;
+  const popup = {
+    on() {},
+    url: () => 'https://carlos.test/carlos/admin/broken',
+    async waitForLoadState() { throw new Error('navigation failed'); },
+    async close() { closed = true; },
+    locator: () => ({ innerText: async () => '' }),
+  };
+  const context = { async waitForEvent() { return popup; } };
+  const page = {
+    context: () => context,
+    locator: () => ({ scrollIntoViewIfNeeded: async () => {}, click: async () => {} }),
+  };
+  await assert.rejects(
+    () => clickOpensPopup(page, page.locator('a'), { context, label: 'broken', timeout: 500 }),
+    /navigation failed/,
+  );
+  assert.equal(closed, true, 'the popup must be closed before the error is rethrown');
+});

@@ -751,17 +751,45 @@ function pathOnly(rawUrl) {
  * checks' own predicates match on query parameters, and stripping at capture
  * would break them. Sanitising at the boundary where the data LEAVES for disk
  * keeps both properties.
+ *
+ * WHAT THIS DOES NOT CLOSE, stated rather than implied. consoleIssues,
+ * pageErrors and dialogs carry text the PAGE wrote. A url inside that text is
+ * cut like any other, but a dialog reading "Delete appointment for <name>?" or
+ * a console.log printing a record is free text, and there is no sanitiser for
+ * it that leaves the message useful -- the message is the finding. The
+ * mitigation is the target, not the filter: the suite refuses a non-loopback
+ * BASE_URL and MYSQL_HOST without an explicit opt-in, and the devcontainer
+ * dataset is synthetic (FAKE- names). Pointing these checks at real patient
+ * data would be the defect; this boundary cannot make that safe.
  */
 function buildFailureDetails(recorder) {
-  const withoutQuery = (entries) => entries.map((entry) => (
-    entry && typeof entry.url === 'string' ? { ...entry, url: pathOnly(entry.url) } : entry
-  ));
+  const clean = (entries) => entries.map((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return entry;
+    }
+    const copy = { ...entry };
+    if (typeof copy.url === 'string') {
+      copy.url = pathOnly(copy.url);
+    }
+    // THE MESSAGE TEXT TOO, not only the structured url field. A pageerror
+    // carries a stack trace and a console message carries whatever the page
+    // printed -- both routinely quote the address they were working on, which
+    // in CARLOS carries demographic_no. Cutting url-shaped tokens out of the
+    // text closes that without destroying the message, which IS the finding
+    // ("contextPath is not defined" is the whole point of recording it).
+    for (const field of ['text', 'message', 'errorText', 'reason']) {
+      if (typeof copy[field] === 'string') {
+        copy[field] = withoutQueryStrings(copy[field]);
+      }
+    }
+    return copy;
+  });
   return {
-    badResponses: withoutQuery(recorder.badResponses),
-    consoleIssues: recorder.consoleIssues,
-    pageErrors: recorder.pageErrors,
-    requestFailures: withoutQuery(recorder.requestFailures),
-    dialogs: recorder.dialogs,
+    badResponses: clean(recorder.badResponses),
+    consoleIssues: clean(recorder.consoleIssues),
+    pageErrors: clean(recorder.pageErrors),
+    requestFailures: clean(recorder.requestFailures),
+    dialogs: clean(recorder.dialogs),
   };
 }
 

@@ -102,8 +102,11 @@ user is shown nothing.
 and the AJAX send to appear in the page's *own* source. All six POST through
 `CarlosAjax` instead, so the audit classified them not applicable and reported the
 webapp clean — 25 applicable pages, **zero** violations. Widening applicability to
-the shared helper took it to 37 applicable pages and these six. A guard that ran,
-found nothing, and passed.
+the shared helper, and teaching the detector that `CarlosAjax` sends GET without a
+token, takes it to 33 applicable pages: the 25 that send for themselves, all still
+satisfied, plus 8 that delegate to the helper, 6 of which violate. Every one of the
+six is a page the original rule never looked at. A guard that ran, found nothing,
+and passed.
 
 ---
 

@@ -242,3 +242,102 @@ test('an envSet entry still overrides the inherited environment', () => {
   assert.equal(childEnv.SURFACE, 'inbox');
   assert.equal(childEnv.BASE_URL, 'http://gated.test/carlos');
 });
+
+/*
+ * THE PER-SURFACE BUDGET.
+ *
+ * SURFACE_LIMIT bounds how many items each surface audits. Number('-1') is -1,
+ * which is truthy, and auditCatalogue breaks out before clicking the first item
+ * once a set limit is reached -- so SURFACE_LIMIT=-1 audited nothing at all and
+ * the run still reported success, because the only other gate is a minimum on
+ * items.length that is satisfied before any clicking happens. A malformed budget
+ * must not be able to manufacture a green run.
+ */
+const { surfaceLimitFrom } = require('./surface-audit-playwright-checks');
+
+test('an absent or empty budget means unlimited', () => {
+  assert.equal(surfaceLimitFrom(undefined), 0);
+  assert.equal(surfaceLimitFrom(''), 0);
+  assert.equal(surfaceLimitFrom('0'), 0);
+  // Whitespace is Number(' ') === 0, so it lands on unlimited rather than being
+  // refused. That is the safe direction: unlimited audits everything, and the
+  // failure this validation exists to stop is a budget that audits NOTHING while
+  // the run still reports success.
+  assert.equal(surfaceLimitFrom(' '), 0);
+});
+
+test('a real budget is read as written', () => {
+  assert.equal(surfaceLimitFrom('3'), 3);
+});
+
+test('a budget that would silently audit nothing is refused', () => {
+  for (const raw of ['-1', '-10', 'abc', '1.5', 'Infinity', 'NaN', '2e3x']) {
+    assert.throws(() => surfaceLimitFrom(raw), /SURFACE_LIMIT must be a non-negative whole number/,
+      `SURFACE_LIMIT=${raw} must fail loudly rather than quietly auditing nothing`);
+  }
+});
+
+/*
+ * THE TWO eCHART NAVBARS, COUNTED SEPARATELY.
+ *
+ * #leftNavBar and #rightNavBar are filled by separate AJAX module groups, so
+ * losing one is exactly the half-broken chart a clinician reports: no Allergies
+ * or Prescriptions where they expect them. The wait summed the two counts, so a
+ * populated left navbar masked a completely empty right one and the check went
+ * on to pass. A sum could only ever catch both failing at once -- the one case
+ * that is obvious anyway.
+ */
+const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+
+/**
+ * A chartPage double that runs the real browser-side predicate against a fake
+ * DOM, so the test exercises the predicate itself rather than a paraphrase of it.
+ *
+ * @param counts links present in each container, e.g. { leftNavBar: 4, rightNavBar: 0 }
+ */
+function fakeChartPage(counts) {
+  const document = {
+    getElementById: (id) => (id in counts
+      ? { querySelectorAll: () => ({ length: counts[id] }) }
+      : null),
+  };
+  return {
+    locator: () => ({ first: () => ({ waitFor: async () => {} }) }),
+    waitForFunction: async (fn) => {
+      const previous = global.document;
+      global.document = document;
+      try {
+        const value = fn();
+        // Playwright polls until the predicate returns something truthy and
+        // rejects on timeout; null here is that timeout.
+        if (!value) throw new Error('timeout');
+        return { jsonValue: async () => value };
+      } finally {
+        if (previous === undefined) delete global.document; else global.document = previous;
+      }
+    },
+  };
+}
+
+test('both navbars populated is the only passing state', async () => {
+  await waitForNavbars(fakeChartPage({ leftNavBar: 6, rightNavBar: 4 }), 100);
+});
+
+test('a populated left navbar does not excuse an empty right one', async () => {
+  await assert.rejects(
+    () => waitForNavbars(fakeChartPage({ leftNavBar: 6, rightNavBar: 0 }), 100),
+    /do not BOTH contain links/,
+    'summing the two counts is what let this pass: 6 + 0 is still more than zero');
+});
+
+test('a populated right navbar does not excuse an empty left one', async () => {
+  await assert.rejects(
+    () => waitForNavbars(fakeChartPage({ leftNavBar: 0, rightNavBar: 4 }), 100),
+    /do not BOTH contain links/);
+});
+
+test('a navbar container missing from the page altogether is a failure, not a skip', async () => {
+  await assert.rejects(
+    () => waitForNavbars(fakeChartPage({ leftNavBar: 6 }), 100),
+    /do not BOTH contain links/);
+});

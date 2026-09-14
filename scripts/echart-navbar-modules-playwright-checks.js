@@ -104,16 +104,25 @@ async function waitForNavbars(chartPage, timeout) {
   await chartPage.locator('#leftNavBar, #rightNavBar').first()
     .waitFor({ state: 'attached', timeout })
     .catch(() => {});
-  const filled = await chartPage.waitForFunction(() => {
-    const left = document.getElementById('leftNavBar');
-    const right = document.getElementById('rightNavBar');
-    const count = (element) => (element ? element.querySelectorAll('a').length : 0);
-    return count(left) + count(right) > 0;
-  }, undefined, { timeout }).then(() => true).catch(() => false);
+  // EACH CONTAINER ON ITS OWN. The two were summed, so a fully empty
+  // #rightNavBar was masked by a populated #leftNavBar and vice versa -- and
+  // they are filled from separate module groups, so losing one is exactly the
+  // half-broken chart a clinician would report. The sum could only ever catch
+  // both failing at once.
+  const counts = await chartPage.waitForFunction(() => {
+    const count = (id) => {
+      const element = document.getElementById(id);
+      return element ? element.querySelectorAll('a').length : 0;
+    };
+    const left = count('leftNavBar');
+    const right = count('rightNavBar');
+    return left > 0 && right > 0 ? { left, right } : null;
+  }, undefined, { timeout }).then((handle) => handle.jsonValue()).catch(() => null);
 
-  assert(filled,
-    'The eChart navigation modules never loaded: #leftNavBar and #rightNavBar contain no links after the AJAX load. '
-    + 'A clinician would see a chart with no Allergies, Prescriptions, Labs or Preventions sections at all.');
+  assert(counts,
+    'The eChart navigation modules never loaded: #leftNavBar and #rightNavBar do not BOTH contain links after the '
+    + 'AJAX load. They are filled from separate module groups, so one empty container is a chart missing half its '
+    + 'sections -- no Allergies, Prescriptions, Labs or Preventions where the clinician expects them.');
 }
 
 async function main() {

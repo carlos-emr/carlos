@@ -70,8 +70,49 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 /** Statuses that mean "you are not getting this without a session". */
 const REFUSED_STATUSES = [401, 403];
 
-/** Where LoginFilter sends an unauthenticated request. */
-const LOGIN_REDIRECT = /\/(logoutPage|login|index)(\?|$)/;
+/**
+ * The login surface's own routes, as struts-login.xml declares them.
+ *
+ * Every one is a CONTEXT-ROOT action -- a single segment after the context path
+ * -- which is what makes scoping the exemption to that shape safe.
+ */
+const LOGIN_SURFACE_ACTIONS = [
+  'index', 'login', 'logout', 'logoutPage', 'loginfailed', 'loginResource',
+];
+
+/**
+ * The application's context path, taken from the BASE url, without a trailing
+ * slash.
+ *
+ * Only ever a base url ("http://host/carlos"), never a route: a route's own
+ * path cannot say where the context ends -- /carlos/admin/UnLock has no marker
+ * separating "/carlos" from the rest -- so the caller supplies it.
+ */
+const contextPathOf = (baseUrl) => new URL(baseUrl).pathname.replace(/\/+$/, '');
+
+/**
+ * True when this absolute url IS the login surface, rather than merely ending
+ * in one of its names.
+ *
+ * `/(logoutPage|login|index)(\?|$)/` over the whole url matched ANY path whose
+ * last segment was one of those -- including /carlos/administration/index,
+ * which struts-admin.xml maps to ViewAdministrationIndex2Action, the privileged
+ * Administration gate. That route was therefore dropped from the anonymous
+ * probe entirely: a clinician-reachable protected page excluded from the very
+ * check that exists to prove it refuses a session-less request.
+ */
+function isLoginSurface(url, contextPath) {
+  let pathname;
+  try {
+    ({ pathname } = new URL(url));
+  } catch {
+    return false;
+  }
+  if (pathname === contextPath || pathname === `${contextPath}/`) {
+    return true;
+  }
+  return LOGIN_SURFACE_ACTIONS.some((action) => pathname === `${contextPath}/${action}`);
+}
 
 /**
  * Routes never probed anonymously, with a reason.
@@ -81,9 +122,17 @@ const LOGIN_REDIRECT = /\/(logoutPage|login|index)(\?|$)/;
  * an anonymous request.
  */
 const NOT_PROTECTED = [
-  { match: /\/(logoutPage|logout|login|index|loginfailed|loginResource)(\?|$)/, reason: 'the login surface itself' },
   { match: /\/(images|css|js|library|share\/javascript|fonts)\//, reason: 'a static asset, served before any filter' },
 ];
+
+/** The exemption test: the static list above, plus the scoped login surface. */
+function notProtectedReason(url, contextPath) {
+  if (isLoginSurface(url, contextPath)) {
+    return 'the login surface itself';
+  }
+  const rule = NOT_PROTECTED.find((candidate) => candidate.match.test(url));
+  return rule ? rule.reason : null;
+}
 
 /**
  * Absolute, same-application URL for a catalogued item, or null.
@@ -165,8 +214,7 @@ async function catalogueReachable(context, schedulePage, recorder, options) {
     if (!url || seen.has(url)) {
       continue;
     }
-    const exempt = NOT_PROTECTED.find((rule) => rule.match.test(url));
-    if (exempt) {
+    if (notProtectedReason(url, contextPathOf(baseUrl))) {
       continue;
     }
     seen.add(url);
@@ -207,13 +255,29 @@ function printableRoute(url) {
 }
 
 /** Classify one anonymous response. */
-function verdictFor(route, status, location, body, surname) {
+function verdictFor(route, status, location, body, surname, contextPath = '/carlos') {
   const where = printableRoute(route.url);
   if (REFUSED_STATUSES.includes(status)) {
     return null;
   }
   if (status >= 300 && status < 400) {
-    if (LOGIN_REDIRECT.test(String(location || ''))) {
+    // RESOLVED AGAINST THE ROUTE, and required to land inside this application.
+    // The raw header was matched against a name pattern, so a redirect to
+    // https://evil.example/login counted as a valid refusal: a route that sent
+    // anonymous users off-site entirely would have passed without ever reaching
+    // CARLOS's login surface.
+    let landing = null;
+    try {
+      landing = new URL(String(location || ''), new URL(route.url, 'http://carlos.invalid'));
+    } catch {
+      landing = null;
+    }
+    // Same origin AND the login surface of THIS application. A relative
+    // Location resolves against the route, so a route url without an origin
+    // (as the unit tests use) resolves to the same synthetic base and stays
+    // same-origin, which is the behaviour those cases describe.
+    const sameOrigin = landing && landing.origin === new URL(route.url, 'http://carlos.invalid').origin;
+    if (sameOrigin && isLoginSurface(landing.href, contextPath)) {
       return null;
     }
     return `${where} redirected a session-less request to ${printableRoute(location) || '(no Location header)'} `
@@ -297,7 +361,8 @@ async function main() {
         }
         const status = response.status();
         const body = status === 200 ? await response.text().catch(() => '') : '';
-        const verdict = verdictFor(route, status, response.headers().location, body, surname);
+        const verdict = verdictFor(route, status, response.headers().location, body, surname,
+          contextPathOf(config.baseUrl));
         if (verdict === 'NOT_FOUND') {
           notFound.push(printableRoute(route.url));
         } else if (verdict) {
@@ -349,5 +414,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  LOGIN_REDIRECT, NOT_PROTECTED, REFUSED_STATUSES, main, printableRoute, resolveRoute, verdictFor,
+  LOGIN_SURFACE_ACTIONS, NOT_PROTECTED, REFUSED_STATUSES, contextPathOf, isLoginSurface, main,
+  notProtectedReason, printableRoute, resolveRoute, verdictFor,
 };

@@ -5,7 +5,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  LOGIN_REDIRECT, NOT_PROTECTED, REFUSED_STATUSES, printableRoute, resolveRoute, verdictFor,
+  NOT_PROTECTED, REFUSED_STATUSES, contextPathOf, isLoginSurface, notProtectedReason,
+  printableRoute, resolveRoute, verdictFor,
 } = require('./anonymous-access-refused-playwright-checks');
 
 const SOURCE = fs.readFileSync(
@@ -26,15 +27,65 @@ const BASE = 'http://127.0.0.1:8080/carlos';
 
 test('the expected refusal is the one LoginFilter actually performs', () => {
   assert.match(LOGIN_FILTER, /sendRedirect\(contextPath \+ "\/logoutPage"\)/);
-  assert.match('/carlos/logoutPage', LOGIN_REDIRECT);
+  assert.ok(isLoginSurface('http://host/carlos/logoutPage', '/carlos'));
   assert.deepEqual(REFUSED_STATUSES, [401, 403]);
 });
 
 test('a redirect to the login surface is a refusal', () => {
-  assert.equal(verdictFor({ url: '/x' }, 302, '/carlos/logoutPage', '', 'FAKE-SMITH'), null);
-  assert.equal(verdictFor({ url: '/x' }, 302, 'http://host/carlos/login', '', 'FAKE-SMITH'), null);
-  assert.equal(verdictFor({ url: '/x' }, 401, '', '', 'FAKE-SMITH'), null);
-  assert.equal(verdictFor({ url: '/x' }, 403, '', '', 'FAKE-SMITH'), null);
+  const at = (url) => ({ url });
+  assert.equal(verdictFor(at('/x'), 302, '/carlos/logoutPage', '', 'FAKE-SMITH', '/carlos'), null);
+  assert.equal(verdictFor(at('/x'), 302, 'http://carlos.invalid/carlos/login', '', 'FAKE-SMITH', '/carlos'), null);
+  assert.equal(verdictFor(at('/x'), 401, '', '', 'FAKE-SMITH', '/carlos'), null);
+  assert.equal(verdictFor(at('/x'), 403, '', '', 'FAKE-SMITH', '/carlos'), null);
+});
+
+test('a redirect OFF SITE is not a refusal, however it is spelled', () => {
+  // The raw Location header was matched against a name pattern, so
+  // https://evil.example/login read as "redirected to the login surface". A
+  // route that sent anonymous users off-site entirely would have passed the
+  // check without ever reaching CARLOS's login surface.
+  const route = { url: 'http://127.0.0.1:8080/carlos/admin/UnLock' };
+  for (const location of [
+    'https://evil.example/login',
+    'https://evil.example/carlos/logoutPage',
+    '//evil.example/login',
+  ]) {
+    assert.match(verdictFor(route, 302, location, '', 'FAKE-SMITH', '/carlos'),
+      /rather than to the login surface/, `${location} must not count as a refusal`);
+  }
+  // And the same-origin login surface still does.
+  assert.equal(verdictFor(route, 302, '/carlos/login', '', 'FAKE-SMITH', '/carlos'), null);
+});
+
+test('a protected route whose last segment is "index" is still probed', () => {
+  // The exemption was /\/(logoutPage|logout|login|index|...)(\?|$)/ over the
+  // whole url, which matched ANY path ending in /index -- including
+  // /carlos/administration/index, which struts-admin.xml maps to
+  // ViewAdministrationIndex2Action, the privileged Administration gate. That
+  // route was dropped from the probe entirely: a clinician-reachable protected
+  // page excluded from the check that exists to prove it refuses a session-less
+  // request. Every login-surface action is a single context-root segment
+  // (struts-login.xml), so the exemption is scoped to exactly that shape.
+  assert.equal(notProtectedReason(`${BASE}/index`, '/carlos'), 'the login surface itself');
+  assert.equal(notProtectedReason(`${BASE}/`, '/carlos'), 'the login surface itself');
+  assert.equal(notProtectedReason(`${BASE}/administration/index`, '/carlos'), null,
+    'the Administration gate is a protected route, not the login surface');
+  assert.equal(notProtectedReason(`${BASE}/oscarMDS/index`, '/carlos'), null);
+  // And a redirect INTO the admin gate is not a refusal either.
+  assert.match(
+    verdictFor({ url: `${BASE}/admin/UnLock` }, 302, `${BASE}/administration/index`, '', 'FAKE-SMITH', '/carlos'),
+    /rather than to the login surface/,
+  );
+});
+
+test('the context path comes from the base url, never from a route', () => {
+  // A route's own path carries no marker for where the context ends --
+  // /carlos/admin/UnLock has nothing separating "/carlos" from the rest -- so
+  // deriving it there produced "/carlos/admin" and turned every legitimate
+  // login redirect into a finding.
+  assert.equal(contextPathOf('http://127.0.0.1:8080/carlos'), '/carlos');
+  assert.equal(contextPathOf('http://127.0.0.1:8080/carlos/'), '/carlos');
+  assert.equal(contextPathOf('http://127.0.0.1:8080/'), '');
 });
 
 test('a redirect to somewhere ELSE is not a refusal', () => {
@@ -112,7 +163,7 @@ test('the login surface and static assets are excluded, each with a reason', () 
     assert.equal(typeof rule.reason, 'string');
     assert.ok(rule.reason.length > 10, 'each exclusion must say why');
   }
-  const excluded = (url) => NOT_PROTECTED.some((rule) => rule.match.test(url));
+  const excluded = (url) => notProtectedReason(url, '/carlos') !== null;
   assert.ok(excluded(`${BASE}/logoutPage`));
   assert.ok(excluded(`${BASE}/login`));
   assert.ok(excluded(`${BASE}/images/favicon.ico`));

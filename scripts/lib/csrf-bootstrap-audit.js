@@ -88,9 +88,32 @@ const SENDS_OVER_AJAX = [
  * HTML error page, and nothing surfaces -- which is the whole of CLAUDE.md's
  * bootstrapping rule.
  */
-const SENDS_VIA_SHARED_HELPER = [
-  /\bCarlosAjax\s*\.\s*(?:request|updater|post)\s*\(/,
-];
+const SHARED_HELPER_CALL = /\bCarlosAjax\s*\.\s*(?:request|updater|post)\s*\(/g;
+
+/**
+ * True when a page makes at least one MUTATING call through the shared helper.
+ *
+ * carlos-ajax.js:187 defaults method to POST, and :197 adds the token to the
+ * body only when the method is neither GET nor HEAD, so a page whose every call
+ * passes `method: 'GET'` needs no token at all -- treating those as applicable would
+ * report a bootstrap violation against a page with nothing to bootstrap, and
+ * would pad the applicability floor with pages the rule does not govern.
+ *
+ * The method is read out of the options object that follows the call. Absent
+ * means POST, which is the helper's own default and the common case in CARLOS.
+ */
+function sendsMutatingViaSharedHelper(source) {
+  for (const call of source.matchAll(SHARED_HELPER_CALL)) {
+    // The options object begins after the url argument; a window wide enough to
+    // hold it, bounded so a call near the end of a file cannot read the next one.
+    const optionsWindow = source.slice(call.index, call.index + 400);
+    const method = optionsWindow.match(/\bmethod\s*:\s*['"]([A-Za-z]+)['"]/);
+    if (!method || !['GET', 'HEAD'].includes(method[1].toUpperCase())) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
  * (a) A form CSRFGuard will actually inject into: real action, non-GET.
@@ -200,10 +223,10 @@ const matchesAny = (patterns, text) => patterns.some((pattern) => pattern.test(t
  */
 function auditSource(relativePath, source) {
   // Two ways in: the page reads the token AND sends it itself, or it delegates
-  // both to the shared helper (see SENDS_VIA_SHARED_HELPER). Either way the page
+  // both to the shared helper (see sendsMutatingViaSharedHelper). Either way the page
   // must carry a populated CSRF-TOKEN input or the POST is rejected.
   const sendsItself = matchesAny(READS_TOKEN_INPUT, source) && matchesAny(SENDS_OVER_AJAX, source);
-  if (!sendsItself && !matchesAny(SENDS_VIA_SHARED_HELPER, source)) {
+  if (!sendsItself && !sendsMutatingViaSharedHelper(source)) {
     return null;
   }
   if (BOOTSTRAP_INCLUDE.test(source)) {
@@ -369,7 +392,7 @@ module.exports = {
   INLINE_BOOTSTRAP,
   READS_TOKEN_INPUT,
   SENDS_OVER_AJAX,
-  SENDS_VIA_SHARED_HELPER,
+  sendsMutatingViaSharedHelper,
   WEBAPP,
   auditSource,
   auditWebapp,

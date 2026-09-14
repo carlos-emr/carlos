@@ -79,9 +79,20 @@ async function clickOpensPopup(page, locator, options = {}) {
   await target.scrollIntoViewIfNeeded().catch(() => {});
   await target.click({ timeout });
   const popup = await popupPromise;
-  await popup.waitForLoadState('domcontentloaded', { timeout });
-  await popup.waitForLoadState('networkidle', { timeout }).catch(() => {});
-  await assertNotErrorPage(popup, label);
+  // THE POPUP IS CLOSED IF THIS THROWS. assertNotErrorPage() and the
+  // domcontentloaded wait both can, and the caller never receives the page when
+  // they do -- so auditCatalogue's `finally`, which closes popups, has nothing
+  // to close. A 120-item admin sweep with several broken popups leaked one
+  // Playwright page each and kept going, which is how a long run exhausts the
+  // browser for a reason unrelated to anything it is testing.
+  try {
+    await popup.waitForLoadState('domcontentloaded', { timeout });
+    await popup.waitForLoadState('networkidle', { timeout }).catch(() => {});
+    await assertNotErrorPage(popup, label);
+  } catch (error) {
+    await popup.close().catch(() => {});
+    throw error;
+  }
   return popup;
 }
 

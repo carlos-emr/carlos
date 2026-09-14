@@ -196,11 +196,32 @@ async function auditSurface(context, schedulePage, surface, recorder, options) {
   }
 }
 
+/**
+ * Read SURFACE_LIMIT into a per-surface budget, rejecting anything that is not a
+ * count.
+ *
+ * VALIDATED, because -1 is truthy. auditCatalogue breaks out before clicking the
+ * first item when `limit` is set and already reached, so SURFACE_LIMIT=-1 made
+ * the whole audit a no-op -- while the items.length >= minimum check still
+ * passed and the run reported success. A malformed budget must not be able to
+ * manufacture a green run, so it fails loudly instead of silently auditing
+ * nothing.
+ *
+ * @param raw the raw environment value; absent or empty means unlimited
+ * @returns the budget, 0 meaning unlimited
+ */
+function surfaceLimitFrom(raw) {
+  const limit = Number(raw || '0');
+  assert(Number.isInteger(limit) && limit >= 0,
+    `SURFACE_LIMIT must be a non-negative whole number (0 means unlimited), got ${JSON.stringify(raw)}`);
+  return limit;
+}
+
 async function main() {
   const config = readConfig();
   const selected = process.env.SURFACE || '';
   const province = process.env.SURFACE_PROVINCE || '';
-  const limit = Number(process.env.SURFACE_LIMIT || '0');
+  const limit = surfaceLimitFrom(process.env.SURFACE_LIMIT);
   const timeout = Number(process.env.SURFACE_TIMEOUT_MS || '20000');
   const screenshotDir = process.env.SURFACE_SCREENSHOT_DIR || '';
 
@@ -282,5 +303,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  auditSurface, main, openSurface, resolveControl,
+  auditSurface, main, openSurface, resolveControl, surfaceLimitFrom,
 };
