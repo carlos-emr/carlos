@@ -198,7 +198,8 @@ jobs:
       - run: npm ci
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - name: Build Windows evaluation installer
-        run: npm run tauri build -- --debug --bundles nsis
+        # Invoke the pinned CLI directly: npm/PowerShell can consume the build flags.
+        run: node node_modules/@tauri-apps/cli/tauri.js build --debug --bundles nsis
       - run: git diff --exit-code -- src-tauri/Cargo.lock
       - name: Verify Windows installation
         shell: pwsh
