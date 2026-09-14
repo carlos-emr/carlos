@@ -293,7 +293,9 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should reject add when demographicNo is missing")
     @Tag("create")
     void shouldRejectAdd_whenDemographicNoMissing() {
-        assertThatThrownBy(() -> service.addToDiseaseRegistry(null, new IssueTo1()))
+        IssueTo1 issue = new IssueTo1();
+
+        assertThatThrownBy(() -> service.addToDiseaseRegistry(null, issue))
             .isInstanceOf(BadRequestException.class);
 
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), anyInt());
