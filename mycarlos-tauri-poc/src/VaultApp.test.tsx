@@ -160,6 +160,25 @@ describe("durable vault UI", () => {
     exportConfirmation.mockRestore();
   });
 
+  it.each(["locked", "unlocked"] as const)("prevents external drop navigation while %s without importing or moving records", async (status) => {
+    const bridge = nativeBridge({ status: vi.fn().mockResolvedValue(status) });
+    const { unmount } = render(<VaultApp bridge={bridge} />);
+    const heading = await screen.findByRole("heading", {
+      name: status === "locked" ? "Unlock your vault" : "My records",
+    });
+    const transfer = { types: ["Files"], dropEffect: "copy", getData: vi.fn() };
+    expect(fireEvent.dragOver(heading, { dataTransfer: transfer })).toBe(false);
+    expect(transfer.dropEffect).toBe("none");
+    expect(fireEvent.drop(heading, { dataTransfer: transfer })).toBe(false);
+    expect(await screen.findByText(/To import PDFs, unlock your vault and use Choose files to import/)).toBeVisible();
+    expect(fireEvent.drop(heading, { dataTransfer: { types: ["text/uri-list"] } })).toBe(false);
+    expect(bridge.importFiles).not.toHaveBeenCalled();
+    expect(bridge.assignFoldersBatch).not.toHaveBeenCalled();
+    expect(bridge.updateFolder).not.toHaveBeenCalled();
+    unmount();
+    expect(fireEvent.drop(window, { dataTransfer: transfer })).toBe(true);
+  });
+
   it("cancels an active native import while locking a backgrounded app", async () => {
     const user = userEvent.setup();
     let finishImport!: (value: { imported: string[]; skippedDuplicates: string[] }) => void;

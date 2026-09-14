@@ -27,6 +27,21 @@ successfully by CI is build evidence; physical-device installation testing remai
 To erase evaluation data, use **Security > Erase entire vault** before uninstalling. App removal
 can leave app-data files behind, and vault reset cannot erase readable exports.
 
+## Moving documents with drag and drop
+
+Use **Choose files to import** to bring PDFs into the vault. Dragging files from Windows File
+Explorer into the app is not implemented. Once imported, drag a document or folder onto a folder
+in the main view or sidebar to move it. Drop onto **My records** to move it back to the root.
+Selected documents can be moved together. The **Move selected to** control is also available.
+
+The window sets `dragDropEnabled: false` so HTML drag events reach the interface. Tauri's default
+native file-drop handler intercepts these events on Windows; see the
+[Tauri configuration reference](https://v2.tauri.app/reference/config/#windowconfig).
+The earlier evaluation build from September 14 omitted this setting. Install a newer build to
+receive the fix. Browser event tests cannot validate Windows WebView2 drag routing, so physical
+Windows testing must include document and folder moves in both list and grid views, sidebar/root
+drops, and confirmation that external file drops do not navigate away from the vault.
+
 ## Getting a trusted Windows signature
 
 Use **Azure Artifact Signing (Public Trust)** for direct Windows downloads. Microsoft's

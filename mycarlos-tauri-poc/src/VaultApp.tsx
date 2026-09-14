@@ -95,6 +95,31 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
   const [autoLockMinutes, setAutoLockMinutes] = useState(readAutoLockMinutes);
   const lockingRef = useRef(false);
 
+  useEffect(() => {
+    // HTML drag/drop owns in-vault moves. External files still use the native
+    // picker; prevent the webview from navigating to a dropped file or URL.
+    const preventNavigation = (event: DragEvent) => event.preventDefault();
+    const rejectExternalFiles = (event: DragEvent) => {
+      if (!Array.from(event.dataTransfer?.types ?? []).includes("Files")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+      if (event.type === "drop") {
+        setNotice("To import PDFs, unlock your vault and use Choose files to import. Drag and drop moves documents already in myCarlos.");
+      }
+    };
+    window.addEventListener("dragover", preventNavigation);
+    window.addEventListener("drop", preventNavigation);
+    window.addEventListener("dragover", rejectExternalFiles, true);
+    window.addEventListener("drop", rejectExternalFiles, true);
+    return () => {
+      window.removeEventListener("dragover", preventNavigation);
+      window.removeEventListener("drop", preventNavigation);
+      window.removeEventListener("dragover", rejectExternalFiles, true);
+      window.removeEventListener("drop", rejectExternalFiles, true);
+    };
+  }, []);
+
   const lock = useCallback(async () => {
     if (lockingRef.current) return;
     lockingRef.current = true;

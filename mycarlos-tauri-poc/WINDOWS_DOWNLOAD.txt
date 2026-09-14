@@ -8,6 +8,10 @@ This is an unsigned development build. Use synthetic files only, never real pati
 4. Create a fictional patient profile and choose a unique test passphrase of at least 15 characters.
 5. Choose files to import and select the PDFs in the sample-files folder from this ZIP.
 
+After importing, drag documents or folders onto a folder to move them within myCarlos.
+Drop onto My records to move them to the root. Dragging PDFs from Windows File Explorer into
+the app is not implemented; use Choose files to import instead.
+
 No Node, Rust, or developer tools are needed. The installer installs for your Windows account.
 If Microsoft Edge WebView2 is missing, setup installs it; this requires internet access.
 
