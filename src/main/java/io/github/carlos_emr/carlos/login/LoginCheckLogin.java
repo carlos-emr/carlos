@@ -435,7 +435,7 @@ public final class LoginCheckLogin {
             }
             // Read through the entry this thread just wrote: re-reading the shared list here
             // can race with an expiry sweep that has since removed it.
-            MiscUtils.getLogger().debug(userName + "  status: " + linfo.getStatus() + " times: " + linfo.getTimes() + " time: ");
+            MiscUtils.getLogger().debug("{}  status: {} times: {} time: ", userName, linfo.getStatus(), linfo.getTimes());
         }
     }
 
