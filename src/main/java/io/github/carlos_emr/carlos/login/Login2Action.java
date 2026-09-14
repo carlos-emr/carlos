@@ -404,8 +404,8 @@ public final class Login2Action extends ActionSupport {
 
             userName = cached.getUserName();
 
-            // Username is only letters and numbers
-            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
+            // Username is only letters and numbers; 30 matches security.user_name varchar(30)
+            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,30}", userName)) {
                 userName = "Invalid Username";
             }
 
@@ -510,8 +510,8 @@ public final class Login2Action extends ActionSupport {
             // Standard login attempt.
             userName = this.getUsername();
 
-            // Username is only letters and numbers
-            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
+            // Username is only letters and numbers; 30 matches security.user_name varchar(30)
+            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,30}", userName)) {
                 userName = "Invalid Username";
             }
             password = this.getPassword();
@@ -822,7 +822,7 @@ public final class Login2Action extends ActionSupport {
 
         boolean validCode;
         try {
-            validCode = isValidTotpCode(mfaSecret, this.code);
+            validCode = isValidTotpCode(mfaSecret, this.code, security.getSecurityNo());
         } catch (InvalidKeyException e) {
             logger.error("Unable to validate MFA code: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(security.getProviderNo()),
@@ -913,18 +913,27 @@ public final class Login2Action extends ActionSupport {
     /**
      * Validates an RFC 6238 TOTP code with one time-step of clock skew tolerance.
      *
-     * <p>Authenticator apps and server clocks can differ briefly. Accepting the current, previous,
-     * or next time step preserves the usual +/- one-step tolerance without accepting an unbounded
-     * replay window.</p>
+     * <p>Authenticator apps and server clocks can differ briefly. Accepting the steps within
+     * {@link TotpWindow#STEP_TOLERANCE} of the current one preserves the usual +/- one-step
+     * tolerance without accepting an unbounded replay window.</p>
+     *
+     * <p>An accepted code is recorded in {@link MfaUsedCodeCache} for {@link TotpWindow#ACCEPTANCE},
+     * the same span this method accepts it over. A code that has already authenticated within that
+     * window is rejected (RFC 6238 §5.2), preventing a code observed for one pending-MFA session
+     * from being replayed against another.</p>
      *
      * @param mfaSecret Base32-encoded MFA secret
      * @param submittedCode user-submitted TOTP code; length validation is performed by the TOTP
      *        comparison rather than this helper
-     * @return true when the submitted code matches the current, previous, or next time step
+     * @param securityNo security record id the code is being validated for; used to scope used-code
+     *        tracking so a code accepted for one account does not block others
+     * @return true when the submitted code matches an accepted time step and has not already been
+     *         accepted within the validity window
      * @throws InvalidKeyException when the Base32 secret is null, empty, malformed, or cannot
      *         create a valid TOTP key
      */
-    private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws InvalidKeyException {
+    private boolean isValidTotpCode(String mfaSecret, String submittedCode, Integer securityNo)
+            throws InvalidKeyException {
         TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
         SecretKeySpec key;
         try {
@@ -939,9 +948,22 @@ public final class Login2Action extends ActionSupport {
         java.time.Instant now = java.time.Instant.now();
         java.time.Duration timeStep = totpGenerator.getTimeStep();
 
-        return constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now), submittedCode)
-                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)), submittedCode)
-                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)), submittedCode);
+        // Every tolerated step is compared even after a match so the number of comparisons does not
+        // reveal which step matched. TotpWindow also sizes the replay cache's TTL from this
+        // tolerance, keeping "still accepted" and "still remembered" the same span.
+        boolean matchesTimeStep = false;
+        for (int step = -TotpWindow.STEP_TOLERANCE; step <= TotpWindow.STEP_TOLERANCE; step++) {
+            java.time.Instant candidateInstant = now.plus(timeStep.multipliedBy(step));
+            if (constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, candidateInstant), submittedCode)) {
+                matchesTimeStep = true;
+            }
+        }
+        if (!matchesTimeStep) {
+            return false;
+        }
+        // Reject a code that already authenticated within its validity window so an observed code
+        // cannot be replayed against a separate pending-MFA session (RFC 6238 §5.2).
+        return MfaUsedCodeCache.getInstance().recordIfUnused(securityNo, submittedCode);
     }
 
     private static boolean constantTimeEquals(String expected, String actual) {
@@ -1531,7 +1553,7 @@ public final class Login2Action extends ActionSupport {
      * </ul>
      *
      * @param request HttpServletRequest to access the session
-     * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
+     * @param userName String the username (must match [a-zA-Z0-9]{1,30} pattern)
      * @param password String the plain-text password (will be encoded before caching)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
      * @param nextPage String the relative URL to redirect to after password reset (validated before caching)

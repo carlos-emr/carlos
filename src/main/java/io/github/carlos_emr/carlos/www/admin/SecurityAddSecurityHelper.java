@@ -53,6 +53,12 @@ public class SecurityAddSecurityHelper {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    // Must stay aligned with the Login2Action username pattern and security.user_name
+    // varchar(30): a name outside this charset or length could be created here but would be
+    // rejected at login. The JSP maxlength mirrors the length but is browser-side only, so
+    // this server-side check is the authoritative one.
+    private static final String USER_NAME_PATTERN = "[a-zA-Z0-9]{1,30}";
+
     private SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 	private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
 
@@ -74,14 +80,19 @@ public class SecurityAddSecurityHelper {
 		String digestedPassword = this.securityManager.encodePassword(request.getParameter("password"));
 		String digestedPin = this.securityManager.encodePin(request.getParameter("pin"));
 
+        String userName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
+        if (!userName.matches(USER_NAME_PATTERN)) {
+            return "admin.securityaddsecurity.msgUserNameInvalid";
+        }
+
         boolean isUserRecordAlreadyCreatedForProvider = !securityDao.findByProviderNo(request.getParameter("provider_no")).isEmpty();
         if (isUserRecordAlreadyCreatedForProvider) return "admin.securityaddsecurity.msgLoginAlreadyExistsForProvider";
 
-        boolean isUserAlreadyExists = securityDao.findByUserName(request.getParameter("user_name")).size() > 0;
+        boolean isUserAlreadyExists = !securityDao.findByUserName(userName).isEmpty();
         if (isUserAlreadyExists) return "admin.securityaddsecurity.msgAdditionFailureDuplicate";
 
         Security s = new Security();
-        s.setUserName(request.getParameter("user_name"));
+        s.setUserName(userName);
         s.setPassword(digestedPassword);
         s.setProviderNo(request.getParameter("provider_no"));
         s.setPin(digestedPin);
@@ -110,7 +121,7 @@ public class SecurityAddSecurityHelper {
         securityDao.persist(s);
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(pageContext.getSession());
-        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_SECURITY, request.getParameter("user_name"), request.getRemoteAddr());
+        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_SECURITY, userName, request.getRemoteAddr());
 
         return "admin.securityaddsecurity.msgAdditionSuccess";
     }

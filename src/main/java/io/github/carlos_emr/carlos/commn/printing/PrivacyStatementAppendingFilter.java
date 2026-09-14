@@ -85,6 +85,16 @@ public class PrivacyStatementAppendingFilter implements Filter {
         if (CarlosProperties.getConfidentialityStatement() == null || CarlosProperties.getConfidentialityStatement().trim().isEmpty()) {
             return "";
         }
+        // carlos-print-decoration, alongside yesprint: this paragraph is PLATFORM boilerplate the
+        // filter appends to every printable page, not content the form author wrote. The eForm
+        // render browser measures the page under print-media emulation (where yesprint is
+        // display:block), finds this element outside the authored page divs, and — since the
+        // completeness gate treats UNMARKED off-page content as clinical and withholds the
+        // document — a configured confidentiality statement blocked every eForm download/attach
+        // on a packaged install ("Excluded visible elements: 1"). The marker is the gate's own
+        // opt-in for exactly this kind of boilerplate: the renderer discloses it as decoration
+        // (advisory) instead of withholding, and the class is inert everywhere else — no
+        // stylesheet outside the renderer binds it.
         return "<style type=\"text/css\"><!--\n" +
                 ".yesprint {\n" +
                 "	display: none;        \n" +
@@ -95,7 +105,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 "	}\n" +
                 "}\n" +
                 "--></style>" +
-                "<p class=\"yesprint\"><b>\n" +
+                "<p class=\"yesprint carlos-print-decoration\"><b>\n" +
                 CarlosProperties.getConfidentialityStatement() +
                 "</b><br/>" +
                 "<b>END OF PRINTED DOCUMENT</b>" +
