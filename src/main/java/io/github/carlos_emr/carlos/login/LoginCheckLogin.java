@@ -353,6 +353,12 @@ public final class LoginCheckLogin {
      */
     public synchronized void updateLoginList(String ip, String userName) {
         Properties p = CarlosProperties.getInstance();
+        // Resolve the LAN exemption here rather than relying on a preceding isBlock: the
+        // forced-password-reset submit path in Login2Action records a failure on a fresh
+        // LoginCheckLogin, where bWAN is still at its WAN default. Without this a LAN client
+        // failing that form would be tracked, and could be locked out, despite the exemption.
+        if (ipFound(ip)) bWAN = false;
+
         // Choose blocking strategy based on configuration
         if (!p.getProperty("login_lock", "").trim().equals("true")) {
             updateLoginList(ip);
@@ -378,6 +384,10 @@ public final class LoginCheckLogin {
      */
     public synchronized void updateLoginList(String ip) {
         Properties p = CarlosProperties.getInstance();
+        // Resolve the LAN exemption from the address so this overload is correct even when no
+        // block check has run on this instance yet.
+        if (ipFound(ip)) bWAN = false;
+
         // Only track WAN clients (LAN clients are exempt from brute force protection)
         if (bWAN) {
             // Reachable without a preceding isBlock on the forced-password-reset path, where a
@@ -418,7 +428,9 @@ public final class LoginCheckLogin {
      * <p>Username-based blocking is more effective against distributed attacks where
      * attackers use multiple IPs to target a single account.
      *
-     * <p>LAN clients (bWAN == false) are never tracked or blocked.
+     * <p>LAN clients (bWAN == false) are never tracked or blocked. This method takes no address,
+     * so it cannot resolve that itself: {@link #updateLoginList(String, String)} establishes the
+     * LAN/WAN scope before dispatching here.
      *
      * @param userName String the username that failed authentication
      * @see LoginInfoBean#updateLoginInfoBean for attempt tracking logic

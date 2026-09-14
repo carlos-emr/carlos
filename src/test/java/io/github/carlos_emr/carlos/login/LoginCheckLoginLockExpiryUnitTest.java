@@ -58,6 +58,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LoginCheckLoginLockExpiryUnitTest {
 
     private static final String WAN_IP = "203.0.113.5";
+    /** Matches the login_local_ip prefix configured below, so it is LAN-exempt. */
+    private static final String LAN_IP = "10.255.0.7";
     private static final String USER_NAME = "lockexpiryuser";
     /** A second tracked username, used to prove the sweep is not limited to the checked key. */
     private static final String OTHER_USER_NAME = "lockexpiryotheruser";
@@ -107,6 +109,7 @@ class LoginCheckLoginLockExpiryUnitTest {
         lockList.remove(OTHER_USER_NAME);
         // The IP-keyed fallback mode tracks under the address instead of the username.
         lockList.remove(WAN_IP);
+        lockList.remove(LAN_IP);
     }
 
     /** Drives the production failure path until the username is locked out. */
@@ -253,5 +256,28 @@ class LoginCheckLoginLockExpiryUnitTest {
         loginCheck.updateLoginList(WAN_IP, USER_NAME);
 
         assertThat(LoginList.getLoginListInstance().get(WAN_IP)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should exempt a LAN client from username tracking when no block check ran first")
+    void shouldExemptLanClient_whenNoPrecedingBlockCheck() {
+        // bWAN defaults to WAN on a fresh instance, so the update path has to resolve the LAN
+        // exemption from the address itself rather than relying on a preceding isBlock.
+        LoginCheckLogin loginCheck = new LoginCheckLogin();
+
+        loginCheck.updateLoginList(LAN_IP, USER_NAME);
+
+        assertThat(trackedEntry(USER_NAME)).isNull();
+    }
+
+    @Test
+    @DisplayName("should exempt a LAN client from IP tracking when no block check ran first")
+    void shouldExemptLanClientFromIpTracking_whenNoPrecedingBlockCheck() {
+        CarlosProperties.getInstance().setProperty("login_lock", "false");
+        LoginCheckLogin loginCheck = new LoginCheckLogin();
+
+        loginCheck.updateLoginList(LAN_IP, USER_NAME);
+
+        assertThat(LoginList.getLoginListInstance().get(LAN_IP)).isNull();
     }
 }
