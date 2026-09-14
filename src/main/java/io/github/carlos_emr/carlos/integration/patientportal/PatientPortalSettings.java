@@ -61,8 +61,10 @@ public record PatientPortalSettings(
         String clinicId,
         PortalSecret serviceToken,
         PortalSecret staffAssertionPrivateKey,
+        String staffAssertionKeyId,
         Duration connectTimeout,
         Duration readTimeout,
+        Duration requestTimeout,
         Set<String> certificatePins) {
 
     public static final String BASE_URL_KEY = "patient_portal.base_url";
@@ -70,8 +72,11 @@ public record PatientPortalSettings(
     public static final String SERVICE_TOKEN_KEY = "patient_portal.service_token";
     public static final String STAFF_ASSERTION_KEY =
             "patient_portal.staff_assertion.private_key";
+    public static final String STAFF_ASSERTION_KEY_ID = "patient_portal.staff_assertion.key_id";
     public static final String CONNECT_TIMEOUT_KEY = "patient_portal.timeout.connect.ms";
     public static final String READ_TIMEOUT_KEY = "patient_portal.timeout.read.ms";
+    public static final String REQUEST_TIMEOUT_KEY = "patient_portal.timeout.request.ms";
+    static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(20);
 
     /**
      * Optional public-key pins, comma separated.
@@ -149,8 +154,10 @@ public record PatientPortalSettings(
                     CLINIC_ID_KEY,
                     SERVICE_TOKEN_KEY,
                     STAFF_ASSERTION_KEY,
+                    STAFF_ASSERTION_KEY_ID,
                     CONNECT_TIMEOUT_KEY,
                     READ_TIMEOUT_KEY,
+                    REQUEST_TIMEOUT_KEY,
                     CERTIFICATE_PINS_KEY
                 }) {
             String value = lookup.apply(key);
@@ -176,8 +183,10 @@ public record PatientPortalSettings(
                 PortalSecret.of(requireValue(lookup.apply(SERVICE_TOKEN_KEY), SERVICE_TOKEN_KEY)),
                 PortalSecret.of(
                         requireValue(lookup.apply(STAFF_ASSERTION_KEY), STAFF_ASSERTION_KEY)),
+                lookup.apply(STAFF_ASSERTION_KEY_ID),
                 timeout(lookup, CONNECT_TIMEOUT_KEY, DEFAULT_CONNECT_TIMEOUT_MS),
                 timeout(lookup, READ_TIMEOUT_KEY, DEFAULT_READ_TIMEOUT_MS),
+                timeout(lookup, REQUEST_TIMEOUT_KEY, DEFAULT_REQUEST_TIMEOUT.toMillis()),
                 pins(lookup));
     }
 
@@ -199,8 +208,20 @@ public record PatientPortalSettings(
                     String.format(Locale.ROOT, MISSING_MESSAGE, STAFF_ASSERTION_KEY));
         }
         PortalStaffAssertionSigner.validate(staffAssertionPrivateKey);
+        staffAssertionKeyId = requireValue(staffAssertionKeyId, STAFF_ASSERTION_KEY_ID);
+        if (staffAssertionKeyId.length() > 64
+                || staffAssertionKeyId.chars().anyMatch(character -> !isClinicIdCharacter(character))) {
+            throw new PatientPortalConfigurationException(
+                    STAFF_ASSERTION_KEY_ID + " must contain 1 to 64 ASCII letters, digits, dots, underscores, or hyphens");
+        }
         requirePositive(connectTimeout, CONNECT_TIMEOUT_KEY);
         requirePositive(readTimeout, READ_TIMEOUT_KEY);
+        requirePositive(requestTimeout, REQUEST_TIMEOUT_KEY);
+        // Keep the complete exchange inside the assertion's validity window.
+        if (requestTimeout.compareTo(PortalStaffAssertionSigner.LIFETIME) >= 0) {
+            throw new PatientPortalConfigurationException(
+                    REQUEST_TIMEOUT_KEY + " must be less than 60000 milliseconds");
+        }
         Set<String> configuredPins = certificatePins == null ? Set.of() : certificatePins;
         // Format is checked here rather than only where the socket factory is built, so a typo in
         // carlos.properties fails when the settings are read — with the deployment's other

@@ -31,6 +31,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,10 +39,10 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ContentType;
-import org.apache.hc.core5.http.io.entity.StringEntity;
-import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
 
 /**
  * Outbound channel to the patient portal's {@code /internal/carlos/**} API.
@@ -860,30 +861,27 @@ public class PatientPortalService implements Closeable {
     ClassicHttpRequest buildRequest(
             String method, String path, String jsonBody, PatientPortalStaffContext staff) {
         URI uri = resolve(path);
-        ClassicRequestBuilder builder =
-                ClassicRequestBuilder.create(method)
-                        .setUri(uri)
-                        .setHeader(
-                                AUTHORIZATION_HEADER,
-                                String.format(
-                                        Locale.ROOT,
-                                        BEARER_PREFIX,
-                                        settings.serviceToken().expose()))
-                        // The clinic comes from configuration, never from the browser. Provider
-                        // identity and permissions were derived from the authenticated CARLOS
-                        // session before reaching this service.
-                        .setHeader(
-                                STAFF_ASSERTION_HEADER,
-                                assertionSigner.sign(staff, settings.clinicId()));
+        HttpUriRequestBase request = new HttpUriRequestBase(method, uri);
+        byte[] body = jsonBody == null ? new byte[0]
+                : jsonBody.getBytes(StandardCharsets.UTF_8);
+        request.setHeader(AUTHORIZATION_HEADER,
+                String.format(Locale.ROOT, BEARER_PREFIX, settings.serviceToken().expose()));
+        // Sign the same raw URI and bytes handed to the transport. Neither the patient target
+        // nor the operation/body can be substituted after CARLOS has authorized the request.
+        request.setHeader(STAFF_ASSERTION_HEADER,
+                assertionSigner.sign(staff, settings.clinicId(), settings.staffAssertionKeyId(),
+                        method, uri, body));
         if (jsonBody != null) {
-            builder.setEntity(new StringEntity(jsonBody, ContentType.APPLICATION_JSON));
+            request.setEntity(new ByteArrayEntity(body, ContentType.APPLICATION_JSON));
         }
-        return builder.build();
+        return request;
     }
 
     private URI resolve(String path) {
         try {
-            return new URI(settings.baseUrl() + path);
+            // The request target on the wire is ASCII. Encode a Unicode deployment path once,
+            // before both hashing and transport, while preserving existing percent escapes.
+            return URI.create(new URI(settings.baseUrl() + path).toASCIIString());
         } catch (URISyntaxException ignored) {
             // The interpolated path can contain a demographic number. Do not retain either it or
             // URISyntaxException, whose message repeats the full input URI, in an exception that

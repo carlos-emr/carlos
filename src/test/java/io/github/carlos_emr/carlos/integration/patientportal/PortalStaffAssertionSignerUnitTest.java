@@ -23,6 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -63,7 +65,8 @@ class PortalStaffAssertionSignerUnitTest {
                                 PatientPortalStaffContext.PERMISSION_INVITE_MANAGE,
                                 PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK));
 
-        String assertion = signer.sign(staff, "maplecreek");
+        String assertion = signer.sign(staff, "maplecreek", "primary", "GET",
+                URI.create("https://portal.example/internal/carlos/patients/123/invites"), new byte[0]);
         JsonNode payload = payload(assertion);
 
         assertThat(payload.fieldNames())
@@ -77,7 +80,9 @@ class PortalStaffAssertionSignerUnitTest {
                         "provider_id",
                         "provider_name",
                         "clinic_id",
-                        "permissions");
+                        "permissions",
+                        "kid",
+                        "request_hash");
         assertThat(payload.get("iss").asText()).isEqualTo("carlos");
         assertThat(payload.get("aud").asText())
                 .isEqualTo("carlos-patient-portal-internal-api");
@@ -87,6 +92,8 @@ class PortalStaffAssertionSignerUnitTest {
         assertThat(payload.get("provider_id").asText()).isEqualTo("999998");
         assertThat(payload.get("provider_name").asText()).isEqualTo("Dr Łukasz 李");
         assertThat(payload.get("clinic_id").asText()).isEqualTo("maplecreek");
+        assertThat(payload.get("kid").asText()).isEqualTo("primary");
+        assertThat(payload.get("request_hash").asText()).hasSize(64);
         assertThat(payload.get("permissions").toString())
                 .isEqualTo("[\"portal.account.unlock\",\"portal.invite.manage\"]");
     }
@@ -102,7 +109,8 @@ class PortalStaffAssertionSignerUnitTest {
                                         "Dr Example",
                                         Set.of(
                                                 PatientPortalStaffContext.PERMISSION_INVITE_MANAGE)),
-                                "maplecreek");
+                                "maplecreek", "primary", "GET",
+                                URI.create("https://portal.example/internal/carlos/patients/123/invites"), new byte[0]);
         String[] parts = assertion.split("\\.", -1);
 
         Signature verifier = Signature.getInstance("Ed25519");
@@ -120,6 +128,37 @@ class PortalStaffAssertionSignerUnitTest {
         assertThat(signer().toString())
                 .contains("REDACTED")
                 .doesNotContain(PortalTestKeys.PRIVATE_KEY);
+    }
+
+    @Test
+    void shouldMatchPortalGeneratedAssertions_forExactWireBytes() throws Exception {
+        try (var input = getClass().getResourceAsStream("/patientportal/assertion-contract.json")) {
+            assertThat(input).isNotNull();
+            JsonNode fixture = MAPPER.readTree(input);
+            var staff = new PatientPortalStaffContext("999998", "Dr Łukasz 李",
+                    Set.of(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE,
+                            PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK));
+            for (JsonNode vector : fixture.get("vectors")) {
+                String signed = signer().sign(staff, "maplecreek", "primary",
+                        vector.get("method").asText(), URI.create(vector.get("uri").asText()),
+                        vector.get("body").asText().getBytes(StandardCharsets.UTF_8));
+                assertThat(signed).isEqualTo(vector.get("assertion").asText());
+                assertThat(payload(signed).get("request_hash").asText())
+                        .isEqualTo(vector.get("request_hash").asText());
+            }
+        }
+    }
+
+    @Test
+    void shouldIssueFreshNonce_andIncludeSelectedRotationKey() throws Exception {
+        var signer = PortalStaffAssertionSigner.from(PortalSecret.of(PortalTestKeys.PRIVATE_KEY));
+        var staff = new PatientPortalStaffContext("999998", "Dr Example",
+                Set.of(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE));
+        URI uri = URI.create("https://portal.example/internal/carlos/patients/123/invites");
+        JsonNode first = payload(signer.sign(staff, "maplecreek", "rotation-2026", "GET", uri, new byte[0]));
+        JsonNode second = payload(signer.sign(staff, "maplecreek", "rotation-2026", "GET", uri, new byte[0]));
+        assertThat(first.get("kid").asText()).isEqualTo("rotation-2026");
+        assertThat(first.get("jti").asText()).isNotEqualTo(second.get("jti").asText());
     }
 
     private PortalStaffAssertionSigner signer() throws Exception {

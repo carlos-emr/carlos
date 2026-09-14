@@ -26,15 +26,27 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.InterruptedIOException;
 import java.io.Reader;
+import java.net.SocketTimeoutException;
+import java.net.URISyntaxException;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -53,8 +65,8 @@ import org.apache.logging.log4j.Logger;
 
 /**
  * Pooled HTTP transport with TLS 1.2/1.3, standard certificate validation and optional leaf-key pins.
- * Redirects and automatic retries are disabled. Connect, pool-lease and read waits are bounded;
- * the read timeout is an inactivity timeout, not an overall request deadline.
+ * Redirects and automatic retries are disabled. An overall deadline bounds servlet waiting in
+ * addition to connect and read inactivity timeouts. At most four exchanges run, with no queue.
  * Cookie management is disabled so a response cannot add shared state to later staff requests.
  * Oversized decoded responses abort their connection rather than draining it for reuse.
  * Owners must close the client when it is no longer needed.
@@ -80,11 +92,16 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     static final int MAX_RESPONSE_CHARS = 1024 * 1024;
 
     private static final int READ_BUFFER_CHARS = 8192;
+    static final int MAX_CONCURRENT_REQUESTS = 4;
 
     private final CloseableHttpClient client;
+    private final Duration requestTimeout;
+    private final ThreadPoolExecutor workers;
+    private final Set<HttpUriRequestBase> activeRequests = ConcurrentHashMap.newKeySet();
 
     PatientPortalHttpClientExchange(PatientPortalSettings settings) {
-        this(settings.connectTimeout(), settings.readTimeout(), settings.certificatePins());
+        this(settings.connectTimeout(), settings.readTimeout(), settings.requestTimeout(),
+                settings.certificatePins());
     }
 
     /**
@@ -105,12 +122,20 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
      */
     PatientPortalHttpClientExchange(
             Duration connectTimeout, Duration readTimeout, Set<String> certificatePins) {
+        this(connectTimeout, readTimeout, PatientPortalSettings.DEFAULT_REQUEST_TIMEOUT, certificatePins);
+    }
+
+    PatientPortalHttpClientExchange(Duration connectTimeout, Duration readTimeout,
+            Duration requestTimeout, Set<String> certificatePins) {
+        this.requestTimeout = requestTimeout;
         ConnectionConfig connectionConfig =
                 ConnectionConfig.custom()
                         .setConnectTimeout(Timeout.ofMilliseconds(connectTimeout.toMillis()))
                         .build();
         PoolingHttpClientConnectionManagerBuilder connectionManagerBuilder =
                 PoolingHttpClientConnectionManagerBuilder.create()
+                        .setMaxConnTotal(MAX_CONCURRENT_REQUESTS)
+                        .setMaxConnPerRoute(MAX_CONCURRENT_REQUESTS)
                         .setDefaultConnectionConfig(connectionConfig);
         // Record whether optional pinning is active without logging configuration values.
         if (certificatePins == null || certificatePins.isEmpty()) {
@@ -148,15 +173,66 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                         .disableCookieManagement()
                         .setDefaultRequestConfig(requestConfig)
                         .build();
+        // A stalled DNS lookup or TLS exchange need not respond to interruption. Keep it in
+        // this bounded pool, retaining its slot until it actually exits, rather than retaining
+        // a servlet thread or creating an unbounded queue of replacements after timeouts.
+        this.workers = new ThreadPoolExecutor(0, MAX_CONCURRENT_REQUESTS, 30, TimeUnit.SECONDS,
+                new SynchronousQueue<>(),
+                Thread.ofPlatform().daemon().name("patient-portal-", 0).factory(),
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     @Override
     public PatientPortalHttpResponse send(ClassicHttpRequest request) throws IOException {
-        return client.execute(request, PatientPortalHttpClientExchange::toResponse);
+        HttpUriRequestBase cancellable;
+        try {
+            cancellable = new HttpUriRequestBase(request.getMethod(), request.getUri());
+        } catch (URISyntaxException exception) {
+            throw new IOException("portal request URI is invalid");
+        }
+        cancellable.setHeaders(request.getHeaders());
+        cancellable.setEntity(request.getEntity());
+        Future<PatientPortalHttpResponse> pending;
+        long started = System.nanoTime();
+        try {
+            pending = workers.submit(() -> {
+                activeRequests.add(cancellable);
+                try {
+                    return client.execute(cancellable, PatientPortalHttpClientExchange::toResponse);
+                } finally {
+                    activeRequests.remove(cancellable);
+                }
+            });
+        } catch (RejectedExecutionException exception) {
+            throw new IOException("portal transport is busy or closed");
+        }
+        try {
+            long remaining = TimeUnit.MILLISECONDS.toNanos(requestTimeout.toMillis())
+                    - (System.nanoTime() - started);
+            return pending.get(Math.max(0, remaining), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException exception) {
+            throw new SocketTimeoutException("portal request deadline exceeded");
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("portal request interrupted");
+        } catch (ExecutionException exception) {
+            if (exception.getCause() instanceof IOException ioException) {
+                throw ioException;
+            }
+            throw new IOException("portal transport failed", exception.getCause());
+        } finally {
+            if (!pending.isDone()) {
+                // Cancellation must close the actual connection as well as interrupt the worker.
+                cancellable.cancel();
+                pending.cancel(true);
+            }
+        }
     }
 
     @Override
     public void close() throws IOException {
+        workers.shutdownNow();
+        activeRequests.forEach(HttpUriRequestBase::cancel);
         client.close();
     }
 

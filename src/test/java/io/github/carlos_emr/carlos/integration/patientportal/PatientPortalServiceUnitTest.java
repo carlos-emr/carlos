@@ -64,7 +64,8 @@ class PatientPortalServiceUnitTest {
                                 PatientPortalSettings.SERVICE_TOKEN_KEY,
                                 TOKEN,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY,
-                                PortalTestKeys.PRIVATE_KEY));
+                                PortalTestKeys.PRIVATE_KEY,
+                                PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary"));
         // Request-building tests do not need a real pooled client that every test must remember to
         // close. The exchange is never called here.
         return new PatientPortalService(
@@ -212,6 +213,26 @@ class PatientPortalServiceUnitTest {
 
             assertThat(request.getEntity()).isNotNull();
             assertThat(request.getEntity().getContentType()).contains("application/json");
+        }
+    }
+
+    @Test
+    void shouldBindExactEntityBytes_andEncodedDeploymentPrefix() throws Exception {
+        var settings = new PatientPortalSettings("https://portal.example/porté", "maplecreek",
+                PortalSecret.of(TOKEN), PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary",
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1),
+                java.time.Duration.ofSeconds(20), Set.of());
+        var portal = new PatientPortalService(settings, request -> null);
+        String body = "{\"enabled\":false,\"reason\":\"café 李\"}";
+        ClassicHttpRequest request = portal.buildRequest("POST",
+                "/internal/carlos/patients/123/portal-account/access?b=two%20words&a=%2F&a=1", body, staff());
+        assertThat(request.getRequestUri()).startsWith("/port%C3%A9/");
+        try (var content = request.getEntity().getContent();
+                var fixture = getClass().getResourceAsStream("/patientportal/assertion-contract.json")) {
+            assertThat(content.readAllBytes()).isEqualTo(body.getBytes(StandardCharsets.UTF_8));
+            JsonNode expected = new ObjectMapper().readTree(fixture).get("vectors").get(1);
+            assertThat(assertionPayload(request).get("request_hash").asText())
+                    .isEqualTo(expected.get("request_hash").asText());
         }
     }
 
