@@ -37,6 +37,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 
 public interface FaxJobDao extends AbstractDao<FaxJob> {
+    /**
+     * Locks and refreshes one fax row within the caller's transaction.
+     * @param id local fax identifier
+     * @return current locked row, or null when absent
+     */
+    FaxJob findForUpdate(int id);
 
     public List<FaxJob> getFaxStatusByDateDemographicProviderStatusTeam(String demographic_no, String provider_no,
                                                                         String status, String team, Date beginDate, Date endDate);
@@ -44,5 +50,28 @@ public interface FaxJobDao extends AbstractDao<FaxJob> {
     public List<FaxJob> getReadyToSendFaxes(String number);
 
     public List<FaxJob> getInprogressFaxesByJobId();
+
+    /**
+     * Finds fax rows recorded for a provider-assigned job id (e.g. the SRFax FaxDetailsID).
+     * Used by the inbound importer for duplicate-import prevention: a remote fax whose id was
+     * already imported must not be downloaded and filed a second time.
+     *
+     * @param jobId provider-assigned job id; never null
+     * @return all rows carrying that provider job id, newest state included; empty when none
+     */
+    public List<FaxJob> findByProviderJobId(Long jobId);
+
+    /**
+     * Finds fax rows by their stored file name.
+     *
+     * Used by the inbound importer's pending-file retry to resolve the original
+     * "Downloaded but import failed" row (persisted under the quarantined file's name) once
+     * the retry import succeeds, so the queue view does not keep advertising a retry that
+     * already happened.
+     *
+     * @param fileName exact stored file name; never null
+     * @return all rows carrying that file name; empty when none
+     */
+    public List<FaxJob> findByFileName(String fileName);
 
 }

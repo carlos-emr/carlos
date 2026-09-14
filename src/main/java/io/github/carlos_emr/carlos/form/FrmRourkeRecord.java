@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRourkeRecord extends FrmRecord {
     private static Logger logger = MiscUtils.getLogger();
@@ -85,6 +86,8 @@ public class FrmRourkeRecord extends FrmRecord {
     }
 
     //////////////new/ Done By Jay////
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isFemale(int demo) {
         boolean retval = false;
         ResultSet rs;
@@ -105,6 +108,8 @@ public class FrmRourkeRecord extends FrmRecord {
     }
 ///////////////////////////////////
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Properties getGraph(int demographicNo, int existingID) {
         Properties props = new Properties();
 

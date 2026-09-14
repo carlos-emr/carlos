@@ -86,8 +86,8 @@ class ConsultationWebServiceRegressionTest {
     }
 
     @Test
-    @DisplayName("should skip invalid filename attachment without propagating validation exception")
-    void shouldSkipInvalidFilenameAttachment_withoutPropagatingValidationException() throws Exception {
+    @DisplayName("should return invalid filename attachment with validation error without propagating exception")
+    void shouldReturnInvalidFilenameAttachment_withValidationErrorWithoutPropagatingException() throws Exception {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
         request.setId(456);
         request.setDemographicId(DEMOGRAPHIC_NO);
@@ -100,7 +100,9 @@ class ConsultationWebServiceRegressionTest {
 
         ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
 
-        assertThat(request.getAttachments()).isEmpty();
+        assertThat(request.getAttachments()).hasSize(1);
+        assertThat(request.getAttachments().get(0).getValidationError()).isEqualTo("Invalid attachment filename");
+        assertThat(request.getAttachments().get(0).getDocumentNo()).isZero();
     }
 
     private static ConsultationAttachmentTo1 newDocumentAttachment() {

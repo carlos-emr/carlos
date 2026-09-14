@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.util.Doc2PDF;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for attaching PDF documents to messages.
@@ -136,6 +137,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if the current user lacks {@code _msg} write privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws IOException, ServletException {
         // Enforce _msg privilege on every invocation. The action both generates

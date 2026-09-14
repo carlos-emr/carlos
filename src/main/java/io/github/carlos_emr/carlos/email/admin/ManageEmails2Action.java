@@ -11,6 +11,9 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -24,6 +27,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for managing and administering emails in the OpenO EMR system.
@@ -60,6 +64,8 @@ public class ManageEmails2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String EMAIL_SECURITY_OBJECT = "_email";
+    private static final String EMAIL_RESEND_MISSING_PATIENT_ERROR = "This email cannot be copied because it is not associated with a patient. Please generate a new email instead.";
 
     private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private final EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
@@ -67,6 +73,8 @@ public class ManageEmails2Action extends ActionSupport {
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
 
     /**
      * Main entry point for the ManageEmails2Action, routing requests to appropriate handler methods.
@@ -85,6 +93,12 @@ public class ManageEmails2Action extends ActionSupport {
      * @see #showEmailManager()
      */
     public String execute() {
+        // Authorize before dispatch or patient-data loading; handler-specific checks still apply.
+        if (!securityInfoManager.hasPrivilege(
+                LoggedInInfo.getLoggedInInfoFromSession(request), EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+
         String mtd = request.getParameter("method");
         if ("fetchEmails".equals(mtd)) {
             return fetchEmails();
@@ -137,6 +151,8 @@ public class ManageEmails2Action extends ActionSupport {
      * @see EmailManager#getEmailStatusByDateDemographicSenderStatus
      * @see EmailStatusResult
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String fetchEmails() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String emailStatus = request.getParameter("emailStatus");
@@ -212,9 +228,9 @@ public class ManageEmails2Action extends ActionSupport {
      * is advised to create a new email instead of resending. The method returns null in
      * case of validation errors (invalid log ID).
      *
-     * All email data including encryption settings, password protection, chart display options,
-     * and additional parameters are preserved from the original email for potential modification
-     * before resending.
+     * Encryption settings, the password clue, chart display options, and additional parameters
+     * are preserved for potential modification before resending. The stored PDF password is
+     * never returned to the browser; encrypted copies require a newly entered password.
      *
      * @return String Struts2 result name "compose" to display the email composition page, or null if validation fails
      * @see EmailComposeManager#prepareEmailForResend
@@ -224,6 +240,13 @@ public class ManageEmails2Action extends ActionSupport {
      */
     public String resendEmail() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // This endpoint is also used by the patient-chart email-note viewer, not only by the
+        // administration screen. Require the same email-read privilege enforced by
+        // EmailComposeManager without incorrectly restricting chart users to the admin role.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
             JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
@@ -234,6 +257,11 @@ public class ManageEmails2Action extends ActionSupport {
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        if (emailLog == null || emailLog.getDemographic() == null || emailLog.getDemographic().getDemographicNo() == null) {
+            return showEmailComposeError(EMAIL_RESEND_MISSING_PATIENT_ERROR);
+        }
+
+        int demographicNo = emailLog.getDemographic().getDemographicNo();
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog);
@@ -242,7 +270,6 @@ public class ManageEmails2Action extends ActionSupport {
             request.setAttribute("isEmailError", true);
         }
 
-        int demographicNo = emailLog.getDemographic().getDemographicNo();
         String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
         String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
         List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
@@ -252,6 +279,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("transactionType", TransactionType.DIRECT);
         request.setAttribute("emailConsentName", emailConsent[0]);
         request.setAttribute("emailConsentStatus", emailConsent[1]);
+        request.setAttribute("emailConsentMessageKey", emailConsent[2]);
         request.setAttribute("receiverName", receiverName);
         request.setAttribute("receiverEmailList", receiverEmailList[0]);
         request.setAttribute("invalidReceiverEmailList", receiverEmailList[1]);
@@ -259,16 +287,30 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("senderConfigId", emailLog.getEmailConfig() != null ? emailLog.getEmailConfig().getId() : null);
         request.setAttribute("senderEmail", emailLog.getFromEmail());
         request.setAttribute("subjectEmail", emailLog.getSubject());
-        request.setAttribute("bodyEmail", emailLog.getBody());
-        request.setAttribute("encryptedMessageEmail", emailLog.getEncryptedMessage());
-        request.setAttribute("emailPDFPassword", emailLog.getPassword());
+        // Map the stored two-field log back into the single "Message" field (issue #3118). For an
+        // encrypted log, prefer encryptedMessage because the body may be the unified workflow's
+        // fixed notice; for an unencrypted log, use the body. This precedence is intentionally
+        // fail-safe when historical records happen to contain both legacy channels.
+        boolean isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
+                emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
+        request.setAttribute("message", EmailData.mergeMessage(
+                isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
+        // Copying an email must not reveal its historical PDF password. Set an explicit empty
+        // request attribute so the JSP also cannot fall back to a stale session-scoped value.
+        request.setAttribute("emailPDFPassword", "");
         request.setAttribute("emailPDFPasswordClue", emailLog.getPasswordClue());
-        request.setAttribute("isEmailEncrypted", emailLog.getIsEncrypted());
+        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
+        return "compose";
+    }
+
+    private String showEmailComposeError(String errorMessage) {
+        request.setAttribute("emailErrorMessage", errorMessage);
+        request.setAttribute("isEmailError", true);
         return "compose";
     }
 
@@ -302,15 +344,19 @@ public class ManageEmails2Action extends ActionSupport {
      * @param emailLog EmailLog containing the list of attachments to refresh
      * @return List<EmailAttachment> the updated list of email attachments with refreshed PDF paths and sizes
      * @throws PDFGenerationException if any document cannot be rendered to PDF
-     * @throws RuntimeException if the user lacks required _email security privilege
+     * @throws SecurityException if the user lacks required _email security privilege
      * @see DocumentAttachmentManager#renderDocument
      * @see FormsManager#renderForm
      * @see DocumentType
      */
     private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+        // Kept as defence in depth behind the execute() gate: this method renders patient
+        // documents to PDF, and is private but reachable from any future caller in this class.
+        // SecurityException rather than RuntimeException to match the project standard and the
+        // gate above -- it is a RuntimeException subtype, so existing handlers are unaffected.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         List<EmailAttachment> emailAttachmentList = emailLog.getEmailAttachments();
@@ -343,6 +389,10 @@ public class ManageEmails2Action extends ActionSupport {
                     break;
                 default:
                     break;
+            }
+            if (emailAttachment.getFilePath() != null && !emailAttachment.getFilePath().isBlank()) {
+                emailAttachment.setPreviewToken(pdfPreviewCapabilityService.issue(
+                        request, loggedInInfo, Path.of(emailAttachment.getFilePath())));
             }
         }
         return emailAttachmentList;

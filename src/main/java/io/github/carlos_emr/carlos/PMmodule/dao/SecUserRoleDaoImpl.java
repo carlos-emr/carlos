@@ -108,7 +108,8 @@ public class SecUserRoleDaoImpl extends AbstractJpaDao implements SecUserRoleDao
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from Secuserrole s where s.providerNo = ?1 and s.roleName = 'admin'";
+        // An inactive admin assignment (activeyn = 0 or legacy NULL) must not grant admin access.
+        String sSQL = "from Secuserrole s where s.providerNo = ?1 and s.roleName = 'admin' and s.activeyn = 1";
         @SuppressWarnings("unchecked")
         List<Secuserrole> entities = (List<Secuserrole>) JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
         boolean result = !entities.isEmpty();
