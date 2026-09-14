@@ -78,10 +78,14 @@
  * RUN THIS THROUGH :443 in a packaged install, per
  * docs/ui-tests/deb-install-validation.md. Going straight to Tomcat on
  * 127.0.0.1:18080 skips nginx and ModSecurity and so cannot see a front-door
- * rewrite re-introducing a <base>.
+ * rewrite re-introducing a <base>. The default BASE_URL is bare Tomcat, so the
+ * run reports which layer it actually covered: no nginx Server header on the
+ * response prints a WARNING, and EXPECT_FRONT_DOOR=true makes that a failure
+ * instead. A standalone run must never be mistaken for front-door coverage.
  *
  * Env: BASE_URL (default http://127.0.0.1:8080/carlos). Optional CHROME_PATH,
- * LOGIN_FAILURE_SCREENSHOT_DIR (default /tmp).
+ * LOGIN_FAILURE_SCREENSHOT_DIR (default /tmp), EXPECT_FRONT_DOOR (1/true/yes to
+ * require the packaged front door).
  *
  * FIXTURE SAFETY: reads only. No login, no credentials, no DB access, no
  * writes -- /loginfailed is a public page and every request here is a GET.
@@ -115,6 +119,18 @@ const SPOOFED_HOST = 'carlos-host-header-probe.invalid';
 // Distinctive enough that finding it in the body proves the page rendered the
 // message we supplied, and carries markup so the encoding assertion is real.
 const ERROR_MESSAGE = 'Probe <b>message</b> for host header check';
+
+// This check's subject is what the packaged front door actually SERVES: nginx is in
+// scope precisely because a rewrite there could re-introduce a <base href> the
+// application never emitted. The default BASE_URL is bare Tomcat, where nothing sits
+// in front of the container, so a green run there covers only what the application
+// emits and says nothing about that layer. Report the front door explicitly rather
+// than letting a standalone run read as full coverage; EXPECT_FRONT_DOOR=true turns
+// the warning into a failure. Same signal and same spelling as echart-print and
+// clinical-freetext: the Server header is the only cheap evidence available.
+const FRONT_DOOR_SERVER = /nginx/i;
+const sawFrontDoor = (headers) => FRONT_DOOR_SERVER.test(headers.server || '');
+const expectFrontDoor = /^(1|true|yes)$/i.test(process.env.EXPECT_FRONT_DOOR || '');
 
 // Certificate verification is relaxed ONLY for loopback, where the packaged install
 // serves its own self-signed cert. A non-local target opted in through
@@ -217,6 +233,25 @@ function describeFirstDifference(left, right) {
         + 'still mapped to the public gate action in struts-login.xml.',
     );
 
+    // Establish the layer this run actually covered before asserting anything about it.
+    const frontDoorObserved = sawFrontDoor(honest.headers);
+    if (expectFrontDoor && !frontDoorObserved) {
+      throw new Error(
+        'EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go '
+        + 'through the packaged front door, so a front-door rewrite re-introducing a <base href> was '
+        + 'never in the path of this check.',
+      );
+    }
+    if (!frontDoorObserved) {
+      console.log(
+        'WARNING: no response carried an nginx Server header, so this run did NOT go through the '
+        + 'packaged front door. Everything below covers only what the application emits; an nginx '
+        + 'rewrite re-introducing a <base href> is unverified. Point BASE_URL at the packaged :443 '
+        + 'target (docs/ui-tests/deb-install-validation.md) for the coverage this check is written '
+        + 'for, and set EXPECT_FRONT_DOOR=true to make its absence a failure.',
+      );
+    }
+
     let spoofRejectedAtFrontDoor = false;
     if (spoofed.status >= 400) {
       // Defence in depth rather than a failure: the bad Host never reached the app.
@@ -309,7 +344,10 @@ function describeFirstDifference(left, right) {
       + 'Host'
       + (spoofRejectedAtFrontDoor ? ' (front door rejected the spoofed Host)' : '')
       + ', emits no <base> element, keeps favicon and global.js anchored to the servlet context '
-      + 'path, and still renders its error message HTML-encoded',
+      + 'path, and still renders its error message HTML-encoded'
+      + (frontDoorObserved
+        ? ' -- through the packaged nginx front door, so a front-door rewrite was in scope'
+        : ' -- against bare Tomcat, so the front-door layer was NOT covered (see the warning above)'),
     );
   } catch (error) {
     console.error('FAIL login failure host header Playwright check');

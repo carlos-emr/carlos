@@ -913,12 +913,21 @@ Notes on the contract:
   favicon and `global.js` resolved under the servlet context path, and the
   `errormsg` still rendered HTML-encoded. Going straight to Tomcat on
   `127.0.0.1:18080` skips nginx, so it cannot see a front-door rewrite
-  re-introducing a Host-derived `<base href>` — the construct this pins. It is
-  pre-auth and read-only (every request is a GET; no login, no fixture, no
-  database access), so it needs no credentials and leaves nothing behind. A
-  front door that answers 400/421 to the spoofed `Host` is reported on stdout
-  and treated as a pass: the bad value never reached the application, and the
-  DOM assertions still run against the legitimate `Host`.
+  re-introducing a Host-derived `<base href>` — the construct this pins. Its
+  default `BASE_URL` is bare Tomcat, so it says which layer it actually covered
+  rather than letting a standalone run read as full coverage: no nginx `Server`
+  header on the response prints a WARNING and stamps the PASS line accordingly,
+  and `EXPECT_FRONT_DOOR=true` makes that absence a failure — the same signal
+  and spelling as the eChart and clinical-freetext checks. Like `echart-print`,
+  it relaxes certificate verification only for loopback, so a non-loopback
+  target opted in through `ALLOW_NON_LOCAL_BASE_URL` must present a certificate
+  the runtime trusts; without that bound a man-in-the-middle would supply both
+  halves of its byte-for-byte comparison and every assertion would pass
+  vacuously. It is pre-auth and read-only (every request is a GET; no login, no
+  fixture, no database access), so it needs no credentials and leaves nothing
+  behind. A front door that answers 400/421 to the spoofed `Host` is reported on
+  stdout and treated as a pass: the bad value never reached the application, and
+  the DOM assertions still run against the legitimate `Host`.
 - **`echart-playwright-checks.js` allows 90 seconds for note pagination to settle.**
   The chart loads 20 entries per one-second poll, including eForms and other
   chart entries as well as encounter notes. A populated fixture can legitimately
