@@ -53,7 +53,7 @@ public final class ViewPrintDrugProfile22Action extends ActionSupport {
         }
 
         // Direct profile launches create a workspace without passing through choosePatient.
-        request.getSession().setAttribute("Patient",
+        request.setAttribute("patient",
                 RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo()));
 
         return SUCCESS;

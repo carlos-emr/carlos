@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -117,22 +118,7 @@ public class RxSessionFilter implements Filter {
                 return;
             }
 
-            if (HEARTBEAT_ROUTE.equals(route)) {
-                if (!"GET".equalsIgnoreCase(request.getMethod())) {
-                    response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-                    return;
-                }
-                registry.heartbeat(workspace);
-                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-                return;
-            }
-            if (CLOSE_ROUTE.equals(route)) {
-                if (!"POST".equalsIgnoreCase(request.getMethod())) {
-                    response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-                    return;
-                }
-                registry.markClosing(workspace);
-                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+            if (handleWorkspaceLifecycleRequest(route, request, response, registry, workspace)) {
                 return;
             }
 
@@ -153,6 +139,28 @@ public class RxSessionFilter implements Filter {
         } finally {
             registry.release(workspace);
         }
+    }
+
+    private static boolean handleWorkspaceLifecycleRequest(
+            String route, HttpServletRequest request, HttpServletResponse response,
+            RxWorkspaceRegistry registry, RxWorkspaceRegistry.RxWorkspace workspace) throws IOException {
+        boolean heartbeat = HEARTBEAT_ROUTE.equals(route);
+        if (!heartbeat && !CLOSE_ROUTE.equals(route)) {
+            return false;
+        }
+        String requiredMethod = heartbeat ? "GET" : "POST";
+        if (!requiredMethod.equals(request.getMethod())) {
+            response.setHeader("Allow", requiredMethod);
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return true;
+        }
+        if (heartbeat) {
+            registry.heartbeat(workspace);
+        } else {
+            registry.markClosing(workspace);
+        }
+        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        return true;
     }
 
     private void createWorkspace(
@@ -259,19 +267,26 @@ public class RxSessionFilter implements Filter {
                 if (raw == null) {
                     continue;
                 }
-                try {
-                    int parsed = Integer.parseInt(raw);
-                    if (parsed < 0 || (!allowZero && parsed == 0)
-                            || (result != null && result != parsed)) {
-                        throw new InvalidLaunchContextException("rx_launch_context_invalid");
-                    }
-                    result = parsed;
-                } catch (NumberFormatException e) {
+                int parsed = parseLaunchInteger(raw, allowZero);
+                if (result != null && result != parsed) {
                     throw new InvalidLaunchContextException("rx_launch_context_invalid");
                 }
+                result = parsed;
             }
         }
         return result;
+    }
+
+    private static int parseLaunchInteger(String raw, boolean allowZero) throws InvalidLaunchContextException {
+        try {
+            int parsed = Integer.parseInt(raw);
+            if (parsed < 0 || (!allowZero && parsed == 0)) {
+                throw new InvalidLaunchContextException("rx_launch_context_invalid");
+            }
+            return parsed;
+        } catch (NumberFormatException e) {
+            throw new InvalidLaunchContextException("rx_launch_context_invalid");
+        }
     }
 
     private static ContextParameter readContext(HttpServletRequest request) {
@@ -296,7 +311,7 @@ public class RxSessionFilter implements Filter {
     }
 
     private static String entryRoute(String route, HttpServletRequest request) {
-        if ("GET".equalsIgnoreCase(request.getMethod())) {
+        if ("GET".equals(request.getMethod())) {
             for (String allowedRoute : ENTRY_ROUTES) {
                 if (allowedRoute.equals(route)) {
                     // Return the server-owned constant, never the raw request URI.
@@ -382,9 +397,14 @@ public class RxSessionFilter implements Filter {
         }
         location.append(CONTEXT_PARAMETER).append('=')
                 .append(contextId);
+        URI redirect = URI.create(location.toString());
+        if (redirect.isAbsolute() || redirect.getRawAuthority() != null
+                || location.toString().startsWith("//")) {
+            throw new IllegalArgumentException("Prescription redirect must remain within the application");
+        }
         response.setStatus(HttpServletResponse.SC_SEE_OTHER);
         // nosemgrep: java.servlets.security.audit.url-rewriting.url-rewriting,java.lang.security.audit.url-rewriting.url-rewriting -- Rx workspace UUID, not a login session ID.
-        response.setHeader("Location", location.toString()); // NOSONAR -- allowlisted path and encoded query values.
+        response.setHeader("Location", redirect.toString()); // NOSONAR -- validated relative URI with no authority.
     }
 
     @SuppressFBWarnings(
