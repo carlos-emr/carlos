@@ -166,23 +166,29 @@ public final class LoginCheckLogin {
         if (ipFound(ip)) bWAN = false;
 
         GregorianCalendar now = new GregorianCalendar();
-        // Wait for singleton LoginList to initialize
-        while (llist == null) {
-            llist = LoginList.getLoginListInstance();
-        }
-        String sTemp = null;
+        LoginList lockList = lockList();
 
         // Clean up expired block entries and check block status for WAN clients only
-        if (bWAN && !llist.isEmpty()) {
-            // Remove timed-out block entries
-            for (Enumeration e = llist.keys(); e.hasMoreElements(); ) {
-                sTemp = (String) e.nextElement();
-                linfo = (LoginInfoBean) llist.get(sTemp);
-                if (linfo.getTimeOutStatus(now)) llist.remove(sTemp);
-            }
+        if (bWAN) {
+            // Same shared monitor as the username path: the per-request synchronized modifier
+            // serializes nothing, so the sweep and the status read have to be one step or a
+            // concurrent failure can slip an entry in between them.
+            synchronized (lockList) {
+                // Remove timed-out block entries
+                for (Enumeration e = lockList.keys(); e.hasMoreElements(); ) {
+                    String tracked = (String) e.nextElement();
+                    LoginInfoBean trackedEntry = (LoginInfoBean) lockList.get(tracked);
+                    if (trackedEntry != null && trackedEntry.getTimeOutStatus(now)) {
+                        lockList.remove(tracked);
+                    }
+                }
 
-            // Check if this IP is blocked (status == 0 means blocked)
-            if (llist.get(ip) != null && ((LoginInfoBean) llist.get(ip)).getStatus() == 0) bBlock = true;
+                // Check if this IP is blocked (status == 0 means blocked)
+                LoginInfoBean entry = (LoginInfoBean) lockList.get(ip);
+                if (entry != null && entry.getStatus() == 0) {
+                    bBlock = true;
+                }
+            }
         }
 
         return bBlock;
@@ -374,22 +380,28 @@ public final class LoginCheckLogin {
         Properties p = CarlosProperties.getInstance();
         // Only track WAN clients (LAN clients are exempt from brute force protection)
         if (bWAN) {
-            // Pre-existing gap, fixed here for parity with updateLockList: this path is also
-            // reachable without a preceding isBlock, and dereferencing a null llist would throw
-            // instead of recording the failed attempt.
-            lockList();
+            // Reachable without a preceding isBlock on the forced-password-reset path, where a
+            // fresh LoginCheckLogin has not resolved the singleton yet.
+            LoginList lockList = lockList();
             GregorianCalendar now = new GregorianCalendar();
-            // Create new tracking entry if first failure from this IP
-            if (llist.get(ip) == null) {
-                linfo = new LoginInfoBean(now, Integer.parseInt(p.getProperty("login_max_failed_times")), Integer.parseInt(p.getProperty("login_max_duration")));
+            // Same monitor as the sweep in isBlock(String): the lookup, increment and write-back
+            // have to be one step, or concurrent failures read the same count and one increment
+            // is lost, letting an attacker exceed login_max_failed_times.
+            synchronized (lockList) {
+                // Create new tracking entry if first failure from this IP
+                if (lockList.get(ip) == null) {
+                    linfo = new LoginInfoBean(now, Integer.parseInt(p.getProperty("login_max_failed_times")), Integer.parseInt(p.getProperty("login_max_duration")));
+                }
+                // Update existing tracking entry
+                else {
+                    linfo = (LoginInfoBean) lockList.get(ip);
+                    linfo.updateLoginInfoBean(now, 1);
+                }
+                lockList.put(ip, linfo);
             }
-            // Update existing tracking entry
-            else {
-                linfo = (LoginInfoBean) llist.get(ip);
-                linfo.updateLoginInfoBean(now, 1);
-            }
-            llist.put(ip, linfo);
-            MiscUtils.getLogger().debug(ip + "  status: " + ((LoginInfoBean) llist.get(ip)).getStatus() + " times: " + linfo.getTimes() + " time: ");
+            // Read through the entry this thread just wrote: re-reading the shared list here can
+            // race with an expiry sweep that has since removed it.
+            MiscUtils.getLogger().debug("{}  status: {} times: {} time: ", ip, linfo.getStatus(), linfo.getTimes());
         }
     }
 

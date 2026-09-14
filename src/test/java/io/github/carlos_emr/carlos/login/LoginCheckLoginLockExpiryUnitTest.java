@@ -121,6 +121,17 @@ class LoginCheckLoginLockExpiryUnitTest {
         return loginCheck;
     }
 
+    /** Drives the production failure path in IP-keyed mode until the address is blocked. */
+    private LoginCheckLogin lockOutIp() {
+        LoginCheckLogin loginCheck = new LoginCheckLogin();
+        assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isFalse();
+
+        for (int attempt = 0; attempt < MAX_FAILED_TIMES; attempt++) {
+            loginCheck.updateLoginList(WAN_IP, USER_NAME);
+        }
+        return loginCheck;
+    }
+
     private static LoginInfoBean trackedEntry() {
         return trackedEntry(USER_NAME);
     }
@@ -207,6 +218,29 @@ class LoginCheckLoginLockExpiryUnitTest {
 
         assertThat(trackedEntry(USER_NAME)).isNotNull();
         assertThat(trackedEntry(USER_NAME).getTimes()).isOne();
+    }
+
+    @Test
+    @DisplayName("should block the IP while its tracking window is still open")
+    void shouldBlockIp_whenWindowStillOpen() {
+        CarlosProperties.getInstance().setProperty("login_lock", "false");
+        LoginCheckLogin loginCheck = lockOutIp();
+
+        assertThat(trackedEntry(WAN_IP)).isNotNull();
+        assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should release the IP block once its tracking window has elapsed")
+    void shouldReleaseIpBlock_whenWindowElapsed() {
+        CarlosProperties.getInstance().setProperty("login_lock", "false");
+        LoginCheckLogin loginCheck = lockOutIp();
+        assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isTrue();
+
+        expireTrackingWindow(WAN_IP);
+
+        assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isFalse();
+        assertThat(trackedEntry(WAN_IP)).isNull();
     }
 
     @Test
