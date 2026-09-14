@@ -34,7 +34,8 @@ public class EmailConsentResolver {
 
     /**
      * Resolves a patient's current email consent, returning {@code NOT_CONFIGURED} when no active
-     * consent type is configured and {@code UNKNOWN} when the type exists but the patient has no row.
+     * consent type is configured and {@code UNKNOWN} when the patient has no row or only implied
+     * consent. Existing record identifiers are retained for the confirmation audit trail.
      *
      * @param loggedInInfo the current provider session
      * @param demographicId the patient demographic identifier
@@ -51,7 +52,16 @@ public class EmailConsentResolver {
             return new EmailConsentResult(consentType.getName(), EmailConsentStatus.UNKNOWN, null, null);
         }
 
-        EmailConsentStatus status = consent.getPatientConsented() ? EmailConsentStatus.OPT_IN : EmailConsentStatus.OPT_OUT;
+        // Opt-out always wins. Implied consent is not opt-in: it resolves to UNKNOWN, the same
+        // state as no record, so a send needs the provider's documented confirmation override.
+        EmailConsentStatus status;
+        if (!consent.getPatientConsented()) {
+            status = EmailConsentStatus.OPT_OUT;
+        } else if (consent.isExplicit()) {
+            status = EmailConsentStatus.OPT_IN;
+        } else {
+            status = EmailConsentStatus.UNKNOWN;
+        }
         return new EmailConsentResult(consentType.getName(), status, consent.getId(), consent.getEditDate());
     }
 

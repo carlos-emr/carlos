@@ -86,7 +86,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         OPT_IN("email.consent.status.optIn"),
         /** Patient has explicitly opted out of email communication */
         OPT_OUT("email.consent.status.optOut"),
-        /** Consent tracking is configured but no consent row exists */
+        /** Explicit consent is not established; a documented confirmation is required */
         UNKNOWN("email.consent.status.unknown"),
         /** Email consent tracking is not configured with an active consent type */
         NOT_CONFIGURED("email.consent.status.notConfigured");
