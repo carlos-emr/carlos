@@ -25,6 +25,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.xpath.XPathFactory;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -335,18 +338,26 @@ class LoginJspMigrationRegressionTest {
 
     @Test
     @DisplayName("session cookies should require secure cookie attributes")
-    void shouldRequireSecureCookieAttributes_forSessionCookies() throws IOException {
-        String webXml = Files.readString(WEB_XML, StandardCharsets.UTF_8);
-        String contextXml = Files.readString(CONTEXT_XML, StandardCharsets.UTF_8);
-
-        assertThat(webXml)
-                .contains("<session-timeout>120</session-timeout>")
-                .contains("<cookie-config>")
-                .contains("<http-only>true</http-only>")
-                .contains("<secure>true</secure>")
-                .contains("<tracking-mode>COOKIE</tracking-mode>");
-        assertThat(contextXml)
-                .contains("<CookieProcessor sameSiteCookies=\"strict\" />");
+    void shouldRequireSecureCookieAttributes_forSessionCookies() throws Exception {
+        var factory = DocumentBuilderFactory.newDefaultInstance();
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        var builder = factory.newDocumentBuilder();
+        var xpath = XPathFactory.newInstance().newXPath();
+        var webXml = builder.parse(WEB_XML.toFile());
+        String session = "/web-app/session-config";
+        assertThat(xpath.evaluate("count(" + session + ")", webXml)).isEqualTo("1");
+        assertThat(xpath.evaluate(session + "/session-timeout", webXml)).isEqualTo("120");
+        assertThat(xpath.evaluate(session + "/cookie-config/http-only", webXml)).isEqualTo("true");
+        assertThat(xpath.evaluate(session + "/cookie-config/secure", webXml)).isEqualTo("true");
+        assertThat(xpath.evaluate(session + "/tracking-mode", webXml)).isEqualTo("COOKIE");
+        assertThat(xpath.evaluate("count(" + session + "/tracking-mode)", webXml)).isEqualTo("1");
+        for (Path context : new Path[] {CONTEXT_XML, Path.of("debian/assets/tomcat/context.xml")}) {
+            var contextXml = builder.parse(context.toFile());
+            assertThat(xpath.evaluate("/Context/CookieProcessor/@sameSiteCookies", contextXml))
+                    .as("SameSite policy in %s", context).isEqualTo("lax");
+        }
     }
 
     @Test
