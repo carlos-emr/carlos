@@ -22,13 +22,16 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,9 +43,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.Response;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
@@ -134,15 +134,17 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
     @Test
     @Tag("update")
     @DisplayName("should deny completion when the caller lacks tickler update privilege")
-    void shouldDenyCompletion_whenCallerLacksTicklerUpdatePrivilege() {
+    void shouldDenyCompletion_whenCallerLacksTicklerUpdatePrivilege() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), eq("u"), any()))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> service.completeTicklers(payload("{\"ticklers\":[1]}")))
-                .isInstanceOfSatisfying(WebApplicationException.class, ex -> {
-                    assertThat(ex.getResponse().getStatus())
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
-                    assertThat(ex.getResponse().getEntity()).isEqualTo("Access Denied");
+        JsonNode request = payload("{\"ticklers\":[1]}");
+        assertThatExceptionOfType(WebApplicationException.class)
+                .isThrownBy(() -> service.completeTicklers(request))
+                .satisfies(failure -> {
+                    assertThat(failure.getResponse().getStatus()).isEqualTo(403);
+                    assertThat(failure.getResponse().getEntity()).isEqualTo("Access Denied");
+                    assertThat(failure.getResponse().getMediaType()).isEqualTo(MediaType.TEXT_PLAIN_TYPE);
                 });
         verify(ticklerManager, never()).completeTickler(any(), any(), any());
     }
@@ -150,15 +152,17 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
     @Test
     @Tag("delete")
     @DisplayName("should deny deletion when the caller lacks tickler update privilege")
-    void shouldDenyDeletion_whenCallerLacksTicklerUpdatePrivilege() {
+    void shouldDenyDeletion_whenCallerLacksTicklerUpdatePrivilege() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), eq("u"), any()))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> service.deleteTicklers(payload("{\"ticklers\":[1]}")))
-                .isInstanceOfSatisfying(WebApplicationException.class, ex -> {
-                    assertThat(ex.getResponse().getStatus())
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
-                    assertThat(ex.getResponse().getEntity()).isEqualTo("Access Denied");
+        JsonNode request = payload("{\"ticklers\":[1]}");
+        assertThatExceptionOfType(WebApplicationException.class)
+                .isThrownBy(() -> service.deleteTicklers(request))
+                .satisfies(failure -> {
+                    assertThat(failure.getResponse().getStatus()).isEqualTo(403);
+                    assertThat(failure.getResponse().getEntity()).isEqualTo("Access Denied");
+                    assertThat(failure.getResponse().getMediaType()).isEqualTo(MediaType.TEXT_PLAIN_TYPE);
                 });
         verify(ticklerManager, never()).deleteTickler(any(), any(), any());
     }
