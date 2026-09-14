@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.ws.rs.WebApplicationException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -136,8 +137,10 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         assertThatThrownBy(() -> service.completeTicklers(payload("{\"ticklers\":[1]}")))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOfSatisfying(WebApplicationException.class, exception -> {
+                    assertThat(exception.getResponse().getStatus()).isEqualTo(403);
+                    assertThat(exception.getResponse().getEntity()).isEqualTo("Access Denied");
+                });
         verify(ticklerManager, never()).completeTickler(any(), any(), any());
     }
 
@@ -149,8 +152,10 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         assertThatThrownBy(() -> service.deleteTicklers(payload("{\"ticklers\":[1]}")))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOfSatisfying(WebApplicationException.class, exception -> {
+                    assertThat(exception.getResponse().getStatus()).isEqualTo(403);
+                    assertThat(exception.getResponse().getEntity()).isEqualTo("Access Denied");
+                });
         verify(ticklerManager, never()).deleteTickler(any(), any(), any());
     }
 
