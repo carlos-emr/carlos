@@ -241,6 +241,11 @@ public class LabUploadWs extends AbstractWs {
         String returnMessageHandler = "{\"success\":0,\"message\":\"\"}";
         try (ByteArrayInputStream is = new ByteArrayInputStream(contents)) {
             String filePath = Utilities.saveFile(is, fileName);
+            if (filePath == null) {
+                // Utilities.saveFile returns null when the write failed and the partial file was removed.
+                logger.error("Document reference save returned no path; aborting upload");
+                return returnMessageHandler;
+            }
             HttpServletRequest request = getHttpServletRequest();
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
 

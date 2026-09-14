@@ -125,6 +125,12 @@ public class LabService extends AbstractServiceImpl {
 			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
 		}
 
+		if (filePath == null) {
+			// Utilities.saveFile returns null when the write failed and the partial file was removed.
+			logger.error("Lab file save returned no path; aborting lab import");
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
+		}
+
 		int checkFileUploadedSuccessfully;
         File savedLabFile;
         try {

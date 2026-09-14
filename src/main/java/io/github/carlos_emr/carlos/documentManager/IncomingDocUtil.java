@@ -682,12 +682,17 @@ public final class IncomingDocUtil {
 
         Files.delete(f.toPath());
         File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-        if (!f1.setLastModified(lastModified)) {
-            throw new IOException("Error in setting last modified time for file:" + tempFilePathName);
-        }
         boolean success = f1.renameTo(f);
         if (!success) {
             throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
+        }
+
+        // Carry the original mtime over to the rewritten document. This must stay AFTER the
+        // rename and must not abort the operation: File.setLastModified is best-effort and
+        // returns false on filesystems that do not support it, so failing here would leave the
+        // queue entry deleted with the remaining pages stranded under the temp name.
+        if (!f.setLastModified(lastModified)) {
+            MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after deleting a page");
         }
     }
 
