@@ -479,7 +479,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             continue;
 
                         HashMap<String, String> demoExt = new HashMap<String, String>();
-                        demoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(demoNo)));
+                        demoExt.putAll(demographicExtDao.getAllValuesForDemo(Integer.parseInt(demoNo)));
 
                         OmdCdsDocument omdCdsDoc = OmdCdsDocument.Factory.newInstance();
                         OmdCdsDocument.OmdCds omdCds = omdCdsDoc.addNewOmdCds();
@@ -598,7 +598,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         }
 
 
-                        List<DemographicArchive> DAs = demoArchiveDao().findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
+                        List<DemographicArchive> DAs = demoArchiveDao.findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
                         Collections.reverse(DAs);
 
                         List<Enrolment> enList = new ArrayList<Enrolment>();
@@ -894,12 +894,12 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                         addReferringAndFamilyDoctor(loggedInInfo, demographic.getDemographicNo(), demo);
 
-                        List<CaseManagementNote> lcmn = cmm().getNotes(demoNo);
+                        List<CaseManagementNote> lcmn = cmm.getNotes(demoNo);
 
                         //find all "header"; cms4 only
                         List<CaseManagementNote> headers = new ArrayList<CaseManagementNote>();
                         for (CaseManagementNote cmn : lcmn) {
-                            if (cmn.getNote() != null && cmn.getNote().startsWith("imported.cms4.2011.06") && cmm().getLinkByNote(cmn.getId()).isEmpty())
+                            if (cmn.getNote() != null && cmn.getNote().startsWith("imported.cms4.2011.06") && cmm.getLinkByNote(cmn.getId()).isEmpty())
                                 headers.add(cmn);
                         }
 
@@ -935,14 +935,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     break;
                                 } else continue;
                             }
-                            if (!systemIssue && cmm().getLinkByNote(cmn.getId()).isEmpty()) { //this is not an annotation
+                            if (!systemIssue && cmm.getLinkByNote(cmn.getId()).isEmpty()) { //this is not an annotation
                                 encounter = cmn.getNote();
                                 if (encounter.startsWith("imported.cms4.2011.06"))
                                     continue; //this is a "header", cms4 only
                             }
 
                             annotation = getNonDumpNote(CaseManagementNoteLink.CASEMGMTNOTE, cmn.getId(), null);
-                            List<CaseManagementNoteExt> cmeList = cmm().getExtByNote(cmn.getId());
+                            List<CaseManagementNoteExt> cmeList = cmm.getExtByNote(cmn.getId());
 
 
                             if (exPersonalHistory) {
@@ -1318,7 +1318,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         cNote.addNewEventDateTime().setFullDateTime(Util.calDateTZD(cmn.getObservation_date()));
                                     }
 
-                                    List<CaseManagementNote> cmn_same = cmm().getNotesByUUID(cmn.getUuid());
+                                    List<CaseManagementNote> cmn_same = cmm.getNotesByUUID(cmn.getUuid());
                                     for (CaseManagementNote cm_note : cmn_same) {
 
                                         //participating providers
@@ -1538,9 +1538,9 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
                                 if (allergy.getStartDate() != null) {
-                                    dateFormat = partialDateDao().getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_STARTDATE);
+                                    dateFormat = partialDateDao.getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_STARTDATE);
                                     Util.putPartialDate(alr.addNewStartDate(), allergy.getStartDate(), dateFormat);
-                                    aSummary = Util.addSummary(aSummary, "Start Date", partialDateDao().getDatePartial(allergy.getStartDate(), dateFormat));
+                                    aSummary = Util.addSummary(aSummary, "Start Date", partialDateDao.getDatePartial(allergy.getStartDate(), dateFormat));
                                 }
                                 if (allergy.getLifeStage() != null && "NICTA".contains(allergy.getLifeStage()) && allergy.getLifeStage().length() == 1) {
                                     alr.setLifeStage(cdsDt.LifeStage.Enum.forString(allergy.getLifeStage()));
@@ -1548,9 +1548,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 }
 
                                 if (allergies[j].getEntryDate() != null) {
-                                    dateFormat = partialDateDao().getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_ENTRYDATE);
+                                    dateFormat = partialDateDao.getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_ENTRYDATE);
                                     Util.putPartialDate(alr.addNewRecordedDate(), allergies[j].getEntryDate(), dateFormat);
-                                    aSummary = Util.addSummary(aSummary, "Recorded Date", partialDateDao().getDatePartial(allergies[j].getEntryDate(), dateFormat));
+                                    aSummary = Util.addSummary(aSummary, "Recorded Date", partialDateDao.getDatePartial(allergies[j].getEntryDate(), dateFormat));
                                 }
 
                                 annotation = getNonDumpNote(CaseManagementNoteLink.ALLERGIES, (long) allergies[j].getAllergyId(), null);
@@ -1673,12 +1673,12 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     immu.addNewDate().setFullDate(Util.calDate(preventionDate));
                                     imSummary = Util.addSummary(imSummary, "Date", preventionDate);
                                 } else { // partial date
-                                    String dateFormat = partialDateDao().getFormat(PartialDate.PREVENTION, Integer.parseInt((String) prevMap.get("id")), PartialDate.PREVENTION_PREVENTIONDATE);
+                                    String dateFormat = partialDateDao.getFormat(PartialDate.PREVENTION, Integer.parseInt((String) prevMap.get("id")), PartialDate.PREVENTION_PREVENTIONDATE);
                                     String sdfFormat = getSimpleDateFormatFromPatientDateFormat(dateFormat);
                                     if (UtilDateUtilities.StringToDate(preventionDate, sdfFormat) != null) {
                                         Date prevDate = UtilDateUtilities.StringToDate(preventionDate, sdfFormat);
                                         Util.putPartialDate(immu.addNewDate(), prevDate, dateFormat);
-                                        imSummary = Util.addSummary(imSummary, "Date", partialDateDao().getDatePartial(prevDate, dateFormat));
+                                        imSummary = Util.addSummary(imSummary, "Date", partialDateDao.getDatePartial(prevDate, dateFormat));
                                     } else {
                                         logger.error("Failed to export immunization date.");
                                     }
@@ -1713,16 +1713,16 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 MedicationsAndTreatments medi = patientRec.addNewMedicationsAndTreatments();
                                 String mSummary = "";
                                 if (arr[p].getWrittenDate() != null) {
-                                    String dateFormat = partialDateDao().getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_WRITTENDATE);
+                                    String dateFormat = partialDateDao.getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_WRITTENDATE);
                                     Util.putPartialDate(medi.addNewPrescriptionWrittenDate(), arr[p].getWrittenDate(), dateFormat);
-                                    mSummary = Util.addSummary("Prescription Written Date", partialDateDao().getDatePartial(arr[p].getWrittenDate(), dateFormat));
+                                    mSummary = Util.addSummary("Prescription Written Date", partialDateDao.getDatePartial(arr[p].getWrittenDate(), dateFormat));
                                 }
                                 if (arr[p].getRxDate() != null) {
                                     //medi.addNewStartDate().setFullDate(Util.calDate(arr[p].getRxDate()));
                                     //mSummary = Util.addSummary(mSummary,"Start Date", UtilDateUtilities.DateToString(arr[p].getRxDate(),"yyyy-MM-dd"));
-                                    String dateFormat = partialDateDao().getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_STARTDATE);
+                                    String dateFormat = partialDateDao.getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_STARTDATE);
                                     Util.putPartialDate(medi.addNewStartDate(), arr[p].getRxDate(), dateFormat);
-                                    mSummary = Util.addSummary("Start Date", partialDateDao().getDatePartial(arr[p].getRxDate(), dateFormat));
+                                    mSummary = Util.addSummary("Start Date", partialDateDao.getDatePartial(arr[p].getRxDate(), dateFormat));
                                 }
                                 String regionalId = arr[p].getRegionalIdentifier();
                                 if (StringUtils.filled(regionalId)) {
@@ -1992,10 +1992,10 @@ public class DemographicExportAction42Action extends ActionSupport {
                             // LABORATORY RESULTS
 
                             //get lab readings from hl7 tables
-                            List<Object[]> infos = hl7TxtInfoDao().findByDemographicId(Integer.valueOf(demoNo));
+                            List<Object[]> infos = hl7TxtInfoDao.findByDemographicId(Integer.valueOf(demoNo));
                             for (Object[] info : infos) {
                                 Hl7TextInfo hl7TxtInfo = (Hl7TextInfo) info[0];
-                                Hl7TextMessage hl7TextMessage = hl7TxtMssgDao().find(hl7TxtInfo.getLabNumber());
+                                Hl7TextMessage hl7TextMessage = hl7TxtMssgDao.find(hl7TxtInfo.getLabNumber());
                                 if (hl7TextMessage == null) continue;
 
                                 String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()));
@@ -2043,7 +2043,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 					String lab_no = labMea.getExtVal("lab_no");
 					if (StringUtils.filled(lab_no)) {
-						Hl7TextMessage hl7TextMessage = hl7TxtMssgDao().find(Integer.valueOf(lab_no));
+						Hl7TextMessage hl7TextMessage = hl7TxtMssgDao.find(Integer.valueOf(lab_no));
 						String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()));
 						MessageHandler h = Factory.getHandler(hl7TextMessage.getType(), hl7Body);
 						for (int i=0; i<h.getOBRCount(); i++) {
@@ -2237,10 +2237,10 @@ public class DemographicExportAction42Action extends ActionSupport {
                             }
 
                             //HRM reports
-                            List<HRMDocumentToDemographic> hrmDocToDemographics = hrmDocToDemographicDao().findByDemographicNo(demoNo);
+                            List<HRMDocumentToDemographic> hrmDocToDemographics = hrmDocToDemographicDao.findByDemographicNo(demoNo);
                             for (HRMDocumentToDemographic hrmDocToDemographic : hrmDocToDemographics) {
                                 String hrmDocumentId = hrmDocToDemographic.getHrmDocumentId() + "";
-                                List<HRMDocument> hrmDocs = hrmDocDao().findById(Integer.valueOf(hrmDocumentId));
+                                List<HRMDocument> hrmDocs = hrmDocDao.findById(Integer.valueOf(hrmDocumentId));
                                 for (HRMDocument hrmDoc : hrmDocs) {
                                     String reportFile = hrmDoc.getReportFile();
                                     if (StringUtils.empty(reportFile)) continue;
@@ -2409,7 +2409,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 							}*/
 
                                         //Notes
-                                        List<HRMDocumentComment> comments = hrmDocCommentDao().getCommentsForDocument(Integer.parseInt(hrmDocumentId));
+                                        List<HRMDocumentComment> comments = hrmDocCommentDao.getCommentsForDocument(Integer.parseInt(hrmDocumentId));
                                         String notes = null;
                                         for (HRMDocumentComment comment : comments) {
                                             notes = Util.addLine(notes, comment.getComment());
@@ -3174,12 +3174,12 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         List<CaseManagementNoteLink> cmll;
         if (StringUtils.empty(otherId))
-            cmll = cmm().getLinkByTableIdDesc(tableName, tableId);
+            cmll = cmm.getLinkByTableIdDesc(tableName, tableId);
         else
-            cmll = cmm().getLinkByTableIdDesc(tableName, tableId, otherId);
+            cmll = cmm.getLinkByTableIdDesc(tableName, tableId, otherId);
 
         for (CaseManagementNoteLink cml : cmll) {
-            CaseManagementNote n = cmm().getNote(cml.getNoteId().toString());
+            CaseManagementNote n = cmm.getNote(cml.getNoteId().toString());
             if (n.getNote() != null && !n.getNote().startsWith("imported.cms4.2011.06")) {//not from dumpsite
                 note = n.getNote();
                 break;
@@ -3214,7 +3214,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         ContactDao cDao = SpringUtils.getBean(ContactDao.class);
 
 
-        List<DemographicContact> demoContacts = contactDao().findByDemographicNoAndCategory(demoNo, "professional");
+        List<DemographicContact> demoContacts = contactDao.findByDemographicNoAndCategory(demoNo, "professional");
         for (DemographicContact dc : demoContacts) {
             if ("Referring Doctor".equals(dc.getRole())) {
                 if (dc.getType() == DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
@@ -3256,7 +3256,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void addDemographicContacts(LoggedInInfo loggedInInfo, String demoNo, Demographics demo) {
-        List<DemographicContact> demoContacts = contactDao().findByDemographicNoAndCategory(Integer.valueOf(demoNo), "personal");
+        List<DemographicContact> demoContacts = contactDao.findByDemographicNoAndCategory(Integer.valueOf(demoNo), "personal");
         DemographicContact demoContact;
 
         //create a list of contactIds
@@ -3378,7 +3378,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         if (type == DemographicContact.TYPE_DEMOGRAPHIC) {
             Demographic relDemo = new DemographicData().getDemographic(loggedInInfo, contactId);
             HashMap<String, String> relDemoExt = new HashMap<String, String>();
-            relDemoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(contactId)));
+            relDemoExt.putAll(demographicExtDao.getAllValuesForDemo(Integer.parseInt(contactId)));
 
             Util.writeNameSimple(contact.addNewName(), relDemo.getFirstName(), relDemo.getLastName());
             if (StringUtils.empty(relDemo.getFirstName())) {

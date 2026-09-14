@@ -310,7 +310,6 @@ public class APISendGridEmailSender {
         return apiKey;
     }
 
-
     private String getEndPoint() throws EmailSendingException {
         JsonNode jsonNode = getConfigDetails();
         JsonNode endPointNode = jsonNode.get("end_point");
