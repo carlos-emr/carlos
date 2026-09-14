@@ -53,7 +53,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 @Tag("fast")
 @Tag("webservice")
 @Tag("security")
-class AllergyWsSecurityTest {
+class AllergyWsSecurityUnitTest {
 
     @Mock
     private AllergyManager allergyManager;
