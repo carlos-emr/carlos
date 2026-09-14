@@ -225,16 +225,25 @@ public final class LoginCheckLogin {
         }
 
         GregorianCalendar now = new GregorianCalendar();
-        LoginInfoBean entry = (LoginInfoBean) llist.get(userName);
-        if (entry != null) {
-            if (entry.getTimeOutStatus(now)) {
-                // Tracking window elapsed: release the entry so the next failure opens a
-                // fresh window, mirroring the eviction the IP path does in isBlock(String).
-                llist.remove(userName);
-            }
-            // Otherwise the window is still open (status == 0 means blocked)
-            else if (entry.getStatus() == 0) {
-                bBlock = true;
+        // Login2Action builds a LoginCheckLogin per request, so the synchronized modifier on
+        // updateLockList() serializes nothing across requests; the shared LoginList is the only
+        // usable monitor. Reading the entry and evicting it have to be one step, or a concurrent
+        // failure can insert a replacement entry in between that this thread then removes,
+        // restarting the attempt counter and letting an attacker stay under the threshold.
+        // The local holds a stable reference so the monitor cannot be the reassignable field.
+        LoginList lockList = llist;
+        synchronized (lockList) {
+            LoginInfoBean entry = (LoginInfoBean) lockList.get(userName);
+            if (entry != null) {
+                if (entry.getTimeOutStatus(now)) {
+                    // Tracking window elapsed: release the entry so the next failure opens a
+                    // fresh window, mirroring the eviction the IP path does in isBlock(String).
+                    lockList.remove(userName);
+                }
+                // Otherwise the window is still open (status == 0 means blocked)
+                else if (entry.getStatus() == 0) {
+                    bBlock = true;
+                }
             }
         }
 
@@ -385,17 +394,26 @@ public final class LoginCheckLogin {
         // Only track WAN clients (LAN clients are exempt from brute force protection)
         if (bWAN) {
             GregorianCalendar now = new GregorianCalendar();
-            // Create new tracking entry if first failure for this username
-            if (llist.get(userName) == null) {
-                linfo = new LoginInfoBean(now, Integer.parseInt(p.getProperty("login_max_failed_times")), Integer.parseInt(p.getProperty("login_max_duration")));
+            // Same monitor as the expiry sweep in isBlock(String, String). The lookup, increment
+            // and write-back have to be one step: concurrent failures otherwise read the same
+            // count and one increment is lost, and an entry expired between the lookup and the
+            // write would be silently resurrected.
+            LoginList lockList = llist;
+            synchronized (lockList) {
+                // Create new tracking entry if first failure for this username
+                if (lockList.get(userName) == null) {
+                    linfo = new LoginInfoBean(now, Integer.parseInt(p.getProperty("login_max_failed_times")), Integer.parseInt(p.getProperty("login_max_duration")));
+                }
+                // Update existing tracking entry
+                else {
+                    linfo = (LoginInfoBean) lockList.get(userName);
+                    linfo.updateLoginInfoBean(now, 1);
+                }
+                lockList.put(userName, linfo);
             }
-            // Update existing tracking entry
-            else {
-                linfo = (LoginInfoBean) llist.get(userName);
-                linfo.updateLoginInfoBean(now, 1);
-            }
-            llist.put(userName, linfo);
-            MiscUtils.getLogger().debug(userName + "  status: " + ((LoginInfoBean) llist.get(userName)).getStatus() + " times: " + linfo.getTimes() + " time: ");
+            // Read through the entry this thread just wrote: re-reading the shared list here
+            // can race with an expiry sweep that has since removed it.
+            MiscUtils.getLogger().debug(userName + "  status: " + linfo.getStatus() + " times: " + linfo.getTimes() + " time: ");
         }
     }
 

@@ -28,6 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -46,7 +47,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>These tests drive the production API and mutate the application-scoped
  * {@link CarlosProperties} and {@link LoginList} singletons, restoring both afterwards.
+ * {@code @Isolated} keeps them off the same process as other tests under parallel Surefire,
+ * matching how {@code StartupUnitTest} guards its own {@code CarlosProperties} mutation.
  */
+@Isolated
 @Tag("unit")
 @Tag("login")
 @Tag("security")
