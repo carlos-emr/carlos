@@ -83,7 +83,10 @@ public class TicklerWebService extends AbstractServiceImpl {
 
     private void requireTicklerPrivilege(String privilege) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", privilege, null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN)
+                    .type(MediaType.TEXT_PLAIN)
+                    .entity("Access Denied")
+                    .build());
         }
     }
 
