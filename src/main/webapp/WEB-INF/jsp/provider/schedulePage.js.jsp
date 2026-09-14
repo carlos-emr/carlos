@@ -175,6 +175,7 @@ function initializeQSArray() {
     qsParm['dboperation'] = null;
     qsParm['viewall'] = null;
     qsParm['provider_no'] = null;
+    qsParm['weekView'] = null;
 }
 
 function getQSValues() {
@@ -272,6 +273,9 @@ function getLocation(id, multiplier) {
     }
     if (qsParm['provider_no']) {
         destination += '&provider_no=' + encodeURIComponent(qsParm['provider_no']);
+    }
+    if (qsParm['weekView'] === 'true') {
+        destination += '&weekView=true';
     }
 
     window.location = destination;

@@ -302,7 +302,7 @@
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:fiXBLMWhIZZiGGp6MBg3zZU1wOAYiM/TU/gU17e9YdHePhNIPM0F0dimSeMUTM8CMN4khJyM809pvRJAaUuY/Q=="
+    "integrity" : "sha512:19I1LHAibtEyxj+PoIlGp+CC5wulN5ZajJ3+Y+rN2i4raBXE8FpI6gd2MMKPbkpsNV+F71bZF2niRH7bpeGBZg=="
   }, {
     "groupId" : "com.github.spotbugs",
     "artifactId" : "spotbugs-annotations",

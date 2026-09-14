@@ -51,7 +51,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession(false).setAttribute("emailPDFPassword", "existing-password");
         request.getSession(false).setAttribute("emailPDFPasswordClue", "existing-clue");
         request.addParameter("fid", "abc\r\nforged-fid");
-        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());

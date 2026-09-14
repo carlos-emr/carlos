@@ -1,0 +1,24 @@
+# The Chromium snapshot the carlos-emr-eform-renderer package ships when
+# CHROMIUM_DIST is not supplied.
+#
+# WHY A VENDORED BROWSER AT ALL. Ubuntu 26.04 has no Chromium .deb: every
+# chromium-* package in the archive is a transitional shim for the snap
+# (chromium-browser is literally "Transitional package - chromium-browser ->
+# chromium snap"). A confined snap cannot read the renderer's working
+# directories under /var/lib/carlos-emr, so it is not usable here even when
+# snapd is present.
+#
+# WHY THE SNAPSHOT BUILDS AND NOT CHROME FOR TESTING. The chrome-for-testing
+# downloads are Google Chrome binaries under Google's proprietary terms and are
+# not redistributable inside a GPL package. These are the upstream Chromium
+# continuous builds: BSD-3-Clause plus the licences enumerated in
+# debian/copyright, and redistributable.
+#
+# Pin an exact revision for a release build. The browser and the driver MUST
+# come from the SAME revision: chromedriver refuses to drive a browser whose
+# major version it does not match, and a mismatch surfaces as every eForm
+# render failing at launch rather than as an install-time error.
+rev=1685886
+# Chromium 154.0.8025.0
+chrome_sha256=c9f172f7f5ae6e832d548d46160d2d4992b42c2d417eaea30999dcf4fc47ba05
+chromedriver_sha256=b7e800f3f9dd764dad2b44e6e910dcffe33e7e9a4e40e4ebb7fb7429ec37860b

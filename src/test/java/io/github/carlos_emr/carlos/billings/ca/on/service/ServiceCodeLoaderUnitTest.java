@@ -108,6 +108,41 @@ class ServiceCodeLoaderUnitTest {
         assertThat(result.getProperty("A008")).isEqualTo("Re-assessment");
     }
 
+    /**
+     * Regression guard: {@code billingservice.description} is nullable and the
+     * shipped Ontario reference data has rows with no description (A505C,
+     * K041A, R381C). {@link Properties} rejects null values, so the review
+     * screen used to die with an unhandled NPE — a "CARLOS Error: 500" — for
+     * any claim that included one of those codes.
+     */
+    @Test
+    void shouldMapNullDescriptionToEmpty_whenGetCodeDescByNames() {
+        BillingService withDescription = new BillingService();
+        withDescription.setServiceCode("A007");
+        withDescription.setDescription("Office visit");
+        BillingService withoutDescription = new BillingService();
+        withoutDescription.setServiceCode("A505C");
+        withoutDescription.setDescription(null);
+        when(dao.findByServiceCodes(anyList())).thenReturn(List.of(withDescription, withoutDescription));
+
+        Properties result = loader.getCodeDescByNames(List.of("A007", "A505C"));
+
+        assertThat(result.getProperty("A007")).isEqualTo("Office visit");
+        assertThat(result.getProperty("A505C")).isEmpty();
+    }
+
+    @Test
+    void shouldSkipRow_whenServiceCodeIsNull() {
+        BillingService orphan = new BillingService();
+        orphan.setServiceCode(null);
+        orphan.setDescription("Row with no code");
+        when(dao.findByServiceCodes(anyList())).thenReturn(List.of(orphan));
+
+        Properties result = loader.getCodeDescByNames(List.of("A007"));
+
+        assertThat(result).isEmpty();
+    }
+
     @Test
     void shouldReturnAllPrivateCodes_whenGetPrivateBillingCodeDesc() {
         when(dao.finAllPrivateCodes()).thenReturn(List.of(

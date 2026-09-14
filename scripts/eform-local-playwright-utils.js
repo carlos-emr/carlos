@@ -44,6 +44,11 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in the URL would ride every navigation and surface in failure diagnostics; the
+  // checks log in through the form with TEST_USER/TEST_PASSWORD instead.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
 
   const host = parsed.hostname.toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
@@ -54,6 +59,22 @@ function validateBaseUrl(rawBaseUrl) {
 
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+/*
+ * The fixture-writing checks seed and delete rows through the mysql client. A
+ * mistyped MYSQL_HOST must not point that at a shared or production database,
+ * so the host has to be loopback unless the caller opts in for a disposable
+ * non-local test database. Mirrors validateBaseUrl's loopback rule.
+ */
+function validateMysqlHost(rawHost, env = process.env) {
+  const host = String(rawHost || '').trim().toLowerCase();
+  const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+  const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!loopbackHosts.has(normalizedHost) && env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(`Refusing to seed fixtures into non-loopback MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable test database`);
+  }
+  return rawHost;
 }
 
 function appUrl(baseUrl, appPath) {
@@ -113,10 +134,15 @@ function isSevereConsoleMessage(message) {
   return /(ReferenceError|TypeError|SyntaxError|\$ is not defined|jQuery is not defined|Cannot read|Cannot set|is not defined)/i.test(text);
 }
 
-function wirePage(page, label, recorder) {
+function wirePage(page, label, recorder, dialogHandler = null) {
   page.on('dialog', async (dialog) => {
-    recorder.dialogs.push({ label, type: dialog.type(), text: dialog.message() });
-    await dialog.dismiss().catch(() => {});
+    const entry = { label, type: dialog.type(), text: dialog.message() };
+    if (dialogHandler) {
+      await dialogHandler(dialog, entry);
+    } else {
+      recorder.dialogs.push(entry);
+      await dialog.dismiss().catch(() => {});
+    }
   });
   page.on('response', async (response) => {
     const responseUrl = response.url();
@@ -162,16 +188,50 @@ async function login(context, config, recorder) {
   const page = await context.newPage();
   wirePage(page, 'login', recorder);
   await gotoApp(page, config.baseUrl, '/');
+  await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(config.testUser);
   await page.locator('#password').fill(config.testPassword);
-  if (await page.locator('#pin').count()) {
-    await page.locator('#pin').fill(config.testPin);
+  const pinInput = page.locator('#pin');
+  const hasPin = await pinInput.count() > 0;
+  if (hasPin) {
+    await pinInput.fill(config.testPin);
+    assert(await pinInput.inputValue() === config.testPin,
+      'login PIN field changed before submit');
   }
+  assert(await page.locator('#username').inputValue() === config.testUser,
+    'login username field changed before submit');
+  assert(await page.locator('#password').inputValue() === config.testPassword,
+    'login password field changed before submit');
   await Promise.all([
-    page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
+    // forcepasswordreset is a legitimate destination, not a failure: the carlos-emr package
+    // generates its first-login credential already flagged for a reset, so on a freshly
+    // installed deb -- the case the deb-install runbook is written for -- this is where the
+    // login lands. Waiting only for the schedule made every check here fail before it tested
+    // anything, and the devcontainer defaults hid it because that account is not flagged.
+    page.waitForURL(/providercontrol|appointment|forcepasswordreset/i, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  if (/forcepasswordreset/i.test(page.url())) {
+    assert(
+      config.resetPassword,
+      `${config.testUser} must change its password before it can be used: a fresh carlos-emr`
+      + ' install flags its generated admin credential for a forced reset. Complete it ONCE, in an'
+      + ' isolated run outside any suite loop, with RESET_PASSWORD set to a new password meeting'
+      + ' the policy, then export TEST_PASSWORD as that new password for every later run. Doing'
+      + ' it inside a loop leaves the scripts that ran before it unreset and the ones after it'
+      + ' authenticating with the old password.',
+    );
+    await page.locator('input[name="oldPassword"]').fill(config.testPassword);
+    await page.locator('input[name="newPassword"]').fill(config.resetPassword);
+    await page.locator('input[name="confirmPassword"]').fill(config.resetPassword);
+    await Promise.all([
+      page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
+      page.locator('input[type="submit"], button[type="submit"]').first().click(),
+    ]);
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  }
   return page;
 }
 
@@ -363,9 +423,41 @@ function buildFailureDetails(recorder) {
   };
 }
 
+/**
+ * Fail if the browser reported an uncaught JS error on any of the given pages.
+ *
+ * The recorder has always collected pageErrors, but several scripts only ever
+ * PRINTED them, and only on a run that had already failed for another reason.
+ * That is how a live ReferenceError on the deleted-eForms list shipped green:
+ * the assertions all completed before the DataTables draw callback threw, so
+ * nothing looked at the error the browser had raised. A check that drives a
+ * page should fail when that page is broken, whether or not the specific thing
+ * it asserted still worked.
+ *
+ * @param recorder  recorder from createRecorder()
+ * @param labels    page labels to consider; omit for all pages
+ * @param allow     regexes for known-benign errors; keep this list short and
+ *                  justified, since every entry is a class of regression the
+ *                  check can no longer see
+ */
+function assertNoPageErrors(recorder, labels = null, allow = []) {
+  const relevant = recorder.pageErrors.filter((entry) => {
+    if (labels && !labels.includes(entry.label)) {
+      return false;
+    }
+    return !allow.some((pattern) => pattern.test(entry.text));
+  });
+  assert(
+    relevant.length === 0,
+    `The browser raised ${relevant.length} uncaught JavaScript error(s): `
+      + relevant.map((entry) => `[${entry.label}] ${entry.text.split('\n')[0]}`).join(' | '),
+  );
+}
+
 module.exports = {
   appUrl,
   assert,
+  assertNoPageErrors,
   assertNotErrorPage,
   buildArtifactPath,
   buildFailureDetails,
@@ -382,6 +474,7 @@ module.exports = {
   saveCurrentEform,
   screenshot,
   validateBaseUrl,
+  validateMysqlHost,
   waitForPopupReady,
   wirePage,
 };

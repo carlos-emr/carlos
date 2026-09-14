@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -260,7 +261,8 @@ public class DocumentPreview2Action extends ActionSupport {
                     EFormRenderApprovalService.Operation.PREVIEW, e.getReport(),
                     approval, e.getFdid());
             generateMissingContentResponse(
-                    response, PreviewError.EFORM_MISSING_CONTENT, token, e.getReport());
+                    response, PreviewError.EFORM_MISSING_CONTENT, token, e.getReport(),
+                    e.getSevereConsoleDetails());
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
             generateResponse(response, PreviewError.EFORM_RENDER_FAILED);
@@ -562,7 +564,8 @@ public class DocumentPreview2Action extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateMissingContentResponse(HttpServletResponse response, PreviewError error,
-            String approvalToken, EFormRenderCompletenessReport report) {
+            String approvalToken, EFormRenderCompletenessReport report,
+            List<String> severeConsoleErrorDetails) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorCode", error.code);
         json.put("errorMessage", error.message);
@@ -576,7 +579,16 @@ public class DocumentPreview2Action extends ActionSupport {
         // Keep in step with EFormRenderCompletenessReport: an omitted category would let the caller
         // present an incomplete issue set for an approval whose digest covers all of them.
         json.put("severeConsoleErrors", report.severeConsoleErrors());
+        // Display-only, PHI-safe per-error descriptions (type + source location) that let the
+        // clinician judge the script errors before overriding. Never part of the approval digest.
+        ArrayNode severeConsoleErrorDetailsNode = json.putArray("severeConsoleErrorDetails");
+        if (severeConsoleErrorDetails != null) {
+            for (String detail : severeConsoleErrorDetails) {
+                severeConsoleErrorDetailsNode.add(detail);
+            }
+        }
         json.put("containedInteractions", report.containedInteractions());
+        json.put("decorativeExcludedElements", report.decorativeExcludedElements());
         json.put("stabilizationCapped", report.stabilizationCapped());
         json.put("labDecisionSupportStubbed", report.labDecisionSupportStubbed());
         response.setContentType("application/json");

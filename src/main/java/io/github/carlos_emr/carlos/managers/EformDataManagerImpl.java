@@ -237,12 +237,14 @@ public class EformDataManagerImpl implements EformDataManager {
         logger.debug("Generating eForm PDF via browser renderer: fdid={}", fdid);
         Path path;
         EFormRenderCompletenessReport completeness;
+        java.util.List<String> severeConsoleDetails;
         try {
             // The caller owns cleanup of the returned renderer output.
             EFormBrowserPdfService.RenderedEformPdf rendered =
                     eFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid, approval);
             path = rendered.path();
             completeness = rendered.completeness();
+            severeConsoleDetails = rendered.severeConsoleDetails();
         } catch (EformContentUnavailableException e) {
             throw e;
         } catch (PDFGenerationException e) {
@@ -271,7 +273,7 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new PDFGenerationException("EForm PDF generation produced an unreadable temporary file.");
         }
 
-        return new EformPdfRender(path, completeness, Map.of(fdid, completeness));
+        return new EformPdfRender(path, completeness, Map.of(fdid, completeness), severeConsoleDetails);
     }
 
 

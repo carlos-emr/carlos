@@ -15,7 +15,7 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   TICKLER_DEMOGRAPHIC_NO=1
  *   TICKLER_PROVIDER_NO=999998
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
@@ -35,12 +35,18 @@ const testPin = process.env.TEST_PIN || '2026';
 const mysqlHost = process.env.MYSQL_HOST || 'db';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 const providerNo = process.env.TICKLER_PROVIDER_NO || '999998';
 const stamp = `PW_TICKLER_CRUD_${Date.now()}`;
-const createdMessage = `${stamp} created through add UI`;
-const editedMessage = `${stamp} edited through edit UI`;
+// Both messages BEGIN with a pasted internal PACS link whose query string carries "&cmd",
+// the ordinary clinical text that the packaged WAF's CRS scores as an attack (931100 on a
+// value that starts with an IP-address URL, 932110 on "&cmd"). Through the packaged front
+// door on :443 this is what proves the tickler routes accept clinician prose (exclusions 1104
+// and 1105); through bare Tomcat nothing inspects it. Keep the link first and keep "&cmd" in it.
+const CLINICAL_TEXT_THE_WAF_SCORES = "http://10.0.0.5/pacs/study?id=1&cmd=view f/u imaging;";
+const createdMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} created through add UI`;
+const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through edit UI`;
 
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
@@ -48,6 +54,9 @@ const consoleIssues = [];
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
@@ -119,13 +128,15 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  const escapedStamp = escapeSql(`${stamp}%`);
+  // The stamp sits after the scoring text, so match it anywhere in the message.
+  const escapedStamp = escapeSql(`%${stamp}%`);
   sql(`DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE message LIKE '${escapedStamp}')`);
   sql(`DELETE FROM tickler WHERE message LIKE '${escapedStamp}'`);
 }
 
 function getTicklerRows() {
-  const escapedStamp = escapeSql(`${stamp}%`);
+  // The stamp sits after the scoring text, so match it anywhere in the message.
+  const escapedStamp = escapeSql(`%${stamp}%`);
   const out = sql(
     `SELECT tickler_no, status, priority, task_assigned_to, DATE(service_date), message`
       + ` FROM tickler WHERE message LIKE '${escapedStamp}' ORDER BY tickler_no`
@@ -137,6 +148,19 @@ function getTicklerRows() {
     const [id, status, priority, assignee, serviceDate, message] = line.split('\t');
     return { id, status, priority, assignee, serviceDate, message };
   });
+}
+
+async function waitForTicklerStatus(expectedStatus, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  let rows = [];
+  while (Date.now() < deadline) {
+    rows = getTicklerRows();
+    if (rows.length === 1 && rows[0].status === expectedStatus) {
+      return rows[0];
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`tickler did not reach status ${expectedStatus}; last rows=${JSON.stringify(rows)}`);
 }
 
 function getCommentRows(ticklerNo) {
@@ -201,19 +225,74 @@ async function waitForTicklerListReady(page) {
 }
 
 async function setTicklerListStatus(page, status) {
-  await page.locator('#ticklerview').selectOption(status);
-  await page.waitForFunction((expectedStatus) => {
+  const statusSelect = page.locator('#ticklerview');
+  const currentStatus = await statusSelect.inputValue();
+
+  // Selecting the current value still fires DataTables' change handler. A
+  // second ajax.reload() can replace a checkbox after Playwright checks it but
+  // before the form is submitted, producing a valid no-op POST. Do not create
+  // that reload when the requested filter is already active.
+  if (currentStatus === status) {
+    await page.waitForFunction(() => {
+      const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+      if (!table) {
+        return false;
+      }
+      const settings = table.settings()[0];
+      return !settings.bDrawing && (!settings.jqXHR || settings.jqXHR.readyState === 4);
+    }, null, { timeout: 30000 });
+    return;
+  }
+
+  const previousDraw = await page.evaluate(() => (
+    window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
+  ));
+  const [listResponse] = await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return response.request().method() === 'GET'
+        && url.pathname.endsWith('/tickler/ListTicklers')
+        && url.searchParams.get('status') === status;
+    }, { timeout: 30000 }),
+    statusSelect.selectOption(status),
+  ]);
+  assert(listResponse.status() < 400, `tickler list reload returned HTTP ${listResponse.status()}`);
+
+  await page.waitForFunction(({ expectedStatus, previousDraw }) => {
     const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
-    return table && document.getElementById('ticklerview').value === expectedStatus;
-  }, status, { timeout: 30000 }).catch(() => {});
+    if (!table) {
+      return false;
+    }
+    const settings = table.settings()[0];
+    return document.getElementById('ticklerview').value === expectedStatus
+      && settings.iDraw > previousDraw
+      && !settings.bDrawing
+      && (!settings.jqXHR || settings.jqXHR.readyState === 4);
+  }, { expectedStatus: status, previousDraw }, { timeout: 30000 });
 }
 
 async function findRowInList(page, message, expectedStatus) {
   await page.locator('#ticklerResults_filter input[type="search"]').fill('');
+  const previousDraw = await page.evaluate(() => (
+    window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
+  ));
   await page.evaluate(() => {
     window.jQuery('#ticklerResults').DataTable().search('').order([4, 'desc']).draw();
   });
   try {
+    // DataTables keeps the old tbody visible while a server-side draw is in
+    // flight. Waiting only for a visible row can therefore return a checkbox
+    // that is about to be detached, losing its checked state at submit time.
+    await page.waitForFunction((previousDraw) => {
+      const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+      if (!table) {
+        return false;
+      }
+      const settings = table.settings()[0];
+      return settings.iDraw > previousDraw
+        && !settings.bDrawing
+        && (!settings.jqXHR || settings.jqXHR.readyState === 4);
+    }, previousDraw, { timeout: 30000 });
     await page.locator('#ticklerResults tbody tr').filter({ hasText: message }).first().waitFor({
       state: 'visible',
       timeout: 30000,
@@ -351,15 +430,28 @@ async function deleteTicklerFromList(page, message) {
   await setTicklerListStatus(page, 'C');
   await findRowInList(page, message, 'C');
   const rowLocator = page.locator('#ticklerResults tbody tr').filter({ hasText: message }).first();
-  await rowLocator.locator('input[name="checkbox"]').check();
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
+  const checkbox = rowLocator.locator('input[name="checkbox"]');
+  const selectedTicklerNo = await checkbox.getAttribute('value');
+  assert(selectedTicklerNo, 'tickler delete checkbox had no tickler id');
+  await checkbox.check();
+  const [deleteResponse] = await Promise.all([
+    page.waitForResponse((response) => {
+      const request = response.request();
+      return request.method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/tickler/DbTicklerMain');
+    }, { timeout: 30000 }),
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
     page.locator("form[name='ticklerform'] input.btn-danger").click(),
   ]);
+  assert(deleteResponse.status() < 400, `tickler delete returned HTTP ${deleteResponse.status()}`);
+  const deleteForm = new URLSearchParams(deleteResponse.request().postData() || '');
+  assert(deleteForm.getAll('checkbox').includes(selectedTicklerNo),
+    `tickler delete POST omitted selected id ${selectedTicklerNo}`);
+  assert(/^d/i.test(deleteForm.get('submit_form') || ''),
+    `tickler delete POST had unexpected submit_form=${deleteForm.get('submit_form')}`);
   await waitForTicklerListReady(page);
 
-  const rows = getTicklerRows();
-  assert(rows.length === 1 && rows[0].status === 'D', `deleted tickler status was ${rows[0] && rows[0].status}`);
+  await waitForTicklerStatus('D');
 }
 
 (async () => {

@@ -70,7 +70,11 @@ class TargetClinicalJspI18nTest {
     void shouldDeclareOscarResourcesBundle_inTargetClinicalJsps() throws IOException {
         List<Path> missingBundle = new ArrayList<>();
         for (Path path : targetJsps().toList()) {
-            if (!read(path).contains("<fmt:setBundle basename=\"oscarResources\"/>")) {
+            String content = read(path);
+            // Pure compatibility forwards perform no message lookup. Their destination owns
+            // the bundle; requiring an unused taglib/bundle on the forwarding shim is spurious.
+            if (FMT_KEY_PATTERN.matcher(content).find()
+                    && !content.contains("<fmt:setBundle basename=\"oscarResources\"/>")) {
                 missingBundle.add(path);
             }
         }

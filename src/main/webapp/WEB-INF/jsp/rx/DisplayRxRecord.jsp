@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DrugReason" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugReasonDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
@@ -217,7 +218,7 @@
                 <% if (drug.getCustomName() != null && !drug.getCustomName().equalsIgnoreCase("null")) { %>
                 <tr>
                     <td class="label">Drug Name:</td>
-                    <td><%= drug.getCustomName()%>
+                    <td><%= SafeEncode.forHtmlContent(drug.getCustomName())%>
                     </td>
                 </tr>
                 <%}%>
@@ -268,12 +269,12 @@
                 </tr>
                 <tr>
                     <td class="label">Rx Text:</td>
-                    <td><%= drug.getSpecial()%>
+                    <td><%= SafeEncode.forHtmlContent(drug.getSpecial())%>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Special Instructions:</td>
-                    <td><%= drug.getSpecialInstruction()%>
+                    <td><%= SafeEncode.forHtmlContent(drug.getSpecialInstruction())%>
                     </td>
                 </tr>
                 <tr>

@@ -434,7 +434,8 @@
                     <div class="row">
                         <div class="col-sm-12">
                             <input type="hidden" id="submitMethod" name="method" value="queue"/>
-                            <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="Send">
+                            <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="Send"
+                                    <c:if test="${ not empty faxCleanupFailed }">disabled="disabled"</c:if>>
                                 <span class="btn-label"><i class="fa-solid fa-paper-plane"></i></span>
                                 Send
                             </button>

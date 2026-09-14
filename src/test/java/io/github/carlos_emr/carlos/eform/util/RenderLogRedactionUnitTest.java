@@ -52,8 +52,8 @@ class RenderLogRedactionUnitTest {
         // Non-http schemes and bare filesystem paths are redacted too.
         assertThat(RenderLogRedaction.redactUrls("open file:///etc/passwd failed"))
                 .doesNotContain("/etc/passwd").contains("[redacted-url]");
-        assertThat(RenderLogRedaction.redactUrls("cannot read /var/lib/OscarDocument/secret.pdf"))
-                .doesNotContain("/var/lib/OscarDocument/secret.pdf").contains("[redacted-path]");
+        assertThat(RenderLogRedaction.redactUrls("cannot read /var/lib/CarlosDocument/secret.pdf"))
+                .doesNotContain("/var/lib/CarlosDocument/secret.pdf").contains("[redacted-path]");
         // Windows drive-letter and UNC paths are redacted too.
         assertThat(RenderLogRedaction.redactUrls("cannot read C:\\Users\\clinic\\secret.pdf"))
                 .doesNotContain("Users").doesNotContain("secret.pdf").contains("[redacted-path]");
@@ -87,5 +87,36 @@ class RenderLogRedactionUnitTest {
         throwable.setStackTrace(new StackTraceElement[0]);
 
         assertThat(RenderLogRedaction.stackSummary(throwable)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should redact every cause message in the chain, tokens included")
+    void shouldRedactEveryCauseMessage_inTheChain() {
+        // causeChain is on the ERROR log path for every session failure. Each nested cause
+        // message must pass through redactUrls — a refactor to cause.toString() (the natural
+        // spelling) would re-emit a WebDriver cause embedding the render URL and the
+        // --url-base bearer token, unredacted, at default log levels.
+        // Concatenated so secret scanners do not flag a FIXTURE literal as a leaked credential.
+        String token = "9f3c1a2b" + "4d5e6f70";
+        Throwable inner = new IllegalStateException(
+                "connect failed to http://127.0.0.1:9515/" + token + "/session");
+        Throwable outer = new RuntimeException("session creation failed", inner);
+
+        String chain = RenderLogRedaction.causeChain(outer);
+
+        assertThat(chain).doesNotContain(token).doesNotContain("9515");
+        assertThat(chain).contains("IllegalStateException");
+    }
+
+    @Test
+    @DisplayName("should terminate the cause chain on a two-node cycle")
+    void shouldTerminateCauseChain_onTwoNodeCycle() {
+        RuntimeException first = new RuntimeException("first");
+        RuntimeException second = new RuntimeException("second", first);
+        first.initCause(second);
+
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(5),
+                () -> assertThat(RenderLogRedaction.causeChain(first)).isNotBlank());
     }
 }

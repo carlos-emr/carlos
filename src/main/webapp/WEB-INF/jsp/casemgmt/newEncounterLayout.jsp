@@ -609,10 +609,19 @@
         </div>
 
         <div id="content">
+            <%--
+                newCaseManagementView.jsp supplies the CPP summary boxes and the empty #notCPP
+                container. The clinical notes panel (ChartNotes.jsp) is deliberately NOT included
+                here: the window load handler above calls viewFullChart(false), which POSTs to
+                CaseManagementEntry (method=edit, chain=list) and renders ChartNotes.jsp into
+                #notCPP with the state only that path prepares (entry form bean, restored draft,
+                note lock, filter lists). Filter and save reloads replace #notCPP the same way.
+                A second, server-side include of ChartNotes.jsp outside #notCPP once lived here;
+                it rendered a duplicate Template Search / note editor panel on every chart open and
+                a second "Loading Notes..." throbber that shared an id with the first, so only one
+                of the two could ever be hidden.
+            --%>
             <jsp:include page="/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp"/>
-            <%-- Clinical notes are part of the first eChart render; CPP AJAX fragments only fill the summary boxes above. --%>
-            <c:set var="eChartLayoutIncludesDependencies" value="true" scope="request"/>
-            <jsp:include page="/WEB-INF/jsp/casemgmt/ChartNotes.jsp"/>
         </div>
     </div>
     <!-- hovering divs -->
