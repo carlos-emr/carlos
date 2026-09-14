@@ -11,6 +11,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -57,6 +58,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class SMTPEmailSender {
     static final int SMTP_CONNECTION_TIMEOUT_MILLIS = 30_000;
     static final int SMTP_IO_TIMEOUT_MILLIS = 60_000;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final Logger logger = MiscUtils.getLogger();
     private LoggedInInfo loggedInInfo;
@@ -173,33 +175,73 @@ public class SMTPEmailSender {
      */
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            String host = jsonNode.get("host").asText();
-            String port = jsonNode.get("port").asText();
-            String username = jsonNode.get("username").asText();
-            String password = jsonNode.get("password").asText();
-
-            mailSender.setHost(host);
-            mailSender.setPort(Integer.parseInt(port));
-            mailSender.setUsername(username);
-            mailSender.setPassword(password);
-
-            Properties properties = new Properties();
-            properties.put("mail.transport.protocol", "smtp");
-            properties.put("mail.smtp.auth", "true");
-            properties.put("mail.smtp.starttls.enable", "true");
-            properties.put("mail.smtp.starttls.required", "true");
-            properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
-            properties.put("mail.debug", "false");
-            applySmtpTimeouts(properties);
-
-            mailSender.setJavaMailProperties(properties);
-        } catch (IOException | RuntimeException e) {
-            throw new EmailSendingException("The active SMTP sender configuration is invalid.", e);
+        JsonNode jsonNode = parseConfig(emailConfig);
+        String host = requiredText(jsonNode, "host", emailConfig);
+        String port = requiredText(jsonNode, "port", emailConfig);
+        String username = requiredText(jsonNode, "username", emailConfig);
+        // Decrypt the at-rest credential only here, at send time. Legacy plaintext passwords
+        // pass through unchanged during the migration window. A missing/null password node is
+        // tolerated (null) rather than throwing an NPE before the send is even attempted.
+        JsonNode passwordNode = jsonNode.get("password");
+        if (passwordNode != null && !passwordNode.isNull() && !passwordNode.isValueNode()) {
+            throw invalidConfiguration(emailConfig);
         }
+        String password = (passwordNode != null && !passwordNode.isNull())
+                ? EmailConfigSecrets.decryptSecret(passwordNode.asText())
+                : null;
+
+        mailSender.setHost(host);
+        try {
+            mailSender.setPort(Integer.parseInt(port));
+        } catch (NumberFormatException e) {
+            throw invalidConfiguration(emailConfig);
+        }
+        mailSender.setUsername(username);
+        mailSender.setPassword(password);
+
+        Properties properties = new Properties();
+        properties.put("mail.transport.protocol", "smtp");
+        properties.put("mail.smtp.auth", "true");
+        properties.put("mail.smtp.starttls.enable", "true");
+        properties.put("mail.smtp.starttls.required", "true");
+        properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
+        properties.put("mail.debug", "false");
+
+        applySmtpTimeouts(properties);
+        mailSender.setJavaMailProperties(properties);
         return mailSender;
+    }
+
+    protected JsonNode parseConfig(EmailConfig emailConfig) throws EmailSendingException {
+        String configJson = emailConfig != null ? emailConfig.getConfigDetailsJson() : null;
+        if (configJson == null || configJson.isBlank()) {
+            throw invalidConfiguration(emailConfig);
+        }
+        try {
+            JsonNode config = OBJECT_MAPPER.readTree(configJson);
+            if (config == null || !config.isObject()) {
+                throw invalidConfiguration(emailConfig);
+            }
+            return config;
+        } catch (IOException e) {
+            // Do not retain a Jackson cause: parse exceptions may include fragments of the config
+            // JSON, which contains the credential this change is intended to protect.
+            throw invalidConfiguration(emailConfig);
+        }
+    }
+
+    protected String requiredText(JsonNode config, String field, EmailConfig emailConfig)
+            throws EmailSendingException {
+        JsonNode value = config.get(field);
+        if (value == null || value.isNull() || value.asText().isBlank()) {
+            throw invalidConfiguration(emailConfig);
+        }
+        return value.asText();
+    }
+
+    protected EmailSendingException invalidConfiguration(EmailConfig emailConfig) {
+        String senderEmail = emailConfig != null ? emailConfig.getSenderEmail() : "unknown";
+        return new EmailSendingException("Invalid credentials configured for " + senderEmail);
     }
 
     /**

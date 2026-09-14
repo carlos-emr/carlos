@@ -92,6 +92,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         request.setParameter("logId", "42");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
         when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(new EmailLog());
 
         ManageEmails2Action action = new ManageEmails2Action();
@@ -102,7 +103,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("emailErrorMessage"))
                 .isEqualTo("This email cannot be copied because it is not associated with a patient. Please generate a new email instead.");
         verify(emailComposeManager).prepareEmailForResend(loggedInInfo, 42);
-        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager, securityInfoManager);
+        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager);
     }
     @Test
     @DisplayName("should refuse every dispatch without email read privilege")
@@ -128,7 +129,8 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> new ManageEmails2Action().execute())
                     .as("dispatch method=%s must be refused", method)
                     .isInstanceOf(SecurityException.class)
-                    .hasMessage("missing required sec object (_email and (_admin or _admin.email))");
+                    .hasMessage("resendEmail".equals(method) ? "missing required sec object (_email)"
+                            : "missing required sec object (_email and (_admin or _admin.email))");
         }
 
         // Refused before anything reads or renders patient data.
@@ -148,7 +150,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(
                 loggedInInfo, "_admin.email", SecurityInfoManager.READ, null)).thenReturn(false);
 
-        for (String method : new String[]{"resendEmail", "fetchEmails", "setResolved"}) {
+        for (String method : new String[]{"fetchEmails", "setResolved"}) {
             request.setParameter("method", method);
             request.setParameter("logId", "42");
 
@@ -292,6 +294,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         request.setParameter("logId", "42");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
         EmailLog emailLog = new EmailLog();
         emailLog.setDemographic(new Demographic());
         when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(emailLog);
@@ -331,6 +334,8 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldBlockResend_whenPendingEmailMayStillBeSending() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
         request.setParameter("logId", "42");
         EmailLog pending = pendingEmailLog();
         when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pending);
@@ -364,7 +369,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
 
     /** Stubs the lookups resendEmail() fans out to once it has a usable log. */
     private void stubComposeLookups(LoggedInInfo loggedInInfo) {
-        when(emailComposeManager.getEmailConsentStatus(loggedInInfo, 123)).thenReturn(new String[]{"consent", "GRANTED"});
+        when(emailComposeManager.getEmailConsentStatus(loggedInInfo, 123)).thenReturn(new String[]{"consent", "OPT_IN", "email.consent.status.optIn"});
         when(emailComposeManager.getRecipients(loggedInInfo, 123))
                 .thenReturn(new java.util.List<?>[]{java.util.List.of(), java.util.List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(java.util.List.of());

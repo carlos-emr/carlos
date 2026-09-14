@@ -126,12 +126,32 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
         return Response.ok(returnIssue).build();
     }
 
+    /**
+     * Adds a diagnosis code to a patient's disease registry.
+     *
+     * <p>The privilege check is patient-scoped: {@code demographicNo} is passed to
+     * {@link SecurityInfoManager#hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo, String, String, int)}
+     * so a patient-specific {@code _newCasemgmt.DxRegistry} restriction takes priority over the caller's
+     * general privilege. Without it any authenticated user could write diagnosis codes to an arbitrary
+     * patient by supplying their {@code demographicNo} (issue #2280).</p>
+     *
+     * @param demographicNo patient whose registry is written; rejected with 400 when absent, since the
+     *                      privilege check below unboxes it
+     * @param issue         diagnosis code and coding system to record
+     * @return empty 200 response; already-active entries are a no-op rather than a duplicate
+     * @throws jakarta.ws.rs.BadRequestException if {@code demographicNo} is missing
+     * @throws SecurityException                 if the caller lacks {@code _newCasemgmt.DxRegistry} write
+     *                                           access to this patient
+     */
     @POST
     @Path("/{demographicNo}/add")
     @Produces("application/json")
     @Consumes("application/json")
     public Response addToDiseaseRegistry(@PathParam("demographicNo") Integer demographicNo, IssueTo1 issue) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "w", null)) {
+        if (demographicNo == null) {
+            throw new BadRequestException("demographicNo is required");
+        }
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
         }
         boolean activeEntryExists = dxresearchDao.activeEntryExists(demographicNo, issue.getType(), issue.getCode());
@@ -151,12 +171,29 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
         return Response.ok().build();
     }
 
+    /**
+     * Returns the diagnosis codes recorded in a patient's disease registry.
+     *
+     * <p>Patient-scoped privilege check, for the same reason as
+     * {@link #addToDiseaseRegistry(Integer, IssueTo1)}: the registry is PHI, so the caller must hold
+     * {@code _newCasemgmt.DxRegistry} read access <em>for this patient</em>, not merely for the module.</p>
+     *
+     * @param demographicNo patient whose registry is read; rejected with 400 when absent, since the
+     *                      privilege check below unboxes it
+     * @return 200 with the patient's {@code Dxresearch} rows
+     * @throws jakarta.ws.rs.BadRequestException if {@code demographicNo} is missing
+     * @throws SecurityException                 if the caller lacks {@code _newCasemgmt.DxRegistry} read
+     *                                           access to this patient
+     */
     @GET
     @Path("/getDiseaseRegistry")
     @Produces("application/json")
     @Consumes("application/json")
     public Response getDiseaseRegistry(@QueryParam("demographicNo") Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", null)) {
+        if (demographicNo == null) {
+            throw new BadRequestException("demographicNo is required");
+        }
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
         }
         List<Dxresearch> dxresearchList = dxresearchDao.getByDemographicNo(demographicNo);

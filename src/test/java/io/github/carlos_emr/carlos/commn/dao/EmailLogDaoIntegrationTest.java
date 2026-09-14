@@ -83,9 +83,18 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
                 log.getId(), EmailLog.EmailStatus.PENDING, EmailLog.EmailStatus.SUCCESS,
                 "", completedAt)).isOne();
 
+        assertThat(log.getStatus()).as("bulk update refreshes the cached entity")
+                .isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        // Simulate a competing request's update while this persistence context retains SUCCESS.
+        entityManager.createNativeQuery("UPDATE emailLog SET status = 'RESOLVED' WHERE id = ?1")
+                .setParameter(1, log.getId()).executeUpdate();
+        assertThat(emailLogDao.transitionEmailStatus(log.getId(), EmailLog.EmailStatus.PENDING,
+                EmailLog.EmailStatus.FAILED, "stale failure", new Date())).isZero();
+        assertThat(log.getStatus()).as("lost compare-and-set exposes the winning status")
+                .isEqualTo(EmailLog.EmailStatus.RESOLVED);
         entityManager.clear();
         EmailLog updated = entityManager.find(EmailLog.class, log.getId());
-        assertThat(updated.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        assertThat(updated.getStatus()).isEqualTo(EmailLog.EmailStatus.RESOLVED);
         assertThat(updated.getErrorMessage()).isEmpty();
         assertThat(updated.getTimestamp().getTime()).isEqualTo(completedAt.getTime());
     }

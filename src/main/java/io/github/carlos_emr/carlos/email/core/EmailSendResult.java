@@ -28,29 +28,41 @@ public final class EmailSendResult {
     private final EmailLog emailLog;
     private final TransportOutcome transportOutcome;
     private final boolean transportOutcomeRecorded;
+    private final boolean followUpRequired;
 
     private EmailSendResult(EmailLog emailLog, TransportOutcome transportOutcome,
-            boolean transportOutcomeRecorded) {
+            boolean transportOutcomeRecorded, boolean followUpRequired) {
         this.emailLog = Objects.requireNonNull(emailLog, "emailLog must not be null");
         this.transportOutcome = Objects.requireNonNull(
                 transportOutcome, "transportOutcome must not be null");
         this.transportOutcomeRecorded = transportOutcomeRecorded;
+        this.followUpRequired = followUpRequired;
     }
 
     public static EmailSendResult accepted(EmailLog emailLog,
             boolean transportOutcomeRecorded) {
         return new EmailSendResult(
-                emailLog, TransportOutcome.ACCEPTED, transportOutcomeRecorded);
+                emailLog, TransportOutcome.ACCEPTED, transportOutcomeRecorded, false);
+    }
+
+    public static EmailSendResult accepted(EmailLog emailLog,
+            boolean transportOutcomeRecorded, boolean followUpRequired) {
+        return new EmailSendResult(emailLog, TransportOutcome.ACCEPTED,
+                transportOutcomeRecorded, followUpRequired);
+    }
+
+    public boolean isFollowUpRequired() {
+        return followUpRequired;
     }
 
     public static EmailSendResult failed(EmailLog emailLog,
             boolean transportOutcomeRecorded) {
         return new EmailSendResult(
-                emailLog, TransportOutcome.FAILED, transportOutcomeRecorded);
+                emailLog, TransportOutcome.FAILED, transportOutcomeRecorded, false);
     }
 
     public static EmailSendResult unconfirmed(EmailLog emailLog) {
-        return new EmailSendResult(emailLog, TransportOutcome.UNCONFIRMED, false);
+        return new EmailSendResult(emailLog, TransportOutcome.UNCONFIRMED, false, false);
     }
 
     public EmailLog getEmailLog() {

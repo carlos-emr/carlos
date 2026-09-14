@@ -96,9 +96,19 @@ public interface EformDataManager {
      *        carry PHI
      */
     record EformPdfRender(Path path, EFormRenderCompletenessReport completeness,
-            Map<Integer, EFormRenderCompletenessReport> formCompleteness) {
+            Map<Integer, EFormRenderCompletenessReport> formCompleteness,
+            java.util.List<String> severeConsoleDetails) {
+        public EformPdfRender(Path path, EFormRenderCompletenessReport completeness,
+                Map<Integer, EFormRenderCompletenessReport> formCompleteness) {
+            this(path, completeness, formCompleteness, java.util.List.of());
+        }
         public EformPdfRender(Path path, EFormRenderCompletenessReport completeness) {
-            this(path, completeness, Map.of());
+            this(path, completeness, Map.of(), java.util.List.of());
+        }
+        public EformPdfRender {
+            // PHI-safe per-error descriptions for the informed-override screen (display only).
+            severeConsoleDetails = severeConsoleDetails == null
+                    ? java.util.List.of() : java.util.List.copyOf(severeConsoleDetails);
         }
     }
 

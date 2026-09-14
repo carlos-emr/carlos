@@ -172,6 +172,13 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             request.setAttribute("eFormPDFName",
                     generateFileName(loggedInInfo, eformData.getDemographicId()));
             request.setAttribute("isDownload", "true");
+            if ("true".equals(request.getParameter("autoClose"))) {
+                // The approval page carries the "Submit & PDF" intent from AddEForm2Action: that
+                // submission closes its window after the download (the floating toolbar acts on
+                // isSuccess_Autoclose), and approving the render must not lose that. Window
+                // behaviour only, so it is not part of the approval digest.
+                request.setAttribute("isSuccess_Autoclose", "true");
+            }
             request.setAttribute("fdid", fdid);
             return "download";
         } catch (EformContentUnavailableException e) {

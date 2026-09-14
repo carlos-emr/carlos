@@ -78,7 +78,8 @@ public class DbManageBillingformDelete2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
@@ -106,7 +107,7 @@ public class DbManageBillingformDelete2Action extends ActionSupport {
                 diagCodeDao.remove(d.getId());
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to delete billing form for servicetype={} — data may be inconsistent", typeid, e);
+            MiscUtils.getLogger().error("Failed to delete billing form; data may be inconsistent ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to delete billing form");
             return NONE;
         }

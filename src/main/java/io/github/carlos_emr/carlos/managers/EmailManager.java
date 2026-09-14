@@ -30,14 +30,19 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
+import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -85,14 +90,15 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 @Service
 public class EmailManager {
-    private final Logger logger = MiscUtils.getLogger();
-    /** Keep recovery controls away from sends that may still be executing in another request. */
-    static final long PENDING_RESOLUTION_MIN_AGE_MILLIS = 15L * 60L * 1000L;
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
     private static final String UNKNOWN_NAME_PART = "Unknown";
     private static final String SENDER_NAME_PART = "Sender";
     private static final String PATIENT_NAME_PART = "Patient";
     private static final String PROVIDER_NAME_PART = "Provider";
+
+    private final Logger logger = MiscUtils.getLogger();
+    /** Keep recovery controls away from sends that may still be executing in another request. */
+    static final long PENDING_RESOLUTION_MIN_AGE_MILLIS = 15L * 60L * 1000L;
 
     public enum EmailResolutionResult {
         RESOLVED,
@@ -120,27 +126,31 @@ public class EmailManager {
     private ProviderManager2 providerManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    private final EmailConsentResolver emailConsentResolver;
+    private final EmailSenderFactory emailSenderFactory;
 
     /**
-     * Sends an email with optional encryption and returns the email send result.
+     * Creates an email manager with the consent gate and sender factory used by the send path.
+     * Remaining legacy collaborators are injected into their existing fields by Spring.
      *
-     * This method validates access, sanitizes the email data, resolves the active sender
-     * configuration, persists a {@code PENDING} outbox log for valid sender configurations,
-     * optionally encrypts the content, sends the message, and updates the persisted log to
-     * {@code SUCCESS} or {@code FAILED}. A log left {@code PENDING} means no conclusive transport
-     * outcome was recorded; that is deliberately distinct from {@code FAILED}, so an interrupted
-     * send is not mistaken for one that definitely did not reach the patient.
-     * If configured to display in the patient chart, it also creates a case management note
-     * documenting the email communication.
+     * @param emailConsentResolver resolves current patient email consent
+     * @param emailSenderFactory creates the outbound sender after consent is accepted
+     */
+    public EmailManager(EmailConsentResolver emailConsentResolver, EmailSenderFactory emailSenderFactory) {
+        this.emailConsentResolver = emailConsentResolver;
+        this.emailSenderFactory = emailSenderFactory;
+    }
+
+    /**
+     * Sends email after authorization, active sender validation and the current consent gate.
+     * Missing or inactive sender accounts return a transient FAILED log with a safe message;
+     * that result has no database id, outbox row, consent audit or transport attempt.
+     * Valid accounts retain consent snapshots, credential migration, encryption and status auditing.
      *
-     * If the sender configuration is missing or inactive, this method returns a transient
-     * FAILED EmailLog with a safe error message. That failure result is not persisted and does
-     * not have a database id.
-     *
-     * @param loggedInInfo LoggedInInfo the logged-in user session information
-     * @param emailData EmailData containing email subject, body, recipients, attachments, and configuration options
-     * @return EmailLog the persisted email log entry for normal send attempts, or a transient failed result for sender configuration failures
-     * @throws RuntimeException if user lacks _email WRITE privilege
+     * @param loggedInInfo the authenticated session
+     * @param emailData the message, recipients and sending options
+     * @return the persisted send/consent result, or a transient sender-configuration failure
+     * @throws RuntimeException if the caller lacks email write privilege
      */
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
         return sendEmailWithResult(loggedInInfo, emailData).getEmailLog();
@@ -161,80 +171,100 @@ public class EmailManager {
         sanitizeEmailFields(emailData);
         EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
         if (emailConfig == null) {
-            logger.warn("Email send failed before transport: sender email configuration is missing or inactive for senderConfigId={}", emailData.getSenderConfigId());
-            EmailLog failedEmailLog = createFailedEmailLog(
-                    emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
-            persistPreTransportFailureAuditEvent(loggedInInfo, emailData,
-                    "sender_configuration_unavailable");
-            return EmailSendResult.failed(failedEmailLog, false);
+            logger.warn("Email send failed before transport: sender configuration is missing or inactive; senderConfigId={}",
+                    emailData.getSenderConfigId());
+            return EmailSendResult.failed(createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR), false);
+        }
+        EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
+        EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
+        upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
+        applyConsentSnapshot(emailLog, consentResult, emailData);
+        logPreparedEmail(loggedInInfo, emailLog);
+        if (isBlockedByConsent(consentResult, emailData)) {
+            String errorMessage = getConsentBlockMessage(consentResult);
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.BLOCKED, errorMessage);
+            LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.blocked", "Email",
+                    "emailLogId=" + emailLog.getId() + "&consentStatus=" + consentResult.getStatus(),
+                    String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
+            return EmailSendResult.failed(emailLog, true);
         }
 
-        EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
         try {
             if (emailData.getIsEncrypted()) {
                 encryptEmail(emailData);
             }
-            EmailSender emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
+            EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
             emailSender.send();
-            boolean outcomeRecorded;
-            try {
-                emailLog = updateEmailStatus(
-                        loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
-                outcomeRecorded = EmailStatus.SUCCESS.equals(emailLog.getStatus());
-            } catch (RuntimeException statusUpdateFailure) {
-                // Transport has already accepted the message. Propagating a 500 would invite the
-                // sender to retry immediately and could deliver a duplicate. Leave the durable row
-                // PENDING, return the conclusive transport outcome, and make the persistence problem
-                // operator-visible.
-                logger.error("Email transport accepted the message but its SUCCESS status could not be recorded for emailLogId={}",
-                        emailLog.getId(), statusUpdateFailure);
-                persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
-                        "transportOutcome=SUCCESS; statusRecorded=false");
-                outcomeRecorded = false;
-            }
-            if (ChartDisplayOption.WITH_FULL_NOTE.equals(emailLog.getChartDisplayOption())) {
-                try {
-                    addEmailNote(loggedInInfo, emailLog);
-                } catch (RuntimeException noteFailure) {
-                    // The message is already accepted. A secondary chart-note failure must not
-                    // turn the response into a retryable send failure.
-                    logger.error("Email transport accepted the message but its chart note could not be created for emailLogId={}",
-                            emailLog.getId(), noteFailure);
-                    persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
-                            "transportOutcome=SUCCESS; chartNoteRecorded=false");
-                }
-            }
-            return EmailSendResult.accepted(emailLog, outcomeRecorded);
+            return completeAcceptedSend(loggedInInfo, emailLog);
         } catch (EmailSendingException e) {
-            if (e.isDeliveryOutcomeUncertain()) {
-                // A timeout or connection loss after dispatch does not prove rejection. Keep the
-                // durable PENDING state so neither the sender nor an administrator is told that a
-                // possibly delivered clinical message definitely failed.
-                emailLog.setErrorMessage(safeDiagnostic(e));
-                persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
-                        "transportOutcome=UNCONFIRMED; diagnosticPresent="
-                                + !StringUtils.isNullOrEmpty(e.getMessage()));
-                logTransportFailure("UNCONFIRMED", e);
-                return EmailSendResult.unconfirmed(emailLog);
-            }
-            try {
-                emailLog = updateEmailStatus(
-                        loggedInInfo, emailLog, EmailStatus.FAILED, safeDiagnostic(e));
-            } catch (RuntimeException statusUpdateFailure) {
-                logger.error("Email transport failed but its FAILED status could not be recorded for emailLogId={}",
-                        emailLog.getId(), statusUpdateFailure);
-                // This value is only returned to the current request. The durable row remains
-                // PENDING, correctly signalling that no outcome was recorded.
-                emailLog.setStatus(EmailStatus.FAILED);
-                emailLog.setErrorMessage(safeDiagnostic(e));
-                persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
-                        "transportOutcome=FAILED; statusRecorded=false");
-                return EmailSendResult.failed(emailLog, false);
-            }
-            logTransportFailure("FAILED", e);
-            return EmailSendResult.failed(
-                    emailLog, EmailStatus.FAILED.equals(emailLog.getStatus()));
+            return completeFailedSend(loggedInInfo, emailLog, e);
         }
+    }
+
+    private EmailSendResult completeAcceptedSend(LoggedInInfo loggedInInfo, EmailLog emailLog) {
+        boolean outcomeRecorded;
+        boolean followUpRequired = false;
+        try {
+            emailLog = updateEmailStatus(
+                    loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
+            outcomeRecorded = EmailStatus.SUCCESS.equals(emailLog.getStatus());
+        } catch (RuntimeException statusUpdateFailure) {
+            // Transport has already accepted the message. Propagating a 500 would invite the
+            // sender to retry immediately and could deliver a duplicate. Leave the durable row
+            // PENDING, return the conclusive transport outcome, and make the persistence problem
+            // operator-visible.
+            logger.error("Email transport accepted the message but its SUCCESS status could not be recorded for emailLogId={}",
+                    emailLog.getId(), statusUpdateFailure);
+            persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
+                    "transportOutcome=SUCCESS; statusRecorded=false");
+            outcomeRecorded = false;
+        }
+        if (ChartDisplayOption.WITH_FULL_NOTE.equals(emailLog.getChartDisplayOption())) {
+            try {
+                addEmailNote(loggedInInfo, emailLog);
+            } catch (RuntimeException noteFailure) {
+                followUpRequired = true;
+                // The message is already accepted. A secondary chart-note failure must not
+                // turn the response into a retryable send failure.
+                logger.error("Email transport accepted the message but its chart note could not be created for emailLogId={}",
+                        emailLog.getId(), noteFailure);
+                persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
+                        "transportOutcome=SUCCESS; chartNoteRecorded=false");
+            }
+        }
+        return EmailSendResult.accepted(emailLog, outcomeRecorded, followUpRequired);
+    }
+
+    private EmailSendResult completeFailedSend(LoggedInInfo loggedInInfo, EmailLog emailLog,
+            EmailSendingException e) {
+        if (e.isDeliveryOutcomeUncertain()) {
+            // A timeout or connection loss after dispatch does not prove rejection. Keep the
+            // durable PENDING state so neither the sender nor an administrator is told that a
+            // possibly delivered clinical message definitely failed.
+            emailLog.setErrorMessage(safeDiagnostic(e));
+            persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
+                    "transportOutcome=UNCONFIRMED; diagnosticPresent="
+                            + !StringUtils.isNullOrEmpty(e.getMessage()));
+            logTransportFailure("UNCONFIRMED", e);
+            return EmailSendResult.unconfirmed(emailLog);
+        }
+        try {
+            emailLog = updateEmailStatus(
+                    loggedInInfo, emailLog, EmailStatus.FAILED, safeDiagnostic(e));
+        } catch (RuntimeException statusUpdateFailure) {
+            logger.error("Email transport failed but its FAILED status could not be recorded for emailLogId={}",
+                    emailLog.getId(), statusUpdateFailure);
+            // This value is only returned to the current request. The durable row remains
+            // PENDING, correctly signalling that no outcome was recorded.
+            emailLog.setStatus(EmailStatus.FAILED);
+            emailLog.setErrorMessage(safeDiagnostic(e));
+            persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
+                    "transportOutcome=FAILED; statusRecorded=false");
+            return EmailSendResult.failed(emailLog, false);
+        }
+        logTransportFailure("FAILED", e);
+        return EmailSendResult.failed(
+                emailLog, EmailStatus.FAILED.equals(emailLog.getStatus()));
     }
 
     private String safeDiagnostic(EmailSendingException exception) {
@@ -254,6 +284,40 @@ public class EmailManager {
     }
 
     /**
+     * Transparently upgrades an email configuration's transport secrets to at-rest encryption on
+     * first use (the send path), so hand-inserted plaintext {@code emailConfig.configDetails} rows
+     * are migrated the first time they are used to send.
+     *
+     * <p>The upgrade is best-effort: if the encryption key is unavailable, or the persistence of the
+     * re-encrypted row fails, the row is left as-is and the send proceeds with the existing
+     * (plaintext) value rather than blocking outbound mail. Already-encrypted rows are detected by
+     * {@link EmailConfigSecrets} and produce no database write. Neither the secret nor the raw
+     * {@code configDetails} JSON is ever logged.</p>
+     *
+     * @param emailConfig the configuration whose secrets should be encrypted at rest, may be null
+     */
+    void upgradeConfigCredentialsAtRest(EmailConfig emailConfig) {
+        if (emailConfig == null || emailConfig.getId() == null) {
+            return;
+        }
+        String original = emailConfig.getConfigDetailsJson();
+        try {
+            String encrypted = EmailConfigSecrets.encryptSecrets(original);
+            if (!java.util.Objects.equals(original, encrypted)
+                    && emailConfigDao.encryptCredentialsIfUnchanged(emailConfig.getId(), original, encrypted)) {
+                emailConfig.setConfigDetailsJson(encrypted);
+            }
+        } catch (EmailSendingException | RuntimeException e) {
+            // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
+            // (RuntimeException, e.g. DataAccessException) may block outbound mail. The detached
+            // object is changed only after persistence succeeds. The DAO binds only the account ID
+            // and encrypted JSON, never the plaintext credential, keeping database errors safe.
+            logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
+                    emailConfig.getId(), e);
+        }
+    }
+
+    /**
      * Prepares an email for sending by creating and persisting an email log entry in the outbox.
      *
      * This method creates a comprehensive email log record that captures all email metadata,
@@ -268,7 +332,7 @@ public class EmailManager {
      * 2. Loads demographic and provider information
      * 3. Creates EmailLog entity with all email data
      * 4. Persists the email log to database
-     * 5. Creates audit log entry for compliance tracking
+     * The caller records the consent snapshot and compliance audit entry after this method returns.
      *
      * @param loggedInInfo LoggedInInfo the logged-in user session information
      * @param emailData EmailData containing email content, recipients, and configuration
@@ -308,8 +372,6 @@ public class EmailManager {
         emailLog.setDemographic(demographic);
         emailLog.setProvider(provider);
         emailLogDao.persist(emailLog);
-
-        LogAction.addLog(loggedInInfo, "EmailManager.prepareEmailForOutbox", "Email", "emailLogId=" + emailLog.getId(), String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
 
         return emailLog;
     }
@@ -404,7 +466,7 @@ public class EmailManager {
      * Updates the status of an email log entry with new status and error message.
      *
      * This method completes a transport lifecycle transition using a compare-and-set database
-     * update. Only PENDING to SUCCESS or FAILED is valid; a concurrent manual resolution is not
+     * update. Only PENDING to SUCCESS, FAILED or consent BLOCKED is valid; a concurrent manual resolution is not
      * overwritten.
      *
      * Common status values:
@@ -430,7 +492,8 @@ public class EmailManager {
         }
         EmailStatus previousStatus = emailLog.getStatus();
         if (!EmailStatus.PENDING.equals(previousStatus)
-                || !(EmailStatus.SUCCESS.equals(emailStatus) || EmailStatus.FAILED.equals(emailStatus))) {
+                || !(EmailStatus.SUCCESS.equals(emailStatus) || EmailStatus.FAILED.equals(emailStatus)
+                        || EmailStatus.BLOCKED.equals(emailStatus))) {
             throw new IllegalStateException("Invalid email transport status transition from "
                     + previousStatus + " to " + emailStatus);
         }
@@ -488,26 +551,6 @@ public class EmailManager {
         oscarLogDao.persist(auditLog);
     }
 
-    private void persistPreTransportFailureAuditEvent(LoggedInInfo loggedInInfo,
-            EmailData emailData, String reason) {
-        OscarLog auditLog = createActorAuditLog(loggedInInfo);
-        auditLog.setAction("EmailManager.preTransportFailure");
-        auditLog.setContent("Email");
-        auditLog.setContentId("unpersisted");
-        if (emailData.getDemographicNo() != null && emailData.getDemographicNo() > 0) {
-            auditLog.setDemographicId(emailData.getDemographicNo());
-        }
-        auditLog.setData("reason=" + reason + "; senderConfigId="
-                + String.valueOf(emailData.getSenderConfigId()));
-        try {
-            oscarLogDao.persist(auditLog);
-        } catch (RuntimeException auditFailure) {
-            // Preserve the user-facing graceful failure even if the audit database is unavailable;
-            // the application log remains an operator-visible fallback.
-            logger.error("Could not persist pre-transport email failure audit event", auditFailure);
-        }
-    }
-
     private OscarLog createActorAuditLog(LoggedInInfo loggedInInfo) {
         OscarLog auditLog = new OscarLog();
         if (loggedInInfo.getLoggedInSecurity() != null) {
@@ -549,7 +592,7 @@ public class EmailManager {
      * @param dateEndStr String the end date in yyyy-MM-dd format, or null for no end date
      * @param demographic_no String the patient demographic number to filter by, or null for all patients
      * @param senderEmailAddress String the sender email address to filter by, or null for all senders
-     * @param emailStatus String the email status to filter by (PENDING, SUCCESS, FAILED, RESOLVED), or null for all statuses
+     * @param emailStatus String the email status to filter by (PENDING, SUCCESS, FAILED, RESOLVED, BLOCKED), or null for all statuses
      * @return List&lt;EmailStatusResult&gt; list of email status results matching the filter criteria, sorted by timestamp
      * @throws RuntimeException if user lacks _email READ privilege
      */
@@ -665,6 +708,45 @@ public class EmailManager {
         emailLog.setEmailAttachments(emailAttachmentList);
     }
 
+    private void applyConsentSnapshot(EmailLog emailLog, EmailConsentResult consentResult, EmailData emailData) {
+        emailLog.setConsentStatus(consentResult.getStatus());
+        emailLog.setConsentId(consentResult.getConsentId());
+        emailLog.setConsentLastUpdateDate(consentResult.getConsentLastUpdateDate());
+        emailLog.setConsentOverride(isValidUnknownConsentOverride(consentResult, emailData));
+        emailLog.setConsentOverrideReason(emailLog.getConsentOverride() ? emailData.getConsentOverrideReason() : "");
+        emailLogDao.merge(emailLog);
+    }
+
+    private void logPreparedEmail(LoggedInInfo loggedInInfo, EmailLog emailLog) {
+        String logData = "emailLogId=" + emailLog.getId()
+                + "&consentStatus=" + emailLog.getConsentStatus()
+                + "&override=" + emailLog.getConsentOverride();
+        LogAction.addLog(loggedInInfo, "EmailManager.prepareEmailForOutbox", "Email", logData,
+                String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
+    }
+
+    private boolean isBlockedByConsent(EmailConsentResult consentResult, EmailData emailData) {
+        return consentResult.getStatus() != EmailConsentStatus.OPT_IN
+                && (consentResult.getStatus() != EmailConsentStatus.UNKNOWN
+                || !isValidUnknownConsentOverride(consentResult, emailData));
+    }
+
+    private boolean isValidUnknownConsentOverride(EmailConsentResult consentResult, EmailData emailData) {
+        return consentResult.getStatus() == EmailConsentStatus.UNKNOWN
+                && emailData.getConsentOverride()
+                && !StringUtils.isNullOrEmpty(emailData.getConsentOverrideReason());
+    }
+
+    private String getConsentBlockMessage(EmailConsentResult consentResult) {
+        if (consentResult.getStatus() == EmailConsentStatus.OPT_OUT) {
+            return "Email blocked: patient has explicitly opted out of email communication.";
+        }
+        if (consentResult.getStatus() == EmailConsentStatus.NOT_CONFIGURED) {
+            return "Email blocked: patient email consent is not configured.";
+        }
+        return "Email blocked: patient email consent is unknown and no override reason was provided.";
+    }
+
     /**
      * Sanitizes and normalizes email data fields based on encryption settings.
      *
@@ -710,20 +792,20 @@ public class EmailManager {
      * Encrypts the email message and/or attachments as password-protected PDFs.
      *
      * This method handles encryption of PHI content for secure transmission. It converts
-     * the encrypted message to a PDF attachment and encrypts selected attachments, then
-     * appends the password clue to the email body.
+     * the encrypted message to a PDF attachment and encrypts selected attachments while
+     * leaving the fixed visible email body unchanged.
      *
      * Encryption workflow:
      * 1. Convert encrypted message text to PDF attachment (if present)
      * 2. Collect attachments to encrypt based on isAttachmentEncrypted flag
      * 3. Encrypt all selected attachments with the provided password
      * 4. Update email attachments list with encrypted files
-     * 5. Append password clue to email body
+     * 5. Preserve the fixed, PHI-free visible email body without adding the password or clue
      *
      * @param emailData EmailData the email data containing content to encrypt
      * @throws EmailSendingException if PDF encryption fails
      */
-    private void encryptEmail(EmailData emailData) throws EmailSendingException {
+    void encryptEmail(EmailData emailData) throws EmailSendingException {
         // Encrypt message and attachment
         List<EmailAttachment> encryptableAttachments = new ArrayList<>();
         if (!StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
@@ -741,8 +823,9 @@ public class EmailManager {
         }
         emailData.setAttachments(emailAttachments);
 
-        //append password clue
-        emailData.setBody(emailData.getBody() + "\n\n*****\n" + emailData.getPasswordClue().trim() + "\n*****\n");
+        // The visible MIME body is deliberately limited to the fixed secure-message notice.
+        // Passwords and clues must be communicated through a separate agreed channel; including
+        // either here would violate the merged-message PHI boundary from issue #3118.
     }
 
     /**
@@ -753,16 +836,20 @@ public class EmailManager {
      *
      * @param emailData EmailData containing the encrypted message text
      * @return EmailAttachment a new attachment with the message PDF, or null if message is empty
+     * @throws EmailSendingException if the message cannot be rendered as a PDF
      */
-    private EmailAttachment createMessageAttachment(EmailData emailData) {
+    private EmailAttachment createMessageAttachment(EmailData emailData) throws EmailSendingException {
         if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
             return null;
         }
         String htmlSafeMessage = Encode.forHtmlContent(emailData.getEncryptedMessage()).replace("\n", "<br>");
         emailData.setEncryptedMessage(htmlSafeMessage);
         Path encryptedMessagePDF = ConvertToEdoc.saveAsTempPDF(emailData);
-        EmailAttachment emailAttachment = new EmailAttachment("message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
-        return emailAttachment;
+        if (encryptedMessagePDF == null) {
+            throw new EmailSendingException("Failed to render encrypted message attachment");
+        }
+        return new EmailAttachment(
+                "message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
     }
 
     /**
@@ -834,10 +921,12 @@ public class EmailManager {
             EmailConfig emailConfig = result.getEmailConfig();
             Demographic demographic = result.getDemographic();
             Provider provider = result.getProvider();
+            // Preserve null-safe names and aliases without exposing the stored PDF password.
             EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), getSenderFirstName(emailConfig),
                     getSenderLastName(emailConfig), nullToEmpty(result.getFromEmail()), getDemographicFirstName(demographic),
                     getDemographicLastName(demographic), String.join(", ", result.getToEmail()), getProviderFirstName(provider), getProviderLastName(provider),
-                    result.getIsEncrypted(), null, result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+                    result.getIsEncrypted(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+            emailStatusResult.applyConsentSnapshot(result);
             emailStatusResult.setResolvable(isManuallyResolvable(result));
             emailStatusResults.add(emailStatusResult);
         }

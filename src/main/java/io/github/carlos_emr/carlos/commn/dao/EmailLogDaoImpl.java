@@ -171,6 +171,13 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
         query.setParameter("newStatus", newStatus);
         query.setParameter("msg", errorMessage);
         query.setParameter("ts", timestamp);
-        return query.executeUpdate();
+        int updatedRows = query.executeUpdate();
+        // Bulk JPQL bypasses the persistence context. Refresh this row so a competing
+        // transition cannot be hidden by a previously loaded PENDING entity.
+        EmailLog current = entityManager.find(EmailLog.class, id);
+        if (current != null) {
+            entityManager.refresh(current);
+        }
+        return updatedRows;
     }
 }

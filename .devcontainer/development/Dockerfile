@@ -18,7 +18,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
 # ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
-ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties"
+ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties -Djavamelody.system-actions-enabled=true"
 # The eForm browser PDF renderer runs headless Chromium unsandboxed by default (Tomcat runs as root
 # here and Chromium refuses to start its OS-level sandbox as root); this container IS the isolation
 # boundary. No env var is needed for that default. To exercise Chromium's OS sandbox in a container
@@ -38,10 +38,10 @@ LABEL author="CARLOS EMR Project" \
 
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
-ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
+ARG OSCAR_DOCUMENT="${DOCS_PATH}/CarlosDocument"
 ARG DB_DOCS="/db-data/documents"
-ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
-ARG EFORM_IMAGES_DIR="/var/lib/OscarDocument/oscar/eform/images"
+ARG DOCS_DEST="/var/lib/CarlosDocument/carlos/document"
+ARG EFORM_IMAGES_DIR="/var/lib/CarlosDocument/carlos/eform/images"
 
 WORKDIR /workspace
 
@@ -173,10 +173,55 @@ RUN /usr/local/bin/apt-install pipx && \
     pipx install aider-chat && \
     pipx ensurepath
 
-# Install Postfix for mail testing with default values
-RUN /usr/local/bin/apt-install postfix
+# Install Postfix and flock for local mail capture testing with default values.
+RUN /usr/local/bin/apt-install postfix util-linux
 
-# Configure Postfix for simple localhost operation
+# Give the Postfix pipe a dedicated identity and a tightly permissioned capture
+# layout. The root-owned parent prevents the delivery user from replacing the
+# lock or capture file; its private spool remains writable for atomic capture.
+RUN groupadd --system carlos-mail && \
+    useradd --system --gid carlos-mail --home-dir /nonexistent \
+      --shell /usr/sbin/nologin carlos-mail && \
+    install -d -o root -g carlos-mail -m 0750 /var/log/carlos-mail-capture && \
+    install -d -o carlos-mail -g carlos-mail -m 0770 \
+      /var/log/carlos-mail-capture/.spool && \
+    install -o carlos-mail -g carlos-mail -m 0660 /dev/null \
+      /var/log/carlos-mail-capture/messages.eml && \
+    install -o carlos-mail -g carlos-mail -m 0660 /dev/null \
+      /var/log/carlos-mail-capture/.lock
+
+# Register a custom pipe transport that streams every accepted message to the
+# capture script. ${sender}/${recipient} pass envelope metadata; the raw
+# message body arrives on stdin.
+RUN printf '%s\n%s\n' \
+    'devcapture unix  -       n       n       -       -       pipe' \
+    '  flags=q user=carlos-mail argv=/scripts/postfix-capture-mail ${sender} ${recipient}' \
+    >> /etc/postfix/master.cf
+
+# Route every recipient to the capture transport.
+RUN printf '/.*/ devcapture:\n' > /etc/postfix/carlos-transport-regexp
+
+# Opt-in real-delivery allowlist (see docs/postfix-mail-server.md). Recipients
+# listed here are delivered for REAL, but ONLY when the container is started with
+# CARLOS_MAIL_ALLOW_SEND=1 (the 'mail' helper wires the allowlist into
+# transport_maps in that case). It ships EMPTY, so the env flag alone sends
+# nothing — every message stays captured until an address is added here.
+RUN printf '%s\n' \
+    '# CARLOS dev mail allowlist (regexp transport map).' \
+    '# Recipients matched here are delivered EXTERNALLY when the devcontainer is' \
+    '# started with CARLOS_MAIL_ALLOW_SEND=1. Everything not matched is still' \
+    '# captured locally. NEVER add a real patient address here — use only your own' \
+    '# test inbox. Example (uncomment and edit):' \
+    '# /^me@my-test-inbox\.example\.com$/  smtp:' \
+    '# After editing, rerun CARLOS_MAIL_ALLOW_SEND=1 mail start to apply changes.' \
+    > /etc/postfix/carlos-send-allowlist
+
+# `mail start` renders the user-maintained allowlist above into this runtime
+# transport map, adding CARLOS_MAIL_RELAYHOST to bare `smtp:` results.
+RUN install -o root -g root -m 0644 /dev/null \
+    /etc/postfix/carlos-send-allowlist.effective
+
+# Configure Postfix for localhost-only operation with capture-everything delivery.
 RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'mydestination=openo-dev.local, localhost' && \
     postconf -e 'mynetworks=127.0.0.0/8' && \
@@ -187,7 +232,19 @@ RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'smtpd_use_tls=no' && \
     postconf -e 'smtpd_tls_security_level=none' && \
     # Allow local connections without auth
-    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject'
+    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject' && \
+    # Defense in depth: route ALL mail to the capture transport so no accepted
+    # message can ever use Postfix's normal outbound smtp delivery. The regexp
+    # map matches every recipient; the *_transport overrides catch anything the
+    # map somehow misses.
+    postconf -e 'transport_maps=regexp:/etc/postfix/carlos-transport-regexp' && \
+    postconf -e 'default_transport=devcapture:' && \
+    postconf -e 'relay_transport=devcapture:' && \
+    postconf -e 'local_transport=devcapture:' && \
+    # Deliver one recipient per pipe invocation so the capture script's
+    # ${recipient} (and the Envelope-To metadata) is always the single correct
+    # address even when Postfix batches multiple recipients for a message.
+    postconf -e 'devcapture_destination_recipient_limit=1'
 
 # Create custom bashrc with tool reminders
 COPY ./config/bashrc /root/.bashrc
@@ -212,6 +269,19 @@ COPY ./setup/setup-hot-reload.sh /setup-dir/setup-hot-reload.sh
 COPY ./config/tomcat/conf/server.xml $TOMCAT_PATH/conf/server.xml
 COPY ./config/shared/volumes/*.properties /root/
 
+# Generate a self-signed certificate for the development-only HTTPS connector.
+RUN keytool -genkeypair -noprompt \
+    -alias localhost \
+    -keyalg RSA \
+    -keysize 2048 \
+    -validity 3650 \
+    -dname "CN=localhost, OU=Development, O=CARLOS, C=CA" \
+    -ext "SAN=dns:localhost,ip:127.0.0.1" \
+    -storetype PKCS12 \
+    -keystore "$TOMCAT_PATH/conf/dev-localhost.p12" \
+    -storepass changeit \
+    -keypass changeit
+
 # Copy configuration files
 COPY ./openosp_files/index.jsp $TOMCAT_PATH/webapps/ROOT/index.jsp
 COPY ./openosp_files/openosp_favicon.ico $TOMCAT_PATH/webapps/ROOT/openosp_favicon.ico
@@ -221,17 +291,17 @@ COPY ./openosp_files/tomcat-users.xml $TOMCAT_PATH/conf/tomcat-users.xml
 
 # Set up document directories, including seeded document data for the database and the destination
 # of all documents
-RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
-    $OSCAR_DOCUMENT/oscar/billing/download \
-    $OSCAR_DOCUMENT/oscar/billing/invoices \
-    $OSCAR_DOCUMENT/oscar/form/records \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/inbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/outbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/sent \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/archive \
-    $OSCAR_DOCUMENT/oscar/encounter/oscarMeasurements/styles \
-    $OSCAR_DOCUMENT/oscar/incomingdocs \
-    $OSCAR_DOCUMENT/oscar/export \
+RUN mkdir -p $OSCAR_DOCUMENT/carlos/document \
+    $OSCAR_DOCUMENT/carlos/billing/download \
+    $OSCAR_DOCUMENT/carlos/billing/invoices \
+    $OSCAR_DOCUMENT/carlos/form/records \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/inbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/outbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/sent \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/archive \
+    $OSCAR_DOCUMENT/carlos/encounter/oscarMeasurements/styles \
+    $OSCAR_DOCUMENT/carlos/incomingdocs \
+    $OSCAR_DOCUMENT/carlos/export \
     $DB_DOCS \
     $DOCS_DEST \
     $EFORM_IMAGES_DIR \
@@ -257,8 +327,8 @@ RUN dos2unix /scripts/* /setup-dir/*.sh \
     && /setup-dir/setup.sh
 ENV PATH="/scripts:${PATH}"
 
-# Expose Tomcat port
-EXPOSE 8080
+# Expose Tomcat HTTP and development HTTPS ports
+EXPOSE 8080 8443
 
 # Clean up
 RUN apt-get autoclean && apt-get clean && apt-get autoremove
