@@ -68,8 +68,9 @@ class JspEncodingRegressionTest {
     /**
      * Password-policy character groups are configuration-driven, so they reach the browser as JSP
      * scriptlet output inside JavaScript string literals. They must use the CARLOS null-safe
-     * encoder rather than Spring's {@code JavaScriptUtils.javaScriptEscape(...)}, which renders a
-     * missing property as the literal text {@code null} and is not the repository standard.
+     * encoder rather than Spring's {@code JavaScriptUtils.javaScriptEscape(...)}: an unset
+     * property yields {@code null}, which {@code javaScriptEscape} dereferences, and only
+     * {@code SafeEncode} is the repository-standard JSP encoder that CI enforces.
      */
     @Test
     void shouldEncodePasswordPolicyValues_inJavaScriptStrings() throws Exception {
