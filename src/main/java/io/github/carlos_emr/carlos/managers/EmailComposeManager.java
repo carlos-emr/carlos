@@ -74,7 +74,8 @@ public class EmailComposeManager {
      * Prepares an existing email for resending by retrieving its log entry.
      *
      * This method retrieves the email log for a previously sent email to allow resending
-     * with the same content and attachments. Requires READ privilege on the _email security object.
+     * with the same content and attachments. Requires email READ privilege and access to the
+     * associated patient record before any message content is returned.
      *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param emailLogId Integer the unique identifier of the email log entry to retrieve
@@ -83,10 +84,21 @@ public class EmailComposeManager {
      */
     public EmailLog prepareEmailForResend(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);
+        if (emailLog == null || emailLog.getDemographic() == null
+                || emailLog.getDemographic().getDemographicNo() == null) {
+            return null;
+        }
+        Integer demographicNo = emailLog.getDemographic().getDemographicNo();
+        String patientId = String.valueOf(demographicNo);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, patientId)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, patientId)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Access to the email patient record is denied");
+        }
         return emailLog;
     }
 
