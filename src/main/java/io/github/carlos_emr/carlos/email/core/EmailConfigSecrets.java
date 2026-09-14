@@ -111,18 +111,22 @@ public final class EmailConfigSecrets {
             String plaintext = value.asText();
             // isEncrypted() also treats null/empty as "already handled", so empty secrets are skipped.
             if (!EncryptionUtils.isEncrypted(plaintext)) {
-                try {
-                    configObject.put(field, EncryptionUtils.encrypt(plaintext));
-                } catch (Exception e) {
-                    // Preserve the crypto cause (missing/rotated key, provider issue) for diagnostics;
-                    // it never carries the secret value or the raw config JSON. Mirrors decryptSecret.
-                    throw new EmailSendingException("Unable to encrypt email transport credentials at rest", e);
-                }
+                configObject.put(field, encryptSecret(plaintext));
                 changed = true;
             }
         }
 
         return changed ? configObject.toString() : configDetailsJson;
+    }
+
+    private static String encryptSecret(String plaintext) throws EmailSendingException {
+        try {
+            return EncryptionUtils.encrypt(plaintext);
+        } catch (Exception e) {
+            // Preserve the crypto cause (missing/rotated key, provider issue) for diagnostics;
+            // it never carries the secret value or the raw config JSON. Mirrors decryptSecret.
+            throw new EmailSendingException("Unable to encrypt email transport credentials at rest", e);
+        }
     }
 
     /**
