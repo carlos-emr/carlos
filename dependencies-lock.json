@@ -1838,7 +1838,7 @@
     "groupId" : "org.apache.cxf",
     "artifactId" : "cxf-rt-transports-local",
     "version" : "4.1.8",
-    "scope" : "compile",
+    "scope" : "test",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:km+JiKWG8BeAospAfNWgfRtiYBorA9PF1nnwvkgwkteY8AROX2EBryYFxnQ4tmKxEsg07CZIAQalCuVsj4bIdA=="

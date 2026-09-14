@@ -48,6 +48,7 @@ import org.springframework.stereotype.Component;
 @Path("/messaging")
 @Component("messagingService")
 @Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
 public class MessagingService extends AbstractServiceImpl {
 
     @Autowired

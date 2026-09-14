@@ -207,12 +207,11 @@ public final class DateUtils {
 
     public static Integer yearDifference(Calendar date1, Calendar date2) {
         if (date1 != null && date2 != null) {
-            int yearDiff = date2.get(1) - date1.get(1);
-            if (date2.get(6) > date1.get(6)) {
-                --yearDiff;
-            }
-
-            return yearDiff;
+            java.time.LocalDate from = java.time.LocalDate.of(date1.get(Calendar.YEAR),
+                    date1.get(Calendar.MONTH) + 1, date1.get(Calendar.DAY_OF_MONTH));
+            java.time.LocalDate to = java.time.LocalDate.of(date2.get(Calendar.YEAR),
+                    date2.get(Calendar.MONTH) + 1, date2.get(Calendar.DAY_OF_MONTH));
+            return java.time.Period.between(from, to).getYears();
         } else {
             return null;
         }

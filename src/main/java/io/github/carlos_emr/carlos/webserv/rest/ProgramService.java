@@ -120,6 +120,9 @@ public class ProgramService extends AbstractServiceImpl {
             List<ProgramTo1> listProgramTo1 = new ArrayList<ProgramTo1>();
             ProgramConverter converter = new ProgramConverter();
 
+            for (ProgramProvider programProvider : programProviders) {
+                listProgramTo1.add(converter.getAsTransferObject(getLoggedInInfo(), programProvider.getProgram()));
+            }
             response.setContent(listProgramTo1);
             response.setTotal(listProgramTo1.size());
         }
