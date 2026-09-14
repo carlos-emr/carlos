@@ -64,7 +64,10 @@ public final class RxAddAllergy2Action extends ActionSupport {
      * Requests must use {@code POST}; other methods return HTTP 405 with
      * {@code Allow: POST} and {@link #NONE}. Missing, malformed, or
      * mismatched rendered patient context returns HTTP 403 and {@link #NONE}.
-     * Valid add and archive requests return {@link #SUCCESS}.
+     * A missing, blank, or non-numeric {@code type} returns HTTP 400 and
+     * {@link #NONE} before any allergy is persisted, so malformed requests
+     * cannot surface as a 500. Valid add and archive requests return
+     * {@link #SUCCESS}.
      */
     public String execute() throws IOException, ServletException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "w", null)) {
@@ -106,10 +109,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or empty type parameter");
             return NONE;
         }
-        String normalizedType = type.trim();
         int typeCode;
         try {
-            typeCode = Integer.parseInt(normalizedType);
+            typeCode = Integer.parseInt(type.trim());
         } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid type parameter");
             return NONE;
@@ -118,6 +120,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         String startDate = request.getParameter("startDate");
         if (startDate == null) {
+            // startDate is optional; normalise to empty so the partial-date
+            // length/separator checks below stay null-safe and simply fall
+            // through, leaving the allergy start date unset.
             startDate = "";
         }
         String ageOfOnset = request.getParameter("ageOfOnset");

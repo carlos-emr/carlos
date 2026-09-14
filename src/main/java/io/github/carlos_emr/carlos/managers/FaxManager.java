@@ -183,6 +183,14 @@ public interface FaxManager {
     void persistAndLogConsultationFaxJobs(LoggedInInfo loggedInInfo, List<FaxJob> faxJobs, int requestId);
 
     /**
+     * Persists one pre-built fax job and its audit row in the same transaction. This is for
+     * call sites that construct the job themselves but must not leave a sendable WAITING row
+     * behind when audit logging fails.
+     */
+    void persistAndLogFaxJob(LoggedInInfo loggedInInfo, FaxJob faxJob,
+            TransactionType transactionType, int transactionId);
+
+    /**
      * Creates, persists, and audit-logs a fax batch (primary + copy-to recipients) in a single
      * transaction. Equivalent to {@link #createAndSaveFaxJob} followed by {@link #logFaxJob} for each
      * persisted job, but bundled so a log failure rolls the persisted jobs back — otherwise the jobs

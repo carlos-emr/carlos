@@ -81,6 +81,7 @@
 	
 	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" autowire="byType" />
 	<bean id="oscarUsernameTokenValidator" class="io.github.carlos_emr.carlos.webserv.OscarUsernameTokenValidator" autowire="byType" />
+	<bean id="loopbackOnlyInInterceptor" class="io.github.carlos_emr.carlos.webserv.LoopbackOnlyInInterceptor" />
 
 	<!-- HTTP policy for lab upload service to handle long-running batch operations -->
 	<bean id="labUploadHttpServerPolicy" class="org.apache.cxf.transports.http.configuration.HTTPServerPolicy">
@@ -89,8 +90,24 @@
 	</bean>
 
 	<!-- www service endpoints -->
-	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService"/>		
-	<jaxws:endpoint implementor="#loginWs" address="/LoginService" />	
+	<!-- SystemInfoService is a liveness / system-info endpoint. It previously ran
+	     with no interceptor, so an unauthenticated off-host caller could read
+	     server time, timezone, liveness and an internal paging constant.
+	     Authentication is the wrong gate here (a liveness probe cannot present a
+	     WS-Security token), so it is restricted to the host loopback address: a
+	     local monitor calling Tomcat directly is allowed, any client arriving
+	     through nginx (which presents the real client IP via RemoteIpValve) is
+	     refused. The debian nginx config also 404s this path at the edge, so
+	     neither gate is load-bearing on its own. -->
+	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService">
+		<jaxws:inInterceptors>
+			<ref bean="loopbackOnlyInInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>
+	<!-- LoginService MUST stay unauthenticated: it is how SOAP clients obtain a
+	     security token. Its brute-force exposure is bounded by the front-door
+	     rate limit on /carlos/ws/LoginService (see debian nginx config). -->
+	<jaxws:endpoint implementor="#loginWs" address="/LoginService" />
 	
 	<jaxws:endpoint implementor="#scheduleWs" address="/ScheduleService">
 		<jaxws:inInterceptors>
