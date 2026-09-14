@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.CarlosProperties;
@@ -38,6 +39,7 @@ import io.github.carlos_emr.CarlosProperties;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -93,16 +95,21 @@ public class PrintDemoLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
 
     /**
-     * Default constructor for PrintDemoLabel2Action.
+     * Constructor for PrintDemoLabel2Action.
      *
-     * <p>Initializes the action with Spring-injected dependencies via SpringUtils.
+     * <p>Initializes the action with Spring-injected dependencies.
      * The HttpServletRequest and HttpServletResponse are obtained from ServletActionContext
      * following the Struts2 2Action pattern.</p>
      */
+    public PrintDemoLabel2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
     public PrintDemoLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     /**
@@ -146,10 +153,14 @@ public class PrintDemoLabel2Action extends ActionSupport {
      * @throws SecurityException if the current user lacks "_demographic" read privilege
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    // FindSecBugs CRLF_INJECTION_LOGS: logged labelPath comes from CarlosProperties (pdfLabelMRP / pdfLabelApptProvider) or a user.home-derived default; trusted server config, not request input.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN", "CRLF_INJECTION_LOGS"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input; logged labelPath is from trusted CARLOS properties/config, no attacker-controlled CR/LF")
     public String execute() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -159,7 +170,6 @@ public class PrintDemoLabel2Action extends ActionSupport {
             classpath = (String) request.getSession().getServletContext().getAttribute("com.ibm.websphere.servlet.application.classpath");
 
         System.setProperty("jasper.reports.compile.class.path", classpath);
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String curUser_no = loggedInInfo.getLoggedInProviderNo();
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
@@ -210,10 +220,10 @@ public class PrintDemoLabel2Action extends ActionSupport {
 
         logger.debug("user home: " + System.getProperty("user.home"));
         try {
-            ins = new FileInputStream(labelPath);
+            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(labelPath)));
             logger.debug("loading from :" + labelPath + " " + ins);
-        } catch (FileNotFoundException ex1) {
-            logger.warn("label xml file not found at " + labelPath + " using default instead");
+        } catch (FileNotFoundException | SecurityException ex1) {
+            logger.warn("label xml file not found at " + labelPath + " using default instead", ex1);
         }
         if (ins == null) {
             try {

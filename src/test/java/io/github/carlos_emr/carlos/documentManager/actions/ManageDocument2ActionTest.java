@@ -10,10 +10,13 @@ import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -76,6 +79,9 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     private DocumentDao documentDao;
 
     @Mock
+    private QueueDao queueDao;
+
+    @Mock
     private CtlDocumentDao ctlDocumentDao;
 
     @Mock
@@ -131,6 +137,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         registerMock(DocumentDao.class, documentDao);
+        registerMock(QueueDao.class, queueDao);
         registerMock(CtlDocumentDao.class, ctlDocumentDao);
         registerMock(ProviderInboxRoutingDao.class, providerInboxRoutingDao);
         registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
@@ -212,6 +219,105 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldSendServerErrorAndKeepAjaxFailed_whenRefileCopyFails() throws Exception {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "7");
+        Document document = new Document();
+        document.setDocfilename("stored.pdf");
+        when(documentDao.find(42)).thenReturn(document);
+        when(queueDao.find(7)).thenReturn(new Queue());
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            edocUtil.when(() -> EDocUtil.refileDocument("42", "7"))
+                    .thenThrow(new IOException("destination exists"));
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            edocUtil.verify(() -> EDocUtil.refileDocument("42", "7"));
+        }
+    }
+
+    @Test
+    void shouldRejectInvalidIdentifiers_whenRefilingDocument() {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "../other");
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            edocUtil.verifyNoInteractions();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRejectNonPostMethod_whenRefilingDocument(String method) {
+        authorizeEdocWrite();
+        request.setMethod(method);
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "7");
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            edocUtil.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldRejectMissingQueue_whenRefilingDocument() {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "7");
+        Document document = new Document();
+        document.setDocfilename("stored.pdf");
+        when(documentDao.find(42)).thenReturn(document);
+        when(queueDao.find(7)).thenReturn(null);
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            edocUtil.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldRejectDocumentWithoutStoredFile_whenRefilingDocument() {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "7");
+        when(documentDao.find(42)).thenReturn(new Document());
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            edocUtil.verifyNoInteractions();
+        }
+    }
+
+    @Test
     void shouldReturnNoneAndSendForbidden_whenShowPageDeniesAuthorization() {
         request.setParameter("method", "showPage");
         request.setParameter("page", "1");
@@ -266,20 +372,18 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("Moves non-PDF incoming documents without page counting")
-    void shouldMoveIncomingDocumentWithoutCountingPages_whenSourceIsNotPdf() throws Exception {
+    @DisplayName("Rejects non-PDF incoming documents before moving them")
+    void shouldRejectIncomingDocument_whenSourceIsNotPdf() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         Path sourceFile = createIncomingSource(incomingDir, "note.txt", "plain-text-content");
         setupSuccessfulAddIncomingRequest("note.txt");
 
-        String result = runAddIncomingDocumentWithEdocMock();
-
-        assertThat(result).isEqualTo("nextIncomingDoc");
-        assertThat(sourceFile).doesNotExist();
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("must be a PDF");
+        assertThat(sourceFile).exists();
         assertThat(action.pageCountRequests).isZero();
-        List<Path> storedFiles = listStoredDocuments();
-        assertThat(storedFiles).hasSize(1);
-        assertThat(Files.readString(storedFiles.get(0))).isEqualTo("plain-text-content");
+        assertThat(listStoredDocuments()).isEmpty();
     }
 
     @Test
@@ -518,6 +622,15 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         when(programManager.getCurrentProgramInDomain(any(), anyString())).thenReturn(null);
         when(patientLabRoutingDao.findByLabNoAndLabType(anyInt(), anyString())).thenReturn(Collections.emptyList());
         when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(nonDemographicCtlDocument());
+    }
+
+    private void authorizeEdocWrite() {
+        Provider provider = new Provider();
+        provider.setProviderNo("999998");
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo.setLoggedInProvider(provider);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), isNull())).thenReturn(true);
     }
 
     private String runAddIncomingDocumentWithEdocMock() throws Exception {

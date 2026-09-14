@@ -1,0 +1,16 @@
+[Unit]
+Description=Twice-daily CARLOS EMR TLS certificate renewal check
+Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+
+[Timer]
+# Twice a day at a randomised minute is the interval Let's Encrypt asks
+# clients to use: renewal only acts inside the last 30 days of validity, so
+# the frequent check is what absorbs a few days of downtime without the
+# certificate ever expiring. The same job re-issues an expiring self-signed
+# certificate on hosts that are not using ACME.
+OnCalendar=*-*-* 03,15:00:00
+RandomizedDelaySec=3h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -210,19 +210,10 @@
         }
     }
 
-    Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
     MeasurementMapDao measurementMapDao = SpringUtils.getBean(MeasurementMapDao.class);
-    Hl7TextMessage hl7TextMessage = null;
-    if (StringUtils.isNotBlank(segmentID) && StringUtils.isNumeric(segmentID)) {
-        hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentID));
-    }
-
+    // "Date Received" is resolved further down, after showLatest has settled which segment this
+    // page actually renders. Declared here only because the header markup reads it.
     String dateLabReceived = "n/a";
-    if (hl7TextMessage != null) {
-        java.util.Date date = hl7TextMessage.getCreated();
-        String stringFormat = "yyyy-MM-dd HH:mm";
-        dateLabReceived = UtilDateUtilities.DateToString(date, stringFormat);
-    }
 
     boolean isLinkedToDemographic = false;
     ArrayList<ReportStatus> ackList = null;
@@ -238,6 +229,38 @@
     String formName2 = bShortcutForm ? CarlosProperties.getInstance().getProperty("appt_formview_name2", "") : "";
     String formName2Short = formName2.length() > 3 ? (formName2.substring(0, 2) + ".") : formName2;
     boolean bShortcutForm2 = bShortcutForm && !formName2.equals("");
+
+    // Load LAB_VALUE_HX_JSON from carlos.properties (admin-controlled); default covers common tracked labs.
+    // normal ranges are necessarily provided here to allow for 
+    // - override (min max of 0) to always show past values eg PSA, CEA, LDL
+    // - when the lab does not offer ranges but a note eg Cholesterol Ferritin or only one bound eg <10
+    // NOTE: the LOINC key is not validated to allow for any coding system Identifier to be used, see OBX.4.1
+    String labValueHxDefault = "[{\"name\":\"eGFR\",\"LOINC\":\"33914-3\",\"testName\":\"Glomerular Filtration Rate (eGFR)\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":60,\"max\":999}},"
+      + "{\"name\":\"A1C\",\"LOINC\":\"4548-4\",\"testName\":\"Hemoglobin A1c\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":4,\"max\":5.9}},"
+      + "{\"name\":\"K\",\"LOINC\":\"2823-3\",\"testName\":\"Potassium\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":3.5,\"max\":5}},"
+      + "{\"name\":\"CRP\",\"LOINC\":\"1988-5\",\"testName\":\"C Reactive Protein\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":7.5}},"
+      + "{\"name\":\"Hb\",\"LOINC\":\"718-7\",\"testName\":\"Hemoglobin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":135,\"max\":180}},"
+      + "{\"name\":\"AST\",\"LOINC\":\"1920-8\",\"testName\":\"Aspartate Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":36}},"
+      + "{\"name\":\"ALT\",\"LOINC\":\"1742-6\",\"testName\":\"Alanine Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":50}},"
+      + "{\"name\":\"LDL\",\"LOINC\":\"39469-2\",\"testName\":\"LDL Cholesterol\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
+      + "{\"name\":\"ACR\",\"LOINC\":\"9318-7\",\"testName\":\"Urine ACR (Albumin/Creatinine Ratio)\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":2}},"
+      + "{\"name\":\"PSA\",\"LOINC\":\"2857-1\",\"testName\":\"Total PSA\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
+      + "{\"name\":\"CEA\",\"LOINC\":\"2039-6\",\"testName\":\"Carcinoembryonic Ag\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
+      + "{\"name\":\"Ferritin\",\"LOINC\":\"2276-4\",\"testName\":\"Ferritin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":50,\"max\":200}},"
+      + "{\"name\":\"TSH\",\"LOINC\":\"3016-3\",\"testName\":\"TSH\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0.3,\"max\":5.5}},"
+      + "{\"name\":\"TG\",\"LOINC\":\"14927-8\",\"testName\":\"Triglycerides\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":2.3}}]";
+    String labValueHxJson;
+    // Re-serialised through Jackson to reject malformed input and normalise the output.
+    try {
+        ObjectMapper labHxMapper = new ObjectMapper();
+        JsonNode labHxNode = labHxMapper.readTree(props.getProperty("LAB_VALUE_HX_JSON", labValueHxDefault));
+        // Replace "</" so the JSON can be safely embedded inside a <script> block
+        labValueHxJson = labHxMapper.writeValueAsString(labHxNode).replace("</", "<\\/");
+    } catch (Exception e_labHx) {
+        labValueHxJson = labValueHxDefault;
+    }
+
+
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
@@ -248,27 +271,6 @@
     if (remoteFacilityIdString == null) // local lab
     {
 
-        HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
-        if (reqMap.get("id") != null) {
-            reqID = reqMap.get("id").toString();
-            reqTableID = reqMap.get("request_id").toString();
-        } else {
-            reqID = "";
-            reqTableID = "";
-        }
-
-
-        PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
-        for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
-            demographicID = "" + r.getDemographicNo();
-        }
-
-        if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
-            isLinkedToDemographic = true;
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
-        } else {
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
-        }
 
 
         if (showAll) {
@@ -306,6 +308,49 @@
             hl7 = Factory.getHL7Body(segmentID);
         }
 
+        // The demographic lookup and the READ audit below key on segmentID, so they run only
+        // after showLatest has had its say: with showLatest=true the Inboxhub asks for the
+        // segment on its row but this page renders the newest version of that accession
+        // (segmentIDs[last] above). Resolving the patient and writing the audit row from the
+        // REQUESTED id recorded a lab the clinician never opened and, should an accession ever
+        // be shared across patients, would have bound the page to the wrong chart.
+        HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
+        if (reqMap.get("id") != null) {
+            reqID = reqMap.get("id").toString();
+            reqTableID = reqMap.get("request_id").toString();
+        } else {
+            reqID = "";
+            reqTableID = "";
+        }
+
+
+        PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
+        for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
+            demographicID = "" + r.getDemographicNo();
+        }
+
+        if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
+            isLinkedToDemographic = true;
+            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
+        } else {
+            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
+        }
+
+    }
+
+    // Same reason as the audit above: showLatest may have swapped segmentID for the newest
+    // version of the accession, so the received date has to be read from the segment that is
+    // being rendered. Reading it earlier showed the requested version's date on a page
+    // displaying a different version's results.
+    Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
+    Hl7TextMessage hl7TextMessage = null;
+    if (StringUtils.isNotBlank(segmentID) && StringUtils.isNumeric(segmentID)) {
+        hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentID));
+    }
+    if (hl7TextMessage != null) {
+        java.util.Date date = hl7TextMessage.getCreated();
+        String stringFormat = "yyyy-MM-dd HH:mm";
+        dateLabReceived = UtilDateUtilities.DateToString(date, stringFormat);
     }
 
 request.setAttribute("duplicateOfLab", duplicateOfLab);
@@ -568,6 +613,8 @@ input[id^='acklabel_']{
         var providerNo = '<carlos:encode value='<%= providerNo %>' context="javaScriptBlock"/>';
         var demographicNo = '<carlos:encode value='<%= isLinkedToDemographic ? demographicID : "" %>' context="javaScriptBlock"/>';
 
+
+
         function popupStart(vheight, vwidth, varpage, windowname) {
             var page = varpage;
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
@@ -677,7 +724,7 @@ input[id^='acklabel_']{
                             console.log("Setting lab Tickler. Labid: " + labid + " Demoid: " + demoid);
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler')
+                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler');
                             }
                         } else if (action === 'addComment') {
                             console.log("Adding comment. Formid: " + formid + " labid: " + labid);
@@ -796,11 +843,180 @@ input[id^='acklabel_']{
             }
         }
 
+        const labConfigs = <%=labValueHxJson%>;
+        console.log("config "+labConfigs);
+        const abnormalLabs = [];
+
+        function loadHL7hx() {
+            const start = Date.now();
+             
+            // First pass: check for current values out of range
+            // note that tr.NormalRes can occur for abnormal labs without stated normal ranges    
+            const rows = document.querySelectorAll("tr.NormalRes, tr.AbnormalRes, tr.HiLoRes");
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                cells.forEach((cell, i) => {
+                    const anchors = cell.querySelectorAll("a");
+                    anchors.forEach(a => {
+                        const testName = a.textContent.trim();
+                        const lab = labConfigs.find(l => testName === l.testName);
+                        if (lab && i + 1 < cells.length) {
+                            const resultText = cells[i + 1].textContent.trim();
+                            const normalizedResult = resultText.replace(/^[<>]=?\s*/, ""); // handle result <10 and 1x10E12
+                            const value = parseFloat(normalizedResult);
+                            if (!isNaN(value) && (value < lab.normalRange.min || value > lab.normalRange.max)) {
+                                if (!abnormalLabs.includes(lab)) {
+                                    abnormalLabs.push(lab);
+                                }
+                            }
+                        }
+                    });
+                });
+            });
+            console.log("of "+rows.length +" abnormal Labs "+abnormalLabs.length +" to be checked");
+               
+          // Fetch and insert only for abnormal labs
+          fetchLabsSequentially().then(() => {
+              const ms = Date.now() - start;
+              console.log("All labs fetched and inserted in "+Math.floor(ms / 100)/10+" sec");
+          });
+        }
+
+        async function fetchLabsSequentially() {
+          for (let i = 0; i < abnormalLabs.length; i++) {
+              const lab = abnormalLabs[i];
+      
+              // Fetch values for this lab
+              await fetchLabValues(lab, demographicNo);
+      
+              // Insert values immediately after fetching
+              insertLabValues(lab);
+              console.log("Inserted values for "+lab.name);
+          }      
+      }
+
+      async function fetchLabValues(lab, demographicNo) {
+          const newURL = "<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?testName=" + encodeURIComponent(lab.testName) +
+            "&demo=" + encodeURIComponent(demographicNo) + "&labType=HL7&identifier=" + encodeURIComponent(lab.LOINC);      
+     
+          try {
+              const response = await fetch(newURL);
+      
+              if (!response.ok) {
+                  console.warn("Failed to fetch lab: " + lab.name + " — status: " + response.status);
+                  return;
+              }
+      
+              const responseText = await response.text();
+      
+              // Convert returned HTML into a DOM document
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(responseText, "text/html");
+      
+              // Select all result rows
+              const rows = doc.querySelectorAll(
+                  "tr.NormalRes, tr.AbnormalRes, tr.LoRes, tr.HiLoRes"
+              );
+      
+              rows.forEach((row) => {
+                  const cells = row.querySelectorAll("td");
+                  if (cells.length < 6) return;
+                  const value = cells[1].textContent.trim();
+                  const dateTime = cells[5].textContent.trim();
+                  // Extract only the YYYY-MM-DD part
+                  const dateMatch = dateTime.match(/^(\d{4}-\d{2}-\d{2})/);
+                  if (!dateMatch) return;
+                  if (lab.values.length < 10) {
+                      lab.values.push(value);
+                      lab.dates.push(dateMatch[1]);
+                  }
+              });
+          } catch (error) {
+              console.error("Error fetching lab: "+ lab.name, error);
+          }
+      }
+
+      function insertLabValues(lab) {
+          const rows = document.querySelectorAll("tr.NormalRes, tr.AbnormalRes, tr.HiLoRes");
+      
+          rows.forEach((row) => {
+              const cells = row.querySelectorAll("td");
+      
+              cells.forEach((cell, cellIndex) => {
+                  const anchors = cell.querySelectorAll("a");
+                  anchors.forEach((a) => {
+                      const anchorText = a.textContent.replace(/\s+/g, " ").trim();
+      
+                        if (anchorText === lab.testName) {
+                          const resultCell = cells[cellIndex + 1];
+                          if (resultCell) {
+                              const resultText = resultCell.textContent.trim();
+                              const normalizedResult = resultText.replace(/^[<>]=?\s*/, "");
+                              const recentResult = parseFloat(normalizedResult);      
+      
+                              if (!isNaN(recentResult) &&
+                                  (recentResult < lab.normalRange.min || recentResult > lab.normalRange.max)) {
+                                  const span = document.createElement("span");
+                                  span.style.marginLeft = "10px";
+                                  span.style.color = "#000080";
+                                  span.textContent = ` (\${lab.values.slice(1, 3).join(" / ")})`;
+      
+                                  const tooltip = document.createElement("div");
+                                  tooltip.className = "custom-tooltip";
+
+                                  lab.values.forEach((val, i) => {
+                                      const rowEl = document.createElement("div");
+                                      const valueEl = document.createElement("strong");
+                                      valueEl.textContent = val;
+
+                                      const dateEl = document.createElement("strong");
+                                      dateEl.style.color = "#36454F";
+                                      dateEl.textContent = lab.dates[i];
+                                      rowEl.append(valueEl, document.createTextNode(" "), dateEl);
+                                      tooltip.appendChild(rowEl);
+                                  });
+                                  tooltip.style.position = "absolute";
+                                  tooltip.style.background = "#fefefe";
+                                  tooltip.style.border = "1px solid #ccc";
+                                  tooltip.style.padding = "6px 8px";
+                                  tooltip.style.boxShadow = "2px 2px 6px rgba(0,0,0,0.2)";
+                                  tooltip.style.borderRadius = "4px";
+                                  tooltip.style.whiteSpace = "nowrap";
+                                  tooltip.style.zIndex = "1000";
+                                  tooltip.style.display = "none";
+                                  tooltip.style.fontSize = "12px";
+      
+                                  document.body.appendChild(tooltip);
+      
+                                  span.addEventListener("mouseover", (e) => {
+                                      tooltip.style.left = (e.pageX + 10) + "px";
+                                      tooltip.style.top = (e.pageY + 10) + "px";
+                                      tooltip.style.display = "block";
+                                  });
+      
+                                  span.addEventListener("mousemove", (e) => {
+                                      tooltip.style.left = (e.pageX + 10) + "px";
+                                      tooltip.style.top = (e.pageY + 10) + "px";
+                                  });
+      
+                                  span.addEventListener("mouseout", () => {
+                                      tooltip.style.display = "none";
+                                  });
+      
+                                  resultCell.appendChild(span);
+                              }
+                          }
+                      }
+                  });
+              });
+          });
+      }
+      
     </script>
 
 </head>
 
-<body onLoad="javascript:matchMe();">
+<body onLoad="javascript:matchMe(); loadHL7hx();">
 
 <!-- form forwarding of the lab -->
 <%
@@ -880,7 +1096,7 @@ input[id^='acklabel_']{
         }
     });
 
-    var _in_window = <%= request.getParameter("inWindow") == null || "true".equals(request.getParameter("inWindow")) %>;
+    var _in_window = <%= request.getParameter("inWindow") == null || "true".equals(request.getParameter("inWindow")) %><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>;
     var contextpath = "<%=request.getContextPath()%>";
 
 </script>
@@ -925,15 +1141,206 @@ input[id^='acklabel_']{
             body: params.toString(),
             credentials: 'same-origin'
         })
-        .then(function() {
-            if (closeOnSuccess) {
-                window.close();
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Macro execution failed (HTTP ' + response.status + ')');
+            }
+            return response.json();
+        })
+        .then(function(json) {
+            if (json && json.success) {
+                // Tell the Inboxhub on EVERY macro that ACKNOWLEDGED, not only when the macro
+                // is configured to close the window: a macro that acknowledges without
+                // closeOnSuccess used to leave the inbox untouched, so the lab it had just
+                // acknowledged sat in the list until the clinician reloaded the page.
+                //
+                // Gated on json.acknowledged rather than json.success, because a macro need
+                // not acknowledge anything — one that only files a tickler succeeds and leaves
+                // the lab NEW, and telling the inbox to drop it would hide a lab nobody has
+                // dealt with.
+                if (json.acknowledged) {
+                    notifyInboxhubAfterMacro(formid, json.clearedCount);
+                }
+                if (closeOnSuccess) {
+                    closeLabAfterMacro(formid, json.acknowledged);
+                }
+            } else {
+                var message = json && json.error ? json.error : 'Macro execution failed. Please try again.';
+                alert(message);
             }
         })
         .catch(function(error) {
             console.error('Failed to run macro:', error);
             alert('An error occurred while running the macro. Please refresh and try again.');
         });
+    }
+
+    /**
+     * Closes or hides the lab window a macro was run from.
+     *
+     * closeOnSuccess is about this window, not about the inbox: taking the lab out of the
+     * inbox is gated on the macro having ACKNOWLEDGED it. A macro that only files a tickler
+     * closes its window and leaves the lab in the inbox, where it still belongs — hiding it
+     * there would make an unacknowledged result look dealt with.
+     *
+     * @param {string} formid id of the acknowledge form the macro was run against
+     * @param {boolean} acknowledged whether the macro actually acknowledged the lab
+     */
+    function closeLabAfterMacro(formid, acknowledged) {
+        var formEl = document.getElementById(formid);
+        var elements = (formEl && formEl.elements) ? formEl.elements : null;
+        var segmentId = (elements && elements.segmentID) ? elements.segmentID.value : '';
+        var labType = (elements && elements.labType) ? elements.labType.value : 'HL7';
+
+        if (window.frameElement) {
+            if (acknowledged) {
+                var card = window.frameElement.closest('.document-card.card');
+                if (card) {
+                    card.style.display = 'none';
+                }
+            }
+            return;
+        }
+
+        if (typeof _in_window !== 'undefined' && _in_window) {
+            // The row only. The counters were already dealt with by notifyInboxhubAfterMacro,
+            // which ran before this and falls back to the opener itself when the broadcast
+            // could not be posted — closing the window is not the right thing to hang that on,
+            // since a macro with closeOnSuccess:false never gets here at all.
+            //
+            // removeReport is the last resort for an opener with neither newer function: an
+            // acknowledged row left on screen reads as "the acknowledgement did nothing",
+            // which is worse than a badge one out that the next page load corrects.
+            if (acknowledged && self.opener && segmentId.length > 0) {
+                if (typeof self.opener.removeInboxhubRow === 'function') {
+                    self.opener.removeInboxhubRow(segmentId, labType);
+                } else if (typeof self.opener.removeReport === 'function') {
+                    self.opener.removeReport(segmentId, labType);
+                }
+            }
+            window.close();
+            return;
+        }
+
+        if (acknowledged && segmentId.length > 0) {
+            var inlineCard = document.getElementById('labdoc_' + segmentId);
+            if (inlineCard) {
+                inlineCard.style.display = 'none';
+            }
+        }
+    }
+
+    /**
+     * Asks the Inboxhub to refresh, naming the lab that was just acknowledged.
+     *
+     * The id matters: the inbox re-fetches only the result LIST, while the
+     * Documents/Labs/HRMs counters come from the surrounding form page. Without the id
+     * the counters keep counting the acknowledged lab until a full page reload, which
+     * reads to a clinician as "the acknowledgement did nothing".
+     *
+     * The type travels with it because segment ids are NOT unique across report types —
+     * documents, HRM reports and HL7 labs have independent key sequences — so an id on
+     * its own can name a document's inbox row as readily as this lab's.
+     *
+     * The server's clearedCount travels with it because those counters count ROUTING rows,
+     * one per lab VERSION, while the list shows one collapsed row per chain. Acknowledging
+     * a two-version lab removes one row and clears two counted rows, and only the server
+     * knows the chain — this page never sees it.
+     *
+     * @param {string} formid id of the acknowledge form the macro was run against
+     * @param {number} clearedCount routing rows the server reported clearing
+     * @return {boolean} whether the inbox was reached, by either route
+     */
+    function notifyInboxhubAfterMacro(formid, clearedCount) {
+        var segmentId = '';
+        var labType = 'HL7';
+        if (formid) {
+            var formEl = document.getElementById(formid);
+            var elements = (formEl && formEl.elements) ? formEl.elements : null;
+            if (elements && elements.segmentID) {
+                segmentId = elements.segmentID.value;
+            }
+            if (elements && elements.labType) {
+                labType = elements.labType.value;
+            }
+        }
+        try {
+            var bc = new BroadcastChannel('inboxhub-refresh');
+            bc.postMessage({
+                action: 'refresh',
+                segmentID: segmentId,
+                labType: labType,
+                clearedCount: clearedCount
+            });
+            bc.close();
+            return true;
+        } catch (e) {
+            // BroadcastChannel unsupported. Reach the inbox window directly instead, HERE
+            // rather than in the caller: a macro with closeOnSuccess:false never closes this
+            // window, so hanging the fallback off the close path left exactly the macros this
+            // PR exists to fix with a stale row and a stale badge.
+            return dropFromInboxhubDirectly(segmentId, labType, clearedCount);
+        }
+    }
+
+    /**
+     * Tells the inbox window directly, for browsers with no BroadcastChannel.
+     *
+     * The inbox is either the window that opened this popup, or — in preview mode — the one
+     * this iframe sits in. Both are same-origin; the guard is that window.parent is this
+     * window for a top-level page, and that an opener severed by COOP (which is why the
+     * broadcast is the primary channel) leaves nothing to call.
+     *
+     * dropAcknowledgedInboxhubItem is the same function the broadcast listener runs, so those
+     * two routes remove the row AND move the counters by the server's count — the whole job,
+     * once, guarded against a repeat by the same per-item key.
+     *
+     * The last two rungs are best-effort compatibility: an Inboxhub loaded before this
+     * release has removeReport but none of the newer functions, and it cannot be told how many
+     * routing rows were cleared — it drops the row and takes one off the badge. That leaves
+     * the badge possibly short of the server's figure until the next page load, which is a
+     * great deal better than leaving an acknowledged lab on screen. Both window shapes get
+     * that rung: an older inbox can be showing preview cards in an iframe just as readily as
+     * it can have opened this window.
+     *
+     * @return {boolean} whether an inbox window was actually reached
+     */
+    function dropFromInboxhubDirectly(segmentId, labType, clearedCount) {
+        if (!segmentId || segmentId.length === 0) { return false; }
+        try {
+            var inbox = null;
+            var legacyInbox = false;
+            if (self.opener && typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {
+                inbox = self.opener;
+            } else if (window.parent !== window
+                    && typeof window.parent.dropAcknowledgedInboxhubItem === 'function') {
+                inbox = window.parent;
+            } else if (self.opener && typeof self.opener.removeReport === 'function') {
+                inbox = self.opener;
+                legacyInbox = true;
+            } else if (window.parent !== window
+                    && typeof window.parent.removeReport === 'function') {
+                inbox = window.parent;
+                legacyInbox = true;
+            }
+            if (!inbox) { return false; }
+            if (legacyInbox) {
+                inbox.removeReport(segmentId, labType);
+            } else {
+                inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
+            }
+            // The same re-fetch the broadcast listener does. dropAcknowledgedInboxhubItem
+            // moves the counters and drops a LIST row, but preview mode draws cards and no
+            // table, so without this the acknowledged card stays on screen — and a macro with
+            // closeOnSuccess:false never closes the window that would have hidden it either.
+            if (typeof inbox.fetchInboxhubData === 'function') {
+                inbox.fetchInboxhubData();
+            }
+            return true;
+        } catch (e) {
+            // No reachable inbox window; the item is hidden locally either way.
+            return false;
+        }
     }
 
     // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
@@ -2455,6 +2862,12 @@ input[id^='acklabel_']{
 </div>
 <%} %>
 
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/js/carlosAutocomplete.js"></script>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
 <script type="text/javascript"

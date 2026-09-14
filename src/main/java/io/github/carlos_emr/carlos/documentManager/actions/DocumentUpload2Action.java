@@ -15,11 +15,12 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -94,7 +96,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         String destination = request.getParameter("destination");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (docFile == null) {
-            map.put("error", 4);
+            map.put("error", props.getString("dms.error.uploadError"));
         } else {
             // Validate uploaded file is from temp directory for all destinations
             try {
@@ -106,6 +108,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             }
         }
 
+        // try/finally so the validated temp upload is deleted on EVERY branch. The
+        // per-branch cleanups below null docFile on the success paths; this guards the
+        // error paths (invalid filename, non-PDF, zero-length, and the incomingDocs
+        // filename-rejection early return) that previously leaked the temp file.
+        try {
         if (docFile != null && destination != null && destination.equals("incomingDocs")) {
             String fileName = this.filedataFileName;
             String sanitizedFileName = sanitizeFileNameForIncomingDocs(fileName);
@@ -114,20 +121,32 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             } else if (!sanitizedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                 map.put("error", props.getString("dms.documentUpload.onlyPdf"));
             } else if (docFile.length() == 0) {
-                map.put("error", 4);
-                throw new FileNotFoundException();
+                // Respond through the JSON contract the uploader's JS reads (item.error). The old
+                // map.put followed by a throw was dead code plus a raw 500: the throw escaped to
+                // errorpage.jsp before writeUploadResponse could run, so the prepared error never
+                // reached the user.
+                map.put("error", props.getString("dms.addDocument.errorZeroSize"));
             } else {
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
 
-                File f = new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName));
-                if (f.exists()) {
-                    map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                // Answer an unusable destination through the uploader's JSON contract. Letting an
+                // off-allowlist folder reach the path builders turned a bad request into an
+                // errorpage.jsp 500 the XHR handler could only report as "(HTTP 500)"; letting a
+                // MISSING one through was quieter and worse, filing the scan in the queue root
+                // where no incoming-docs folder lists it.
+                if (!IncomingDocUtil.isAllowedIncomingDocFolder(destFolder)) {
+                    map.put("error", props.getString("dms.documentUpload.invalidFolder"));
+                    logger.warn("Rejected incoming document upload destination folder: {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 } else {
-                    boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
-                    if (!success) {
+                    File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
+                    File destinationFile = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
+                    WriteToIncomingDocsResult writeResult = writeToIncomingDocs(docFile, destinationFile);
+                    if (writeResult == WriteToIncomingDocsResult.ALREADY_EXISTS) {
+                        map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                    } else if (writeResult == WriteToIncomingDocsResult.FAILED) {
                         map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        logger.error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     } else {
                         map.put("name", docFile.getName());
                         map.put("size", docFile.length());
@@ -143,7 +162,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
                 if (docFile != null) {
-                    docFile.delete();
+                    deleteValidatedUploadTempFile(docFile);
                     docFile = null;
                 }
 
@@ -178,54 +197,113 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             String filePath = newDoc.getFilePath();
             // save local file;
             if (docFile.length() == 0) {
-                map.put("error", 4);
-                throw new FileNotFoundException();
-            }
-
-            // write file to local dir
-            writeLocalFile(docFile, fileName);
-            newDoc.setContentType(this.filedataContentType);
-            if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
-                newDoc.setContentType("application/pdf");
-                // get number of pages when document is a PDF
-                numberOfPages = countNumOfPages(filePath);
-            }
-            newDoc.setNumberOfPages(numberOfPages);
-            String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
-
-            String providerId = request.getParameter("providers");
-            if (providerId != null) {
-                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
-                providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
-            }
-
-            String queueId = request.getParameter("queue");
-            if (queueId != null && !queueId.equals("-1")) {
-                if (!queueId.trim().matches("\\d+")) {
-                    logger.warn("Invalid queue ID format — skipping queue link");
-                    request.getSession().removeAttribute("preferredQueue");
-                } else {
-                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                    QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                    Integer qid = Integer.parseInt(queueId.trim());
-                    Integer did = Integer.parseInt(doc_no.trim());
-                    queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                // Same fix as the incomingDocs branch above: answer the JSON contract instead of
+                // throwing past writeUploadResponse into errorpage.jsp as a raw 500.
+                map.put("error", props.getString("dms.addDocument.errorZeroSize"));
+            } else {
+            // Guarded so a write or persistence failure answers the uploader's JSON contract
+            // instead of escaping to errorpage.jsp as a raw HTML 500 the XHR handler can only
+            // report as "(HTTP 500)". The reachable, user-recoverable case is the CREATE_NEW name
+            // collision: the stored name carries a one-second timestamp prefix, so re-uploading
+            // the same file inside a second collides in writeLocalFile — that is the user's
+            // situation to resolve, not a server fault.
+            // Only the write and the row insert decide success or failure. Everything
+            // after them is a side effect on a document that is already filed, and must
+            // not be reported as an upload failure: the user would re-upload, the stored
+            // name carries a one-second timestamp prefix so the retry would not even
+            // collide, and the chart would end up with two copies of the same scan.
+            String doc_no = null;
+            try {
+                // write file to local dir
+                writeLocalFile(docFile, fileName);
+                newDoc.setContentType(this.filedataContentType);
+                if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+                    newDoc.setContentType("application/pdf");
+                    // get number of pages when document is a PDF
+                    numberOfPages = countNumOfPages(filePath);
                 }
+                newDoc.setNumberOfPages(numberOfPages);
+                doc_no = EDocUtil.addDocumentSQL(newDoc);
+            } catch (FileAlreadyExistsException e) {
+                recordDuplicateUploadError(map, props);
+            } catch (Exception e) {
+                // If the write succeeded and only the insert failed, the file is left in
+                // the document store with no row pointing at it. That is litter rather
+                // than a patient record, but it is why a retry inside the same second can
+                // come back as a name collision.
+                logger.error("Failed to store uploaded document", e);
+                map.put("error", props.getString("dms.addDocument.errorNoWrite"));
             }
 
-            map.put("name", docFile.getName());
-            map.put("size", docFile.length());
+            if (doc_no != null) {
+                try {
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+
+                    String providerId = request.getParameter("providers");
+                    if (providerId != null) {
+                        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                        ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
+                        providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
+                    }
+
+                    String queueId = request.getParameter("queue");
+                    if (queueId != null && !queueId.equals("-1")) {
+                        if (!queueId.trim().matches("\\d+")) {
+                            logger.warn("Invalid queue ID format — skipping queue link");
+                            request.getSession().removeAttribute("preferredQueue");
+                        } else {
+                            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                            QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                            Integer qid = Integer.parseInt(queueId.trim());
+                            Integer did = Integer.parseInt(doc_no.trim());
+                            queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                            request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                        }
+                    }
+                } catch (Exception e) {
+                    // The document is filed and the user is told so. Routing or the audit
+                    // entry failing is an operational problem to chase in the log, not a
+                    // reason to send the clinician back to re-upload a scan that landed.
+                    //
+                    // Note what this trades away deliberately: LogAction.addLog is the
+                    // PHI-access audit entry, so a failure here leaves a filed document whose
+                    // creation is recorded only in this log line. That is the lesser harm --
+                    // the alternative reported a committed document as failed, and the
+                    // re-upload put a second copy of the scan in the patient's chart, which is
+                    // both a clinical hazard and its own audit problem. An ERROR line naming
+                    // the document number is the signal to reconcile from.
+                    logger.error("Document {} was stored but a post-save step failed "
+                            + "(audit/routing/queue); reconcile from this line", doc_no, e);
+                }
+
+                map.put("name", docFile.getName());
+                map.put("size", docFile.length());
+            }
+            }
 
             if (docFile != null) {
-                docFile.delete();
+                deleteValidatedUploadTempFile(docFile);
                 docFile = null;
+            }
+        }
+        } finally {
+            if (docFile != null) {
+                deleteValidatedUploadTempFile(docFile);
             }
         }
         writeUploadResponse(map);
         return null;
+    }
+
+    private void deleteValidatedUploadTempFile(File uploadFile) {
+        try {
+            File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
+            if (!SpringUtils.getBean(NioFileManager.class).deleteTempFile(validatedUpload.getPath())) { // codeql[java/path-injection] validateUpload canonicalizes and restricts uploads to approved temp dirs before delegated cleanup.
+                logger.debug("Upload temp file cleanup did not delete a file");
+            }
+        } catch (SecurityException e) {
+            logger.warn("Skipped cleanup for invalid upload temp file");
+        }
     }
 
     private void writeUploadResponse(HashMap<String, Object> map) throws IOException {
@@ -256,78 +334,92 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
      * @param fileName the name for the file on disk
      * @throws Exception when an error occurs
      */
-    private void writeLocalFile(File docFile, String fileName) throws Exception {
-        InputStream fis = null;
-        FileOutputStream fos = null;
-        try {
-            fis = Files.newInputStream(docFile.toPath());
-            String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-            if (!documentDir.endsWith(File.separator)) {
-                documentDir += File.separator;
-            }
-            // Validate the destination path using PathValidationUtils
-            File baseDir = new File(documentDir);
-            File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    void writeLocalFile(File docFile, String fileName) throws Exception {
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (!documentDir.endsWith(File.separator)) {
+            documentDir += File.separator;
+        }
+        // Validate the destination path using PathValidationUtils. Resolved BEFORE the source is
+        // opened so an invalid destination cannot leave an open input stream behind.
+        File baseDir = new File(documentDir);
+        File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
 
-            fos = new FileOutputStream(destinationFile);
+        // try-with-resources, not a finally chain: the previous `if (fis != null) fis.close();
+        // if (fos != null) fos.close();` closed the streams in sequence with no protection, so a
+        // throw from the FIRST close skipped the second entirely (leaking the output stream) and,
+        // worse, REPLACED the exception being propagated. The exception most likely to be in flight
+        // here is the FileAlreadyExistsException below, whose entire purpose is to be loud — a close
+        // failure silently substituting for it would restore the cross-patient overwrite as a
+        // confusing I/O error. Suppressed close exceptions now attach to the primary instead.
+        //
+        // CREATE_NEW (not truncate/overwrite): the upload filename carries only a one-second
+        // timestamp prefix, so two same-named uploads in the same second previously resolved to
+        // one path and the second silently overwrote the first — leaving a document row pointing
+        // at another patient's bytes. Failing closed here turns that silent cross-patient
+        // overwrite into a loud FileAlreadyExistsException the caller surfaces.
+        // Both paths are sanitized cross-method, which CodeQL cannot follow, so each sink carries its
+        // own trailing marker on the reported line — a marker on a preceding line is NOT honoured.
+        // docFile: PathValidationUtils.validateUpload at :104 confines it to the allowed temp dirs.
+        // destinationFile: PathValidationUtils.validatePath above sanitizes the name to
+        // [a-zA-Z0-9._-], enforces the extension allowlist, and canonically validates containment.
+        try (InputStream fis = Files.newInputStream(docFile.toPath()); // codeql[java/path-injection] -- validateUpload confined docFile to an allowed temp dir at :104
+                OutputStream fos = Files.newOutputStream(destinationFile.toPath(), // codeql[java/path-injection] -- validatePath canonically confined destinationFile to baseDir
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             byte[] buf = new byte[128 * 1024];
             int i = 0;
             while ((i = fis.read(buf)) != -1) {
                 fos.write(buf, 0, i);
             }
+        } catch (FileAlreadyExistsException e) {
+            // FileAlreadyExistsException's message is the destination path. Uploaded scans are
+            // routinely named after patients, so let the caller translate this recoverable
+            // collision without attaching the exception to a log event.
+            throw e;
         } catch (Exception e) {
             logger.error("Error writing local file", e);
             throw e;
-        } finally {
-            if (fis != null)
-                fis.close();
-            if (fos != null)
-                fos.close();
         }
     }
 
-    private boolean writeToIncomingDocs(File docFile, String queueId, String PdfDir, String fileName) {
-        if (queueId == null || PdfDir == null || fileName == null) {
+    void recordDuplicateUploadError(java.util.Map<String, Object> map, ResourceBundle props) {
+        // Keep this message constant and do not attach the collision exception: its message is the
+        // destination path, which ends in the uploader-supplied clinical document filename.
+        logger.warn("Uploaded document name already taken; asking the user to retry");
+        map.put("error", props.getString("dms.addDocument.errorDuplicate"));
+    }
+
+    private WriteToIncomingDocsResult writeToIncomingDocs(File docFile, File destinationFile) {
+        if (docFile == null || destinationFile == null) {
             logger.error("Invalid parameters provided for writeToIncomingDocs");
-            return false;
+            return WriteToIncomingDocsResult.FAILED;
         }
 
-        // Check that filename doesn't contain path traversal sequences
-        if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
-            logger.error("Filename contains invalid path characters");
-            return false;
-        }
-
-        // Create directory structure and get validated parent path
-        String parentPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, PdfDir);
-        File parentDir = new File(parentPath);
-        if (!parentDir.exists()) {
-            return false;
-        }
-
-        // Use PathValidationUtils to construct and validate the destination file path
-        // (sanitizes fileName, rejects traversal, ensures result is within parentDir).
-        File destinationFile;
         try {
-            destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
-        } catch (SecurityException e) {
-            logger.error("Destination file is outside allowed directory: {}", LogSafe.sanitize(fileName));
-            return false;
-        }
-
-        // Write the file - validate source file at point of use for static analysis visibility
-        File validatedDocFile = PathValidationUtils.validateUpload(docFile);
-        try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
-                FileOutputStream fos = new FileOutputStream(destinationFile)) {
-            IOUtils.copy(fis, fos);
-        } catch (IOException e) {
+            // validateUpload throws SecurityException if the source escaped the allowed temp dir; keep it
+            // inside the handled block so this returns FAILED rather than escaping as an unhandled 500.
+            File validatedDocFile = PathValidationUtils.validateUpload(docFile);
+            try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
+                    OutputStream fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                IOUtils.copy(fis, fos);
+            }
+        } catch (FileAlreadyExistsException e) {
+            return WriteToIncomingDocsResult.ALREADY_EXISTS;
+        } catch (IOException | SecurityException e) {
             logger.error("Error writing file to incoming docs", e);
-            return false;
+            return WriteToIncomingDocsResult.FAILED;
         }
 
-        return true;
+        return WriteToIncomingDocsResult.SUCCESS;
     }
-    
+
+    private enum WriteToIncomingDocsResult {
+        SUCCESS,
+        ALREADY_EXISTS,
+        FAILED
+    }
+
     /**
      * Sanitizes a filename for use in incoming documents to prevent path traversal attacks.
      * Uses Apache Commons IO FilenameUtils for robust path traversal prevention.
@@ -390,18 +482,25 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
         String user_no = (String) request.getSession().getAttribute("user");
         String destFolder = request.getParameter("destFolder");
-        UserPropertyDAO pref = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty up = pref.getProp(user_no, UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
+        // This preference is read back as the upload destination folder, so only a folder the
+        // write path would accept is worth storing. Persisting an arbitrary value just parked
+        // request-controlled text in the database for a later path build to reject.
+        if (IncomingDocUtil.isAllowedIncomingDocFolder(destFolder)) {
+            UserPropertyDAO pref = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+            UserProperty up = pref.getProp(user_no, UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
 
-        if (up == null) {
-            up = new UserProperty();
-            up.setName(UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
-            up.setProviderNo(user_no);
-        }
+            if (up == null) {
+                up = new UserProperty();
+                up.setName(UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
+                up.setProviderNo(user_no);
+            }
 
-        if (up.getValue() == null || !(up.getValue().equals(destFolder))) {
-            up.setValue(destFolder);
-            pref.saveProp(up);
+            if (up.getValue() == null || !(up.getValue().equals(destFolder))) {
+                up.setValue(destFolder);
+                pref.saveProp(up);
+            }
+        } else {
+            logger.warn("Rejected incoming document folder preference: {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         }
         return null;
     }
@@ -425,11 +524,25 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             for (UploadedFile uploaded : uploadedFiles) {
                 String inputName = uploaded.getInputName();
                 if ("filedata".equals(inputName)) {
-                    this.filedata = new File(uploaded.getAbsolutePath());
+                    // Validation runs during Struts binding (before execute()). On rejection leave the
+                    // field null instead of throwing: executeUpload() already maps a null upload to a
+                    // graceful error, so a raw SecurityException here would otherwise bypass it as an
+                    // unhandled 500 to the AJAX uploader.
+                    try {
+                        this.filedata = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    } catch (SecurityException e) {
+                        logger.warn("Rejected invalid upload content for field filedata");
+                        this.filedata = null;
+                    }
                     this.filedataContentType = uploaded.getContentType();
                     this.filedataFileName = uploaded.getOriginalName();
                 } else if ("docFile".equals(inputName)) {
-                    this.docFile = new File(uploaded.getAbsolutePath());
+                    try {
+                        this.docFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    } catch (SecurityException e) {
+                        logger.warn("Rejected invalid upload content for field docFile");
+                        this.docFile = null;
+                    }
                 }
             }
         }

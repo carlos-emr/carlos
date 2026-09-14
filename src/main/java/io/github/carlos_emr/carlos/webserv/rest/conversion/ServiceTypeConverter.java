@@ -31,11 +31,17 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.managers.model.ServiceType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ServiceTypeTo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public class ServiceTypeConverter extends AbstractConverter<ServiceType, ServiceTypeTo> {
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public ServiceType getAsDomainObject(LoggedInInfo loggedInInfo, ServiceTypeTo t) throws ConversionException {
         ServiceType d = new ServiceType();
         BeanUtils.copyProperties(t, d);
@@ -43,6 +49,11 @@ public class ServiceTypeConverter extends AbstractConverter<ServiceType, Service
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public ServiceTypeTo getAsTransferObject(LoggedInInfo loggedInInfo, ServiceType d) throws ConversionException {
         ServiceTypeTo t = new ServiceTypeTo();
         BeanUtils.copyProperties(d, t);

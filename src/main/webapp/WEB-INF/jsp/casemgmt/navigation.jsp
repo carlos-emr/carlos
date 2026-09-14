@@ -534,7 +534,7 @@
             <tr>
                 <td>
                     <a href="javascript:void(0)"
-                       onClick="popupPage('<%=bsurl%>/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=<%=bean.demographicNo%>&curUser=<%=bean.curProviderNo%>');return false;">documents</a><br>
+                       onClick="popupPage('<%=bsurl%>/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=<carlos:encode value='<%= bean.demographicNo %>' context="uriComponent"/>');return false;">documents</a><br>
                 </td>
             </tr>
 

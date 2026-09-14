@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -56,6 +57,15 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 class OscarResourcesBundleParseTest {
 
     private static final Path RESOURCE_DIR = Path.of("src/main/resources");
+    private static final Path MFA_HANDLER_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/mfa/mfa_handler.jsp");
+    private static final Path MFA_REGISTRATION_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/mfa/mfa_registration.jsp");
+    private static final Path MFA_OTP_HANDLER_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/mfa/mfa_otp_handler.jsp");
+    private static final Path CARLOS_PROPERTIES = Path.of("src/main/resources/carlos.properties");
+    private static final Path MFA_MANAGER_IMPL =
+            Path.of("src/main/java/io/github/carlos_emr/carlos/managers/MfaManagerImpl.java");
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
     private static final String[] LOGIN_ERROR_KEYS = {
             "login.errorApplicationError",
@@ -69,6 +79,16 @@ class OscarResourcesBundleParseTest {
             "login.errorResetPersistence",
             "login.passwordUpdatedLoginAgain",
             "login.errorMfaRegistrationPersistence"
+    };
+    private static final String[] MFA_COPY_KEYS = {
+            "admin.securityAddRecord.mfa.reset.confirm",
+            "admin.securityAddRecord.mfa.reset.link",
+            "mfa.otp.handler.instruction",
+            "mfa.otp.handler.placeholder",
+            "mfa.otp.handler.verify.button",
+            "mfa.registration.instruct.1",
+            "mfa.registration.instruct.2",
+            "mfa.registration.qr.alt"
     };
 
     @Test
@@ -130,6 +150,87 @@ class OscarResourcesBundleParseTest {
                     .as("oscarResources_%s.properties should define every key from English", locale)
                     .containsAll(english.stringPropertyNames());
         }
+    }
+
+    @Test
+    @DisplayName("should decode French MFA copy without mojibake")
+    void shouldDecodeFrenchMfaCopy_withoutMojibake() throws Exception {
+        Properties french = loadBundle("fr");
+
+        assertThat(french.getProperty("mfa.registration.instruct.1"))
+                .contains("g\u00e9n\u00e9rer un code de v\u00e9rification")
+                .doesNotContain("\u00c3", "\u00c2");
+        assertThat(french.getProperty("mfa.otp.handler.instruction"))
+                .isEqualTo("Entrez le code de v\u00e9rification de votre application d'authentification.");
+        assertThat(french.getProperty("admin.securityAddRecord.mfa.reset.confirm"))
+                .contains("se r\u00e9inscrire", "\u00cates-vous s\u00fbr", "param\u00e8tres");
+
+        for (String key : MFA_COPY_KEYS) {
+            assertThat(french.getProperty(key))
+                    .as("French MFA key %s should not contain UTF-8 mojibake sentinels", key)
+                    .doesNotContain("\u00c3", "\u00c2");
+        }
+    }
+
+    @Test
+    @DisplayName("should decode Spanish MFA copy without mojibake")
+    void shouldDecodeSpanishMfaCopy_withoutMojibake() throws Exception {
+        Properties spanish = loadBundle("es");
+
+        assertThat(spanish.getProperty("admin.securityAddRecord.mfa.reset.confirm"))
+                .contains("deber\u00e1 volver", "\u00bfEst\u00e1 seguro", "configuraci\u00f3n de MFA");
+        assertThat(spanish.getProperty("mfa.registration.instruct.1"))
+                .contains("aplicaci\u00f3n", "c\u00f3digo de verificaci\u00f3n");
+
+        for (String key : MFA_COPY_KEYS) {
+            assertThat(spanish.getProperty(key))
+                    .as("Spanish MFA key %s should not contain UTF-8 mojibake sentinels", key)
+                    .doesNotContain("\u00c3", "\u00c2");
+        }
+    }
+
+    @Test
+    @DisplayName("should render MFA JSPs with UTF-8 and localized strings")
+    void shouldRenderMfaJsps_withUtf8LocalizedStrings() throws Exception {
+        String mfaHandler = Files.readString(MFA_HANDLER_JSP, StandardCharsets.UTF_8);
+        String mfaRegistration = Files.readString(MFA_REGISTRATION_JSP, StandardCharsets.UTF_8);
+        String mfaOtpHandler = Files.readString(MFA_OTP_HANDLER_JSP, StandardCharsets.UTF_8);
+
+        assertThat(mfaHandler)
+                .contains("<%@ page contentType=\"text/html;charset=UTF-8\" pageEncoding=\"UTF-8\" %>")
+                .contains("<meta charset=\"UTF-8\">");
+        assertThat(mfaRegistration)
+                .contains("<fmt:message key=\"mfa.registration.qr.alt\" var=\"mfaQrAlt\"/>")
+                .contains("alt=\"${carlos:forHtmlAttribute(mfaQrAlt)}\"")
+                .doesNotContain("<html>")
+                .doesNotContain("<body")
+                .doesNotContain("QR Code for Multi-Factor Authentication Setup");
+        assertThat(mfaOtpHandler)
+                .contains("<fmt:message key=\"mfa.otp.handler.placeholder\" var=\"otpPlaceholder\"/>")
+                .contains("<fmt:message key=\"mfa.otp.handler.verify.button\" var=\"otpVerifyButton\"/>")
+                .contains("placeholder=\"${carlos:forHtmlAttribute(otpPlaceholder)}\"")
+                .contains("aria-label=\"${carlos:forHtmlAttribute(otpPlaceholder)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(otpVerifyButton)}\"")
+                .contains(":where([autocomplete=one-time-code]):focus-visible")
+                .contains("this.form.requestSubmit")
+                .doesNotContain("this.form.submit()")
+                .doesNotContain("placeholder=\"Enter code\"")
+                .doesNotContain("value=\"Verify Code\"");
+    }
+
+    @Test
+    @DisplayName("should use CARLOS EMR branding for MFA QR issuer")
+    void shouldUseCarlosEmrBranding_forMfaQrIssuer() throws Exception {
+        Properties carlos = new Properties();
+        try (InputStream is = Files.newInputStream(CARLOS_PROPERTIES)) {
+            carlos.load(is);
+        }
+        String mfaManagerImpl = Files.readString(MFA_MANAGER_IMPL, StandardCharsets.UTF_8);
+
+        assertThat(carlos.getProperty("mfa.registration.qrcode.provider.name"))
+                .isEqualTo("CARLOS EMR");
+        assertThat(mfaManagerImpl)
+                .contains("getProperty(MFA_PROVIDER_NAME_KEY, \"CARLOS EMR\")");
     }
 
     @Test

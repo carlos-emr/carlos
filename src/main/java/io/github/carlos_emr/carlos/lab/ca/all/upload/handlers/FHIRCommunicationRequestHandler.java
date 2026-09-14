@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Handles FHIR STU3 CommunicationRequest resources containing PDF document attachments.
@@ -106,6 +107,8 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
      * @param ipAddr String the client IP address for audit logging
      * @return String "success" if the document was saved, or {@code null} on error
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
         String providerNo = "-1";
@@ -192,6 +195,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
 
         } catch (Exception e) {
             logger.error("error parsing Document Reference Document", e);
+            return null;
         } finally {
             IOUtils.closeQuietly(in);
         }

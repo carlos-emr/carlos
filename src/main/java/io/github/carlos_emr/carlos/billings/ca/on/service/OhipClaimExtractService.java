@@ -566,11 +566,14 @@ public class OhipClaimExtractService implements Serializable {
     }
 
     /** Writes the fixed-width OHIP claim extract to the configured output path. */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;
         try {
-            safeFile = PathValidationUtils.validatePath(ohipFilename, new File(home_dir));
+            File homeDir = PathValidationUtils.validateConfiguredDirectory(home_dir, "HOME_DIR");
+            safeFile = PathValidationUtils.validatePath(ohipFilename, homeDir);
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for OHIP file: {}", ohipFilename, e);
             throw new BillingFileWriteException(
@@ -593,11 +596,14 @@ public class OhipClaimExtractService implements Serializable {
     }
 
     /** Writes the companion HTML claim preview to the configured output path. */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;
         try {
-            safeFile = PathValidationUtils.validatePath(htmlFilename, new File(home_dir1));
+            File homeDir = PathValidationUtils.validateConfiguredDirectory(home_dir1, "HOME_DIR");
+            safeFile = PathValidationUtils.validatePath(htmlFilename, homeDir);
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for HTML file: {}", htmlFilename, e);
             throw new BillingFileWriteException(

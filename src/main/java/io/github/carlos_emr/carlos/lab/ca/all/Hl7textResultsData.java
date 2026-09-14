@@ -123,8 +123,8 @@ public class Hl7textResultsData {
                 measurementsDeletedList.add(measurementsDeleted);
                 measurementsToRemove.add(m);
             }
-            measurementsDeletedDao.batchPersist(measurementsDeletedList);
-            measurementDao.batchRemove(measurementsToRemove);
+            measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
+            measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
         // loop through the measurements for the lab and add them
 
@@ -365,7 +365,7 @@ public class Hl7textResultsData {
                 }
             }
         }
-        measurementsExtDao.batchPersist(measurementsExts, 50);
+        measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
     }
 
     public static String getMatchingLabs_CLS(String lab_no) {
