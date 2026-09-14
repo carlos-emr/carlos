@@ -110,6 +110,8 @@ public final class ClinicalSummaryGenerationService {
                 }
             }
             return artifact;
+        } catch (ClinicalSummaryOutputLimitException exhausted) {
+            throw new ClinicalSummaryGenerationException("The model reached its output limit before completing a source, even at the smallest supported portion. No partial summary was displayed. The chart extract is unchanged.");
         } catch (SocketTimeoutException timeout) {
             throw new ClinicalSummaryGenerationException("Agent generation timed out. The chart extract is unchanged.");
         } catch (IOException unavailable) {

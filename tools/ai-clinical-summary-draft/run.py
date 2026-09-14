@@ -116,6 +116,7 @@ def main(argv=None):
                         "Cloud-backed models are not permitted")
             request = copy.deepcopy(payload)
             request["prompt"] = json.dumps({"sources": sources}, ensure_ascii=False)
+            request["format"] = pipeline.ollama_schema(schema, sources)
             attempt = len(attempts) + 1
             directory = output if attempt == 1 else output / f"pass-{attempt}"
             directory.mkdir(exist_ok=True)

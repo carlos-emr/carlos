@@ -8,6 +8,19 @@ from validate_artifact import require
 REQUEST_BYTES = 10000
 
 
+def ollama_schema(schema, sources):
+    """Constrain coverage and citations to this request, without a summary-length cap."""
+    result = copy.deepcopy(schema)
+    ids = [source["id"] for source in sources]
+    coverage = result["properties"]["coverage"]
+    coverage.update(minItems=len(ids), maxItems=len(ids))
+    coverage["items"]["properties"]["source_id"]["enum"] = ids
+    citations = result["properties"]["claims"]["items"]["properties"]["source_ids"]
+    citations["maxItems"] = len(ids)
+    citations["items"]["enum"] = ids
+    return result
+
+
 class OutputLimitError(Exception):
     """The model reached its token budget; discard the response and split the input."""
 
