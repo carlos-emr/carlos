@@ -59,6 +59,8 @@ class LoginCheckLoginLockExpiryUnitTest {
 
     private static final String WAN_IP = "203.0.113.5";
     private static final String USER_NAME = "lockexpiryuser";
+    /** A second tracked username, used to prove the sweep is not limited to the checked key. */
+    private static final String OTHER_USER_NAME = "lockexpiryotheruser";
 
     private static final int MAX_FAILED_TIMES = 3;
     private static final int MAX_DURATION_MINUTES = 10;
@@ -81,7 +83,7 @@ class LoginCheckLoginLockExpiryUnitTest {
         // Keeps WAN_IP off the LAN allowlist so brute force protection stays active.
         properties.setProperty("login_local_ip", "10.255");
 
-        LoginList.getLoginListInstance().remove(USER_NAME);
+        clearTrackedEntries();
     }
 
     @AfterEach
@@ -96,7 +98,15 @@ class LoginCheckLoginLockExpiryUnitTest {
         });
         previousProperties.clear();
 
-        LoginList.getLoginListInstance().remove(USER_NAME);
+        clearTrackedEntries();
+    }
+
+    private static void clearTrackedEntries() {
+        LoginList lockList = LoginList.getLoginListInstance();
+        lockList.remove(USER_NAME);
+        lockList.remove(OTHER_USER_NAME);
+        // The IP-keyed fallback mode tracks under the address instead of the username.
+        lockList.remove(WAN_IP);
     }
 
     /** Drives the production failure path until the username is locked out. */
@@ -112,14 +122,22 @@ class LoginCheckLoginLockExpiryUnitTest {
     }
 
     private static LoginInfoBean trackedEntry() {
-        return (LoginInfoBean) LoginList.getLoginListInstance().get(USER_NAME);
+        return trackedEntry(USER_NAME);
+    }
+
+    private static LoginInfoBean trackedEntry(String userName) {
+        return (LoginInfoBean) LoginList.getLoginListInstance().get(userName);
     }
 
     /** Backdates the tracking window so it looks older than {@code login_max_duration}. */
     private static void expireTrackingWindow() {
+        expireTrackingWindow(USER_NAME);
+    }
+
+    private static void expireTrackingWindow(String userName) {
         GregorianCalendar past = new GregorianCalendar();
         past.add(Calendar.MINUTE, -(MAX_DURATION_MINUTES + 1));
-        trackedEntry().setStarttime(past);
+        trackedEntry(userName).setStarttime(past);
     }
 
     @Test
@@ -159,5 +177,47 @@ class LoginCheckLoginLockExpiryUnitTest {
 
         assertThat(trackedEntry().getTimes()).isEqualTo(MAX_FAILED_TIMES);
         assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should evict every expired entry, not only the username being checked")
+    void shouldEvictEveryExpiredEntry_whenAnyUserNameChecked() {
+        LoginCheckLogin loginCheck = lockOutUserName();
+        loginCheck.updateLoginList(WAN_IP, OTHER_USER_NAME);
+        expireTrackingWindow(USER_NAME);
+        expireTrackingWindow(OTHER_USER_NAME);
+
+        // Checking one username has to clear the other too: nothing else sweeps this list, so
+        // entries for usernames that are never retried would otherwise leak for the life of
+        // the process.
+        assertThat(loginCheck.isBlock(WAN_IP, USER_NAME)).isFalse();
+
+        assertThat(trackedEntry(USER_NAME)).isNull();
+        assertThat(trackedEntry(OTHER_USER_NAME)).isNull();
+    }
+
+    @Test
+    @DisplayName("should record a username failure when no block check ran first")
+    void shouldRecordUserNameFailure_whenNoPrecedingBlockCheck() {
+        // The forced-password-reset submit path in Login2Action records a failed attempt on a
+        // fresh LoginCheckLogin that never called isBlock, so the lock list is still unresolved.
+        LoginCheckLogin loginCheck = new LoginCheckLogin();
+
+        loginCheck.updateLoginList(WAN_IP, USER_NAME);
+
+        assertThat(trackedEntry(USER_NAME)).isNotNull();
+        assertThat(trackedEntry(USER_NAME).getTimes()).isOne();
+    }
+
+    @Test
+    @DisplayName("should record an IP failure when no block check ran first")
+    void shouldRecordIpFailure_whenNoPrecedingBlockCheck() {
+        // Same path with username locking off, where tracking falls back to the IP address.
+        CarlosProperties.getInstance().setProperty("login_lock", "false");
+        LoginCheckLogin loginCheck = new LoginCheckLogin();
+
+        loginCheck.updateLoginList(WAN_IP, USER_NAME);
+
+        assertThat(LoginList.getLoginListInstance().get(WAN_IP)).isNotNull();
     }
 }

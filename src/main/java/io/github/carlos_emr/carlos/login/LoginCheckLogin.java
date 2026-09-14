@@ -219,35 +219,53 @@ public final class LoginCheckLogin {
         // Check if IP is on local network (LAN clients bypass brute force protection)
         if (ipFound(ip)) bWAN = false;
 
-        // Wait for singleton LoginList to initialize
-        while (llist == null) {
-            llist = LoginList.getLoginListInstance();
-        }
-
         GregorianCalendar now = new GregorianCalendar();
         // Login2Action builds a LoginCheckLogin per request, so the synchronized modifier on
         // updateLockList() serializes nothing across requests; the shared LoginList is the only
-        // usable monitor. Reading the entry and evicting it have to be one step, or a concurrent
+        // usable monitor. The sweep and the status read have to be one step, or a concurrent
         // failure can insert a replacement entry in between that this thread then removes,
         // restarting the attempt counter and letting an attacker stay under the threshold.
         // The local holds a stable reference so the monitor cannot be the reassignable field.
-        LoginList lockList = llist;
+        LoginList lockList = lockList();
         synchronized (lockList) {
+            // Sweep every timed-out entry, not just this username's: with login_lock=true
+            // nothing else evicts the shared list, so entries for usernames that are never
+            // retried would otherwise accumulate for the life of the process. This mirrors
+            // what the IP path already does in isBlock(String).
+            for (Enumeration e = lockList.keys(); e.hasMoreElements(); ) {
+                String tracked = (String) e.nextElement();
+                LoginInfoBean trackedEntry = (LoginInfoBean) lockList.get(tracked);
+                if (trackedEntry != null && trackedEntry.getTimeOutStatus(now)) {
+                    lockList.remove(tracked);
+                }
+            }
+
+            // Check if this username is blocked (status == 0 means blocked); an elapsed
+            // tracking window is already gone, so the next failure opens a fresh one.
             LoginInfoBean entry = (LoginInfoBean) lockList.get(userName);
-            if (entry != null) {
-                if (entry.getTimeOutStatus(now)) {
-                    // Tracking window elapsed: release the entry so the next failure opens a
-                    // fresh window, mirroring the eviction the IP path does in isBlock(String).
-                    lockList.remove(userName);
-                }
-                // Otherwise the window is still open (status == 0 means blocked)
-                else if (entry.getStatus() == 0) {
-                    bBlock = true;
-                }
+            if (entry != null && entry.getStatus() == 0) {
+                bBlock = true;
             }
         }
 
         return bBlock;
+    }
+
+    /**
+     * Resolves the application-scoped lock list, caching it in {@link #llist}.
+     *
+     * <p>The block checks resolve it lazily, but the forced-password-reset submit path in
+     * {@code Login2Action} records a failed attempt without ever calling {@code isBlock}, so the
+     * update paths cannot assume the field is already populated.
+     *
+     * @return the shared LoginList singleton, never null
+     */
+    private LoginList lockList() {
+        // Wait for singleton LoginList to initialize
+        while (llist == null) {
+            llist = LoginList.getLoginListInstance();
+        }
+        return llist;
     }
 
     /**
@@ -356,6 +374,10 @@ public final class LoginCheckLogin {
         Properties p = CarlosProperties.getInstance();
         // Only track WAN clients (LAN clients are exempt from brute force protection)
         if (bWAN) {
+            // Pre-existing gap, fixed here for parity with updateLockList: this path is also
+            // reachable without a preceding isBlock, and dereferencing a null llist would throw
+            // instead of recording the failed attempt.
+            lockList();
             GregorianCalendar now = new GregorianCalendar();
             // Create new tracking entry if first failure from this IP
             if (llist.get(ip) == null) {
@@ -398,7 +420,7 @@ public final class LoginCheckLogin {
             // and write-back have to be one step: concurrent failures otherwise read the same
             // count and one increment is lost, and an entry expired between the lookup and the
             // write would be silently resurrected.
-            LoginList lockList = llist;
+            LoginList lockList = lockList();
             synchronized (lockList) {
                 // Create new tracking entry if first failure for this username
                 if (lockList.get(userName) == null) {
