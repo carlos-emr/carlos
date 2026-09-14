@@ -478,7 +478,7 @@ public class BillingOnLookupService {
             appointmentDao.merge(appt);
             return true;
         }
-        _logger.warn("BillingOnLookupService.updateApptStatus: appointment {} not found; status {} not applied",
+        _logger.warn("BillingOnLookupService.updateApptStatus: appointment {} not found; status {} not applied", // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 LogSafe.sanitize(apptNo), LogSafe.sanitize(status));
         return false;
     }

@@ -161,6 +161,11 @@ public class FrmConsultantRecord extends FrmRecord {
             return "";
         }
 
+        int firstEnd = familyDoctor.indexOf(endTag);
+        if (firstEnd >= 0 && firstEnd < start) {
+            return "";
+        }
+
         int valueStart = start + startTag.length();
         int end = familyDoctor.indexOf(endTag, valueStart);
         if (end < valueStart) {

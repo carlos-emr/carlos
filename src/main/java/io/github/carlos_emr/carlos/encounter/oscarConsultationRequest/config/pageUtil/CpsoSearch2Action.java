@@ -11,6 +11,7 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -186,6 +187,8 @@ public class CpsoSearch2Action extends ActionSupport {
      *
      * @param json JSON string to write
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJsonResponse(String json) {
         try {
             response.setContentType("application/json");

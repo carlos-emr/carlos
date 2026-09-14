@@ -16,6 +16,11 @@ if [ -z "${DRUGREF_DB_PASSWORD}" ]; then
     exit 1
 fi
 
-wget --no-check-certificate https://localhost:8443/drugref/Update.jsp && MYSQL_PWD="${DRUGREF_DB_PASSWORD}" mysql -uroot drugref < /usr/share/oscar-emr/tallMANdrugref.sql
+if ! command -v mariadb >/dev/null 2>&1 ; then
+    echo "ERROR: mariadb client is required but was not found; install mariadb-client." >&2
+    exit 1
+fi
+
+wget --no-check-certificate https://localhost:8443/drugref/Update.jsp && MYSQL_PWD="${DRUGREF_DB_PASSWORD}" mariadb -uroot drugref < /usr/share/oscar-emr/tallMANdrugref.sql
 
 
