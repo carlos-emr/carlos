@@ -759,3 +759,70 @@ test('an in-place destination is read from the container, not from the shell aro
   assert.equal(result.failures.length, 1);
   assert.match(result.failures[0], /rendered a blank page/);
 });
+
+/*
+ * resolveControl(): the three strategies the schedule really uses.
+ *
+ * Review noted this engine drives ten surfaces with no unit coverage of its
+ * control resolution, while everything around it is pinned. The strategies are
+ * not interchangeable -- a label regex that is end-anchored stops matching the
+ * moment <oscar:newLab> appends its "<sup>N</sup>" count, and the title
+ * strategy exists only because CSS has no attribute-regex -- so each gets a
+ * case here.
+ */
+test('a selector-strategy surface resolves to the first match of its selector', async () => {
+  const { resolveControl } = require('./surface-audit-playwright-checks');
+  const calls = [];
+  const page = {
+    locator: (selector) => { calls.push(selector); return { first: () => ({ selector }) }; },
+  };
+  const control = await resolveControl(page, { entry: { selector: '#inboxLink', popup: true } });
+  assert.deepEqual(calls, ['#inboxLink']);
+  assert.equal(control.selector, '#inboxLink');
+});
+
+test('a label-strategy surface matches on text that carries a live count beside it', async () => {
+  // <oscar:newLab> appends "<sup>3</sup>" inside the anchor, so "Inbox" becomes
+  // "Inbox3" the moment a lab is waiting. An end-anchored regex would stop
+  // finding the control exactly when the clinic has results to read.
+  const { resolveControl } = require('./surface-audit-playwright-checks');
+  let filterArg = null;
+  const page = {
+    locator: () => ({
+      filter: (options) => { filterArg = options; return { first: () => ({ matched: true }) }; },
+    }),
+  };
+  const entry = { label: /^\s*Inbox/i, popup: true };
+  const control = await resolveControl(page, { entry });
+  assert.equal(control.matched, true);
+  assert.equal(filterArg.hasText, entry.label);
+  assert.ok(entry.label.test('Inbox3'), 'the manifest pattern must survive a live count');
+  assert.ok(entry.label.test('  Inbox '));
+});
+
+test('a title-strategy surface addresses the anchor by position, never by guessing', async () => {
+  // CSS has no attribute-regex, so the titles are read once and the match is
+  // addressed by its index in the SAME list -- not by clicking whatever came
+  // first, which is how an icon-only control gets confused with another.
+  const { resolveControl } = require('./surface-audit-playwright-checks');
+  const titles = ['Open the schedule', 'Edit your personal setting', 'Scratch pad'];
+  const page = {
+    $$eval: async () => titles,
+    locator: (selector) => ({ nth: (index) => ({ selector, index }) }),
+  };
+  const control = await resolveControl(page, { entry: { title: /Edit your personal setting/i, popup: true } });
+  assert.equal(control.index, 1, 'the index must be the position in the list the titles came from');
+  assert.equal(control.selector, 'a[title]');
+});
+
+test('a title-strategy surface that matches nothing resolves to null, not to the first anchor', async () => {
+  // The null is what openSurface turns into a SkipCheck (optional) or a
+  // failure (required). Returning a locator here would click something
+  // arbitrary and report the wrong surface as opened.
+  const { resolveControl } = require('./surface-audit-playwright-checks');
+  const page = {
+    $$eval: async () => ['Open the schedule', 'Scratch pad'],
+    locator: () => ({ nth: () => ({ wrong: true }) }),
+  };
+  assert.equal(await resolveControl(page, { entry: { title: /nothing matches this/i, popup: true } }), null);
+});

@@ -246,8 +246,19 @@ function auditSource(relativePath, source) {
  * element. The token input it reads is therefore SearchDrug3's, and attributing
  * the rule to ListDrugs would report a page that cannot satisfy it.
  */
-function routesRenderingFile(strutsDirectory, relativeJspPath) {
-  const suffix = relativeJspPath.replace(/^.*src\/main\/webapp/, '');
+function routesRenderingFile(strutsDirectory, jspPath, webappRoot = WEBAPP) {
+  // path.relative() AND THEN forward slashes, rather than cutting at a literal
+  // 'src/main/webapp'. The old form assumed POSIX separators in a path this
+  // module builds with path.join: on Windows it matched nothing, `suffix`
+  // stayed the whole absolute path, no action contained it, and every fragment
+  // lost its route-based host attribution. That surfaces (the unattributed
+  // assertion fires) rather than passing quietly, so this is portability rather
+  // than a live defect -- but the audit uses path.* everywhere else and there
+  // is no reason for one hand-rolled exception.
+  //
+  // Struts results are written with forward slashes whatever the platform, so
+  // the comparison normalises to those.
+  const suffix = `/${path.relative(webappRoot, jspPath).split(path.sep).join('/')}`;
   const routes = [];
   for (const name of fs.readdirSync(strutsDirectory)) {
     if (!name.startsWith('struts') || !name.endsWith('.xml')) {
@@ -276,9 +287,9 @@ function routesRenderingFile(strutsDirectory, relativeJspPath) {
  * Attributing the rule to the fragment would demand a form of something that
  * has no document to put one in.
  */
-function hostsOf(file, files, strutsDirectory) {
+function hostsOf(file, files, strutsDirectory, webappRoot = WEBAPP) {
   const base = path.basename(file);
-  const routes = routesRenderingFile(strutsDirectory, file);
+  const routes = routesRenderingFile(strutsDirectory, file, webappRoot);
   const needles = [base, ...routes];
   return files.filter((candidate) => {
     if (candidate === file) {
@@ -314,7 +325,7 @@ function auditWebapp(options = {}) {
 
     // A fragment that does not satisfy the rule itself is satisfied when every
     // page that renders it does -- the token input lives in the host document.
-    const hosts = hostsOf(file, files, strutsDirectory);
+    const hosts = hostsOf(file, files, strutsDirectory, root);
     if (hosts.length === 0) {
       unattributed.push({
         ...verdict,
