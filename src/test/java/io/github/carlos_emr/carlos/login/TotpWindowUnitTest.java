@@ -31,15 +31,19 @@ class TotpWindowUnitTest {
     @Test
     @DisplayName("should mirror the time step of the generator used for validation")
     void shouldMirrorTimeStep_ofValidationGenerator() {
-        assertThat(TotpWindow.TIME_STEP).isEqualTo(new TimeBasedOneTimePasswordGenerator().getTimeStep());
+        Duration generatorTimeStep = new TimeBasedOneTimePasswordGenerator().getTimeStep();
+
+        assertThat(generatorTimeStep).isEqualTo(TotpWindow.TIME_STEP);
     }
 
     @Test
     @DisplayName("should span the tolerated steps on both sides of the current one")
     void shouldSpanToleratedSteps_onBothSidesOfCurrent() {
+        Duration spannedByTolerance = TotpWindow.TIME_STEP.multipliedBy(2L * TotpWindow.STEP_TOLERANCE + 1);
+
         assertThat(TotpWindow.STEP_TOLERANCE).isOne();
-        assertThat(TotpWindow.ACCEPTANCE).isEqualTo(Duration.ofSeconds(90));
-        assertThat(TotpWindow.ACCEPTANCE)
-                .isEqualTo(TotpWindow.TIME_STEP.multipliedBy(2L * TotpWindow.STEP_TOLERANCE + 1));
+        assertThat(spannedByTolerance)
+                .isEqualTo(TotpWindow.ACCEPTANCE)
+                .isEqualTo(Duration.ofSeconds(90));
     }
 }
