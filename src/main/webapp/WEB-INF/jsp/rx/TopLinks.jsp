@@ -40,7 +40,18 @@
 <core:set var="url"
        value="${ ctx }/demographic/DemographicEdit?demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment="/>
 
-<table id="${ not empty param.tableId ? carlos:forHtmlAttribute(fn:replaceAll(param.tableId, '\\s+', '_')) : 'topLink' }">
+<%-- tableId is caller-supplied (request parameter) and lands in an HTML id token.
+     Two constraints shape this:
+     1. CodeQL's malformed-id check reads the JSP source text, not the evaluated
+        expression, so the id attribute itself must hold no literal whitespace.
+        Hence the value is computed here and the attribute is a bare EL reference.
+     2. An EL quoted string may only escape a backslash, an apostrophe or a quote,
+        so a regex escape such as the \s in fn:replaceAll fails JSP translation.
+        fn:replace with a literal space is the portable form. --%>
+<core:set var="topLinkTableId"
+       value="${ not empty param.tableId ? fn:replace(param.tableId, ' ', '_') : 'topLink' }"/>
+
+<table id="${carlos:forHtmlAttribute(topLinkTableId)}">
     <tr>
         <td id="topLinkLeftColumn">
             <h1>${carlos:forHtmlContent(param.title)}</h1>

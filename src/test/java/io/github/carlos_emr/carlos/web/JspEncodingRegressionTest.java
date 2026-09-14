@@ -352,27 +352,42 @@ class JspEncodingRegressionTest {
                 .doesNotContainPattern("<b>(Brand|Generic) Name:</b>\\s*\\$\\{fav\\.(bn|gn)\\}");
     }
 
+    /**
+     * {@code rx/TopLinks.jsp} is statically included by most prescribing pages and renders
+     * request parameters straight into the page, so a reflected value reaches HTML body,
+     * HTML attribute, URL and JavaScript-in-attribute contexts from one request.
+     */
     @Test
+    @DisplayName("should encode TopLinks request parameters in their rendered contexts")
+    @Tag("security")
     void shouldEncodeTopLinksRequestParameters_inHtmlAndJavaScriptContexts() throws Exception {
         String topLinksJsp = readJsp("rx/TopLinks.jsp");
 
         assertThat(topLinksJsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .contains("id=\"${ not empty param.tableId ? carlos:forHtmlAttribute(fn:replaceAll(param.tableId, '\\s+', '_')) : 'topLink' }\"")
-                .contains("value=\"${ ctx }/demographic/DemographicEdit?demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment=\"")
+                .contains("<%@ taglib uri=\"jakarta.tags.functions\" prefix=\"fn\" %>")
+                // tableId is normalized to a single id token, then attribute-encoded. The
+                // computation lives in a variable so the id attribute holds no literal
+                // spaces, which is what CodeQL's malformed-id check reads. fn:replace, not
+                // fn:replaceAll: an EL quoted string cannot carry a regex escape like \\s.
+                .contains("value=\"${ not empty param.tableId ? fn:replace(param.tableId, ' ', '_') : 'topLink' }\"")
+                .doesNotContain("fn:replaceAll(param.tableId")
+                .contains("<table id=\"${carlos:forHtmlAttribute(topLinkTableId)}\">")
+                .contains("demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment=")
                 .contains("${carlos:forHtmlContent(param.title)}")
                 .contains("${carlos:forHtmlContent(param.patientName)}")
                 .contains("${carlos:forHtmlContent(param.sex)}")
                 .contains("${carlos:forHtmlContent(param.age)}")
                 .contains("${carlos:forHtmlContent(param.phone)}")
+                // The popup URL is a JavaScript string literal inside an onClick attribute.
                 .contains("'${carlos:forJavaScriptAttribute(url)}'")
+                .doesNotContain("id=\"${ not empty param.tableId ? param.tableId : 'topLink' }\"")
+                .doesNotContain("demographic_no=${ param.demographicNo }")
                 .doesNotContain("<core:out value=\"${ param.title }\"/>")
                 .doesNotContain("<core:out value=\"${ param.patientName }\"/>")
                 .doesNotContain("${ param.sex }")
                 .doesNotContain("${ param.age }")
                 .doesNotContain("${ param.phone }")
-                .doesNotContain("id=\"${ not empty param.tableId ? param.tableId : 'topLink' }\"")
-                .doesNotContain("value=\"${ ctx }/demographic/DemographicEdit?demographic_no=${ param.demographicNo }&appointment=\"")
                 .doesNotContain("'${ url }'");
     }
 
