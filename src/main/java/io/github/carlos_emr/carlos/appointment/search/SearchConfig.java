@@ -275,7 +275,6 @@ public class SearchConfig {
             }
         }
 
-        logger.error("toDocument " + clinic.appointmentCodeDurations);
         if (clinic.appointmentCodeDurations != null) {
             for (Map.Entry<Character, Integer> ent : clinic.appointmentCodeDurations.entrySet()) {
                 Element appointmentCode = doc.createElement("appointment_code");

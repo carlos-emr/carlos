@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.webserv.transfer_objects;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 import java.util.ArrayList;
@@ -538,6 +539,11 @@ public final class DemographicTransfer {
         this.pronounId = pronounId;
     }
 
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public static DemographicTransfer toTransfer(Demographic demographic) {
         if (demographic == null) return (null);
 

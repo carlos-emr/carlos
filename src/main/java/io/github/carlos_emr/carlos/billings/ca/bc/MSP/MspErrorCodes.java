@@ -42,6 +42,7 @@ import java.util.Date;
 import java.util.Properties;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -52,36 +53,55 @@ public class MspErrorCodes extends Properties {
      */
     public MspErrorCodes() {
         super();
-        try {
-            InputStream is = this.getClass().getClassLoader().getResourceAsStream("oscar/oscarBilling/ca/bc/MSP/mspEditCodes.properties");
-            if (CarlosProperties.getInstance().getProperty("msp_error_codes") != null) {
-                String filename = CarlosProperties.getInstance().getProperty("msp_error_codes");
-                is = new FileInputStream(filename);
-            } else {
-                File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "msp_error_codes.properties");
-                if (file != null && file.exists()) {
-                    is = new FileInputStream(file);
-                }
+        try (InputStream is = openErrorCodesStream()) {
+            if (is != null) {
+                load(is);
             }
-            load(is);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             MiscUtils.getLogger().debug("Error loading MSP Error codes file :" + CarlosProperties.getInstance().getProperty("msp_error_codes"));
         }
     }
 
+    private InputStream openErrorCodesStream() throws Exception {
+        String configuredPath = CarlosProperties.getInstance().getProperty("msp_error_codes");
+        if (configuredPath != null) {
+            try {
+                File configuredFile = PathValidationUtils.validateConfiguredFile(configuredPath, "msp_error_codes");
+                return new FileInputStream(configuredFile);
+            } catch (Exception e) {
+                MiscUtils.getLogger().warn("Could not load configured MSP error codes; using fallback", e);
+            }
+        }
+
+        try {
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+            File file = PathValidationUtils.validateGeneratedChildPath("msp_error_codes.properties", documentDir);
+            if (file.exists()) {
+                return new FileInputStream(file);
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().warn("Could not load MSP error codes from DOCUMENT_DIR; using bundled defaults", e);
+        }
+
+        return this.getClass().getClassLoader().getResourceAsStream("oscar/oscarBilling/ca/bc/MSP/mspEditCodes.properties");
+    }
+
 
     public void save() {
         try {
-            File file = null;
+            File file;
             if (CarlosProperties.getInstance().getProperty("msp_error_codes") != null) {
                 String filename = CarlosProperties.getInstance().getProperty("msp_error_codes");
-                file = new File(filename);
+                file = PathValidationUtils.resolveConfiguredFile(filename, "msp_error_codes");
             } else {
-                file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "msp_error_codes.properties");
+                File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+                file = PathValidationUtils.validateGeneratedChildPath("msp_error_codes.properties", documentDir);
             }
 
-            store(new FileOutputStream(file), "Written on " + new Date());
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                store(fos, "Written on " + new Date());
+            }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }

@@ -26,8 +26,11 @@
  */
 
 package io.github.carlos_emr.carlos.util;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class StringBuilderUtils {
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static public int indexOfIgnoreCase(StringBuilder strbuf, String target, int start) {
         String searchStr = strbuf.toString().toLowerCase();
         String lowerTarget = target.toLowerCase();

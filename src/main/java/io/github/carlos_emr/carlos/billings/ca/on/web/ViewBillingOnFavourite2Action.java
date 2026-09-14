@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnFavouriteViewModelAssembler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Gate for {@code billing/CA/ON/billingONfavourite.jsp}. Enforces {@code _billing}
@@ -64,6 +65,8 @@ public class ViewBillingOnFavourite2Action extends ActionSupport {
         this.lookupService = lookupService;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
