@@ -60,8 +60,10 @@ class RxSessionFilterUnitTest {
     @Test
     void shouldLoadWorkspacePatient_whenOpeningDrugProfileDirectly() throws Exception {
         try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
-            spring.when(() -> SpringUtils.getBean(AllergyDao.class)).thenReturn(mock(AllergyDao.class));
-            spring.when(() -> SpringUtils.getBean(DemographicManager.class)).thenReturn(mock(DemographicManager.class));
+            AllergyDao allergyDao = mock(AllergyDao.class);
+            DemographicManager demographicManager = mock(DemographicManager.class);
+            spring.when(() -> SpringUtils.getBean(AllergyDao.class)).thenReturn(allergyDao);
+            spring.when(() -> SpringUtils.getBean(DemographicManager.class)).thenReturn(demographicManager);
             MockHttpSession session = session("provider-1");
             RxPatientData.Patient otherPatient = mock(RxPatientData.Patient.class);
             when(otherPatient.getDemographicNo()).thenReturn(202);
@@ -93,7 +95,8 @@ class RxSessionFilterUnitTest {
                         servlet.when(ServletActionContext::getRequest).thenReturn(scoped);
                         login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(scoped)).thenReturn(loggedInInfo);
                         assertThat(new ViewPrintDrugProfile22Action().execute()).isEqualTo(ActionSupport.SUCCESS);
-                        assertThat(scoped.getSession().getAttribute("Patient")).isSameAs(patient);
+                        assertThat(scoped.getAttribute("patient")).isSameAs(patient);
+                        assertThat(scoped.getSession().getAttribute("Patient")).isNull();
                     } catch (Exception e) {
                         throw new ServletException(e);
                     }
@@ -144,6 +147,36 @@ class RxSessionFilterUnitTest {
         assertThat(session.getAttribute("comment")).isNull();
         assertThat(Collections.list(firstFacade.getAttributeNames()))
                 .contains("comment", "RX_ADDR", "RxSessionBean", "demographicNo");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"get", "GeT"})
+    void shouldRejectNonCanonicalMethod_whenOpeningWorkspace(String method) throws Exception {
+        MockHttpSession session = session("provider-1");
+        MockHttpServletRequest request = request(session, method, "/rx/choosePatient");
+        request.addParameter("demographicNo", "101");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (req, res) -> {});
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("Location")).isNull();
+        assertThat(RxWorkspaceRegistry.get(session).size()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"//outside.test", "///outside.test"})
+    void shouldRejectAuthorityInFinalRedirect_whenContextPathIsUnsafe(String contextPath) {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", contextPath + "/rx/choosePatient");
+        request.setContextPath(contextPath);
+        request.setSession(session("provider-1"));
+        request.addParameter("demographicNo", "101");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertThatThrownBy(() -> filter.doFilter(request, response, (req, res) -> {}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Prescription redirect must remain within the application");
+        assertThat(response.getHeader("Location")).isNull();
     }
 
     @ParameterizedTest
@@ -508,6 +541,28 @@ class RxSessionFilterUnitTest {
         assertThat(closeResponse.getStatus()).isEqualTo(204);
         assertThat(registry.purgeExpired()).isOne();
         assertThat(registry.find(workspace.getContextId())).isNull();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "get, /rx/workspaceHeartbeat, GET", "GeT, /rx/workspaceHeartbeat, GET",
+            "POST, /rx/workspaceHeartbeat, GET", "post, /rx/workspaceClose, POST",
+            "Post, /rx/workspaceClose, POST", "GET, /rx/workspaceClose, POST"
+    })
+    void shouldRejectWrongMethod_whenHandlingWorkspaceLifecycle(String method, String route, String allowedMethod)
+            throws Exception {
+        MockHttpSession session = session("provider-1");
+        RxWorkspaceRegistry.RxWorkspace workspace = RxWorkspaceRegistry.getOrCreate(session).create(101, "provider-1");
+        MockHttpServletRequest request = request(session, method, route);
+        request.addParameter("rxContextId", workspace.getContextId());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] invoked = {false};
+
+        filter.doFilter(request, response, (req, res) -> invoked[0] = true);
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo(allowedMethod);
+        assertThat(invoked[0]).isFalse();
     }
 
     @Test

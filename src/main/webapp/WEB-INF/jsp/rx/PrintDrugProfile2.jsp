@@ -125,7 +125,7 @@
                 showall = true;
             }
         }
-        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+        RxPatientData.Patient patient = (RxPatientData.Patient) request.getAttribute("patient");
         if (patient != null) {
             surname = patient.getSurname();
             firstName = patient.getFirstName();
