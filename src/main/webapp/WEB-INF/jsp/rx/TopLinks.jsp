@@ -51,7 +51,10 @@
 <core:set var="topLinkTableId"
        value="${ not empty param.tableId ? fn:replace(param.tableId, ' ', '_') : 'topLink' }"/>
 
-<table id="${carlos:forHtmlAttribute(topLinkTableId)}">
+<%-- role="presentation" because this is a layout table: one row of left/centre/right
+     banner cells, no tabular data and so no <th> to give it. Marking it keeps screen
+     readers from announcing it as a data table (and satisfies Sonar Web:S5256). --%>
+<table id="${carlos:forHtmlAttribute(topLinkTableId)}" role="presentation">
     <tr>
         <td id="topLinkLeftColumn">
             <h1>${carlos:forHtmlContent(param.title)}</h1>

@@ -372,7 +372,7 @@ class JspEncodingRegressionTest {
                 // fn:replaceAll: an EL quoted string cannot carry a regex escape like \\s.
                 .contains("value=\"${ not empty param.tableId ? fn:replace(param.tableId, ' ', '_') : 'topLink' }\"")
                 .doesNotContain("fn:replaceAll(param.tableId")
-                .contains("<table id=\"${carlos:forHtmlAttribute(topLinkTableId)}\">")
+                .contains("<table id=\"${carlos:forHtmlAttribute(topLinkTableId)}\" role=\"presentation\">")
                 .contains("demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment=")
                 .contains("${carlos:forHtmlContent(param.title)}")
                 .contains("${carlos:forHtmlContent(param.patientName)}")
