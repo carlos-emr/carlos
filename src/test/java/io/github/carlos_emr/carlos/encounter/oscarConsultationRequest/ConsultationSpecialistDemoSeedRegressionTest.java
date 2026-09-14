@@ -95,11 +95,11 @@ class ConsultationSpecialistDemoSeedRegressionTest {
         Set<Integer> linked = new TreeSet<>();
         demoLinks().values().forEach(linked::addAll);
 
-        assertThat(linked).allMatch(specId ->
-                specId >= ROSTER_FIRST_SPEC_ID && specId <= ROSTER_LAST_SPEC_ID);
-        // Every linked specialist must be one this same file inserts, or the link is a dangling
-        // row in the demo database.
-        assertThat(linked).allMatch(specId -> seedSql.contains("  (" + specId + ", 'FAKE-"));
+        // The second clause is the one that matters most: every linked specialist must be one
+        // this same file inserts, or the link is a dangling row in the demo database.
+        assertThat(linked)
+                .allMatch(specId -> specId >= ROSTER_FIRST_SPEC_ID && specId <= ROSTER_LAST_SPEC_ID)
+                .allMatch(specId -> seedSql.contains("  (" + specId + ", 'FAKE-"));
     }
 
     @Test
@@ -122,12 +122,14 @@ class ConsultationSpecialistDemoSeedRegressionTest {
         assertThat(deleteStart).isNotNegative();
         String deleteStatement = seedSql.substring(deleteStart, seedSql.indexOf(';', deleteStart));
 
-        // 'Cardiology' is seeded by both provinces' migrations; deleting its links would let a
-        // demo load undo Flyway data. The other five labels exist in no provincial catalog.
-        assertThat(deleteStatement).doesNotContain("'" + PROVINCIAL_LABEL + "'");
-        // Scoped away from the roster so a re-run cannot delete the links inserted just below.
-        assertThat(deleteStatement).contains(
-                "ss.specId NOT BETWEEN " + ROSTER_FIRST_SPEC_ID + " AND " + ROSTER_LAST_SPEC_ID);
+        // 'Cardiology' is seeded by both provinces' migrations, so deleting its links would let a
+        // demo load undo Flyway data; the other five labels exist in no provincial catalog. The
+        // BETWEEN clause scopes the delete away from the roster, so a re-run cannot remove the
+        // links inserted just below it.
+        assertThat(deleteStatement)
+                .doesNotContain("'" + PROVINCIAL_LABEL + "'")
+                .contains("ss.specId NOT BETWEEN "
+                        + ROSTER_FIRST_SPEC_ID + " AND " + ROSTER_LAST_SPEC_ID);
     }
 
     @Test
