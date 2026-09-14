@@ -83,20 +83,30 @@ public class AppointmentUtil {
      * 100 rows per keystroke -- must use this rather than calling
      * {@link #getNextAppointment(String)} per row.</p>
      *
-     * @param demographicIds patients to look up; null entries are ignored
+     * @param demographicIds patients to look up; null entries are ignored, and an id that
+     *                       identifies no patient (zero or negative) is answered with the sentinel
+     *                       rather than sent to the database, as {@link #getNextAppointment(String)}
+     *                       does for the same values
      * @return a map holding an entry for every non-null id passed: the next appointment date as
-     *         {@code yyyy-MM-dd}, or {@code "(none)"} for a patient with no next appointment or
-     *         whose next appointment carries no date
+     *         {@code yyyy-MM-dd}, or {@code "(none)"} for an id that identifies no patient, a
+     *         patient with no next appointment, or one whose next appointment carries no date
      */
     public static Map<Integer, String> getNextAppointments(Collection<Integer> demographicIds) {
         Map<Integer, String> nextAppointments = new HashMap<>();
         if (demographicIds == null || demographicIds.isEmpty()) {
             return nextAppointments;
         }
+        // Answered without a lookup, so a malformed row in the caller's list cannot put
+        // demographic 0 (or a negative id) into the IN list of a query about real patients.
         Set<Integer> wanted = new LinkedHashSet<>();
         for (Integer demographicId : demographicIds) {
-            if (demographicId != null) {
+            if (demographicId == null) {
+                continue;
+            }
+            if (demographicId > 0) {
                 wanted.add(demographicId);
+            } else {
+                nextAppointments.put(demographicId, NONE);
             }
         }
         if (wanted.isEmpty()) {

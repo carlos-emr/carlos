@@ -170,6 +170,23 @@ class AppointmentUtilUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should answer an id that identifies no patient without asking about it")
+        void shouldReturnNone_forNonPositiveIdsInTheBatch() {
+            when(appointmentDao.findNextAppointmentDates(anyCollection())).thenReturn(Map.of());
+
+            Map<Integer, String> nextAppointments =
+                AppointmentUtil.getNextAppointments(Arrays.asList(DEMOGRAPHIC_NO, 0, -1));
+
+            assertThat(nextAppointments)
+                .containsEntry(DEMOGRAPHIC_NO, NONE)
+                .containsEntry(0, NONE)
+                .containsEntry(-1, NONE);
+            // Zero and negative ids never reach the query: the scalar method rejects them before
+            // any DAO call, and a list of patients must not be the way round that.
+            assertThat(requestedIds()).containsExactly(DEMOGRAPHIC_NO);
+        }
+
+        @Test
         @DisplayName("should return an empty map without a lookup when there is nothing to look up")
         void shouldReturnEmptyMap_forNoUsableIds() {
             assertThat(AppointmentUtil.getNextAppointments(null)).isEmpty();
