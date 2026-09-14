@@ -5,7 +5,7 @@ in PRs #3504 and #3553. It does not depend on either PR being merged.
 
 CARLOS renders either the committed **hand-authored synthetic fixture** or a
 read-only extract for an explicitly selected, authorized demographic. The chart
-view reproduces recorded fields and note excerpts; it is **not an AI-generated
+view reproduces recorded fields and available source text; it is **not an AI-generated
 summary**. Optional agent generation is limited to the three checksum-verified
 NHS development fixtures. Ollama is the default; a versioned HTTP interface also
 supports replaceable agents. There are no chart writes, on-disk runtime drafts or
@@ -35,19 +35,31 @@ falls back to the fixture. The route and eChart link are feature-flagged off by 
 
 Chart reads additionally require patient-specific `_eChart r`, `_demographic r`,
 `isAllowedAccessToPatientRecord`, and the existing program-domain policy. Medication
-and allergy reads use their managers only with the corresponding patient-specific
-read privilege. Notes require the server-side `case_program_id` and pass through
+and allergy reads require their corresponding patient-specific read privileges. Notes require the server-side `case_program_id` and pass through
 `CaseManagementManager.filterNotes` (program/role and configured facility policy).
 Missing program context excludes notes rather than displaying unfiltered records.
 The view audits patient access, uses `no-store` and `no-referrer`, and does not log
 chart text. Source patient identity is checked before rendering.
 
-Included scope: unarchived, nondeleted prescription records (not proof of current
-use), active allergy records, and eligible signed notes from the latest 50 note
-revisions. Unsigned, archived, locked, blank and unclassified-role notes are omitted.
-Note excerpts retain the full source text in evidence. Labs, documents, forms,
-integrated records and other chart sections are not included. Limits and inaccessible
-modules are shown explicitly; empty sections are not negative clinical findings.
+Included clinical scope:
+
+- All eligible latest signed note revisions, with complete text and no 50-note cutoff.
+- Prescription history, including archived orders with status flags, and active/archived allergy history.
+- Patient-routed HL7 lab observations, units, ranges, status, times and comments; measurement/vital-sign history.
+- Patient documents filtered by the existing program/facility policy, stored eForm and encounter-form content, and hospital reports.
+- Problem registry history, consultation requests/responses (including completed records), preventions and immunizations.
+
+Every module checks its patient-specific read privilege, and every source's ownership
+is checked before rendering. Unsigned, archived, locked, blank and unclassified-role
+notes and deleted prescription/prevention records are omitted. Missing program context
+excludes notes. Public document templates are not patient evidence. Legacy non-HL7 lab
+formats are inventoried as excluded sources. Unsupported or unreadable files, binary HRM
+content, embedded lab attachments, scans and dynamic form content carry explicit
+source-level extraction notices. PDF text cannot establish that images or handwriting
+were captured; HTML readers do not execute scripts or fetch resources. These gaps mean
+this prototype must not claim an exhaustive clinical record or clinically verified summary.
+Administrative/billing data and remote records not stored in these modules are outside this
+clinical source inventory. Empty sections are not negative clinical findings.
 
 The view follows the compact CARLOS patient-overview mock: a patient strip,
 record-context rail, and Overview, Fact ledger, Coverage and Validation tabs.
@@ -103,18 +115,31 @@ all original note text/date hashes, and no additional source types. Missing,
 inaccessible, edited or extra notes fail closed. This does not enable inference
 for arbitrary demographics or real patient records.
 
-The Ollama adapter accepts only local Qwen 3.5 tags `0.8b`, `2b`, `4b` and `9b`. Requests use
-numeric loopback with proxies and redirects disabled; cloud-backed model metadata
-is rejected before source transmission. One generation runs at a time, with a
-configurable read timeout (10 minutes by default, 30 maximum), 60,000-byte request
-limit, 4 MiB response limit, 65,536-token
-context and 4,096-token output limit. Truncated, malformed or inconsistent output
-is withheld. Generated drafts also use fixed clinical sections and bounded prose;
-duplicate claims or coverage reasons, fixture metadata presented as claims, and
-claims without basic lexical overlap with cited evidence are withheld. The overlap
-check recognizes a small fixed set of common clinical abbreviations such as HR,
-BP, RR, SpO2 and HF so readable expansions are not rejected. These checks do not
-establish clinical accuracy or citation support.
+The Ollama adapter accepts only local Qwen 3.5 tags `0.8b`, `2b`, `4b` and `9b`.
+It uses numeric loopback with proxies and redirects disabled, and rejects cloud-backed
+model metadata before transmitting source text. One generation runs at a time. The
+read timeout applies to each model call (10 minutes by default, 30 maximum).
+
+There is no statement-count or statement-character cap, and no eight-citation or
+60-source cap. The prompt requests all distinct clinically meaningful facts, with
+qualifiers, dates, doses, units, uncertainty, negatives and conflicts retained. Five
+clinical headings organize the resulting content; empty headings are omitted.
+The host processes the entire supplied snapshot in model requests of at most 10,000
+serialized bytes, with a 16,384-token context and 4,096-token output budget per pass.
+Oversized sources are split into consecutive, overlapping portions without dropping
+text. Appending a note keeps earlier batches stable for cache reuse. On an Ollama
+output-token limit, the incomplete response is discarded and smaller inputs retried.
+A minimal portion that still cannot complete fails the whole draft.
+
+Every pass must validate before host assembly. The host retains the accepted statements,
+merges only identical prose while preserving all citations, and does not run a final
+compression pass. Thus a long result is not squeezed back to a highlights list.
+Transport requests remain bounded to 60,000 bytes and responses/final generated JSON
+to 4 MiB; exceeding a resource limit fails visibly rather than truncating a summary.
+Only a completed, validated result is displayed. Source-level coverage accounts for
+every processed portion, but does not prove the model retained every fact.
+Lexical overlap (including common clinical abbreviations), reference checks and
+schema validation remain safeguards against malformed drafts, not proof of accuracy.
 
 ## Start small and compare model sizes
 
@@ -133,8 +158,24 @@ comparing model sizes, and check `ollama ps` for CPU offloading at each size.
 Set `clinical.ai_summary_generation.cache.enabled=false` during repeated
 quality/latency experiments so each trial really invokes the model; enable it
 again for normal use. Changing the model tag or digest also forces a fresh result.
-Record first-generation latency separately from cache-hit latency. Summary
-length and validation limits are unchanged by caching or this model-size workflow.
+Record first-generation latency separately from cache-hit latency. The standalone
+runner now defaults to 2B and uses the same prompt, schema, bounded passes and 16K
+context as CARLOS. It deliberately does not cache model outputs during quality trials.
+
+```bash
+python3 tools/ai-clinical-summary-draft/run.py --model qwen3.5:2b \
+  --input tools/ai-clinical-summary-draft/full-record-input.json
+python3 tools/ai-clinical-summary-draft/score_full_record.py <printed-artifact-path>
+```
+
+The full-record fixture contains 33 labelled facts across 11 sources, including
+conflicting medication records, units, negation, history and follow-up. Its quality
+gate requires **100% labelled fact recall**, correct citations and no unsupported
+or combined claims. Inspect `quality-report.json`, the source-linked artifact and
+`timings.json`; a fluent but incomplete 2B result fails this gate. This small synthetic
+fixture is a development check, not a clinical validation study. Repeat identical
+trials before considering 4B/9B. Historical 20/240 experiments retain frozen legacy
+prompt/schema files under `ai-clinical-summary-eval` for meaningful comparisons.
 
 ## Validated result cache
 
@@ -151,25 +192,32 @@ Source changes, deletions, access-dependent omissions, model replacements and
 contract changes cause a miss. Fixture eligibility and the action's existing
 pre/post authorization and source-freshness checks still run on hits. A cache
 entry is never permission to read a chart. Failed or unrenderable drafts are not
-cached, and a model revision change during inference prevents insertion.
+cached, and a model revision change during inference aborts the draft to prevent mixing model revisions.
 
-The process-wide cache holds at most 16 entries and 16 MiB of serialized drafts,
+The process-wide cache holds at most 128 entries and 16 MiB of serialized drafts,
 expires entries 15 minutes after insertion, and evicts least-recently-used entries
 when full. It does not write patient data or keys to logs, disk, the database, or
 HTTP sessions; application restart/redeploy clears it. HTTP agents bypass this
 cache because their current protocol provides no immutable backend revision.
 In-process adapters may opt in through `ClinicalSummaryAgent.cacheIdentity()` only
 when they can identify and revalidate every output-affecting backend setting.
-To bypass the cache entirely, set and restart CARLOS:
+To bypass generation caching, set and restart CARLOS:
 
 ```properties
 clinical.ai_summary_generation.cache.enabled=false
 ```
 
-This caches completed results, not extracted facts or unfinished generations.
-A hit avoids model inference; first-time or changed-chart generation still incurs
-its full cost. It does not change summary length, prompts, model selection or
-validation thresholds. It also does not cache the Python evaluation campaigns.
+The same bounded cache also holds validated source portions. If a later pass fails,
+a retry can reuse completed portions. An edited portion is regenerated; unrelated
+source portions can be reused after the entire chart passes eligibility and access
+checks again. Failed or truncated output is never cached. Single-pass requests use
+the final-result cache only.
+
+A separate memory cache avoids repeated document parsing: it keys extracted text by
+exact file-byte SHA-256 and content type, retains at most 64 entries / 8 MiB for
+15 minutes, and stores no file bytes. Authorization, document ownership, path
+containment and file reads still precede lookup. Changed bytes force re-extraction.
+Text parsing cache reuse does not avoid model evaluation or alter its input.
 
 ## GPU access in the devcontainer
 
@@ -234,9 +282,9 @@ For a local research session, start Ollama with cloud features disabled:
 
 ```bash
 OLLAMA_NO_CLOUD=1 ollama serve
-ollama pull qwen3.5:4b
+ollama pull qwen3.5:2b
 python3 tools/ai-clinical-summary-draft/run.py --dry-run
-python3 tools/ai-clinical-summary-draft/run.py --model qwen3.5:4b
+python3 tools/ai-clinical-summary-draft/run.py --model qwen3.5:2b
 ```
 
 Use `--port` for another local Ollama port and `--input` for another synthetic

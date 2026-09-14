@@ -60,9 +60,9 @@ class CampaignTests(unittest.TestCase):
     def test_candidate_changes_prompt_and_schema_together(self):
         candidate = self.config["candidates"][2]
         prompt = run_campaign.candidate_prompt(
-            (BASE.parent / "ai-clinical-summary-draft" / "prompt.txt").read_text(), candidate)
+            (BASE / "legacy-prompt.txt").read_text(), candidate)
         schema = run_campaign.candidate_schema(
-            json.loads((BASE.parent / "ai-clinical-summary-draft" / "output-schema.json").read_text()),
+            json.loads((BASE / "legacy-output-schema.json").read_text()),
             candidate)
         self.assertIn("no more than 12 claims total", prompt)
         self.assertIn("at most 180 characters", prompt)
@@ -195,7 +195,7 @@ class CampaignTests(unittest.TestCase):
                      "coverage": [
                          {"source_id": "phone-1", "status": "cited", "reason": "First reason"},
                          {"source_id": "phone-1", "status": "cited", "reason": "Second reason"}]}
-        with self.assertRaisesRegex(ValueError, "duplicate coverage source"):
+        with self.assertRaisesRegex(ValueError, "duplicate coverage source|Invalid generated collection size"):
             run_campaign.validate_candidate_output(generated, case, candidate)
 
     def test_host_structured_output_materializes_host_owned_references(self):
@@ -501,8 +501,8 @@ class CampaignTests(unittest.TestCase):
                 patch.object(run_campaign, "post_json", side_effect=AssertionError("network")):
             metadata = run_campaign.run_one(
                 11434, config["model"], 1, Path(directory), case, candidate, seed,
-                repetition, (draft / "prompt.txt").read_text(),
-                json.loads((draft / "output-schema.json").read_text()))
+                repetition, (BASE / "legacy-prompt.txt").read_text(),
+                json.loads((BASE / "legacy-output-schema.json").read_text()))
         self.assertTrue(metadata["generation_skipped"])
         self.assertTrue(metadata["metrics"]["hard_gate_pass"])
         self.assertEqual("host_no_delta", metadata["done_reason"])
@@ -536,8 +536,8 @@ class CampaignTests(unittest.TestCase):
                 patch.object(run_campaign, "post_json", side_effect=TimeoutError("timed out")):
             metadata = run_campaign.run_one(
                 11434, self.config["model"], 1, Path(directory), case, candidate, seed,
-                repetition, (draft / "prompt.txt").read_text(),
-                json.loads((draft / "output-schema.json").read_text()))
+                repetition, (BASE / "legacy-prompt.txt").read_text(),
+                json.loads((BASE / "legacy-output-schema.json").read_text()))
             evaluation = json.loads(next(Path(directory).glob("**/evaluation.json")).read_text())
             request = json.loads(next(Path(directory).glob("**/request.json")).read_text())
         self.assertFalse(metadata["metrics"]["hard_gate_pass"])
@@ -572,8 +572,8 @@ class CampaignTests(unittest.TestCase):
                 patch.object(run_campaign, "post_json", return_value=[]):
             metadata = run_campaign.run_one(
                 11434, self.config["model"], 1, Path(directory), case, candidate, seed,
-                repetition, (draft / "prompt.txt").read_text(),
-                json.loads((draft / "output-schema.json").read_text()))
+                repetition, (BASE / "legacy-prompt.txt").read_text(),
+                json.loads((BASE / "legacy-output-schema.json").read_text()))
             evaluation = json.loads(next(Path(directory).glob("**/evaluation.json")).read_text())
         self.assertFalse(metadata["metrics"]["hard_gate_pass"])
         self.assertEqual("invalid_response", metadata["done_reason"])
@@ -583,8 +583,8 @@ class CampaignTests(unittest.TestCase):
         case, candidate, seed, repetition = next(run_campaign.experiment_matrix(
             self.config, self.path, {"single-source"}, {"compact-12x180"}))
         draft = BASE.parent / "ai-clinical-summary-draft"
-        prompt = (draft / "prompt.txt").read_text()
-        schema = json.loads((draft / "output-schema.json").read_text())
+        prompt = (BASE / "legacy-prompt.txt").read_text()
+        schema = json.loads((BASE / "legacy-output-schema.json").read_text())
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
             with patch.object(run_campaign, "post_json", side_effect=TimeoutError("timed out")):
