@@ -92,6 +92,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         request.setParameter("logId", "42");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
         when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(new EmailLog());
 
         ManageEmails2Action action = new ManageEmails2Action();
@@ -102,7 +103,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("emailErrorMessage"))
                 .isEqualTo("This email cannot be copied because it is not associated with a patient. Please generate a new email instead.");
         verify(emailComposeManager).prepareEmailForResend(loggedInInfo, 42);
-        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager, securityInfoManager);
+        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager);
     }
     @Test
     @DisplayName("should refuse every dispatch without email read privilege")
@@ -118,12 +119,14 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         for (String method : new String[]{"resendEmail", "fetchEmails", null}) {
+            request.removeParameter("method");
             if (method != null) {
                 request.setParameter("method", method);
             }
             request.setParameter("logId", "42");
 
-            assertThatThrownBy(() -> new ManageEmails2Action().execute())
+            ManageEmails2Action action = new ManageEmails2Action();
+            assertThatThrownBy(action::execute)
                     .as("dispatch method=%s must be refused", method)
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_email)");
@@ -143,6 +146,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         request.setParameter("logId", "42");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
         EmailLog emailLog = new EmailLog();
         emailLog.setDemographic(new Demographic());
         when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(emailLog);

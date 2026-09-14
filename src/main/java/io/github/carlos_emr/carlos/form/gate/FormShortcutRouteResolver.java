@@ -86,6 +86,12 @@ public final class FormShortcutRouteResolver {
             appendQueryParameter(path, "formId", requestedFormId);
         } else if (latestFormId > 0) {
             appendQueryParameter(path, "formId", String.valueOf(latestFormId));
+        } else {
+            // No record of this form exists for the patient yet. The form pages parse
+            // formId unconditionally (Integer.parseInt(request.getParameter("formId"))),
+            // so leaving it off the route made "open a new form" a 500 for every patient
+            // who had never had that form; 0 is the pages' own "new form" value.
+            appendQueryParameter(path, "formId", "0");
         }
 
         if (requestedFormNumber > 0 && latestFormId > 0 && requestedFormNumber < latestFormId) {

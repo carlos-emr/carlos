@@ -12,6 +12,8 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -90,12 +92,7 @@ public class ManageEmails2Action extends ActionSupport {
      * @see #showEmailManager()
      */
     public String execute() {
-        // First operation, before dispatch. Every branch below reads patient email: resendEmail()
-        // loads an EmailLog and repopulates the compose page with its subject, body, encrypted
-        // message and PDF passphrase. The only check this action previously had lived inside
-        // refreshEmailAttachments(), which runs after that load and is skipped entirely when the
-        // log has no demographic -- so an authenticated caller without _email could reach patient
-        // email content. The Struts package carries no security interceptor, so this is the gate.
+        // Authorize before dispatch or patient-data loading; handler-specific checks still apply.
         if (!securityInfoManager.hasPrivilege(
                 LoggedInInfo.getLoggedInInfoFromSession(request), "_email", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_email)");
@@ -230,9 +227,9 @@ public class ManageEmails2Action extends ActionSupport {
      * is advised to create a new email instead of resending. The method returns null in
      * case of validation errors (invalid log ID).
      *
-     * All email data including encryption settings, password protection, chart display options,
-     * and additional parameters are preserved from the original email for potential modification
-     * before resending.
+     * Encryption settings, the password clue, chart display options, and additional parameters
+     * are preserved for potential modification before resending. The stored PDF password is
+     * never returned to the browser; encrypted copies require a newly entered password.
      *
      * @return String Struts2 result name "compose" to display the email composition page, or null if validation fails
      * @see EmailComposeManager#prepareEmailForResend
@@ -242,6 +239,13 @@ public class ManageEmails2Action extends ActionSupport {
      */
     public String resendEmail() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // This endpoint is also used by the patient-chart email-note viewer, not only by the
+        // administration screen. Require the same email-read privilege enforced by
+        // EmailComposeManager without incorrectly restricting chart users to the admin role.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
             JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
@@ -274,6 +278,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("transactionType", TransactionType.DIRECT);
         request.setAttribute("emailConsentName", emailConsent[0]);
         request.setAttribute("emailConsentStatus", emailConsent[1]);
+        request.setAttribute("emailConsentMessageKey", emailConsent[2]);
         request.setAttribute("receiverName", receiverName);
         request.setAttribute("receiverEmailList", receiverEmailList[0]);
         request.setAttribute("invalidReceiverEmailList", receiverEmailList[1]);
@@ -281,15 +286,23 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("senderConfigId", emailLog.getEmailConfig() != null ? emailLog.getEmailConfig().getId() : null);
         request.setAttribute("senderEmail", emailLog.getFromEmail());
         request.setAttribute("subjectEmail", emailLog.getSubject());
-        request.setAttribute("bodyEmail", emailLog.getBody());
-        request.setAttribute("encryptedMessageEmail", emailLog.getEncryptedMessage());
-        request.setAttribute("emailPDFPassword", emailLog.getPassword());
+        // Map the stored two-field log back into the single "Message" field (issue #3118). For an
+        // encrypted log, prefer encryptedMessage because the body may be the unified workflow's
+        // fixed notice; for an unencrypted log, use the body. This precedence is intentionally
+        // fail-safe when historical records happen to contain both legacy channels.
+        boolean isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
+                emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
+        request.setAttribute("message", EmailData.mergeMessage(
+                isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
+        // Copying an email must not reveal its historical PDF password. Set an explicit empty
+        // request attribute so the JSP also cannot fall back to a stale session-scoped value.
+        request.setAttribute("emailPDFPassword", "");
         request.setAttribute("emailPDFPasswordClue", emailLog.getPasswordClue());
-        request.setAttribute("isEmailEncrypted", emailLog.getIsEncrypted());
+        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return "compose";
     }

@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import io.github.carlos_emr.carlos.commn.model.converter.EmailLogChartDisplayOptionConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.EmailLogConsentStatusConverter;
 import io.github.carlos_emr.carlos.commn.model.converter.EmailLogStatusConverter;
 import io.github.carlos_emr.carlos.commn.model.converter.EmailLogTransactionTypeConverter;
 import jakarta.persistence.*;
@@ -56,7 +57,34 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         /** Email failed to send due to an error */
         FAILED,
         /** Previously failed email was successfully resent or issue resolved */
-        RESOLVED
+        RESOLVED,
+        /** Email was blocked before transmission by a compliance control */
+        BLOCKED
+    }
+
+    /**
+     * Enumeration of the patient email consent state evaluated at send time.
+     */
+    public enum EmailConsentStatus {
+        /** Patient has explicitly opted in to email communication */
+        OPT_IN("email.consent.status.optIn"),
+        /** Patient has explicitly opted out of email communication */
+        OPT_OUT("email.consent.status.optOut"),
+        /** Consent tracking is configured but no consent row exists */
+        UNKNOWN("email.consent.status.unknown"),
+        /** Email consent tracking is not configured with an active consent type */
+        NOT_CONFIGURED("email.consent.status.notConfigured");
+
+        private final String messageKey;
+
+        EmailConsentStatus(String messageKey) {
+            this.messageKey = messageKey;
+        }
+
+        /** @return the resource-bundle key for the user-facing consent-state label */
+        public String getMessageKey() {
+            return messageKey;
+        }
     }
 
     /**
@@ -145,6 +173,18 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     private TransactionType transactionType;
 
     private String additionalParams;
+
+    @Convert(converter = EmailLogConsentStatusConverter.class)
+    private EmailConsentStatus consentStatus;
+
+    private Integer consentId;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date consentLastUpdateDate;
+
+    private boolean consentOverride;
+
+    private String consentOverrideReason;
 
     @ManyToOne
     @JoinColumn(name = "DemographicNo")
@@ -241,7 +281,11 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @return String[] array of recipient email addresses
      */
     public String[] getToEmail() {
-        return toEmail.split(";");
+        // Null-safe: a legacy row (or a not-yet-populated entity) can have a NULL toEmail column,
+        // and the constructor/setter coalesce a null/empty recipient list to "". Both cases return
+        // an empty array rather than NPEing in the getter or handing callers (Manage Emails view,
+        // EmailNoteUtil) a stray one-element [""] from "".split(";").
+        return (toEmail == null || toEmail.isEmpty()) ? new String[0] : toEmail.split(";");
     }
 
     /**
@@ -552,6 +596,56 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      */
     public void setAdditionalParams(String additionalParams) {
         this.additionalParams = additionalParams;
+    }
+
+    /** @return the patient consent state captured when this send was attempted */
+    public EmailConsentStatus getConsentStatus() {
+        return consentStatus;
+    }
+
+    /** @param consentStatus the patient consent state captured for this send attempt */
+    public void setConsentStatus(EmailConsentStatus consentStatus) {
+        this.consentStatus = consentStatus;
+    }
+
+    /** @return the source consent-record identifier, or {@code null} when no record exists */
+    public Integer getConsentId() {
+        return consentId;
+    }
+
+    /** @param consentId the source consent-record identifier, or {@code null} */
+    public void setConsentId(Integer consentId) {
+        this.consentId = consentId;
+    }
+
+    /** @return a defensive copy of the source consent record's update time */
+    public Date getConsentLastUpdateDate() {
+        return consentLastUpdateDate != null ? new Date(consentLastUpdateDate.getTime()) : null;
+    }
+
+    /** @param consentLastUpdateDate source consent update time, defensively copied */
+    public void setConsentLastUpdateDate(Date consentLastUpdateDate) {
+        this.consentLastUpdateDate = consentLastUpdateDate != null ? new Date(consentLastUpdateDate.getTime()) : null;
+    }
+
+    /** @return whether an unknown-consent send was permitted by a documented override */
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    /** @param consentOverride whether a documented unknown-consent override was applied */
+    public void setConsentOverride(boolean consentOverride) {
+        this.consentOverride = consentOverride;
+    }
+
+    /** @return the persisted override reason, or {@code null} when no override was applied */
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    /** @param consentOverrideReason the override reason to persist */
+    public void setConsentOverrideReason(String consentOverrideReason) {
+        this.consentOverrideReason = consentOverrideReason;
     }
 
     /**

@@ -37,7 +37,14 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
   carlos-ctl db-apply-settings    restart MariaDB if it is not running the
                                   settings in the CARLOS drop-in
   carlos-ctl db-dump              consistent dump to stdout
+  carlos-ctl db-rename-schema     move every table of one schema into another
+                                  and drop the emptied source (idempotent;
+                                  the oscar -> carlos default-rename catch-up)
   carlos-ctl db-users             (re)create the databases and accounts
+  carlos-ctl demo-data            load the fictitious demonstration dataset
+                                  into an EMPTY, freshly migrated database
+                                  (refuses on any database with patients;
+                                  NEVER for production systems)
 
   carlos-ctl cert status          what certificate is being served
   carlos-ctl cert selfsigned      (re)generate the self-signed certificate
@@ -102,6 +109,12 @@ def _cmd_lifecycle(verb: str, argv) -> int:
         die(f"'{verb}' takes no arguments; it manages carlos-emr.service only "
             f"(for other units use systemctl directly)")
     need_root(verb)
+    if verb in ("start", "restart"):
+        # An operator asking for a restart is never a crash loop; clear the
+        # start-rate counter so systemd cannot refuse it. See
+        # util.reset_emr_start_limit for why this is needed and why it does not
+        # weaken crash-loop protection.
+        util.reset_emr_start_limit()
     os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])
     raise AssertionError("unreachable: execvp replaces the process")
 
@@ -166,6 +179,7 @@ _VERBS = {
     "status": _cmd_status,
     "db": dbops.cmd_db,
     "db-dump": dbops.cmd_db_dump,
+    "db-rename-schema": dbops.cmd_db_rename_schema,
     "db-users": dbops.cmd_db_users,
     "db-migrate": dbops.cmd_db_migrate,
     "db-info": dbops.make_flyway_cmd("info"),
@@ -173,6 +187,7 @@ _VERBS = {
     "db-baseline": dbops.make_flyway_cmd("baseline"),
     "db-repair": dbops.make_flyway_cmd("repair"),
     "db-apply-settings": dbops.cmd_db_apply_settings,
+    "demo-data": dbops.cmd_demo_data,
     "cert": _cmd_cert,
     "cert-renew": _cmd_cert_renew,
     "waf": waf.cmd_waf,

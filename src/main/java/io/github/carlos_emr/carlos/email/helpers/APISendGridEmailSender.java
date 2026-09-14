@@ -28,6 +28,7 @@ import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -207,7 +208,8 @@ public class APISendGridEmailSender {
         return validatedEndpoint;
     }
 
-    private String createEmailJSON() throws EmailSendingException {
+    // Package-private for unit testing that the serialized payload no longer carries the API key.
+    String createEmailJSON() throws EmailSendingException {
         ObjectNode emailJson = objectMapper.createObjectNode();
         addTo(emailJson);
         addFrom(emailJson);
@@ -215,8 +217,10 @@ public class APISendGridEmailSender {
         addBody(emailJson);
         addAttachments(emailJson);
         addAdditionalParams(emailJson);
-        // The API key is sent only via the Authorization: Bearer header (see the HTTP client setup).
-        // It is deliberately NOT duplicated into the JSON request body.
+        // The API key is sent only in the Authorization: Bearer header (see send()). It is
+        // deliberately NOT embedded in the request body: SendGrid ignores a body "apiKey", but any
+        // request-logging intermediary or debug capture would record it, creating a second leak
+        // channel for the credential.
         return emailJson.toString();
     }
 
@@ -286,28 +290,56 @@ public class APISendGridEmailSender {
         emailJson.put("additionalParams", additionalParams);
     }
 
-    private String getAPIKey() throws EmailSendingException {
+    // Package-private for unit testing the credential-validation branches without a live send.
+    String getAPIKey() throws EmailSendingException {
+        JsonNode jsonNode = getConfigDetails();
         String apiKey;
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            apiKey = jsonNode.get("api_key").asText();
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        JsonNode apiKeyNode = jsonNode.path("api_key");
+        if (apiKeyNode.isMissingNode() || apiKeyNode.isNull()
+                || !apiKeyNode.isValueNode() || apiKeyNode.asText().isBlank()) {
+            // Missing/blank api_key must surface as a clean credential error, not an NPE.
+            throw invalidCredentialsException();
+        }
+        // Decrypt the at-rest credential only here, at send time. Legacy plaintext keys pass
+        // through unchanged during the migration window.
+        apiKey = EmailConfigSecrets.decryptSecret(apiKeyNode.asText());
+        if (apiKey == null || apiKey.isBlank()) {
+            // A stored value that decrypts to blank must not travel as an empty Authorization: Bearer.
+            throw invalidCredentialsException();
         }
         return apiKey;
     }
 
-
     private String getEndPoint() throws EmailSendingException {
-        StringBuilder endPointBuilder = new StringBuilder();
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            endPointBuilder.append(jsonNode.get("end_point") != null ? jsonNode.get("end_point").asText() : DEFAULT_END_POINT);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        JsonNode jsonNode = getConfigDetails();
+        JsonNode endPointNode = jsonNode.get("end_point");
+        return endPointNode != null ? endPointNode.asText() : DEFAULT_END_POINT;
+    }
+
+    /**
+     * Parses and validates the shared provider configuration before either endpoint or credential
+     * access. Keeping this in one place prevents the real send path from throwing an unchecked
+     * exception before {@link #getAPIKey()} can report a sanitized credential failure.
+     */
+    private JsonNode getConfigDetails() throws EmailSendingException {
+        String configJson = emailConfig.getConfigDetailsJson();
+        if (configJson == null || configJson.isBlank()) {
+            throw invalidCredentialsException();
         }
-        return endPointBuilder.toString();
+        try {
+            JsonNode jsonNode = objectMapper.readTree(configJson);
+            if (jsonNode == null || !jsonNode.isObject()) {
+                throw invalidCredentialsException();
+            }
+            return jsonNode;
+        } catch (IOException e) {
+            // Intentionally no cause: a Jackson parse exception can echo a fragment of the source
+            // JSON (which holds the secret), so keep the exception safe for logs and the EmailLog.
+            throw invalidCredentialsException();
+        }
+    }
+
+    private EmailSendingException invalidCredentialsException() {
+        return new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
     }
 }
