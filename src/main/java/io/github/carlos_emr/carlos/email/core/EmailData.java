@@ -72,7 +72,7 @@ public class EmailData {
     private List<EmailAttachment> attachments = new ArrayList<>();
     private boolean consentOverride;
     private String consentOverrideReason;
-    private transient EmailComposeWorkingDirectory workingDirectory;
+    private EmailComposeWorkingDirectory workingDirectory;
 
     /**
      * Default constructor for creating an empty EmailData instance.
@@ -455,7 +455,7 @@ public class EmailData {
         if (transactionType == null) {
             transactionType = "DIRECT";
         }
-        switch (transactionType.toUpperCase()) {
+        switch (transactionType.toUpperCase(java.util.Locale.ROOT)) {
             case "EFORM":
                 return TransactionType.EFORM;
             case "CONSULTATION":

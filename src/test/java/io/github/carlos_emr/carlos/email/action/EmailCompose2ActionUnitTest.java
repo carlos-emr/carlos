@@ -354,11 +354,13 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
             MockHttpServletRequest overflowRequest = new MockHttpServletRequest("GET", "/email/compose");
 
+            var overflowSession = overflowRequest.getSession();
+            List<EmailAttachment> noAttachments = List.of();
             assertThatThrownBy(() -> composeSubmissionStateService.store(
-                    overflowRequest.getSession(),
+                    overflowSession,
                     "example-overflow-value",
                     DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
-                    List.of()))
+                    noAttachments))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("Email compose submission state cache is full");
         } finally {

@@ -73,6 +73,7 @@ public class EmailComposeSubmissionStateService {
     private final Clock clock;
     private boolean shutdown;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public EmailComposeSubmissionStateService() {
         this(Clock.systemUTC());
     }

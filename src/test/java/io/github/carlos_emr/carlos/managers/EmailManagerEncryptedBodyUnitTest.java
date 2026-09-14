@@ -67,7 +67,7 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
 
         EmailData emailData = new EmailData();
         emailData.setBody("SECURE_NOTICE");
-        emailData.setPassword("valid-password");
+        emailData.setPassword(new io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService().generatePassphrase());
         emailData.setPasswordClue("Sensitive clue");
         emailData.setEncryptedMessage("Confidential clinical message");
         emailData.setAttachments(List.of());
@@ -101,7 +101,7 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
             }
 
             assertThat(emailData.getBody()).isEqualTo("SECURE_NOTICE");
-            assertThat(emailData.getBody()).doesNotContain(emailData.getPasswordClue());
+            assertThat(emailData.getBody()).doesNotContain(emailData.getPasswordClue(), emailData.getPassword());
         } finally {
             if (emailData.getWorkingDirectory() != null) emailData.getWorkingDirectory().close();
         }

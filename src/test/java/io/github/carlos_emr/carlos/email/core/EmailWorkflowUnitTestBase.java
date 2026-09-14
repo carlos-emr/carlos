@@ -11,7 +11,10 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 /** Real token storage and isolated filesystem for email action contract tests. */
 public abstract class EmailWorkflowUnitTestBase extends CarlosUnitTestBase {

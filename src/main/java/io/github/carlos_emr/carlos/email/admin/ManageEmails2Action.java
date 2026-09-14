@@ -79,6 +79,9 @@ public class ManageEmails2Action extends ActionSupport {
     private final EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
     private final EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
+    private static final String EMAIL_ERROR_MESSAGE = "emailErrorMessage";
+    private static final String IS_EMAIL_ERROR = "isEmailError";
+    private static final String COMPOSE_RESULT = "compose";
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
@@ -356,9 +359,9 @@ public class ManageEmails2Action extends ActionSupport {
         } catch (IllegalStateException e) {
             logger.warn("Unable to create resend email compose working directory");
             EmailCompose2Action.cleanupEmailSessionAttributes(request);
-            request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
-            request.setAttribute("isEmailError", true);
-            return "compose";
+            request.setAttribute(EMAIL_ERROR_MESSAGE, EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+            request.setAttribute(IS_EMAIL_ERROR, true);
+            return COMPOSE_RESULT;
         }
 
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
@@ -368,11 +371,11 @@ public class ManageEmails2Action extends ActionSupport {
             workingDirectory.close();
             logger.warn("Unable to refresh email attachments during resend");
             EmailCompose2Action.cleanupEmailSessionAttributes(request);
-            request.setAttribute("emailErrorMessage",
+            request.setAttribute(EMAIL_ERROR_MESSAGE,
                     "This previously sent email cannot be re-opened for editing/resending. "
                             + "Please generate a new email instead.");
-            request.setAttribute("isEmailError", true);
-            return "compose";
+            request.setAttribute(IS_EMAIL_ERROR, true);
+            return COMPOSE_RESULT;
         } catch (RuntimeException e) {
             return resendComposeUnavailable(workingDirectory);
         }
@@ -434,22 +437,22 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute(
                 EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
                 emailPdfPasswordSubmissionState.emailPDFPasswordToken());
-        return "compose";
+        return COMPOSE_RESULT;
     }
 
     private String showEmailComposeError(String errorMessage) {
-        request.setAttribute("emailErrorMessage", errorMessage);
-        request.setAttribute("isEmailError", true);
-        return "compose";
+        request.setAttribute(EMAIL_ERROR_MESSAGE, errorMessage);
+        request.setAttribute(IS_EMAIL_ERROR, true);
+        return COMPOSE_RESULT;
     }
 
     private String resendComposeUnavailable(EmailComposeWorkingDirectory workingDirectory) {
         workingDirectory.close();
         logger.warn("Unable to prepare resend email compose state");
         EmailCompose2Action.cleanupEmailSessionAttributes(request);
-        request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
-        request.setAttribute("isEmailError", true);
-        return "compose";
+        request.setAttribute(EMAIL_ERROR_MESSAGE, EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+        request.setAttribute(IS_EMAIL_ERROR, true);
+        return COMPOSE_RESULT;
     }
 
     /**

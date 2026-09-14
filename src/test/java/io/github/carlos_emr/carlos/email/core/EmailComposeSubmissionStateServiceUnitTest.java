@@ -127,11 +127,13 @@ class EmailComposeSubmissionStateServiceUnitTest {
         request.setParameter(TOKEN_PARAMETER_NAME, token);
 
         assertThat(service.consume(request, TOKEN_PARAMETER_NAME)).isNull();
+        var session = request.getSession();
+        List<EmailAttachment> noAttachments = List.of();
         assertThatThrownBy(() -> service.store(
-                        request.getSession(),
+                        session,
                         "example-rejected-value",
                         "delivery instruction",
-                        List.of()))
+                        noAttachments))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Email compose submission state cache is shut down");
     }

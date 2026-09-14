@@ -139,6 +139,8 @@ class EmailPdfPasswordServiceUnitTest {
                 EmailPdfPasswordService.WORDLIST_RESOURCE);
         assertThat(stream).isNotNull();
 
+        var indexPattern = java.util.regex.Pattern.compile("\\d{4}");
+        var wordPattern = java.util.regex.Pattern.compile("[a-z]+");
         List<String> words = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
             String line;
@@ -149,8 +151,8 @@ class EmailPdfPasswordServiceUnitTest {
                 }
                 String[] parts = trimmedLine.split("\\t");
                 assertThat(parts).hasSize(2);
-                assertThat(parts[0]).matches("\\d{4}");
-                assertThat(parts[1]).matches("[a-z]+");
+                assertThat(parts[0]).matches(indexPattern);
+                assertThat(parts[1]).matches(wordPattern);
                 words.add(parts[1]);
             }
         }

@@ -197,7 +197,7 @@ public class EmailSend2Action extends ActionSupport {
      *   <li>Setting request attributes for success status, EForm opening preference, and email log</li>
      * </ul>
      *
-     * <p>The method checks the "deleteEFormAfterEmail" request parameter to determine if the
+     * <p>The method checks the PARAM_DELETE_EFORM_AFTER_EMAIL request parameter to determine if the
      * EForm should be removed after successful email delivery. This is useful for workflows
      * where the EForm is a temporary artifact used only for email generation.</p>
      *
@@ -361,39 +361,39 @@ public class EmailSend2Action extends ActionSupport {
     ) {
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
         request.setAttribute(
-                "transactionType",
+                PARAM_TRANSACTION_TYPE,
                 trustedContext == null
-                        ? EmailData.parseTransactionType(request.getParameter("transactionType"))
+                        ? EmailData.parseTransactionType(request.getParameter(PARAM_TRANSACTION_TYPE))
                         : trustedContext.transactionType());
         request.setAttribute("receiverEmailList", receiverEmails == null ? List.of() : Arrays.asList(receiverEmails));
         request.setAttribute("invalidReceiverEmailList", List.of());
         request.setAttribute("senderAccounts", List.of());
-        request.setAttribute("senderConfigId", request.getParameter("senderConfigId"));
-        request.setAttribute("subjectEmail", request.getParameter("subjectEmail"));
+        request.setAttribute(PARAM_SENDER_CONFIG_ID, request.getParameter(PARAM_SENDER_CONFIG_ID));
+        request.setAttribute(PARAM_SUBJECT_EMAIL, request.getParameter(PARAM_SUBJECT_EMAIL));
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
         request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
         request.setAttribute(
-                "demographicId",
+                PARAM_DEMOGRAPHIC_ID,
                 trustedContext == null
-                        ? integerParameterOrEmpty(request, "demographicId")
+                        ? integerParameterOrEmpty(request, PARAM_DEMOGRAPHIC_ID)
                         : trustedContext.demographicId());
         request.setAttribute(
                 "fdid",
                 trustedContext == null ? integerParameterOrEmpty(request, "fdid") : trustedContext.fdid());
         request.setAttribute(
-                "openEFormAfterEmail",
+                PARAM_OPEN_EFORM_AFTER_EMAIL,
                 trustedContext == null
-                        ? isTrueParameter(request, "openEFormAfterEmail")
+                        ? isTrueParameter(request, PARAM_OPEN_EFORM_AFTER_EMAIL)
                         : trustedContext.openEFormAfterEmail());
         request.setAttribute(
-                "deleteEFormAfterEmail",
+                PARAM_DELETE_EFORM_AFTER_EMAIL,
                 trustedContext == null
-                        ? isTrueParameter(request, "deleteEFormAfterEmail")
+                        ? isTrueParameter(request, PARAM_DELETE_EFORM_AFTER_EMAIL)
                         : trustedContext.deleteEFormAfterEmail());
-        request.setAttribute("isEmailEncrypted", isTrueParameter(request, "isEmailEncrypted"));
-        request.setAttribute("isEmailAttachmentEncrypted", isTrueParameter(request, "isEmailAttachmentEncrypted"));
-        request.setAttribute("emailPDFPassword", "");
-        request.setAttribute("emailPDFPasswordClue", "");
+        request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED, isTrueParameter(request, PARAM_IS_EMAIL_ENCRYPTED));
+        request.setAttribute(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED, isTrueParameter(request, PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED));
+        request.setAttribute(PARAM_EMAIL_PDF_PASSWORD, "");
+        request.setAttribute(PARAM_EMAIL_PDF_PASSWORD_CLUE, "");
         request.setAttribute("emailAttachmentList", List.of());
     }
 
@@ -512,7 +512,7 @@ public class EmailSend2Action extends ActionSupport {
         EmailComposeSubmissionState composeState = emailComposeSubmissionStateService.consume(request);
         EmailComposeSubmissionContext trustedContext = composeState == null ? null : composeState.context();
         EmailLog.TransactionType transactionType = trustedContext == null
-                ? EmailData.parseTransactionType(request.getParameter("transactionType"))
+                ? EmailData.parseTransactionType(request.getParameter(PARAM_TRANSACTION_TYPE))
                 : trustedContext.transactionType();
         String fdid = trustedContext == null ? request.getParameter("fdid") : trustedContext.fdid();
         if (composeState != null) {
@@ -639,7 +639,7 @@ public class EmailSend2Action extends ActionSupport {
      *         ready for processing by EmailManager
      */
     private EmailData prepareEmailFields(HttpServletRequest request, EmailComposeSubmissionState composeState) {
-        String senderConfigId = request.getParameter("senderConfigId");
+        String senderConfigId = request.getParameter(PARAM_SENDER_CONFIG_ID);
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
         String subject = request.getParameter(PARAM_SUBJECT_EMAIL);
         String isEncrypted = request.getParameter(PARAM_IS_EMAIL_ENCRYPTED);
@@ -707,7 +707,7 @@ public class EmailSend2Action extends ActionSupport {
             throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
         try {
-            return Integer.parseInt(request.getParameter("senderConfigId"));
+            return Integer.parseInt(request.getParameter(PARAM_SENDER_CONFIG_ID));
         } catch (NumberFormatException e) {
             throw invalidSenderConfigException();
         }
