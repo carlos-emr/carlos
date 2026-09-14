@@ -290,7 +290,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should delegate to DAO findAllActive")
-        void shouldDelegateToDao() {
+        void shouldDelegateToDao_forTheLookup() {
             List<ConsentType> expected = List.of(createActiveConsentType(1, "ACTIVE"));
             when(mockConsentTypeDao.findAllActive()).thenReturn(expected);
 
@@ -340,7 +340,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should persist consent type and return it")
-        void shouldPersistAndReturn() {
+        void shouldPersistAndReturn_theSavedEntity() {
             ConsentType ct = createActiveConsentType(0, "NEW_TYPE");
 
             ConsentType result = manager.addConsentType(loggedInInfo, ct);

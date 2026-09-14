@@ -312,7 +312,7 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should update status and merge message")
-        void shouldUpdateStatusAndMerge() {
+        void shouldUpdateStatusAndMerge_forTheMessage() {
             grantMsgUpdatePrivilege();
             MessageList ml = new MessageList();
             ml.setMessage(100);
@@ -511,7 +511,7 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should persist one entry per provider")
-        void shouldPersistOneEntryPerProvider() {
+        void shouldPersistOneEntryPerProvider_forTheRecipients() {
             grantMsgWritePrivilege();
             String[] providers = {"111", "222", "333"};
 
@@ -564,7 +564,7 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return current location ID from oscarcommlocations")
-        void shouldReturnLocationId() {
+        void shouldReturnLocationId_forTheMessage() {
             OscarCommLocations loc = new OscarCommLocations();
             loc.setId(42);
             when(mockOscarCommLocationsDao.findByCurrent1(1)).thenReturn(List.of(loc));
@@ -595,7 +595,7 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should remove duplicate strings from array")
-        void shouldRemoveDuplicates() {
+        void shouldRemoveDuplicates_fromTheRecipientList() {
             String[] input = {"111", "222", "111", "333", "222"};
 
             String[] result = manager.removeDuplicates(input);

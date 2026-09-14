@@ -280,7 +280,7 @@ class ConversionUtilsUnitTest {
 
         @Test
         @DisplayName("should parse valid integer string")
-        void shouldParseValidInteger() {
+        void shouldParseValidInteger_fromItsString() {
             assertThat(ConversionUtils.fromIntString("42")).isEqualTo(42);
         }
 
@@ -304,7 +304,7 @@ class ConversionUtilsUnitTest {
 
         @Test
         @DisplayName("should accept Integer object directly")
-        void shouldAcceptIntegerObject() {
+        void shouldAcceptIntegerObject_asInput() {
             assertThat(ConversionUtils.fromIntString(Integer.valueOf(99))).isEqualTo(99);
         }
     }
@@ -336,7 +336,7 @@ class ConversionUtilsUnitTest {
 
         @Test
         @DisplayName("should parse valid long string")
-        void shouldParseValidLong() {
+        void shouldParseValidLong_fromItsString() {
             assertThat(ConversionUtils.fromLongString("123456789")).isEqualTo(123456789L);
         }
 
@@ -414,7 +414,7 @@ class ConversionUtilsUnitTest {
 
         @Test
         @DisplayName("should parse valid double string")
-        void shouldParseValidDouble() {
+        void shouldParseValidDouble_fromItsString() {
             assertThat(ConversionUtils.fromDoubleString("3.14")).isEqualTo(3.14);
         }
 

@@ -31,7 +31,7 @@ class UtilXMLUnitTest {
 
         @Test
         @DisplayName("should create non-null Document")
-        void shouldCreateNonNullDocument() {
+        void shouldCreateNonNullDocument_forANewBuilder() {
             Document doc = UtilXML.newDocument();
             assertThat(doc).isNotNull();
         }
@@ -73,7 +73,7 @@ class UtilXMLUnitTest {
 
         @Test
         @DisplayName("should add multiple children")
-        void shouldAddMultipleChildren() {
+        void shouldAddMultipleChildren_underOneParent() {
             Document doc = UtilXML.newDocument();
             Element root = UtilXML.addNode(doc, "root");
             UtilXML.addNode(root, "a", "1");
@@ -103,7 +103,7 @@ class UtilXMLUnitTest {
 
         @Test
         @DisplayName("should produce well-formed XML")
-        void shouldProduceWellFormedXml() {
+        void shouldProduceWellFormedXml_onSerialization() {
             Document doc = UtilXML.newDocument();
             UtilXML.addNode(doc, "root");
             String xml = UtilXML.toXML(doc);
@@ -121,7 +121,7 @@ class UtilXMLUnitTest {
 
         @Test
         @DisplayName("should parse XML string to Document")
-        void shouldParseXmlString() {
+        void shouldParseXmlString_intoADocument() {
             Document doc = UtilXML.parseXML("<root><child>value</child></root>");
             assertThat(doc).isNotNull();
             assertThat(doc.getDocumentElement().getTagName()).isEqualTo("root");
@@ -141,7 +141,7 @@ class UtilXMLUnitTest {
 
         @Test
         @DisplayName("should survive create/serialize/parse round-trip")
-        void shouldSurviveRoundTrip() {
+        void shouldSurviveRoundTrip_throughBothDirections() {
             Document doc = UtilXML.newDocument();
             Element root = UtilXML.addNode(doc, "data");
             UtilXML.addNode(root, "field", "hello");

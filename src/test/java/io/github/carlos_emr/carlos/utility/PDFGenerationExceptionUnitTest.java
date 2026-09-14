@@ -37,7 +37,7 @@ class PDFGenerationExceptionUnitTest {
 
     @Test
     @DisplayName("should be an Exception")
-    void shouldBeException() {
+    void shouldBeException_forTheTypeContract() {
         assertThat(new PDFGenerationException("test")).isInstanceOf(Exception.class);
     }
 }

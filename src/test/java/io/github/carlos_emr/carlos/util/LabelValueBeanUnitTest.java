@@ -29,7 +29,7 @@ class LabelValueBeanUnitTest {
 
     @Test
     @DisplayName("should create empty with default constructor")
-    void shouldCreateEmpty() {
+    void shouldCreateEmpty_forTheNoArgConstructor() {
         LabelValueBean bean = new LabelValueBean();
         assertThat(bean.getLabel()).isNull();
         assertThat(bean.getValue()).isNull();

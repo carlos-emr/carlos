@@ -21,13 +21,13 @@ class NotAuthorisedExceptionUnitTest {
 
     @Test
     @DisplayName("should be an Exception")
-    void shouldBeException() {
+    void shouldBeException_forTheTypeContract() {
         assertThat(new NotAuthorisedException("test")).isInstanceOf(Exception.class);
     }
 
     @Test
     @DisplayName("should carry message")
-    void shouldCarryMessage() {
+    void shouldCarryMessage_fromTheConstructor() {
         NotAuthorisedException ex = new NotAuthorisedException("Access denied");
         assertThat(ex.getMessage()).isEqualTo("Access denied");
     }

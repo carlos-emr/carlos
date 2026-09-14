@@ -48,7 +48,7 @@ class DateRangeUnitTest {
 
         @Test
         @DisplayName("should allow single-day range where from equals to")
-        void shouldAllowSingleDayRange() {
+        void shouldAllowSingleDayRange_whenBothEndsMatch() {
             Date sameDay = date(2026, 3, 31);
             DateRange range = new DateRange(sameDay, sameDay);
             assertThat(range.getFrom()).isEqualTo(range.getTo());
@@ -66,7 +66,7 @@ class DateRangeUnitTest {
 
         @Test
         @DisplayName("should allow null from (open-ended start)")
-        void shouldAllowNullFrom() {
+        void shouldAllowNullFrom_forAnOpenStart() {
             DateRange range = new DateRange(null, date(2026, 12, 31));
             assertThat(range.getFrom()).isNull();
             assertThat(range.getTo()).isNotNull();
@@ -74,7 +74,7 @@ class DateRangeUnitTest {
 
         @Test
         @DisplayName("should allow null to (open-ended end)")
-        void shouldAllowNullTo() {
+        void shouldAllowNullTo_forAnOpenEnd() {
             DateRange range = new DateRange(date(2026, 1, 1), null);
             assertThat(range.getFrom()).isNotNull();
             assertThat(range.getTo()).isNull();

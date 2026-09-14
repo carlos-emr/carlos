@@ -100,6 +100,33 @@ class ProgramServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/content/0/name").textValue()).isEqualTo("Primary Care");
         }
 
+        /**
+         * {@code program_provider.program_id} is nullable and the association is not
+         * {@code optional=false}, so a membership row can carry no program at all. One such row
+         * must not take the whole list down: before the guard the conversion dereferenced null
+         * and the provider got a 500 instead of the programs they do belong to.
+         */
+        @Test
+        @DisplayName("should skip a membership row that carries no program")
+        void shouldReturnTheRemainingPrograms_whenARowHasNoProgram() {
+            ProgramProvider orphaned = new ProgramProvider();
+            ProgramProvider joined = new ProgramProvider();
+            var program = new io.github.carlos_emr.carlos.PMmodule.model.Program();
+            program.setId(7);
+            program.setName("Primary Care");
+            joined.setProgram(program);
+            when(mockProgramManager.getProgramDomain(any(LoggedInInfo.class), eq("999998")))
+                .thenReturn(List.of(orphaned, joined));
+
+            Response response = request().path("/program/programList").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/total").intValue()).isEqualTo(1);
+            assertThat(wireJson.at("/content")).hasSize(1);
+            assertThat(wireJson.at("/content/0/id").intValue()).isEqualTo(7);
+        }
+
         @Test
         @DisplayName("should return 200 with empty list when no programs")
         void shouldReturn200WithEmptyList_whenNoProgramsExist() {

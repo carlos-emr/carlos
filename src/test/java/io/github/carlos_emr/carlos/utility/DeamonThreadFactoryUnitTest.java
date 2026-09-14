@@ -21,7 +21,7 @@ class DeamonThreadFactoryUnitTest {
 
     @Test
     @DisplayName("should create daemon threads")
-    void shouldCreateDaemonThreads() {
+    void shouldCreateDaemonThreads_forTheFactoryContract() {
         DeamonThreadFactory factory = new DeamonThreadFactory("test-thread", Thread.NORM_PRIORITY);
         Thread thread = factory.newThread(() -> {});
         assertThat(thread.isDaemon()).isTrue();
@@ -29,7 +29,7 @@ class DeamonThreadFactoryUnitTest {
 
     @Test
     @DisplayName("should create non-null thread")
-    void shouldCreateNonNullThread() {
+    void shouldCreateNonNullThread_forARunnable() {
         DeamonThreadFactory factory = new DeamonThreadFactory("test-thread", Thread.NORM_PRIORITY);
         Thread thread = factory.newThread(() -> {});
         assertThat(thread).isNotNull();
@@ -37,7 +37,7 @@ class DeamonThreadFactoryUnitTest {
 
     @Test
     @DisplayName("should implement ThreadFactory")
-    void shouldImplementThreadFactory() {
+    void shouldImplementThreadFactory_forTheTypeContract() {
         assertThat(new DeamonThreadFactory("test-thread", Thread.NORM_PRIORITY)).isInstanceOf(java.util.concurrent.ThreadFactory.class);
     }
 }

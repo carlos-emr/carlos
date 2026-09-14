@@ -48,7 +48,7 @@ class SqlUtilsUnitTest {
 
         @Test
         @DisplayName("should handle single element")
-        void shouldHandleSingleElement() {
+        void shouldHandleSingleElement_withoutASeparator() {
             String result = SqlUtils.constructInClauseString(new String[]{"only"}, true);
             assertThat(result).isEqualTo("in ('only')");
         }
@@ -81,7 +81,7 @@ class SqlUtilsUnitTest {
 
         @Test
         @DisplayName("should handle single element")
-        void shouldHandleSingleElement() {
+        void shouldHandleSingleElement_withoutASeparator() {
             String result = SqlUtils.constructInClauseForStatements(new Object[]{42});
             assertThat(result).isEqualTo("(42)");
         }

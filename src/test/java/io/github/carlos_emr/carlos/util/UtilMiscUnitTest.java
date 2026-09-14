@@ -29,25 +29,25 @@ class UtilMiscUnitTest {
 
         @Test
         @DisplayName("should escape ampersand")
-        void shouldEscapeAmpersand() {
+        void shouldEscapeAmpersand_toItsEntity() {
             assertThat(UtilMisc.htmlEscape("a&b")).isEqualTo("a&amp;b");
         }
 
         @Test
         @DisplayName("should escape less-than")
-        void shouldEscapeLessThan() {
+        void shouldEscapeLessThan_toItsEntity() {
             assertThat(UtilMisc.htmlEscape("<tag>")).isEqualTo("&lt;tag&gt;");
         }
 
         @Test
         @DisplayName("should escape double quote")
-        void shouldEscapeDoubleQuote() {
+        void shouldEscapeDoubleQuote_toItsEntity() {
             assertThat(UtilMisc.htmlEscape("say \"hello\"")).isEqualTo("say &quot;hello&quot;");
         }
 
         @Test
         @DisplayName("should escape single quote")
-        void shouldEscapeSingleQuote() {
+        void shouldEscapeSingleQuote_toItsEntity() {
             assertThat(UtilMisc.htmlEscape("it's")).isEqualTo("it&#39;s");
         }
 
@@ -85,25 +85,25 @@ class UtilMiscUnitTest {
 
         @Test
         @DisplayName("should unescape &amp; to &")
-        void shouldUnescapeAmp() {
+        void shouldUnescapeAmp_fromItsEntity() {
             assertThat(UtilMisc.rhtmlEscape("a&amp;b")).isEqualTo("a&b");
         }
 
         @Test
         @DisplayName("should unescape &lt; to <")
-        void shouldUnescapeLt() {
+        void shouldUnescapeLt_fromItsEntity() {
             assertThat(UtilMisc.rhtmlEscape("&lt;tag&gt;")).isEqualTo("<tag>");
         }
 
         @Test
         @DisplayName("should unescape &quot; to double quote")
-        void shouldUnescapeQuot() {
+        void shouldUnescapeQuot_fromItsEntity() {
             assertThat(UtilMisc.rhtmlEscape("say &quot;hello&quot;")).isEqualTo("say \"hello\"");
         }
 
         @Test
         @DisplayName("should unescape &#39; to single quote")
-        void shouldUnescapeApos() {
+        void shouldUnescapeApos_fromItsEntity() {
             assertThat(UtilMisc.rhtmlEscape("it&#39;s")).isEqualTo("it's");
         }
 
@@ -126,7 +126,7 @@ class UtilMiscUnitTest {
 
         @Test
         @DisplayName("should survive escape then unescape for basic chars")
-        void shouldSurviveRoundTrip() {
+        void shouldSurviveRoundTrip_throughBothDirections() {
             String original = "<b>Hello & 'World'</b>";
             String escaped = UtilMisc.htmlEscape(original);
             String unescaped = UtilMisc.rhtmlEscape(escaped);

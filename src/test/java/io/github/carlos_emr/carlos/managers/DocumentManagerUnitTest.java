@@ -519,7 +519,7 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return only acknowledged provider numbers")
-        void shouldReturnOnlyAcknowledgedProviders() {
+        void shouldReturnOnlyAcknowledgedProviders_forTheDocument() {
             ProviderInboxItem ackItem = mock(ProviderInboxItem.class);
             when(ackItem.getStatus()).thenReturn(ProviderInboxItem.ACK);
             when(ackItem.getProviderNo()).thenReturn("111");

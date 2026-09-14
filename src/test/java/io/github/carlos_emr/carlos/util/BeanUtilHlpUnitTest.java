@@ -27,7 +27,7 @@ class BeanUtilHlpUnitTest {
 
     @Test
     @DisplayName("should get property value from bean")
-    void shouldGetPropertyValue() {
+    void shouldGetPropertyValue_fromTheBean() {
         BeanUtilHlp helper = new BeanUtilHlp();
         String result = helper.getPropertyValue(new TestBean(), "name");
         assertThat(result).isEqualTo("John");
@@ -43,7 +43,7 @@ class BeanUtilHlpUnitTest {
 
     @Test
     @DisplayName("should handle null bean gracefully")
-    void shouldHandleNullBean() {
+    void shouldHandleNullBean_withoutThrowing() {
         BeanUtilHlp helper = new BeanUtilHlp();
         String result = helper.getPropertyValue(null, "name");
         assertThat(result).isEmpty();

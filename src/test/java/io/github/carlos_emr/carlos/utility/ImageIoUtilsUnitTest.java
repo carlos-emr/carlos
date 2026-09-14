@@ -106,7 +106,7 @@ class ImageIoUtilsUnitTest {
 
         @Test
         @DisplayName("should scale JPEG byte array")
-        void shouldScaleJpegBytes() throws IOException {
+        void shouldScaleJpegBytes_toTheRequestedSize() throws IOException {
             BufferedImage image = createTestImage(200, 100);
             byte[] jpegBytes = toJpegBytes(image);
 

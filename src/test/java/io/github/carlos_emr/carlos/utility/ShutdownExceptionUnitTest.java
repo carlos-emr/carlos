@@ -21,7 +21,7 @@ class ShutdownExceptionUnitTest {
 
     @Test
     @DisplayName("should be an Exception")
-    void shouldBeException() {
+    void shouldBeException_forTheTypeContract() {
         assertThat(new ShutdownException()).isInstanceOf(Exception.class);
     }
 

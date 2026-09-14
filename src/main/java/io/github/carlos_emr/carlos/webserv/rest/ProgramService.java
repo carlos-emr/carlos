@@ -43,6 +43,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -121,7 +122,14 @@ public class ProgramService extends AbstractServiceImpl {
             ProgramConverter converter = new ProgramConverter();
 
             for (ProgramProvider programProvider : programProviders) {
-                listProgramTo1.add(converter.getAsTransferObject(getLoggedInInfo(), programProvider.getProgram()));
+                // program_provider.program_id is nullable and the association is not optional=false,
+                // so a membership row can carry no program. Skipping it keeps one orphaned row from
+                // turning the whole program list into a 500 for the provider.
+                Program program = programProvider.getProgram();
+                if (program == null) {
+                    continue;
+                }
+                listProgramTo1.add(converter.getAsTransferObject(getLoggedInInfo(), program));
             }
             response.setContent(listProgramTo1);
             response.setTotal(listProgramTo1.size());

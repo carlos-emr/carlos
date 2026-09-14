@@ -21,7 +21,7 @@ class AgeUnitTest {
 
     @Test
     @DisplayName("should store days, months, and years")
-    void shouldStoreDaysMonthsYears() {
+    void shouldStoreDaysMonthsYears_asGiven() {
         Age age = new Age(15, 6, 30);
         assertThat(age.getDays()).isEqualTo(15);
         assertThat(age.getMonths()).isEqualTo(6);
@@ -30,7 +30,7 @@ class AgeUnitTest {
 
     @Test
     @DisplayName("should handle zero values for newborn")
-    void shouldHandleZeroValues() {
+    void shouldHandleZeroValues_forANewbornAge() {
         Age age = new Age(0, 0, 0);
         assertThat(age.getDays()).isZero();
         assertThat(age.getMonths()).isZero();
@@ -39,7 +39,7 @@ class AgeUnitTest {
 
     @Test
     @DisplayName("should produce readable toString")
-    void shouldProduceReadableToString() {
+    void shouldProduceReadableToString_forDisplay() {
         Age age = new Age(5, 3, 25);
         String str = age.toString();
         assertThat(str).isNotNull().isNotEmpty();

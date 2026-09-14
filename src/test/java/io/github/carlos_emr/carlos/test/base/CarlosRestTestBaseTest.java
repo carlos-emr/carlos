@@ -76,7 +76,7 @@ class CarlosRestTestBaseTest extends CarlosRestTestBase {
     }
 
     @Test
-    void shouldPreserveRoutingAndApplicationFailures() {
+    void shouldPreserveFailures_forRoutingAndApplicationErrors() {
         try (Response missing = request().path("/absent").get();
              Response method = request().path("/probe/echo").get();
              Response rejected = request().path("/probe/rejected").get()) {

@@ -56,7 +56,9 @@ import org.springframework.stereotype.Component;
 @Path("/demographics/merge")
 @Component("demographicMergeService")
 @Consumes(MediaType.APPLICATION_JSON)
-@Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+// XML stays first so a request without an explicit Accept keeps the representation the
+// XML-only AbstractServiceImpl contract gave legacy callers; JSON is negotiated, not default.
+@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 public class DemographicMergeService extends AbstractServiceImpl {
 
 

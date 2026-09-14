@@ -44,7 +44,7 @@ class PagerUnitTest {
 
     @Test
     @DisplayName("should bold current page number")
-    void shouldBoldCurrentPage() {
+    void shouldBoldCurrentPage_inTheRenderedLinks() {
         String result = Pager.generate(0, 100, 10, "/search");
         assertThat(result).contains("<b>1</b>");
     }

@@ -21,14 +21,14 @@ class EmailSendingExceptionUnitTest {
 
     @Test
     @DisplayName("should carry message")
-    void shouldCarryMessage() {
+    void shouldCarryMessage_fromTheConstructor() {
         EmailSendingException ex = new EmailSendingException("SMTP failed");
         assertThat(ex.getMessage()).isEqualTo("SMTP failed");
     }
 
     @Test
     @DisplayName("should be an Exception")
-    void shouldBeException() {
+    void shouldBeException_forTheTypeContract() {
         assertThat(new EmailSendingException("test")).isInstanceOf(Exception.class);
     }
 }

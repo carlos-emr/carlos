@@ -24,7 +24,7 @@ class MiscUtilsUnitTest {
 
     @Test
     @DisplayName("should return non-null logger")
-    void shouldReturnNonNullLogger() {
+    void shouldReturnNonNullLogger_forTheCallingClass() {
         assertThat(MiscUtils.getLogger()).isNotNull();
     }
 
@@ -46,7 +46,7 @@ class MiscUtilsUnitTest {
 
     @Test
     @DisplayName("should throw for null filename in sanitize")
-    void shouldThrowForNullFilename() {
+    void shouldThrow_forNullFilename() {
         assertThatNullPointerException()
                 .isThrownBy(() -> MiscUtils.sanitizeFileName(null));
     }

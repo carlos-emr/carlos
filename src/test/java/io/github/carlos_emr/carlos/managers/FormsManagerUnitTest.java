@@ -184,7 +184,7 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return all group names from DAO")
-        void shouldReturnGroupNames() {
+        void shouldReturnGroupNames_forTheProvider() {
             when(mockEFormGroupDao.getGroupNames()).thenReturn(List.of("Pediatrics", "Mental Health", "Labs"));
 
             List<String> result = manager.getGroupNames();

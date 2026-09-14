@@ -82,6 +82,15 @@ class PasswordHashUnitTest {
             assertThatThrownBy(() -> PasswordHashHelper.matches("password", null))
                     .isInstanceOf(IllegalArgumentException.class);
         }
+
+        @Test
+        @DisplayName("should throw for null raw password")
+        void shouldThrow_forNullRawPassword() {
+            String hash = PasswordHashHelper.encodePassword("password123");
+
+            assertThatThrownBy(() -> PasswordHashHelper.matches(null, hash))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
     }
 
     @Nested
@@ -94,6 +103,18 @@ class PasswordHashUnitTest {
             String hash = PasswordHashHelper.encodePassword("password123");
 
             assertThat(PasswordHashHelper.upgradeEncoding(hash)).isFalse();
+        }
+
+        /**
+         * Without the guard Spring's delegating encoder answers {@code true} for a null encoding,
+         * so a caller holding no stored hash would be told the password merely needs rehashing
+         * rather than that it has nothing to compare against.
+         */
+        @Test
+        @DisplayName("should throw for null encoded password")
+        void shouldThrow_forNullEncodedPassword() {
+            assertThatThrownBy(() -> PasswordHashHelper.upgradeEncoding(null))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

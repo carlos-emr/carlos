@@ -32,7 +32,7 @@ class VelocityUtilsUnitTest {
 
     @Test
     @DisplayName("should evaluate simple template")
-    void shouldEvaluateSimpleTemplate() {
+    void shouldEvaluateSimpleTemplate_withItsContext() {
         VelocityContext ctx = VelocityUtils.createVelocityContextWithTools();
         ctx.put("name", "John");
         String result = VelocityUtils.velocityEvaluate(ctx, "Hello $name");
@@ -57,13 +57,13 @@ class VelocityUtilsUnitTest {
 
     @Test
     @DisplayName("should have initialized velocity engine")
-    void shouldHaveInitializedEngine() {
+    void shouldHaveInitializedEngine_onFirstUse() {
         assertThat(VelocityUtils.velocityEngine).isNotNull();
     }
 
     @Test
     @DisplayName("should have initialized escape tool")
-    void shouldHaveInitializedEscapeTool() {
+    void shouldHaveInitializedEscapeTool_onFirstUse() {
         assertThat(VelocityUtils.escapeTool).isNotNull();
     }
 }

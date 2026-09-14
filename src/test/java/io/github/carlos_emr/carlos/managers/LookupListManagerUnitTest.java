@@ -88,7 +88,7 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return all active lookup lists")
-        void shouldReturnAllActiveLists() {
+        void shouldReturnAllActiveLists_forTheDefaultQuery() {
             LookupList list = new LookupList();
             list.setId(1);
             when(mockLookupListDao.findAllActive()).thenReturn(List.of(list));
@@ -140,7 +140,7 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should persist and return lookup list")
-        void shouldPersistAndReturn() {
+        void shouldPersistAndReturn_theSavedEntity() {
             LookupList list = new LookupList();
             list.setName("NewList");
 
@@ -174,7 +174,7 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should persist and return item")
-        void shouldPersistAndReturn() {
+        void shouldPersistAndReturn_theSavedEntity() {
             LookupListItem item = new LookupListItem();
             item.setLabel("Option A");
 
@@ -207,7 +207,7 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return active items for lookup list")
-        void shouldReturnActiveItems() {
+        void shouldReturnActiveItems_forTheList() {
             LookupListItem item = new LookupListItem();
             when(mockLookupListItemDao.findActiveByLookupListId(1)).thenReturn(List.of(item));
 
@@ -256,7 +256,7 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should merge item and return ID")
-        void shouldMergeAndReturnId() {
+        void shouldMergeAndReturnId_forTheUpdatedItem() {
             LookupListItem item = new LookupListItem();
             item.setId(42);
 
@@ -289,7 +289,7 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should set item inactive and return true")
-        void shouldSetInactiveAndReturnTrue() {
+        void shouldSetInactiveAndReturnTrue_forAnExistingItem() {
             LookupListItem item = new LookupListItem();
             item.setId(42);
             item.setActive(true);
@@ -332,7 +332,7 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should update display order and return true")
-        void shouldUpdateDisplayOrderAndReturnTrue() {
+        void shouldUpdateDisplayOrderAndReturnTrue_forAnExistingItem() {
             LookupListItem item = new LookupListItem();
             item.setId(42);
             item.setDisplayOrder(1);

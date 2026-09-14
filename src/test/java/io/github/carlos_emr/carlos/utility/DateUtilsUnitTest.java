@@ -119,7 +119,7 @@ class DateUtilsUnitTest {
 
         @Test
         @DisplayName("should parse valid ISO date string")
-        void shouldParseValidIsoDate() throws ParseException {
+        void shouldParseValidIsoDate_fromItsString() throws ParseException {
             Date result = DateUtils.parseIsoDate("2026-03-31");
             assertThat(result).isNotNull();
             Calendar parsed = Calendar.getInstance();
@@ -187,7 +187,7 @@ class DateUtilsUnitTest {
 
         @Test
         @DisplayName("should calculate age from birth date")
-        void shouldCalculateAge() {
+        void shouldCalculateAge_fromTheBirthDate() {
             Integer age = DateUtils.getAge(cal(1996, 1, 1, 0, 0, 0), cal(2026, 6, 15, 0, 0, 0));
             assertThat(age).isEqualTo(30);
         }
@@ -198,9 +198,21 @@ class DateUtilsUnitTest {
         }
 
         @Test
-        void shouldIncrementOnBirthday_acrossLeapAndNonLeapYears() {
+        void shouldIncrementOnBirthday_atTheStartOfMarch() {
             assertThat(DateUtils.getAge(cal(1996, 3, 1, 0, 0, 0), cal(2026, 3, 1, 0, 0, 0))).isEqualTo(30);
             assertThat(DateUtils.getAge(cal(1996, 3, 1, 0, 0, 0), cal(2026, 2, 28, 0, 0, 0))).isEqualTo(29);
+        }
+
+        /**
+         * A February 29 birth date has no anniversary in a non-leap year. {@code Period} settles
+         * it on March 1, and pinning that keeps this copy and the one in
+         * {@code io.github.carlos_emr.carlos.util.DateUtils} answering alike.
+         */
+        @Test
+        void shouldResolveTheMissingAnniversary_forAFebruary29BirthDate() {
+            assertThat(DateUtils.getAge(cal(1996, 2, 29, 0, 0, 0), cal(2025, 2, 28, 0, 0, 0))).isEqualTo(28);
+            assertThat(DateUtils.getAge(cal(1996, 2, 29, 0, 0, 0), cal(2025, 3, 1, 0, 0, 0))).isEqualTo(29);
+            assertThat(DateUtils.getAge(cal(1996, 2, 29, 0, 0, 0), cal(2024, 2, 29, 0, 0, 0))).isEqualTo(28);
         }
     }
 
@@ -210,7 +222,7 @@ class DateUtilsUnitTest {
 
         @Test
         @DisplayName("should clear time components")
-        void shouldClearTimeComponents() {
+        void shouldClearTimeComponents_forTheStartOfDay() {
             Calendar cal = cal(2026, 3, 31, 14, 30, 45);
             Calendar result = DateUtils.setToBeginningOfDay(cal);
             assertThat(result)
@@ -245,7 +257,7 @@ class DateUtilsUnitTest {
 
         @Test
         @DisplayName("should parse JS ISO format without seconds")
-        void shouldParseJsIsoFormat() throws ParseException {
+        void shouldParseJsIsoFormat_fromTheBrowser() throws ParseException {
             Date result = DateUtils.parseJsIsoDateTimeNoTNoSeconds("2026-03-31 14:30");
             assertThat(result).isNotNull();
         }

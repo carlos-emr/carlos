@@ -101,7 +101,7 @@ class AccumulatorMapUnitTest {
 
         @Test
         @DisplayName("should count matching values")
-        void shouldCountMatching() {
+        void shouldCountMatching_forRepeatedKeys() {
             map.increment("a", 5);
             map.increment("b", 5);
             map.increment("c", 3);
@@ -122,7 +122,7 @@ class AccumulatorMapUnitTest {
 
         @Test
         @DisplayName("should maintain sorted key order")
-        void shouldMaintainSortedOrder() {
+        void shouldMaintainSortedOrder_acrossKeys() {
             map.increment("c");
             map.increment("a");
             map.increment("b");

@@ -243,7 +243,7 @@ class MfaManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should generate non-null Base32 encoded secret")
-        void shouldGenerateNonNullBase32Secret() {
+        void shouldGenerateNonNullBase32Secret_forANewEnrolment() {
             String secret = MfaManager.generateMfaSecret();
 
             assertThat(secret)
@@ -254,7 +254,7 @@ class MfaManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should generate unique secrets on each call")
-        void shouldGenerateUniqueSecrets() {
+        void shouldGenerateUniqueSecrets_acrossEnrolments() {
             String secret1 = MfaManager.generateMfaSecret();
             String secret2 = MfaManager.generateMfaSecret();
 

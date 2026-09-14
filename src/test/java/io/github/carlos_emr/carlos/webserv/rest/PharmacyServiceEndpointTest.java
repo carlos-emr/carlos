@@ -69,6 +69,25 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
         }
     }
 
+    /**
+     * A caller that states no preference must keep the representation it had before JSON was
+     * advertised. The inherited {@code AbstractServiceImpl} contract was XML-only, so XML stays
+     * first in the class-level {@code @Produces}: listing JSON first would silently re-point every
+     * legacy {@code Accept: *}{@code /*} client at a different format.
+     */
+    @Test
+    void shouldStillDefaultToXml_whenTheClientStatesNoPreference() throws Exception {
+        PharmacyInfo pharmacy = new PharmacyInfo();
+        pharmacy.setId(1);
+        pharmacy.setName("Legacy XML Pharmacy");
+        when(mockPharmacyInfoDao.find((Object) 1)).thenReturn(pharmacy);
+        try (Response response = request().path("/pharmacies/1")
+                .replaceHeader("Accept", "*/*").get()) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMediaType().toString()).startsWith("application/xml");
+        }
+    }
+
     @Override
     protected Object getServiceBean() {
         PharmacyService service = new PharmacyService();

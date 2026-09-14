@@ -30,7 +30,7 @@ class AppenderUnitTest {
 
     @Test
     @DisplayName("should use custom separator")
-    void shouldUseCustomSeparator() {
+    void shouldUseCustomSeparator_whenOneIsSupplied() {
         Appender appender = new Appender(", ");
         appender.append("a");
         appender.append("b");
@@ -64,7 +64,7 @@ class AppenderUnitTest {
 
     @Test
     @DisplayName("should report correct length")
-    void shouldReportCorrectLength() {
+    void shouldReportCorrectLength_forTheAppendedContent() {
         Appender appender = new Appender();
         assertThat(appender.length()).isZero();
         appender.append("test");
@@ -73,7 +73,7 @@ class AppenderUnitTest {
 
     @Test
     @DisplayName("should get and set separator")
-    void shouldGetAndSetSeparator() {
+    void shouldGetAndSetSeparator_forTheAccessorContract() {
         Appender appender = new Appender();
         assertThat(appender.getSeparator()).isEqualTo(Appender.DEFAULT_SEPARATOR);
         appender.setSeparator(";");
@@ -82,7 +82,7 @@ class AppenderUnitTest {
 
     @Test
     @DisplayName("should append another Appender")
-    void shouldAppendAnotherAppender() {
+    void shouldAppendAnotherAppender_intoThisOne() {
         Appender a1 = new Appender(", ");
         a1.append("a");
         Appender a2 = new Appender(", ");

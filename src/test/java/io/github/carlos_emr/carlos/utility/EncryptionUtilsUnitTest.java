@@ -147,7 +147,7 @@ class EncryptionUtilsUnitTest {
 
         @Test
         @DisplayName("should generate unique Base64 keys")
-        void shouldGenerateUniqueBase64Keys() throws NoSuchAlgorithmException {
+        void shouldGenerateUniqueBase64Keys_acrossCalls() throws NoSuchAlgorithmException {
             String key1 = EncryptionUtils.generateSecretKey();
             String key2 = EncryptionUtils.generateSecretKey();
 
@@ -156,7 +156,7 @@ class EncryptionUtilsUnitTest {
 
         @Test
         @DisplayName("should generate Base64 encoded 256-bit key string")
-        void shouldGenerateBase64Key() throws NoSuchAlgorithmException {
+        void shouldGenerateBase64Key_forANewSecret() throws NoSuchAlgorithmException {
             String keyString = EncryptionUtils.generateSecretKey();
             assertThat(keyString).isNotNull().isNotEmpty();
             byte[] decoded = Base64.getDecoder().decode(keyString);

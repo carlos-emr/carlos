@@ -22,19 +22,19 @@ class SessionConstantsUnitTest {
 
     @Test
     @DisplayName("should have non-null LOGGED_IN_PROVIDER constant")
-    void shouldHaveLoggedInProviderConstant() {
+    void shouldHaveLoggedInProviderConstant_forSessionLookup() {
         assertThat(SessionConstants.LOGGED_IN_PROVIDER).isNotNull().isNotEmpty();
     }
 
     @Test
     @DisplayName("should have non-null LOGGED_IN_SECURITY constant")
-    void shouldHaveLoggedInSecurityConstant() {
+    void shouldHaveLoggedInSecurityConstant_forSessionLookup() {
         assertThat(SessionConstants.LOGGED_IN_SECURITY).isNotNull().isNotEmpty();
     }
 
     @Test
     @DisplayName("should have unique constant values")
-    void shouldHaveUniqueValues() {
+    void shouldHaveUniqueValues_acrossTheConstants() {
         assertThat(SessionConstants.LOGGED_IN_PROVIDER)
                 .isNotEqualTo(SessionConstants.LOGGED_IN_SECURITY);
     }
