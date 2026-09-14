@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -83,6 +84,8 @@ public class ViewSearchRefDocAjax2Action extends ActionSupport {
         this.consultationServiceDao = consultationServiceDao;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();

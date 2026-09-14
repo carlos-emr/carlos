@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
+import jakarta.persistence.Tuple;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.query.NativeQuery;
@@ -55,6 +56,7 @@ import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.commn.DemographicSearchResultTransformer;
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
@@ -85,6 +87,18 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEventPublisherAware, DemographicDao {
 
     private static final int MAX_SELECT_SIZE = 500;
+    private static final String FLU_DEMOGRAPHIC_NO = "demographic_no";
+    private static final String FLU_PATIENT_NAME = "patient_name";
+    private static final String FLU_PHONE = "phone";
+    private static final String FLU_ROSTER_STATUS = "roster_status";
+    private static final String FLU_PATIENT_STATUS = "patient_status";
+    // Deliberately not "date_of_birth": that is a real column on demographic
+    // holding only the day of month, and this alias covers the whole formatted
+    // date. MySQL resolves ORDER BY and HAVING against aliases first, so reusing
+    // the column name would silently change the meaning of any such clause added
+    // to this query later.
+    private static final String FLU_DATE_OF_BIRTH = "dob_formatted";
+    private static final String FLU_AGE = "age";
 
     /** Parameter keys whose values contain PHI and must not appear in logs. */
     private static final Set<String> PHI_PARAM_KEYS = Set.of(
@@ -1501,7 +1515,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            (new HL7A04Generator()).generateHL7A04(demographic);
+            if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
+                log.warn("HL7 A04 generation did not complete for a saved demographic");
+            }
         }
 
         // the new way
@@ -2084,8 +2100,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             entityManager().persist(client);
         }
 
-        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
-            (new HL7A04Generator()).generateHL7A04(client);
+        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
+            if (!(new HL7A04Generator()).generateHL7A04(client)) {
+                log.warn("HL7 A04 generation did not complete for a saved demographic");
+            }
+        }
 
         // the new way
         if (objExists == false) {
@@ -2421,17 +2440,17 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         EntityManager s = entityManager();
-            Query q = s.createQuery(sql); // nosemgrep: hibernate-sqli — query uses named parameter :fieldValue bound via setParameter below
-            if (!isFieldValueEmpty) {
-                q.setParameter("fieldValue", fieldValue);
-            }
+        Query q = s.createQuery(sql); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- field/order names are allowlisted above; fieldValue is bound via setParameter below
+        if (!isFieldValueEmpty) {
+            q.setParameter("fieldValue", fieldValue);
+        }
 
-            q.setMaxResults(10);
+        q.setMaxResults(10);
 
-            if (offset > 0) {
-                q.setFirstResult(offset);
-            }
-            return q.getResultList();
+        if (offset > 0) {
+            q.setFirstResult(offset);
+        }
+        return q.getResultList();
     }
 
     @SuppressWarnings("unchecked")
@@ -2449,29 +2468,74 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sSQL, c.getAll(true));
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public List<Object[]> findDemographicsForFluReport(String providerNo) {
-        String sql = "select demographic_no, CONCAT(last_name,',',first_name) as demoname, phone, roster_status, patient_status, "
-            + "DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth), '-',(date_of_birth)),'%Y-%m-%d') as dob, "
+    public List<FluReportDemographicRow> findDemographicsForFluReport(String providerNo) {
+        String sql = "select demographic_no as " + FLU_DEMOGRAPHIC_NO
+            + ", CONCAT(last_name,',',first_name) as " + FLU_PATIENT_NAME
+            + ", phone as " + FLU_PHONE
+            + ", roster_status as " + FLU_ROSTER_STATUS
+            + ", patient_status as " + FLU_PATIENT_STATUS + ", "
+            + "DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth), '-',(date_of_birth)),'%Y-%m-%d') as "
+            + FLU_DATE_OF_BIRTH + ", "
             + "(YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d')))-"
-            + "(RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) as age "
+            + "(RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) as "
+            + FLU_AGE + " "
             + "from demographic  where (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((year_of_birth),'-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d')))-"
             + "(RIGHT(CURRENT_DATE,5)<"
             + "RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) >= 65 "
             + "and (patient_status = 'AC' or patient_status = 'UHIP') "
             + "and (roster_status='RO' or roster_status='NR' or roster_status='FS' or roster_status='RF' or roster_status='PL')";
-        if (providerNo != null && !providerNo.equals("-1")) {
+        String selectedProvider = StringUtils.trimToEmpty(providerNo);
+        boolean allProviders = isAllProvidersSelection(selectedProvider);
+        if (!allProviders) {
             sql = sql + " and provider_no = :providerNo ";
         }
         sql = sql + " order by last_name ";
 
-        EntityManager session = entityManager();
-            Query sqlQuery = session.createNativeQuery(sql);
-            if (providerNo != null && !providerNo.equals("-1")) {
-                sqlQuery.setParameter("providerNo", providerNo);
-            }
-            return sqlQuery.getResultList();
+        Query sqlQuery = entityManager().createNativeQuery(sql, Tuple.class);
+        if (!allProviders) {
+            sqlQuery.setParameter("providerNo", selectedProvider);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Tuple> rows = sqlQuery.getResultList();
+        return rows.stream().map(DemographicDaoImpl::toFluReportDemographicRow).toList();
+    }
+
+    /**
+     * Whether a Flu Billing Report request means "every provider".
+     *
+     * <p>Null, blank, and the {@code "-1"} sentinel all mean all providers, and
+     * surrounding whitespace is ignored. Untrimmed or blank values previously
+     * became a literal {@code provider_no = ''} filter, which matches no
+     * demographic and silently emptied the report while the UI still claimed to
+     * be showing every provider.</p>
+     */
+    static boolean isAllProvidersSelection(String providerNo) {
+        String trimmed = StringUtils.trimToEmpty(providerNo);
+        return trimmed.isEmpty() || "-1".equals(trimmed);
+    }
+
+    /**
+     * Maps one aliased result row onto the report projection.
+     *
+     * <p>Values are stringified but left null here; {@link FluReportDemographicRow}
+     * is the single place nulls become blank report cells. Alias lookups are
+     * deliberately not defended: {@code Tuple.get(String)} throws
+     * {@code IllegalArgumentException} for an unknown alias, so drift between the
+     * {@code FLU_*} constants and the generated SQL surfaces as a hard failure
+     * rather than a silently empty column.</p>
+     */
+    static FluReportDemographicRow toFluReportDemographicRow(Tuple row) {
+        return new FluReportDemographicRow(
+            Objects.toString(row.get(FLU_DEMOGRAPHIC_NO), null),
+            Objects.toString(row.get(FLU_PATIENT_NAME), null),
+            Objects.toString(row.get(FLU_PHONE), null),
+            Objects.toString(row.get(FLU_ROSTER_STATUS), null),
+            Objects.toString(row.get(FLU_PATIENT_STATUS), null),
+            Objects.toString(row.get(FLU_DATE_OF_BIRTH), null),
+            Objects.toString(row.get(FLU_AGE), null)
+        );
     }
 
     @SuppressWarnings("unchecked")
@@ -2654,7 +2718,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         MiscUtils.getLogger().debug("demographicQuery: {}", LogSafe.sanitize(demographicQuery, 1000));
 
         EntityManager session = entityManager();
-            Query sqlQuery = session.createNativeQuery(demographicQuery);
+            Query sqlQuery = session.createNativeQuery(demographicQuery); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery builds SQL from enum-selected column/order fragments plus a server-owned inactive_statuses config list; all request values flow through bound params (setParameter below)
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
                 MiscUtils.getLogger().debug("query param: {}={}", LogSafe.sanitize(key),
@@ -2676,7 +2740,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 "p.first_name as providerFirstName,d.hin,dm.merged_to");
 
         EntityManager session = entityManager();
-        NativeQuery<?> baseQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class);
+        NativeQuery<?> baseQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery builds SQL from enum-selected column/order fragments plus a server-owned inactive_statuses config list; all request values flow through bound params (setParameter below)
 
         for (String key : params.keySet()) {
             baseQuery.setParameter(key, params.get(key));

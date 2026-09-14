@@ -112,7 +112,7 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.formHtml = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.formHtml = PathValidationUtils.validateUploadContent(uploaded.getContent());
             this.formHtmlContentType = uploaded.getContentType();
             String rawName = uploaded.getOriginalName();
             if (rawName == null) {
@@ -120,7 +120,7 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
                 return;
             }
             try {
-                this.formHtmlFileName = PathValidationUtils.validateFileName(rawName);
+                this.formHtmlFileName = PathValidationUtils.validateStrictFileName(rawName);
             } catch (FileValidationException e) {
                 this.uploadValidationError = getInvalidFilenameMessage();
                 this.formHtmlFileName = null;
@@ -141,7 +141,6 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         return formHtml;
     }
 
-    @StrutsParameter
     public void setFormHtml(File formHtml) {
         this.formHtml = formHtml;
     }
@@ -150,7 +149,6 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         return formHtmlContentType;
     }
 
-    @StrutsParameter
     public void setFormHtmlContentType(String formHtmlContentType) {
         this.formHtmlContentType = formHtmlContentType;
     }
@@ -159,7 +157,6 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         return formHtmlFileName;
     }
 
-    @StrutsParameter
     public void setFormHtmlFileName(String formHtmlFileName) {
         this.formHtmlFileName = formHtmlFileName;
     }

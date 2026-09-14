@@ -1,0 +1,656 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.web;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Unit coverage for JSP output encoding regressions.
+ *
+ * @since 2026-05-19
+ */
+@DisplayName("JSP output encoding")
+@Tag("unit")
+class JspEncodingRegressionTest {
+    private static final String BASEDIR_PROPERTY = "basedir";
+    private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
+    private static final Path WEBAPP_ROOT = resolveProjectPath(Path.of("src/main/webapp"));
+    private static final String SAFE_ENCODE_IMPORT_PATTERN =
+            "<%@\\s*page\\s+import\\s*=\\s*\"io\\.github\\.carlos_emr\\.carlos\\.utility\\.SafeEncode\"\\s*%>";
+    private static final String SAFE_TEXTAREA_RENDER_PATTERN =
+            "out\\.println\\(\\s*SafeEncode\\.forHtml\\(\\s*aline\\s*\\)\\s*\\);";
+    private static final String RAW_TEXTAREA_RENDER_PATTERN = "out\\.println\\(\\s*aline\\s*\\);";
+    /** Matches the {@code ((String) allProviders.get(p))} scriptlet fragment CopyFavorites2.jsp repeats. */
+    private static final String ALL_PROVIDERS_ENTRY_PATTERN =
+            "\\(\\(String\\)\\s*allProviders\\.get\\(p\\)\\)";
+
+    @Test
+    void shouldContainEncodedSessionValues_inJavaScriptStrings() throws Exception {
+        String sentJsp = readJsp("mcedt/mailbox/sent.jsp");
+        String autoDownloadJsp = readJsp("mcedt/mailbox/autoDownload.jsp");
+
+        assertThat(sentJsp)
+                .doesNotContain("'<%= session.getAttribute(\"info\") %>'")
+                .contains("SafeEncode.forJavaScript(session.getAttribute(\"info\") == null ? null : session.getAttribute(\"info\").toString())");
+        assertThat(autoDownloadJsp)
+                .doesNotContain("'<%= session.getAttribute(\"resourceID\") %>'")
+                .contains("SafeEncode.forJavaScript(")
+                .contains("session.getAttribute(\"resourceID\")");
+    }
+
+    /**
+     * Password-policy character groups are configuration-driven, so they reach the browser as JSP
+     * scriptlet output inside JavaScript string literals. They must use the CARLOS null-safe
+     * encoder rather than Spring's {@code JavaScriptUtils.javaScriptEscape(...)}, which renders a
+     * missing property as the literal text {@code null} and is not the repository standard.
+     */
+    @Test
+    void shouldEncodePasswordPolicyValues_inJavaScriptStrings() throws Exception {
+        String forcePasswordResetJsp = readJsp("login/forcepasswordreset.jsp");
+        String checkPasswordJsJsp = readWebAsset("js/checkPassword.js.jsp");
+
+        assertThat(forcePasswordResetJsp)
+                .doesNotContain("JavaScriptUtils.javaScriptEscape(")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_lower_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_upper_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_digits\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_special\"))");
+        assertThat(checkPasswordJsJsp)
+                .doesNotContain("JavaScriptUtils.javaScriptEscape(")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_lower_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_upper_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_digits\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_special\"))");
+    }
+
+    @Test
+    void shouldEncodeProfessionalContactValues_inJavaScriptAndHtmlAttributeContexts() throws Exception {
+        String professionalContactJsp = readJsp("demographic/addEditProfessionalContact.jsp");
+
+        assertThat(professionalContactJsp)
+                .doesNotContain("var keyword = '${ param.keyword }';")
+                .doesNotContain("var firstName = '${ pcontact.firstName }';")
+                .doesNotContain("var lastName = '${ pcontact.lastName }';")
+                .doesNotContain("var contactId = '${ requestScope.contactId }';")
+                .doesNotContain("var demographicContactId = '${ requestScope.demographicContactId }';")
+                .doesNotContain("var contactRole = '${ requestScope.contactRole }';")
+                .doesNotContain("var contactName = '${ requestScope.contactName }';")
+                .doesNotContain("var contactType = '${ requestScope.contactType }';")
+                .contains("var keyword = '${carlos:forJavaScript(param.keyword)}';")
+                .contains("var firstName = '${carlos:forJavaScript(pcontact.firstName)}';")
+                .contains("var lastName = '${carlos:forJavaScript(pcontact.lastName)}';")
+                .contains("var contactId = '${carlos:forJavaScript(requestScope.contactId)}';")
+                .contains("var demographicContactId = '${carlos:forJavaScript(requestScope.demographicContactId)}';")
+                .contains("var contactRole = '${carlos:forJavaScript(requestScope.contactRole)}';")
+                .contains("var contactName = '${carlos:forJavaScript(requestScope.contactName)}';")
+                .contains("var contactType = '${carlos:forJavaScript(requestScope.contactType)}';")
+                .contains("value=\"${carlos:forHtmlAttribute(param.contactType)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(pcontact.lastName)}\"")
+                .doesNotContain("value=\"${ param.contactType }\"")
+                .doesNotContain("value=\"${ pcontact.lastName }\"");
+    }
+
+    @Test
+    void shouldEncodeCurrentProgram_inDemographicPaperArchiveJavaScriptString() throws Exception {
+        String editJsp = readJsp("demographic/edit.jsp");
+
+        assertThat(editJsp)
+                .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
+                .contains("jQuery(\"#paper_chart_archived_program\").val('<%=SafeEncode.forJavaScript(currentProgram)%>');")
+                .doesNotContain("jQuery(\"#paper_chart_archived_program\").val('<%=currentProgram%>');");
+    }
+
+    @Test
+    void shouldContainEncodedInlineHandlers_inJavaScriptAttributeContext() throws Exception {
+        String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
+        String multiPageJsp = readJsp("documentManager/MultiPageDocDisplay.jsp");
+        String documentReportJsp = readJsp("documentManager/documentReport.jsp");
+
+        assertThat(chartNotesJsp)
+                .doesNotContain("SafeEncode.forHtml(((NoteDisplayNonNote) note).getLinkInfo())")
+                .contains("SafeEncode.forJavaScriptAttribute(((NoteDisplayNonNote) note).getLinkInfo())");
+        assertThat(multiPageJsp)
+                .doesNotContain("firstPage('<%=docId%>')")
+                .doesNotContain("prevPage('<%=docId%>')")
+                .doesNotContain("nextPage('<%=docId%>')")
+                .doesNotContain("lastPage('<%=docId%>')")
+                .doesNotContain("checkSave('<%=docId%>')")
+                .contains("context='javaScriptAttribute'");
+        assertThat(documentReportJsp)
+                .doesNotContain("'<%=url%>'")
+                .contains("context='javaScriptAttribute'");
+    }
+
+    @Test
+    void shouldDeriveDocumentReportCurrentUserFromSession_andGuardOpenerRefresh() throws Exception {
+        String addDocumentJsp = readJsp("documentManager/addDocument.jsp");
+        String documentReportJsp = readJsp("documentManager/documentReport.jsp");
+
+        // Assert intent (whitespace-tolerant patterns), not exact source formatting. The
+        // doesNotContain guards are the durable regression net: curUser must not be read from a
+        // request parameter, and the opener URL map must not be dereferenced unguarded.
+        assertThat(addDocumentJsp)
+                .containsPattern("curUser\\s*=\\s*user_no\\s*!=\\s*null")
+                .doesNotContain("request.getParameter(\"curUser\")");
+        assertThat(documentReportJsp)
+                .containsPattern("curUser\\s*=\\s*LoggedInInfo\\.getLoggedInInfoFromSession\\(request\\)\\.getLoggedInProviderNo\\(\\)")
+                .containsPattern("hasOwnProperty\\.call\\(\\s*window\\.opener\\.URLs")
+                // Gate forwards the validated lowercased function token; the JSP must prefer it so a
+                // mixed-case "function" param cannot skip the case-sensitive "demographic" branch.
+                .containsPattern("getAttribute\\(\\s*\"normalizedFunction\"\\s*\\)")
+                .doesNotContain("var Url = window.opener.URLs;");
+    }
+
+    @Test
+    void shouldUseGuardedIpAddressVariable_forChartNotesAjax() throws Exception {
+        String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
+        int declarationStart = chartNotesJsp.indexOf("String noteLockIpAddress");
+        int assignmentIndex = chartNotesJsp.indexOf("noteLockIpAddress = casemgmtNoteLock.getIpAddress();");
+        int confirmStart = chartNotesJsp.indexOf("var viewEditedNote = confirm(");
+        int confirmEnd = chartNotesJsp.indexOf(");", confirmStart);
+        assertThat(declarationStart).isGreaterThanOrEqualTo(0);
+        assertThat(assignmentIndex).isGreaterThan(declarationStart).isLessThan(confirmStart);
+        assertThat(confirmStart).isGreaterThanOrEqualTo(0);
+        assertThat(confirmEnd).isGreaterThan(confirmStart);
+        String lockPreparationSnippet = chartNotesJsp.substring(declarationStart, confirmStart);
+        String confirmSnippet = chartNotesJsp.substring(confirmStart, confirmEnd);
+
+        assertThat(lockPreparationSnippet)
+                .containsPattern("String\\s+noteLockIpAddress\\s*=\\s*\"\"\\s*;")
+                .containsPattern("if\\s*\\(noteLockedBySameUser\\)\\s*\\{")
+                .contains("noteLockIpAddress = casemgmtNoteLock.getIpAddress();");
+        assertThat(confirmSnippet)
+                .contains("<%= noteLockIpAddress %>")
+                .doesNotContain("casemgmtNoteLock.getIpAddress()");
+    }
+
+    @Test
+    void shouldNotLockInJavaScriptOnlyEncoding_forInnerHtmlAssignments() throws Exception {
+        String viewScriptJsp = readJsp("rx/ViewScript2.jsp");
+
+        // Regression guard: the original unsafe raw interpolation must not return.
+        // JS-only encoding into innerHTML is a layered concern flagged in review, so
+        // we intentionally do not lock in any specific mitigation here.
+        assertThat(viewScriptJsp)
+                .doesNotContain("innerHTML = \"<%=vecAddress.get(i)%>\";");
+    }
+
+    @Test
+    void shouldContainEncodedBillingServiceCalls_inJavaScriptAttributeContext() throws Exception {
+        String billingBcJsp = readJsp("billing/CA/BC/billingBC.jsp");
+
+        assertThat(billingBcJsp)
+                .doesNotContain("\"addSvcCode('\" + billlist1[i].getServiceCode() + \"')\"")
+                .doesNotContain("\"addSvcCode('\" + billlist2[i].getServiceCode() + \"')\"")
+                .doesNotContain("\"addSvcCode('\" + billlist3[i].getServiceCode() + \"')\"")
+                .contains("SafeEncode.forJavaScriptAttribute(billlist1[i].getServiceCode())")
+                .contains("SafeEncode.forJavaScriptAttribute(billlist2[i].getServiceCode())")
+                .contains("SafeEncode.forJavaScriptAttribute(billlist3[i].getServiceCode())");
+    }
+
+    @Test
+    @DisplayName("should encode bill status table fields in HTML and JavaScript attribute contexts")
+    @Tag("security")
+    void shouldContainEncodedBillingStatusNamesAndDescriptions_inSafeContexts() throws Exception {
+        String billStatusJsp = readJsp("billing/CA/BC/billStatus.jsp");
+
+        assertThat(billStatusJsp)
+                .doesNotContain("<a href=\"javascript: setDemographic('<%=b.demoNo%>');\"><%=b.demoName%>")
+                .doesNotContain("<td><%=b.providerLastName%>,<%=b.providerFirstName%>")
+                .doesNotContain("<td title=\"<%=msp.getStatusDesc(b.reason)%>\"><%=msp.getStatusDesc(b.reason) == null ? \"&nbsp\" : msp.getStatusDesc(b.reason)%>")
+                .doesNotContain("SafeEncode.forJavaScriptAttribute(String.valueOf(b.demoNo))")
+                .contains("SafeEncode.forJavaScriptAttribute(b.demoNo)")
+                .contains("SafeEncode.forHtml(b.demoName)")
+                .contains("SafeEncode.forHtml(b.providerLastName)")
+                .contains("SafeEncode.forHtml(b.providerFirstName)")
+                .contains("String statusDesc = msp.getStatusDesc(b.reason);")
+                .contains("title=\"<%=SafeEncode.forHtmlAttribute(statusDesc)%>\"")
+                .contains("statusDesc == null ? \"&nbsp;\" : SafeEncode.forHtml(statusDesc)");
+    }
+
+    @Test
+    void shouldContainEncodedMeasurementGroupNames_inHtmlBodyContext() throws Exception {
+        String addGroupJsp = readJsp("encounter/oscarMeasurements/AddMeasurementGroup.jsp");
+        String editGroupJsp = readJsp("encounter/oscarMeasurements/EditMeasurementGroup.jsp");
+
+        assertThat(addGroupJsp)
+                .doesNotContain("<%= session.getAttribute(\"groupName\") %>")
+                .contains("<carlos:encode value='<%= groupName %>' context=\"html\"/>")
+                .doesNotContainPattern(">(?:\\s*)<%=\\s*groupName\\s*%>(?:\\s*)<");
+        assertThat(editGroupJsp)
+                .doesNotContain("<%= session.getAttribute(\"groupName\") %>")
+                .contains("<carlos:encode value='<%= groupName %>' context=\"html\"/>")
+                .doesNotContainPattern(">(?:\\s*)<%=\\s*groupName\\s*%>(?:\\s*)<");
+    }
+
+    @Test
+    void shouldEncodeExportSelections_inHtmlContexts() throws Exception {
+        String demographicExportJsp = readJsp("demographic/demographicExport.jsp");
+        String rourkeExportJsp = readJsp("demographic/rourkeExport.jsp");
+
+        assertThat(demographicExportJsp)
+                .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
+                .doesNotContain("<option value=\"<%=p.getProviderNo()%>\"><%=p.getFormattedName()%>")
+                .containsPattern(safeEncodePattern("setName", "forHtmlAttribute"))
+                .containsPattern(carlosEncodePattern("setName", "html"))
+                .containsPattern(safeEncodePattern("p\\.getProviderNo\\(\\)", "forHtmlAttribute"))
+                .containsPattern(carlosEncodePattern("p\\.getFormattedName\\(\\)", "html"));
+        assertThat(rourkeExportJsp)
+                .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
+                .containsPattern(safeEncodePattern("setName", "forHtmlAttribute"))
+                .containsPattern(carlosEncodePattern("setName", "html"));
+    }
+
+    @Test
+    void shouldEncodeRourkeExportHistoryFields_inUriAndHtmlContexts() throws Exception {
+        String rourkeExportJsp = readJsp("demographic/rourkeExport.jsp");
+
+        assertThat(rourkeExportJsp)
+                .doesNotContain("zipFile=<%=file%>'><%=file %>")
+                .doesNotContain("method=getFile&zipFile=")
+                .contains("method=getFile&amp;zipFile=")
+                .doesNotContain("<td><%=dataExport.getUser()%>")
+                .doesNotContain("<td><%=dataExport.getType()%>")
+                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getUser\\(\\)", "html") + "\\s*</td>")
+                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getType\\(\\)", "html") + "\\s*</td>");
+
+        int zipFileIndex = rourkeExportJsp.indexOf("zipFile=");
+        assertThat(zipFileIndex).isGreaterThanOrEqualTo(0);
+        int downloadAnchorStart = rourkeExportJsp.lastIndexOf("<a", zipFileIndex);
+        assertThat(downloadAnchorStart).isGreaterThanOrEqualTo(0);
+        int downloadAnchorEnd = rourkeExportJsp.indexOf("</a>", zipFileIndex);
+        assertThat(downloadAnchorEnd).isGreaterThan(zipFileIndex);
+        String downloadAnchorSnippet = rourkeExportJsp.substring(downloadAnchorStart, downloadAnchorEnd + "</a>".length());
+
+        assertThat(downloadAnchorSnippet)
+                .containsPattern("zipFile=\\s*<%=\\s*SafeEncode\\.forUriComponent\\(\\s*file\\s*\\)\\s*%>")
+                .containsPattern(carlosEncodePattern("file", "html"));
+    }
+
+    @Test
+    void shouldContainEncodedEncounterPrintFields_inHtmlBodyContext() throws Exception {
+        String encounterPrintJsp = readJsp("encounter/encounterPrint.jsp");
+        String echartHistoryPrintJsp = readJsp("encounter/echarthistoryprint.jsp");
+
+        assertThat(encounterPrintJsp)
+                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo, \"\") %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
+                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
+
+        assertThat(echartHistoryPrintJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
+                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
+    }
+
+    /**
+     * Rx favorites are provider-authored free text that is replayed into form controls the next
+     * time the favorites editor is opened, so an unencoded favorite name, custom drug name or
+     * special-instruction body is a stored XSS sink. The textarea assertion matters most: a raw
+     * value there can close the element with a literal {@code </textarea>} and escape into markup.
+     */
+    @Test
+    @DisplayName("should encode Rx favorites fields in HTML and HTML attribute contexts")
+    @Tag("security")
+    void shouldEncodeRxFavoritesFields_inHtmlAndHtmlAttributeContexts() throws Exception {
+        String editFavoritesJsp = readJsp("rx/EditFavorites2.jsp");
+        String copyFavoritesJsp = readJsp("rx/CopyFavorites2.jsp");
+
+        assertThat(editFavoritesJsp)
+                .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
+                .containsPattern(safeEncodePattern("f\\.getFavoriteName\\(\\)", "forHtmlAttribute"))
+                .containsPattern(safeEncodePattern("f\\.getCustomName\\(\\)", "forHtmlAttribute"))
+                .containsPattern(safeEncodePattern("s\\.trim\\(\\)", "forHtmlContent"))
+                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*f\\.getFavoriteName\\(\\)\\s*%>\"")
+                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*f\\.getCustomName\\(\\)\\s*%>\"")
+                .doesNotContainPattern("<textarea[^>]*name=\"fldSpecial<%= i%>\"[^>]*>\\s*<%=\\s*s\\.trim\\(\\)\\s*%>");
+
+        assertThat(copyFavoritesJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .containsPattern(carlosEncodePattern("providerNo", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern("copyProviderNo", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern(ALL_PROVIDERS_ENTRY_PATTERN, "htmlAttribute"))
+                .containsPattern(carlosEncodePattern(
+                        "providerDao\\.getProvider" + ALL_PROVIDERS_ENTRY_PATTERN + "\\.getFormattedName\\(\\)",
+                        "html"))
+                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*providerNo\\s*%>\"")
+                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*copyProviderNo\\s*%>\"")
+                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*" + ALL_PROVIDERS_ENTRY_PATTERN + "\\s*%>\"")
+                .doesNotContainPattern(
+                        ">\\s*<%=\\s*providerDao\\.getProvider" + ALL_PROVIDERS_ENTRY_PATTERN
+                                + "\\.getFormattedName\\(\\)\\s*%>")
+                // The same page renders the favorites list a second time through JSTL, and EL
+                // output is not auto-escaped in JSP, so these carry the identical stored-XSS risk
+                // as the scriptlet block above.
+                .contains("value=\"${carlos:forHtmlAttribute(fav.favoriteName)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(fav.id)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(fav.takeMin)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(fav.takeMax)}\"")
+                .contains("${carlos:forHtmlContent(fav.bn)}")
+                .contains("${carlos:forHtmlContent(fav.gn)}")
+                .doesNotContainPattern("value\\s*=\\s*\"\\$\\{fav\\.(favoriteName|id|takeMin|takeMax)\\}\"")
+                .doesNotContainPattern("<b>(Brand|Generic) Name:</b>\\s*\\$\\{fav\\.(bn|gn)\\}");
+    }
+
+    /**
+     * {@code rx/TopLinks.jsp} is statically included by most prescribing pages and renders
+     * request parameters straight into the page, so a reflected value reaches HTML body,
+     * HTML attribute, URL and JavaScript-in-attribute contexts from one request.
+     */
+    @Test
+    @DisplayName("should encode TopLinks request parameters in their rendered contexts")
+    @Tag("security")
+    void shouldEncodeTopLinksRequestParameters_inHtmlAndJavaScriptContexts() throws Exception {
+        String topLinksJsp = readJsp("rx/TopLinks.jsp");
+
+        assertThat(topLinksJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<%@ taglib uri=\"jakarta.tags.functions\" prefix=\"fn\" %>")
+                // tableId is normalized to a single id token, then attribute-encoded. The
+                // computation lives in a variable so the id attribute holds no literal
+                // spaces, which is what CodeQL's malformed-id check reads. fn:replace, not
+                // fn:replaceAll: an EL quoted string cannot carry a regex escape like \\s.
+                .contains("value=\"${ not empty param.tableId ? fn:replace(param.tableId, ' ', '_') : 'topLink' }\"")
+                .doesNotContain("fn:replaceAll(param.tableId")
+                .contains("<table id=\"${carlos:forHtmlAttribute(topLinkTableId)}\" role=\"presentation\">")
+                .contains("demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment=")
+                .contains("${carlos:forHtmlContent(param.title)}")
+                .contains("${carlos:forHtmlContent(param.patientName)}")
+                .contains("${carlos:forHtmlContent(param.sex)}")
+                .contains("${carlos:forHtmlContent(param.age)}")
+                .contains("${carlos:forHtmlContent(param.phone)}")
+                // The popup URL is a JavaScript string literal inside an onClick attribute.
+                .contains("'${carlos:forJavaScriptAttribute(url)}'")
+                .doesNotContain("id=\"${ not empty param.tableId ? param.tableId : 'topLink' }\"")
+                .doesNotContain("demographic_no=${ param.demographicNo }")
+                .doesNotContain("<core:out value=\"${ param.title }\"/>")
+                .doesNotContain("<core:out value=\"${ param.patientName }\"/>")
+                .doesNotContain("${ param.sex }")
+                .doesNotContain("${ param.age }")
+                .doesNotContain("${ param.phone }")
+                .doesNotContain("'${ url }'");
+    }
+
+    @Test
+    @DisplayName("should encode provider values in lab forwarding rules JSP")
+    @Tag("security")
+    void shouldEncodeProviderValues_inLabForwardingRulesJsp() throws Exception {
+        String jsp = readJsp("admin/labforwardingrules.jsp");
+
+        assertThat(jsp)
+                .doesNotContain("<option value=\"<%= prov_no %>\"")
+                .doesNotContain("removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>'")
+                .contains("<option value=\"<carlos:encode value='<%= prov_no %>' context=\"htmlAttribute\"/>\"")
+                .contains("<option value=\"<carlos:encode value='<%= prov_no %>' context=\"htmlAttribute\"/>\"><carlos:encode "
+                        + "value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' context=\"html\"/>")
+                .contains("<td><carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context=\"html\"/> "
+                        + "<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context=\"html\"/>")
+                .contains("removeProvider('<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' "
+                        + "context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' "
+                        + "context=\"javaScriptAttribute\"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' "
+                        + "context=\"javaScriptAttribute\"/>')");
+    }
+
+    @Test
+    @DisplayName("should encode decision textarea file content in HTML body context")
+    @Tag("security")
+    void shouldEncodeDecisionTextareaFileContent_inHtmlBodyContext() throws Exception {
+        List<String> decisionTextareaEditors = List.of(
+                "decision/antenatal/obarriskedit_99_12.jsp",
+                "decision/annualreview/riskedit.jsp",
+                "decision/annualreview/checklistedit.jsp",
+                "provider/obarriskedit_99_12.jsp",
+                "provider/obarchecklistedit_99_12.jsp");
+
+        for (String jspPath : decisionTextareaEditors) {
+            assertThat(readJsp(jspPath))
+                    .as(jspPath)
+                    .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
+                    .containsPattern(SAFE_TEXTAREA_RENDER_PATTERN)
+                    .doesNotContainPattern(RAW_TEXTAREA_RENDER_PATTERN);
+        }
+    }
+
+    @Test
+    @DisplayName("should make a symlinked antenatal risk override visibly read-only")
+    @Tag("security")
+    void shouldMakeSymlinkedAntenatalRiskOverride_readOnly() throws Exception {
+        String jsp = readJsp("decision/antenatal/obarriskedit_99_12.jsp");
+
+        assertThat(jsp)
+                .contains("Files.isSymbolicLink(configuredOverride)")
+                .contains("<% if (!readOnlyOverride) { %>")
+                .contains("readOnlyOverride ? \" readonly\" : \"\"")
+                .contains("configured through a symbolic link and is read-only here")
+                .contains("Files.exists(configuredOverride, LinkOption.NOFOLLOW_LINKS)")
+                .contains("configured risk-list target is not a readable regular file")
+                .contains("configured document directory is unavailable or not writable");
+    }
+
+    @Test
+    @DisplayName("should encode billing settings custom clinic info textarea in HTML body context")
+    @Tag("security")
+    void shouldEncodeBillingSettingsCustomClinicInfoTextarea_inHtmlBodyContext() throws Exception {
+        String billingSettingsJsp = readJsp("admin/billingSettings.jsp");
+
+        assertThat(billingSettingsJsp)
+                .contains("${carlos:forHtmlContent(\"on\" eq dataBean[\"invoice_use_custom_clinic_info\"] ? dataBean[\"invoice_custom_clinic_info\"] : clinicData.label)}")
+                .doesNotContain("${\"on\" eq dataBean[\"invoice_use_custom_clinic_info\"] ? dataBean[\"invoice_custom_clinic_info\"] : clinicData.label }");
+    }
+
+    @Test
+    @DisplayName("should render MOH archive session messages on the MOH files page")
+    @Tag("security")
+    void shouldRenderMohMessages_onViewMohFilesPage() throws Exception {
+        String jsp = readJsp("billing/CA/ON/viewMOHFiles.jsp");
+
+        assertThat(jsp)
+                .contains("WebUtils.popErrorAndInfoMessagesAsHtml(session)")
+                .doesNotContain("WebUtils.popErrorMessagesAsAlert(session)");
+    }
+
+    @Test
+    @DisplayName("should encode measurement data cells in HTML body context")
+    @Tag("security")
+    void shouldEncodeMeasurementData_onDisplayHistoryPage() throws Exception {
+        String jsp = readJsp("encounter/oscarMeasurements/DisplayHistory.jsp");
+
+        assertThat(jsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("${carlos:forHtmlContent(data.dataField)}")
+                .contains("${carlos:forHtmlContent(data.comments)}")
+                .doesNotContain("${data.dataField}</td>")
+                .doesNotContain("${data.comments}</td>")
+                .doesNotContain("${carlos:forHtml(data.dataField)}")
+                .doesNotContain("${carlos:forHtml(data.comments)}");
+    }
+
+    @Test
+    @DisplayName("should render Teleplan eligibility lines without storing HTML in Msgs")
+    @Tag("security")
+    void shouldRenderTeleplanEligibilityLines_onCheckEligibilityPage() throws Exception {
+        String jsp = readJsp("billing/CA/BC/checkEligibility.jsp");
+
+        assertThat(jsp)
+                .contains("List<String> msgLines")
+                .contains("request.getAttribute(\"MsgsLines\")")
+                .contains("<span style=\"color:red; font-weight:bold;\">")
+                .contains("<carlos:encode value='<%= safeLine %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= msgs %>' context=\"html\"/>");
+    }
+
+    /**
+     * Rx prescribing screens replay clinician-entered and vendor-supplied free text: drug search
+     * results, prescription outlines, discontinue reasons, outside-provider names, allergy
+     * descriptions/reactions and provider favorite names. Favorite names in particular are accepted
+     * from the {@code favoriteName} request parameter and persisted, so an unencoded name is a
+     * stored XSS sink on every Rx screen that renders the sidebar.
+     *
+     * <p>Both sidebar variants are asserted together: {@code SideLinksEditFavorites2.jsp} is
+     * included by the write/allergy screens and {@code SideLinksNoEditFavorites*.jsp} by the
+     * read-only ones, and they render the identical values.
+     */
+    @Test
+    @DisplayName("should encode Rx prescribing and sidebar fields in HTML and HTML attribute contexts")
+    @Tag("security")
+    void shouldEncodeRxPrescribingFields_inHtmlAndHtmlAttributeContexts() throws Exception {
+        String listDrugsJsp = readJsp("rx/ListDrugs.jsp");
+        String chooseDrugJsp = readJsp("rx/ChooseDrug.jsp");
+        String selectPharmacyJsp = readJsp("rx/SelectPharmacy2.jsp");
+
+        assertThat(listDrugsJsp)
+                .containsPattern(carlosEncodePattern(
+                        "RxPrescriptionData\\.getFullOutLine\\(prescriptDrug\\.getSpecial\\(\\)\\)"
+                                + "\\.replaceAll\\(\";\", \" \"\\)",
+                        "html"))
+                .containsPattern(carlosEncodePattern("prescriptDrug\\.getArchivedReason\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("prescriptDrug\\.getOutsideProviderName\\(\\)", "html"))
+                .doesNotContainPattern(">\\s*<%=\\s*RxPrescriptionData\\.getFullOutLine\\(")
+                .doesNotContainPattern(">\\s*<%=\\s*prescriptDrug\\.getArchivedReason\\(\\)\\s*%>")
+                .doesNotContainPattern(">\\s*<%=\\s*prescriptDrug\\.getOutsideProviderName\\(\\)\\s*%>")
+                // displayDrugReason() feeds both a title attribute and HTML body, so it must pick the
+                // encoder that matches the caller's context and must never append a raw fallback code.
+                .contains("sb.append(title ? SafeEncode.forHtmlAttribute(codeDescr) : SafeEncode.forHtml(codeDescr));")
+                .contains("sb.append(title ? SafeEncode.forHtmlAttribute(drugReason.getCode())"
+                        + " : SafeEncode.forHtml(drugReason.getCode()));")
+                .doesNotContain("sb.append(drugReason.getCode());");
+
+        assertThat(chooseDrugJsp)
+                .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
+                .contains("out.write(SafeEncode.forHtmlContent(drugSearch.errorMessage));")
+                .doesNotContain("out.write(drugSearch.errorMessage);")
+                .containsPattern("title=\"" + carlosEncodePattern("t\\.name", "htmlAttribute") + "\"")
+                .containsPattern(carlosEncodePattern("getMaxVal\\(t\\.name\\)", "html"))
+                .containsPattern("title=\"" + carlosEncodePattern("brandName", "htmlAttribute") + "\"")
+                .containsPattern(carlosEncodePattern("brandName", "html"))
+                // The AFHC drug-class list renders the same search-result names as the generic and
+                // brand lists, so it has to be encoded too.
+                .containsPattern(carlosEncodePattern("t\\.name", "html"))
+                .doesNotContainPattern("title\\s*=\\s*\"<%=\\s*(?:t\\.name|brandName)\\s*%>\"")
+                .doesNotContainPattern(">\\s*<%=\\s*(?:t\\.name|brandName|getMaxVal\\(t\\.name\\))\\s*%>");
+
+        assertThat(selectPharmacyJsp)
+                .containsPattern(carlosEncodePattern("surname", "html"))
+                .containsPattern(carlosEncodePattern("firstName", "html"))
+                .doesNotContainPattern("<%=\\s*surname\\s*%>,\\s*<%=\\s*firstName\\s*%>");
+
+        for (String sidebar : List.of(
+                "rx/SideLinksEditFavorites2.jsp",
+                "rx/SideLinksNoEditFavorites.jsp",
+                "rx/SideLinksNoEditFavorites2.jsp")) {
+            assertThat(readJsp(sidebar))
+                    .as(sidebar)
+                    .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                    .containsPattern(carlosEncodePattern("allergies\\[j\\]\\.getDescription\\(\\)", "htmlAttribute"))
+                    .containsPattern(carlosEncodePattern("allergies\\[j\\]\\.getReaction\\(\\)", "htmlAttribute"))
+                    .containsPattern(carlosEncodePattern(
+                            "allergies\\[j\\]\\.getShortDesc\\(13, 8, \"\\.\\.\\.\"\\)", "html"))
+                    .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "htmlAttribute"))
+                    .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "html"))
+                    .containsPattern(carlosEncodePattern(
+                            "favorites\\[j\\]\\.getFavoriteName\\(\\)\\.substring\\(0, 10\\) \\+ \"\\.\\.\\.\"", "html"))
+                    .doesNotContainPattern(
+                            "title\\s*=\\s*\"<%=\\s*allergies\\[j\\]\\.getDescription\\(\\)\\s*%>")
+                    // The negative lookbehind keeps these from matching the scriptlet inside a
+                    // <carlos:encode value='<%= ... %>'/> wrapper: only a bare sink should fail.
+                    .doesNotContainPattern("(?<!value=')<%=\\s*allergies\\[j\\]\\.getShortDesc\\(")
+                    .doesNotContainPattern("title\\s*=\\s*\"<%=\\s*favorites\\[j\\]\\.getFavoriteName\\(\\)\\s*%>\"")
+                    .doesNotContainPattern("(?<!value=')<%=\\s*favorites\\[j\\]\\.getFavoriteName\\(\\)");
+        }
+    }
+
+    private static String readJsp(String relativePath) throws Exception {
+        return Files.readString(JSP_ROOT.resolve(relativePath));
+    }
+
+    /** Reads a JSP served directly from the webapp root (outside {@code WEB-INF/jsp}). */
+    private static String readWebAsset(String relativePath) throws Exception {
+        return Files.readString(WEBAPP_ROOT.resolve(relativePath));
+    }
+
+    private static String carlosEncodePattern(String scriptletExpressionPattern, String context) {
+        String scriptletValue = "value\\s*=\\s*'\\s*<%=\\s*"
+                + scriptletExpressionPattern
+                + "\\s*%>\\s*'";
+        String contextAttribute = "context\\s*=\\s*(?:'" + context + "'|\"" + context + "\")";
+
+        return "(?:<carlos:encode\\s+(?:(?:"
+                + scriptletValue
+                + "\\s+"
+                + contextAttribute
+                + ")|(?:"
+                + contextAttribute
+                + "\\s+"
+                + scriptletValue
+                + "))\\s*/>)";
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate) || Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath + " from "
+                + System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")));
+    }
+
+    private static String safeEncodePattern(String scriptletExpressionPattern, String method) {
+        return "<%=\\s*SafeEncode\\."
+                + method
+                + "\\(\\s*"
+                + scriptletExpressionPattern
+                + "\\s*\\)\\s*%>";
+    }
+}

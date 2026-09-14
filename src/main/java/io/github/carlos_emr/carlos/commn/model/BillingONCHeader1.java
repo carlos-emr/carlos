@@ -52,6 +52,7 @@ import jakarta.persistence.TemporalType;
 
 import org.apache.cxf.common.util.StringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Legacy Ontario billing claim header entity.
@@ -428,7 +429,7 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
         if (value != null && !KNOWN_STATUSES.contains(value)) {
             BillingStatus.recordUnknownStatusWarning();
             logger.warn("Accepting unknown BillingONCHeader1 status value during deprecation: {} (allowed: {})",
-                    value, KNOWN_STATUSES);
+                    LogSafe.sanitize(value), KNOWN_STATUSES);
         }
         this.status = value;
     }
@@ -445,8 +446,8 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
         // New typed service flows should call this variant so status drift is
         // rejected at the boundary instead of being re-persisted indefinitely.
         if (value != null && !KNOWN_STATUSES.contains(value)) {
-            logger.warn("Rejecting unknown BillingONCHeader1 status value {} (allowed: {})",
-                    value, KNOWN_STATUSES);
+            logger.warn("Rejecting unknown BillingONCHeader1 status value {} (allowed: {})", // NOSONAR javasecurity:S5145 (SonarCloud alert #26175) — sanitized with LogSafe
+                    LogSafe.sanitize(value), KNOWN_STATUSES);
             throw new IllegalArgumentException(
                     "BillingONCHeader1 status is not in the known set; see logs for the offending value");
         }

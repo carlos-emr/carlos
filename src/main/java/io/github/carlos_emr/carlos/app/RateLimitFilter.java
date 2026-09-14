@@ -46,6 +46,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Per-IP rate-limiting filter for CARLOS EMR.
@@ -162,6 +163,8 @@ public final class RateLimitFilter implements Filter {
      *                     comes from {@code CarlosProperties})
      * @throws ServletException if initialisation fails
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         CarlosProperties props = CarlosProperties.getInstance();

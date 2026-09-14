@@ -35,6 +35,7 @@ import java.util.Date;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * This is the object class that relates to the program table. Any customizations belong here.
@@ -313,6 +314,8 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program type is "external", false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @jakarta.persistence.Transient
     public boolean isExternal() {
         return EXTERNAL_TYPE.equalsIgnoreCase(getType());
@@ -324,6 +327,8 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program type is "community", false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @jakarta.persistence.Transient
     public boolean isCommunity() {
         return COMMUNITY_TYPE.equalsIgnoreCase(getType());
@@ -334,6 +339,8 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program type is "Service", false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @jakarta.persistence.Transient
     public boolean isService() {
         return SERVICE_TYPE.equalsIgnoreCase(getType());

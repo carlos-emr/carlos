@@ -69,12 +69,27 @@ span.dateAppointment {
 
 /* Adjustments made to prevent further additions to jsp's from being displayed in the mobile version */
 #navlist > *:not(#today):not(#menu),
-table#firstTable td:not(#firstMenu),
-#navlistcontents > *:not(#search):not(#logoutMobile),
+table#firstTable td:not(#firstMenu):not(#userSettings),
 table#providerSchedule td:not(.scheduleTime00):not(.scheduleTimeNot00):not(.appt):not(.noGrid),
 .appt a:not(.apptLink):not(.encounterBtn):not(.masterBtn):not(.apptStatus),
 .infirmaryView, #calendarLinkBottom, #group, #expandReason {
     display: none;
+}
+table {
+  width: 100%;
+}
+#userSettings {
+  text-align:right;
+  vertical-align: top;
+  padding-right: 6px;
+}
+
+#userSettingsMenu {
+  display: none !important;
+}
+
+table#firstTable td#userSettings > div {
+  display: block;
 }
 
 a.encounterBtn, a.masterBtn {
@@ -124,22 +139,12 @@ a.encounterBtn, a.masterBtn {
     margin: 0px;
     padding: 0px;
 }
-
-#navlist {
-    background: #6d84a2 repeat-x;
-    font-size: medium;
-    font-weight: bold;
-    -webkit-box-sizing: border-box;
-    height: 45px;
-    border-bottom: 1px black solid;
-}
-
 .rightButton {
-    right: 10px;
+    right: 30px;
 }
 
 .leftButton {
-    left: 10px;
+    left: 30px;
 }
 
 .top {
@@ -149,8 +154,7 @@ a.encounterBtn, a.masterBtn {
 .button, .leftButton, .rightButton {
     position: relative;
     overflow: hidden;
-    /*-webkit-appearance:button;*/
-    margin: 0;
+    margin: 3px;
     border-width: 0 5px;
     padding: 0 3px;
     width: auto;
@@ -159,7 +163,7 @@ a.encounterBtn, a.masterBtn {
     line-height: 30px;
     font-size: 12px;
     font-weight: bold;
-    top: 8px;
+    top: -3px;
     color: #FFFFFF;
     text-shadow: rgba(0, 0, 0, 0.6) 0px -1px 0;
     text-overflow: ellipsis;
@@ -167,8 +171,10 @@ a.encounterBtn, a.masterBtn {
     text-align: center;
     white-space: nowrap;
     z-index: 1;
-    -webkit-border-image: url(../mobile/toolButton.png) 0 5 0 5;
-    -moz-border-image: url(../mobile/toolButton.png) 0 5 0 5;
+    border-style: solid;
+    border-color: transparent;
+    border-width: 0 5px;
+    border-image: url(../mobile/toolButton.png) 0 5 0 5 fill stretch;
 }
 
 .blueButton {
@@ -204,7 +210,7 @@ a.encounterBtn, a.masterBtn {
 
 #navlistcontents {
     position: absolute;
-    left: 55px;
+    left: 85px;
     top: 5px;
     border: 1px silver solid;
     background-color: #eeeeff;
@@ -216,7 +222,7 @@ a.encounterBtn, a.masterBtn {
 #dateAndCalendar {
     width: 100%;
     vertical-align: middle;
-    text-align: right;
+    text-align: center;
 }
 
 #providerSchedule {
@@ -227,4 +233,190 @@ a.encounterBtn, a.masterBtn {
 
 #providerSchedule td {
     border-bottom: 1px solid #ccc;
+}
+/* ===== Quick Patient Search Bar ===== */
+.quick-search-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.quick-search-input-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+#quickSearch {
+    width: 170px;
+    height: 24px;
+    padding: 2px 26px 2px 6px;
+    font-size: 0.8rem;
+    border: 1px solid #adb5bd;
+    border-radius: 4px;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+#quickSearch:focus {
+    outline: none;
+    border-color: #4a90d9;
+    box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}
+
+.quick-search-clear {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0 2px;
+    cursor: pointer;
+    color: #6c757d;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.quick-search-clear:hover {
+    color: #343a40;
+}
+
+/* Dropdown container - floats over schedule */
+.quick-search-dropdown {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 9999;
+    min-width: 280px;
+    max-width: calc(100vw - 10px);
+    max-height: 420px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* Result rows */
+.qs-result-row {
+    padding: 6px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    background-color: #ffffff;
+}
+
+.qs-result-row.qs-alt {
+    background-color: #f7f9fb;
+}
+
+.qs-result-row:hover,
+.qs-result-row.qs-active {
+    background-color: #dce8f5;
+}
+
+/* Line 1: patient name + badges */
+.qs-line1 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.qs-patient-name {
+    font-size: 0.875rem;
+    color: #212529;
+    font-weight: 700;
+}
+
+.qs-status-label {
+    font-weight: 400;
+    color: #6c757d;
+    font-size: 0.78rem;
+}
+
+/* Badge strip */
+.qs-badges {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.qs-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 3px;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.qs-badge:hover {
+    text-decoration: none;
+    filter: brightness(0.85);
+}
+
+.qs-badge-m  { background: #6c757d; color: #fff; }
+.qs-badge-e  { background: #0d6efd; color: #fff; }
+.qs-badge-rx { background: #198754; color: #fff; }
+.qs-badge-appt { background: #fd7e14; color: #fff; }
+
+/* Lines 2-4: muted detail rows */
+.qs-line2,
+.qs-line3,
+.qs-line4 {
+    font-size: 0.775rem;
+    margin-top: 2px;
+}
+
+.qs-line2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.qs-muted {
+    color: #6c757d;
+}
+
+/* No-results and add-link rows */
+.qs-no-results {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.qs-add-link {
+    padding: 6px 10px;
+    border-top: 1px solid #dee2e6;
+    text-align: center;
+}
+
+.qs-add-link a {
+    font-size: 0.8rem;
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.qs-add-link a:hover {
+    text-decoration: underline;
+}
+
+.quick-btn {
+  display: none;
+}
+.multiplier-input {
+  display: none;
+}
+
+.quick-search-wrapper img {
+  width: 30px !important;
 }

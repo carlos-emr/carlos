@@ -40,16 +40,16 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
 
-import io.github.carlos_emr.carlos.services.security.SecurityManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -59,14 +59,28 @@ import java.nio.file.Files;
 import java.util.List;
 
 public class UploadTemplates2Action extends ActionSupport implements UploadedFilesAware {
+    private final SecurityInfoManager securityInfoManager;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    public UploadTemplates2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    UploadTemplates2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
     public String execute() {
 
-        String roleName$ = request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user");
-        if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
-            throw new SecurityException("Insufficient Privileges");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
         }
 
         String action = request.getParameter("action");
@@ -96,10 +110,10 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
         }
         ReportManager reportManager = new ReportManager();
         if (action.equals("add")) {
-            message = reportManager.addTemplate(null, xml, LoggedInInfo.getLoggedInInfoFromSession(request));
+            message = reportManager.addTemplate(null, xml, loggedInInfo);
         } else if (action.equals("edit")) {
             String templateId = request.getParameter("templateid");
-            message = reportManager.updateTemplate(null, templateId, xml, LoggedInInfo.getLoggedInInfoFromSession(request));
+            message = reportManager.updateTemplate(null, templateId, xml, loggedInInfo);
         }
         request.setAttribute("message", message);
         request.setAttribute("action", action);
@@ -114,7 +128,7 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.templateFile = new File(uploaded.getAbsolutePath());
+            this.templateFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
         }
     }
 
@@ -122,7 +136,6 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
         return templateFile;
     }
 
-    @StrutsParameter
     public void setTemplateFile(File templateFile) {
         this.templateFile = templateFile;
     }

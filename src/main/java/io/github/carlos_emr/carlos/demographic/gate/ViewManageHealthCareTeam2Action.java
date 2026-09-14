@@ -31,12 +31,20 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewManageHealthCareTeam2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public ViewManageHealthCareTeam2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public ViewManageHealthCareTeam2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");

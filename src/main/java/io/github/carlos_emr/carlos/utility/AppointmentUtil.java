@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AppointmentUtil {
 
@@ -43,6 +44,8 @@ public class AppointmentUtil {
     private AppointmentUtil() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getNextAppointment(String demographicNo) {
         Date nextApptDate = null;
         if (demographicNo != null && !demographicNo.equalsIgnoreCase("") && !demographicNo.equalsIgnoreCase("null")) {
