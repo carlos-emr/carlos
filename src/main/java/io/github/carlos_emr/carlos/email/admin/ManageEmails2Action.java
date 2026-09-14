@@ -113,7 +113,7 @@ public class ManageEmails2Action extends ActionSupport {
             return fetchEmails();
 
         } else if ("setResolved".equals(mtd)) {
-            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            if (!"POST".equals(request.getMethod())) {
                 response.setHeader("Allow", "POST");
                 response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return null;

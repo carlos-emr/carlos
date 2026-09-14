@@ -11,6 +11,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -267,15 +269,16 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(emailManager);
     }
 
-    @Test
-    @DisplayName("should reject setResolved over GET without updating email status")
-    void shouldRejectSetResolved_whenRequestIsGet() {
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "post", "Post", "PO\u017fT"})
+    @DisplayName("should require the exact POST method before resolving an email")
+    void shouldRejectSetResolved_whenRequestMethodIsNotPost(String method) {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         grantManageEmailsRead(loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
                 .thenReturn(true);
-        request.setMethod("GET");
+        request.setMethod(method);
         request.setParameter("method", "setResolved");
         request.setParameter("logId", "42");
 
