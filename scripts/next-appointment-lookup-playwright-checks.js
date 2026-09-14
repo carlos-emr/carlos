@@ -132,7 +132,7 @@ function seedAppointment() {
     + ` FROM demographic WHERE demographic_no=${Number(demographicNo)}`);
   const appointmentNo = sql(`SELECT appointment_no FROM appointment WHERE notes='${escapeSql(stamp)}' ORDER BY appointment_no DESC LIMIT 1`);
   assert(/^\d+$/.test(appointmentNo),
-    `could not seed the fixture appointment for demographic ${demographicNo} -- does it exist?`);
+    'could not seed the fixture appointment -- does the configured test patient exist?');
   return appointmentNo;
 }
 
@@ -194,7 +194,7 @@ async function searchRow(page, lastName) {
   // The dropdown rendering from the same payload is what proves the widget consumed it.
   await page.locator('#quickSearchDropdown .qs-result-row').first().waitFor({ state: 'visible', timeout: 15000 });
   const row = results.find((entry) => String(entry.demographicNo) === String(demographicNo));
-  assert(row, `quick search returned ${results.length} rows, none of them demographic ${demographicNo}`);
+  assert(row, `quick search returned ${results.length} rows without the configured test patient`);
   return row;
 }
 
@@ -204,7 +204,7 @@ async function searchRow(page, lastName) {
   try {
     initMysqlDefaults();
     const keyword = sql(`SELECT last_name FROM demographic WHERE demographic_no=${Number(demographicNo)}`);
-    assert(keyword, `demographic ${demographicNo} does not exist in ${mysqlDatabase}`);
+    assert(keyword, 'the configured test patient does not exist in the configured database');
 
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
