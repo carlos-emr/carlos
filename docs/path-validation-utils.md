@@ -90,6 +90,55 @@ PathValidationUtils.validateExistingPath(fileToDelete, docDir);
 
 **Throws**: `SecurityException` if the file is outside the allowed directory
 
+### validateExistingPath(String path, File allowedDir)
+
+**Use for**: The same job as the `File` overload, when the caller holds the path as a `String`.
+
+**What it does**: Rejects a null/blank path, then constructs the `File` *inside* the utility and
+delegates to `validateExistingPath(File, File)`. Prefer this over `new File(taintedPath)` at the
+call site: it keeps the path construction — the static-analysis taint sink — inside
+`PathValidationUtils` rather than in the caller.
+
+```java
+// Preferred: the utility owns the construction
+File file = PathValidationUtils.validateExistingPath(filePath, docDir);
+
+// Avoid: builds the tainted File at the call site
+File file = PathValidationUtils.validateExistingPath(new File(filePath), docDir);
+```
+
+**Returns**: `File` - The validated file
+
+**Throws**: `SecurityException` if the path is null/blank or resolves outside `allowedDir`
+
+### getRequiredDocumentDirectory()
+
+**Use for**: Resolving `DOCUMENT_DIR` when an unconfigured value must **fail closed**.
+
+**What it does**: Reads `DOCUMENT_DIR`, requires it to be non-blank and an existing directory, and
+returns its canonical `File`. Use this instead of `resolveConfiguredDirectory(...)` on paths where a
+missing property previously caused validation to be skipped silently.
+
+**Returns**: `File` - The canonical `DOCUMENT_DIR`
+
+**Throws**: `IOException` if `DOCUMENT_DIR` is unset, blank, not a directory, or cannot be canonicalized
+
+### validateExistingDocumentPath(String path)
+
+**Use for**: Validating an application-created path that must live under `DOCUMENT_DIR`.
+
+**What it does**: Combines the two methods above — resolves `DOCUMENT_DIR` fail-closed, then checks
+containment of `path` within it.
+
+**Containment only.** Like `validateExistingPath`, it canonicalizes and checks directory
+containment; it does **not** assert that the target exists or is a regular file. Callers needing
+those guarantees must still check `exists()` / `isFile()` themselves.
+
+**Returns**: `File` - The validated file, contained within `DOCUMENT_DIR`
+
+**Throws**: `IOException` if `DOCUMENT_DIR` is unavailable; `SecurityException` if the path is
+null/blank or resolves outside it
+
 ### validateUpload(File sourceFile)
 
 **Use for**: Validating uploaded source files from Struts2/Tomcat.
@@ -302,10 +351,10 @@ example, `validatePath(String userInput, File allowedDir)` maps `Argument[1]`
 
 | Extensible | Description |
 |---|---|
-| `summaryModel` | PathValidationUtils methods: `validatePath`, `validatePathComponent`, `validateExistingPath`, `validateUpload` (2 overloads) |
+| `summaryModel` | PathValidationUtils methods: `validatePath`, `validatePathComponent`, `validateUserFilePath`, `validateExistingPath` (both the `File` and `String` overloads), `validateUpload` (2 overloads) |
 | `summaryModel` | Wrapper methods that internally call PathValidationUtils (e.g., `MEDITECHHandler.validateAndGetFile`, `FaxManagerImpl.resolveAndValidateFilePath`, `NioFileManagerImpl.getOscarDocument`) |
 | `neutralModel` | Boolean guard predicates: `isInAllowedTempDirectory`, `Util.isPathWithinDirectory`, `IncomingDocUtil.isPathWithinBounds` |
-| `neutralModel` | Static sanitizer wrappers with no safe argument to model: `EDocUtil.resolvePath` |
+| `neutralModel` | Static sanitizer wrappers with no safe argument to model: `EDocUtil.resolvePath`, `validateExistingDocumentPath` (its allowed directory is resolved internally, not passed in), `getRequiredDocumentDirectory` (no arguments at all) |
 
 ### When Adding New PathValidationUtils Methods
 
