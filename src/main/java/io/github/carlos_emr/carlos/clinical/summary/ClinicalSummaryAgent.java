@@ -8,5 +8,12 @@ import java.io.IOException;
 public interface ClinicalSummaryAgent {
     String displayName();
 
+    /**
+     * Revalidate the backend and return an immutable model/configuration revision for caching.
+     * Null opts out: an agent display name alone cannot identify changing downstream models.
+     * Implementations must not include source text or credentials in this identity.
+     */
+    default String cacheIdentity() throws IOException { return null; }
+
     JsonNode generate(JsonNode request) throws IOException;
 }

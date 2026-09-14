@@ -26,6 +26,40 @@ public final class OllamaClinicalSummaryAgent implements ClinicalSummaryAgent {
     public String displayName() { return model + " via local Ollama"; }
 
     @Override
+    public String cacheIdentity() throws IOException {
+        verifyLocalModel();
+        // Digest identifies weights/template/parameters even when an operator reuses a model tag.
+        // Missing metadata disables caching rather than trusting the mutable tag.
+        JsonNode tags;
+        JsonNode version;
+        try {
+            tags = get(port, "/api/tags", Math.min(timeoutMs, 3000));
+            version = get(port, "/api/version", Math.min(timeoutMs, 3000));
+        } catch (IOException unavailable) {
+            return null;
+        }
+        if (tags == null || !tags.path("models").isArray() || version == null
+                || !version.path("version").isTextual() || version.path("version").asText().isBlank()) return null;
+        for (JsonNode tag : tags.get("models")) {
+            if (model.equals(tag.path("name").asText()) && tag.path("digest").isTextual()
+                    && tag.path("digest").asText().matches("(?:sha256:)?[a-f0-9]{64}")) {
+                return "ollama:" + port + ":" + model + ":" + tag.get("digest").asText()
+                        + ":" + version.get("version").asText() + ":no-think:temp0:ctx65536:predict4096";
+            }
+        }
+        return null;
+    }
+
+    private void verifyLocalModel() throws IOException {
+        JsonNode info = post(port, "/api/show", JSON.writeValueAsBytes(JSON.createObjectNode().put("model", model)),
+                Math.min(timeoutMs, 3000));
+        if (info == null || !info.isObject() || !info.path("remote_model").asText("").isBlank()
+                || !info.path("remote_host").asText("").isBlank()) {
+            throw new IOException("Cloud-backed Ollama models are not permitted");
+        }
+    }
+
+    @Override
     public JsonNode generate(JsonNode request) throws IOException {
         ObjectNode bundle = JSON.createObjectNode();
         bundle.set("sources", request.get("sources").deepCopy());
@@ -37,11 +71,7 @@ public final class OllamaClinicalSummaryAgent implements ClinicalSummaryAgent {
         payload.putObject("options").put("temperature", 0).put("num_ctx", 65536).put("num_predict", 4096);
         byte[] body = JSON.writeValueAsBytes(payload);
         if (body.length > MAX_REQUEST_BYTES) throw new IllegalArgumentException("Ollama context limit exceeded");
-        JsonNode info = post(port, "/api/show", JSON.writeValueAsBytes(JSON.createObjectNode().put("model", model)), timeoutMs);
-        if (info == null || !info.isObject() || !info.path("remote_model").asText("").isBlank()
-                || !info.path("remote_host").asText("").isBlank()) {
-            throw new IOException("Cloud-backed Ollama models are not permitted");
-        }
+        verifyLocalModel();
         JsonNode response = post(port, "/api/generate", body, timeoutMs);
         if (response == null || !response.isObject() || !response.path("done").isBoolean()
                 || !response.path("done").booleanValue() || !"stop".equals(response.path("done_reason").asText())

@@ -40,8 +40,16 @@ final class ClinicalSummaryAgentProtocol {
     }
 
     static JsonNode post(int port, String path, byte[] body, int timeoutMs) throws IOException {
+        return exchange(port, path, body, timeoutMs);
+    }
+
+    static JsonNode get(int port, String path, int timeoutMs) throws IOException {
+        return exchange(port, path, null, timeoutMs);
+    }
+
+    private static JsonNode exchange(int port, String path, byte[] body, int timeoutMs) throws IOException {
         validateConnection(port, timeoutMs);
-        if (!path.matches("/[A-Za-z0-9/_-]+") || body.length > MAX_REQUEST_BYTES) {
+        if (!path.matches("/[A-Za-z0-9/_-]+") || (body != null && body.length > MAX_REQUEST_BYTES)) {
             throw new IllegalArgumentException("Invalid agent path or oversized request");
         }
         HttpURLConnection connection = (HttpURLConnection) URI.create("http://127.0.0.1:" + port + path)
@@ -49,13 +57,17 @@ final class ClinicalSummaryAgentProtocol {
         connection.setInstanceFollowRedirects(false);
         connection.setConnectTimeout(3000);
         connection.setReadTimeout(timeoutMs);
-        connection.setRequestMethod("POST");
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setDoOutput(true);
-        connection.setFixedLengthStreamingMode(body.length);
+        connection.setRequestMethod(body == null ? "GET" : "POST");
+        if (body != null) {
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setDoOutput(true);
+            connection.setFixedLengthStreamingMode(body.length);
+        }
         try {
-            try (var output = connection.getOutputStream()) {
-                output.write(body);
+            if (body != null) {
+                try (var output = connection.getOutputStream()) {
+                    output.write(body);
+                }
             }
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
                 throw new IOException("Agent request rejected");
