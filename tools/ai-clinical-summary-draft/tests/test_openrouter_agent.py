@@ -1,12 +1,13 @@
 # Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later.
 import copy
-from http.server import HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import io
 import json
 from pathlib import Path
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
@@ -60,7 +61,8 @@ class OpenRouterTest(unittest.TestCase):
         self.assertEqual(1, len(self.calls))
         self.assertEqual(1, self.gateway.cache_hits)
         payload = self.calls[0]
-        self.assertEqual({'only': ['deepinfra'], 'allow_fallbacks': False, 'require_parameters': True,
+        self.assertEqual({'enabled': False}, payload['reasoning'])
+        self.assertEqual({'only': ['venice'], 'allow_fallbacks': False, 'require_parameters': True,
                           'data_collection': 'deny', 'zdr': True}, payload['provider'])
         schema = payload['response_format']['json_schema']['schema']
         self.assertEqual(1, schema['properties']['coverage']['maxItems'])
@@ -190,7 +192,10 @@ class OpenRouterTest(unittest.TestCase):
         url = f'http://127.0.0.1:{server.server_port}'
         try:
             with opener.open(url + '/health') as response:
-                self.assertEqual('carlos-openrouter-synthetic', json.load(response)['service'])
+                health = json.load(response)
+                self.assertEqual('carlos-openrouter-synthetic', health['service'])
+                self.assertEqual(self.config['provider'], health['provider'])
+                self.assertNotIn('api_key', health)
             request = Request(url + agent.PATH, data=json.dumps(self.request).encode(),
                               headers={'Content-Type': 'application/json'})
             with opener.open(request) as response:
@@ -237,6 +242,72 @@ class OpenRouterTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 agent.loads(raw)
 
+    def test_provider_schema_omits_unsupported_keyword_but_preserves_host_schema(self):
+        original = copy.deepcopy(self.gateway.schema)
+        self.gateway.run(self.request)
+        schema = self.calls[0]['response_format']['json_schema']['schema']
+        self.assertNotIn('uniqueItems', json.dumps(schema))
+        self.assertIn('uniqueItems', json.dumps(original))
+        self.assertEqual(original, self.gateway.schema)
+        self.assertFalse(schema['additionalProperties'])
+        self.assertEqual(['note-611'], schema['properties']['coverage']['items']['properties']['source_id']['enum'])
+
+    def test_duplicate_references_still_rejected_before_caching(self):
+        baseline = self.gateway.run(self.request)['output']
+        self.gateway.cache.clear()
+        self.gateway.cache_bytes = 0
+        for collection, field in (('claims', 'source_ids'), ('sections', 'claim_ids')):
+            output = copy.deepcopy(baseline)
+            output[collection][0][field] *= 2
+            self.gateway.transport = lambda *_args: {'model': self.config['model'], 'choices': [
+                {'finish_reason': 'stop', 'message': {'content': json.dumps(output)}}]}
+            with self.subTest(collection=collection), self.assertRaises(ValueError):
+                self.gateway.run(self.request)
+            self.assertFalse(self.gateway.cache)
+
+    def test_http_200_schema_error_has_safe_actionable_diagnostic(self):
+        value = {'error': {'message': 'Upstream error: Grammar error: Unimplemented keys: '
+                                     '["uniqueItems"] private-key-or-source', 'code': 502}}
+        with patch.object(agent, 'build_opener') as opener:
+            response = opener.return_value.open.return_value.__enter__.return_value
+            response.read1.side_effect = [json.dumps(value).encode(), b'']
+            response.isclosed.return_value = False
+            with self.assertRaises(agent.UpstreamError) as raised:
+                agent.api_request(self.config, 'key')
+            self.assertEqual('Provider rejected the structured-output schema; no draft accepted', str(raised.exception))
+        for malformed in (None, 'secret', {'code': []}, {'message': {}, 'code': True}):
+            self.assertEqual('OpenRouter returned an API error; no draft accepted', str(agent.api_error(malformed)))
+        self.assertEqual('Rate limited; wait before retrying (API 429)', str(agent.api_error({'code': 429})))
+
+    def test_keepalive_whitespace_cannot_extend_response_deadline(self):
+        class DrippingHandler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def do_GET(self):
+                self.send_response(200)
+                self.end_headers()
+                try:
+                    for _ in range(50):
+                        self.wfile.write(b' ')
+                        self.wfile.flush()
+                        time.sleep(0.03)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+        server = HTTPServer(('127.0.0.1', 0), DrippingHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with build_opener(ProxyHandler({})).open(f'http://127.0.0.1:{server.server_port}', timeout=2) as response:
+                started = time.monotonic()
+                with self.assertRaises(TimeoutError):
+                    agent.read_response(response, started + 0.15)
+                self.assertLess(time.monotonic() - started, 0.8)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
     def test_upstream_timeout_is_sanitized_without_retry(self):
         with patch.object(agent, 'build_opener') as opener:
             opener.return_value.open.side_effect = TimeoutError('private exception text')
@@ -244,6 +315,41 @@ class OpenRouterTest(unittest.TestCase):
                 agent.api_request(self.config, 'key')
             self.assertEqual('OpenRouter connection, timeout, or response-format failure', str(raised.exception))
             self.assertEqual(1, opener.return_value.open.call_count)
+
+    def test_temporary_rate_limit_retries_then_caches_valid_result(self):
+        calls = []
+        def temporary(config, endpoint, payload):
+            calls.append(payload)
+            if len(calls) == 1:
+                raise agent.RateLimitError('Rate limited')
+            return completion(config, endpoint, payload)
+        self.gateway.transport = temporary
+        with patch.object(agent.time, 'sleep') as sleep:
+            self.gateway.run(self.request)
+            self.gateway.run(self.request)
+            sleep.assert_called_once_with(2)
+        self.assertEqual(2, len(calls))
+        self.assertEqual(1, self.gateway.cache_hits)
+
+    def test_rate_limit_retries_are_bounded_and_never_cached(self):
+        for retry_after, expected_calls in ((None, 3), (20, 1)):
+            with self.subTest(retry_after=retry_after), patch.object(agent.time, 'sleep') as sleep:
+                with patch.object(self.gateway, 'transport', side_effect=agent.RateLimitError(
+                        'Rate limited', retry_after)) as transport:
+                    with self.assertRaises(agent.RateLimitError):
+                        self.gateway.run(self.request)
+                    self.assertEqual(expected_calls, transport.call_count)
+                    self.assertEqual(expected_calls - 1, sleep.call_count)
+            self.assertFalse(self.gateway.cache)
+
+    def test_retry_after_header_is_retained_without_logging_upstream_body(self):
+        error = HTTPError(agent.API, 429, 'private upstream text', {'Retry-After': '5'}, io.BytesIO(b'private'))
+        with patch.object(agent, 'build_opener') as opener:
+            opener.return_value.open.side_effect = error
+            with self.assertRaises(agent.RateLimitError) as raised:
+                agent.api_request(self.config, 'key')
+        self.assertEqual(5, raised.exception.retry_after)
+        self.assertEqual('Rate limited; wait before retrying (HTTP 429)', str(raised.exception))
 
     def test_total_time_budget_rejects_late_results_before_cache(self):
         def late(config, endpoint, payload):
