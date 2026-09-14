@@ -70,3 +70,29 @@ License: AGPL-3.0-only
  .
  On Debian systems, the complete text of the GNU Affero General Public License
  version 3 can be found in "/usr/share/common-licenses/AGPL-3".
+
+Files: debian/chromium.pin debian/fetch-chromium.sh
+Copyright: 2026 CARLOS Contributors
+License: GPL-2.0-or-later
+Comment:
+ These two files carry no upstream code; they pin and fetch it. The binary they
+ produce is described below.
+ .
+ The carlos-emr-eform-renderer BINARY package ships a prebuilt Chromium and
+ chromedriver under /usr/lib/carlos-emr/chromium. They are NOT in this source
+ package: debian/rules downloads the revision pinned in debian/chromium.pin from
+ the upstream Chromium continuous-build archive and verifies its sha256 before
+ unpacking it.
+ .
+ These are Chromium builds, not Google Chrome. That distinction is deliberate
+ and load-bearing: the chrome-for-testing downloads that are usually used for
+ this purpose are Google Chrome binaries governed by the Google Chrome Terms of
+ Service, which do not permit redistribution inside this package. Chromium
+ itself is BSD-3-Clause, with bundled third-party components under a set of
+ permissive and copyleft licences enumerated in the browser's own about:credits
+ and in the LICENSE file shipped alongside the binary.
+ .
+ Ubuntu 26.04 provides no Chromium .deb to depend on instead — every chromium-*
+ package in the archive is a transitional shim for the chromium snap, and a
+ confined snap cannot read the renderer's working directories under
+ /var/lib/carlos-emr.

@@ -39,6 +39,7 @@ public class FaxRecipient {
 
     private String name;
     private String fax;
+    private String rawFax;
     private Date sent;
     private STATUS status;
 
@@ -73,12 +74,18 @@ public class FaxRecipient {
     }
 
     public void setFax(String fax) {
+        rawFax = fax;
         // Normalize then assign consistently. Previously a blank/null input was a silent no-op (it kept
         // a stale previous value) while a non-blank input with no digits stored "" — two trap states on
         // a mutable, reusable bean that could send a fax to a stale or empty destination. Now: strip to
         // digits; an absent or digit-less input clears the field to null.
         String digits = (fax == null) ? null : fax.replaceAll("\\D", "");
         this.fax = (digits == null || digits.isEmpty()) ? null : digits;
+    }
+
+    /** Original destination, preserving '+' for provider-aware international validation. */
+    public String getRawFax() {
+        return rawFax;
     }
 
     /** True when this recipient carries a usable (non-empty, digits-only) fax destination. */
