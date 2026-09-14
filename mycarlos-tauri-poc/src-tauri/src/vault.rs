@@ -99,6 +99,8 @@ pub enum VaultError {
     Missing,
     #[error("the vault is locked")]
     Locked,
+    #[error("the vault is open in another app instance")]
+    InUse,
     #[error("the passphrase is incorrect")]
     WrongPassphrase,
     #[error("the vault data is damaged or incomplete")]
@@ -307,6 +309,8 @@ struct UnlockedVault {
     master_key: Zeroizing<[u8; 32]>,
     manifest: Manifest,
     degraded: bool,
+    // Keep the OS lock until the session (and any operation using it) ends.
+    storage_lock: Arc<File>,
 }
 
 pub struct VaultStore {
@@ -324,19 +328,18 @@ impl VaultStore {
         }
     }
 
-    pub fn status(&self) -> VaultStatus {
-        if self
-            .unlocked
-            .lock()
-            .expect("vault mutex poisoned")
-            .is_some()
-        {
-            VaultStatus::Unlocked
-        } else if self.root.exists() {
+    pub fn status(&self) -> Result<VaultStatus, VaultError> {
+        let guard = self.unlocked.lock().expect("vault mutex poisoned");
+        if guard.is_some() {
+            return Ok(VaultStatus::Unlocked);
+        }
+        let _storage_lock = acquire_storage_lock(&self.root)?;
+        finish_pending_resets(&self.root)?;
+        Ok(if self.root.exists() {
             VaultStatus::Locked
         } else {
             VaultStatus::Absent
-        }
+        })
     }
 
     pub fn create(
@@ -348,6 +351,11 @@ impl VaultStore {
         validate_name(initial_profile)?;
         validate_new_passphrase(passphrase, &[initial_profile])?;
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
+        if guard.is_some() {
+            return Err(VaultError::AlreadyExists);
+        }
+        let storage_lock = acquire_storage_lock(&self.root)?;
+        finish_pending_resets(&self.root)?;
         self.cancel_io.store(false, Ordering::Release);
         if self.root.exists() {
             return Err(VaultError::AlreadyExists);
@@ -394,6 +402,7 @@ impl VaultStore {
             fs::rename(&stage, &self.root)?;
             sync_parent(parent);
             *guard = Some(UnlockedVault {
+                storage_lock,
                 master_key,
                 manifest,
                 degraded: false,
@@ -411,6 +420,11 @@ impl VaultStore {
             return Err(VaultError::Invalid);
         }
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
+        let storage_lock = match guard.as_ref() {
+            Some(unlocked) => Arc::clone(&unlocked.storage_lock),
+            None => acquire_storage_lock(&self.root)?,
+        };
+        finish_pending_resets(&self.root)?;
         self.cancel_io.store(false, Ordering::Release);
         let (header, master_key, wrapping_key) =
             read_header_for_passphrase(&self.root, passphrase)?;
@@ -442,6 +456,7 @@ impl VaultStore {
         remove_staging(&self.root);
         remove_orphan_objects(&self.root, &manifest);
         *guard = Some(UnlockedVault {
+            storage_lock,
             master_key,
             manifest,
             degraded,
@@ -777,7 +792,11 @@ impl VaultStore {
         let vault_root = fs::canonicalize(&self.root)?;
         let destination_parent = destination.parent().ok_or(VaultError::Invalid)?;
         let destination_parent = fs::canonicalize(destination_parent)?;
-        if destination_parent.starts_with(vault_root) {
+        let destination_name = destination.file_name().ok_or(VaultError::Invalid)?;
+        if destination_parent.starts_with(&vault_root)
+            || destination_parent.starts_with(reset_path(&vault_root)?)
+            || destination_parent.join(destination_name) == sibling_path(&vault_root, ".lock")?
+        {
             return Err(VaultError::Invalid);
         }
 
@@ -894,30 +913,27 @@ impl VaultStore {
     pub fn reset(&self) -> Result<(), VaultError> {
         self.cancel_io.store(true, Ordering::Release);
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
+        let _storage_lock = match guard.as_ref() {
+            Some(unlocked) => Arc::clone(&unlocked.storage_lock),
+            None => acquire_storage_lock(&self.root)?,
+        };
         *guard = None;
+        let resumed = finish_pending_resets(&self.root)?;
         if !self.root.exists() {
-            return Err(VaultError::Missing);
-        }
-        let retired = self
-            .root
-            .with_file_name(format!("mycarlos-vault-reset-{}", Uuid::new_v4()));
-        fs::rename(&self.root, &retired)?;
-        match fs::remove_dir_all(&retired) {
-            Ok(()) => {
-                if let Some(parent) = self.root.parent() {
-                    sync_parent(parent);
-                }
+            return if resumed {
                 Ok(())
-            }
-            Err(error) => {
-                // Keep a failed or partially completed reset visible as the vault path instead of
-                // silently presenting an empty setup screen while retired encrypted data remains.
-                if !self.root.exists() {
-                    let _ = fs::rename(&retired, &self.root);
-                }
-                Err(error.into())
-            }
+            } else {
+                Err(VaultError::Missing)
+            };
         }
+        let retired = reset_path(&self.root)?;
+        fs::rename(&self.root, &retired)?;
+        if let Some(parent) = self.root.parent() {
+            sync_parent(parent);
+        }
+        terminate_at_test_boundary("reset.after-rename");
+        finish_pending_resets(&self.root)?;
+        Ok(())
     }
 
     fn read_header(&self) -> Result<VaultHeader, VaultError> {
@@ -1927,6 +1943,81 @@ fn read_chunk(reader: &mut dyn Read, buffer: &mut [u8]) -> Result<usize, VaultEr
     Ok(used)
 }
 
+fn sibling_path(root: &Path, suffix: &str) -> Result<PathBuf, VaultError> {
+    let mut name = root.file_name().ok_or(VaultError::Storage)?.to_os_string();
+    name.push(suffix);
+    Ok(root.with_file_name(name))
+}
+
+fn acquire_storage_lock(root: &Path) -> Result<Arc<File>, VaultError> {
+    let parent = root.parent().ok_or(VaultError::Storage)?;
+    fs::create_dir_all(parent)?;
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create(true).truncate(false);
+    #[cfg(unix)]
+    options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    #[cfg(windows)]
+    options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+    // This file must never be unlinked or renamed, including during vault reset. Otherwise
+    // another process could lock a new inode while the old inode is still held.
+    let file = options.open(sibling_path(root, ".lock")?)?;
+    if !is_regular_non_reparse(&file.metadata()?) {
+        return Err(VaultError::Storage);
+    }
+    file.try_lock().map_err(|error| match error {
+        fs::TryLockError::WouldBlock => VaultError::InUse,
+        fs::TryLockError::Error(error) => error.into(),
+    })?;
+    Ok(Arc::new(file))
+}
+
+fn reset_path(root: &Path) -> Result<PathBuf, VaultError> {
+    sibling_path(root, ".reset-pending")
+}
+
+// The caller holds the stable sibling lock. A retired directory is itself the durable reset
+// intent, so partial deletion and process death can be retried without the passphrase.
+fn finish_pending_resets(root: &Path) -> Result<bool, VaultError> {
+    let parent = root.parent().ok_or(VaultError::Storage)?;
+    let pending = reset_path(root)?;
+    let mut resumed = false;
+    for entry in fs::read_dir(parent)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name();
+        let legacy = name.to_str().is_some_and(|name| {
+            name.strip_prefix("mycarlos-vault-reset-")
+                .is_some_and(|id| Uuid::parse_str(id).is_ok_and(|uuid| uuid.to_string() == id))
+        });
+        if path != pending && !legacy {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(&path)?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err(VaultError::Storage);
+        }
+        #[cfg(windows)]
+        if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return Err(VaultError::Storage);
+        }
+        fail_at_test_boundary("reset.before-cleanup")?;
+        // Erase key envelopes first. Keep the retired directory until all deletion succeeds.
+        for header in ["header-0.json", "header-1.json", "header.json"] {
+            match fs::remove_file(path.join(header)) {
+                Ok(()) => {}
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        sync_parent(&path);
+        terminate_at_test_boundary("reset.after-key-removal");
+        fs::remove_dir_all(&path)?;
+        sync_parent(parent);
+        resumed = true;
+    }
+    Ok(resumed)
+}
+
 fn read_bounded_regular_file(path: &Path, maximum: usize) -> io::Result<Vec<u8>> {
     let file = open_regular_read(path)?;
     let metadata = file.metadata()?;
@@ -2374,6 +2465,7 @@ mod tests {
                     .unwrap();
             }
             "delete" => store.delete_record(snapshot.records[0].id).unwrap(),
+            "reset" => store.reset().unwrap(),
             _ => panic!("unknown termination-child operation"),
         }
         panic!("configured termination boundary was not reached");
@@ -2387,6 +2479,18 @@ mod tests {
         };
         let operation = std::env::var("MYCARLOS_TEST_OPERATION").unwrap();
         let store = VaultStore::new(PathBuf::from(root));
+        if operation == "reset-recovery" {
+            assert!(matches!(store.status(), Err(VaultError::NoSpace)));
+            assert!(matches!(
+                store.create(PASSWORD, "Jamie", 3),
+                Err(VaultError::NoSpace)
+            ));
+            assert!(matches!(store.unlock(PASSWORD), Err(VaultError::NoSpace)));
+            assert!(matches!(store.reset(), Err(VaultError::NoSpace)));
+            assert!(!store.root.exists());
+            assert!(reset_path(&store.root).unwrap().exists());
+            return;
+        }
         store.unlock(PASSWORD).unwrap();
         let snapshot = store.snapshot().unwrap();
         if operation == "unlock-degraded" {
@@ -2431,6 +2535,176 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "invoked by the cross-process vault ownership regression"]
+    fn storage_lock_child() {
+        let Ok(root) = std::env::var("MYCARLOS_TEST_ROOT") else {
+            return;
+        };
+        let store = VaultStore::new(PathBuf::from(root));
+        if std::env::var("MYCARLOS_TEST_OPERATION").as_deref() == Ok("denied") {
+            assert!(matches!(store.status(), Err(VaultError::InUse)));
+            assert!(matches!(
+                store.create(PASSWORD, "Jamie", 2),
+                Err(VaultError::InUse)
+            ));
+            assert!(matches!(store.unlock(PASSWORD), Err(VaultError::InUse)));
+            assert!(matches!(store.reset(), Err(VaultError::InUse)));
+        } else {
+            store.unlock(PASSWORD).unwrap();
+            let snapshot = store.snapshot().unwrap();
+            assert_eq!(snapshot.records.len(), 1);
+            store
+                .create_folder(snapshot.profiles[0].id, None, "Second process", 3)
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn concurrent_processes_cannot_overwrite_or_reset_an_open_vault() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let run_child = |operation: &str| {
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args(["--ignored", "--exact", "vault::tests::storage_lock_child"])
+                .env("MYCARLOS_TEST_ROOT", &root)
+                .env("MYCARLOS_TEST_OPERATION", operation)
+                .status()
+                .unwrap();
+            assert!(status.success(), "{operation}");
+        };
+        run_child("denied");
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let record = store
+            .import(
+                profile,
+                vec![],
+                vec![source("report.pdf", b"keep this record")],
+                2,
+            )
+            .unwrap()
+            .imported[0];
+        assert!(matches!(
+            store.export_atomic(record, &sibling_path(&root, ".lock").unwrap()),
+            Err(VaultError::Invalid)
+        ));
+        assert!(matches!(
+            VaultStore::new(root.clone()).unlock(PASSWORD),
+            Err(VaultError::InUse)
+        ));
+        store.lock();
+        run_child("write");
+        store.unlock(PASSWORD).unwrap();
+        let mut output = Vec::new();
+        store.export(record, &mut output).unwrap();
+        assert_eq!(output, b"keep this record");
+        assert_eq!(store.snapshot().unwrap().folders[0].name, "Second process");
+    }
+
+    #[test]
+    fn session_ownership_survives_reunlock_and_releases_on_drop() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let first = VaultStore::new(root.clone());
+        let second = VaultStore::new(root);
+        first.create(PASSWORD, "Jamie", 1).unwrap();
+        first.unlock(PASSWORD).unwrap();
+        assert!(matches!(second.unlock(PASSWORD), Err(VaultError::InUse)));
+        assert!(matches!(
+            first.unlock("wrong"),
+            Err(VaultError::WrongPassphrase)
+        ));
+        assert!(matches!(second.reset(), Err(VaultError::InUse)));
+        drop(first);
+        second.unlock(PASSWORD).unwrap();
+        second.reset().unwrap();
+        assert_eq!(second.status().unwrap(), VaultStatus::Absent);
+    }
+
+    #[test]
+    fn interrupted_reset_is_finished_before_startup_or_creation() {
+        for boundary in ["reset.after-rename", "reset.after-key-removal"] {
+            for create_directly in [false, true] {
+                let temp = tempfile::tempdir().unwrap();
+                let root = temp.path().join("vault");
+                let store = VaultStore::new(root.clone());
+                store.create(PASSWORD, "Jamie", 1).unwrap();
+                let profile = store.snapshot().unwrap().profiles[0].id;
+                store
+                    .import(profile, vec![], vec![source("old.pdf", b"old record")], 2)
+                    .unwrap();
+                store.lock();
+                run_termination_child(&root, "reset", boundary);
+                let retired = reset_path(&root).unwrap();
+                assert!(!root.exists());
+                assert!(retired.exists());
+                let restarted = VaultStore::new(root);
+                if create_directly {
+                    restarted.create(PASSWORD, "New profile", 3).unwrap();
+                    assert!(restarted.snapshot().unwrap().records.is_empty());
+                } else {
+                    assert_eq!(restarted.status().unwrap(), VaultStatus::Absent);
+                }
+                assert!(!retired.exists());
+            }
+        }
+    }
+
+    #[test]
+    fn failed_reset_cleanup_blocks_access_and_can_be_retried() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        store.lock();
+        let retired = reset_path(&root).unwrap();
+        fs::rename(&root, &retired).unwrap();
+        run_failure_child(&root, "reset-recovery", "reset.before-cleanup");
+        assert!(retired.join("header-0.json").exists());
+        store.reset().unwrap();
+        assert!(!retired.exists());
+        assert_eq!(store.status().unwrap(), VaultStatus::Absent);
+    }
+
+    #[test]
+    fn startup_cleans_legacy_reset_directories_without_removing_unrelated_paths() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        store.lock();
+        let retired = temp
+            .path()
+            .join(format!("mycarlos-vault-reset-{}", Uuid::new_v4()));
+        fs::rename(&root, &retired).unwrap();
+        let unrelated = temp.path().join("mycarlos-vault-reset-not-a-uuid");
+        fs::create_dir(&unrelated).unwrap();
+        assert_eq!(store.status().unwrap(), VaultStatus::Absent);
+        assert!(!retired.exists());
+        assert!(unrelated.exists());
+        assert!(sibling_path(&root, ".lock").unwrap().exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pending_reset_symlinks_fail_closed() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let target = temp.path().join("unrelated");
+        fs::create_dir(&target).unwrap();
+        fs::write(target.join("keep"), b"unrelated data").unwrap();
+        std::os::unix::fs::symlink(&target, reset_path(&root).unwrap()).unwrap();
+        let store = VaultStore::new(root);
+        assert!(matches!(store.status(), Err(VaultError::Storage)));
+        assert!(matches!(
+            store.create(PASSWORD, "Jamie", 1),
+            Err(VaultError::Storage)
+        ));
+        assert!(target.join("keep").exists());
+    }
+
+    #[test]
     fn vault_round_trip_survives_lock_and_restart() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("vault");
@@ -2448,7 +2722,7 @@ mod tests {
             .unwrap();
         let record = imported.imported[0];
         store.lock();
-        assert_eq!(store.status(), VaultStatus::Locked);
+        assert_eq!(store.status().unwrap(), VaultStatus::Locked);
 
         let restarted = VaultStore::new(root);
         restarted.unlock(PASSWORD).unwrap();
@@ -2753,7 +3027,7 @@ mod tests {
 
         assert!(matches!(import.join().unwrap(), Err(VaultError::Cancelled)));
         lock.join().unwrap();
-        assert_eq!(store.status(), VaultStatus::Locked);
+        assert_eq!(store.status().unwrap(), VaultStatus::Locked);
         assert_eq!(fs::read_dir(root.join("objects")).unwrap().count(), 0);
         assert_eq!(fs::read_dir(root.join("staging")).unwrap().count(), 0);
     }
@@ -2938,12 +3212,12 @@ mod tests {
         fs::create_dir(&root).unwrap();
         let store = VaultStore::new(root.clone());
 
-        assert_eq!(store.status(), VaultStatus::Locked);
+        assert_eq!(store.status().unwrap(), VaultStatus::Locked);
         assert!(matches!(store.unlock(PASSWORD), Err(VaultError::Corrupt)));
         store.reset().unwrap();
-        assert_eq!(store.status(), VaultStatus::Absent);
+        assert_eq!(store.status().unwrap(), VaultStatus::Absent);
         store.create(PASSWORD, "Jamie", 1).unwrap();
-        assert_eq!(store.status(), VaultStatus::Unlocked);
+        assert_eq!(store.status().unwrap(), VaultStatus::Unlocked);
     }
 
     #[test]

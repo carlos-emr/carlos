@@ -29,6 +29,10 @@ privacy, accessibility, or clinical review.
       concealment, and persisted one-to-fifteen-minute inactivity configuration with the approved
       five-minute default.
 - [x] Confirmed passphrase change and typed plus trusted-native-confirmation whole-vault reset.
+- [x] Exclusive OS ownership across app instances for unlocked sessions and lifecycle operations;
+      subprocess coverage verifies rejection and fresh-state handoff after ownership release.
+- [x] Interrupted-reset recovery before startup/access/creation, including legacy retired directories,
+      abrupt exit after rename/key removal, retryable cleanup failures, and symlink rejection.
 - [x] Confirmed individual deletion from the live vault with both manifest slots rewritten without
       the wrapped object key and ciphertext removed between the two durable commits.
 - [x] Abrupt-process-termination recovery matrix after object chunk writes, staging, object rename,

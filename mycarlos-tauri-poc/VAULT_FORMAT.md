@@ -34,6 +34,8 @@ patient-pilot work.
 ## Files and transactions
 
 ```text
+vault-v1.lock          stable OS lock file; never rename or delete while the app is running
+vault-v1.reset-pending/ retired vault awaiting completion of an already-confirmed reset
 vault-v1/
   header-0.json        non-secret KDF configuration, wrapped master key, and keyed integrity tag
   header-1.json        redundant generation-bound wrapped-key and integrity-tag slot
@@ -42,6 +44,20 @@ vault-v1/
   objects/<uuid>.mcobj authenticated encrypted record stream
   staging/<job-id>/    incomplete imports, removed after failure or next unlock
 ```
+
+An exclusive OS file lock is held throughout each unlocked session and during creation, reset,
+and startup recovery. Another app instance receives an `in_use` error before it can read mutable
+state or perform cleanup. Locking or closing the owning session releases ownership; the next
+instance must unlock and load the current manifests. The lock file lives outside the vault so
+reset cannot replace the inode/handle being locked. It contains no secret material.
+
+Whole-vault reset renames the vault to the fixed `vault-v1.reset-pending/` sibling before removing
+key envelopes and the remaining files. Startup status, creation, unlock, and reset all finish this
+cleanup under the same OS lock before proceeding. A cleanup error is surfaced and blocks access
+and creation until retry succeeds. Recovery also recognizes the exact UUID-suffixed retired
+directories left by earlier evaluation builds. Symlink/reparse-point reset directories are
+rejected. Abrupt-exit tests cover the rename and key-removal boundaries; physical power-cut and
+filesystem durability validation remain release gates.
 
 The encrypted manifest contains profiles, nested folders, folder assignments, immutable imported
 filenames, sizes, timestamps, unverified-source labels, per-record fingerprints, opaque object

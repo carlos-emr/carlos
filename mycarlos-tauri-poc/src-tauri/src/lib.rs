@@ -63,6 +63,10 @@ impl From<VaultError> for PublicError {
                 code: "locked",
                 message: "Unlock the vault to continue.",
             },
+            VaultError::InUse => Self {
+                code: "in_use",
+                message: "This vault is open in another myCarlos window. Lock or close that window, then try again.",
+            },
             VaultError::WrongPassphrase => Self {
                 code: "wrong_passphrase",
                 message: "That passphrase did not unlock the vault.",
@@ -257,8 +261,12 @@ fn runtime_info() -> RuntimeInfo {
 }
 
 #[tauri::command]
-fn vault_status(store: State<'_, Arc<VaultStore>>) -> VaultStatus {
-    store.status()
+async fn vault_status(store: State<'_, Arc<VaultStore>>) -> CommandResult<VaultStatus> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || store.status())
+        .await
+        .map_err(|_| PublicError::from(VaultError::Storage))?
+        .map_err(Into::into)
 }
 
 #[tauri::command]
@@ -615,6 +623,11 @@ mod tests {
         let error = PublicError::from(VaultError::Storage);
         assert_eq!(error.code, "storage");
         assert!(!error.message.contains('/'));
+
+        let in_use = PublicError::from(VaultError::InUse);
+        assert_eq!(in_use.code, "in_use");
+        assert!(in_use.message.contains("Lock or close"));
+        assert!(!in_use.message.contains('/'));
 
         let weak = PublicError::from(VaultError::WeakPassphrase);
         assert_eq!(weak.code, "weak_passphrase");
