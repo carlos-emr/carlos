@@ -159,7 +159,7 @@ class SmsTransactionDaoImplUnitTest {
         SmsTransactionDaoImpl dao = newDao();
         Date now = copyOfFixedNow();
         SmsTransaction due = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         ReflectionTestUtils.setField(due, "id", 42L);
@@ -185,7 +185,7 @@ class SmsTransactionDaoImplUnitTest {
         Date staleBefore = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
         Date recoveryAt = Date.from(Instant.parse("2026-06-08T12:05:00Z"));
         SmsTransaction stale = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         ReflectionTestUtils.setField(stale, "id", 42L);

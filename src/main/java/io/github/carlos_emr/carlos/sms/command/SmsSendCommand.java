@@ -19,23 +19,23 @@ public record SmsSendCommand(
         }
     }
 
-    public static SmsSendCommand direct(
+    public static SmsSendCommand patientMessage(
             Integer demographicNo,
             String recipientPhoneNumber,
             String body,
             String requestedByHealthcareProviderNo
     ) {
-        return direct(demographicNo, recipientPhoneNumber, body, requestedByHealthcareProviderNo, null);
+        return patientMessage(demographicNo, recipientPhoneNumber, body, requestedByHealthcareProviderNo, null);
     }
 
-    public static SmsSendCommand direct(
+    public static SmsSendCommand patientMessage(
             Integer demographicNo,
             String recipientPhoneNumber,
             String body,
             String requestedByHealthcareProviderNo,
             Integer requestedBySecurityNo
     ) {
-        return direct(
+        return patientMessage(
                 demographicNo,
                 recipientPhoneNumber,
                 SmsRecipientPhoneType.CELL,
@@ -45,14 +45,14 @@ public record SmsSendCommand(
         );
     }
 
-    public static SmsSendCommand direct(
+    public static SmsSendCommand patientMessage(
             Integer demographicNo,
             String recipientPhoneNumber,
             SmsRecipientPhoneType recipientPhoneType,
             String body,
             String requestedByHealthcareProviderNo
     ) {
-        return direct(
+        return patientMessage(
                 demographicNo,
                 recipientPhoneNumber,
                 recipientPhoneType,
@@ -62,7 +62,7 @@ public record SmsSendCommand(
         );
     }
 
-    public static SmsSendCommand direct(
+    public static SmsSendCommand patientMessage(
             Integer demographicNo,
             String recipientPhoneNumber,
             SmsRecipientPhoneType recipientPhoneType,

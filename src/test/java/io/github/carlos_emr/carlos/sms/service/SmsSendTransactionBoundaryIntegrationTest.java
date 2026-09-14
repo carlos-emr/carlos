@@ -63,7 +63,7 @@ class SmsSendTransactionBoundaryIntegrationTest extends CarlosTestBase {
                 type -> true, new SmsDefaultProviderResolver(() -> "STUB")));
         try {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-            assertThat(service.send(SmsSendCommand.direct(123, "416-555-1212", "synthetic boundary test", "999998"))
+            assertThat(service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic boundary test", "999998"))
                     .status()).isEqualTo(SmsStatus.SENT);
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
         } finally {

@@ -73,7 +73,7 @@ class SmsQueuePersistenceIntegrationTest extends CarlosTestBase {
     @DisplayName("recovers a stale SENDING row and tags it with a claim token")
     void shouldClaimStaleSendingRow_whenLastAttemptIsOld() {
         SmsTransaction stale = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         stale.markSending(Date.from(Instant.parse("2026-06-08T11:00:00Z")));
@@ -108,7 +108,7 @@ class SmsQueuePersistenceIntegrationTest extends CarlosTestBase {
 
     private void persistQueued() {
         entityManager.persist(SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         ));
     }

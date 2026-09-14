@@ -18,7 +18,7 @@ class DeferredSmsConsentServiceUnitTest {
     @DisplayName("deferred consent blocks direct sends even when system-test override is enabled")
     void shouldBlockDirectSend_whenSystemTestOverrideIsEnabled() {
         SmsConsentDecisionDto decision = new DeferredSmsConsentService(() -> true)
-                .evaluate(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+                .evaluate(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
 
         assertBlockedForPendingConsent(decision);
     }

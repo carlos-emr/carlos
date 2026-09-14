@@ -27,7 +27,7 @@ class SmsMessageBodyReadServiceUnitTest {
         RecordingAuditor auditor = new RecordingAuditor();
         SmsMessageBodyReadService reader = new SmsMessageBodyReadService(authorizer, auditor);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 
@@ -79,7 +79,7 @@ class SmsMessageBodyReadServiceUnitTest {
                 }
         );
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 
@@ -99,7 +99,7 @@ class SmsMessageBodyReadServiceUnitTest {
                 auditor
         );
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 

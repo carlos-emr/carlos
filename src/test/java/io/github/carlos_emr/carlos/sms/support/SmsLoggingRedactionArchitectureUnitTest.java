@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
 @Tag("support")
-class SmsLoggingRedactionArchitectureTest {
+class SmsLoggingRedactionArchitectureUnitTest {
     private static final Path SMS_SOURCE_ROOT = Path.of("src/main/java/io/github/carlos_emr/carlos/sms");
 
     @Test

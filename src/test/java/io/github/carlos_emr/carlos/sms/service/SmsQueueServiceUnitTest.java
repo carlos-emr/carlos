@@ -43,7 +43,7 @@ class SmsQueueServiceUnitTest {
         );
 
         SmsSendResultDto result = service.enqueue(
-                SmsSendCommand.direct(
+                SmsSendCommand.patientMessage(
                         123,
                         "416-555-1212",
                         SmsRecipientPhoneType.HOME,
@@ -80,7 +80,7 @@ class SmsQueueServiceUnitTest {
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998")
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998")
         );
 
         assertThat(result)
@@ -107,7 +107,7 @@ class SmsQueueServiceUnitTest {
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998")
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998")
         );
 
         assertThat(result)
@@ -137,7 +137,7 @@ class SmsQueueServiceUnitTest {
         );
 
         SmsSendResultDto result = service.enqueue(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998")
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998")
         );
 
         assertThat(result.accepted()).isFalse();
@@ -166,7 +166,7 @@ class SmsQueueServiceUnitTest {
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998")
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998")
         );
 
         assertThat(result.accepted()).isFalse();
@@ -187,7 +187,7 @@ class SmsQueueServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.enqueue(SmsSendCommand.direct(0, "not-a-phone", " ", "999998"));
+        SmsSendResultDto result = service.enqueue(SmsSendCommand.patientMessage(0, "not-a-phone", " ", "999998"));
 
         assertThat(result.accepted()).isFalse();
         assertThat(result.status()).isEqualTo(SmsStatus.FAILED);
@@ -209,7 +209,7 @@ class SmsQueueServiceUnitTest {
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
-                SmsSendCommand.direct(0, "not-a-phone", " ", "999998")
+                SmsSendCommand.patientMessage(0, "not-a-phone", " ", "999998")
         );
 
         assertThat(result.accepted()).isFalse();
@@ -229,7 +229,7 @@ class SmsQueueServiceUnitTest {
         }, recorder, worker, new SmsDefaultProviderResolver(() -> "STUB"));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.enqueueAndProcessNow(
-                SmsSendCommand.direct(123, "416-555-1212", "Synthetic message", "999998")))
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Synthetic message", "999998")))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(recorder.transactions()).isEmpty();
         org.mockito.Mockito.verifyNoInteractions(worker);

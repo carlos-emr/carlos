@@ -36,7 +36,7 @@ class SmsQueueConcurrencyIntegrationTest extends CarlosTestBase {
         try (EntityManager setup = entityManagerFactory.createEntityManager()) {
             setup.getTransaction().begin();
             SmsTransaction queued = SmsTransaction.outboundAttempt(
-                    SmsSendCommand.direct(123, "416-555-1212", "synthetic concurrency test", "999998"),
+                    SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic concurrency test", "999998"),
                     SmsProviderType.STUB);
             setup.persist(queued);
             setup.getTransaction().commit();

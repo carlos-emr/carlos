@@ -66,7 +66,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     @DisplayName("conflicting callback identifiers cannot overwrite a different outbound message")
     void shouldRejectConflictingIdentifiers_whenDeliveryCallbackMatchesOnlyClientReference() {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "synthetic", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic", "999998"),
                 SmsProviderType.STUB, SmsConsentDecisionDto.permit());
         outbound.markProviderResult(SmsProviderSendResultDto.accepted("correct-provider-id", SmsStatus.SENT));
         entityManager.flush();
@@ -80,7 +80,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     @DisplayName("denied outbound attempts are never claimable and do not store the message body")
     void shouldPersistOnlyBlockedAudit_whenConsentDeniesAdmission() {
         SmsTransaction blocked = recorder.recordOutboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Synthetic confidential message", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Synthetic confidential message", "999998"),
                 SmsProviderType.STUB, SmsConsentDecisionDto.blocked(
                         SmsStatus.CONSENT_BLOCKED, "DENIED", "Consent denied"));
         Long id = blocked.getId();
@@ -101,7 +101,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     @DisplayName("keeps the webhook state when a stale worker write conflicts (newer version preserved)")
     void shouldKeepWebhookState_whenStaleWorkerWriteConflicts() {
         SmsTransaction claimed = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         entityManager.persist(claimed);
@@ -143,7 +143,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     @DisplayName("matches early delivery webhooks by client reference before provider id is recorded")
     void shouldMatchOutboundRow_whenDeliveryWebhookArrivesBeforeProviderResultIsRecorded() {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB,
                 SmsConsentDecisionDto.permit()
         );
@@ -186,7 +186,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     @DisplayName("applies direct provider result after marking the row SENDING")
     void shouldApplyDirectProviderResult_afterMarkingSending() {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB,
                 SmsConsentDecisionDto.permit()
         );

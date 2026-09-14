@@ -19,7 +19,7 @@ class SmsBoundarySafetyUnitTest {
     void shouldRedactDiagnostics_whenRecordsContainSensitiveValues() {
         String sensitive = "SYNTHETIC_CONFIDENTIAL_VALUE";
         List<Object> records = List.of(
-                SmsSendCommand.direct(1234567, "+14165551212", sensitive, "999998"),
+                SmsSendCommand.patientMessage(1234567, "+14165551212", sensitive, "999998"),
                 new SmsInboundWebhookDto(SmsProviderType.STUB, "id", "+14165551212", "+14165550000",
                         sensitive, Instant.EPOCH, Map.of("payload", sensitive)),
                 new SmsDeliveryWebhookDto(SmsProviderType.STUB, "id", SmsStatus.FAILED, Instant.EPOCH,

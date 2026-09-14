@@ -75,8 +75,8 @@ public class SmsQueueProcessingService {
         int safeLimit = Math.max(1, limit);
         // Drive every provider type, not a hardcoded default, so a row's queue is drained and rate-limited
         // under its own provider. Adding a provider to SmsProviderType is then enough for the worker to
-        // pick up its queued rows; an unconfigured provider's rows fail resolution and follow the retry
-        // path rather than sitting in the queue forever.
+        // pick up its queued rows; an unconfigured provider's rows retain a visible unresolved outcome
+        // for recovery/manual review rather than sitting in the queue forever.
         for (SmsProviderType providerType : SmsProviderType.values()) {
             recoverStaleSending(providerType, safeLimit);
         }

@@ -41,7 +41,7 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
 
         assertThat(result.accepted()).isFalse();
         assertThat(result.status()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
@@ -69,7 +69,7 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(
                 123,
                 "416-555-1212",
                 SmsRecipientPhoneType.WORK,
@@ -103,7 +103,7 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
 
         assertThat(result.status()).isEqualTo(SmsStatus.SENT);
         assertThat(events).containsExactly(
@@ -139,7 +139,7 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
 
         assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
         assertThat(events).containsExactly(
@@ -166,7 +166,7 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
 
         assertThat(result.accepted()).isTrue();
         assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
@@ -189,7 +189,7 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(0, "not-a-phone", " ", "999998"));
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(0, "not-a-phone", " ", "999998"));
 
         assertThat(result.accepted()).isFalse();
         assertThat(result.status()).isEqualTo(SmsStatus.FAILED);
@@ -210,7 +210,7 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
 
         assertThat(result.accepted()).isFalse();
         assertThat(result.status()).isEqualTo(SmsStatus.SENDING);
@@ -239,7 +239,7 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
 
         assertThat(result.accepted()).isFalse();
         assertThat(result.status()).isEqualTo(SmsStatus.SENDING);
@@ -263,7 +263,7 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB"));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(
-                SmsSendCommand.direct(123, "416-555-1212", "Synthetic message", "999998")))
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Synthetic message", "999998")))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(recorder.transactions()).isEmpty();
     }
@@ -283,7 +283,7 @@ class SmsSendServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new StubSmsProviderClient())), recorder, type -> true,
                 new SmsDefaultProviderResolver(() -> "STUB"));
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(
                 123, "416-555-1212", "Synthetic message", "999998"));
 
         assertThat(result.status()).isEqualTo(SmsStatus.DELIVERED);

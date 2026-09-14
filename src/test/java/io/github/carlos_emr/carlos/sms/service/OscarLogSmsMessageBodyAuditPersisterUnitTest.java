@@ -31,7 +31,7 @@ class OscarLogSmsMessageBodyAuditPersisterUnitTest {
     void shouldExcludePhi_whenBuildingAuditData() {
         OscarLogSmsMessageBodyAuditPersister auditor = new OscarLogSmsMessageBodyAuditPersister(oscarLogDao);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 
@@ -47,7 +47,7 @@ class OscarLogSmsMessageBodyAuditPersisterUnitTest {
     void shouldPersistAndFlushLog_whenRecordingFullBodyRead() {
         OscarLogSmsMessageBodyAuditPersister auditor = new OscarLogSmsMessageBodyAuditPersister(oscarLogDao);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 
@@ -69,7 +69,7 @@ class OscarLogSmsMessageBodyAuditPersisterUnitTest {
     void shouldPropagateException_whenAuditFlushFails() {
         OscarLogSmsMessageBodyAuditPersister auditor = new OscarLogSmsMessageBodyAuditPersister(oscarLogDao);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         doThrow(new IllegalStateException("audit flush failed")).when(oscarLogDao).flush();

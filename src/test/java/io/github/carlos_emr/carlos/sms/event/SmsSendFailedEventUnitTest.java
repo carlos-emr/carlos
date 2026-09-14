@@ -20,7 +20,7 @@ class SmsSendFailedEventUnitTest {
     @DisplayName("from excludes free-text provider error messages")
     void shouldExcludeFreeTextErrorMessage_whenCreatedFromTransaction() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         transaction.markProviderResult(SmsProviderSendResultDto.failed(

@@ -16,7 +16,7 @@ class SmsSendValidatorUnitTest {
     @DisplayName("valid SMS send commands pass validation")
     void shouldAcceptCommand_whenFieldsAreValid() {
         SmsSendValidator.Result result = validator.validate(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998")
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998")
         );
 
         assertThat(result.valid()).isTrue();
@@ -27,7 +27,7 @@ class SmsSendValidatorUnitTest {
     @DisplayName("validation rejects missing patient, invalid phone, and blank body")
     void shouldRejectCommand_whenFieldsAreInvalid() {
         SmsSendValidator.Result result = validator.validate(
-                SmsSendCommand.direct(0, "not-a-phone", " ", "999998")
+                SmsSendCommand.patientMessage(0, "not-a-phone", " ", "999998")
         );
 
         assertThat(result.valid()).isFalse();
@@ -62,10 +62,10 @@ class SmsSendValidatorUnitTest {
     @DisplayName("validation limits SMS bodies to one standard segment")
     void shouldRejectCommand_whenBodyExceedsSingleSmsSegment() {
         SmsSendValidator.Result accepted = validator.validate(
-                SmsSendCommand.direct(123, "416-555-1212", "a".repeat(160), "999998")
+                SmsSendCommand.patientMessage(123, "416-555-1212", "a".repeat(160), "999998")
         );
         SmsSendValidator.Result rejected = validator.validate(
-                SmsSendCommand.direct(123, "416-555-1212", "a".repeat(161), "999998")
+                SmsSendCommand.patientMessage(123, "416-555-1212", "a".repeat(161), "999998")
         );
 
         assertThat(accepted.valid()).isTrue();

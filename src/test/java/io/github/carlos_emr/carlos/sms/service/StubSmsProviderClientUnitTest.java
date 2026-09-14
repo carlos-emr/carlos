@@ -20,7 +20,7 @@ class StubSmsProviderClientUnitTest {
     @DisplayName("stub SMS provider returns stable non-blank SMS provider ids")
     void shouldReturnStableProviderId_whenCommandRepeats() {
         StubSmsProviderClient client = new StubSmsProviderClient();
-        SmsSendCommand command = SmsSendCommand.direct(123, "(416) 555-1212", "Appointment reminder", "999998");
+        SmsSendCommand command = SmsSendCommand.patientMessage(123, "(416) 555-1212", "Appointment reminder", "999998");
 
         SmsProviderSendResultDto first = client.send(command, "sms-transaction-1");
         SmsProviderSendResultDto second = client.send(command, "sms-transaction-1");
@@ -35,7 +35,7 @@ class StubSmsProviderClientUnitTest {
     @DisplayName("stub SMS provider derives a per-transaction-unique id from the client reference")
     void shouldReturnUniqueProviderId_whenClientReferenceDiffers() {
         StubSmsProviderClient client = new StubSmsProviderClient();
-        SmsSendCommand command = SmsSendCommand.direct(123, "(416) 555-1212", "Appointment reminder", "999998");
+        SmsSendCommand command = SmsSendCommand.patientMessage(123, "(416) 555-1212", "Appointment reminder", "999998");
 
         // Same body+number, different sms_transaction rows: ids must differ so the second send does not
         // collide on the (provider_type, provider_message_id) unique key.

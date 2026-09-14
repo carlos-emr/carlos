@@ -57,7 +57,7 @@ class SmsQueueProcessingServiceUnitTest {
     @DisplayName("processDueMessages drains queued rows for a non-STUB provider")
     void shouldSendMessage_whenQueueItemIsForNonStubProvider() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.VOIPMS
         );
         assignId(transaction, 1L);
@@ -409,7 +409,7 @@ class SmsQueueProcessingServiceUnitTest {
 
     private static SmsTransaction queuedTransaction() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         assignId(transaction, 1L);

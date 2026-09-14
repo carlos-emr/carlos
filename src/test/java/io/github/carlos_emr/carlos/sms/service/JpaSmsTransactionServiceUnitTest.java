@@ -71,7 +71,7 @@ class JpaSmsTransactionServiceUnitTest {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
 
         SmsTransaction transaction = recorder.recordOutboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB,
                 SmsConsentDecisionDto.permit()
         );
@@ -94,7 +94,7 @@ class JpaSmsTransactionServiceUnitTest {
     void shouldMergeTransaction_whenConsentIsBlocked() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 
@@ -115,7 +115,7 @@ class JpaSmsTransactionServiceUnitTest {
     void shouldMergeTransaction_whenMarkingSending() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         Date attemptAt = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
@@ -137,12 +137,12 @@ class JpaSmsTransactionServiceUnitTest {
     void shouldRejectClaim_whenRowIsAlreadyClaimed() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction claimed = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         assignId(claimed, 42L);
         SmsTransaction current = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         assignId(current, 42L);
@@ -175,7 +175,7 @@ class JpaSmsTransactionServiceUnitTest {
     void shouldMergeTransaction_whenProviderResultIsRecorded() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 
@@ -193,7 +193,7 @@ class JpaSmsTransactionServiceUnitTest {
     void shouldPublishFailedEvent_whenProviderResultIsTerminalFailure() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 
@@ -215,7 +215,7 @@ class JpaSmsTransactionServiceUnitTest {
     void shouldMergeTransaction_whenRetryIsScheduled() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         Date nextAttemptAt = Date.from(Instant.parse("2026-06-08T12:05:00Z"));
@@ -333,7 +333,7 @@ class JpaSmsTransactionServiceUnitTest {
     void shouldMergeTransaction_whenDeliveryEventMatchesExistingRecord() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction existing = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         existing.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
@@ -361,7 +361,7 @@ class JpaSmsTransactionServiceUnitTest {
     void shouldMergeTransaction_whenDeliveryEventMatchesClientReference() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction existing = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         existing.assignClientReferenceId("sms-transaction-42");
@@ -391,7 +391,7 @@ class JpaSmsTransactionServiceUnitTest {
     void shouldMergeTransaction_whenDeliveryProviderTypeIsMissing() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction existing = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         existing.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
@@ -466,7 +466,7 @@ class JpaSmsTransactionServiceUnitTest {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         Date now = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         transaction.markSending(now);
@@ -493,7 +493,7 @@ class JpaSmsTransactionServiceUnitTest {
         Date staleBefore = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
         Date recoveryAt = Date.from(Instant.parse("2026-06-08T12:05:00Z"));
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         transaction.markSending(Date.from(Instant.parse("2026-06-08T11:00:00Z")));

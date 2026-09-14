@@ -25,7 +25,7 @@ public class SmsProviderClientResolver {
 
     /**
      * The SMS provider types that have a registered {@link SmsProviderClient}. Used to validate the
-     * configured default provider at startup and to drive the queue worker per provider.
+     * configured default provider at startup.
      */
     public Set<SmsProviderType> registeredProviderTypes() {
         return clientsByType.keySet();

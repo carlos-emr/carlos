@@ -50,7 +50,7 @@ class SmsTransactionUnitTest {
     @Test
     @DisplayName("outbound transaction captures SMS provider and healthcare requester metadata")
     void shouldCreateOutboundTransaction_whenCommandIsValid() {
-        SmsSendCommand command = SmsSendCommand.direct(
+        SmsSendCommand command = SmsSendCommand.patientMessage(
                 123,
                 "(416) 555-1212",
                 SmsRecipientPhoneType.WORK,
@@ -93,7 +93,7 @@ class SmsTransactionUnitTest {
     @DisplayName("consent-blocked transaction stores block status and reason")
     void shouldMarkConsentBlocked_whenDecisionDeniesSend() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 
@@ -120,7 +120,7 @@ class SmsTransactionUnitTest {
     @DisplayName("SMS provider result updates status, SMS provider id, and sent timestamp")
     void shouldMarkProviderResult_whenSendIsAccepted() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         transaction.markSending(Date.from(Instant.parse("2026-06-08T12:00:00Z")));
@@ -142,7 +142,7 @@ class SmsTransactionUnitTest {
     @DisplayName("retry scheduling preserves failed SMS provider details")
     void shouldScheduleRetry_whenProviderSendFails() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         Date attemptAt = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
@@ -247,7 +247,7 @@ class SmsTransactionUnitTest {
     @DisplayName("delivery webhook updates outbound status and delivery timestamp")
     void shouldMarkDeliveryEvent_whenWebhookIsDelivered() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         transaction.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
@@ -317,7 +317,7 @@ class SmsTransactionUnitTest {
     @DisplayName("delivery webhook ignores older SMS provider events")
     void shouldIgnoreDeliveryEvent_whenProviderEventIsOlderThanRecordedEvent() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         transaction.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
@@ -354,7 +354,7 @@ class SmsTransactionUnitTest {
     @DisplayName("delivery webhook does not downgrade delivered transactions")
     void shouldKeepDeliveredStatus_whenLaterFailureWebhookArrives() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
         transaction.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));

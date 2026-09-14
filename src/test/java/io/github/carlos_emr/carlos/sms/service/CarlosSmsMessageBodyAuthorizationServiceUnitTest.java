@@ -133,7 +133,7 @@ class CarlosSmsMessageBodyAuthorizationServiceUnitTest {
 
     private SmsTransaction outboundTransaction() {
         return SmsTransaction.outboundAttempt(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
     }
