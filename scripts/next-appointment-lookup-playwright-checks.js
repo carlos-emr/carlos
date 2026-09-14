@@ -174,11 +174,10 @@ async function searchRow(page, lastName) {
   await quickSearch.click();
   // The widget fires a request per keystroke and aborts the previous one, so wait for
   // the response to the request carrying the WHOLE name rather than to a prefix of it.
-  const wholeName = `term=${encodeURIComponent(lastName)}&searchType=`;
   const [response] = await Promise.all([
     page.waitForResponse((candidate) => candidate.request().method() === 'POST'
       && new URL(candidate.url()).pathname.endsWith('/demographic/SearchDemographic')
-      && (candidate.request().postData() || '').includes(wholeName), { timeout: 30000 }),
+      && new URLSearchParams(candidate.request().postData() || '').get('term') === lastName, { timeout: 30000 }),
     page.keyboard.type(lastName, { delay: 40 }),
   ]);
   assert(response.status() === 200, `quick search answered HTTP ${response.status()}`);
