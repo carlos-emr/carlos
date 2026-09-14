@@ -1722,7 +1722,8 @@
       "timeoutSec": 300,
       "env": [
         "NEXT_APPT_DEMOGRAPHIC_NO",
-        "NEXT_APPT_PROVIDER_NO"
+        "NEXT_APPT_PROVIDER_NO",
+        "NEXT_APPT_TIMEOUT_MS"
       ],
       "notes": "Requires workflow_enhance=true and a restarted application; uses an isolated demo database and removes its seeded appointment."
     }
