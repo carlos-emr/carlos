@@ -1,0 +1,1713 @@
+{
+  "$comment": [
+    "The browser-check suite manifest: one entry per scripts/*-playwright-checks.js.",
+    "",
+    "scripts/run-playwright-suite.js reads this instead of the bash for-loop that used",
+    "to live in docs/ui-tests/deb-install-validation.md section 6, where the tier, the",
+    "per-check timeout and the run-last rule were two case statements and a comment.",
+    "scripts/playwright-suite-manifest.test.js fails the build when a check exists with",
+    "no entry here, or an entry names a script that does not exist, so the manifest",
+    "cannot drift away from the suite.",
+    "",
+    "name        the --only/--skip handle; the script basename without the suffix.",
+    "script      repo-relative path, so the runner never guesses at a filename.",
+    "tiers       smoke      the CI tier: fast, no fixtures beyond the demo dataset.",
+    "            core       needs a running deployment and the demo database.",
+    "            extended   needs a fixture or a runtime the standard pass lacks.",
+    "            standalone needs no Tomcat, no database and no login at all.",
+    "            front-door only meaningful through the packaged nginx + ModSecurity",
+    "                       front door, where a WAF exists to false-positive on",
+    "                       clinical prose; through bare Tomcat that half proves",
+    "                       nothing. A check can be in this tier and one other.",
+    "assertsDatabase  the check reads the rows that reached MariaDB, so it needs",
+    "                 MYSQL_* and must not be pointed at a shared database.",
+    "provinces   all, or the billregion values the check is written for.",
+    "timeoutSec  wall clock the runner allows before it gives up on the check.",
+    "runLast     the check is destructive to shared state (deliberate failed logins)",
+    "            and must run after the positive suite.",
+    "env         environment variables beyond the common contract in",
+    "            lib/playwright-harness.js readConfig(). Extracted from each script;",
+    "            defaults and meanings belong in the scripts own header comment.",
+    "",
+    "TIERS ARE A FIRST CUT. They were assigned from each checks dependencies, not",
+    "from a measured run; the smoke list is the one in the coverage plan. Adjust them",
+    "in the PR that measures the tier, not by guess."
+  ],
+  "checks": [
+    {
+      "name": "add-login-account",
+      "script": "scripts/add-login-account-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ADD_LOGIN_NEW_PASSWORD",
+        "ADD_LOGIN_NEW_PIN",
+        "ADD_LOGIN_SCREENSHOT_DIR",
+        "ADD_LOGIN_SITE_ID"
+      ]
+    },
+    {
+      "name": "admin-index-links",
+      "script": "scripts/admin-index-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "ADMIN_LINKS_ONLY",
+        "ADMIN_LINKS_LIMIT",
+        "ADMIN_LINKS_TIMEOUT_MS",
+        "ADMIN_LINKS_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "allergy-add-penicillin",
+      "script": "scripts/allergy-add-penicillin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ALLERGY_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "allergy-rx-alert",
+      "script": "scripts/allergy-rx-alert-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ALLERGY_ALLERGEN",
+        "ALLERGY_CUSTOM_ALLERGEN",
+        "ALLERGY_DEMOGRAPHIC_NO",
+        "ALLERGY_DRUG_TERM",
+        "ALLERGY_EXPECT_UNCHECKED",
+        "ALLERGY_OTHER_DEMOGRAPHIC_NO",
+        "ALLERGY_SCREENSHOT_DIR",
+        "ALLERGY_SEARCH_TERM",
+        "ALLERGY_TYPED_DRUG_TERM"
+      ]
+    },
+    {
+      "name": "anonymous-access-refused",
+      "script": "scripts/anonymous-access-refused-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "ANON_ROUTE_LIMIT",
+        "ANON_SEARCH",
+        "ANON_DEMOGRAPHIC_NO",
+        "ANON_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "application-health",
+      "script": "scripts/application-health-playwright-checks.js",
+      "tiers": [
+        "smoke"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "appointment-lifecycle",
+      "script": "scripts/appointment-lifecycle-playwright-checks.js",
+      "tiers": [
+        "smoke"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "APPOINTMENT_DAYS_AHEAD",
+        "APPOINTMENT_DEMOGRAPHIC_NO",
+        "APPOINTMENT_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "assign-role",
+      "script": "scripts/assign-role-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ASSIGN_ROLE_SCREENSHOT_DIR",
+        "ASSIGN_ROLE_SUPER_ROOT"
+      ]
+    },
+    {
+      "name": "billing-on-submit",
+      "script": "scripts/billing-on-submit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "BILLING_BONUS_CODE",
+        "BILLING_DEMOGRAPHIC_NO",
+        "BILLING_DX_CODE",
+        "BILLING_FORM_NAME",
+        "BILLING_OHIP_CODE",
+        "BILLING_PROVIDER_NO",
+        "BILLING_SUBMIT_DATE"
+      ]
+    },
+    {
+      "name": "billing-on-third-party",
+      "script": "scripts/billing-on-third-party-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "BILLING_APPOINTMENT_DATE",
+        "BILLING_APPOINTMENT_NO",
+        "BILLING_DEMOGRAPHIC_NO",
+        "BILLING_ON_ARTIFACT_DIR",
+        "BILLING_PROVIDER_NO",
+        "BILLING_START_TIME"
+      ]
+    },
+    {
+      "name": "billing-service-code-admin",
+      "script": "scripts/billing-service-code-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "BILLING_CODE_EXISTING",
+        "BILLING_CODE_NEW"
+      ]
+    },
+    {
+      "name": "browser-surface",
+      "script": "scripts/browser-surface-playwright-checks.js",
+      "tiers": [
+        "smoke"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "SURFACE_DEMOGRAPHIC_NO",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_SEARCH_TERM"
+      ]
+    },
+    {
+      "name": "clinical-calculators",
+      "script": "scripts/clinical-calculators-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CALCULATOR_SEARCH",
+        "CALCULATOR_DEMOGRAPHIC_NO",
+        "CALCULATOR_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "clinical-freetext",
+      "script": "scripts/clinical-freetext-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT",
+        "CLINICAL_CONSULT_SERVICE_ID",
+        "CLINICAL_DEMOGRAPHIC_NO",
+        "EXPECT_FRONT_DOOR"
+      ]
+    },
+    {
+      "name": "consultation-nullable-fields",
+      "script": "scripts/consultation-nullable-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CONSULT_NULLABLE_REQUEST_ID",
+        "CONSULT_NULLABLE_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "consultation-request-create",
+      "script": "scripts/consultation-request-create-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CONSULT_DEMO_NO"
+      ]
+    },
+    {
+      "name": "consultation-signature",
+      "script": "scripts/consultation-signature-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CONSULT_DEMOGRAPHIC_NO",
+        "CONSULT_REQUEST_ID",
+        "CONSULT_SIGNATURE_SCENARIOS"
+      ]
+    },
+    {
+      "name": "consultation-signature-submit",
+      "script": "scripts/consultation-signature-submit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CONSULT_DEMO_NO",
+        "CONSULT_MISSING_STAMP_PROVIDER_NO",
+        "CONSULT_SERVICE_ID",
+        "CONSULT_STAMP_PROVIDER_NO",
+        "CONSULT_UNSIGNED_REQUEST_ID"
+      ]
+    },
+    {
+      "name": "demographic-add",
+      "script": "scripts/demographic-add-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DEMOGRAPHIC_ADD_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "demographic-edit-update",
+      "script": "scripts/demographic-edit-update-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DEMOGRAPHIC_EDIT_SEARCH",
+        "DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO",
+        "DEMOGRAPHIC_EDIT_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "demographic-labels",
+      "script": "scripts/demographic-labels-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "LABELS_SEARCH",
+        "LABELS_DEMOGRAPHIC_NO",
+        "LABELS_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "demographic-master-crud-smoke",
+      "script": "scripts/demographic-master-crud-smoke.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PLAYWRIGHT_TIMEOUT",
+        "SMOKE_STAMP"
+      ]
+    },
+    {
+      "name": "document-upload",
+      "script": "scripts/document-upload-playwright-checks.js",
+      "tiers": [
+        "smoke"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_UPLOAD_SCREENSHOT_DIR",
+        "PRESCRIPTION_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "drug-search",
+      "script": "scripts/drug-search-playwright-checks.js",
+      "tiers": [
+        "smoke"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DRUG_SEARCH_SCREENSHOT_DIR",
+        "DRUG_SEARCH_TERM",
+        "PRESCRIPTION_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "drugref-update",
+      "script": "scripts/drugref-update-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 3900,
+      "env": [
+        "DRUGREF_UPDATE_REQUIRE_STATUS",
+        "DRUGREF_UPDATE_SCREENSHOT_DIR",
+        "DRUGREF_UPDATE_TIMEOUT_SEC",
+        "DRUGREF_UPDATE_TRIGGER",
+        "DRUG_SEARCH_TERM",
+        "RESET_PASSWORD"
+      ]
+    },
+    {
+      "name": "echart",
+      "script": "scripts/echart-playwright-checks.js",
+      "tiers": [
+        "front-door",
+        "smoke"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ECHART_DEMOGRAPHIC_NO",
+        "ECHART_NOTES_POLL_TIMEOUT_MS",
+        "ECHART_SCREENSHOT_DIR",
+        "ECHART_SEARCH_TERM",
+        "EXPECT_FRONT_DOOR"
+      ]
+    },
+    {
+      "name": "echart-navbar-modules",
+      "script": "scripts/echart-navbar-modules-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "ECHART_NAV_SEARCH",
+        "ECHART_NAV_DEMOGRAPHIC_NO",
+        "ECHART_NAV_LIMIT",
+        "ECHART_NAV_TIMEOUT_MS",
+        "ECHART_NAV_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "echart-new-patient-notes",
+      "script": "scripts/echart-new-patient-notes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ECHART_NEW_PATIENT_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "echart-note-sign-bill",
+      "script": "scripts/echart-note-sign-bill-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "NOTE_DEMOGRAPHIC_NO",
+        "NOTE_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "echart-print",
+      "script": "scripts/echart-print-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ECHART_ALLOW_NON_SYNTHETIC_PATIENT",
+        "ECHART_DEMOGRAPHIC_NO",
+        "ECHART_PROVIDER_NO",
+        "EXPECT_FRONT_DOOR"
+      ]
+    },
+    {
+      "name": "echart-vitals-bmi",
+      "script": "scripts/echart-vitals-bmi-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "VITALS_DEMOGRAPHIC_NO",
+        "VITALS_GROUP"
+      ]
+    },
+    {
+      "name": "edoc-schedule-navigation",
+      "script": "scripts/edoc-schedule-navigation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EDOC_NAV_DOCUMENT_STORE",
+        "EDOC_NAV_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-admin",
+      "script": "scripts/eform-admin-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-admin-crud",
+      "script": "scripts/eform-admin-crud-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-admin-schedule-navigation",
+      "script": "scripts/eform-admin-schedule-navigation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_ADMIN_NAV_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-consultation-acceptance",
+      "script": "scripts/eform-consultation-acceptance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_CONSULT_DEMOGRAPHIC_NO",
+        "EFORM_CONSULT_SCREENSHOT_DIR",
+        "LIBRARY_EFORM_NAME"
+      ]
+    },
+    {
+      "name": "eform-corpus-soak",
+      "script": "scripts/eform-corpus-soak-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1800,
+      "env": [
+        "EFORM_CORPUS_DEMOGRAPHIC",
+        "EFORM_CORPUS_DIR",
+        "EFORM_CORPUS_OUT",
+        "EFORM_CORPUS_RENDER_TIMEOUT_MS",
+        "EFORM_CORPUS_VISUAL_SAMPLE"
+      ]
+    },
+    {
+      "name": "eform-page-exclusion",
+      "script": "scripts/eform-page-exclusion-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "eform-render",
+      "script": "scripts/eform-render-playwright-checks.js",
+      "tiers": [
+        "smoke"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-rtl-attachment-behavior",
+      "script": "scripts/eform-rtl-attachment-behavior-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RTL_DEMOGRAPHIC_NO",
+        "RTL_FORM_NAME",
+        "RTL_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-rtl-attachment-pdf",
+      "script": "scripts/eform-rtl-attachment-pdf-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RTL_DEMOGRAPHIC_NO",
+        "RTL_FORM_NAME",
+        "RTL_HRM_DOCUMENT_NO",
+        "RTL_HRM_TEXT_MARKER",
+        "RTL_REQUIRE_ALL_FAMILIES",
+        "RTL_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-rtl-attachment-routes",
+      "script": "scripts/eform-rtl-attachment-routes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RTL_DEMOGRAPHIC_NO",
+        "RTL_FORM_NAME",
+        "RTL_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-rtl-attachment-types",
+      "script": "scripts/eform-rtl-attachment-types-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RTL_DEMOGRAPHIC_NO",
+        "RTL_FORM_NAME",
+        "RTL_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-rtl-print-pdf",
+      "script": "scripts/eform-rtl-print-pdf-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RTL_DEMOGRAPHIC_NO",
+        "RTL_FORM_NAME",
+        "RTL_SCREENSHOT_DIR",
+        "RTL_TEMPLATE_NAME"
+      ]
+    },
+    {
+      "name": "eform-runtime-compat",
+      "script": "scripts/eform-runtime-compat-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "eform-saved-render",
+      "script": "scripts/eform-saved-render-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_FAX_PREVIEW_CHECK",
+        "SAVED_RENDER_DEMOGRAPHIC_NO",
+        "SAVED_RENDER_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-test-pattern",
+      "script": "scripts/eform-test-pattern-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_TEST_PATTERN_DEMOGRAPHIC_NO",
+        "EFORM_TEST_PATTERN_HTML",
+        "EFORM_TEST_PATTERN_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "error-sanitization",
+      "script": "scripts/error-sanitization-playwright-checks.js",
+      "tiers": [
+        "smoke"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ERROR_SANITIZATION_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "fax-configure",
+      "script": "scripts/fax-configure-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FAX_CONFIG_ALLOW_OVERWRITE",
+        "FAX_CONFIG_SCREENSHOTS",
+        "FAX_CONFIG_SCREENSHOT_DIR",
+        "SRFAX_ACCESS_ID",
+        "SRFAX_FAX_NUMBER",
+        "SRFAX_LIVE",
+        "SRFAX_PASS",
+        "SRFAX_USER"
+      ]
+    },
+    {
+      "name": "first-nations-encoding",
+      "script": "scripts/first-nations-encoding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FIRST_NATIONS_DEMOGRAPHIC_NO",
+        "FIRST_NATIONS_SCREENSHOT_DIR",
+        "RESET_PASSWORD"
+      ]
+    },
+    {
+      "name": "flowsheet-admin",
+      "script": "scripts/flowsheet-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "flu-billing-report",
+      "script": "scripts/flu-billing-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "form-rourke2017",
+      "script": "scripts/form-rourke2017-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ROURKE_DEMOGRAPHIC_NO",
+        "ROURKE_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "inboxhub-filters",
+      "script": "scripts/inboxhub-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "lab-acknowledge",
+      "script": "scripts/lab-acknowledge-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_PROVIDER_NO",
+        "LAB_SEGMENT_ID"
+      ]
+    },
+    {
+      "name": "lab-macro-tickler",
+      "script": "scripts/lab-macro-tickler-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MACRO_LAB_NO",
+        "MACRO_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "login",
+      "script": "scripts/login-playwright-checks.js",
+      "tiers": [
+        "smoke"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "runLast": true,
+      "env": [
+        "TEST_PASSWORD_HASH"
+      ]
+    },
+    {
+      "name": "login-failure-host-header",
+      "script": "scripts/login-failure-host-header-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "LOGIN_FAILURE_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "logout-broadcast",
+      "script": "scripts/logout-broadcast-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "logout-redirect",
+      "script": "scripts/logout-redirect-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CARLOS_LOG_FILE",
+        "GRAPH_DEMOGRAPHIC_NO",
+        "GRAPH_MEASUREMENT_TYPE",
+        "GRAPH_PATH",
+        "PLAYWRIGHT_TIMEOUT"
+      ]
+    },
+    {
+      "name": "logout-session-invalidation",
+      "script": "scripts/logout-session-invalidation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "master-record-tabs",
+      "script": "scripts/master-record-tabs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "MASTER_RECORD_SEARCH",
+        "MASTER_RECORD_DEMOGRAPHIC_NO",
+        "MASTER_RECORD_LIMIT",
+        "MASTER_RECORD_TIMEOUT_MS",
+        "MASTER_RECORD_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "measurement-validation",
+      "script": "scripts/measurement-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MEASUREMENT_DEMOGRAPHIC_NO",
+        "MEASUREMENT_GROUP",
+        "MEASUREMENT_TYPE"
+      ]
+    },
+    {
+      "name": "messenger",
+      "script": "scripts/messenger-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MESSENGER_DEMOGRAPHIC_NO",
+        "MESSENGER_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "messenger-inbox-actions",
+      "script": "scripts/messenger-inbox-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MESSENGER_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "multiple-session",
+      "script": "scripts/multiple-session-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "mutator-get-rejection-live",
+      "script": "scripts/mutator-get-rejection-live-playwright-checks.js",
+      "tiers": [
+        "smoke",
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MUTATOR_GET_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "o19-migrated-smoke",
+      "script": "scripts/o19-migrated-smoke-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "O19_ADMIN_CREDENTIALS",
+        "O19_ARCHIVE_SCHEMA",
+        "O19_SMOKE_SCREENSHOT_DIR",
+        "O19_STATE_DIR"
+      ]
+    },
+    {
+      "name": "patient-list-by-appointment-export",
+      "script": "scripts/patient-list-by-appointment-export-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PATIENT_LIST_FIXTURE_PROFILE"
+      ]
+    },
+    {
+      "name": "patient-search-dob",
+      "script": "scripts/patient-search-dob-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "patient-search-modes",
+      "script": "scripts/patient-search-modes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SEARCH_MODES",
+        "SEARCH_INACTIVE_STATUSES",
+        "SEARCH_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "pr-hardening",
+      "script": "scripts/pr-hardening-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "prescription-signature",
+      "script": "scripts/prescription-signature-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PRESCRIPTION_DEMOGRAPHIC_NO",
+        "PRESCRIPTION_PHARMACY_ID",
+        "PRESCRIPTION_SCRIPT_ID",
+        "PRESCRIPTION_SIGNATURE_CLEANUP"
+      ]
+    },
+    {
+      "name": "prevention-brand-picker",
+      "script": "scripts/prevention-brand-picker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PREVENTION_BRAND_QUERY",
+        "PREVENTION_CVC_UI",
+        "PREVENTION_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "prevention-recall-report",
+      "script": "scripts/prevention-recall-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "report-demographic-navigation",
+      "script": "scripts/report-demographic-navigation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "rx-fax-record-binding",
+      "script": "scripts/rx-fax-record-binding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "ARTIFACT_DIR",
+        "RX_FAX_DEMOGRAPHIC_NO",
+        "RX_FAX_DOCUMENT_DIR",
+        "RX_FAX_NOTES_SAVE_DELAY_MS",
+        "RX_FAX_PROVIDER_NO",
+        "RX_FAX_ROUND_TRIP_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "rx-fax-reprint-represcribe",
+      "script": "scripts/rx-fax-reprint-represcribe-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RX_EXPECTED_BUILD_TAG",
+        "RX_FAX_DEMOGRAPHIC_NO",
+        "RX_FAX_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "rx-fax-signature-stamp",
+      "script": "scripts/rx-fax-signature-stamp-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RX_FAX_DEMOGRAPHIC_NO",
+        "RX_FAX_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "rx-med-history",
+      "script": "scripts/rx-med-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PRESCRIPTION_DEMOGRAPHIC_NO",
+        "RESET_PASSWORD",
+        "RX_MED_HISTORY_DEMOGRAPHIC_NO",
+        "RX_MED_HISTORY_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "rx-preview-pharmacy",
+      "script": "scripts/rx-preview-pharmacy-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PRESCRIPTION_DEMOGRAPHIC_NO",
+        "PRESCRIPTION_SCRIPT_ID",
+        "RX_PREVIEW_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "schedule-date-navigation",
+      "script": "scripts/schedule-date-navigation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "SCHEDULE_NAV_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "schedule-links",
+      "script": "scripts/schedule-links-playwright-checks.js",
+      "tiers": [
+        "smoke"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PROVIDER_LAST_NAME",
+        "TEST_PROVIDER_SEARCH_ONLY"
+      ]
+    },
+    {
+      "name": "schedule-quick-search-appointment",
+      "script": "scripts/schedule-quick-search-appointment-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "QUICKSEARCH_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "schedule-setting",
+      "script": "scripts/schedule-setting-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_SCHEDULE_PROVIDER"
+      ]
+    },
+    {
+      "name": "schedule-template-crud",
+      "script": "scripts/schedule-template-crud-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEMPLATE_CODE",
+        "TEMPLATE_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "select-forms-panel",
+      "script": "scripts/select-forms-panel-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "specialist-add-cpso",
+      "script": "scripts/specialist-add-cpso-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
+      "name": "surface-audit:consultations-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "consultations-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:edoc-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "edoc-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:inbox-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "inbox-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:messenger-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "messenger-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:preferences-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "preferences-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:referrals-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "referrals-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:report-index",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "report-index"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:scratch-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "scratch-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:tickler-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "tickler-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:workflow-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "workflow-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "tickler-crud",
+      "script": "scripts/tickler-crud-playwright-checks.js",
+      "tiers": [
+        "front-door",
+        "smoke"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TICKLER_DEMOGRAPHIC_NO",
+        "TICKLER_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "tickler-note-dialog",
+      "script": "scripts/tickler-note-dialog-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TICKLER_DEMOGRAPHIC_NO",
+        "TICKLER_PROVIDER_NO"
+      ]
+    }
+  ]
+}

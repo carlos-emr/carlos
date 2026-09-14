@@ -1,0 +1,42 @@
+{
+  "$comment": [
+    "The suite-wide allow-list of legacy browser noise for wireStrictPage().",
+    "",
+    "Every entry is a class of regression the whole suite can no longer detect, so",
+    "each one must name where it is tracked and why it is here. This file is a",
+    "BURN-DOWN: when the tracked defect is fixed, delete the entry rather than",
+    "leaving it to mask the next occurrence. Do not add an entry to make a check",
+    "pass -- a new console error is the finding (see the 'report, don't encode'",
+    "rule in docs/ui-tests/clinical-workflow-browser-checks.md).",
+    "",
+    "match:   a LITERAL SUBSTRING of the console message or the uncaught error's",
+    "         stack -- not a regular expression. Use the failing symbol's own name,",
+    "         which is what makes an entry narrow enough to name one defect. The",
+    "         loader rejects anything shorter than 8 characters or containing regex",
+    "         metacharacters, so a pattern cannot be added by mistake and silently",
+    "         match nothing.",
+    "issue:   where removing it is tracked. Either a GitHub issue (#1234) or a",
+    "         finding in docs/ui-tests/app-findings-log.md (\"... finding 7\").",
+    "         scripts/app-findings-log.test.js fails the build if this names a",
+    "         finding that is not recorded there, so a baseline entry can never cite",
+    "         a defect nobody wrote down.",
+    "note:    what the defect is, so a reviewer can tell it apart from a new one."
+  ],
+  "allow": [
+    {
+      "match": "providerSignatureImage",
+      "issue": "#3665 (also docs/ui-tests/app-findings-log.md finding 6)",
+      "note": "The consultation form requests providerSignatureImage?providerNo=... unconditionally, which 404s for any provider without a stored signature, so every open of that form logs a console error. Delete this entry in the change that makes the request conditional."
+    },
+    {
+      "match": "getActiveText",
+      "issue": "#3665 (also docs/ui-tests/app-findings-log.md finding 7)",
+      "note": "The eChart note editor throws a TypeError on every keystroke from getActiveText() in js/newCaseManagementView.js.jsp, which writes to a 'keyword' element the current layout no longer renders. Until it is fixed no check can type into a chart note and assert a clean console; delete this entry in the change that fixes it."
+    },
+    {
+      "match": "expandPreview",
+      "issue": "#3578",
+      "note": "The Rx preview pane's expandPreview writes into the preview iframe before it has parsed, raising 'Cannot set properties of null'. Tolerated today by rx-fax-reprint-represcribe; delete this entry when #3578 closes."
+    }
+  ]
+}
