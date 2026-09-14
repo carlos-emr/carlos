@@ -254,7 +254,38 @@ function leaseBrowser() {
     return {fetches, beacons, intervals, windowListeners};
 }
 
+async function verifyPreviewClose(inModal) {
+    const jsp = fs.readFileSync('src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp', 'utf8');
+    const start = jsp.indexOf('function resetStashAndClose()');
+    const end = jsp.indexOf('function onPrint2(', start);
+    assert.ok(start >= 0 && end > start, 'Preview close handler must be present');
+    const events = [];
+    let workspaceActive = true;
+    const browser = {
+        resetStash() { events.push('reset-stash'); return Promise.resolve(); },
+        resetReRxDrugList() { events.push('reset-rerx'); return Promise.resolve(); },
+        clearPending(action) {
+            events.push('clear-pending-' + action);
+            if (action === 'close') workspaceActive = false;
+        },
+        parent: {
+            document: {getElementById() { return inModal ? {} : null; }},
+            bootstrap: {Modal: {getInstance() { return {hide() { events.push('hide-modal'); }}; }}},
+            window: {close() { events.push('close-window'); }}
+        },
+        console
+    };
+    vm.runInNewContext(jsp.slice(start, end) + '\nresetStashAndClose();', browser);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(events, inModal
+            ? ['reset-stash', 'reset-rerx', 'hide-modal']
+            : ['reset-stash', 'reset-rerx', 'clear-pending-close', 'close-window']);
+    assert.equal(workspaceActive, inModal, 'A visible parent prescription page must retain its workspace');
+}
+
 (async () => {
+    await verifyPreviewClose(true);
+    await verifyPreviewClose(false);
     const firstReplacements = ownerBrowser(true);
     await new Promise((resolve) => setTimeout(resolve, 250));
     const duplicateReplacements = ownerBrowser();

@@ -13,8 +13,11 @@
 package io.github.carlos_emr.carlos.prescript.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -41,6 +44,17 @@ public final class ViewPrintDrugProfile22Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
+
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null || !bean.isValid()) {
+            ServletActionContext.getResponse().sendError(
+                    HttpServletResponse.SC_CONFLICT, "Prescription context unavailable");
+            return NONE;
+        }
+
+        // Direct profile launches create a workspace without passing through choosePatient.
+        request.getSession().setAttribute("Patient",
+                RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo()));
 
         return SUCCESS;
     }

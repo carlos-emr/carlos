@@ -334,12 +334,12 @@
 
             function resetStashAndClose() {
                 function closeViewScript() {
-                    clearPending('close');
                     try {
                         var modalElement = parent.document.getElementById('carlosModal');
                         if (modalElement && parent.bootstrap) {
                             var modal = parent.bootstrap.Modal.getInstance(modalElement);
                             if (modal) {
+                                // The parent prescribing page still owns and uses this workspace.
                                 modal.hide();
                                 return;
                             }
@@ -347,6 +347,7 @@
                     } catch (error) {
                         console.warn('Unable to close the parent Rx modal', error);
                     }
+                    clearPending('close');
                     parent.window.close();
                 }
 
