@@ -82,7 +82,6 @@ import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.text.ParseException;
 import java.util.*;
-import org.owasp.encoder.Encode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CaseManagementEntry2Action extends ActionSupport implements SessionAware {
@@ -272,7 +271,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             programId = Integer.parseInt(programIdString);
         } catch (Exception e) {
-            logger.warn("Error parsing programId:" + programIdString, e);
+            logger.warn("Unable to parse encounter program identifier ({})", e.getClass().getSimpleName());
         }
 
         request.setAttribute("demoName", getDemoName(demono));
@@ -396,23 +395,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // get the last temp note?
         else if (tmpsavenote != null && !forceNote.equals("true")) {
             logger.debug("tempsavenote is NOT NULL");
-            if (tmpsavenote.getNoteId() > 0) {
-                session.setAttribute("newNote", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                request.setAttribute("noteId", String.valueOf(tmpsavenote.getNoteId()));
-                note = caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId()));
-                logger.debug("Restoring " + String.valueOf(note.getId()));
+            CaseManagementNote original = tmpsavenote.getNoteId() != null && tmpsavenote.getNoteId() > 0
+                    ? caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId())) : null;
+            note = restoreDraftNote(original, tmpsavenote.getNote(), providerNo, demono);
+            if (original == null) {
+                // Keep the draft text even if its original note no longer exists. Render it
+                // as a new note so the save and lock paths do not reuse the orphaned ID.
+                session.setAttribute("newNote", "true");
+                session.setAttribute("issueStatusChanged", "false");
+                request.setAttribute("noteId", "0");
             } else {
-                session.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                session.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                note = new CaseManagementNote();
-                note.setProviderNo(providerNo);
-                Provider prov = new Provider();
-                prov.setProviderNo(providerNo);
-                note.setProvider(prov);
-                note.setDemographic_no(demono);
+                session.setAttribute("newNote", "false");
+                request.setAttribute("noteId", String.valueOf(note.getId()));
             }
 
-            note.setNote(tmpsavenote.getNote());
             logger.debug("Restored temp note id={} noteLength={}",
                     LogSafe.sanitize(String.valueOf(note.getId())),
                     note.getNote() == null ? 0 : note.getNote().length());
@@ -679,14 +675,32 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return note;
     }
 
-    private static synchronized CasemgmtNoteLock isNoteEdited(Long note_id, Integer demographicNo, String providerNo, String ipAddress, String sessionId) {
+    /** Restore draft content without discarding text when the referenced note is missing. */
+    static CaseManagementNote restoreDraftNote(CaseManagementNote original, String draftText,
+                                               String providerNo, String demographicNo) {
+        CaseManagementNote restored = original;
+        if (restored == null) {
+            restored = new CaseManagementNote();
+            restored.setProviderNo(providerNo);
+            Provider provider = new Provider();
+            provider.setProviderNo(providerNo);
+            restored.setProvider(provider);
+            restored.setDemographic_no(demographicNo);
+        } else if (!Objects.equals(demographicNo, restored.getDemographic_no())) {
+            throw new SecurityException("Draft references a note outside this patient chart");
+        }
+        restored.setNote(draftText == null ? "" : draftText);
+        return restored;
+    }
+
+    static synchronized CasemgmtNoteLock isNoteEdited(Long note_id, Integer demographicNo, String providerNo, String ipAddress, String sessionId) {
         CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
         CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.findByNoteDemo(demographicNo, note_id);
 
         //We determine the lock status of the note
         if (casemgmtNoteLock != null) {
             //it has a lock; check if lock is same user
-            if (casemgmtNoteLock.getProviderNo().equals(providerNo)) {
+            if (Objects.equals(casemgmtNoteLock.getProviderNo(), providerNo)) {
                 //Same user has this note open elsewhere
                 casemgmtNoteLock.setLockedBySameUser(true);
             } else if (note_id != 0) {
@@ -804,7 +818,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             this.caseManagementMgr.deleteTmpSave(providerNo, demoNo, programId);
         } catch (Exception e) {
-            logger.warn("Warning", e);
+            logger.warn("Warning ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -907,7 +921,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                         appointmentDao.merge(appointment);
                     }
                 } catch (Exception e) {
-                    logger.error("Couldn't parse appointmentNo: {}", LogSafe.sanitize(appointmentNo), e);
+                    logger.error("Unable to parse encounter appointment identifier ({})", e.getClass().getSimpleName());
                 }
             }
         } else if (!note.isSigned() && (archived == null || !archived.equalsIgnoreCase("true"))) {
@@ -1079,7 +1093,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             role = String.valueOf((programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
             role = "0";
         }
 
@@ -1334,6 +1348,28 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /** Bind a new note to this chart's appointment, without changing an existing note's visit. */
+    static int resolveNoteAppointmentNo(CaseManagementNote note, String requestAppointmentNo,
+                                        String sessionAppointmentNo,
+                                        java.util.function.IntFunction<Appointment> findAppointment) {
+        if (note.getId() != null && note.getId() > 0) return note.getAppointmentNo();
+        String candidate = requestAppointmentNo != null ? requestAppointmentNo : sessionAppointmentNo;
+        if (candidate == null || !candidate.matches("[0-9]{1,9}") || "0".equals(candidate)) return 0;
+        int appointmentNo = Integer.parseInt(candidate);
+        Appointment appointment = findAppointment.apply(appointmentNo);
+        if (appointment == null || !String.valueOf(appointment.getDemographicNo()).equals(note.getDemographic_no())) {
+            return 0;
+        }
+        return appointmentNo;
+    }
+
+    private void bindNoteAppointment(CaseManagementNote note, HttpSession session) {
+        EctSessionBean encounter = (EctSessionBean) session.getAttribute("EctSessionBean");
+        note.setAppointmentNo(resolveNoteAppointmentNo(note, request.getParameter("appointmentNo"),
+                encounter == null ? null : encounter.appointmentNo,
+                id -> SpringUtils.getBean(OscarAppointmentDao.class).find(id)));
+    }
+
     private long noteSave() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1355,6 +1391,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return -1L;
 
+        bindNoteAppointment(note, session);
         note.setNote(noteTxt);
 
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -1516,7 +1553,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         // update appointment and add verify message to note if verified
-        EctSessionBean sessionBean = (EctSessionBean) session.getAttribute("EctSessionBean");
         String verifyStr = request.getParameter("verify");
         boolean verify = false;
         if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
@@ -1539,10 +1575,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setUpdate_date(now);
 
-        if (sessionBean.appointmentNo != null && sessionBean.appointmentNo.length() > 0) {
-            note.setAppointmentNo(Integer.parseInt(sessionBean.appointmentNo));
-        }
-
         note = caseManagementMgr.saveCaseManagementNote(
                 loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
                 userName, providerNo, request.getRemoteAddr(), lastSavedNoteString);
@@ -1561,7 +1593,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             this.caseManagementMgr.deleteTmpSave(providerNo, note.getDemographic_no(), note.getProgram_no());
         } catch (Exception e) {
-            logger.warn("Warning", e);
+            logger.warn("Warning ({})", e.getClass().getSimpleName());
         }
 
         return note.getId();
@@ -1785,6 +1817,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             newNote = false;
         }
 
+        bindNoteAppointment(note, session);
         String observationDate = request.getParameter("obsDate");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (observationDate != null && !observationDate.equals("")) {
@@ -1823,7 +1856,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             role = String.valueOf((programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
             role = "0";
         }
 
@@ -1904,7 +1937,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             this.caseManagementMgr.deleteTmpSave(providerNo, note.getDemographic_no(), note.getProgram_no());
         } catch (Exception e) {
-            logger.warn("Warning", e);
+            logger.warn("Warning ({})", e.getClass().getSimpleName());
         }
 
         session.setAttribute(sessionName, sessionFrm); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
@@ -1916,6 +1949,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute(varName, false); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         request.setAttribute("ajaxsave", note.getId());
         request.setAttribute("origNoteId", noteId);
+        // noteIssueList.jsp renders the saved text into the read-only view through
+        // ${noteTxt}; EL reads scoped attributes, not request parameters, so without this
+        // the view of a note saved on switch came up empty until the chart was reloaded.
+        request.setAttribute("noteTxt", noteTxt);
 
         String logAction;
         if (newNote) {
@@ -1957,7 +1994,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
                 && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId());
         } catch (Exception e) {
-            logger.warn("Lock check failed unexpectedly", e);
+            logger.warn("Lock check failed unexpectedly ({})", e.getClass().getSimpleName());
             return false;
         }
     }
@@ -2125,7 +2162,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logger.debug("CANCEL P:" + providerNo + " D:" + demo + " PROG:" + programNo);
             this.caseManagementMgr.deleteTmpSave(providerNo, demo, programNo);
         } catch (Exception e) {
-            logger.warn("Warning", e);
+            logger.warn("Warning ({})", e.getClass().getSimpleName());
         }
 
         return "windowClose";
@@ -2683,10 +2720,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String noteid = request.getParameter("noteId");
 
+        // The note text is rendered by showHistory.jsp through the null-safe encoder with
+        // line breaks preserved (carlos:forHtmlContentWithBreaks). Splicing "<br/>" into
+        // the stored text here forced the view to emit it raw, which made a stored
+        // "</p><script>" in a note execute in the history popup.
         List<CaseManagementNote> history = caseManagementMgr.getHistory(noteid);
-        for (CaseManagementNote caseManagementNote : history) {
-            caseManagementNote.setNote(caseManagementNote.getNote().replace("\n", "<br/>"));
-        }
         request.setAttribute("history", history);
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         request.setAttribute("title", props.getString("encounter.noteHistory.title"));
@@ -2785,7 +2823,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             caseManagementMgr.deleteTmpSave(providerNo, demographicNo, programId);
             caseManagementMgr.tmpSave(providerNo, demographicNo, programId, noteId, note);
         } catch (Exception e) {
-            logger.warn("AutoSave Error: " + e);
+            logger.warn("Encounter autosave failed ({})", e.getClass().getSimpleName());
         }
 
         this.getCaseNote().setNote(note);
@@ -2847,7 +2885,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
                 textStr = this.caseManagementMgr.getNote(noteIds[idx]).getNote();
             }
-            textStr = Encode.forHtml(textStr).replace("\n", "<br>");
+            textStr = SafeEncode.forHtmlContent(textStr).replace("\n", "<br>");
             out.println(textStr);
             out.println("<br><br>");
         }
@@ -2912,7 +2950,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // IOException/SecurityException all fire pre-write), so the response is still uncommitted
             // here. Surface a real error instead of an empty HTTP-200 PDF (CLAUDE.md Direct-Response
             // Actions). If the merge failed mid-stream the response is committed and we can only log.
-            logger.error("Encounter chart print failed", e);
+            logger.error("Encounter chart print failed ({})", e.getClass().getSimpleName());
             if (!response.isCommitted()) {
                 response.reset();
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate the chart print");
@@ -3005,7 +3043,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 strNewDate = CachedDateFormats.format(tempDate, DD_MMM_YYYY_PATTERN, request.getLocale());
 
             } catch (ParseException ex) {
-                MiscUtils.getLogger().error("Error", ex);
+                MiscUtils.getLogger().error("Error ({})", ex.getClass().getSimpleName());
             }
         }
 

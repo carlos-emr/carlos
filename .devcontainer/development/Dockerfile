@@ -18,7 +18,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
 # ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
-ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties"
+ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties -Djavamelody.system-actions-enabled=true"
 # The eForm browser PDF renderer runs headless Chromium unsandboxed by default (Tomcat runs as root
 # here and Chromium refuses to start its OS-level sandbox as root); this container IS the isolation
 # boundary. No env var is needed for that default. To exercise Chromium's OS sandbox in a container
@@ -38,10 +38,10 @@ LABEL author="CARLOS EMR Project" \
 
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
-ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
+ARG OSCAR_DOCUMENT="${DOCS_PATH}/CarlosDocument"
 ARG DB_DOCS="/db-data/documents"
-ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
-ARG EFORM_IMAGES_DIR="/var/lib/OscarDocument/oscar/eform/images"
+ARG DOCS_DEST="/var/lib/CarlosDocument/carlos/document"
+ARG EFORM_IMAGES_DIR="/var/lib/CarlosDocument/carlos/eform/images"
 
 WORKDIR /workspace
 
@@ -269,6 +269,19 @@ COPY ./setup/setup-hot-reload.sh /setup-dir/setup-hot-reload.sh
 COPY ./config/tomcat/conf/server.xml $TOMCAT_PATH/conf/server.xml
 COPY ./config/shared/volumes/*.properties /root/
 
+# Generate a self-signed certificate for the development-only HTTPS connector.
+RUN keytool -genkeypair -noprompt \
+    -alias localhost \
+    -keyalg RSA \
+    -keysize 2048 \
+    -validity 3650 \
+    -dname "CN=localhost, OU=Development, O=CARLOS, C=CA" \
+    -ext "SAN=dns:localhost,ip:127.0.0.1" \
+    -storetype PKCS12 \
+    -keystore "$TOMCAT_PATH/conf/dev-localhost.p12" \
+    -storepass changeit \
+    -keypass changeit
+
 # Copy configuration files
 COPY ./openosp_files/index.jsp $TOMCAT_PATH/webapps/ROOT/index.jsp
 COPY ./openosp_files/openosp_favicon.ico $TOMCAT_PATH/webapps/ROOT/openosp_favicon.ico
@@ -278,17 +291,17 @@ COPY ./openosp_files/tomcat-users.xml $TOMCAT_PATH/conf/tomcat-users.xml
 
 # Set up document directories, including seeded document data for the database and the destination
 # of all documents
-RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
-    $OSCAR_DOCUMENT/oscar/billing/download \
-    $OSCAR_DOCUMENT/oscar/billing/invoices \
-    $OSCAR_DOCUMENT/oscar/form/records \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/inbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/outbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/sent \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/archive \
-    $OSCAR_DOCUMENT/oscar/encounter/oscarMeasurements/styles \
-    $OSCAR_DOCUMENT/oscar/incomingdocs \
-    $OSCAR_DOCUMENT/oscar/export \
+RUN mkdir -p $OSCAR_DOCUMENT/carlos/document \
+    $OSCAR_DOCUMENT/carlos/billing/download \
+    $OSCAR_DOCUMENT/carlos/billing/invoices \
+    $OSCAR_DOCUMENT/carlos/form/records \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/inbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/outbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/sent \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/archive \
+    $OSCAR_DOCUMENT/carlos/encounter/oscarMeasurements/styles \
+    $OSCAR_DOCUMENT/carlos/incomingdocs \
+    $OSCAR_DOCUMENT/carlos/export \
     $DB_DOCS \
     $DOCS_DEST \
     $EFORM_IMAGES_DIR \
@@ -314,8 +327,8 @@ RUN dos2unix /scripts/* /setup-dir/*.sh \
     && /setup-dir/setup.sh
 ENV PATH="/scripts:${PATH}"
 
-# Expose Tomcat port
-EXPOSE 8080
+# Expose Tomcat HTTP and development HTTPS ports
+EXPOSE 8080 8443
 
 # Clean up
 RUN apt-get autoclean && apt-get clean && apt-get autoremove
