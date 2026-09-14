@@ -672,9 +672,10 @@ suite_failed=0
 #                                the field is rendered only when workflow_enhance is true, which the
 #                                package ships false, so set it in /etc/carlos-emr/carlos.properties
 #                                and `carlos-ctl restart` before the loop; the check reports SKIP (exit 2)
-#                                with that instruction when it is off. A run that never set it finishes
-#                                green WITHOUT having exercised the column, so read the skip rather than
-#                                the exit status. It seeds one
+#                                with that instruction when it is off. The legacy loop below treats every
+#                                nonzero exit as FAIL, so enabling the property is required for this loop.
+#                                The separate run-playwright-suite.js runner records SKIP as non-failing;
+#                                require PASS for this check to confirm the column was exercised. It seeds one
 #                                appointment for tomorrow and deletes it in a finally.)
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
