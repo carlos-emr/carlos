@@ -19,6 +19,21 @@ class PipelineTest(unittest.TestCase):
         self.prompt = (ROOT / "prompt.txt").read_text()
         self.schema = json.loads((ROOT / "output-schema.json").read_text())
 
+    def test_coverage_and_citations_are_bounded_to_each_pass_without_mutating_schema(self):
+        original = copy.deepcopy(self.schema)
+        for count in (1, 75):
+            sources = [{"id": f"note-{i}"} for i in range(count)]
+            schema = pipeline.ollama_schema(self.schema, sources)
+            coverage = schema["properties"]["coverage"]
+            self.assertEqual(count, coverage["minItems"])
+            self.assertEqual(count, coverage["maxItems"])
+            expected = [source["id"] for source in sources]
+            self.assertEqual(expected, coverage["items"]["properties"]["source_id"]["enum"])
+            citations = schema["properties"]["claims"]["items"]["properties"]["source_ids"]
+            self.assertEqual(expected, citations["items"]["enum"])
+            self.assertEqual(count, citations["maxItems"])
+        self.assertEqual(original, self.schema)
+
     def test_full_record_fixture_exceeds_old_limit_and_requires_every_fact(self):
         self.assertEqual(self.bundle, json.loads((ROOT / "full-record-input.json").read_text()))
         claims = [{"id": row["id"], "text": row["text"], "source_ids": row["source_ids"]}

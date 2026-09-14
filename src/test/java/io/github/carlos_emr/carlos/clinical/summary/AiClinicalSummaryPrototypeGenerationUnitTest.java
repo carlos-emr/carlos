@@ -129,6 +129,15 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
         assertThat(payload.path("stream").asBoolean()).isFalse();
         assertThat(payload.path("think").asBoolean()).isFalse();
         assertThat(payload.path("format").path("type").asText()).isEqualTo("object");
+        var sources = MAPPER.valueToTree(chart.getView()).path("sources");
+        var coverageSchema = payload.path("format").path("properties").path("coverage");
+        assertThat(coverageSchema.path("minItems").asInt()).isEqualTo(sources.size());
+        assertThat(coverageSchema.path("maxItems").asInt()).isEqualTo(sources.size());
+        ArrayNode sourceIds = MAPPER.createArrayNode();
+        sources.forEach(source -> sourceIds.add(source.get("id").asText()));
+        assertThat(coverageSchema.path("items").path("properties").path("source_id").path("enum")).isEqualTo(sourceIds);
+        assertThat(payload.path("format").path("properties").path("claims").path("items")
+                .path("properties").path("source_ids").path("items").path("enum")).isEqualTo(sourceIds);
         assertThat(MAPPER.readTree(payload.path("prompt").asText()).size()).isEqualTo(1);
         assertThat(draft.isRenderable()).isTrue();
     }
@@ -185,7 +194,8 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     @Test
     void rejectsIncompleteModelOutput() {
         doneReason = "length";
-        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("incomplete response");
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("model reached its output limit")
+                .hasMessageNotContaining("unavailable");
     }
 
     @Test
@@ -215,6 +225,19 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
 
         ((ObjectNode) generated.get("claims").get(0)).put("text", "Migraine with photophobia is worsening.");
         assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
+    }
+
+    @Test
+    void acceptsQuotedClinicalTextButRejectsLineBreaks() throws Exception {
+        ObjectNode claim = (ObjectNode) generated.get("claims").get(0);
+        String original = claim.get("text").asText();
+        claim.put("text", "Reported as \"" + original + "\"");
+        assertThat(generator().generate(chart).getClaimsById().get(claim.get("id").asText()).get("text"))
+                .isEqualTo(claim.get("text").asText());
+        for (String newline : new String[]{"\n", "\r"}) {
+            claim.put("text", original + newline + "Additional recorded context.");
+            assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
+        }
     }
 
     @Test

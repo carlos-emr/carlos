@@ -29,11 +29,48 @@ final class ClinicalSummaryGenerationPipeline {
     }
 
     JsonNode generate(ObjectNode snapshot, ObjectNode request) throws IOException {
-        List<ObjectNode> requests = new ArrayList<>();
-        partition(request, requests);
+        ObjectNode clinicalRequest = request.deepCopy();
+        ArrayNode clinicalSources = clinicalRequest.putArray("sources");
         List<JsonNode> outputs = new ArrayList<>();
+        for (JsonNode source : request.get("sources")) {
+            if (isHostIdentity(snapshot, source)) {
+                // Identity is constructed by the host, with no clinical content. Keep it in
+                // evidence and coverage, but do not ask a model to invent a summary of it.
+                ObjectNode identity = JSON.createObjectNode();
+                identity.putArray("sections");
+                identity.putArray("claims");
+                identity.putArray("coverage").addObject().put("source_id", "identity")
+                        .put("status", "excluded").put("reason", "Host patient identity; no clinical content sent for generation.");
+                outputs.add(identity);
+            } else {
+                ObjectNode clinicalSource = source.deepCopy();
+                String text = source.path("text").asText();
+                String boundary = "Source text below is preserved verbatim, including encoding and clinical inconsistencies.\n\n";
+                // The service has already checksum-verified every NHS fixture note. Its import
+                // preamble is host metadata, not clinical text; original evidence stays intact.
+                if (!snapshot.path("patient_context").path("generation_fixture").asText().isBlank()
+                        && source.path("id").asText().matches("note-[1-9][0-9]*")
+                        && text.startsWith("SYNTHETIC NHS TEST PATIENT - NOT FOR CLINICAL USE\nImported development fixture.")
+                        && text.contains(boundary)) {
+                    clinicalSource.put("text", text.substring(text.indexOf(boundary) + boundary.length()));
+                }
+                clinicalSources.add(clinicalSource);
+            }
+        }
+        List<ObjectNode> requests = new ArrayList<>();
+        if (!clinicalSources.isEmpty()) partition(clinicalRequest, requests);
         for (ObjectNode part : requests) run(snapshot, part, requests.size() > 1, outputs);
         return outputs.size() == 1 ? outputs.getFirst() : merge(outputs, snapshot.get("sources"));
+    }
+
+    private static boolean isHostIdentity(ObjectNode snapshot, JsonNode source) {
+        String patientId = snapshot.path("patient_context").path("id").asText();
+        return patientId.matches("demographic-[1-9][0-9]*")
+                && "identity".equals(source.path("id").asText())
+                && patientId.equals(source.path("patient_id").asText())
+                && source.path("text").asText().equals("Demographic number: "
+                        + patientId.substring("demographic-".length()) + "\nName: "
+                        + snapshot.path("patient_context").path("label").asText());
     }
 
     private void partition(ObjectNode request, List<ObjectNode> requests) throws IOException {
@@ -128,7 +165,7 @@ final class ClinicalSummaryGenerationPipeline {
         } else {
             ObjectNode source = (ObjectNode) sources.get(0);
             String text = source.path("text").asText();
-            if (text.length() < 1024) throw new IOException("Source portion cannot be completed within model limits");
+            if (text.length() < 1024) throw new ClinicalSummaryOutputLimitException();
             int middle = text.length() / 2;
             // Prefer a paragraph boundary, then a sentence boundary. Preserve surrounding context
             // on both sides; never drop text, split a surrogate pair, or discard a long final tail.

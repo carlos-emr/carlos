@@ -67,7 +67,18 @@ public final class OllamaClinicalSummaryAgent implements ClinicalSummaryAgent {
                 .put("system", request.get("instructions").asText())
                 .put("prompt", JSON.writeValueAsString(bundle)).put("stream", false).put("think", false)
                 .put("keep_alive", "5m");
-        payload.set("format", request.get("output_schema").deepCopy());
+        ObjectNode schema = request.get("output_schema").deepCopy();
+        ObjectNode coverage = (ObjectNode) schema.path("properties").path("coverage");
+        coverage.put("minItems", request.get("sources").size()).put("maxItems", request.get("sources").size());
+        var coverageIds = ((ObjectNode) coverage.path("items").path("properties").path("source_id")).putArray("enum");
+        ObjectNode citations = (ObjectNode) schema.path("properties").path("claims").path("items").path("properties").path("source_ids");
+        citations.put("maxItems", request.get("sources").size());
+        var citationIds = ((ObjectNode) citations.path("items")).putArray("enum");
+        request.get("sources").forEach(source -> {
+            coverageIds.add(source.get("id").asText());
+            citationIds.add(source.get("id").asText());
+        });
+        payload.set("format", schema);
         payload.putObject("options").put("temperature", 0).put("num_ctx", 16384).put("num_predict", 4096);
         byte[] body = JSON.writeValueAsBytes(payload);
         if (body.length > MAX_REQUEST_BYTES) throw new IllegalArgumentException("Ollama context limit exceeded");
