@@ -320,9 +320,9 @@
                                                            onclick="setDrugRx2('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= brandName %>' context="javaScriptAttribute"/>')">
                                                                     <%}else{%>
                                                             <a href="<%= request.getContextPath() %>/rx/chooseDrug?BN=<carlos:encode value='<%= brandName %>' context="uriComponent"/>&drugId=<carlos:encode value='<%= t.pKey %>' context="uriComponent"/>&demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>"
-                                                              title="<carlos:encode value='<%= brandName %>' context="htmlAttribute"/>">
+                                                               title="<carlos:encode value='<%= brandName %>' context="htmlAttribute"/>">
                                                                 <%}%>
-                                                               <carlos:encode value='<%= brandName %>' context="html"/>
+                                                                <carlos:encode value='<%= brandName %>' context="html"/>
                                                             </a>
                                                             <span>&nbsp;&nbsp;(<a
                                                                     href="javascript:ShowDrugInfoBN('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
@@ -376,7 +376,7 @@
                                     <tr>
                                         <td bgcolor="<%=bgColor%>">
                                             <a href="<%= request.getContextPath() %>/rx/searchDrug?genericSearch=<carlos:encode value='<%= t.pKey %>' context="uriComponent"/>&demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>">
-                                                <%= t.name%>
+                                                <carlos:encode value='<%= t.name %>' context="html"/>
                                             </a>
                                             <span>&nbsp;&nbsp;(<a
                                                     href="javascript:ShowDrugInfo('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>

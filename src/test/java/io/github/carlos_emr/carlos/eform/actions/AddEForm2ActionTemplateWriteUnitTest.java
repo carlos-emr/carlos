@@ -215,23 +215,76 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
         verifyTemplateWritten(true);
     }
 
+    @Test
+    @DisplayName("should carry the Submit & PDF auto-close intent into the download approval page")
+    void shouldCarryAutoCloseIntoApproval_whenSubmitAndPdfRefused() throws Exception {
+        // The approval page posts to eform/downloadEFormPdf, not back to this action, so the only
+        // way the approved download can still close the window is for the intent to ride along.
+        mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "false");
+        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
+                .thenThrow(new EformContentUnavailableException("incomplete", 42,
+                        new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false, false)));
+        when(mockRenderApprovalService.issue(any(), any(), anyInt(), anyString(), any(), any(), any(), anyInt()))
+                .thenReturn("ticket");
+
+        String result = new AddEForm2Action().execute();
+
+        assertThat(result).isEqualTo("missingContent");
+        assertThat(mockRequest.getAttribute("approvalAutoClose")).isEqualTo("true");
+        // Refused or not, the flag that closes THIS response's window is never set on the approval page.
+        assertThat(mockRequest.getAttribute("isSuccess_Autoclose")).isNull();
+        verifyTemplateWritten(true);
+    }
+
     // There is deliberately no separate "plain save writes the template" test. execute() continues
     // past the write into MatchManager's client matching, which needs real matcher data and NPEs
     // without it — mocking that chain would test PMmodule, not this contract. The eDoc test above
     // already covers the positive case: if the write never ran at all, it would fail.
 
     @Test
-    @DisplayName("should not write the eForm template on the print path")
-    void shouldNotWriteTemplate_onPrintPath() {
+    @DisplayName("should not write the eForm template on the PDF preview path (print with skipSave)")
+    void shouldNotWriteTemplate_onPrintPreviewPath() throws Exception {
         // Guards the hoist: the write moved above the eDoc block, and it must still be skipped for
         // the workflow paths that never performed it. writeEformTemplate is not idempotent, so
         // running it here would duplicate every CPP note, tickler and consult request.
+        // print=true is the legacy printControl.js alias of the save-and-download workflow, so the
+        // path now renders and returns the mapped "download" result instead of an unmapped "print".
+        // printControl.js's "PDF" button sends skipSave=true: a preview, not a submission.
         mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "true");
+        stubPrintRender();
 
         AddEForm2Action action = new AddEForm2Action();
         String result = action.execute();
 
-        assertThat(result).isEqualTo("print");
+        assertThat(result).isEqualTo("download");
         verifyTemplateWritten(false);
+    }
+
+    @Test
+    @DisplayName("should still write the eForm template on Submit & PDF (print without skipSave)")
+    void shouldWriteTemplate_onSubmitAndPdfPath() throws Exception {
+        // Before the print alias these buttons reached the server as a plain save (their print flag
+        // never arrived), so a generated eForm's configured notes, ticklers and consults were
+        // created. "Submit & PDF" is still a submission and must keep those side effects.
+        mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "false");
+        stubPrintRender();
+
+        AddEForm2Action action = new AddEForm2Action();
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("download");
+        // ...and, like every other submission, the result page closes the window afterwards.
+        assertThat(mockRequest.getAttribute("isSuccess_Autoclose")).isEqualTo("true");
+        verifyTemplateWritten(true);
+    }
+
+    private void stubPrintRender() throws Exception {
+        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
+                .thenReturn(new EformDataManager.EformPdfRender(java.nio.file.Path.of("letter.pdf"),
+                        new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, false)));
+        when(mockDocumentAttachmentManager.convertPDFToBase64(any())).thenReturn("JVBERi0=");
     }
 }
