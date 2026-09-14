@@ -40,6 +40,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     RxSessionBean bean2 = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
@@ -78,7 +79,7 @@
         for (int j=0; j<favorites.length; j++){ %>
 
         <p class="PropSheetMenuItemLevel1"><a href="javascript:void(0);"
-                                              onclick="goSD3('<carlos:encode value='<%= favorites[j].getFavoriteId() %>' context="javaScriptAttribute"/>');"
+                                              onclick="goSD3('<carlos:encode value='<%= String.valueOf(favorites[j].getFavoriteId()) %>' context="javaScriptAttribute"/>');"
                                               title="<carlos:encode value='<%= favorites[j].getFavoriteName() %>' context="htmlAttribute"/>"><%if (favorites[j].getFavoriteName().length() > 13) { %>
             <carlos:encode value='<%= favorites[j].getFavoriteName().substring(0, 10) + "..." %>' context="html"/> <%} else {%>
             <carlos:encode value='<%= favorites[j].getFavoriteName() %>' context="html"/> <%}%></a></p>

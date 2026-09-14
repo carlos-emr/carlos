@@ -59,8 +59,9 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
     public String execute()
             throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
         }
 
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler(startDate, endDate);

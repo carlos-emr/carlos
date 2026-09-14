@@ -524,7 +524,7 @@
                     }
                     // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
                     try {
-                        var demoNo = '<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0" %>' context="javaScriptBlock"/>';
+                        var demoNo = '<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                         var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
                         bc.postMessage({ action: 'refresh' });
                         bc.close();
@@ -900,8 +900,8 @@
                         </select>
                         <% } %>
 
-                        <input type="hidden" name="docType" value="<carlos:encode value='<%= request.getParameter("docType") != null ? request.getParameter("docType") : "" %>' context="htmlAttribute"/>">
-                        <input type="hidden" name="docId" value="<carlos:encode value='<%= request.getParameter("docId") != null ? request.getParameter("docId") : "" %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="docType" value="<carlos:encode value='<%= request.getParameter("docType") != null ? request.getParameter("docType") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                        <input type="hidden" name="docId" value="<carlos:encode value='<%= request.getParameter("docId") != null ? request.getParameter("docId") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     </td>
                 </tr>
                 <tr>

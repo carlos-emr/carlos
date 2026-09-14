@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -94,8 +95,8 @@ public class OnRaSummaryTotalsService {
                 "<xml_balancefwd>", "</xml_balancefwd>");
 
         StringBuilder rebuilt = new StringBuilder();
-        rebuilt.append("<xml_transaction>").append(nullSafe(transaction)).append("</xml_transaction>");
-        rebuilt.append("<xml_balancefwd>").append(nullSafe(balanceFwd)).append("</xml_balancefwd>");
+        appendPreservedRaFragment(rebuilt, "xml_transaction", transaction);
+        appendPreservedRaFragment(rebuilt, "xml_balancefwd", balanceFwd);
         rebuilt.append("<xml_local>").append(nullToZero(localTotal)).append("</xml_local>");
         rebuilt.append("<xml_total>").append(nullToZero(payTotal)).append("</xml_total>");
         rebuilt.append("<xml_other_total>").append(nullToZero(otherTotal)).append("</xml_other_total>");
@@ -104,6 +105,12 @@ public class OnRaSummaryTotalsService {
 
         header.setContent(rebuilt.toString());
         raHeaderDao.merge(header);
+    }
+
+    // FindSecBugs POTENTIAL_XML_INJECTION: RA transaction/balance fragments are application-generated XML/HTML tables extracted from existing RA headers and preserved verbatim.
+    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "RA transaction/balance fragments are application-generated XML/HTML tables extracted from the existing RA header and must be preserved verbatim")
+    private static void appendPreservedRaFragment(StringBuilder rebuilt, String elementName, String fragment) {
+        rebuilt.append("<").append(elementName).append(">").append(nullSafe(fragment)).append("</").append(elementName).append(">");
     }
 
     private static String nullSafe(String v) {

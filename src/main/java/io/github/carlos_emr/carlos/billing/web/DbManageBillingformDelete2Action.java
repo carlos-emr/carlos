@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.Objects;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action to delete all data associated with a generic billing service type.
@@ -73,9 +74,12 @@ public class DbManageBillingformDelete2Action extends ActionSupport {
      *         if the request method is not POST
      * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
@@ -103,7 +107,7 @@ public class DbManageBillingformDelete2Action extends ActionSupport {
                 diagCodeDao.remove(d.getId());
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to delete billing form for servicetype={} — data may be inconsistent", typeid, e);
+            MiscUtils.getLogger().error("Failed to delete billing form; data may be inconsistent ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to delete billing form");
             return NONE;
         }

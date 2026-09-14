@@ -64,6 +64,7 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author apavel
@@ -247,6 +248,8 @@ public class DSDemographicAccess {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean hasDxCode(String codeType, String code) {
         logger.debug("HAS DX CODES CALLED");
         List<dxResearchBean> dxCodes = this.getDxCodes();
@@ -317,6 +320,8 @@ public class DSDemographicAccess {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean hasRxCode(DSValue rxCode) throws DecisionSupportException {
         String codeType = rxCode.getValueType();
         if (codeType == null) codeType = "atc";
@@ -421,6 +426,8 @@ public class DSDemographicAccess {
         return getDemographicData(loggedInInfo).getSex();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isSex(DSValue sexStatement) throws DecisionSupportException {
         logger.debug("IS SEX CALLED");
         if (sexStatement.getValue().equalsIgnoreCase("male")) sexStatement.setValue("M");
@@ -654,6 +661,8 @@ public class DSDemographicAccess {
     //          notInCalendarYear=true
     //          unitsBilledToday=<4
     //          requiresStartTime=true     not implemented yet.
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean billedForAny(String searchStrings, Hashtable<String, String> options) {
         boolean retval = false;
         if (options.containsKey("payer") && options.get("payer").equals("MSP")) {

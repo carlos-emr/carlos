@@ -171,7 +171,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><form action="${pageContext.request.contextPath}/rx/searchAllergy2" method="post"
+                        <td><form id="RxSearchAllergyForm" name="RxSearchAllergyForm" action="${pageContext.request.contextPath}/rx/searchAllergy2" method="post"
                                        focus="searchString" onsubmit="return isEmpty()">
                             <table>
                                 <tr valign="center">
