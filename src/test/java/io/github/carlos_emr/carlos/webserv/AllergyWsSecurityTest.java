@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.transfer_objects.AllergyTransfer;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -62,6 +63,8 @@ class AllergyWsSecurityTest {
 
     @Mock
     private LoggedInInfo loggedInInfo;
+
+    private static final int TEST_DEMOGRAPHIC_ID = 12345;
 
     private AllergyWs service;
 
@@ -110,7 +113,7 @@ class AllergyWsSecurityTest {
         denyAllergyReadPrivilege();
 
         assertThatThrownBy(() -> service.getAllergiesByProgramProviderDemographicDate(
-                1, "999990", 12345, Calendar.getInstance(), 5))
+                1, "999990", TEST_DEMOGRAPHIC_ID, Calendar.getInstance(), 5))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
@@ -123,7 +126,7 @@ class AllergyWsSecurityTest {
     void shouldThrow_whenDemographicQueryPrivilegeDenied() {
         denyAllergyReadPrivilege();
 
-        assertThatThrownBy(() -> service.getAllergiesByDemographicIdAfter(Calendar.getInstance(), 12345))
+        assertThatThrownBy(() -> service.getAllergiesByDemographicIdAfter(Calendar.getInstance(), TEST_DEMOGRAPHIC_ID))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
@@ -137,7 +140,7 @@ class AllergyWsSecurityTest {
         allowAllergyReadPrivilege();
         when(allergyManager.getAllergy(loggedInInfo, 12)).thenReturn(allergy("Penicillin"));
 
-        assertThat(service.getAllergy(12)).isNotNull();
+        assertThat(service.getAllergy(12).getDescription()).isEqualTo("Penicillin");
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
         verify(allergyManager).getAllergy(loggedInInfo, 12);
@@ -152,7 +155,8 @@ class AllergyWsSecurityTest {
         when(allergyManager.getUpdatedAfterDate(loggedInInfo, updatedAfter, 5))
                 .thenReturn(List.of(allergy("Penicillin")));
 
-        assertThat(service.getAllergiesUpdatedAfterDate(updatedAfter, 5)).hasSize(1);
+        assertThat(service.getAllergiesUpdatedAfterDate(updatedAfter, 5))
+                .extracting(AllergyTransfer::getDescription).containsExactly("Penicillin");
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
         verify(allergyManager).getUpdatedAfterDate(loggedInInfo, updatedAfter, 5);
@@ -165,15 +169,16 @@ class AllergyWsSecurityTest {
         allowAllergyReadPrivilege();
         Calendar updatedAfter = Calendar.getInstance();
         when(allergyManager.getAllergiesByProgramProviderDemographicDate(
-                loggedInInfo, 1, "999990", 12345, updatedAfter, 5))
+                loggedInInfo, 1, "999990", TEST_DEMOGRAPHIC_ID, updatedAfter, 5))
                 .thenReturn(List.of(allergy("Sulfa")));
 
         assertThat(service.getAllergiesByProgramProviderDemographicDate(
-                1, "999990", 12345, updatedAfter, 5)).hasSize(1);
+                1, "999990", TEST_DEMOGRAPHIC_ID, updatedAfter, 5))
+                .extracting(AllergyTransfer::getDescription).containsExactly("Sulfa");
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
         verify(allergyManager).getAllergiesByProgramProviderDemographicDate(
-                loggedInInfo, 1, "999990", 12345, updatedAfter, 5);
+                loggedInInfo, 1, "999990", TEST_DEMOGRAPHIC_ID, updatedAfter, 5);
         verifyNoMoreInteractions(allergyManager);
     }
 
@@ -182,18 +187,27 @@ class AllergyWsSecurityTest {
     void shouldDelegate_whenDemographicQueryPrivilegeGranted() {
         allowAllergyReadPrivilege();
         Calendar lastUpdate = Calendar.getInstance();
-        when(allergyManager.getByDemographicIdUpdatedAfterDate(loggedInInfo, 12345, lastUpdate.getTime()))
+        when(allergyManager.getByDemographicIdUpdatedAfterDate(loggedInInfo, TEST_DEMOGRAPHIC_ID, lastUpdate.getTime()))
                 .thenReturn(List.of(allergy("Latex")));
 
-        assertThat(service.getAllergiesByDemographicIdAfter(lastUpdate, 12345)).hasSize(1);
+        assertThat(service.getAllergiesByDemographicIdAfter(lastUpdate, TEST_DEMOGRAPHIC_ID))
+                .extracting(AllergyTransfer::getDescription).containsExactly("Latex");
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
-        verify(allergyManager).getByDemographicIdUpdatedAfterDate(loggedInInfo, 12345, lastUpdate.getTime());
+        verify(allergyManager).getByDemographicIdUpdatedAfterDate(loggedInInfo, TEST_DEMOGRAPHIC_ID, lastUpdate.getTime());
         verifyNoMoreInteractions(allergyManager);
     }
 
+    /**
+     * Builds a minimally-populated allergy for delegation tests.
+     *
+     * <p>{@code demographicNo} must be set: {@link Allergy#getDemographicNo()} returns a primitive
+     * {@code int} over a nullable {@code Integer} field, so {@code AllergyTransfer.toTransfer}
+     * throws an NPE on an allergy that leaves it unset.</p>
+     */
     private static Allergy allergy(String description) {
         Allergy allergy = new Allergy();
+        allergy.setDemographicNo(TEST_DEMOGRAPHIC_ID);
         allergy.setDescription(description);
         return allergy;
     }
