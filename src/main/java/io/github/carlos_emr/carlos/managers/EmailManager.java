@@ -193,24 +193,21 @@ public class EmailManager {
      * @param emailConfig the configuration whose secrets should be encrypted at rest, may be null
      */
     void upgradeConfigCredentialsAtRest(EmailConfig emailConfig) {
-        if (emailConfig == null) {
+        if (emailConfig == null || emailConfig.getId() == null) {
             return;
         }
         String original = emailConfig.getConfigDetailsJson();
         try {
             String encrypted = EmailConfigSecrets.encryptSecrets(original);
-            if (!java.util.Objects.equals(original, encrypted)) {
+            if (!java.util.Objects.equals(original, encrypted)
+                    && emailConfigDao.encryptCredentialsIfUnchanged(emailConfig.getId(), original, encrypted)) {
                 emailConfig.setConfigDetailsJson(encrypted);
-                emailConfigDao.merge(emailConfig);
             }
         } catch (EmailSendingException | RuntimeException e) {
             // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
-            // from merge (RuntimeException, e.g. DataAccessException) may block outbound mail. The
-            // send proceeds with the existing value. Restore the detached object as well in case a
-            // merge failure happened after it was updated in memory. The logged cause aids diagnosis
-            // and carries no plaintext secret or raw config JSON: encryptSecrets fails before the
-            // value is set, and by the time merge runs the stored value is already ciphertext.
-            emailConfig.setConfigDetailsJson(original);
+            // (RuntimeException, e.g. DataAccessException) may block outbound mail. The detached
+            // object is changed only after persistence succeeds. The DAO binds only the account ID
+            // and encrypted JSON, never the plaintext credential, keeping database errors safe.
             logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
                     emailConfig.getId(), e);
         }

@@ -25,7 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.same;
@@ -278,6 +277,8 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     void shouldMigrateCredentials_beforeAllowedSend() throws Exception {
         EmailConfig config = emailConfig();
         config.setConfigDetailsJson("{\"password\":\"smtp-secret\"}");
+        when(emailConfigDao.encryptCredentialsIfUnchanged(eq(10), eq(config.getConfigDetailsJson()), any()))
+                .thenReturn(true);
         when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(config);
         when(emailConsentResolver.resolve(loggedInInfo, 123))
                 .thenReturn(new EmailConsentResult(
@@ -287,7 +288,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
 
         assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.SUCCESS);
-        verify(emailConfigDao).merge(same(config));
+        verify(emailConfigDao).encryptCredentialsIfUnchanged(eq(10), eq("{\"password\":\"smtp-secret\"}"), any());
         verify(emailSenderFactory).create(any(), same(config), any());
         verify(emailSender).send();
         assertPasswordDecrypts(config, "smtp-secret");
@@ -298,10 +299,12 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     @DisplayName("should encrypt and persist plaintext transport credentials on first use")
     void shouldPersistEncryptedCredentials_whenConfigIsPlaintext() throws Exception {
         EmailConfig config = config("{\"host\":\"smtp.example.com\",\"password\":\"smtp-secret\"}");
+        String original = config.getConfigDetailsJson();
+        when(emailConfigDao.encryptCredentialsIfUnchanged(eq(10), eq(original), any())).thenReturn(true);
 
         emailManager.upgradeConfigCredentialsAtRest(config);
 
-        verify(emailConfigDao).merge(same(config));
+        verify(emailConfigDao).encryptCredentialsIfUnchanged(10, original, config.getConfigDetailsJson());
         assertPasswordDecrypts(config, "smtp-secret");
     }
 
@@ -313,7 +316,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
         emailManager.upgradeConfigCredentialsAtRest(config);
 
-        verify(emailConfigDao, never()).merge(config);
+        verifyNoInteractions(emailConfigDao);
         assertPasswordDecrypts(config, "smtp-secret");
     }
 
@@ -323,11 +326,26 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     void shouldRestoreOriginalConfig_whenPersistenceFails() {
         String original = "{\"password\":\"smtp-secret\"}";
         EmailConfig config = config(original);
-        doThrow(new RuntimeException("database unavailable")).when(emailConfigDao).merge(config);
+        when(emailConfigDao.encryptCredentialsIfUnchanged(eq(10), eq(original), any()))
+                .thenThrow(new RuntimeException("database unavailable"));
 
         emailManager.upgradeConfigCredentialsAtRest(config);
 
         assertThat(config.getConfigDetailsJson()).isEqualTo(original);
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should preserve the send configuration when another writer wins the migration race")
+    void shouldKeepOriginalConfig_whenMigrationLosesRace() {
+        String original = "{\"password\":\"smtp-secret\"}";
+        EmailConfig config = config(original);
+        when(emailConfigDao.encryptCredentialsIfUnchanged(eq(10), eq(original), any())).thenReturn(false);
+
+        emailManager.upgradeConfigCredentialsAtRest(config);
+
+        assertThat(config.getConfigDetailsJson()).isEqualTo(original);
+        verify(emailConfigDao, never()).merge(any());
     }
 
     private EmailData emailData() {
@@ -353,6 +371,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
     private EmailConfig emailConfig() {
         EmailConfig emailConfig = new EmailConfig();
+        injectDependency(emailConfig, "id", 10);
         emailConfig.setSenderEmail("sender@example.org");
         emailConfig.setSenderFirstName("Sender");
         emailConfig.setSenderLastName("Provider");
@@ -360,7 +379,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     }
 
     private EmailConfig config(String details) {
-        EmailConfig config = new EmailConfig();
+        EmailConfig config = emailConfig();
         config.setConfigDetailsJson(details);
         return config;
     }
