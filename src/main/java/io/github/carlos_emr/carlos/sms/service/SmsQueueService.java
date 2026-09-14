@@ -5,29 +5,33 @@ import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
-import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
 
 @Service
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class SmsQueueService {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final int IMMEDIATE_WAKE_BATCH_SIZE = 1;
 
     private final SmsSendValidator validator;
     private final SmsConsentService consentService;
-    private final SmsTransactionRecorder transactionRecorder;
-    private final SmsQueueWorker smsQueueWorker;
-    private final SmsProviderSelector providerSelector;
+    private final SmsTransactionService transactionRecorder;
+    private final SmsQueueProcessingService smsQueueWorker;
+    private final SmsDefaultProviderResolver providerSelector;
 
     public SmsQueueService(
             SmsSendValidator validator,
             SmsConsentService consentService,
-            SmsTransactionRecorder transactionRecorder,
-            SmsQueueWorker smsQueueWorker,
-            SmsProviderSelector providerSelector
+            SmsTransactionService transactionRecorder,
+            SmsQueueProcessingService smsQueueWorker,
+            SmsDefaultProviderResolver providerSelector
     ) {
         this.validator = validator;
         this.consentService = consentService;
@@ -43,10 +47,10 @@ public class SmsQueueService {
         }
 
         SmsProviderType providerType = providerSelector.configuredDefault();
-        SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType);
-        SmsConsentDecisionDto consentDecision = consentService.evaluate(command);
+        SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
+                consentService.evaluate(command), "SMS consent decision is required");
+        transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
         if (!consentDecision.allowed()) {
-            transactionRecorder.markConsentBlocked(transaction, consentDecision);
             return SmsSendResultDto.consentBlocked(consentDecision);
         }
 

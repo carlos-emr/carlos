@@ -22,14 +22,14 @@ import static org.mockito.Mockito.verify;
 @Tag("unit")
 @Tag("service")
 @ExtendWith(MockitoExtension.class)
-class OscarLogSmsMessageBodyAccessAuditorUnitTest {
+class OscarLogSmsMessageBodyAuditPersisterUnitTest {
     @Mock
     private OscarLogDao oscarLogDao;
 
     @Test
     @DisplayName("audit data excludes SMS body and phone numbers")
     void shouldExcludePhi_whenBuildingAuditData() {
-        OscarLogSmsMessageBodyAccessAuditor auditor = new OscarLogSmsMessageBodyAccessAuditor(oscarLogDao);
+        OscarLogSmsMessageBodyAuditPersister auditor = new OscarLogSmsMessageBodyAuditPersister(oscarLogDao);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -45,7 +45,7 @@ class OscarLogSmsMessageBodyAccessAuditorUnitTest {
     @Test
     @DisplayName("recordFullBodyRead persists and flushes OscarLog synchronously")
     void shouldPersistAndFlushLog_whenRecordingFullBodyRead() {
-        OscarLogSmsMessageBodyAccessAuditor auditor = new OscarLogSmsMessageBodyAccessAuditor(oscarLogDao);
+        OscarLogSmsMessageBodyAuditPersister auditor = new OscarLogSmsMessageBodyAuditPersister(oscarLogDao);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -67,7 +67,7 @@ class OscarLogSmsMessageBodyAccessAuditorUnitTest {
     @Test
     @DisplayName("recordFullBodyRead propagates audit persistence failures")
     void shouldPropagateException_whenAuditFlushFails() {
-        OscarLogSmsMessageBodyAccessAuditor auditor = new OscarLogSmsMessageBodyAccessAuditor(oscarLogDao);
+        OscarLogSmsMessageBodyAuditPersister auditor = new OscarLogSmsMessageBodyAuditPersister(oscarLogDao);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB

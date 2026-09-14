@@ -18,14 +18,7 @@ public class LoggingSmsSendFailureListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onSmsSendFailed(SmsSendFailedEvent event) {
-        LOGGER.warn(
-                "Outbound SMS transaction {} failed terminally (errorCode={}); demographic={}, "
-                        + "requestedByProvider={}, appointment={}. Needs staff follow-up.",
-                event.transactionId(),
-                event.errorCode(),
-                event.demographicNo(),
-                event.requestedByHealthcareProviderNo(),
-                event.appointmentNo()
-        );
+        LOGGER.warn("Outbound SMS transaction {} failed; review the authorized SMS record for details.",
+                event.transactionId());
     }
 }

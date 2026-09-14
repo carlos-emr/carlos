@@ -8,7 +8,7 @@ import java.time.Duration;
 import java.util.Date;
 
 @Service
-public class SmsRetryPolicy {
+public class SmsRetryCalculator {
     private static final int DEFAULT_MAX_ATTEMPTS = 3;
     private static final Duration DEFAULT_INITIAL_DELAY = Duration.ofMinutes(1);
     private static final Duration DEFAULT_MAX_DELAY = Duration.ofHours(1);
@@ -18,11 +18,11 @@ public class SmsRetryPolicy {
     private final Duration maxDelay;
 
     @Autowired
-    public SmsRetryPolicy() {
+    public SmsRetryCalculator() {
         this(DEFAULT_MAX_ATTEMPTS, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY);
     }
 
-    SmsRetryPolicy(int maxAttempts, Duration initialDelay, Duration maxDelay) {
+    SmsRetryCalculator(int maxAttempts, Duration initialDelay, Duration maxDelay) {
         this.maxAttempts = Math.max(1, maxAttempts);
         this.initialDelay = initialDelay == null || initialDelay.isNegative() || initialDelay.isZero()
                 ? DEFAULT_INITIAL_DELAY

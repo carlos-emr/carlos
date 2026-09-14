@@ -22,7 +22,7 @@ class SmsQueueSchedulerUnitTest {
     private static final String DEFAULT_BATCH_SIZE = "60";
 
     @Mock
-    private SmsQueueWorker smsQueueWorker;
+    private SmsQueueProcessingService smsQueueWorker;
 
     @Mock
     private CarlosProperties carlosProperties;

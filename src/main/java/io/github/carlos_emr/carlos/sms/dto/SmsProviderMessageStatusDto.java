@@ -40,4 +40,8 @@ public record SmsProviderMessageStatusDto(
         NOT_FOUND,
         UNAVAILABLE
     }
+    @Override
+    public String toString() {
+        return "SmsProviderMessageStatusDto[redacted]";
+    }
 }

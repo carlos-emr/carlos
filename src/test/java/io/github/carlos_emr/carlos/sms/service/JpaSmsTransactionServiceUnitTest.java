@@ -41,7 +41,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("service")
 @ExtendWith(MockitoExtension.class)
-class JpaSmsTransactionRecorderUnitTest {
+class JpaSmsTransactionServiceUnitTest {
     private static final PlatformTransactionManager NOOP_TRANSACTION_MANAGER = new PlatformTransactionManager() {
         @Override
         public TransactionStatus getTransaction(TransactionDefinition definition) {
@@ -68,11 +68,12 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordOutboundAttempt persists and flushes the SMS transaction")
     void shouldPersistTransaction_whenRecordingOutboundAttempt() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
 
         SmsTransaction transaction = recorder.recordOutboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
-                SmsProviderType.STUB
+                SmsProviderType.STUB,
+                SmsConsentDecisionDto.permit()
         );
 
         ArgumentCaptor<SmsTransaction> captor = ArgumentCaptor.forClass(SmsTransaction.class);
@@ -91,7 +92,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("markConsentBlocked merges the blocked transaction state")
     void shouldMergeTransaction_whenConsentIsBlocked() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -112,7 +113,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("markSending increments attempts and merges sending state")
     void shouldMergeTransaction_whenMarkingSending() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -134,7 +135,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("markSending rejects rows already claimed by another sender")
     void shouldRejectClaim_whenRowIsAlreadyClaimed() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction claimed = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -172,7 +173,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("markProviderResult merges the SMS provider transaction state")
     void shouldMergeTransaction_whenProviderResultIsRecorded() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -190,7 +191,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("markProviderResult publishes a failure event when the send lands terminal FAILED")
     void shouldPublishFailedEvent_whenProviderResultIsTerminalFailure() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -212,7 +213,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("markRetryScheduled re-queues a failed SMS provider attempt")
     void shouldMergeTransaction_whenRetryIsScheduled() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -234,7 +235,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordInboundMessage persists inbound webhook transactions")
     void shouldPersistTransaction_whenRecordingInboundMessage() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
 
         SmsTransaction transaction = recorder.recordInboundMessage(new SmsInboundWebhookDto(
                 SmsProviderType.VOIPMS,
@@ -256,7 +257,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordInboundMessage returns the existing row for a redelivered inbound webhook")
     void shouldReturnExistingRow_whenInboundWebhookIsRedelivered() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsInboundWebhookDto webhook = new SmsInboundWebhookDto(
                 SmsProviderType.VOIPMS,
                 "provider-1",
@@ -280,7 +281,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordInboundMessage refetches when a concurrent redelivery wins the unique key")
     void shouldReturnExistingRow_whenConcurrentInboundRedeliveryWinsInsertRace() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(
                 smsTransactionDao,
                 eventPublisher,
                 NOOP_TRANSACTION_MANAGER
@@ -310,7 +311,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordInboundMessage rejects blank SMS provider message ids")
     void shouldRejectInboundMessage_whenProviderMessageIdIsBlank() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsInboundWebhookDto webhook = new SmsInboundWebhookDto(
                 SmsProviderType.VOIPMS,
                 " ",
@@ -330,7 +331,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordDeliveryEvent updates an existing SMS provider transaction")
     void shouldMergeTransaction_whenDeliveryEventMatchesExistingRecord() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction existing = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -358,7 +359,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordDeliveryEvent updates an outbound row matched by client reference")
     void shouldMergeTransaction_whenDeliveryEventMatchesClientReference() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction existing = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -388,7 +389,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordDeliveryEvent defaults missing SMS provider type before lookup")
     void shouldMergeTransaction_whenDeliveryProviderTypeIsMissing() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsTransaction existing = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -414,7 +415,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordDeliveryEvent rejects blank delivery correlation ids")
     void shouldRejectDeliveryEvent_whenCorrelationIdsAreBlank() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsDeliveryWebhookDto webhook = new SmsDeliveryWebhookDto(
                 SmsProviderType.STUB,
                 " ",
@@ -434,7 +435,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("recordDeliveryEvent creates a record when no SMS provider transaction exists")
     void shouldPersistTransaction_whenDeliveryEventIsUnmatched() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
                 .thenReturn(Optional.empty());
 
@@ -462,7 +463,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("claimDueOutboundQueue delegates atomic claiming to the DAO")
     void shouldMarkTransactionsSending_whenClaimingDueOutboundQueue() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         Date now = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
@@ -488,7 +489,7 @@ class JpaSmsTransactionRecorderUnitTest {
     @Test
     @DisplayName("claimStaleSendingForRecovery delegates atomic claiming to the DAO")
     void shouldMarkRecoveryStarted_whenSendingRowsAreStale() {
-        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         Date staleBefore = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
         Date recoveryAt = Date.from(Instant.parse("2026-06-08T12:05:00Z"));
         SmsTransaction transaction = SmsTransaction.outboundAttempt(

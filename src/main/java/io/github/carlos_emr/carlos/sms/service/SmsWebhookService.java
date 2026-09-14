@@ -6,15 +6,16 @@ import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 
 @Service
-public class SmsWebhookProcessor {
-    private final SmsProviderResolver providerResolver;
-    private final SmsTransactionRecorder transactionRecorder;
+public class SmsWebhookService {
+    private final SmsProviderClientResolver providerResolver;
+    private final SmsTransactionService transactionRecorder;
 
-    public SmsWebhookProcessor(
-            SmsProviderResolver providerResolver,
-            SmsTransactionRecorder transactionRecorder
+    public SmsWebhookService(
+            SmsProviderClientResolver providerResolver,
+            SmsTransactionService transactionRecorder
     ) {
         this.providerResolver = providerResolver;
         this.transactionRecorder = transactionRecorder;
@@ -26,12 +27,16 @@ public class SmsWebhookProcessor {
             Map<String, String> headers,
             String secret
     ) {
+        Objects.requireNonNull(providerType, "SMS webhook provider type is required");
         SmsProviderClient providerClient = providerResolver.resolve(providerType);
         if (!providerClient.validateCallback(payload, headers, secret)) {
             return Optional.empty();
         }
         return providerClient.parseInboundWebhook(payload, headers)
-                .map(transactionRecorder::recordInboundMessage);
+                .map(webhook -> {
+                    requireMatchingProvider(providerType, webhook.providerType());
+                    return transactionRecorder.recordInboundMessage(webhook);
+                });
     }
 
     public Optional<SmsTransaction> processDeliveryWebhook(
@@ -40,11 +45,20 @@ public class SmsWebhookProcessor {
             Map<String, String> headers,
             String secret
     ) {
+        Objects.requireNonNull(providerType, "SMS webhook provider type is required");
         SmsProviderClient providerClient = providerResolver.resolve(providerType);
         if (!providerClient.validateCallback(payload, headers, secret)) {
             return Optional.empty();
         }
         return providerClient.parseDeliveryWebhook(payload, headers)
-                .map(transactionRecorder::recordDeliveryEvent);
+                .map(webhook -> {
+                    requireMatchingProvider(providerType, webhook.providerType());
+                    return transactionRecorder.recordDeliveryEvent(webhook);
+                });
+    }
+    private static void requireMatchingProvider(SmsProviderType expected, SmsProviderType actual) {
+        if (expected != actual) {
+            throw new IllegalArgumentException("Parsed webhook does not match its authenticated SMS provider");
+        }
     }
 }

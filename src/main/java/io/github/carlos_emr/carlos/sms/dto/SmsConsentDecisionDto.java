@@ -29,4 +29,8 @@ public record SmsConsentDecisionDto(
     private static boolean isBlockingStatus(SmsStatus status) {
         return status == SmsStatus.CONSENT_BLOCKED || status == SmsStatus.OPTOUT_BLOCKED;
     }
+    @Override
+    public String toString() {
+        return "SmsConsentDecisionDto[redacted]";
+    }
 }

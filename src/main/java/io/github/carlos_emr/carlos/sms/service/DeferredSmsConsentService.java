@@ -2,7 +2,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
-import io.github.carlos_emr.carlos.sms.SmsTransactionType;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,7 +48,7 @@ public class DeferredSmsConsentService implements SmsConsentService {
 
     private boolean isPermittedSystemTest(SmsSendCommand command) {
         return command != null
-                && command.transactionType() == SmsTransactionType.SYSTEM_TEST
+                && command.messagePurpose() == SmsMessagePurpose.SYSTEM_TEST
                 && systemTestEnabled.getAsBoolean();
     }
 }

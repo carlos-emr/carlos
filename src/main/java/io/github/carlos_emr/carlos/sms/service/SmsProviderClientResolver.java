@@ -9,10 +9,10 @@ import java.util.Map;
 import java.util.Set;
 
 @Service
-public class SmsProviderResolver {
+public class SmsProviderClientResolver {
     private final Map<SmsProviderType, SmsProviderClient> clientsByType;
 
-    public SmsProviderResolver(List<SmsProviderClient> clients) {
+    public SmsProviderClientResolver(List<SmsProviderClient> clients) {
         EnumMap<SmsProviderType, SmsProviderClient> resolved = new EnumMap<>(SmsProviderType.class);
         for (SmsProviderClient client : clients) {
             SmsProviderClient previous = resolved.putIfAbsent(client.providerType(), client);

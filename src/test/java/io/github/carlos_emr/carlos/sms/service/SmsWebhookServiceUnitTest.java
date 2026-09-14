@@ -26,12 +26,27 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("service")
 @ExtendWith(MockitoExtension.class)
-class SmsWebhookProcessorUnitTest {
+class SmsWebhookServiceUnitTest {
     @Mock
     private SmsProviderClient providerClient;
 
     @Mock
-    private SmsTransactionRecorder transactionRecorder;
+    private SmsTransactionService transactionRecorder;
+
+    @Test
+    @DisplayName("authenticated callbacks cannot write records for another SMS provider")
+    void shouldRejectCrossProviderData_whenParserReturnsDifferentProvider() {
+        SmsWebhookService processor = processor();
+        when(providerClient.validateCallback("{}", Map.of(), "secret")).thenReturn(true);
+        when(providerClient.parseInboundWebhook("{}", Map.of())).thenReturn(Optional.of(
+                new SmsInboundWebhookDto(SmsProviderType.VOIPMS, "other-provider-id", null, null,
+                        "synthetic", Instant.EPOCH, null)));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> processor.processInboundWebhook(
+                SmsProviderType.STUB, "{}", Map.of(), "secret"))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.mockito.Mockito.verifyNoInteractions(transactionRecorder);
+    }
 
     @Test
     @DisplayName("processInboundWebhook validates, parses, and records inbound callbacks")
@@ -48,7 +63,7 @@ class SmsWebhookProcessorUnitTest {
                 null
         );
         SmsTransaction transaction = SmsTransaction.inboundMessage(webhook);
-        SmsWebhookProcessor processor = processor();
+        SmsWebhookService processor = processor();
 
         when(providerClient.validateCallback(payload, headers, "secret")).thenReturn(true);
         when(providerClient.parseInboundWebhook(payload, headers)).thenReturn(Optional.of(webhook));
@@ -80,7 +95,7 @@ class SmsWebhookProcessorUnitTest {
                 null
         );
         SmsTransaction transaction = SmsTransaction.deliveryEvent(webhook);
-        SmsWebhookProcessor processor = processor();
+        SmsWebhookService processor = processor();
 
         when(providerClient.validateCallback(payload, headers, "secret")).thenReturn(true);
         when(providerClient.parseDeliveryWebhook(payload, headers)).thenReturn(Optional.of(webhook));
@@ -102,7 +117,7 @@ class SmsWebhookProcessorUnitTest {
     void shouldNotParseWebhook_whenCallbackValidationFails() {
         Map<String, String> headers = Map.of("X-Test", "value");
         String payload = "{\"status\":\"delivered\"}";
-        SmsWebhookProcessor processor = processor();
+        SmsWebhookService processor = processor();
 
         when(providerClient.validateCallback(payload, headers, "secret")).thenReturn(false);
 
@@ -123,7 +138,7 @@ class SmsWebhookProcessorUnitTest {
     void shouldReturnEmpty_whenInboundParserDoesNotProduceWebhookDto() {
         Map<String, String> headers = Map.of("X-Test", "value");
         String payload = "{\"message\":\"reply\"}";
-        SmsWebhookProcessor processor = processor();
+        SmsWebhookService processor = processor();
 
         when(providerClient.validateCallback(payload, headers, "secret")).thenReturn(true);
         when(providerClient.parseInboundWebhook(payload, headers)).thenReturn(Optional.empty());
@@ -139,8 +154,8 @@ class SmsWebhookProcessorUnitTest {
         verifyNoInteractions(transactionRecorder);
     }
 
-    private SmsWebhookProcessor processor() {
+    private SmsWebhookService processor() {
         when(providerClient.providerType()).thenReturn(SmsProviderType.STUB);
-        return new SmsWebhookProcessor(new SmsProviderResolver(List.of(providerClient)), transactionRecorder);
+        return new SmsWebhookService(new SmsProviderClientResolver(List.of(providerClient)), transactionRecorder);
     }
 }

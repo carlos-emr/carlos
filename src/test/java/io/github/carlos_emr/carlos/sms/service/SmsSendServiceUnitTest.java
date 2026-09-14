@@ -31,14 +31,14 @@ class SmsSendServiceUnitTest {
     @Test
     @DisplayName("send returns consent-blocked until consent integration is implemented")
     void shouldBlockSend_whenDeferredConsentServiceIsUsed() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 new DeferredSmsConsentService(),
-                new SmsProviderResolver(List.of(new StubSmsProviderClient())),
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
                 recorder,
                 providerType -> true,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -59,14 +59,14 @@ class SmsSendServiceUnitTest {
             consentCommand.set(command);
             return SmsConsentDecisionDto.permit();
         };
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 allowConsent,
-                new SmsProviderResolver(List.of(new StubSmsProviderClient())),
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
                 recorder,
                 providerType -> true,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(
@@ -93,14 +93,14 @@ class SmsSendServiceUnitTest {
     @DisplayName("send marks the transaction sending before calling the SMS provider")
     void shouldMarkSendingBeforeProviderCall_whenConsentAllows() {
         List<String> events = new ArrayList<>();
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(events);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
-                new SmsProviderResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
+                new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
                 providerType -> true,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -123,7 +123,7 @@ class SmsSendServiceUnitTest {
     @DisplayName("send does not call the SMS provider when the queued row is already claimed")
     void shouldSkipProviderSend_whenClaimConflictOccurs() {
         List<String> events = new ArrayList<>();
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(events) {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events) {
             @Override
             public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
                 events.add("markSending");
@@ -133,10 +133,10 @@ class SmsSendServiceUnitTest {
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
-                new SmsProviderResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
+                new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
                 providerType -> true,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -156,14 +156,14 @@ class SmsSendServiceUnitTest {
     @Test
     @DisplayName("send leaves the message queued and skips the SMS provider when rate limited")
     void shouldLeaveQueued_whenRateLimited() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
-                new SmsProviderResolver(List.of(new StubSmsProviderClient())),
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
                 recorder,
                 providerType -> false,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -179,14 +179,14 @@ class SmsSendServiceUnitTest {
     @Test
     @DisplayName("send does not create a transaction for validation failures")
     void shouldSkipTransactionRecord_whenValidationFails() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
-                new SmsProviderResolver(List.of(new StubSmsProviderClient())),
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
                 recorder,
                 providerType -> true,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(0, "not-a-phone", " ", "999998"));
@@ -197,80 +197,122 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send records SMS provider exceptions as failed SMS transactions")
-    void shouldMarkTransactionFailed_whenProviderThrows() {
+    @DisplayName("send records uncertain SMS outcomes for status lookup")
+    void shouldLeaveOutcomeUncertain_whenProviderThrows() {
         SmsConsentService allowConsent = command -> SmsConsentDecisionDto.permit();
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 allowConsent,
-                new SmsProviderResolver(List.of(new ThrowingSmsProviderClient())),
+                new SmsProviderClientResolver(List.of(new ThrowingSmsProviderClient())),
                 recorder,
                 providerType -> true,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
 
         assertThat(result.accepted()).isFalse();
-        assertThat(result.status()).isEqualTo(SmsStatus.FAILED);
+        assertThat(result.status()).isEqualTo(SmsStatus.SENDING);
         assertThat(result.messages())
-                .containsExactly("SMS direct send failed because the SMS provider client threw an exception.");
+                .containsExactly("SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually.");
         assertThat(recorder.transactions()).singleElement()
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
                 .containsExactly(
-                        SmsStatus.FAILED,
+                        SmsStatus.SENDING,
                         "DIRECT_PROVIDER_EXCEPTION",
-                        "SMS direct send failed because the SMS provider client threw an exception."
+                        "SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually."
                 );
     }
 
     @Test
-    @DisplayName("send records SMS provider resolution exceptions as failed SMS transactions")
-    void shouldMarkTransactionFailed_whenProviderResolutionThrows() {
+    @DisplayName("send preserves unresolved provider outcomes for manual recovery")
+    void shouldLeaveOutcomeUncertain_whenProviderResolutionThrows() {
         SmsConsentService allowConsent = command -> SmsConsentDecisionDto.permit();
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 allowConsent,
-                new SmsProviderResolver(List.of()),
+                new SmsProviderClientResolver(List.of()),
                 recorder,
                 providerType -> true,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
 
         assertThat(result.accepted()).isFalse();
-        assertThat(result.status()).isEqualTo(SmsStatus.FAILED);
+        assertThat(result.status()).isEqualTo(SmsStatus.SENDING);
         assertThat(recorder.transactions()).singleElement()
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
                 .containsExactly(
-                        SmsStatus.FAILED,
+                        SmsStatus.SENDING,
                         "DIRECT_PROVIDER_EXCEPTION",
-                        "SMS direct send failed because the SMS provider client threw an exception."
+                        "SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually."
                 );
     }
 
-    private static class RecordingSmsTransactionRecorder implements SmsTransactionRecorder {
+    @Test
+    @DisplayName("consent is evaluated before any outbound attempt becomes visible")
+    void shouldNotPersistAnAttempt_whenConsentEvaluationThrows() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> {
+            assertThat(recorder.transactions()).isEmpty();
+            throw new IllegalStateException("synthetic consent outage");
+        }, new SmsProviderClientResolver(List.of(new StubSmsProviderClient())), recorder, type -> true,
+                new SmsDefaultProviderResolver(() -> "STUB"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(
+                SmsSendCommand.direct(123, "416-555-1212", "Synthetic message", "999998")))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(recorder.transactions()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("direct send reports the persisted delivery webhook when it beats the send result")
+    void shouldReturnDelivered_whenWebhookWinsTheWriteRace() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService() {
+            @Override
+            public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto result) {
+                transaction.markDeliveryEvent(new SmsDeliveryWebhookDto(SmsProviderType.STUB,
+                        "webhook-result", SmsStatus.DELIVERED, java.time.Instant.now(), null, null, null));
+                return transaction;
+            }
+        };
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> SmsConsentDecisionDto.permit(),
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())), recorder, type -> true,
+                new SmsDefaultProviderResolver(() -> "STUB"));
+
+        SmsSendResultDto result = service.send(SmsSendCommand.direct(
+                123, "416-555-1212", "Synthetic message", "999998"));
+
+        assertThat(result.status()).isEqualTo(SmsStatus.DELIVERED);
+        assertThat(result.providerMessageId()).isEqualTo("webhook-result");
+    }
+
+    private static class RecordingSmsTransactionService implements SmsTransactionService {
         private final List<SmsTransaction> transactions = new ArrayList<>();
         private final List<String> events;
         private long nextTransactionId = 1L;
 
-        private RecordingSmsTransactionRecorder() {
+        private RecordingSmsTransactionService() {
             this(new ArrayList<>());
         }
 
-        private RecordingSmsTransactionRecorder(List<String> events) {
+        private RecordingSmsTransactionService(List<String> events) {
             this.events = events;
         }
 
         @Override
-        public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType) {
+        public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType,
+                                                    SmsConsentDecisionDto decision) {
             events.add("recordOutboundAttempt");
             SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
             assignId(transaction, nextTransactionId++);
             transactions.add(transaction);
+            if (!decision.allowed()) {
+                transaction.markConsentBlocked(decision);
+            }
             return transaction;
         }
 
@@ -386,7 +428,7 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
             throw new IllegalStateException("provider unavailable");
         }
 

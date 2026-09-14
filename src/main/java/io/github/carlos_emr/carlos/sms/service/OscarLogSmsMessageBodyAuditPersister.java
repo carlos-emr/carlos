@@ -11,14 +11,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Objects;
 
 @Service
-public class OscarLogSmsMessageBodyAccessAuditor implements SmsMessageBodyAccessAuditor {
+public class OscarLogSmsMessageBodyAuditPersister implements SmsMessageBodyAuditPersister {
     static final String ACTION = "SmsMessageBody.readFullBody";
     static final String CONTENT = "sms_transaction";
     private static final int MAX_REASON_CODE_LENGTH = 64;
 
     private final OscarLogDao oscarLogDao;
 
-    public OscarLogSmsMessageBodyAccessAuditor(OscarLogDao oscarLogDao) {
+    public OscarLogSmsMessageBodyAuditPersister(OscarLogDao oscarLogDao) {
         this.oscarLogDao = oscarLogDao;
     }
 

@@ -1,8 +1,8 @@
-CREATE TABLE IF NOT EXISTS sms_transaction (
+CREATE TABLE sms_transaction (
   id BIGINT NOT NULL AUTO_INCREMENT,
   direction VARCHAR(16) NOT NULL,
   provider_type VARCHAR(16) NOT NULL,
-  transaction_type VARCHAR(32) NOT NULL,
+  message_purpose VARCHAR(32) NOT NULL,
   status VARCHAR(32) NOT NULL,
   demographic_no INT NULL,
   requested_by_healthcare_provider_no VARCHAR(16) NULL,
@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS sms_transaction (
   from_phone_number VARCHAR(32) NULL,
   to_phone_number VARCHAR(32) NULL,
   recipient_phone_type VARCHAR(16) NULL,
-  provider_message_id VARCHAR(128) NULL,
-  client_reference_id VARCHAR(64) NULL,
+  provider_message_id VARCHAR(128) COLLATE utf8mb4_bin NULL,
+  client_reference_id VARCHAR(64) COLLATE utf8mb4_bin NULL,
   message_body TEXT NULL,
   message_body_sha256 CHAR(64) NOT NULL,
   message_body_length INT NOT NULL DEFAULT 0,
@@ -38,27 +38,27 @@ CREATE TABLE IF NOT EXISTS sms_transaction (
   KEY sms_transaction_queue_idx (direction, provider_type, status, next_attempt_at, created_at),
   KEY sms_transaction_status_updated_idx (status, updated_at),
   KEY sms_transaction_claim_token_idx (claim_token)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE IF NOT EXISTS sms_provider_rate_limit (
+CREATE TABLE sms_provider_rate_limit (
   provider_type VARCHAR(16) NOT NULL,
   send_count INT NOT NULL DEFAULT 0,
   window_started_at DATETIME NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   PRIMARY KEY (provider_type)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-INSERT IGNORE INTO secObjectName (objectName, description, orgapplicable)
+INSERT INTO secObjectName (objectName, description, orgapplicable)
 VALUES ('_msgSMS', 'Read SMS message bodies', 0);
 
-INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no)
+INSERT INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no)
 VALUES
   ('admin', '_msgSMS', 'x', 0, '999998'),
   ('doctor', '_msgSMS', 'x', 0, '999998');
 
--- Default send limit is enforced in JpaSmsSendRateLimiter at 5 SMS/5 seconds until SMS provider limits are confirmed.
-INSERT IGNORE INTO sms_provider_rate_limit (
+-- Default send limit is enforced in JpaSmsSendRateLimitService at 5 SMS/5 seconds until SMS provider limits are confirmed.
+INSERT INTO sms_provider_rate_limit (
   provider_type,
   send_count,
   window_started_at,

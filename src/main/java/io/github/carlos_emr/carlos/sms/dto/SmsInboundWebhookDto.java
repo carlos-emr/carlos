@@ -16,6 +16,13 @@ public record SmsInboundWebhookDto(
         Map<String, String> providerMetadata
 ) {
     public SmsInboundWebhookDto {
+        if (providerMessageId != null && providerMessageId.length() > 128) {
+            throw new IllegalArgumentException("SMS provider message identifier exceeds supported length");
+        }
         providerMetadata = SmsProviderMetadataSanitizer.sanitize(providerMetadata);
+    }
+    @Override
+    public String toString() {
+        return "SmsInboundWebhookDto[redacted]";
     }
 }

@@ -9,13 +9,13 @@ import org.springframework.stereotype.Service;
 import java.util.Objects;
 
 @Service
-public class CarlosSmsMessageBodyAccessAuthorizer implements SmsMessageBodyAccessAuthorizer {
+public class CarlosSmsMessageBodyAuthorizationService implements SmsMessageBodyAuthorizationService {
     static final String SMS_MESSAGE_SECURITY_OBJECT = "_msgSMS";
     static final String DEMOGRAPHIC_SECURITY_OBJECT = "_demographic";
 
     private final SecurityInfoManager securityInfoManager;
 
-    public CarlosSmsMessageBodyAccessAuthorizer(SecurityInfoManager securityInfoManager) {
+    public CarlosSmsMessageBodyAuthorizationService(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
 

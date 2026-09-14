@@ -29,7 +29,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 @Service
-public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
+public class JpaSmsTransactionService implements SmsTransactionService {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String TRANSACTION_REQUIRED_MESSAGE = "transaction is required";
     private static final String WEBHOOK_REQUIRED_MESSAGE = "webhook is required";
@@ -40,7 +40,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     private final TransactionTemplate inboundWriteTransaction;
 
     @Autowired
-    public JpaSmsTransactionRecorder(
+    public JpaSmsTransactionService(
             SmsTransactionDao smsTransactionDao,
             ApplicationEventPublisher eventPublisher,
             PlatformTransactionManager transactionManager
@@ -51,7 +51,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
         this.inboundWriteTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    JpaSmsTransactionRecorder(SmsTransactionDao smsTransactionDao, ApplicationEventPublisher eventPublisher) {
+    JpaSmsTransactionService(SmsTransactionDao smsTransactionDao, ApplicationEventPublisher eventPublisher) {
         this.smsTransactionDao = smsTransactionDao;
         this.eventPublisher = eventPublisher;
         this.inboundWriteTransaction = null;
@@ -59,9 +59,14 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
 
     @Override
     @Transactional
-    public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType) {
+    public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType,
+                                                SmsConsentDecisionDto decision) {
         Objects.requireNonNull(command, "command is required");
+        Objects.requireNonNull(decision, "decision is required before recording an outbound attempt");
         SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
+        if (!decision.allowed()) {
+            transaction.markConsentBlocked(decision);
+        }
         smsTransactionDao.persist(transaction);
         smsTransactionDao.flush();
         if (transaction.getId() != null) {
@@ -76,9 +81,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     public SmsTransaction markConsentBlocked(SmsTransaction transaction, SmsConsentDecisionDto decision) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(decision, "decision is required");
-        transaction.markConsentBlocked(decision);
-        smsTransactionDao.merge(transaction);
-        return transaction;
+        return applyIfVersionMatches(transaction, "markConsentBlocked", row -> row.markConsentBlocked(decision));
     }
 
     @Override
@@ -95,9 +98,9 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(providerResult, "providerResult is required");
-        // Only fire when this call actually applies the write (applyLastWriterWins drops it on a
+        // Only fire when this call actually applies the write (applyIfVersionMatches drops it on a
         // concurrent-modification conflict) and the row lands terminal FAILED.
-        return applyLastWriterWins(
+        return applyIfVersionMatches(
                 transaction,
                 "markProviderResult",
                 row -> row.markProviderResult(providerResult),
@@ -114,7 +117,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     ) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(providerResult, "providerResult is required");
-        return applyLastWriterWins(
+        return applyIfVersionMatches(
                 transaction,
                 "markRetryScheduled",
                 row -> row.markRetryScheduled(providerResult, nextAttemptAt)
@@ -125,7 +128,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     @Transactional
     public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
-        return applyLastWriterWins(transaction, "releaseClaim", row -> row.markClaimReleased(dueAt));
+        return applyIfVersionMatches(transaction, "releaseClaim", row -> row.markClaimReleased(dueAt));
     }
 
     @Override
@@ -185,10 +188,23 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
             smsTransactionDao.persist(transaction);
             smsTransactionDao.flush();
         } else {
+            requireMatchingDeliveryTarget(transaction, webhook);
             transaction.markDeliveryEvent(webhook);
             smsTransactionDao.merge(transaction);
         }
         return transaction;
+    }
+
+    private static void requireMatchingDeliveryTarget(SmsTransaction transaction, SmsDeliveryWebhookDto webhook) {
+        if (transaction.getDirection() != SmsDirection.OUTBOUND
+                || identifiersConflict(transaction.getProviderMessageId(), webhook.providerMessageId())
+                || identifiersConflict(transaction.getClientReferenceId(), webhook.clientReferenceId())) {
+            throw new IllegalArgumentException("Delivery callback identifiers conflict with the stored outbound message");
+        }
+    }
+
+    private static boolean identifiersConflict(String stored, String received) {
+        return !isBlank(stored) && !isBlank(received) && !stored.equals(received);
     }
 
     private Optional<SmsTransaction> findInboundMessage(SmsProviderType providerType, String providerMessageId) {
@@ -239,7 +255,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     }
 
     /**
-     * Applies a worker-origin mutation under "last writer wins" semantics.
+     * Applies a worker-origin mutation only when the claimed version still matches.
      * <p>
      * The worker claims a row, calls the SMS provider, then writes the result in a separate transaction,
      * which can race a delivery/inbound webhook updating the same row. Rather than merging the stale
@@ -249,20 +265,20 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
      * stale write is dropped with a warning and the current row is returned. Otherwise the mutation is
      * applied to the managed row and flushed at commit (bumping the version).
      */
-    private SmsTransaction applyLastWriterWins(
+    private SmsTransaction applyIfVersionMatches(
             SmsTransaction claimed,
             String context,
             Consumer<SmsTransaction> mutation
     ) {
-        return applyLastWriterWins(claimed, context, mutation, row -> { });
+        return applyIfVersionMatches(claimed, context, mutation, row -> { });
     }
 
     /**
      * @param onApplied invoked with the written row only when the mutation is actually applied (not when
      *                  a concurrent-modification conflict drops it), so side effects such as event
-     *                  publication fire exactly once and only for writes that will be committed.
+     *                  publication uses AFTER_COMMIT listeners so rolled-back writes have no external effects.
      */
-    private SmsTransaction applyLastWriterWins(
+    private SmsTransaction applyIfVersionMatches(
             SmsTransaction claimed,
             String context,
             Consumer<SmsTransaction> mutation,
@@ -282,7 +298,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
         }
         if (current.getVersion() != claimed.getVersion()) {
             LOGGER.warn(
-                    "SMS transaction {} {} skipped due to concurrent modification; last writer wins.",
+                    "SMS transaction {} {} skipped due to concurrent modification; preserving the newer version.",
                     id,
                     context
             );

@@ -16,7 +16,7 @@ import java.util.Objects;
 
 @Primary
 @Service
-public class JpaSmsSendRateLimiter implements SmsSendRateLimiter {
+public class JpaSmsSendRateLimitService implements SmsSendRateLimitService {
     // Initial fixed-window cap; tune once selected SMS provider limits and rollout volume are confirmed.
     private static final int DEFAULT_MAX_SENDS_PER_WINDOW = 5;
     private static final Duration DEFAULT_WINDOW = Duration.ofSeconds(5);
@@ -27,11 +27,11 @@ public class JpaSmsSendRateLimiter implements SmsSendRateLimiter {
     private final Clock clock;
 
     @Autowired
-    public JpaSmsSendRateLimiter(SmsProviderRateLimitDao rateLimitDao) {
+    public JpaSmsSendRateLimitService(SmsProviderRateLimitDao rateLimitDao) {
         this(rateLimitDao, DEFAULT_MAX_SENDS_PER_WINDOW, DEFAULT_WINDOW, Clock.systemUTC());
     }
 
-    JpaSmsSendRateLimiter(
+    JpaSmsSendRateLimitService(
             SmsProviderRateLimitDao rateLimitDao,
             int maxSendsPerWindow,
             Duration window,

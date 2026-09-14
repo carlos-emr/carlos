@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
 @Tag("service")
-class SmsQueueWorkerUnitTest {
+class SmsQueueProcessingServiceUnitTest {
     private static final Instant FIRST_ATTEMPT_AT = Instant.parse("2026-06-08T12:00:00Z");
     private static final Instant RETRY_SCHEDULED_AT = Instant.parse("2026-06-08T12:05:00Z");
     private static final Instant SECOND_ATTEMPT_AT = Instant.parse("2026-06-08T12:10:00Z");
@@ -35,12 +35,13 @@ class SmsQueueWorkerUnitTest {
     @DisplayName("processDueMessages sends queued messages when rate limit permits")
     void shouldSendMessage_whenQueueItemIsDue() {
         SmsTransaction transaction = queuedTransaction();
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new AcceptingProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> true
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -60,12 +61,13 @@ class SmsQueueWorkerUnitTest {
                 SmsProviderType.VOIPMS
         );
         assignId(transaction, 1L);
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new VoipMsAcceptingProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> true
+                new SmsProviderClientResolver(List.of(new VoipMsAcceptingProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -81,12 +83,13 @@ class SmsQueueWorkerUnitTest {
     @DisplayName("processDueMessages leaves queued messages untouched when rate limited")
     void shouldSkipMessage_whenRateLimitIsExceeded() {
         SmsTransaction transaction = queuedTransaction();
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new AcceptingProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> false
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> false,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -101,12 +104,13 @@ class SmsQueueWorkerUnitTest {
     @DisplayName("processDueMessages schedules retry for failed SMS provider attempts")
     void shouldScheduleRetry_whenProviderFailsBeforeMaxAttempts() {
         SmsTransaction transaction = queuedTransaction();
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new FailingProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> true
+                new SmsProviderClientResolver(List.of(new FailingProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -125,12 +129,13 @@ class SmsQueueWorkerUnitTest {
     void shouldMarkFailed_whenRetryLimitIsReached() {
         SmsTransaction transaction = queuedTransaction();
         scheduleTwoFailedAttempts(transaction);
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new FailingProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> true
+                new SmsProviderClientResolver(List.of(new FailingProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -155,14 +160,15 @@ class SmsQueueWorkerUnitTest {
 
     @Test
     @DisplayName("processDueMessages records queue SMS provider exceptions distinctly")
-    void shouldScheduleRetry_whenQueuedProviderThrows() {
+    void shouldAwaitStatusLookup_whenQueuedProviderThrows() {
         SmsTransaction transaction = queuedTransaction();
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new ThrowingProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> true
+                new SmsProviderClientResolver(List.of(new ThrowingProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -170,21 +176,22 @@ class SmsQueueWorkerUnitTest {
         assertThat(processed).isEqualTo(1);
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
-                .containsExactly(SmsStatus.QUEUED, 1, "QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED");
+                .containsExactly(SmsStatus.SENDING, 1, "QUEUE_PROVIDER_EXCEPTION");
         assertThat(transaction.getErrorMessage())
-                .isEqualTo("SMS queued provider exception recorded; retry scheduled.");
+                .isEqualTo("SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually.");
     }
 
     @Test
     @DisplayName("processDueMessages records SMS provider resolution exceptions distinctly")
-    void shouldScheduleRetry_whenQueuedProviderResolutionThrows() {
+    void shouldAwaitStatusLookup_whenQueuedProviderResolutionThrows() {
         SmsTransaction transaction = queuedTransaction();
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of()),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> true
+                new SmsProviderClientResolver(List.of()),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -192,22 +199,23 @@ class SmsQueueWorkerUnitTest {
         assertThat(processed).isEqualTo(1);
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
-                .containsExactly(SmsStatus.QUEUED, 1, "QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED");
+                .containsExactly(SmsStatus.SENDING, 1, "QUEUE_PROVIDER_EXCEPTION");
         assertThat(transaction.getErrorMessage())
-                .isEqualTo("SMS queued provider exception recorded; retry scheduled.");
+                .isEqualTo("SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually.");
     }
 
     @Test
     @DisplayName("processDueMessages marks final queue SMS provider exceptions distinctly")
-    void shouldMarkFailed_whenQueuedProviderThrowsAtRetryLimit() {
+    void shouldAwaitStatusLookup_whenQueuedProviderThrowsAtRetryLimit() {
         SmsTransaction transaction = queuedTransaction();
         scheduleTwoFailedAttempts(transaction);
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new ThrowingProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> true
+                new SmsProviderClientResolver(List.of(new ThrowingProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -222,10 +230,10 @@ class SmsQueueWorkerUnitTest {
                         SmsTransaction::getNextAttemptAt
                 )
                 .containsExactly(
-                        SmsStatus.FAILED,
+                        SmsStatus.SENDING,
                         3,
-                        "QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED",
-                        "SMS queued provider exception reached retry limit; no further retry scheduled.",
+                        "QUEUE_PROVIDER_EXCEPTION",
+                        "SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually.",
                         null
                 );
     }
@@ -235,12 +243,13 @@ class SmsQueueWorkerUnitTest {
     void shouldMarkSent_whenStaleProviderStatusIsFound() {
         SmsTransaction transaction = queuedTransaction();
         transaction.markSending(new Date(0));
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new FoundStatusProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> false
+                new SmsProviderClientResolver(List.of(new FoundStatusProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> false,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -257,12 +266,13 @@ class SmsQueueWorkerUnitTest {
     void shouldScheduleRetry_whenStaleProviderStatusIsNotFound() {
         SmsTransaction transaction = queuedTransaction();
         transaction.markSending(new Date(0));
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new NotFoundStatusProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> false
+                new SmsProviderClientResolver(List.of(new NotFoundStatusProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> false,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -280,12 +290,13 @@ class SmsQueueWorkerUnitTest {
         SmsTransaction transaction = queuedTransaction();
         scheduleTwoFailedAttempts(transaction);
         transaction.markSending(new Date(0));
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new NotFoundStatusProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> false
+                new SmsProviderClientResolver(List.of(new NotFoundStatusProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> false,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -301,12 +312,13 @@ class SmsQueueWorkerUnitTest {
     void shouldMarkFailed_whenStaleProviderStatusLookupIsUnavailable() {
         SmsTransaction transaction = queuedTransaction();
         transaction.markSending(new Date(0));
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of(new AcceptingProviderClient())),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> false
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> false,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -322,12 +334,13 @@ class SmsQueueWorkerUnitTest {
     void shouldMarkFailed_whenStaleProviderResolutionThrows() {
         SmsTransaction transaction = queuedTransaction();
         transaction.markSending(new Date(0));
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
-        SmsQueueWorker worker = new SmsQueueWorker(
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
-                new SmsProviderResolver(List.of()),
-                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
-                providerType -> false
+                new SmsProviderClientResolver(List.of()),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> false,
+                command -> SmsConsentDecisionDto.permit()
         );
 
         int processed = worker.processDueMessages(25);
@@ -336,6 +349,49 @@ class SmsQueueWorkerUnitTest {
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
                 .containsExactly(SmsStatus.FAILED, 1, "QUEUE_STALE_STATUS_LOOKUP_EXCEPTION");
+    }
+
+    @Test
+    @DisplayName("queued sends recheck consent before using a provider or rate-limit permit")
+    void shouldBlockQueuedSend_whenConsentIsNoLongerAllowed() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsProviderClientResolver resolver = org.mockito.Mockito.mock(SmsProviderClientResolver.class);
+        SmsSendRateLimitService limiter = org.mockito.Mockito.mock(SmsSendRateLimitService.class);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, resolver, new SmsRetryCalculator(), limiter,
+                new DeferredSmsConsentService(() -> false));
+
+        assertThat(worker.processDueMessages(1)).isEqualTo(1);
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
+        assertThat(transaction.toSendCommand().body()).isNull();
+        org.mockito.Mockito.verifyNoInteractions(resolver, limiter);
+    }
+
+    @Test
+    @DisplayName("an accepted send followed by a timeout is reconciled without a second send")
+    void shouldReconcileWithoutResending_whenProviderAcceptsThenThrows() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsProviderClient client = org.mockito.Mockito.mock(SmsProviderClient.class);
+        org.mockito.Mockito.when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        org.mockito.Mockito.when(client.send(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString()))
+                .thenThrow(new IllegalStateException("synthetic timeout after acceptance"));
+        org.mockito.Mockito.when(client.lookupMessageStatus(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(SmsProviderMessageStatusDto.found(
+                        SmsProviderSendResultDto.accepted("accepted-once", SmsStatus.SENT)));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, new SmsProviderClientResolver(List.of(client)),
+                new SmsRetryCalculator(), type -> true, command -> SmsConsentDecisionDto.permit());
+
+        assertThat(worker.processDueMessages(1)).isEqualTo(1);
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(transaction.getNextAttemptAt()).isNull();
+        assertThat(worker.processDueMessages(1)).isZero();
+        transaction.markStaleRecoveryStarted(new Date(0));
+        worker.processDueMessages(1);
+
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENT);
+        org.mockito.Mockito.verify(client, org.mockito.Mockito.times(1)).send(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("sms-transaction-1"));
     }
 
     private static void scheduleTwoFailedAttempts(SmsTransaction transaction) {
@@ -364,18 +420,22 @@ class SmsQueueWorkerUnitTest {
         return Date.from(instant);
     }
 
-    private static class RecordingSmsTransactionRecorder implements SmsTransactionRecorder {
+    private static class RecordingSmsTransactionService implements SmsTransactionService {
         private final List<SmsTransaction> transactions;
 
-        private RecordingSmsTransactionRecorder(List<SmsTransaction> transactions) {
+        private RecordingSmsTransactionService(List<SmsTransaction> transactions) {
             this.transactions = new ArrayList<>(transactions);
         }
 
         @Override
-        public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType) {
+        public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType,
+                                                    SmsConsentDecisionDto decision) {
             SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
             assignId(transaction, transactions.size() + 1L);
             transactions.add(transaction);
+            if (!decision.allowed()) {
+                transaction.markConsentBlocked(decision);
+            }
             return transaction;
         }
 
@@ -477,7 +537,7 @@ class SmsQueueWorkerUnitTest {
         }
 
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
             return SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT);
         }
 
@@ -504,21 +564,21 @@ class SmsQueueWorkerUnitTest {
         }
 
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
             return SmsProviderSendResultDto.accepted("provider-voipms-1", SmsStatus.SENT);
         }
     }
 
     private static class FailingProviderClient extends AcceptingProviderClient {
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
             return SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message");
         }
     }
 
     private static class ThrowingProviderClient extends AcceptingProviderClient {
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
             throw new IllegalStateException("provider unavailable");
         }
     }

@@ -4,7 +4,7 @@ import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
-import io.github.carlos_emr.carlos.sms.SmsTransactionType;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsDeliveryWebhookDto;
@@ -27,11 +27,11 @@ class SmsTransactionUnitTest {
     @Test
     @DisplayName("transaction type exposes only supported SMS workflows")
     void shouldExposeSupportedValues_whenReadingTransactionTypes() {
-        assertThat(SmsTransactionType.values())
+        assertThat(SmsMessagePurpose.values())
                 .containsExactly(
-                        SmsTransactionType.DIRECT,
-                        SmsTransactionType.APPOINTMENT_REMINDER,
-                        SmsTransactionType.SYSTEM_TEST
+                        SmsMessagePurpose.PATIENT_MESSAGE,
+                        SmsMessagePurpose.APPOINTMENT_REMINDER,
+                        SmsMessagePurpose.SYSTEM_TEST
                 );
     }
 

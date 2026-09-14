@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -27,13 +28,10 @@ import static org.mockito.Mockito.mock;
 /**
  * Integration tests for the {@code sms_transaction} system-of-record against the H2 (MySQL-mode) schema
  * generated from the entities. These exercise behaviour that mocked DAO unit tests cannot:
- * {@code @Version} last-writer-wins, and the {@code (provider_type, provider_message_id)} unique key
+ * {@code @Version} version-checked updates, and the {@code (provider_type, provider_message_id)} unique key
  * (incl. inbound-webhook idempotency).
  *
- * <p>The native, MySQL/MariaDB-specific DAO SQL ({@code INSERT IGNORE},
- * {@code UPDATE ... ORDER BY ... LIMIT} claiming, {@code SELECT ... FOR UPDATE}) is intentionally not
- * covered here: that grammar is not supported by H2 and needs a MariaDB-backed test or manual
- * verification against the dev database.
+ * Queue locking and rate-limiter SQL are exercised separately by SmsQueuePersistenceIntegrationTest.
  */
 @Tag("integration")
 @Tag("service")
@@ -46,15 +44,61 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
-    private JpaSmsTransactionRecorder recorder;
+    private JpaSmsTransactionService recorder;
 
     @BeforeEach
     void setUp() {
-        recorder = new JpaSmsTransactionRecorder(smsTransactionDao, mock(ApplicationEventPublisher.class));
+        recorder = new JpaSmsTransactionService(smsTransactionDao, mock(ApplicationEventPublisher.class));
     }
 
     @Test
-    @DisplayName("keeps the webhook state when a stale worker write conflicts (last writer wins)")
+    @DisplayName("delivery callbacks cannot mutate an inbound message with a matching provider id")
+    void shouldPreserveInboundMessage_whenDeliveryCallbackTargetsIt() {
+        SmsTransaction inbound = recorder.recordInboundMessage(new SmsInboundWebhookDto(SmsProviderType.STUB,
+                "inbound-target", "+14165551212", "+14165550000", "synthetic reply", Instant.EPOCH, null));
+        assertThatThrownBy(() -> recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(SmsProviderType.STUB,
+                "inbound-target", SmsStatus.DELIVERED, Instant.now(), null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(inbound.getStatus()).isEqualTo(SmsStatus.RECEIVED);
+    }
+
+    @Test
+    @DisplayName("conflicting callback identifiers cannot overwrite a different outbound message")
+    void shouldRejectConflictingIdentifiers_whenDeliveryCallbackMatchesOnlyClientReference() {
+        SmsTransaction outbound = recorder.recordOutboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "synthetic", "999998"),
+                SmsProviderType.STUB, SmsConsentDecisionDto.permit());
+        outbound.markProviderResult(SmsProviderSendResultDto.accepted("correct-provider-id", SmsStatus.SENT));
+        entityManager.flush();
+        assertThatThrownBy(() -> recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(SmsProviderType.STUB,
+                "wrong-provider-id", SmsStatus.DELIVERED, Instant.now(), null, null,
+                outbound.getClientReferenceId(), null))).isInstanceOf(IllegalArgumentException.class);
+        assertThat(outbound.getStatus()).isEqualTo(SmsStatus.SENT);
+    }
+
+    @Test
+    @DisplayName("denied outbound attempts are never claimable and do not store the message body")
+    void shouldPersistOnlyBlockedAudit_whenConsentDeniesAdmission() {
+        SmsTransaction blocked = recorder.recordOutboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Synthetic confidential message", "999998"),
+                SmsProviderType.STUB, SmsConsentDecisionDto.blocked(
+                        SmsStatus.CONSENT_BLOCKED, "DENIED", "Consent denied"));
+        Long id = blocked.getId();
+        String digest = blocked.getMessageBodySha256();
+        entityManager.flush();
+        entityManager.clear();
+
+        SmsTransaction reloaded = entityManager.find(SmsTransaction.class, id);
+        assertThat(reloaded.getStatus()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
+        assertThat(reloaded.toSendCommand().body()).isNull();
+        assertThat(reloaded.getMessageBodySha256()).isEqualTo(digest);
+        assertThat(reloaded.getMessageBodyLength()).isEqualTo("Synthetic confidential message".length());
+        assertThat(smsTransactionDao.claimDueOutboundQueue(SmsProviderType.STUB, new java.util.Date(), 10))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("keeps the webhook state when a stale worker write conflicts (newer version preserved)")
     void shouldKeepWebhookState_whenStaleWorkerWriteConflicts() {
         SmsTransaction claimed = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
@@ -100,7 +144,8 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     void shouldMatchOutboundRow_whenDeliveryWebhookArrivesBeforeProviderResultIsRecorded() {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
-                SmsProviderType.STUB
+                SmsProviderType.STUB,
+                SmsConsentDecisionDto.permit()
         );
         String clientReferenceId = outbound.getClientReferenceId();
         assertThat(clientReferenceId).isEqualTo(SmsTransaction.clientReferenceIdFor(outbound.getId()));
@@ -142,7 +187,8 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     void shouldApplyDirectProviderResult_afterMarkingSending() {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
-                SmsProviderType.STUB
+                SmsProviderType.STUB,
+                SmsConsentDecisionDto.permit()
         );
         Long id = outbound.getId();
         long queuedVersion = outbound.getVersion();

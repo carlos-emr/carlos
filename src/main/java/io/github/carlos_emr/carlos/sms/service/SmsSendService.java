@@ -8,30 +8,31 @@ import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.Objects;
 
 @Service
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class SmsSendService {
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
-    private static final String DIRECT_PROVIDER_EXCEPTION_MESSAGE =
-            "SMS direct send failed because the SMS provider client threw an exception.";
 
     private final SmsSendValidator validator;
     private final SmsConsentService consentService;
-    private final SmsProviderResolver providerResolver;
-    private final SmsTransactionRecorder transactionRecorder;
-    private final SmsSendRateLimiter rateLimiter;
-    private final SmsProviderSelector providerSelector;
+    private final SmsProviderClientResolver providerResolver;
+    private final SmsTransactionService transactionRecorder;
+    private final SmsSendRateLimitService rateLimiter;
+    private final SmsDefaultProviderResolver providerSelector;
 
     public SmsSendService(
             SmsSendValidator validator,
             SmsConsentService consentService,
-            SmsProviderResolver providerResolver,
-            SmsTransactionRecorder transactionRecorder,
-            SmsSendRateLimiter rateLimiter,
-            SmsProviderSelector providerSelector
+            SmsProviderClientResolver providerResolver,
+            SmsTransactionService transactionRecorder,
+            SmsSendRateLimitService rateLimiter,
+            SmsDefaultProviderResolver providerSelector
     ) {
         this.validator = validator;
         this.consentService = consentService;
@@ -54,10 +55,10 @@ public class SmsSendService {
         }
 
         SmsProviderType providerType = providerSelector.configuredDefault();
-        SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType);
-        SmsConsentDecisionDto consentDecision = consentService.evaluate(command);
+        SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
+                consentService.evaluate(command), "SMS consent decision is required");
+        SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
         if (!consentDecision.allowed()) {
-            transactionRecorder.markConsentBlocked(transaction, consentDecision);
             return SmsSendResultDto.consentBlocked(consentDecision);
         }
 
@@ -76,15 +77,13 @@ public class SmsSendService {
         SmsProviderSendResultDto providerResult;
         try {
             SmsProviderClient providerClient = providerResolver.resolve(providerType);
-            providerResult = providerClient.send(command, clientReferenceId(transaction));
+            providerResult = Objects.requireNonNull(providerClient.send(command, clientReferenceId(transaction)),
+                    "SMS provider result is required");
         } catch (RuntimeException e) {
-            providerResult = SmsProviderSendResultDto.failed(
-                    DIRECT_PROVIDER_EXCEPTION_CODE,
-                    DIRECT_PROVIDER_EXCEPTION_MESSAGE
-            );
+            providerResult = SmsProviderSendResultDto.uncertain(DIRECT_PROVIDER_EXCEPTION_CODE);
         }
-        transactionRecorder.markProviderResult(transaction, providerResult);
-        return SmsSendResultDto.fromProvider(providerResult);
+        SmsTransaction recorded = transactionRecorder.markProviderResult(transaction, providerResult);
+        return SmsSendResultDto.fromTransaction(recorded);
     }
 
     private String clientReferenceId(SmsTransaction transaction) {

@@ -1,10 +1,14 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
+import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.Date;
@@ -12,7 +16,8 @@ import java.util.List;
 import java.util.Objects;
 
 @Service
-public class SmsQueueWorker {
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
+public class SmsQueueProcessingService {
     // Per-run cap for worker calls without an explicit limit; tune with SMS provider throughput and queue volume.
     private static final int DEFAULT_BATCH_SIZE = 60;
     private static final Duration DEFAULT_STALE_SENDING_TIMEOUT = Duration.ofMinutes(5);
@@ -27,20 +32,12 @@ public class SmsQueueWorker {
             "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_EXHAUSTED";
     private static final String QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE =
             "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED";
-    private static final String QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED_CODE =
-            "QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED";
     private static final String QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_CODE =
             "QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED";
-    private static final String QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED_CODE =
-            "QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED";
     private static final String QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_MESSAGE =
             "SMS queued provider failure recorded; retry scheduled.";
-    private static final String QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED_MESSAGE =
-            "SMS queued provider exception recorded; retry scheduled.";
     private static final String QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_MESSAGE =
             "SMS queued provider failure reached retry limit; no further retry scheduled.";
-    private static final String QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED_MESSAGE =
-            "SMS queued provider exception reached retry limit; no further retry scheduled.";
     private static final String QUEUE_STALE_STATUS_LOOKUP_EXCEPTION_MESSAGE =
             "SMS stale send status lookup threw an exception; marked failed for manual review.";
     private static final String QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE_MESSAGE =
@@ -50,21 +47,24 @@ public class SmsQueueWorker {
     private static final String QUEUE_STALE_STATUS_NOT_FOUND_RETRY_EXHAUSTED_MESSAGE =
             "SMS stale send was not found by SMS provider status lookup and retry limit was reached.";
 
-    private final SmsTransactionRecorder transactionRecorder;
-    private final SmsProviderResolver providerResolver;
-    private final SmsRetryPolicy retryPolicy;
-    private final SmsSendRateLimiter rateLimiter;
+    private final SmsTransactionService transactionRecorder;
+    private final SmsProviderClientResolver providerResolver;
+    private final SmsRetryCalculator retryPolicy;
+    private final SmsSendRateLimitService rateLimiter;
+    private final SmsConsentService consentService;
 
-    public SmsQueueWorker(
-            SmsTransactionRecorder transactionRecorder,
-            SmsProviderResolver providerResolver,
-            SmsRetryPolicy retryPolicy,
-            SmsSendRateLimiter rateLimiter
+    public SmsQueueProcessingService(
+            SmsTransactionService transactionRecorder,
+            SmsProviderClientResolver providerResolver,
+            SmsRetryCalculator retryPolicy,
+            SmsSendRateLimitService rateLimiter,
+            SmsConsentService consentService
     ) {
         this.transactionRecorder = transactionRecorder;
         this.providerResolver = providerResolver;
         this.retryPolicy = retryPolicy;
         this.rateLimiter = rateLimiter;
+        this.consentService = consentService;
     }
 
     public int processDueMessages() {
@@ -106,7 +106,12 @@ public class SmsQueueWorker {
                 shouldContinue = false;
             } else {
                 SmsTransaction claimed = transactions.get(0);
-                if (!rateLimiter.tryAcquire(providerType)) {
+                SmsConsentDecisionDto decision = Objects.requireNonNull(
+                        consentService.evaluate(claimed.toSendCommand()), "SMS consent decision is required");
+                if (!decision.allowed()) {
+                    transactionRecorder.markConsentBlocked(claimed, decision);
+                    processed++;
+                } else if (!rateLimiter.tryAcquire(providerType)) {
                     transactionRecorder.releaseClaim(claimed, new Date());
                     shouldContinue = false;
                 } else {
@@ -156,10 +161,9 @@ public class SmsQueueWorker {
     private SmsProviderMessageStatusDto lookupProviderStatus(SmsTransaction transaction) {
         try {
             SmsProviderClient providerClient = providerResolver.resolve(transaction.getProviderType());
-            return providerClient.lookupMessageStatus(
-                    clientReferenceId(transaction),
-                    transaction.getProviderMessageId()
-            );
+            return Objects.requireNonNull(providerClient.lookupMessageStatus(
+                    clientReferenceId(transaction), transaction.getProviderMessageId()),
+                    "SMS provider lookup result is required");
         } catch (RuntimeException e) {
             return SmsProviderMessageStatusDto.unavailable(
                     QUEUE_STALE_STATUS_LOOKUP_EXCEPTION_CODE,
@@ -195,53 +199,39 @@ public class SmsQueueWorker {
         SmsProviderSendResultDto providerResult;
         try {
             SmsProviderClient providerClient = providerResolver.resolve(transaction.getProviderType());
-            providerResult = providerClient.send(transaction.toSendCommand(), clientReferenceId(transaction));
+            providerResult = Objects.requireNonNull(
+                    providerClient.send(transaction.toSendCommand(), clientReferenceId(transaction)),
+                    "SMS provider result is required");
         } catch (RuntimeException e) {
-            providerResult = SmsProviderSendResultDto.failed(QUEUE_PROVIDER_EXCEPTION_CODE, null);
+            providerResult = SmsProviderSendResultDto.uncertain(QUEUE_PROVIDER_EXCEPTION_CODE);
         }
 
-        if (providerResult.accepted()) {
+        if (providerResult.accepted() || providerResult.status() == SmsStatus.SENDING) {
             transactionRecorder.markProviderResult(transaction, providerResult);
             return;
         }
 
         if (!retryPolicy.canRetry(transaction)) {
-            transactionRecorder.markProviderResult(transaction, retryExhaustedResult(providerResult));
+            transactionRecorder.markProviderResult(transaction, retryExhaustedResult());
             return;
         }
 
         Date nextAttemptAt = retryPolicy.nextAttemptAt(transaction, new Date());
-        transactionRecorder.markRetryScheduled(transaction, retryScheduledResult(providerResult), nextAttemptAt);
+        transactionRecorder.markRetryScheduled(transaction, retryScheduledResult(), nextAttemptAt);
     }
 
-    private SmsProviderSendResultDto retryScheduledResult(SmsProviderSendResultDto providerResult) {
-        if (isProviderException(providerResult)) {
-            return SmsProviderSendResultDto.failed(
-                    QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED_CODE,
-                    QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED_MESSAGE
-            );
-        }
+    private SmsProviderSendResultDto retryScheduledResult() {
         return SmsProviderSendResultDto.failed(
                 QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE,
                 QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_MESSAGE
         );
     }
 
-    private SmsProviderSendResultDto retryExhaustedResult(SmsProviderSendResultDto providerResult) {
-        if (isProviderException(providerResult)) {
-            return SmsProviderSendResultDto.failed(
-                    QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED_CODE,
-                    QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED_MESSAGE
-            );
-        }
+    private SmsProviderSendResultDto retryExhaustedResult() {
         return SmsProviderSendResultDto.failed(
                 QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_CODE,
                 QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_MESSAGE
         );
-    }
-
-    private boolean isProviderException(SmsProviderSendResultDto providerResult) {
-        return QUEUE_PROVIDER_EXCEPTION_CODE.equals(providerResult.errorCode());
     }
 
     private String clientReferenceId(SmsTransaction transaction) {

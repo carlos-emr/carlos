@@ -19,12 +19,12 @@ import org.springframework.stereotype.Component;
 public class SmsProviderConfigurationValidator {
     private static final Logger LOGGER = MiscUtils.getLogger();
 
-    private final SmsProviderSelector providerSelector;
-    private final SmsProviderResolver providerResolver;
+    private final SmsDefaultProviderResolver providerSelector;
+    private final SmsProviderClientResolver providerResolver;
 
     public SmsProviderConfigurationValidator(
-            SmsProviderSelector providerSelector,
-            SmsProviderResolver providerResolver
+            SmsDefaultProviderResolver providerSelector,
+            SmsProviderClientResolver providerResolver
     ) {
         this.providerSelector = providerSelector;
         this.providerResolver = providerResolver;
@@ -32,7 +32,13 @@ public class SmsProviderConfigurationValidator {
 
     @PostConstruct
     public void validateConfiguredDefaultProvider() {
-        SmsProviderType configuredDefault = providerSelector.configuredDefault();
+        SmsProviderType configuredDefault;
+        try {
+            configuredDefault = providerSelector.configuredDefault();
+        } catch (IllegalStateException e) {
+            LOGGER.error("Invalid sms.provider.default; outbound SMS is blocked until configuration is corrected.");
+            return;
+        }
         if (configuredDefaultHasRegisteredClient()) {
             LOGGER.info("SMS default provider {} resolved to a registered client.", configuredDefault);
             return;
@@ -40,7 +46,7 @@ public class SmsProviderConfigurationValidator {
         LOGGER.error(
                 "Configured default SMS provider {}={} has no registered SmsProviderClient; outbound SMS "
                         + "will be queued and then fail until a client for it is deployed. Registered providers: {}.",
-                SmsProviderSelector.DEFAULT_PROVIDER_PROPERTY,
+                SmsDefaultProviderResolver.DEFAULT_PROVIDER_PROPERTY,
                 configuredDefault,
                 providerResolver.registeredProviderTypes()
         );

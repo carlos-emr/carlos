@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("service")
 @ExtendWith(MockitoExtension.class)
-class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
+class CarlosSmsMessageBodyAuthorizationServiceUnitTest {
     @Mock
     private SecurityInfoManager securityInfoManager;
 
@@ -35,8 +35,8 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
     @DisplayName("assertCanReadFullBody allows body access when message and demographic read are granted")
     void shouldAllowRead_whenMessageAndDemographicReadGranted() {
         SmsTransaction transaction = outboundTransaction();
-        CarlosSmsMessageBodyAccessAuthorizer authorizer =
-                new CarlosSmsMessageBodyAccessAuthorizer(securityInfoManager);
+        CarlosSmsMessageBodyAuthorizationService authorizer =
+                new CarlosSmsMessageBodyAuthorizationService(securityInfoManager);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, 123))
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, 123))
@@ -53,8 +53,8 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
     @DisplayName("assertCanReadFullBody denies before demographic check when message read is missing")
     void shouldDenyRead_whenMessageReadIsMissing() {
         SmsTransaction transaction = outboundTransaction();
-        CarlosSmsMessageBodyAccessAuthorizer authorizer =
-                new CarlosSmsMessageBodyAccessAuthorizer(securityInfoManager);
+        CarlosSmsMessageBodyAuthorizationService authorizer =
+                new CarlosSmsMessageBodyAuthorizationService(securityInfoManager);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, 123))
                 .thenReturn(false);
 
@@ -74,8 +74,8 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
     @DisplayName("assertCanReadFullBody denies when demographic read is missing")
     void shouldDenyRead_whenDemographicReadIsMissing() {
         SmsTransaction transaction = outboundTransaction();
-        CarlosSmsMessageBodyAccessAuthorizer authorizer =
-                new CarlosSmsMessageBodyAccessAuthorizer(securityInfoManager);
+        CarlosSmsMessageBodyAuthorizationService authorizer =
+                new CarlosSmsMessageBodyAuthorizationService(securityInfoManager);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, 123))
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, 123))
@@ -101,8 +101,8 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
                 null,
                 null
         ));
-        CarlosSmsMessageBodyAccessAuthorizer authorizer =
-                new CarlosSmsMessageBodyAccessAuthorizer(securityInfoManager);
+        CarlosSmsMessageBodyAuthorizationService authorizer =
+                new CarlosSmsMessageBodyAuthorizationService(securityInfoManager);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, (String) null))
                 .thenReturn(true);
 
@@ -118,8 +118,8 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
     @DisplayName("assertCanReadFullBody denies without logged-in context")
     void shouldDenyRead_whenLoggedInInfoIsMissing() {
         SmsTransaction transaction = outboundTransaction();
-        CarlosSmsMessageBodyAccessAuthorizer authorizer =
-                new CarlosSmsMessageBodyAccessAuthorizer(securityInfoManager);
+        CarlosSmsMessageBodyAuthorizationService authorizer =
+                new CarlosSmsMessageBodyAuthorizationService(securityInfoManager);
 
         assertThatThrownBy(() -> authorizer.assertCanReadFullBody(transaction, null))
                 .isInstanceOfSatisfying(AccessDeniedException.class, exception -> {

@@ -8,13 +8,13 @@ import java.util.Objects;
 import java.util.Optional;
 
 @Service
-public class SmsMessageBodyReader {
-    private final SmsMessageBodyAccessAuthorizer accessAuthorizer;
-    private final SmsMessageBodyAccessAuditor accessAuditor;
+public class SmsMessageBodyReadService {
+    private final SmsMessageBodyAuthorizationService accessAuthorizer;
+    private final SmsMessageBodyAuditPersister accessAuditor;
 
-    public SmsMessageBodyReader(
-            SmsMessageBodyAccessAuthorizer accessAuthorizer,
-            SmsMessageBodyAccessAuditor accessAuditor
+    public SmsMessageBodyReadService(
+            SmsMessageBodyAuthorizationService accessAuthorizer,
+            SmsMessageBodyAuditPersister accessAuditor
     ) {
         this.accessAuthorizer = accessAuthorizer;
         this.accessAuditor = accessAuditor;

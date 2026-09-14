@@ -11,8 +11,10 @@ import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import java.util.Date;
 import java.util.List;
 
-public interface SmsTransactionRecorder {
-    SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType);
+public interface SmsTransactionService {
+    /** Persists the consent decision and initial queue state atomically. */
+    SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType,
+                                         SmsConsentDecisionDto decision);
 
     SmsTransaction markConsentBlocked(SmsTransaction transaction, SmsConsentDecisionDto decision);
 

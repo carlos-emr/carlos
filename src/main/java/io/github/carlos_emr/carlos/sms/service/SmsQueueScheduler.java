@@ -22,10 +22,10 @@ public class SmsQueueScheduler {
     // Default queued rows to ask the worker to process per scheduler run; override via sms.queue.scheduler.batchSize.
     private static final int DEFAULT_BATCH_SIZE = 60;
 
-    private final SmsQueueWorker smsQueueWorker;
+    private final SmsQueueProcessingService smsQueueWorker;
     private ScheduledExecutorService executorService;
 
-    public SmsQueueScheduler(SmsQueueWorker smsQueueWorker) {
+    public SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker) {
         this.smsQueueWorker = smsQueueWorker;
     }
 

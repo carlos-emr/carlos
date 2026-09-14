@@ -1,21 +1,21 @@
 package io.github.carlos_emr.carlos.sms.command;
 
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
-import io.github.carlos_emr.carlos.sms.SmsTransactionType;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 
 public record SmsSendCommand(
         Integer demographicNo,
         String recipientPhoneNumber,
         SmsRecipientPhoneType recipientPhoneType,
         String body,
-        SmsTransactionType transactionType,
+        SmsMessagePurpose messagePurpose,
         String requestedByHealthcareProviderNo,
         Integer requestedBySecurityNo,
         Integer appointmentNo
 ) {
     public SmsSendCommand {
-        if (transactionType == null) {
-            transactionType = SmsTransactionType.DIRECT;
+        if (messagePurpose == null) {
+            messagePurpose = SmsMessagePurpose.PATIENT_MESSAGE;
         }
     }
 
@@ -75,10 +75,14 @@ public record SmsSendCommand(
                 recipientPhoneNumber,
                 recipientPhoneType,
                 body,
-                SmsTransactionType.DIRECT,
+                SmsMessagePurpose.PATIENT_MESSAGE,
                 requestedByHealthcareProviderNo,
                 requestedBySecurityNo,
                 null
         );
+    }
+    @Override
+    public String toString() {
+        return "SmsSendCommand[redacted]";
     }
 }

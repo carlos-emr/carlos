@@ -97,7 +97,7 @@ class SmsQueuePersistenceIntegrationTest extends CarlosTestBase {
     @DisplayName("rate limiter allows up to the window cap then denies (INSERT IGNORE + FOR UPDATE on H2)")
     void shouldAllowUpToCapThenDeny_withinWindow() {
         Clock fixed = Clock.fixed(Instant.parse("2030-01-01T00:00:00Z"), ZoneOffset.UTC);
-        JpaSmsSendRateLimiter limiter = new JpaSmsSendRateLimiter(
+        JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
                 smsProviderRateLimitDao, 2, Duration.ofMinutes(5), fixed
         );
 

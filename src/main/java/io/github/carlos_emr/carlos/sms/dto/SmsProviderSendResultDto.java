@@ -10,6 +10,9 @@ public record SmsProviderSendResultDto(
         String errorMessage
 ) {
     public SmsProviderSendResultDto {
+        if (providerMessageId != null && providerMessageId.length() > 128) {
+            throw new IllegalArgumentException("SMS provider message identifier exceeds supported length");
+        }
         if (accepted) {
             if (providerMessageId == null || providerMessageId.isBlank()) {
                 throw new IllegalArgumentException("providerMessageId is required for accepted SMS provider results");
@@ -17,8 +20,11 @@ public record SmsProviderSendResultDto(
             if (status != SmsStatus.SENT && status != SmsStatus.DELIVERED) {
                 throw new IllegalArgumentException("accepted SMS provider results must be SENT or DELIVERED");
             }
-        } else if (status == null) {
-            status = SmsStatus.FAILED;
+        } else {
+            status = status == null ? SmsStatus.FAILED : status;
+            if (status != SmsStatus.FAILED && status != SmsStatus.SENDING) {
+                throw new IllegalArgumentException("unconfirmed SMS provider results must be FAILED or SENDING");
+            }
         }
     }
 
@@ -26,7 +32,17 @@ public record SmsProviderSendResultDto(
         return new SmsProviderSendResultDto(true, providerMessageId, status, null, null);
     }
 
+    /** The provider may have accepted the send; look up its status before any retry. */
+    public static SmsProviderSendResultDto uncertain(String errorCode) {
+        return new SmsProviderSendResultDto(false, null, SmsStatus.SENDING, errorCode,
+                "SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually.");
+    }
+
     public static SmsProviderSendResultDto failed(String errorCode, String errorMessage) {
         return new SmsProviderSendResultDto(false, null, SmsStatus.FAILED, errorCode, errorMessage);
+    }
+    @Override
+    public String toString() {
+        return "SmsProviderSendResultDto[redacted]";
     }
 }

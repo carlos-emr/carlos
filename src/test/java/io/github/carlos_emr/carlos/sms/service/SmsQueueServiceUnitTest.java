@@ -32,14 +32,14 @@ class SmsQueueServiceUnitTest {
     @Test
     @DisplayName("enqueue returns queued after validation and consent pass")
     void shouldQueueMessage_whenConsentAllows() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
-        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
                 worker,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueue(
@@ -68,15 +68,15 @@ class SmsQueueServiceUnitTest {
     @Test
     @DisplayName("enqueueAndProcessNow wakes the queue worker after queuing")
     void shouldWakeWorker_whenMessageIsQueuedForImmediateProcessing() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
-        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         when(worker.processDueMessages(1)).thenReturn(1);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
                 worker,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
@@ -95,15 +95,15 @@ class SmsQueueServiceUnitTest {
     @Test
     @DisplayName("enqueueAndProcessNow keeps queued result when the immediate worker wake fails")
     void shouldReturnQueued_whenImmediateWorkerWakeFails() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
-        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         when(worker.processDueMessages(1)).thenThrow(new IllegalStateException("worker unavailable"));
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
                 worker,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
@@ -122,8 +122,8 @@ class SmsQueueServiceUnitTest {
     @Test
     @DisplayName("enqueue records consent blocks without sending")
     void shouldBlockMessage_whenConsentDeniesQueue() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
-        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.blocked(
@@ -133,7 +133,7 @@ class SmsQueueServiceUnitTest {
                 ),
                 recorder,
                 worker,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueue(
@@ -151,8 +151,8 @@ class SmsQueueServiceUnitTest {
     @Test
     @DisplayName("enqueueAndProcessNow does not wake worker when consent blocks")
     void shouldSkipWorkerWake_whenConsentDeniesImmediateQueue() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
-        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.blocked(
@@ -162,7 +162,7 @@ class SmsQueueServiceUnitTest {
                 ),
                 recorder,
                 worker,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
@@ -177,14 +177,14 @@ class SmsQueueServiceUnitTest {
     @Test
     @DisplayName("enqueue does not create transactions for invalid commands")
     void shouldSkipTransactionRecord_whenQueueValidationFails() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
-        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
                 worker,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueue(SmsSendCommand.direct(0, "not-a-phone", " ", "999998"));
@@ -198,14 +198,14 @@ class SmsQueueServiceUnitTest {
     @Test
     @DisplayName("enqueueAndProcessNow does not wake worker after validation failures")
     void shouldSkipWorkerWake_whenImmediateQueueValidationFails() {
-        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
-        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
                 worker,
-                new SmsProviderSelector(() -> "STUB")
+                new SmsDefaultProviderResolver(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
@@ -218,13 +218,34 @@ class SmsQueueServiceUnitTest {
         verify(worker, never()).processDueMessages(anyInt());
     }
 
-    private static class RecordingSmsTransactionRecorder implements SmsTransactionRecorder {
+    @Test
+    @DisplayName("queue admission evaluates consent before persisting a claimable row")
+    void shouldNotExposeQueuedWork_whenConsentEvaluationThrows() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
+        SmsQueueService service = new SmsQueueService(new SmsSendValidator(), command -> {
+            assertThat(recorder.transactions()).isEmpty();
+            throw new IllegalStateException("synthetic consent outage");
+        }, recorder, worker, new SmsDefaultProviderResolver(() -> "STUB"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.enqueueAndProcessNow(
+                SmsSendCommand.direct(123, "416-555-1212", "Synthetic message", "999998")))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(recorder.transactions()).isEmpty();
+        org.mockito.Mockito.verifyNoInteractions(worker);
+    }
+
+    private static class RecordingSmsTransactionService implements SmsTransactionService {
         private final List<SmsTransaction> transactions = new ArrayList<>();
 
         @Override
-        public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType) {
+        public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType,
+                                                    SmsConsentDecisionDto decision) {
             SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
             transactions.add(transaction);
+            if (!decision.allowed()) {
+                transaction.markConsentBlocked(decision);
+            }
             return transaction;
         }
 

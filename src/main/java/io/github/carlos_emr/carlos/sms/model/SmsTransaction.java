@@ -7,7 +7,7 @@ import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
-import io.github.carlos_emr.carlos.sms.SmsTransactionType;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsDeliveryWebhookDto;
@@ -80,8 +80,8 @@ public class SmsTransaction extends AbstractModel<Long> {
     private SmsProviderType providerType = SmsProviderType.STUB;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "transaction_type", nullable = false, length = 32)
-    private SmsTransactionType transactionType = SmsTransactionType.DIRECT;
+    @Column(name = "message_purpose", nullable = false, length = 32)
+    private SmsMessagePurpose messagePurpose = SmsMessagePurpose.PATIENT_MESSAGE;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
@@ -200,7 +200,7 @@ public class SmsTransaction extends AbstractModel<Long> {
         );
         transaction.requestedBySecurityNo = command.requestedBySecurityNo();
         transaction.appointmentNo = command.appointmentNo();
-        transaction.transactionType = command.transactionType();
+        transaction.messagePurpose = command.messagePurpose();
         transaction.toPhoneNumber = normalizePhone(command.recipientPhoneNumber());
         transaction.recipientPhoneType = command.recipientPhoneType();
         transaction.messageBody = command.body();
@@ -214,7 +214,7 @@ public class SmsTransaction extends AbstractModel<Long> {
         SmsTransaction transaction = new SmsTransaction();
         transaction.direction = SmsDirection.INBOUND;
         transaction.providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
-        transaction.transactionType = SmsTransactionType.DIRECT;
+        transaction.messagePurpose = SmsMessagePurpose.PATIENT_MESSAGE;
         transaction.status = SmsStatus.RECEIVED;
         transaction.providerMessageId = trimTo(webhook.providerMessageId(), MAX_PROVIDER_MESSAGE_ID_LENGTH);
         transaction.fromPhoneNumber = normalizePhone(webhook.fromPhoneNumber());
@@ -236,7 +236,7 @@ public class SmsTransaction extends AbstractModel<Long> {
         SmsTransaction transaction = new SmsTransaction();
         transaction.direction = SmsDirection.OUTBOUND;
         transaction.providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
-        transaction.transactionType = SmsTransactionType.DIRECT;
+        transaction.messagePurpose = SmsMessagePurpose.PATIENT_MESSAGE;
         transaction.providerMessageId = trimTo(webhook.providerMessageId(), MAX_PROVIDER_MESSAGE_ID_LENGTH);
         transaction.clientReferenceId = trimTo(webhook.clientReferenceId(), MAX_CLIENT_REFERENCE_ID_LENGTH);
         transaction.markDeliveryEvent(webhook);
@@ -245,7 +245,12 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public void markConsentBlocked(SmsConsentDecisionDto decision) {
         Objects.requireNonNull(decision, "decision is required");
+        if (decision.allowed()) {
+            throw new IllegalArgumentException("a blocking consent decision is required");
+        }
         status = decision.blockedStatus();
+        messageBody = null;
+        nextAttemptAt = null;
         consentReasonCode = trimTo(decision.reasonCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(decision.operatorMessage(), MAX_ERROR_MESSAGE_LENGTH);
         clearClaim();
@@ -393,7 +398,10 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     private void refreshBodyAudit() {
-        String body = messageBody == null ? "" : messageBody;
+        if (messageBody == null) {
+            return; // Preserve the original fingerprint when a denied body is discarded.
+        }
+        String body = messageBody;
         messageBodyLength = body.length();
         messageBodySha256 = SmsAuditRedactor.digest(body, 64);
     }
@@ -452,7 +460,7 @@ public class SmsTransaction extends AbstractModel<Long> {
                 toPhoneNumber,
                 recipientPhoneType,
                 messageBody,
-                transactionType,
+                messagePurpose,
                 requestedByHealthcareProviderNo,
                 requestedBySecurityNo,
                 appointmentNo
@@ -472,8 +480,8 @@ public class SmsTransaction extends AbstractModel<Long> {
         return providerType;
     }
 
-    public SmsTransactionType getTransactionType() {
-        return transactionType;
+    public SmsMessagePurpose getMessagePurpose() {
+        return messagePurpose;
     }
 
     public SmsStatus getStatus() {

@@ -2,7 +2,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
-import io.github.carlos_emr.carlos.sms.SmsTransactionType;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import org.junit.jupiter.api.DisplayName;
@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
 @Tag("service")
-class SmsDeferredConsentServiceUnitTest {
+class DeferredSmsConsentServiceUnitTest {
     @Test
     @DisplayName("deferred consent blocks direct sends even when system-test override is enabled")
     void shouldBlockDirectSend_whenSystemTestOverrideIsEnabled() {
@@ -67,7 +67,7 @@ class SmsDeferredConsentServiceUnitTest {
                 "416-555-1212",
                 SmsRecipientPhoneType.CELL,
                 "Appointment reminder",
-                SmsTransactionType.APPOINTMENT_REMINDER,
+                SmsMessagePurpose.APPOINTMENT_REMINDER,
                 "999998",
                 1001,
                 456
@@ -80,7 +80,7 @@ class SmsDeferredConsentServiceUnitTest {
                 "416-555-1212",
                 SmsRecipientPhoneType.CELL,
                 "SMS system test",
-                SmsTransactionType.SYSTEM_TEST,
+                SmsMessagePurpose.SYSTEM_TEST,
                 "999998",
                 1001,
                 null

@@ -22,8 +22,8 @@ class StubSmsProviderClientUnitTest {
         StubSmsProviderClient client = new StubSmsProviderClient();
         SmsSendCommand command = SmsSendCommand.direct(123, "(416) 555-1212", "Appointment reminder", "999998");
 
-        SmsProviderSendResultDto first = client.send(command);
-        SmsProviderSendResultDto second = client.send(command);
+        SmsProviderSendResultDto first = client.send(command, "sms-transaction-1");
+        SmsProviderSendResultDto second = client.send(command, "sms-transaction-1");
 
         assertThat(first.accepted()).isTrue();
         assertThat(first.status()).isEqualTo(SmsStatus.SENT);

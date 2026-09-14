@@ -26,7 +26,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("service")
 @ExtendWith(MockitoExtension.class)
-class JpaSmsSendRateLimiterUnitTest {
+class JpaSmsSendRateLimitServiceUnitTest {
     @Mock
     private SmsProviderRateLimitDao rateLimitDao;
 
@@ -38,7 +38,7 @@ class JpaSmsSendRateLimiterUnitTest {
                 SmsProviderType.STUB,
                 Date.from(clock.instant())
         );
-        JpaSmsSendRateLimiter limiter = new JpaSmsSendRateLimiter(
+        JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
                 rateLimitDao,
                 2,
                 Duration.ofMinutes(1),
@@ -62,7 +62,7 @@ class JpaSmsSendRateLimiterUnitTest {
                 SmsProviderType.STUB,
                 Date.from(clock.instant())
         );
-        JpaSmsSendRateLimiter limiter = new JpaSmsSendRateLimiter(
+        JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
                 rateLimitDao,
                 1,
                 Duration.ofMinutes(1),
@@ -86,7 +86,7 @@ class JpaSmsSendRateLimiterUnitTest {
                 SmsProviderType.STUB,
                 Date.from(clock.instant())
         );
-        JpaSmsSendRateLimiter limiter = new JpaSmsSendRateLimiter(
+        JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
                 rateLimitDao,
                 1,
                 Duration.ofMinutes(1),
@@ -110,7 +110,7 @@ class JpaSmsSendRateLimiterUnitTest {
                 SmsProviderType.STUB,
                 Date.from(clock.instant())
         );
-        JpaSmsSendRateLimiter limiter = new JpaSmsSendRateLimiter(
+        JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
                 rateLimitDao,
                 1,
                 Duration.ofNanos(1),
@@ -133,7 +133,7 @@ class JpaSmsSendRateLimiterUnitTest {
                 SmsProviderType.CLOUDLI,
                 Date.from(clock.instant())
         );
-        JpaSmsSendRateLimiter limiter = new JpaSmsSendRateLimiter(
+        JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
                 rateLimitDao,
                 60,
                 Duration.ofMinutes(1),
@@ -153,7 +153,7 @@ class JpaSmsSendRateLimiterUnitTest {
     @DisplayName("tryAcquire fails closed when SMS provider limiter row is still missing after insert")
     void shouldFailClosed_whenProviderLimiterRowCannotBeLocked() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
-        JpaSmsSendRateLimiter limiter = new JpaSmsSendRateLimiter(
+        JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
                 rateLimitDao,
                 60,
                 Duration.ofMinutes(1),

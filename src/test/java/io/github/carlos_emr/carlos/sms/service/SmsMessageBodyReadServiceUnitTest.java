@@ -19,13 +19,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("unit")
 @Tag("service")
-class SmsMessageBodyReaderUnitTest {
+class SmsMessageBodyReadServiceUnitTest {
     @Test
     @DisplayName("readFullMessageBody audits access before returning body")
     void shouldAuditAccess_whenReadingFullBody() {
         RecordingAuthorizer authorizer = new RecordingAuthorizer();
         RecordingAuditor auditor = new RecordingAuditor();
-        SmsMessageBodyReader reader = new SmsMessageBodyReader(authorizer, auditor);
+        SmsMessageBodyReadService reader = new SmsMessageBodyReadService(authorizer, auditor);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
@@ -48,7 +48,7 @@ class SmsMessageBodyReaderUnitTest {
     void shouldAuditAccess_whenFullBodyIsMissing() {
         RecordingAuthorizer authorizer = new RecordingAuthorizer();
         RecordingAuditor auditor = new RecordingAuditor();
-        SmsMessageBodyReader reader = new SmsMessageBodyReader(authorizer, auditor);
+        SmsMessageBodyReadService reader = new SmsMessageBodyReadService(authorizer, auditor);
         SmsTransaction transaction = SmsTransaction.deliveryEvent(new SmsDeliveryWebhookDto(
                 SmsProviderType.STUB,
                 "provider-1",
@@ -72,7 +72,7 @@ class SmsMessageBodyReaderUnitTest {
     @Test
     @DisplayName("readFullMessageBody fails before returning body when audit fails")
     void shouldNotReturnBody_whenAuditFails() {
-        SmsMessageBodyReader reader = new SmsMessageBodyReader(
+        SmsMessageBodyReadService reader = new SmsMessageBodyReadService(
                 new RecordingAuthorizer(),
                 (transaction, loggedInInfo, reasonCode) -> {
                     throw new IllegalStateException("audit failed");
@@ -92,7 +92,7 @@ class SmsMessageBodyReaderUnitTest {
     @DisplayName("readFullMessageBody denies access before audit")
     void shouldNotAuditOrReturnBody_whenAccessDenied() {
         RecordingAuditor auditor = new RecordingAuditor();
-        SmsMessageBodyReader reader = new SmsMessageBodyReader(
+        SmsMessageBodyReadService reader = new SmsMessageBodyReadService(
                 (transaction, loggedInInfo) -> {
                     throw new AccessDeniedException("_msgSMS", "r", transaction.getDemographicNo());
                 },
@@ -114,7 +114,7 @@ class SmsMessageBodyReaderUnitTest {
     private record AuthorizationRecord(SmsTransaction transaction) {
     }
 
-    private static class RecordingAuthorizer implements SmsMessageBodyAccessAuthorizer {
+    private static class RecordingAuthorizer implements SmsMessageBodyAuthorizationService {
         private final List<AuthorizationRecord> records = new ArrayList<>();
 
         @Override
@@ -127,7 +127,7 @@ class SmsMessageBodyReaderUnitTest {
         }
     }
 
-    private static class RecordingAuditor implements SmsMessageBodyAccessAuditor {
+    private static class RecordingAuditor implements SmsMessageBodyAuditPersister {
         private final List<AccessRecord> records = new ArrayList<>();
 
         @Override

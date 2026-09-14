@@ -18,17 +18,14 @@ public interface SmsProviderClient {
      * Send an outbound SMS through this SMS provider.
      * <p>
      * Provider adapters should include {@code clientReferenceId} in the SMS provider request when the
-     * SMS provider supports client references/idempotency keys. Expected SMS provider rejections, timeouts,
-     * validation failures, and other SMS provider-classified send failures should return a failed
+     * SMS provider supports client references/idempotency keys. Definite SMS provider rejections and
+     * validation failures should return a failed
      * {@link SmsProviderSendResultDto}. Throwing a runtime exception should be reserved for unexpected
-     * adapter defects or infrastructure failures the adapter cannot safely classify.
+     * adapter defects or infrastructure failures the adapter cannot safely classify. A timeout or
+     * otherwise ambiguous outcome must return {@link SmsProviderSendResultDto#uncertain(String)};
+     * it must never be classified as a definite failure eligible for blind retry.
      */
-    SmsProviderSendResultDto send(SmsSendCommand command);
-
-    default SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
-        Objects.requireNonNull(clientReferenceId, "clientReferenceId is required");
-        return send(command);
-    }
+    SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId);
 
     /**
      * Look up SMS provider state for a previously attempted send.
