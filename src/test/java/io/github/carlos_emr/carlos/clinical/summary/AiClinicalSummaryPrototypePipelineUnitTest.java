@@ -74,6 +74,56 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     }
 
     @Test
+    void keepsHostIdentityInEvidenceWithoutGeneratingAnIdentityOnlyBatch() throws Exception {
+        ObjectNode input = chart(20);
+        ((ObjectNode) input.get("patient_context")).put("id", "demographic-3001");
+        input.get("sources").forEach(source -> ((ObjectNode) source).put("patient_id", "demographic-3001"));
+        ((ArrayNode) input.get("sources")).insert(0, JSON.createObjectNode().put("id", "identity")
+                .put("patient_id", "demographic-3001").put("title", "Patient identity (identity)")
+                .put("date", "Current record").put("text", "Demographic number: 3001\nName: Synthetic full record"));
+        ((ArrayNode) input.get("coverage")).addObject().put("source_id", "identity")
+                .put("status", "reviewed_not_cited").put("reason", "Patient identity only");
+
+        var result = generate(input);
+
+        assertThat(result.getView().get("sources")).isEqualTo(new ClinicalSummaryArtifact(input).getView().get("sources"));
+        assertThat(result.getClaimsById()).hasSize(20);
+        assertThat(requests).allSatisfy(request -> assertThat(request.get("sources"))
+                .noneSatisfy(source -> assertThat(source.path("id").asText()).isEqualTo("identity")));
+        JsonNode coverage = JSON.valueToTree(result.getView().get("coverage"));
+        assertThat(coverage.get(0).path("source_id").asText()).isEqualTo("identity");
+        assertThat(coverage.get(0).path("status").asText()).isEqualTo("excluded");
+
+        requests.clear();
+        ((ObjectNode) input.get("sources").get(0)).put("text", "Clinical finding: no fever.");
+        generate(input);
+        assertThat(requests).anySatisfy(request -> assertThat(request.get("sources"))
+                .anySatisfy(source -> assertThat(source.path("text").asText()).contains("no fever")));
+    }
+
+    @Test
+    void sendsClinicalBodyOfVerifiedFixtureWhileKeepingOriginalEvidence() throws Exception {
+        ObjectNode input = chart(1);
+        ((ObjectNode) input.get("patient_context")).put("generation_fixture", "NHSSYN001");
+        ObjectNode source = (ObjectNode) input.get("sources").get(0);
+        source.put("id", "note-1");
+        ((ObjectNode) input.get("coverage").get(0)).put("source_id", "note-1");
+        String body = "Follow-up arranged in four weeks. No changes to medications.\nFinal recorded qualifier retained.";
+        String full = "SYNTHETIC NHS TEST PATIENT - NOT FOR CLINICAL USE\nImported development fixture.\n"
+                + "Source text below is preserved verbatim, including encoding and clinical inconsistencies.\n\n" + body;
+        source.put("text", full);
+
+        var result = generate(input);
+
+        assertThat(requests.getFirst().get("sources").get(0).get("text").asText()).isEqualTo(body);
+        assertThat(JSON.valueToTree(result.getView()).path("sources").get(0).path("text").asText()).isEqualTo(full);
+        requests.clear();
+        ((ObjectNode) input.get("patient_context")).remove("generation_fixture");
+        assertThatThrownBy(() -> generate(input)).hasMessageContaining("failed validation");
+        assertThat(requests.getFirst().get("sources").get(0).get("text").asText()).isEqualTo(full);
+    }
+
+    @Test
     void processesEverySourceBeyondOldCountAndCharacterCaps() throws Exception {
         ObjectNode input = chart(75);
         var result = generate(input);
