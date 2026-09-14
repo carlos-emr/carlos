@@ -180,14 +180,10 @@ public class DefaultHandler implements MessageHandler {
             throw new IOException("File does not exist or is not a regular file");
         }
 
-        // Validate the file is within the expected document directory
-        CarlosProperties props = CarlosProperties.getInstance();
-        String documentDir = props.getProperty("DOCUMENT_DIR");
-        if (documentDir == null || documentDir.trim().isEmpty()) {
-            throw new IOException("DOCUMENT_DIR is not configured while reading lab text file");
-        }
-        File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
-        file = PathValidationUtils.validateExistingPath(file, docDir);
+        // No second containment check here: validateExistingDocumentPath() above already requires a
+        // configured DOCUMENT_DIR and proves containment against it. Re-checking added no coverage
+        // and could throw an unchecked SecurityException out of a method that declares only
+        // IOException, leaving callers with two different failure types for the same rejection.
 
         StringBuilder sb = new StringBuilder(1024);
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {

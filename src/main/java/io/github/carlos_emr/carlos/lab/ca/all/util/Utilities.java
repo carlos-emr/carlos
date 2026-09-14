@@ -49,7 +49,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Date;
 
@@ -130,6 +132,7 @@ public class Utilities {
     public static String saveFile(InputStream stream, String filename) {
         String retVal = null;
         File outputFile = null;
+        boolean createdOutputFile = false;
 
         try {
             File safeDir = PathValidationUtils.getRequiredDocumentDirectory();
@@ -147,21 +150,31 @@ public class Utilities {
                         LogSafe.sanitize(outputPath, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
 
-            try (OutputStream os = Files.newOutputStream(outputFile.toPath());
-                BufferedInputStream bis = new BufferedInputStream(stream)) {
+            // CREATE_NEW, not the default CREATE/TRUNCATE_EXISTING: the generated name is only
+            // millisecond-unique, so two concurrent uploads of the same filename can resolve to the
+            // same path. Failing the second one is better than silently interleaving two labs into
+            // one file, and it guarantees the cleanup below only ever removes a file this call owns.
+            try (OutputStream os = Files.newOutputStream(outputFile.toPath(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                createdOutputFile = true;
 
-                byte[] buffer = new byte[8192]; // 8KB buffer
-                int bytesRead;
-                while ((bytesRead = bis.read(buffer)) != -1) {
-                    os.write(buffer, 0, bytesRead);
+                try (BufferedInputStream bis = new BufferedInputStream(stream)) {
+                    byte[] buffer = new byte[8192]; // 8KB buffer
+                    int bytesRead;
+                    while ((bytesRead = bis.read(buffer)) != -1) {
+                        os.write(buffer, 0, bytesRead);
+                    }
                 }
             }
             retVal = outputPath;
+        } catch (FileAlreadyExistsException faee) {
+            // Another in-flight upload already owns this generated name. Do not delete its file.
+            logger.error("Generated lab upload name is already in use: {}", LogSafe.sanitize(filename), faee); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } catch (FileNotFoundException fnfe) {
-            deletePartialOutput(outputFile);
+            deletePartialOutput(createdOutputFile ? outputFile : null);
             logger.error("Unable to create or write to file: {}", LogSafe.sanitize(filename), fnfe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } catch (IOException ioe) {
-            deletePartialOutput(outputFile);
+            deletePartialOutput(createdOutputFile ? outputFile : null);
             logger.error("Error processing file: {}", LogSafe.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
         return retVal;
