@@ -34,7 +34,9 @@
  * pages" does not get acted on.
  */
 
-const { assert, relabelStrictPage, screenshot } = require('./playwright-harness');
+const {
+  assert, relabelStrictPage, screenshot, withoutQueryStrings,
+} = require('./playwright-harness');
 const { clickOpensPopup } = require('./playwright-ui');
 
 const DEFAULT_TIMEOUT = 20000;
@@ -404,7 +406,9 @@ async function auditCatalogue(options) {
         opened.push(item.text);
       }
     } catch (error) {
-      failures.push(`${item.text}: ${String(error.message).split('\n')[0]}`);
+      // Sanitised for the same reason as anonymous-access: this message is
+      // Playwright's, and a master-record item's route carries demographic_no.
+      failures.push(`${item.text}: ${withoutQueryStrings(String(error.message).split('\n')[0])}`);
     } finally {
       const browserFindings = findingsSince(recorder, before, item.text);
       failures.push(...browserFindings);

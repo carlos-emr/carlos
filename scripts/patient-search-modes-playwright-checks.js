@@ -267,13 +267,6 @@ function assertDomainRestrictionInactive(sql) {
  */
 function seedFor(sql, mode, inactive) {
   const notBlank = mode.columns.map((column) => `c.${column} <> ''`).join(' AND ');
-  const candidates = sql.rows(
-    `SELECT ${mode.columns.map((column) => `d.${column}`).join(', ')} FROM ( `
-    + `SELECT * FROM demographic c `
-    + `WHERE ${notBlank} AND ${activePredicate('c', inactive)} AND c.patient_status <> 'MERGED' `
-    + `AND ${notAMergedTail('c')} `
-    + `ORDER BY c.demographic_no LIMIT ${SEED_WINDOW}) d`,
-  );
   // demographicsearchresults.jsp:416-428 asks DemographicMerged.getHead() for
   // every row and SKIPS any record whose head is not itself, so a merged tail is
   // never rendered however well it matches. The oracle had no such filter, so a
@@ -285,10 +278,22 @@ function seedFor(sql, mode, inactive) {
   // (DemographicMergedDaoImpl.findCurrentByDemographicNo) and takes the last
   // row's merged_to. A demographic carries at most one current merge row in
   // practice, so "any current row pointing elsewhere" is the same predicate.
+  //
+  // DECLARED BEFORE ITS FIRST USE, which is the candidate query below. It sat
+  // after that query and `const` is not hoisted into scope: every call died with
+  // "Cannot access 'notAMergedTail' before initialization" before a single
+  // search mode ran.
   const notAMergedTail = (alias) => `NOT EXISTS (SELECT 1 FROM demographic_merged dm WHERE `
     + `dm.demographic_no = ${alias}.demographic_no AND dm.deleted = 0 `
     + `AND dm.merged_to <> ${alias}.demographic_no)`;
 
+  const candidates = sql.rows(
+    `SELECT ${mode.columns.map((column) => `d.${column}`).join(', ')} FROM ( `
+    + `SELECT * FROM demographic c `
+    + `WHERE ${notBlank} AND ${activePredicate('c', inactive)} AND c.patient_status <> 'MERGED' `
+    + `AND ${notAMergedTail('c')} `
+    + `ORDER BY c.demographic_no LIMIT ${SEED_WINDOW}) d`,
+  );
   for (const row of candidates) {
     const value = mode.seedValue(row);
     if (!String(value).trim()) {

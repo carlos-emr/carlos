@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  DEFAULT_INACTIVE_STATUSES, MODES, PAGE_LIMIT, activePredicate,
+  DEFAULT_INACTIVE_STATUSES, MODES, PAGE_LIMIT, activePredicate, seedFor,
 } = require('./patient-search-modes-playwright-checks');
 
 const SOURCE = fs.readFileSync(path.join(__dirname, 'patient-search-modes-playwright-checks.js'), 'utf8');
@@ -213,8 +213,10 @@ test('no failure message carries a typed value or a patient identifier', () => {
   }
 });
 
-test('the result written to RESULT_JSON carries no patient identifier', () => {
-  // main()'s return value is serialised to disk and archived by CI.
+test('the value main() returns carries no patient identifier', () => {
+  // Corrected: runCheck() archives { name, outcome, detail, durationMs }, not
+  // the return value. The rule stands anyway -- the returned object is logged
+  // and passed on, and a demographic number in it buys nothing.
   assert.ok(!/inactiveDemographic/.test(SOURCE),
     'the status-scope result must not return the demographic number it searched for');
   assert.match(SOURCE, /return \{ statusScopeChecked: true \}/);
@@ -249,4 +251,61 @@ test('the digits-only guard names the shape of a bad value, never the value', ()
   assert.match(message, /digits only/);
   assert.ok(!message.includes("1 OR '1'='1"), `the rejected value was echoed: ${message}`);
   assert.match(message, /\d+ character\(s\)/);
+});
+
+/*
+ * seedFor() is EXECUTED here, not read.
+ *
+ * The merge-tail predicate was declared with `const` AFTER the candidate query
+ * that uses it. `const` is not hoisted into scope, so every call died with
+ * "Cannot access 'notAMergedTail' before initialization" before a single search
+ * mode ran -- a check that could never pass, shipped green because nothing in
+ * the suite called the function.
+ *
+ * That is the same class as the assertStrictPage ReferenceError earlier on this
+ * branch, and check-script-imports.test.js does NOT cover it: that sweep looks
+ * for shared-library names missing from an import list, and this name is local
+ * and correctly spelled. The only thing that catches a temporal-dead-zone use
+ * is running the code, so these drive seedFor with a fake sql runner.
+ */
+function fakeSql(rowsByQuery = []) {
+  const queries = [];
+  let call = 0;
+  return {
+    queries,
+    rows(sql) {
+      queries.push(sql);
+      const result = rowsByQuery[call] || [];
+      call += 1;
+      return result;
+    },
+  };
+}
+
+const HIN_MODE = {
+  columns: ['hin'],
+  seedValue: (row) => row[0],
+  predicate: (alias, value) => `${alias}.hin LIKE '${value}%'`,
+};
+
+test('seedFor runs at all, rather than throwing before the first query', () => {
+  const sql = fakeSql();
+  assert.doesNotThrow(() => seedFor(sql, HIN_MODE, ['IN']));
+  assert.equal(sql.queries.length, 1, 'the candidate query must actually have been built');
+});
+
+test('both oracle queries exclude a current merged tail, as the results page does', () => {
+  // demographicsearchresults.jsp:416-428 skips any record whose
+  // DemographicMerged.getHead() is not itself, so a merged tail is never
+  // rendered however well it matches. Without the same filter the oracle
+  // expected a row the UI correctly withholds, and the check reported an
+  // application defect that was its own model being wrong.
+  const sql = fakeSql([[['1234567890']], []]);
+  seedFor(sql, HIN_MODE, ['IN']);
+  assert.equal(sql.queries.length, 2, 'the candidate query and the expected-set query');
+  for (const query of sql.queries) {
+    assert.match(query, /NOT EXISTS \(SELECT 1 FROM demographic_merged dm/);
+    assert.match(query, /dm\.deleted = 0/);
+    assert.match(query, /dm\.merged_to <> /);
+  }
 });

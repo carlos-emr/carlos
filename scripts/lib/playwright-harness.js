@@ -697,6 +697,28 @@ function getLatestRequest(recorder, predicate) {
  * key into the artifacts of every failed save. The path alone says which page
  * did not navigate, which is the entire point of the message.
  */
+/**
+ * The same cut applied to arbitrary TEXT, for a message we did not compose.
+ *
+ * An error thrown by Playwright is not under this suite's control: an
+ * APIRequestContext failure can render the address it was given, and the
+ * anonymous-access check hands it addresses catalogued from an AUTHENTICATED
+ * session -- which is to say, addresses carrying demographic_no by
+ * construction. Interpolating the message applied printableRoute() to the route
+ * and nothing at all to the text beside it.
+ *
+ * Cutting every url-shaped token at its query keeps the diagnosis (which
+ * endpoint, what went wrong) and drops the identifier.
+ */
+function withoutQueryStrings(text) {
+  return String(text == null ? '' : text)
+    .split(/(\s+)/)
+    .map((token) => (/^https?:\/\//i.test(token) || token.startsWith('/')
+      ? token.split(/[?#]/)[0]
+      : token))
+    .join('');
+}
+
 function pathOnly(rawUrl) {
   const raw = String(rawUrl || '');
   try {
@@ -955,6 +977,7 @@ module.exports = {
   buildArtifactPath,
   buildFailureDetails,
   pathOnly,
+  withoutQueryStrings,
   createRecorder,
   createSqlRunner,
   getLatestRequest,

@@ -59,7 +59,19 @@ async function clickOpensPopup(page, locator, options = {}) {
   const context = options.context || page.context();
   const label = options.label || 'popup';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
-  const popupPromise = context.waitForEvent('page', { timeout });
+  // WIRED IN THE EVENT'S OWN CONTINUATION, not after the await returns. These
+  // are EventEmitter events and Playwright does not replay them: a popup whose
+  // FIRST document throws, logs an error, raises a dialog or fails a request
+  // can do so between the 'page' event and the moment the awaiting code
+  // resumes. Wiring there meant those startup failures were never recorded, and
+  // the audits reported a clean popup whose JavaScript had already broken --
+  // which is the whole class this suite exists to catch.
+  const popupPromise = context.waitForEvent('page', { timeout }).then((popup) => {
+    if (options.recorder) {
+      wireStrictPage(popup, label, options.recorder, options);
+    }
+    return popup;
+  });
   // Handled up front so a click that throws does not leave this event wait to
   // time out unobserved and abort the run on an unhandled rejection.
   popupPromise.catch(() => {});
@@ -67,9 +79,6 @@ async function clickOpensPopup(page, locator, options = {}) {
   await target.scrollIntoViewIfNeeded().catch(() => {});
   await target.click({ timeout });
   const popup = await popupPromise;
-  if (options.recorder) {
-    wireStrictPage(popup, label, options.recorder, options);
-  }
   await popup.waitForLoadState('domcontentloaded', { timeout });
   await popup.waitForLoadState('networkidle', { timeout }).catch(() => {});
   await assertNotErrorPage(popup, label);

@@ -61,6 +61,7 @@
 
 const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
+  withoutQueryStrings,
 } = require('./lib/playwright-harness');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
@@ -286,7 +287,12 @@ async function main() {
         try {
           response = await anonymous.request.get(route.url, { timeout, maxRedirects: 0 });
         } catch (error) {
-          failures.push(`${printableRoute(route.url)}: the request itself failed -- ${String(error.message).split('\n')[0]}`);
+          // The MESSAGE is sanitised too, not only the route. Playwright
+          // composes this text, and an APIRequestContext failure can render the
+          // address it was handed -- which here is an address catalogued from an
+          // authenticated session, carrying demographic_no by construction.
+          failures.push(`${printableRoute(route.url)}: the request itself failed -- `
+            + `${withoutQueryStrings(String(error.message).split('\n')[0])}`);
           continue;
         }
         const status = response.status();

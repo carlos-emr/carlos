@@ -215,9 +215,15 @@ test('a column that is NULL is told apart from one holding the text "NULL"', () 
     'the flag, not the parsed token, must decide whether the original was NULL');
 });
 
-test('the result written to RESULT_JSON names no patient', () => {
-  // runCheck() serialises main()'s return value to disk and CI archives it;
-  // demographic_no joins straight back to the patient this run edited.
+test('the value main() returns names no patient', () => {
+  // A correction to what this test used to claim: runCheck() does NOT serialise
+  // the return value. Its RESULT_JSON record is
+  // { name, outcome, detail, durationMs } -- only `detail`, the thrown message,
+  // comes from the check. The return reaches the caller in-process.
+  //
+  // The rule still holds, for a smaller reason: a demographic number in a
+  // returned object is logged by callers and one interpolation away from a
+  // message that IS archived, and the field names cover the same ground.
   const returned = SOURCE.slice(SOURCE.lastIndexOf('return {'), SOURCE.length);
   assert.ok(!/return \{ demographicNo/.test(SOURCE),
     'the result must not carry the demographic number');

@@ -64,9 +64,11 @@ test('the url in the landing diagnostic is stripped of its query', () => {
 });
 
 test('openMasterRecord hands its callers no patient identifier', () => {
-  // All five callers destructure { masterPage } alone. An identifier crossing
-  // this boundary only has to be spread into one returned object to reach
-  // RESULT_JSON, so it does not cross.
+  // All five callers destructure { masterPage } alone, so nothing reads it.
+  // Not because a returned object is archived -- runCheck() writes only
+  // { name, outcome, detail, durationMs } -- but because an identifier spread
+  // across five call sites is one interpolation away from the thrown message
+  // that IS archived.
   const returned = SOURCE.slice(SOURCE.lastIndexOf('return { masterPage'));
   assert.match(returned, /return \{ masterPage, searchPage \};/);
   assert.ok(!/demographicNo:/.test(SOURCE),

@@ -332,9 +332,16 @@ async function main() {
 
     console.log(`  round-tripped ${fields.length} demographic field(s) through the UI and the database, `
       + `and the edit added ${added.length} audit row(s)`);
-    // No demographicNo: runCheck() serialises this into RESULT_JSON, which CI
-    // archives, and it joins straight back to the patient this run edited. The
-    // field names say what was covered without saying who it happened to.
+    // No demographicNo. Correcting an earlier claim in this file's history:
+    // runCheck() does NOT serialise a check's return value -- the RESULT_JSON
+    // record is { name, outcome, detail, durationMs }, and only `detail` (the
+    // thrown message) comes from the check. So this object reaches the process
+    // that spawned the check, not the archived artifact.
+    //
+    // It is still not the place for a demographic number. The value is logged
+    // by callers, carried across a module boundary, and one `...spread` away
+    // from a message that IS archived. The field names say what was covered
+    // without saying who it happened to, and cost nothing.
     return { fields: fields.map((field) => field.input) };
   } finally {
     // EVERY CAPTURED COLUMN, not only the edited ones. UNTOUCHED_COLUMN is

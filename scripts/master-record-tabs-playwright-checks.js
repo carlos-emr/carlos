@@ -146,10 +146,15 @@ async function openMasterRecord(context, schedulePage, recorder, options) {
 
   const body = await masterPage.locator('body').innerText({ timeout }).catch(() => '');
   assert(body.trim().length > 0, 'The Master Record rendered a blank page');
-  // demographicNo is deliberately NOT returned. No caller reads it -- all five
-  // destructure { masterPage } alone -- and a PHI-correlating identifier
-  // crossing a module boundary only has to be spread into one returned object
-  // to reach RESULT_JSON.
+  // demographicNo is deliberately NOT returned, and no caller reads it -- all
+  // five destructure { masterPage } alone.
+  //
+  // Not because the return value is archived: runCheck() writes
+  // { name, outcome, detail, durationMs } and no more, so a returned object
+  // does not reach RESULT_JSON. What IS archived is `detail`, the thrown
+  // message -- and an identifier that has crossed into five call sites is one
+  // interpolation away from appearing in one. Keeping it out of the return is
+  // the cheap end of that.
   return { masterPage, searchPage };
 }
 
