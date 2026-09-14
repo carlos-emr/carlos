@@ -132,10 +132,11 @@ public class SecurityAddSecurityHelper {
      * Hashes a submitted PIN, tolerating its absence.
      *
      * <p>The add form omits the PIN controls entirely when legacy PINs are globally disabled, and
-     * disables them when MFA is selected; a disabled input is not submitted. In both cases the
-     * request parameter is null. Hashing unconditionally would throw out of the password encoder
-     * and fail provider creation before the record is ever persisted, so a missing or blank PIN is
-     * preserved as no PIN at all.</p>
+     * disables them when MFA is selected; a disabled input is not submitted. So the parameter
+     * arrives null, or empty if the control rendered but was left blank. Hashing regardless is
+     * wrong in both cases: a null stamps a pinUpdateDate on an account that has no PIN, and an
+     * empty string encodes to a perfectly valid bcrypt hash of "", leaving a PIN-less row looking
+     * PIN-protected. Absent and blank both mean no PIN.</p>
      *
      * @param rawPin The submitted PIN value, possibly null.
      * @return The hashed PIN, or null when no PIN was supplied.
