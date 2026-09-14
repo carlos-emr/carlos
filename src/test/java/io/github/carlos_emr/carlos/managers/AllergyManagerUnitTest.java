@@ -222,6 +222,8 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_allergy");
 
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_allergy",
+                    SecurityInfoManager.READ, null);
             verifyNoInteractions(mockAllergyDao);
         }
 
@@ -234,6 +236,8 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_allergy");
 
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_allergy",
+                    SecurityInfoManager.READ, null);
             verifyNoInteractions(mockAllergyDao, mockPatientConsentManager);
         }
 
@@ -247,6 +251,8 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_allergy");
 
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_allergy",
+                    SecurityInfoManager.READ, null);
             verifyNoInteractions(mockAllergyDao, mockPatientConsentManager);
         }
 
@@ -260,6 +266,8 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_allergy");
 
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_allergy",
+                    SecurityInfoManager.READ, null);
             verifyNoInteractions(mockAllergyDao);
         }
     }

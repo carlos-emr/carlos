@@ -87,6 +87,7 @@ class AllergyWsSecurityTest {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
         verifyNoInteractions(allergyManager);
     }
 
@@ -99,6 +100,7 @@ class AllergyWsSecurityTest {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
         verifyNoInteractions(allergyManager);
     }
 
@@ -112,6 +114,7 @@ class AllergyWsSecurityTest {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
         verifyNoInteractions(allergyManager);
     }
 
@@ -124,6 +127,7 @@ class AllergyWsSecurityTest {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
         verifyNoInteractions(allergyManager);
     }
 
