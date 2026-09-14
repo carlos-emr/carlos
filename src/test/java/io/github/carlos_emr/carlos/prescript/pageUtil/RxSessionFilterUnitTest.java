@@ -22,6 +22,9 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -31,6 +34,10 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
@@ -137,6 +144,61 @@ class RxSessionFilterUnitTest {
         assertThat(session.getAttribute("comment")).isNull();
         assertThat(Collections.list(firstFacade.getAttributeNames()))
                 .contains("comment", "RX_ADDR", "RxSessionBean", "demographicNo");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "'/carlos', /rx/choosePatient", "'', /rx/choosePatient",
+            "'/carlos', /rx/showAllergy", "'', /rx/showAllergy",
+            "'/carlos', /rx/ViewStaticScript2", "'', /rx/ViewStaticScript2",
+            "'/carlos', /rx/ViewPrintDrugProfile2", "'', /rx/ViewPrintDrugProfile2"
+    })
+    void shouldPreserveEncodedParameters_whenRedirectingToAllowedEntryRoute(String contextPath, String route)
+            throws Exception {
+        MockHttpSession session = session("provider-1");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", contextPath + route);
+        request.setContextPath(contextPath);
+        request.setSession(session);
+        String customName = "Drug A & B #1 + café\r\nLocation: https://outside.test/";
+        String encodedName = URLEncoder.encode(customName, StandardCharsets.UTF_8);
+        request.addParameter("demographicNo", "101");
+        request.addParameter("cn", customName);
+        request.addParameter("tag", "first", "second");
+        request.setQueryString("demographicNo=101&cn=" + encodedName + "&tag=first&tag=second");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (req, res) -> {});
+
+        assertThat(response.getStatus()).isEqualTo(303);
+        String location = response.getHeader("Location");
+        URI redirect = URI.create(location);
+        assertThat(redirect.isAbsolute()).isFalse();
+        assertThat(redirect.getRawAuthority()).isNull();
+        assertThat(redirect.getRawFragment()).isNull();
+        assertThat(redirect.getPath()).isEqualTo(contextPath + route);
+        assertThat(location).doesNotContain("\r", "\n").contains("tag=first&tag=second");
+        assertThat(parameter(location, "demographicNo")).isEqualTo("101");
+        assertThat(URLDecoder.decode(parameter(location, "cn"), StandardCharsets.UTF_8)).isEqualTo(customName);
+        String contextId = parameter(location, "rxContextId");
+        assertThat(RxWorkspaceRegistry.get(session).find(contextId).getDemographicNo()).isEqualTo(101);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "//outside.test/rx/choosePatient", "/rx/choosePatient/../../outside.test",
+            "/rx/choosePatient%0d%0aLocation:%20https://outside.test", "/rx\\choosePatient"
+    })
+    void shouldRejectBeforeRedirect_whenRequestPathIsNotAnAllowedEntryRoute(String route) throws Exception {
+        MockHttpSession session = session("provider-1");
+        MockHttpServletRequest request = request(session, "GET", route);
+        request.addParameter("demographicNo", "101");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (req, res) -> {});
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("Location")).isNull();
+        assertThat(RxWorkspaceRegistry.get(session).size()).isZero();
     }
 
     @Test
