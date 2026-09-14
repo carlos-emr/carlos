@@ -98,7 +98,7 @@ class EmailAttachmentSettingsUnitTest {
         @DisplayName("should return null when exceeding RFC 5321 length limit")
         void shouldReturnNull_whenExceedingMaxLength() {
             String longEmail = MAX_LENGTH_EMAIL + "d";
-            assertThat(longEmail.length()).isEqualTo(255);
+            assertThat(longEmail).hasSize(255);
             assertThat(EmailAttachmentSettings.validateEmail(longEmail)).isNull();
         }
 
@@ -106,7 +106,7 @@ class EmailAttachmentSettingsUnitTest {
         @DisplayName("should return email when at RFC 5321 length limit")
         void shouldReturnEmail_whenAtMaxLength() {
             String email = MAX_LENGTH_EMAIL;
-            assertThat(email.length()).isEqualTo(254);
+            assertThat(email).hasSize(254);
             assertThat(EmailAttachmentSettings.validateEmail(email)).isEqualTo(email);
         }
     }

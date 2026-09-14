@@ -64,6 +64,7 @@ public class ManageEmails2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String EMAIL_SECURITY_OBJECT = "_email";
     private static final String EMAIL_RESEND_MISSING_PATIENT_ERROR = "This email cannot be copied because it is not associated with a patient. Please generate a new email instead.";
 
     private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -94,7 +95,7 @@ public class ManageEmails2Action extends ActionSupport {
     public String execute() {
         // Authorize before dispatch or patient-data loading; handler-specific checks still apply.
         if (!securityInfoManager.hasPrivilege(
-                LoggedInInfo.getLoggedInInfoFromSession(request), "_email", SecurityInfoManager.READ, null)) {
+                LoggedInInfo.getLoggedInInfoFromSession(request), EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
 
@@ -242,7 +243,7 @@ public class ManageEmails2Action extends ActionSupport {
         // This endpoint is also used by the patient-chart email-note viewer, not only by the
         // administration screen. Require the same email-read privilege enforced by
         // EmailComposeManager without incorrectly restricting chart users to the admin role.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
 
@@ -354,7 +355,7 @@ public class ManageEmails2Action extends ActionSupport {
         // documents to PDF, and is private but reachable from any future caller in this class.
         // SecurityException rather than RuntimeException to match the project standard and the
         // gate above -- it is a RuntimeException subtype, so existing handlers are unaffected.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
 
