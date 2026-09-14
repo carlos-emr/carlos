@@ -382,6 +382,16 @@ public class Doc2PDF {
             throw new IllegalArgumentException("Internal Doc2PDF fetch URI must target the local application connector");
         }
 
+        // Packaged nginx forwards to a loopback-only HTTP connector. Permit that
+        // same-host hop without relying on DNS; other connector names require TLS.
+        String targetHost = normalizeHost(target.getHost());
+        if ("http".equalsIgnoreCase(scheme)
+                && !"127.0.0.1".equals(targetHost)
+                && !"::1".equals(targetHost)
+                && !"0:0:0:0:0:0:0:1".equals(targetHost)) {
+            throw new IllegalArgumentException("Internal HTTP fetches require a numeric loopback address");
+        }
+
         int targetPort = effectivePort(target.getScheme(), target.getPort());
         int requestPort = effectivePort(request.getScheme(), getRequestLocalPort(request));
         if (targetPort != requestPort) {
@@ -486,9 +496,11 @@ public class Doc2PDF {
         if (cookieName == null) {
             cookieName = "JSESSIONID";
         }
-        // The Servlet API validates configured cookie names; also enforce it here.
-        var cookie = new jakarta.servlet.http.Cookie(cookieName, sessionId);
-        return cookie.getName() + "=" + cookie.getValue();
+        // This is an outbound request header, not a browser Set-Cookie response.
+        if (!org.apache.tomcat.util.http.parser.HttpParser.isToken(cookieName)) {
+            throw new IllegalArgumentException("Invalid internal session cookie name");
+        }
+        return cookieName + "=" + sessionId;
     }
 
     /**

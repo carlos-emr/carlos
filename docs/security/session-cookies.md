@@ -27,5 +27,8 @@ consistent. Cross-site POST-based identity-provider callbacks need their own
 reviewed integration; Lax does not make those flows work automatically.
 
 Server-side PDF rendering sends the session cookie only to a validated local
-application connector. It does not place credentials in the URL, follow
+application connector. Plain HTTP is allowed only for a numeric loopback address
+(`127.0.0.1` or `::1`) at the current local connector port, matching the packaged
+nginx-to-Tomcat hop. Other validated connector names require HTTPS with normal
+certificate verification. It does not place credentials in the URL, follow
 redirects, or treat an HTTP error response as successful document content.

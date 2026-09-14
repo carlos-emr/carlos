@@ -355,11 +355,9 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
         }
     }
 
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {" ", "ABC;other=value", "ABC\r\nInjected: value", "A B", "ABC,DEF"})
-    @DisplayName("should reject invalid session cookie values before opening a connection")
-    void shouldRejectInternalFetch_whenSessionCookieIsInvalid(String sessionId) throws Exception {
+    @Test
+    @DisplayName("should reject plain HTTP connector hostnames before forwarding the session")
+    void shouldRejectInternalFetch_whenHttpTargetUsesHostname() throws Exception {
         HttpServer server = localFetchServer();
         AtomicInteger requests = new AtomicInteger();
         server.createContext("/openo/", exchange -> {
@@ -369,11 +367,27 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
         });
         server.start();
         try {
-            assertThat(Doc2PDF.openValidatedInternalFetch(request, sessionId, fetchUrl("/openo/report"))).isNull();
+            String target = "http://localhost:" + request.getLocalPort() + "/openo/report";
+            assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123", target)).isNull();
             assertThat(requests.get()).isZero();
         } finally {
             server.stop(0);
         }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "ABC;other=value", "ABC\r\nInjected: value", "A B", "ABC,DEF"})
+    @DisplayName("should reject invalid session cookie values before opening a connection")
+    void shouldRejectInternalFetch_whenSessionCookieIsInvalid(String sessionId) throws Exception {
+        assertInvalidSessionCookieRejected("JSESSIONID", sessionId);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "bad name", "bad;name", "bad\r\nInjected", "naïve"})
+    @DisplayName("should reject invalid session cookie names before opening a connection")
+    void shouldRejectInternalFetch_whenSessionCookieNameIsInvalid(String cookieName) throws Exception {
+        assertInvalidSessionCookieRejected(cookieName, "ABC123");
     }
 
     @Test
@@ -438,6 +452,24 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
         // Then
         assertThat(response.getContentType()).isEqualTo("application/pdf");
         assertThat(response.getContentAsByteArray()).isNotEmpty();
+    }
+
+    private void assertInvalidSessionCookieRejected(String cookieName, String sessionId) throws Exception {
+        request.getServletContext().getSessionCookieConfig().setName(cookieName);
+        HttpServer server = localFetchServer();
+        AtomicInteger requests = new AtomicInteger();
+        server.createContext("/openo/", exchange -> {
+            requests.incrementAndGet();
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        server.start();
+        try {
+            assertThat(Doc2PDF.openValidatedInternalFetch(request, sessionId, fetchUrl("/openo/report"))).isNull();
+            assertThat(requests.get()).isZero();
+        } finally {
+            server.stop(0);
+        }
     }
 
     private HttpServer localFetchServer() throws Exception {
