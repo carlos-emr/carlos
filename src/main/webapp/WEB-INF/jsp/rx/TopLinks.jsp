@@ -31,26 +31,42 @@
 --%>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <core:set var="ctx" value="${ pageContext.servletContext.contextPath }"/>
 <core:set var="url"
-       value="${ ctx }/demographic/DemographicEdit?demographic_no=${ param.demographicNo }&appointment="/>
+       value="${ ctx }/demographic/DemographicEdit?demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment="/>
 
-<table id="${ not empty param.tableId ? param.tableId : 'topLink' }">
+<%-- tableId is caller-supplied (request parameter) and lands in an HTML id token.
+     Two constraints shape this:
+     1. CodeQL's malformed-id check reads the JSP source text, not the evaluated
+        expression, so the id attribute itself must hold no literal whitespace.
+        Hence the value is computed here and the attribute is a bare EL reference.
+     2. An EL quoted string may only escape a backslash, an apostrophe or a quote,
+        so a regex escape such as the \s in fn:replaceAll fails JSP translation.
+        fn:replace with a literal space is the portable form. --%>
+<core:set var="topLinkTableId"
+       value="${ not empty param.tableId ? fn:replace(param.tableId, ' ', '_') : 'topLink' }"/>
+
+<%-- role="presentation" because this is a layout table: one row of left/centre/right
+     banner cells, no tabular data and so no <th> to give it. Marking it keeps screen
+     readers from announcing it as a data table (and satisfies Sonar Web:S5256). --%>
+<table id="${carlos:forHtmlAttribute(topLinkTableId)}" role="presentation">
     <tr>
         <td id="topLinkLeftColumn">
-            <h1><core:out value="${ param.title }"/></h1>
+            <h1>${carlos:forHtmlContent(param.title)}</h1>
         </td>
 
         <td id="topLinkCenterColumn">
 
             <core:if test="${ not empty param.patientName }">
-                <a href="javascript:void(0)" onClick="popupPage(700,1000,'${ url }'); return false;"
+                <a href="javascript:void(0)" onClick="popupPage(700,1000,'${carlos:forJavaScriptAttribute(url)}'); return false;"
                    title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
-                    <core:out value="${ param.patientName }"/>
+                    ${carlos:forHtmlContent(param.patientName)}
                 </a>
             </core:if>
 
@@ -59,7 +75,7 @@
 	        	sex
 	        </span>
                 <span>
-                        ${ param.sex }
+                        ${carlos:forHtmlContent(param.sex)}
                 </span>
             </core:if>
 
@@ -68,7 +84,7 @@
 	        	age
 	        </span>
                 <span>
-                        ${ param.age }
+                        ${carlos:forHtmlContent(param.age)}
                 </span>
             </core:if>
 
@@ -77,7 +93,7 @@
 	        	home
 	        </span>
                 <span>
-                        ${ param.phone }
+                        ${carlos:forHtmlContent(param.phone)}
                 </span>
             </core:if>
 

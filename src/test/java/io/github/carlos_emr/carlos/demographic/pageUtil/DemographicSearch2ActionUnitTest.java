@@ -74,7 +74,7 @@ class DemographicSearch2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
 
@@ -83,12 +83,8 @@ class DemographicSearch2ActionUnitTest extends CarlosWebTestBase {
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);
 
-        action = new DemographicSearch2Action();
+        action = new DemographicSearch2Action(mockSecurityInfoManager);
 
-        // Inject mocks via reflection (fields initialized at declaration time)
-        java.lang.reflect.Field secField = DemographicSearch2Action.class.getDeclaredField("securityInfoManager");
-        secField.setAccessible(true);
-        secField.set(action, mockSecurityInfoManager);
     }
 
     @Nested

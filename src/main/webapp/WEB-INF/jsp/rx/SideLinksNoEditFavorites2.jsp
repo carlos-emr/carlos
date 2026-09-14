@@ -40,6 +40,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     RxSessionBean bean2 = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
@@ -63,8 +64,8 @@
                         <%for (int j=0; j<allergies.length; j++){%>
 
             <p class="PropSheetMenuItemLevel1"><a
-                    title="<%= allergies[j].getDescription() %> - <%= allergies[j].getReaction() %>">
-                <%=allergies[j].getShortDesc(13, 8, "...")%>
+                    title="<carlos:encode value='<%= allergies[j].getDescription() %>' context="htmlAttribute"/> - <carlos:encode value='<%= allergies[j].getReaction() %>' context="htmlAttribute"/>">
+                <carlos:encode value='<%= allergies[j].getShortDesc(13, 8, "...") %>' context="html"/>
             </a></p>
             <%}%>
             </p>
@@ -79,9 +80,9 @@
 
         <p class="PropSheetMenuItemLevel1"><a href="javascript:void(0);"
                                               onclick="goSD3('<%= favorites[j].getFavoriteId() %>');"
-                                              title="<%= favorites[j].getFavoriteName() %>"><%if (favorites[j].getFavoriteName().length() > 13) { %>
-            <%= favorites[j].getFavoriteName().substring(0, 10) + "..." %> <%} else {%>
-            <%= favorites[j].getFavoriteName() %> <%}%></a></p>
+                                              title="<carlos:encode value='<%= favorites[j].getFavoriteName() %>' context="htmlAttribute"/>"><%if (favorites[j].getFavoriteName().length() > 13) { %>
+            <carlos:encode value='<%= favorites[j].getFavoriteName().substring(0, 10) + "..." %>' context="html"/> <%} else {%>
+            <carlos:encode value='<%= favorites[j].getFavoriteName() %>' context="html"/> <%}%></a></p>
         <%}%>
         </p>
     </div>
