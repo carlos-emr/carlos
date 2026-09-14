@@ -627,6 +627,38 @@ class JspEncodingRegressionTest {
         }
     }
 
+    /**
+     * The write-script screen renders clinician-entered prescription text straight from the
+     * database: the pharmacy {@code comment} lands in an HTML attribute, and the discontinue
+     * {@code archivedReason} / {@code archivedDate} land inside JavaScript string literals that
+     * drive the "continue this drug?" confirmation. Each sink needs the encoder matching its own
+     * context, so this pins both the encoded forms and the raw scriptlets they replaced.
+     */
+    @Test
+    @DisplayName("should encode prescribe.jsp stored text in HTML attribute and JavaScript contexts")
+    @Tag("security")
+    void shouldEncodePrescribeStoredText_inHtmlAttributeAndJavaScriptContexts() throws Exception {
+        String prescribeJsp = readJsp("rx/prescribe.jsp");
+
+        assertThat(prescribeJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .containsPattern("value\\s*=\\s*\"" + carlosEncodePattern("comment", "htmlAttribute") + "\"")
+                .containsPattern("var\\s+archR\\s*=\\s*'"
+                        + carlosEncodePattern("archivedReason", "javaScript") + "'")
+                .containsPattern("var\\s+archD\\s*=\\s*'"
+                        + carlosEncodePattern("archivedDate", "javaScript") + "'")
+                // The confirmation text interpolates both values into one JavaScript string literal.
+                .containsPattern("discontinued on "
+                        + carlosEncodePattern("archivedDate", "javaScript")
+                        + " because of "
+                        + carlosEncodePattern("archivedReason", "javaScript"))
+                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*comment\\s*%>\"")
+                // The negative lookbehind keeps these from matching the scriptlet inside a
+                // <carlos:encode value='<%= ... %>'/> wrapper: only a bare sink should fail.
+                .doesNotContainPattern("(?<!value=')<%=\\s*archivedReason\\s*%>")
+                .doesNotContainPattern("(?<!value=')<%=\\s*archivedDate\\s*%>");
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }
