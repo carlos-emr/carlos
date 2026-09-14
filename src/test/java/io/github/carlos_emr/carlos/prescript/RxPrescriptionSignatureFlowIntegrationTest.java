@@ -68,7 +68,7 @@ class RxPrescriptionSignatureFlowIntegrationTest {
                 .contains("ModuleType.PRESCRIPTION")
                 .contains("/rx/saveDigitalSignature")
                 .contains("method=saveDigitalSignature")
-                .contains("setDigitalSignatureToRx(signId")
+                .contains("setDigitalSignatureToRx(signId, scriptId)")
                 .contains("refreshImage();");
         assertThat(signatureCaptureBlock)
                 .containsPattern("isRxSignatureEnabled\\(\\)\\s*&&\\s*"

@@ -29,6 +29,26 @@
 
 --%>
 
+<%--
+    Left Navbar Display (LeftNavBarDisplay.jsp)
+    Shared renderer for each module panel (issues, allergies, measurements,
+    episode, etc.) in the encounter/e-chart left navigation column.
+
+    Reads a NavBarDisplayDAO from the "DAO" request attribute, populated by
+    the corresponding EctDisplay*2Action#getInfo() implementation, and
+    renders its heading (popup link, click-action link, or static label when
+    no action is configured — see NavBarDisplayDAO#hasInteractiveLeftHeading(),
+    issue #3444) plus its list of items with optional column-wrapping,
+    auto-complete, and popup-menu support.
+
+    Parameters (request attributes):
+    - DAO: NavBarDisplayDAO instance to render (required)
+    - navbarName: module identifier used for element IDs (e.g. "allergies")
+    - reloadURL, numToDisplay: pagination/reload query parameters
+
+    @since 2006 (original), heading interactivity documented 2026-08-13
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -178,13 +198,17 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         //left hand module header comes last as it's displayed as a block
     %>
     <div class="nav-menu-title">
-<%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
-        if (leftCfg != null) { %>
+<%      if (dao.hasInteractiveLeftHeading()) {
+            NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
+            if (leftCfg != null) { %>
         <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
-<%      } else { %>
+<%          } else { %>
         <h3 onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
+<%          }
+        } else { %>
+        <h3><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/></h3>
 <%      } %>
     </div>
 </div>

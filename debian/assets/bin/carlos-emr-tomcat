@@ -178,8 +178,24 @@ export CATALINA_TMPDIR="${CATALINA_BASE}/temp"
 export CATALINA_PID="/run/carlos-emr/tomcat.pid"
 export TZ="${CARLOS_TZ}"
 
+# Debian normalizes packaged JSP timestamps for reproducible builds. Jasper can
+# therefore consider a cached class newer than a changed JSP after an upgrade.
+# Clear only generated JSP source/classes before starting the JVM; retain saved
+# sessions and other application state. Run as carlos and never follow symlinks.
+clear_jsp_cache() {
+    if [ -L "${CATALINA_BASE}/work" ]; then
+        echo "carlos-emr: refusing a symlinked Tomcat work directory" >&2
+        return 1
+    fi
+    if [ -d "${CATALINA_BASE}/work" ]; then
+        find -P "${CATALINA_BASE}/work" -type f -path '*/org/apache/jsp/*' \
+            \( -name '*.class' -o -name '*.java' \) -delete
+    fi
+}
+
 case "${1:-run}" in
     run)
+        clear_jsp_cache
         cd "${CATALINA_BASE}"
         # exec so the JVM becomes the unit's main process: systemd's SIGTERM
         # then reaches Tomcat directly and it shuts down cleanly, instead of

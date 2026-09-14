@@ -69,6 +69,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
  * Unit tests for send-time consent enforcement and email credential migration.
+ *
+ * @since 2026-07-06
  */
 @Tag("unit")
 @Tag("fast")

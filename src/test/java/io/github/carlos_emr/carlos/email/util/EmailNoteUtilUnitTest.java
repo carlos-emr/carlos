@@ -40,6 +40,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
  * Unit tests for security and consent-audit details rendered into email chart notes.
+ *
+ * @since 2026-09-11
  */
 @Tag("unit")
 @Tag("fast")

@@ -161,6 +161,7 @@ public class EmailManager {
                     String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
             return emailLog;
         }
+
         try {
             if (emailData.getIsEncrypted()) {
                 encryptEmail(emailData);
