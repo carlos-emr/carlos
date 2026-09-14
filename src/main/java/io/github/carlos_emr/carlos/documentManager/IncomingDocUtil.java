@@ -42,6 +42,7 @@ import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -680,17 +681,17 @@ public final class IncomingDocUtil {
 
         deleteRecycledPageIfDisabled(validatedDeleteFile);
 
-        Files.delete(f.toPath());
         File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-        boolean success = f1.renameTo(f);
-        if (!success) {
-            throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
-        }
 
-        // Carry the original mtime over to the rewritten document. This must stay AFTER the
-        // rename and must not abort the operation: File.setLastModified is best-effort and
-        // returns false on filesystems that do not support it, so failing here would leave the
-        // queue entry deleted with the remaining pages stranded under the temp name.
+        // Replace the queue entry in one move rather than deleting it and then renaming the
+        // replacement over the gap. Delete-then-rename lost the document outright whenever the
+        // rename failed (permissions, a cross-filesystem temp dir): the queue entry was already
+        // gone and the remaining pages were left stranded under the temp name.
+        Files.move(f1.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+        // Carrying the original mtime over is cosmetic and must not abort the operation:
+        // File.setLastModified is best-effort and returns false on filesystems that do not
+        // support it, long after the replacement is already in place.
         if (!f.setLastModified(lastModified)) {
             MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after deleting a page");
         }
@@ -769,20 +770,19 @@ public final class IncomingDocUtil {
             closePageExtractionResources(copy, extractCopy, document, copyFos, extractFos, reader);
         }
 
-        boolean success = f.delete();
+        File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
 
-        if (success) {
-            File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-            f1.setLastModified(lastModified);
-            success = f1.renameTo(f);
-            if (!success) {
-                throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
-            }
+        // One move instead of delete-then-rename, for the same reason as deletePage: a failed
+        // rename after an unconditional delete lost the queued document entirely.
+        Files.move(f1.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-            File f2 = PathValidationUtils.validateExistingPath(new File(extractPath), extractBaseDir);
-            f2.setLastModified(lastModified);
-        } else {
-            throw new Exception("Error in deleting file:" + filePathName);
+        // Both mtime carry-overs are cosmetic and deliberately not fatal.
+        if (!f.setLastModified(lastModified)) {
+            MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after extracting pages");
+        }
+        File f2 = PathValidationUtils.validateExistingPath(new File(extractPath), extractBaseDir);
+        if (!f2.setLastModified(lastModified)) {
+            MiscUtils.getLogger().warn("Could not restore the last modified time of an extracted document");
         }
     }
 

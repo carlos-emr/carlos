@@ -64,10 +64,11 @@ public class zip {
     }
 
     // PATH_TRAVERSAL_IN: form_record_path is server-configured; listed files come from that directory, and fileformat is only an extension filter.
-    // CRLF_INJECTION_LOGS: files[i] comes from File.list() on the server-configured form_record_path directory, not request input.
-    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "CRLF_INJECTION_LOGS"},
+    // No CRLF_INJECTION_LOGS suppression: a POSIX filename may itself contain CR/LF, so the listed
+    // name is sanitized at the log call rather than assumed safe because it came from File.list().
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
         justification = "form_record_path is server-configured and files are listed from that directory; "
-            + "fileformat is only an extension filter, and logged filenames come from File.list(), not request input.")
+            + "fileformat is only an extension filter.")
     public void write2Zip(String fileformat) {
         MiscUtils.getLogger().debug("writing to Zip");
         try {
@@ -88,7 +89,7 @@ public class zip {
             try (ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(PathValidationUtils.validateGeneratedChildPath("formRecords.zip", formRecordDir))))) {
                 out.setMethod(ZipOutputStream.DEFLATED);
                 for (int i = 0; i < files.length; i++) {
-                    MiscUtils.getLogger().debug("Adding: " + files[i]);
+                    MiscUtils.getLogger().debug("Adding: {}", LogSafe.sanitize(files[i])); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     if (files[i].endsWith("." + fileformat)) {
                         File inputFile = PathValidationUtils.validateGeneratedChildPath(files[i], formRecordDir);
                         try (BufferedInputStream origin = new BufferedInputStream(new FileInputStream(inputFile), BUFFER)) {

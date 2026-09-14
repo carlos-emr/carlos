@@ -238,6 +238,7 @@ public class Utilities {
 
     public static String savePdfFile(InputStream stream, String filename) {
         String retVal = null;
+        File outputFile = null;
         try {
             if (filename == null || filename.isBlank()) {
                 throw new IllegalArgumentException("Filename cannot be null or empty");
@@ -254,10 +255,9 @@ public class Utilities {
                 safeName = safeName.substring(0, safeName.length() - 4);
             }
 
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+            outputFile = PathValidationUtils.validateGeneratedChildPath(
                     PathValidationUtils.validateGeneratedFileName("DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf"),
                     baseDir);
-            retVal = outputFile.toString();
 
             try (OutputStream os = new FileOutputStream(outputFile)) {
                 int bytesRead;
@@ -267,10 +267,17 @@ public class Utilities {
             }
             stream.close();
 
+            // Assigned only after a complete write, matching saveFile: callers such as
+            // LabUploadWs.uploadPDF feed this straight to a parser, so a path to a partial
+            // document is worse than no path at all.
+            retVal = outputFile.toString();
+
         } catch (FileNotFoundException fnfe) {
+            deletePartialOutput(outputFile);
             logger.error("Error", fnfe);
             return retVal;
         } catch (IOException ioe) {
+            deletePartialOutput(outputFile);
             logger.error("Error", ioe);
             return retVal;
         } catch (IllegalArgumentException | SecurityException iae) {
