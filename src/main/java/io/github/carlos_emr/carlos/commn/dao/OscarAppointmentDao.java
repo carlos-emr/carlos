@@ -31,8 +31,10 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -103,6 +105,20 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
     public List<Appointment> findNonCancelledFutureAppointments(Integer demographicId);
 
     public Appointment findNextAppointment(Integer demographicId);
+
+    /**
+     * Resolves the next appointment DATE for many patients in one query, for callers that would
+     * otherwise call {@link #findNextAppointment(Integer)} once per row (the patient search returns
+     * up to 100).
+     *
+     * <p>"Next" is the same selection {@link #findNextAppointment(Integer)} makes -- the earliest
+     * uncancelled appointment that has not started yet -- so the two must be kept in step.</p>
+     *
+     * @param demographicIds patients to resolve; null or empty returns an empty map
+     * @return a map from demographic number to that patient's next appointment date, holding no
+     *         entry for a patient with no such appointment
+     */
+    public Map<Integer, Date> findNextAppointmentDates(Collection<Integer> demographicIds);
 
     public Appointment findDemoAppointmentToday(Integer demographicNo);
 

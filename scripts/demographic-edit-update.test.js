@@ -1,0 +1,243 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+const assert = require('node:assert/strict');
+const test = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const { ROUND_TRIP_FIELDS, UNTOUCHED_COLUMN } = require('./demographic-edit-update-playwright-checks');
+
+const SOURCE = fs.readFileSync(path.join(__dirname, 'demographic-edit-update-playwright-checks.js'), 'utf8');
+
+test('the check never writes an identifier it has no business writing', () => {
+  // A browser check editing a health card number or SIN, even on a FAKE- demo
+  // patient, is not something that should be possible to do by accident.
+  const columns = ROUND_TRIP_FIELDS.map((field) => field.column);
+  for (const forbidden of ['hin', 'ver', 'sin', 'last_name', 'first_name', 'date_of_birth', 'year_of_birth', 'month_of_birth']) {
+    assert.ok(!columns.includes(forbidden), `${forbidden} must not be written by this check`);
+  }
+});
+
+test('every value written is obviously synthetic', () => {
+  const marker = 'EDIT1700000000000';
+  for (const field of ROUND_TRIP_FIELDS) {
+    const value = field.value(marker);
+    assert.ok(value && value.length > 0, `${field.input} must produce a value`);
+  }
+  const byInput = Object.fromEntries(ROUND_TRIP_FIELDS.map((field) => [field.input, field.value(marker)]));
+  // 555-01xx is the reserved fictional range: this can never be someone's number.
+  assert.match(byInput.phone, /^555-01\d\d$/);
+  // .invalid is reserved by RFC 2606 and can never be delivered to.
+  assert.match(byInput.email, /@example\.invalid$/);
+  // The marker makes a leftover row traceable to the run that wrote it.
+  assert.ok(byInput.city.includes(marker));
+  // chart_no is varchar(10), so it carries only the tail of the marker -- but it
+  // must still carry enough of it to identify the run, and must still fit.
+  assert.ok(byInput.chart_no.length <= 10,
+    `chart_no is varchar(10); ${JSON.stringify(byInput.chart_no)} would be truncated or rejected`);
+  assert.ok(marker.endsWith(byInput.chart_no.replace(/^PW/, '')),
+    'the chart number must be the tail of this run\'s marker, so a leftover row is traceable');
+});
+
+test('every written value fits the column it is written to', () => {
+  // A value longer than its column is not a test failure that reads as one: on a
+  // lenient MariaDB it is silently truncated, and the round-trip comparison then
+  // fails with "the field did not reach the database" pointing at the app.
+  const schema = fs.readFileSync(path.join(
+    __dirname, '..', 'database', 'mysql', 'migration', 'common', 'V1__baseline_schema.sql',
+  ), 'utf8');
+  const start = schema.indexOf('CREATE TABLE `demographic` (');
+  assert.ok(start > 0, 'the baseline schema must declare the demographic table');
+  const table = schema.slice(start, schema.indexOf('ENGINE=', start));
+  // One literal pattern over the whole table, rather than one built per column:
+  // the repo's Semgrep rules flag new RegExp(...) and nothing here needs one.
+  const widths = Object.fromEntries(
+    [...table.matchAll(/`(\w+)` varchar\((\d+)\)/g)].map((found) => [found[1], Number(found[2])]),
+  );
+  assert.ok(Object.keys(widths).length > 10, 'the width map must not be empty, or this test proves nothing');
+  const marker = 'EDIT1700000000000';
+  for (const field of ROUND_TRIP_FIELDS) {
+    const width = widths[field.column];
+    if (!width) {
+      continue;
+    }
+    const value = field.value(marker);
+    assert.ok(value.length <= width,
+      `${field.column} is varchar(${width}) but the check writes ${value.length} characters `
+      + '-- a lenient MariaDB truncates it, and the round-trip then blames the app for a lost field');
+  }
+});
+
+test('the untouched column is genuinely untouched', () => {
+  const columns = ROUND_TRIP_FIELDS.map((field) => field.column);
+  assert.ok(!columns.includes(UNTOUCHED_COLUMN),
+    'the clobber check is meaningless if the check also writes that column');
+});
+
+test('the originals are captured from the database, not from the form', () => {
+  // A form that renders a populated column blank is itself a defect; restoring
+  // from the form would then silently erase the real value.
+  assert.match(SOURCE, /SELECT \$\{selected\} FROM demographic/, 'originals must be read with a SELECT');
+  const captureIndex = SOURCE.indexOf('const [before]');
+  const fillIndex = SOURCE.indexOf('await input.fill(');
+  assert.ok(captureIndex > 0 && fillIndex > captureIndex,
+    'the originals must be captured before the first field is filled');
+});
+
+test('the restore runs in a finally and is scoped to one patient and one column set', () => {
+  // The OUTER finally of main(), which holds the restore. The nested one after
+  // it only disposes the sql runner and the browser, so slicing from the last
+  // occurrence would miss the restore entirely.
+  const finallyBlock = SOURCE.slice(SOURCE.indexOf('} finally {', SOURCE.indexOf('async function main')));
+  assert.match(finallyBlock, /UPDATE demographic SET/, 'the restore must be in the finally');
+  assert.match(finallyBlock, /WHERE demographic_no = \$\{Number\(demographicNo\)\}/,
+    'the restore must be scoped to the one patient, with the id coerced to a number');
+  assert.ok(!/DELETE FROM demographic/.test(SOURCE),
+    'this check edits an existing patient; it must never delete one');
+});
+
+test('no field value is ever logged', () => {
+  // The repo rule: diagnostics name the field, never its content.
+  // The WHOLE call, not its first line. `[^\n]*` stopped at the newline, so a
+  // wrapped console.log(\n  `...${stored[field.column]}`,\n) was collected as an
+  // empty string and passed every assertion below while the field value still
+  // reached run output. This is the only test enforcing "diagnostics name the
+  // field, never its content", so the gap left the rule unenforced for any call
+  // somebody had reformatted.
+  const logs = [...SOURCE.matchAll(/console\.(log|error)\(([\s\S]*?)\);/g)].map((match) => match[2]);
+  assert.ok(logs.length > 0, 'the console calls must actually be found');
+  for (const line of logs) {
+    assert.ok(!/field\.value|stored\[|original\[|shown\b/.test(line),
+      `a log line may not carry a field value: ${line.slice(0, 60)}`);
+  }
+});
+
+test('the patient the check asserts on is the one the UI actually opened', () => {
+  // Taking the id from the environment instead would let the check pass while
+  // asserting against a different patient than the one it edited.
+  assert.match(SOURCE, /masterPage\.url\(\)\.match\(\/demographic_no=\(\\d\+\)\//);
+  const landedIndex = SOURCE.indexOf('const landed =');
+  const selectIndex = SOURCE.indexOf('SELECT ${columns');
+  assert.ok(landedIndex > 0 && selectIndex > landedIndex,
+    'the id must be resolved from the landed page before any assertion uses it');
+});
+
+/*
+ * The audit trail is a compliance control -- PIPEDA and HIPAA both require that
+ * who changed a patient record, and when, is recorded. A trail that silently
+ * stops recording looks exactly like a working one: the page renders, every old
+ * row is there, and only the newest change is missing. Nothing else in this
+ * suite looks at it.
+ */
+
+test('the edit is asserted to have been RECORDED, not only stored', () => {
+  assert.match(SOURCE, /const auditBefore = await auditRows/);
+  assert.match(SOURCE, /let auditAfter = await auditRows/);
+  assert.match(SOURCE, /added no row to the audit trail/);
+});
+
+test('the audit row is waited for, because LogAction writes it off the request thread', () => {
+  // LogAction.addLog hands the write to a background executor, so the row is not
+  // guaranteed to be committed when the update response returns. Reading once is
+  // a race that passes on a quick machine and reports "CARLOS wrote no audit
+  // record" on a loaded one -- a compliance alarm that is really a timing
+  // artefact, and the worst way for this check to be wrong.
+  assert.match(SOURCE, /while \(auditAfter\.length <= auditBefore\.length && Date\.now\(\) < auditDeadline\)/,
+    'the check must re-read the audit trail until a row appears or the deadline passes');
+  // Bounded: a write that never happens must still fail, just later.
+  assert.match(SOURCE, /const auditDeadline = Date\.now\(\) \+ timeout/);
+});
+
+test('the new audit row is found by difference, not by a timestamp guess', () => {
+  // Matching on "a row from the last minute" would be flaky on a slow run and
+  // would match an unrelated concurrent change on a shared deployment.
+  assert.ok(!/Date\.now\(\) - \d+/.test(SOURCE), 'the check must not date-match audit rows');
+  assert.match(SOURCE, /tally\(auditBefore\)/);
+  assert.match(SOURCE, /tally\(auditAfter\)/);
+});
+
+test('a repeated audit row counts as new, because the key is not unique', () => {
+  // The row key is the first three cells, and demographicAudit.jsp formats
+  // `created` with SimpleDateFormat("yyyy-MM-dd HH:mm:ss") -- second precision,
+  // with the log id and content deliberately not rendered. Two updates by the
+  // same provider in one second are therefore the SAME STRING. Set membership
+  // called the new row already-known and the check reported that CARLOS failed
+  // to write an audit record it had written, which is the worst way for this
+  // check to be wrong: a false accusation against the application.
+  assert.ok(!/new Set\(auditBefore\)/.test(SOURCE),
+    'set membership cannot tell a duplicated row from an absent one');
+
+  // The counting itself, as the check does it.
+  const tally = (rows) => rows.reduce(
+    (counts, row) => counts.set(row, (counts.get(row) || 0) + 1),
+    new Map(),
+  );
+  const added = (auditBefore, auditAfter) => {
+    const countsBefore = tally(auditBefore);
+    const found = [];
+    for (const [row, count] of tally(auditAfter)) {
+      for (let copy = countsBefore.get(row) || 0; copy < count; copy += 1) {
+        found.push(row);
+      }
+    }
+    return found;
+  };
+  const row = '2026-09-14 09:15:00|999998|update';
+  assert.deepEqual(added([row], [row, row]), [row],
+    'a second identical row is a new row');
+  assert.deepEqual(added([row], [row]), [],
+    'an unchanged trail adds nothing');
+  assert.deepEqual(added([], [row]), [row]);
+});
+
+test('an audit row that names no provider is a finding', () => {
+  // An entry that cannot say WHO is not an audit entry. This is the assertion
+  // that would catch a trail recording the change with an empty actor.
+  assert.match(SOURCE, /name no provider, so the record cannot say who made the change/);
+});
+
+test('the audit assertion never prints the provider name', () => {
+  // Same rule as the field values: diagnostics name the column, not its content.
+  const auditMessages = SOURCE.slice(SOURCE.indexOf('const auditAfter'));
+  assert.ok(!/\$\{row\}|\$\{updates\[0\]\}|\$\{added\[0\]\}/.test(auditMessages),
+    'an audit failure message may not carry a row, which holds a provider name');
+});
+
+test('the audit popup is opened from the Master Record control, not by URL', () => {
+  assert.match(SOURCE, /input\[value="Audit Information"\]/);
+  assert.ok(!/ViewDemographicAudit/.test(SOURCE),
+    'the check must name the control a user clicks, not the route behind it');
+});
+
+test('the audit list is read in full, through the page\'s own length menu', () => {
+  // demographicAudit.jsp sorts ASCENDING and DataTables pages at ten, so the
+  // newest entry is on the last page. Reading page one would never see it.
+  assert.match(SOURCE, /select\[name="auditLog_length"\]/);
+  assert.match(SOURCE, /selectOption\('-1'/);
+});
+
+test('a column that is NULL is told apart from one holding the text "NULL"', () => {
+  // `mysql -B` prints SQL NULL and the four-character string 'NULL' the same
+  // way, so the parsed value cannot decide which one a column held. Restoring
+  // from the parsed value alone writes a NULL column over a patient whose chart
+  // number really is the text "NULL" -- destroying the value this check exists
+  // to put back. The explicit flag, selected alongside each column, decides.
+  assert.ok(SOURCE.includes('${column}\\` IS NULL'),
+    'each column must be selected with an explicit IS NULL flag');
+  assert.match(SOURCE, /before\[index \* 2 \+ 1\] === '1' \? null : before\[index \* 2\]/,
+    'the flag, not the parsed token, must decide whether the original was NULL');
+});
+
+test('the value main() returns names no patient', () => {
+  // A correction to what this test used to claim: runCheck() does NOT serialise
+  // the return value. Its RESULT_JSON record is
+  // { name, outcome, detail, durationMs } -- only `detail`, the thrown message,
+  // comes from the check. The return reaches the caller in-process.
+  //
+  // The rule still holds, for a smaller reason: a demographic number in a
+  // returned object is logged by callers and one interpolation away from a
+  // message that IS archived, and the field names cover the same ground.
+  const returned = SOURCE.slice(SOURCE.lastIndexOf('return {'), SOURCE.length);
+  assert.ok(!/return \{ demographicNo/.test(SOURCE),
+    'the result must not carry the demographic number');
+  assert.match(returned, /return \{\s*\n?\s*fields: fields\.map/);
+});

@@ -124,10 +124,17 @@ saves. Without the second half, a save that is broken for every input would pass
 
 ## Conventions
 
-These use `scripts/eform-local-playwright-utils.js`, which is the suite's shared
+These use `scripts/eform-local-playwright-utils.js`, which was the suite's shared
 harness despite the eForm name: `validateBaseUrl`, `gotoApp`, `login`, `wirePage`,
-the recorder, `assertNoPageErrors`, `buildFailureDetails`. Two things about it are
-worth knowing before writing another check:
+the recorder, `assertNoPageErrors`, `buildFailureDetails`. Those names all still
+work, but the harness itself now lives in **`scripts/lib/playwright-harness.js`**
+(with the JavaScript-path helpers in `scripts/lib/playwright-ui.js`), and a new
+check should require those directly. The new harness adds `runCheck` (the signal
+handler and the PASS/FAIL/SKIP contract), `createSqlRunner` (the `sql()` helper
+below, done once), `readConfig`, and `wireStrictPage`, which fails a check on the
+JavaScript signals the old `wirePage` only collected. See
+[playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
+Two things about the original are still worth knowing before writing another check:
 
 - **`wirePage(page, label, recorder, dialogHandler)` takes the dialog handler.**
   There is one dialog listener per page and the fourth argument decides what it
@@ -141,7 +148,9 @@ worth knowing before writing another check:
 
 Each check keeps its own `sql()` helper over a 0600 defaults file, as the other
 data-asserting checks in the suite do, so the MySQL password never reaches a command
-line.
+line. New checks should use `createSqlRunner()` from the harness instead: it is the
+same 0600 option file, and it also unescapes `mysql -B` output, so the caveat above
+is handled once rather than in each of the 35 private copies.
 
 ## Adding a sixth
 

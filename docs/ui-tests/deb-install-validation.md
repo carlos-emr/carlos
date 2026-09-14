@@ -465,6 +465,21 @@ it does not approve omitted content to obtain a PDF.
 
 ## 6. Run the suite
 
+> **A runner now exists, and is not yet the documented procedure.**
+> `scripts/run-playwright-suite.js` reads `scripts/playwright-suite.json` and does
+> what the loop at the end of this section does, plus tier selection, a JUnit
+> report, exit code 2 for a check that skipped for a missing fixture rather than
+> failed, and a refusal to run the database-mutating checks against a non-local
+> target. It has unit tests but has **not yet been run against a deployment**, so
+> the loop below is still the authoritative procedure. The first validation run
+> should compare the two and then replace the loop here:
+>
+> ```bash
+> node scripts/run-playwright-suite.js --tier core --tier front-door --junit /tmp/playwright.xml
+> ```
+>
+> See [playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
+
 Environment contract (one block, exported before every script):
 
 ```bash
@@ -590,6 +605,28 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 #     DRUGREF_UPDATE_TIMEOUT_SEC=3600 \
 #     timeout 3900 node scripts/drugref-update-playwright-checks.js
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
+# First Nations stored-XSS check (first-nations-encoding-playwright-checks.js). It seeds an
+# attribute-breaking payload into this patient's demographicExt First Nations fields, asserts the
+# rendered inputs carry it back whole with no markup, and restores the original rows byte for byte
+# (via HEX/UNHEX, so a stored tab, newline, backslash, empty string or SQL NULL survives). The
+# restore runs from the finally AND from SIGINT/SIGTERM/SIGHUP handlers, because the loop below
+# runs every check under `timeout --foreground` and a hard timeout would otherwise strand the
+# payload in the record; a restore that cannot complete fails the run rather than warning, and
+# names the demographic to repair by hand. MYSQL_HOST goes through the usual loopback guard, so a
+# non-loopback target needs ALLOW_NON_LOCAL_MYSQL_HOST=true.
+# Defaults to the lowest demographic_no in the database, so the export is only needed to pin a
+# different patient. The check always asserts the gate route
+# (/demographic/ViewManageFirstNationsModule); it additionally asserts the patient master record
+# when FIRST_NATIONS_MODULE=true in /etc/carlos-emr/carlos.properties (then `carlos-ctl restart`),
+# which is the path a clinician actually sees -- set it if you want that half covered, since the
+# property ships false and the module is simply absent from the master record without it.
+# The community <option> half is skipped, and says so in its PASS line, on an install that
+# already has a firstNationCommunity lookup list (the DAO caches it) or that runs
+# showBandNumberOnly=true (the control is not rendered at all). Because the fixture deletes its
+# seeded list with direct SQL, it cannot fire the DAO's @CacheEvict: a running CARLOS can keep
+# serving that deleted list until a lookup-list write or cache expiry, so run the community half
+# at most once per application start and `carlos-ctl restart` before repeating it.
+export FIRST_NATIONS_DEMOGRAPHIC_NO=1
 # A browser failure may be the first symptom of the JVM being killed and
 # restarted. Record the service counter so the suite cannot finish green after
 # silently testing two different application processes.
@@ -629,6 +666,17 @@ suite_failed=0
 #                                query is the only row written and a finally removes it.)
 #   MEASUREMENT_DEMOGRAPHIC_NO=1 MEASUREMENT_GROUP=Anthropometrics MEASUREMENT_TYPE=WT
 #                                (measurement-validation)
+#   NEXT_APPT_DEMOGRAPHIC_NO=1 NEXT_APPT_PROVIDER_NO=999998
+#                                (next-appointment-lookup, issue #2651: the patient search's next
+#                                appointment column. ONE PREREQUISITE the dataset does not provide --
+#                                the field is rendered only when workflow_enhance is true, which the
+#                                package ships false, so set it in /etc/carlos-emr/carlos.properties
+#                                and `carlos-ctl restart` before the loop; the check reports SKIP (exit 2)
+#                                with that instruction when it is off. The legacy loop below treats every
+#                                nonzero exit as FAIL, so enabling the property is required for this loop.
+#                                The separate run-playwright-suite.js runner records SKIP as non-failing;
+#                                require PASS for this check to confirm the column was exercised. It seeds one
+#                                appointment for tomorrow and deletes it in a finally.)
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
@@ -883,6 +931,38 @@ Notes on the contract:
   eChart checks (nginx `Server` header; warning when absent, failure with
   `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
   mistaken for coverage of 1100/1131.
+- **`login-failure-host-header-playwright-checks.js` must be run through `:443`.**
+  It fetches `/loginfailed` twice over a raw socket, once with the real `Host`
+  and once with an attacker-controlled one, and requires the two bodies to be
+  byte-identical; it then parses the page in the browser and requires no
+  `<base>` element, `document.baseURI` still equal to the page's own URL, the
+  favicon and `global.js` resolved under the servlet context path, and the
+  `errormsg` still rendered HTML-encoded. Going straight to Tomcat on
+  `127.0.0.1:18080` skips nginx, so it cannot see a front-door rewrite
+  re-introducing a Host-derived `<base href>` — the construct this pins. Its
+  default `BASE_URL` is bare Tomcat, so it says which layer it actually covered
+  rather than letting a standalone run read as full coverage: no nginx `Server`
+  header on the response prints a WARNING and stamps the PASS line accordingly,
+  and `EXPECT_FRONT_DOOR=true` makes that absence a failure — the same signal
+  and spelling as the eChart and clinical-freetext checks. Like `echart-print`,
+  it relaxes certificate verification only for loopback, so a non-loopback
+  target opted in through `ALLOW_NON_LOCAL_BASE_URL` must present a certificate
+  the runtime trusts, and a plain-`http` non-loopback `BASE_URL` is refused
+  outright — over cleartext there is no certificate for either bound to act on.
+  Without those an on-path attacker would supply both halves of its
+  byte-for-byte comparison and every assertion would pass vacuously. It is pre-auth and read-only (every request is a GET; no login, no
+  fixture, no database access), so it needs no credentials and leaves nothing
+  behind. A front door that answers 400/421 to the spoofed `Host` is reported on
+  stdout and treated as a pass: the bad value never reached the application, and
+  the DOM assertions still run against the legitimate `Host`. That excuse is
+  narrow on purpose — it needs the nginx `Server` header **on that same spoofed
+  response** *and* one of those two statuses, since nginx may serve the
+  legitimate request while the spoofed one reaches a different upstream that
+  answers 400/421 itself. Any other difference between the two responses, an
+  application-generated 404 or 500 included, is the application answering
+  differently because of the `Host` header, which is the defect under test, so
+  the check asserts on it (status first, then the bodies) instead of excusing
+  it.
 - **`echart-playwright-checks.js` allows 90 seconds for note pagination to settle.**
   The chart loads 20 entries per one-second poll, including eForms and other
   chart entries as well as encounter notes. A populated fixture can legitimately

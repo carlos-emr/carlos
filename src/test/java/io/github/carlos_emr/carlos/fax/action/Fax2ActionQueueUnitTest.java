@@ -622,7 +622,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             action.setTransactionId(7);
             action.setRecipientFaxNumber("1234567890");
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
-            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class).hasMessageContaining("does not accept");
+            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class).hasMessageContaining("DOCUMENT".equals(type) ? "Unclaimed fax file path" : "does not accept");
             verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
             assertThat(claims).hasSize(1);
         }

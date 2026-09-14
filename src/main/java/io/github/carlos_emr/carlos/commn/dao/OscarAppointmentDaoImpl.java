@@ -407,6 +407,25 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
+    public Map<Integer, Date> findNextAppointmentDates(Collection<Integer> demographicIds) {
+        Map<Integer, Date> nextAppointmentDates = new HashMap<>();
+        if (demographicIds == null || demographicIds.isEmpty()) {
+            return nextAppointmentDates;
+        }
+        // The same predicate as findNextAppointment(Integer), aggregated: MIN over the rows that
+        // query orders by is the date its first row carries. Keep the two in step.
+        Query query = entityManager.createQuery(
+                "SELECT appt.demographicNo, MIN(appt.appointmentDate) FROM Appointment appt WHERE appt.demographicNo IN (:demographicIds) AND appt.status NOT LIKE '%C%' AND (appt.appointmentDate > CURRENT_DATE OR (appt.appointmentDate = CURRENT_DATE AND appt.startTime >= CURRENT_TIME)) GROUP BY appt.demographicNo");
+        query.setParameter("demographicIds", demographicIds);
+        for (Object[] row : (List<Object[]>) query.getResultList()) {
+            if (row[0] != null && row[1] != null) {
+                nextAppointmentDates.put(((Number) row[0]).intValue(), (Date) row[1]);
+            }
+        }
+        return nextAppointmentDates;
+    }
+
+    @Override
     public Appointment findDemoAppointmentToday(Integer demographicNo) {
         String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE";
         String orderedSql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE ORDER BY a.startTime ASC, a.id ASC";
