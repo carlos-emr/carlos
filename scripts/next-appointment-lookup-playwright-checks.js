@@ -89,7 +89,12 @@ function expectedNextAppointment(sql, demographicNo) {
  * Types the patient's name into the quick-search widget and returns their row
  * from the JSON the widget itself receives.
  */
-async function searchRow(page, term, demographicNo, timeout) {
+async function searchRow(page, surname, demographicNo, timeout) {
+  // The trailing comma selects surname search explicitly. The widget's
+  // detectSearchType() reads a bare surname that ends in digits -- a synthetic
+  // one such as Pr3668 -- as a health-card number, and would then answer about
+  // no patient at all.
+  const term = `${surname},`;
   await page.reload({ waitUntil: 'domcontentloaded', timeout });
   const quickSearch = page.locator('#quickSearch');
   await quickSearch.waitFor({ state: 'visible', timeout });
@@ -156,14 +161,14 @@ async function main() {
   }
 
   try {
-    // The search term, never printed: it is a patient's name.
-    const term = sql.value(`SELECT last_name FROM demographic WHERE demographic_no = ${Number(demographicNo)}`);
-    assert(term, 'NEXT_APPT_DEMOGRAPHIC_NO names a patient that does not exist in this database');
+    // Never printed: it is a patient's name.
+    const surname = sql.value(`SELECT last_name FROM demographic WHERE demographic_no = ${Number(demographicNo)}`);
+    assert(surname, 'NEXT_APPT_DEMOGRAPHIC_NO names a patient that does not exist in this database');
 
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
 
-    const before = await searchRow(schedulePage, term, demographicNo, timeout);
+    const before = await searchRow(schedulePage, surname, demographicNo, timeout);
     if (!Object.prototype.hasOwnProperty.call(before, 'nextAppointment')) {
       throw new SkipCheck('the search result carries no nextAppointment field, so workflow_enhance is false on this'
         + ' deployment; set workflow_enhance = true in carlos.properties and restart to run this check');
@@ -181,7 +186,7 @@ async function main() {
     assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE notes = ${sqlString(stamp)}`) === '1',
       'the fixture appointment was not created');
 
-    const after = await searchRow(schedulePage, term, demographicNo, timeout);
+    const after = await searchRow(schedulePage, surname, demographicNo, timeout);
     const expectedAfter = expectedNextAppointment(sql, demographicNo);
     assert(expectedAfter !== NONE, 'the seeded appointment is not the next one the DAO would select');
     // The assertion that fails on issue #2651: before the fix the column was the
@@ -192,7 +197,7 @@ async function main() {
     assertColumn(after, expectedAfter, 'with an appointment seeded for tomorrow');
 
     sql.execute(`DELETE FROM appointment WHERE notes = ${sqlString(stamp)}`);
-    const restored = await searchRow(schedulePage, term, demographicNo, timeout);
+    const restored = await searchRow(schedulePage, surname, demographicNo, timeout);
     assertColumn(restored, expectedBefore, 'after the fixture was removed');
 
     assertStrictPage(recorder);
