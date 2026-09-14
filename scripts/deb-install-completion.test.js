@@ -167,11 +167,22 @@ print("ok")
   assert.match(provision, /LOCK = os\.path\.join\(STATE, "\.finish-install\.lock"\)/);
   assert.match(postinst, /PROVISION_LOCK="\$\{STATE\}\/\.finish-install\.lock"/);
   assert.match(postinst, /flock -w 300 9/);
-  // Taken before the first provisioning verb, and the database section refuses
-  // to run at all without it.
+  // Taken before the oscar -> carlos rename, which MOVES the clinical tables —
+  // not merely before the provisioning verbs. Every mutating step is inside it.
+  assert.ok(postinst.indexOf('acquire_provision_lock ||') <
+    postinst.indexOf('DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"'));
   assert.ok(postinst.indexOf('acquire_provision_lock ||') <
     postinst.indexOf('carlos-ctl init-config'));
+  assert.match(postinst,
+    /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \] && \[ ! -e "\$\{DB_NAME_SENTINEL\}" \]; then/);
+  // init-config rewrites carlos.properties and reloads nginx: shared state.
+  assert.match(postinst,
+    /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \]; then\n\s+carlos-ctl init-config/);
   assert.match(postinst, /if \[ "\$\{PROVISION_LOCK_HELD\}" = 0 \]; then/);
+  // Only a MISSING flock(1) falls through to the pre-lock behavior; a lock file
+  // that cannot be opened defers provisioning instead of running unserialized.
+  assert.match(postinst, /command -v flock[^\n]*\|\| return 0/);
+  assert.match(postinst, /! mkdir -p "\$\{STATE\}"[^\n]*\|\| ! exec 9>/);
   // The sentinel is the per-start guard; when it cannot be written the mask is
   // the only containment left, and recovery has to lift it again.
   assert.match(provision, /"systemctl", "mask", "carlos-emr\.service"/);

@@ -800,9 +800,11 @@ The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silen
   them would otherwise generate an administrator credential each; they share one
   lock. A second run by hand is refused with a message naming the first — wait
   for it, then confirm with `carlos-ctl check`. At boot the recovery leaves the
-  work to whoever holds the lock, and a configure that cannot take it within
-  five minutes provisions nothing and records the install as unfinished, so it
-  is completed later rather than racing.
+  work to whoever holds the lock, and a configure that cannot take it — held
+  for five minutes, or a lock file it cannot even open on a read-only or full
+  /var — provisions nothing and records the install as unfinished, so it is
+  completed later rather than racing. A host with no flock(1) provisions as it
+  did before the lock existed.
 
 eForm print, fax or archive fails
   Those three are the only workflows that need a browser, and it runs as its own

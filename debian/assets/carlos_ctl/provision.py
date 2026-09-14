@@ -254,10 +254,18 @@ def _o19_import_running() -> Optional[str]:
     A missing guard is a broken unpack, not an absent import: it fails CLOSED,
     exactly as carlos-emr.postinst's o19_import_in_progress() does.
     """
-    if not os.path.exists(O19_GUARD):
-        return (f"{O19_GUARD} is missing, so whether an OSCAR 19 import is "
-                "running cannot be established (reinstall carlos-emr)")
-    verdict = run([O19_GUARD], capture_output=True)
+    # Executable, not merely present — the same test the postinst applies. A
+    # guard that cannot be run must not raise out of here: the caller's contract
+    # is a reason or None, and a traceback in the middle of a repair would
+    # replace an actionable refusal with a stack dump.
+    if not os.access(O19_GUARD, os.X_OK):
+        return (f"{O19_GUARD} is missing or not executable, so whether an OSCAR 19 "
+                "import is running cannot be established (reinstall carlos-emr)")
+    try:
+        verdict = run([O19_GUARD], capture_output=True)
+    except OSError as exc:
+        return (f"{O19_GUARD} could not be run ({exc}), so whether an OSCAR 19 "
+                "import is running cannot be established (reinstall carlos-emr)")
     if verdict.returncode == 0:
         return None
     return (verdict.stderr or "").strip() or "an OSCAR 19 import is in progress"

@@ -292,11 +292,17 @@ class RecoveryFailures(unittest.TestCase):
 
     def test_missing_import_guard_fails_closed_rather_than_assuming_no_import(self):
         # A guard that is not installed is a broken unpack, not an absent
-        # import — the same posture carlos-emr.postinst takes.
-        with patch.object(p.os.path, 'exists', return_value=False):
-            reason = original_o19_check()
-        self.assertIsNotNone(reason)
-        self.assertIn('carlos-emr-o19-guard', reason)
+        # import — the same posture carlos-emr.postinst takes. Present but not
+        # executable is the same thing, and must not raise out of the predicate.
+        for access, side_effect in [(False, None), (True, PermissionError('injected'))]:
+            with self.subTest(access=access):
+                with patch.object(p.os, 'access', return_value=access), \
+                        patch.object(p, 'run', side_effect=side_effect) as runner:
+                    if side_effect is None:
+                        runner.return_value = subprocess.CompletedProcess([], 0, '', '')
+                    reason = original_o19_check()
+                self.assertIsNotNone(reason)
+                self.assertIn('carlos-emr-o19-guard', reason)
 
     def test_disabled_unit_is_re_enabled_even_with_no_sentinel_to_notice(self):
         # The postinst writes the sentinel best-effort: a failed write with a
