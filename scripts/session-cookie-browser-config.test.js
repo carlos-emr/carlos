@@ -13,6 +13,7 @@ for (const name of ['login-playwright-checks.js', 'application-health-playwright
   test(`${name} defaults to the existing devcontainer TLS connector`, () => {
     assert.match(source, /process\.env\.BASE_URL \|\| 'https:\/\/127\.0\.0\.1:8443\/carlos'/);
     assert.equal(validate('https://127.0.0.1:8443/carlos').protocol, 'https:');
+    assert.equal(validate('https://[::1]:8443/carlos').hostname, '[::1]');
   });
 
   test(`${name} rejects HTTP before attempting authenticated checks`, () => {
