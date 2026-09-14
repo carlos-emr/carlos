@@ -55,10 +55,10 @@ import org.springframework.stereotype.Component;
 public class AllergyService extends AbstractServiceImpl {
 
     @Autowired
-    protected AllergyManager allergyManager;
+    private AllergyManager allergyManager;
 
     @Autowired
-    protected SecurityInfoManager securityInfoManager;
+    private SecurityInfoManager securityInfoManager;
 
     @GET
     @Path("/active")

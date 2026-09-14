@@ -80,9 +80,9 @@ public class LabService extends AbstractServiceImpl {
 	private static Logger logger = MiscUtils.getLogger();
 
     @Autowired
-	protected LabManager labManager;
+	private LabManager labManager;
 	@Autowired
-	protected SecurityInfoManager securityInfoManager;
+	private SecurityInfoManager securityInfoManager;
 
     @GET
     @Path("/hl7LabsByDemographicNo")
