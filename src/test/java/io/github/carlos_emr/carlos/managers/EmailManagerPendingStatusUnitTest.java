@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
-import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -51,6 +50,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -98,7 +98,7 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
                 new io.github.carlos_emr.carlos.email.core.EmailConsentResult("Email",
                         EmailLog.EmailConsentStatus.OPT_IN, null, null));
         emailManager = new EmailManager(consentResolver,
-                new io.github.carlos_emr.carlos.email.core.EmailSenderFactory());
+                new io.github.carlos_emr.carlos.email.core.EmailSenderFactory(), securityInfoManager);
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "oscarLogDao", oscarLogDao);
@@ -107,7 +107,6 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
         injectDependency(emailManager, "documentAttachmentManager", mock(DocumentAttachmentManager.class));
         injectDependency(emailManager, "programManager", mock(ProgramManager.class));
         injectDependency(emailManager, "providerManager", providerManager);
-        injectDependency(emailManager, "securityInfoManager", securityInfoManager);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_email"), anyString(), nullable(String.class)))
                 .thenReturn(true);
@@ -582,7 +581,7 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
         EmailData data = emailData(123);
         data.setChartDisplayOption(ChartDisplayOption.WITH_FULL_NOTE);
         when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
-        EmailManager manager = org.mockito.Mockito.spy(emailManager);
+        EmailManager manager = spy(emailManager);
         doThrow(new IllegalStateException("chart unavailable"))
                 .when(manager).addEmailNote(eq(loggedInInfo), any(EmailLog.class));
         try (MockedConstruction<EmailSender> ignored = mockConstruction(EmailSender.class)) {

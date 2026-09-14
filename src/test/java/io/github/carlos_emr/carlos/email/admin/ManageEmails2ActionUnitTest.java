@@ -126,7 +126,8 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
             }
             request.setParameter("logId", "42");
 
-            assertThatThrownBy(() -> new ManageEmails2Action().execute())
+            ManageEmails2Action action = new ManageEmails2Action();
+            assertThatThrownBy(action::execute)
                     .as("dispatch method=%s must be refused", method)
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("resendEmail".equals(method) ? "missing required sec object (_email)"
@@ -154,7 +155,8 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
             request.setParameter("method", method);
             request.setParameter("logId", "42");
 
-            assertThatThrownBy(() -> new ManageEmails2Action().execute())
+            ManageEmails2Action action = new ManageEmails2Action();
+            assertThatThrownBy(action::execute)
                     .as("dispatch method=%s must retain the admin-page authorization boundary", method)
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_email and (_admin or _admin.email))");

@@ -65,6 +65,7 @@ public class EmailSend2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final String EMAIL_FOLLOW_UP_REQUIRED = "isEmailFollowUpRequired";
     private static final Logger logger = MiscUtils.getLogger();
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private transient EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
@@ -204,14 +205,14 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
-        request.setAttribute("isEmailFollowUpRequired", sendResult.isFollowUpRequired());
+        request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
         if (isEmailSuccessful && deleteEFormAfterEmail) {
             try {
                 eformDataManager.removeEFormData(loggedInInfo, request.getParameter("fdid"));
             } catch (RuntimeException cleanupFailure) {
                 logger.error("Email accepted but eForm cleanup failed for emailLogId={}",
                         emailLog.getId(), cleanupFailure);
-                request.setAttribute("isEmailFollowUpRequired", true);
+                request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, true);
             }
         }
         request.setAttribute("isOpenEForm", request.getParameter(PARAM_OPEN_EFORM_AFTER_EMAIL));
@@ -245,7 +246,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
-        request.setAttribute("isEmailFollowUpRequired", sendResult.isFollowUpRequired());
+        request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
         request.setAttribute("emailLog", emailLog);
         if (!isEmailSuccessful) {
             preserveComposeInputsForReRender(emailLog);

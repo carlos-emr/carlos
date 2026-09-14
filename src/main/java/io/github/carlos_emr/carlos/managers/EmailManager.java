@@ -91,6 +91,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 @Service
 public class EmailManager {
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
+    private static final String EMAIL_AUDIT_CONTENT = "Email";
     private static final String UNKNOWN_NAME_PART = "Unknown";
     private static final String SENDER_NAME_PART = "Sender";
     private static final String PATIENT_NAME_PART = "Patient";
@@ -124,8 +125,7 @@ public class EmailManager {
     private ProgramManager programManager;
     @Autowired
     private ProviderManager2 providerManager;
-    @Autowired
-    private SecurityInfoManager securityInfoManager;
+    private final SecurityInfoManager securityInfoManager;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
 
@@ -135,10 +135,13 @@ public class EmailManager {
      *
      * @param emailConsentResolver resolves current patient email consent
      * @param emailSenderFactory creates the outbound sender after consent is accepted
+     * @param securityInfoManager checks the caller's email privileges
      */
-    public EmailManager(EmailConsentResolver emailConsentResolver, EmailSenderFactory emailSenderFactory) {
+    public EmailManager(EmailConsentResolver emailConsentResolver, EmailSenderFactory emailSenderFactory,
+            SecurityInfoManager securityInfoManager) {
         this.emailConsentResolver = emailConsentResolver;
         this.emailSenderFactory = emailSenderFactory;
+        this.securityInfoManager = securityInfoManager;
     }
 
     /**
@@ -183,7 +186,7 @@ public class EmailManager {
         if (isBlockedByConsent(consentResult, emailData)) {
             String errorMessage = getConsentBlockMessage(consentResult);
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.BLOCKED, errorMessage);
-            LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.blocked", "Email",
+            LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.blocked", EMAIL_AUDIT_CONTENT,
                     "emailLogId=" + emailLog.getId() + "&consentStatus=" + consentResult.getStatus(),
                     String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
             return EmailSendResult.failed(emailLog, true);
@@ -278,9 +281,11 @@ public class EmailManager {
         // content. Retain an actionable safe diagnostic and the cause type without logging the
         // potentially sensitive cause message or stack trace.
         Throwable cause = exception.getCause();
-        logger.error("Email transport outcome={}; diagnostic={}; causeType={}",
-                outcome, safeDiagnostic(exception),
-                cause == null ? "none" : cause.getClass().getName());
+        if (logger.isErrorEnabled()) {
+            logger.error("Email transport outcome={}; diagnostic={}; causeType={}",
+                    outcome, safeDiagnostic(exception),
+                    cause == null ? "none" : cause.getClass().getName());
+        }
     }
 
     /**
@@ -512,8 +517,8 @@ public class EmailManager {
             if (EmailStatus.RESOLVED.equals(persistedEmailLog.getStatus())) {
                 // Admin-audit-only for now: keep the conclusive transport result without
                 // overwriting the administrator's RESOLVED decision or its original diagnostic.
-                // TODO: If operators need this in the email-management workflow, expose these
-                // events through EmailStatusResult and render a separate outcome/history field.
+                // The current workflow keeps these events in the audit history; the compose
+                // result independently reports transport acceptance to prevent duplicate retries.
                 persistEmailAuditEvent(loggedInInfo,
                         "EmailManager.transportOutcomeAfterResolution", persistedEmailLog,
                         "transportOutcome=" + emailStatus + "; diagnosticPresent="
@@ -541,7 +546,7 @@ public class EmailManager {
             EmailLog emailLog, String data) {
         OscarLog auditLog = createActorAuditLog(loggedInInfo);
         auditLog.setAction(action);
-        auditLog.setContent("Email");
+        auditLog.setContent(EMAIL_AUDIT_CONTENT);
         auditLog.setContentId(String.valueOf(emailLog.getId()));
         if (emailLog.getDemographic() != null
                 && emailLog.getDemographic().getDemographicNo() != null) {
@@ -721,7 +726,7 @@ public class EmailManager {
         String logData = "emailLogId=" + emailLog.getId()
                 + "&consentStatus=" + emailLog.getConsentStatus()
                 + "&override=" + emailLog.getConsentOverride();
-        LogAction.addLog(loggedInInfo, "EmailManager.prepareEmailForOutbox", "Email", logData,
+        LogAction.addLog(loggedInInfo, "EmailManager.prepareEmailForOutbox", EMAIL_AUDIT_CONTENT, logData,
                 String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
     }
 

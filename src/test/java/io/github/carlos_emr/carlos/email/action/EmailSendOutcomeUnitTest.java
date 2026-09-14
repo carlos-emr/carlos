@@ -45,6 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
@@ -192,7 +193,7 @@ class EmailSendOutcomeUnitTest extends CarlosUnitTestBase {
         when(emailManager.sendEmailWithResult(eq(loggedInInfo), any(EmailData.class)))
                 .thenReturn(EmailSendResult.accepted(resolvedLog, true));
 
-        org.mockito.Mockito.doThrow(new IllegalStateException("cleanup unavailable"))
+        doThrow(new IllegalStateException("cleanup unavailable"))
                 .when(eformDataManager).removeEFormData(loggedInInfo, "42");
         EmailSend2Action action = new EmailSend2Action();
         action.request = request;

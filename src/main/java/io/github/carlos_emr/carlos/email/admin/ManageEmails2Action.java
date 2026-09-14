@@ -67,6 +67,7 @@ public class ManageEmails2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String ERROR_MESSAGE_ATTRIBUTE = "errorMessage";
     private static final String EMAIL_SECURITY_OBJECT = "_email";
     private static final String EMAIL_RESEND_MISSING_PATIENT_ERROR = "This email cannot be copied because it is not associated with a patient. Please generate a new email instead.";
 
@@ -126,7 +127,7 @@ public class ManageEmails2Action extends ActionSupport {
 
     private boolean hasManageEmailsReadAccess(LoggedInInfo loggedInInfo) {
         boolean canReadEmail = securityInfoManager.hasPrivilege(
-                loggedInInfo, "_email", SecurityInfoManager.READ, null);
+                loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null);
         if (!canReadEmail) {
             return false;
         }
@@ -183,7 +184,7 @@ public class ManageEmails2Action extends ActionSupport {
     public String fetchEmails() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         request.setAttribute("canResolveEmails", securityInfoManager.hasPrivilege(
-                loggedInInfo, "_email", SecurityInfoManager.WRITE, null));
+                loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.WRITE, null));
         String emailStatus = request.getParameter("emailStatus");
         String senderEmailAddress = request.getParameter("senderEmailAddress");
         String dateBeginStr = request.getParameter("dateBegin");
@@ -229,7 +230,7 @@ public class ManageEmails2Action extends ActionSupport {
     public void setResolved() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(
-                loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+                loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.WRITE, null)) {
             writeResolveError(HttpServletResponse.SC_FORBIDDEN,
                     "admin.manageEmails.resolveForbidden");
             return;
@@ -237,7 +238,7 @@ public class ManageEmails2Action extends ActionSupport {
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            JSONUtil.jsonResponse(response, "errorMessage", "Invalid email log id");
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_ATTRIBUTE, "Invalid email log id");
             return;
         }
         EmailManager.EmailResolutionResult result = emailManager.resolveEmailStatus(
@@ -261,7 +262,7 @@ public class ManageEmails2Action extends ActionSupport {
 
     private void writeResolveError(int status, String messageKey) {
         response.setStatus(status);
-        JSONUtil.jsonResponse(response, "errorMessage", getLocalizedMessage(messageKey));
+        JSONUtil.jsonResponse(response, ERROR_MESSAGE_ATTRIBUTE, getLocalizedMessage(messageKey));
     }
 
     private String getLocalizedMessage(String messageKey) {
@@ -315,7 +316,7 @@ public class ManageEmails2Action extends ActionSupport {
 
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
-            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+            JSONUtil.errorResponse(response, ERROR_MESSAGE_ATTRIBUTE, "Invalid email log id");
             return null;
         }
 

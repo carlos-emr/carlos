@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.email.helpers;
 
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,6 +18,7 @@ import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
@@ -129,60 +131,67 @@ public class APISendGridEmailSender {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
-        boolean requestDispatched = false;
-        boolean accepted = false;
         try {
-            String endPoint = getEndPoint();
-            ValidatedHttpEndpoint validatedEndpoint = validateEndpoint(endPoint);
-            SSLContext sslContext = SSLContexts.custom().build();
+            ValidatedHttpEndpoint endpoint = validateEndpoint(getEndPoint());
+            HttpPost request = new HttpPost(endpoint.uri());
+            request.setHeader("Content-Type", "application/json");
+            request.setHeader("Authorization", "Bearer " + getAPIKey());
+            request.setEntity(new StringEntity(createEmailJSON(), ContentType.APPLICATION_JSON));
+            dispatchRequest(createHttpClient(endpoint), request);
+        } catch (EmailSendingException e) {
+            throw e;
+        } catch (RuntimeException | GeneralSecurityException e) {
+            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
+        }
+    }
 
-            HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
-                    .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
-                            .setSslContext(sslContext)
-                            .build())
-                    .setDnsResolver(validatedEndpoint.pinnedDnsResolver())
-                    .setDefaultConnectionConfig(ConnectionConfig.custom()
-                            .setConnectTimeout(Timeout.ofSeconds(30))
-                            .setSocketTimeout(Timeout.ofSeconds(60))
-                            .build())
-                    .build();
-            RequestConfig requestConfig = RequestConfig.custom()
-                    .setConnectionRequestTimeout(Timeout.ofSeconds(30))
-                    .setResponseTimeout(Timeout.ofSeconds(60))
-                    .build();
+    private static CloseableHttpClient createHttpClient(ValidatedHttpEndpoint endpoint)
+            throws GeneralSecurityException {
+        SSLContext sslContext = SSLContexts.custom().build();
+        HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
+                        .setSslContext(sslContext).build())
+                .setDnsResolver(endpoint.pinnedDnsResolver())
+                .setDefaultConnectionConfig(ConnectionConfig.custom()
+                        .setConnectTimeout(Timeout.ofSeconds(30))
+                        .setSocketTimeout(Timeout.ofSeconds(60)).build())
+                .build();
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                .setResponseTimeout(Timeout.ofSeconds(60)).build();
+        return HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .setDefaultRequestConfig(requestConfig)
+                .disableRedirectHandling().build();
+    }
 
-            try (CloseableHttpClient httpClient = HttpClients.custom()
-                    .setConnectionManager(connectionManager)
-                    .setDefaultRequestConfig(requestConfig)
-                    .disableRedirectHandling()
-                    .build()) {
-                HttpPost httpPost = new HttpPost(validatedEndpoint.uri());
-                httpPost.setHeader("Content-Type", "application/json");
-                httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
-
-                StringEntity entity = new StringEntity(createEmailJSON(), ContentType.APPLICATION_JSON);
-                httpPost.setEntity(entity);
-                requestDispatched = true;
-                try (var response = httpClient.execute(httpPost)) {
-                    assertAccepted(response.getCode());
-                    accepted = true;
-                }
-            }
+    /** Owns the client and response; cleanup cannot change a conclusive transport outcome. */
+    static void dispatchRequest(CloseableHttpClient client, HttpPost request) throws EmailSendingException {
+        CloseableHttpResponse response = null;
+        try {
+            response = client.execute(request);
+            assertAccepted(response.getCode());
         } catch (EmailSendingException e) {
             throw e;
         } catch (IOException | RuntimeException e) {
-            if (accepted) {
-                // The 202 response is conclusive; a later cleanup failure must not turn it into a
-                // retryable send failure.
-                return;
-            }
-            if (requestDispatched) {
-                throw new EmailSendingException(
-                        "SendGrid did not confirm whether the message was accepted.", e, true);
-            }
-            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
-        } catch (GeneralSecurityException e) {
-            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
+            throw new EmailSendingException(
+                    "SendGrid did not confirm whether the message was accepted.", e, true);
+        } finally {
+            closeTransportResource(response);
+            closeTransportResource(client);
+        }
+    }
+
+    private static void closeTransportResource(Closeable resource) {
+        if (resource == null) {
+            return;
+        }
+        try {
+            resource.close();
+        } catch (IOException | RuntimeException cleanupFailure) {
+            // Do not expose remote response content or credentials in a cleanup diagnostic.
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                    "SendGrid transport resource cleanup failed; the send outcome is unchanged");
         }
     }
 
