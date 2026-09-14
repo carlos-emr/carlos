@@ -8,8 +8,8 @@ read-only extract for an explicitly selected, authorized demographic. The chart
 view reproduces recorded fields and note excerpts; it is **not an AI-generated
 summary**. Optional agent generation is limited to the three checksum-verified
 NHS development fixtures. Ollama is the default; a versioned HTTP interface also
-supports replaceable agents. There are no chart writes, CARLOS-persisted runtime
-drafts or database migrations. HTTP agents control their own downstream data
+supports replaceable agents. There are no chart writes, on-disk runtime drafts or
+database migrations. Validated Ollama drafts can be reused from a bounded process-memory cache. HTTP agents control their own downstream data
 handling. The separate Python runner remains synthetic-only.
 
 ## CARLOS view
@@ -93,8 +93,9 @@ Open a seeded NHS synthetic patient's eChart, then **Patient overview** and
 waiting for local inference. Errors retain a freshly authorized chart extract.
 Successful drafts show model/timestamp metadata and use the existing citation and
 evidence controls. **Recorded facts** returns to the deterministic GET view.
-Drafts are request-local: no database, file or session persistence. Refreshing the
-POST result may prompt the browser to resubmit.
+Drafts have no database, file or session persistence. Repeated POSTs can reuse a
+validated draft from the server-memory cache described below. Refreshing the POST
+result may prompt the browser to resubmit.
 
 Both flags default off. Patient permissions are checked before reading sources and
 again after inference. Generation additionally requires exact fixture identity,
@@ -114,6 +115,116 @@ claims without basic lexical overlap with cited evidence are withheld. The overl
 check recognizes a small fixed set of common clinical abbreviations such as HR,
 BP, RR, SpO2 and HF so readable expansions are not rejected. These checks do not
 establish clinical accuracy or citation support.
+
+## Start small and compare model sizes
+
+Start with `qwen3.5:2b`, the CARLOS default, after confirming GPU access. Use the
+same synthetic charts and expected clinical facts to review completeness,
+contradictions, medication details, chronology and citation support alongside
+readability. The earlier 2B experiments missed facts, so fluent prose alone is
+not a passing result. The historical 27B experiments do not establish 2B quality.
+
+If 2B falls short, explicitly install `qwen3.5:4b`, then `qwen3.5:9b` as hardware
+permits, update `clinical.ai_summary_generation.ollama.model`, and restart CARLOS.
+These tags are already supported by the Java adapter. There is no need to begin
+laptop development with 27B. Keep the prompt, sources and checks unchanged while
+comparing model sizes, and check `ollama ps` for CPU offloading at each size.
+
+Set `clinical.ai_summary_generation.cache.enabled=false` during repeated
+quality/latency experiments so each trial really invokes the model; enable it
+again for normal use. Changing the model tag or digest also forces a fresh result.
+Record first-generation latency separately from cache-hit latency. Summary
+length and validation limits are unchanged by caching or this model-size workflow.
+
+## Validated result cache
+
+Repeated generation for an unchanged, authorized synthetic fixture reuses the
+exact validated draft, including its original generation timestamp. The default
+Ollama adapter verifies that the configured model is local on every lookup and
+uses its `/api/tags` content digest, Ollama version, endpoint and generation
+settings as the model revision. A missing digest/version disables reuse.
+
+The cache key includes the full authorized source snapshot (including patient
+context, ledger, coverage and findings), prompt, schema and adapter revision.
+Only transient snapshot-assembly IDs/timestamps and request IDs are excluded.
+Source changes, deletions, access-dependent omissions, model replacements and
+contract changes cause a miss. Fixture eligibility and the action's existing
+pre/post authorization and source-freshness checks still run on hits. A cache
+entry is never permission to read a chart. Failed or unrenderable drafts are not
+cached, and a model revision change during inference prevents insertion.
+
+The process-wide cache holds at most 16 entries and 16 MiB of serialized drafts,
+expires entries 15 minutes after insertion, and evicts least-recently-used entries
+when full. It does not write patient data or keys to logs, disk, the database, or
+HTTP sessions; application restart/redeploy clears it. HTTP agents bypass this
+cache because their current protocol provides no immutable backend revision.
+In-process adapters may opt in through `ClinicalSummaryAgent.cacheIdentity()` only
+when they can identify and revalidate every output-affecting backend setting.
+To bypass the cache entirely, set and restart CARLOS:
+
+```properties
+clinical.ai_summary_generation.cache.enabled=false
+```
+
+This caches completed results, not extracted facts or unfinished generations.
+A hit avoids model inference; first-time or changed-chart generation still incurs
+its full cost. It does not change summary length, prompts, model selection or
+validation thresholds. It also does not cache the Python evaluation campaigns.
+
+## GPU access in the devcontainer
+
+The base Compose configuration requests no GPU devices. A GPU on the host alone
+therefore does not make it available to an Ollama process in this container.
+Rebuilding also removes manually installed Ollama binaries and unmounted model
+files. The application never installs Ollama or pulls models automatically.
+
+For **Windows + WSL2 + GeForce RTX**, first verify the Windows NVIDIA driver,
+update WSL with `wsl --update`, and enable Docker Desktop's WSL2 engine. In a
+Windows terminal, `nvidia-smi --query-gpu=name,memory.total --format=csv` identifies
+the exact RTX model and its VRAM. Use the Windows NVIDIA driver; do not install a
+Linux NVIDIA display driver inside WSL. See
+[Docker Desktop GPU prerequisites](https://docs.docker.com/desktop/features/gpu/)
+and [NVIDIA's WSL driver instructions](https://docs.nvidia.com/cuda/wsl-user-guide/).
+For native Linux Docker Engine, configure the NVIDIA Container Toolkit on the
+host instead. These host settings cannot be changed from this devcontainer.
+
+For an **NVIDIA** host with working GPU container support, the optional
+`.devcontainer/docker-compose.nvidia.yml` reserves GPUs and persists model files.
+Add it after the base file in `.devcontainer/devcontainer.json`:
+
+```json
+"dockerComposeFile": ["docker-compose.yml", "docker-compose.nvidia.yml"]
+```
+
+From the host checkout, validate the merged configuration before rebuilding:
+
+```bash
+docker compose -f .devcontainer/docker-compose.yml \
+  -f .devcontainer/docker-compose.nvidia.yml config --quiet
+```
+
+Rebuild the devcontainer, install Ollama inside it if absent, and start it using
+`serve-local-model.sh` above. Install the desired supported model explicitly.
+While a model request is running, check inside the same container:
+
+```bash
+nvidia-smi
+ollama ps
+```
+
+`ollama ps` reports whether the loaded model uses CPU, GPU, or both; an empty list
+only means no model is loaded. GPU offloading depends on available VRAM, model
+size and context size. The 27B evaluation model alone occupied about 17 GB in the
+saved CPU experiments, before context and runtime memory. Those experiments used
+`keep_alive: 0` to avoid their recorded memory failures; the CARLOS adapter uses
+five minutes. Do not infer that keeping a model resident solves CPU inference cost.
+
+The NVIDIA overlay is not for AMD or Apple GPUs. AMD requires the appropriate
+ROCm/Vulkan installation and device mappings; the correct setup depends on the
+host. Keep the agent's numeric-loopback restriction when configuring inference.
+See [Docker GPU reservations](https://docs.docker.com/compose/how-tos/gpu-support/),
+[Ollama GPU container setup](https://docs.ollama.com/docker), and
+[Ollama processor diagnostics](https://docs.ollama.com/faq#how-can-i-tell-if-my-model-was-loaded-onto-the-gpu).
 
 ## Offline local generation
 
