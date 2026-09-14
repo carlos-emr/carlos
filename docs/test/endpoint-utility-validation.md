@@ -34,6 +34,14 @@ old implementation. The program-list and denied-prescription-menu assertions
 also failed against the old application code. The fixes must satisfy the
 payload and persistence assertions, not just return a successful status.
 
+The next-appointment lookup this branch corrected was fixed independently on
+`release/2026.08` (issue #2651), with a wider fix that also rejects non-positive
+and out-of-range demographic numbers and adds a batched lookup. That fix and its
+unit test supersede this branch's on merge; the two assertions unique to this
+branch -- the uppercase `"NULL"` literal as rejected input, and a failed lookup
+propagating rather than being reported as "no appointment" -- were carried over
+onto the release API.
+
 The harness self-tests were also checked with four temporary mutations. Each
 mutation was applied independently, compiled successfully, and caused a test
 failure or error. The original files were restored and all ten self-tests passed.
