@@ -24,7 +24,8 @@ privacy, accessibility, or clinical review.
       recovery-mode unlock/export, atomic filesystem-path export, restart/unlock, and immediate
       precommit error-path cleanup.
 - [x] Multiple patient profiles, nested folders, search, sorting, transactional bulk moves,
-      drag-and-drop, and keyboard folder movement.
+      drag-and-drop, keyboard folder movement, and folder/imported-document renaming. Renames
+      persist in encrypted metadata without modifying document bytes or folder assignments.
 - [x] Manual/background locking with next-I/O-boundary streaming cancellation, immediate background visual
       concealment, and persisted one-to-fifteen-minute inactivity configuration with the approved
       five-minute default.

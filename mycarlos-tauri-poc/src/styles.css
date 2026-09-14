@@ -680,6 +680,19 @@ h1, h2, p { margin: 0; }
 .native-danger-setting summary { margin-bottom: 10px; cursor: pointer; font-weight: 700; }
 .native-danger-setting .button { margin-top: 9px; }
 .native-dialog-actions { align-items: end; }
+.native-rename-button { min-height: 36px; padding: 4px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--teal); font: inherit; font-size: 12px; cursor: pointer; }
+.native-rename-button:disabled { opacity: .5; cursor: default; }
+.native-filelist .file-head, .native-filelist .file-row { grid-template-columns: 30px minmax(210px, 1fr) minmax(125px, 190px) 128px 52px; }
+.native-rename-dialog { max-width: 480px; }
+.native-rename-fields { display: grid; gap: 8px; padding: 16px 20px; }
+.native-rename-fields label { font-weight: 700; }
+.native-rename-fields input { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); font: inherit; }
+.native-rename-fields p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+.native-rename-fields [role="alert"] { color: var(--ink); font-weight: 700; }
+.native-record-rename { padding: 0 20px 16px; }
+@media (max-width: 900px) {
+  .native-filelist .file-head, .native-filelist .file-row { grid-template-columns: 30px minmax(0, 1fr) 52px; }
+}
 .native-dialog-actions label { margin-right: auto; }
 
 @media (max-width: 900px) {

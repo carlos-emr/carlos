@@ -24,6 +24,7 @@ function nativeBridge(overrides: Partial<VaultBridge> = {}): VaultBridge {
     createProfile: vi.fn().mockResolvedValue("profile-2"),
     createFolder: vi.fn().mockResolvedValue("folder-1"),
     updateFolder: vi.fn().mockResolvedValue(undefined),
+    renameRecord: vi.fn().mockResolvedValue(undefined),
     assignFolders: vi.fn().mockResolvedValue(undefined),
     assignFoldersBatch: vi.fn().mockResolvedValue(undefined),
     importFiles: vi.fn().mockResolvedValue({ imported: [], skippedDuplicates: [] }),
@@ -42,6 +43,27 @@ function dragTransfer() {
     setData: vi.fn((_type: string, value: string) => { payload = value; }),
     getData: vi.fn(() => payload),
   };
+}
+
+function renameBridge() {
+  let snapshot: VaultSnapshot = {
+    ...emptySnapshot,
+    folders: [
+      { id: "parent", profileId: "profile-1", parentId: null, name: "FAKE Parent", createdAtMs: 1 },
+      { id: "child", profileId: "profile-1", parentId: "parent", name: "FAKE Old folder", createdAtMs: 2 },
+    ],
+    records: [{ id: "record", profileId: "profile-1", folderIds: ["parent"], displayName: "FAKE Old.pdf", sourceLabel: "Manual import — unverified", mediaType: "application/octet-stream", plaintextSize: 2048, importedAtMs: 1 }],
+  };
+  return nativeBridge({
+    status: vi.fn().mockResolvedValue("unlocked"),
+    snapshot: vi.fn().mockImplementation(async () => snapshot),
+    updateFolder: vi.fn().mockImplementation(async (id, parentId, name) => {
+      snapshot = { ...snapshot, folders: snapshot.folders.map((folder) => folder.id === id ? { ...folder, parentId, name } : folder) };
+    }),
+    renameRecord: vi.fn().mockImplementation(async (id, displayName) => {
+      snapshot = { ...snapshot, records: snapshot.records.map((record) => record.id === id ? { ...record, displayName } : record) };
+    }),
+  });
 }
 
 describe("durable vault UI", () => {
@@ -158,6 +180,79 @@ describe("durable vault UI", () => {
     expect(exportConfirmation).toHaveBeenCalledWith(expect.stringContaining("cannot erase that copy"));
     expect(bridge.exportFile).not.toHaveBeenCalled();
     exportConfirmation.mockRestore();
+  });
+
+  it.each(["list", "grid"])("renames a nested folder in %s view without moving it", async (view) => {
+    const user = userEvent.setup();
+    const bridge = renameBridge();
+    render(<VaultApp bridge={bridge} />);
+    await user.click(await screen.findByRole("button", { name: "Open FAKE Parent" }));
+    if (view === "grid") await user.click(screen.getByRole("button", { name: "Grid view" }));
+    await user.click(screen.getByRole("button", { name: "Rename folder FAKE Old folder" }));
+    const dialog = screen.getByRole("dialog", { name: "Rename folder" });
+    const input = within(dialog).getByLabelText("Folder name");
+    expect(input).toHaveFocus();
+    await user.clear(input);
+    await user.type(input, "   ");
+    expect(within(dialog).getByRole("button", { name: "Save name" })).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, " FAKE Results ");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(bridge.updateFolder).toHaveBeenCalledWith("child", "parent", "FAKE Results");
+    expect(screen.getByRole("article", { name: "FAKE Results folder" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "FAKE Parent" })).toBeVisible();
+    expect(screen.queryByText("FAKE Old folder")).not.toBeInTheDocument();
+  });
+
+  it("renames a document from its details, keeps failed input for retry, and supports cancellation", async () => {
+    const user = userEvent.setup();
+    const bridge = renameBridge();
+    vi.mocked(bridge.renameRecord).mockRejectedValueOnce({ message: "There is not enough storage to complete this operation." });
+    render(<VaultApp bridge={bridge} />);
+    await user.click(await screen.findByRole("button", { name: "Open FAKE Parent" }));
+    await user.click(screen.getByRole("button", { name: "More options for FAKE Old.pdf" }));
+    await user.click(screen.getByRole("button", { name: "Rename document" }));
+    await user.clear(screen.getByLabelText("File name"));
+    await user.type(screen.getByLabelText("File name"), "FAKE Cancelled.pdf");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(bridge.renameRecord).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "FAKE Old.pdf" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Rename document" }));
+    await user.clear(screen.getByLabelText("File name"));
+    await user.type(screen.getByLabelText("File name"), "FAKE Results.pdf");
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("not enough storage");
+    expect(screen.getByLabelText("File name")).toHaveValue("FAKE Results.pdf");
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    expect(await screen.findByRole("dialog", { name: "FAKE Results.pdf" })).toBeVisible();
+    expect(bridge.renameRecord).toHaveBeenCalledWith("record", "FAKE Results.pdf");
+    expect(bridge.assignFolders).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Close document details" }));
+    expect(screen.getByRole("article", { name: "FAKE Results.pdf document" })).toBeVisible();
+  });
+
+  it("allows Escape to cancel folder renaming and disables renaming in recovery mode", async () => {
+    const user = userEvent.setup();
+    const bridge = renameBridge();
+    const { unmount } = render(<VaultApp bridge={bridge} />);
+    await user.click(await screen.findByRole("button", { name: "Rename folder FAKE Parent" }));
+    const results = await axe.run(screen.getByRole("dialog"), { rules: { "color-contrast": { enabled: false } } });
+    expect(results.violations).toEqual([]);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rename folder FAKE Parent" })).toHaveFocus();
+    expect(bridge.updateFolder).not.toHaveBeenCalled();
+    unmount();
+
+    const snapshot = await bridge.snapshot();
+    vi.mocked(bridge.snapshot).mockResolvedValue({ ...snapshot, degraded: true });
+    render(<VaultApp bridge={bridge} />);
+    expect(await screen.findByRole("button", { name: "Rename folder FAKE Parent" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Open FAKE Parent" }));
+    expect(screen.getByRole("button", { name: "Rename folder" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "More options for FAKE Old.pdf" }));
+    expect(screen.getByRole("button", { name: "Rename document" })).toBeDisabled();
   });
 
   it.each(["locked", "unlocked"] as const)("prevents external drop navigation while %s without importing or moving records", async (status) => {

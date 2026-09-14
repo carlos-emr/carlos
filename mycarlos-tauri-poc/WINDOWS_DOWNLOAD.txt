@@ -12,6 +12,11 @@ After importing, drag documents or folders onto a folder to move them within myC
 Drop onto My records to move them to the root. Dragging PDFs from Windows File Explorer into
 the app is not implemented; use Choose files to import instead.
 
+To change a folder name, click Rename beside it, or open it and choose Rename folder.
+To change an imported file name, open its document details and choose Rename document.
+Enter the new name and choose Save name. Keep .pdf at the end of PDF file names.
+Names are saved in the encrypted vault; document contents and original imported files are unchanged.
+
 No Node, Rust, or developer tools are needed. The installer installs for your Windows account.
 If Microsoft Edge WebView2 is missing, setup installs it; this requires internet access.
 

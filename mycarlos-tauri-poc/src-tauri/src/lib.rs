@@ -161,6 +161,13 @@ struct AssignFoldersRequest {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct RenameRecordRequest {
+    record_id: Uuid,
+    name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AssignFoldersBatchRequest {
     record_ids: Vec<Uuid>,
     folder_ids: Vec<Uuid>,
@@ -368,6 +375,16 @@ fn vault_update_folder(
 ) -> CommandResult<()> {
     store
         .update_folder(request.folder_id, request.parent_id, &request.name)
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+fn vault_rename_record(
+    store: State<'_, Arc<VaultStore>>,
+    request: RenameRecordRequest,
+) -> CommandResult<()> {
+    store
+        .rename_record(request.record_id, &request.name)
         .map_err(Into::into)
 }
 
@@ -595,6 +612,7 @@ pub fn run() {
             vault_create_profile,
             vault_create_folder,
             vault_update_folder,
+            vault_rename_record,
             vault_assign_folders,
             vault_assign_folders_batch,
             vault_import_begin,

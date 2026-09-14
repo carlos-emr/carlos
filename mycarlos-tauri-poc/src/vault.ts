@@ -50,6 +50,7 @@ export interface VaultBridge {
   createProfile(displayName: string): Promise<string>;
   createFolder(profileId: string, parentId: string | null, name: string): Promise<string>;
   updateFolder(folderId: string, parentId: string | null, name: string): Promise<void>;
+  renameRecord(recordId: string, name: string): Promise<void>;
   assignFolders(recordId: string, folderIds: string[]): Promise<void>;
   assignFoldersBatch(recordIds: string[], folderIds: string[]): Promise<void>;
   importFiles(profileId: string, folderIds: string[]): Promise<ImportOutcome>;
@@ -95,6 +96,8 @@ export function createVaultBridge(): VaultBridge {
       invoke<string>("vault_create_folder", { request: { profileId, parentId, name } }),
     updateFolder: (folderId, parentId, name) =>
       invoke<void>("vault_update_folder", { request: { folderId, parentId, name } }),
+    renameRecord: (recordId, name) =>
+      invoke<void>("vault_rename_record", { request: { recordId, name } }),
     assignFolders: (recordId, folderIds) =>
       invoke<void>("vault_assign_folders", { request: { recordId, folderIds } }),
     assignFoldersBatch: (recordIds, folderIds) =>

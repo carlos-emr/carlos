@@ -42,6 +42,18 @@ receive the fix. Browser event tests cannot validate Windows WebView2 drag routi
 Windows testing must include document and folder moves in both list and grid views, sidebar/root
 drops, and confirmation that external file drops do not navigate away from the vault.
 
+## Renaming folders and documents
+
+Choose **Rename** beside a folder in list or grid view, or open it and choose **Rename folder**.
+Open an imported document's details and choose **Rename document** to edit its file name.
+Choose **Save name** to commit, or **Cancel** / Escape to leave the name unchanged.
+
+Renames persist in the encrypted vault and update search, sorting, navigation, and the suggested
+export name. Folder locations, document contents, and original files outside myCarlos are unchanged.
+Keep `.pdf` at the end of PDF file names. Empty names, paths, and unsafe Windows file names are
+rejected; document names are limited to 240 UTF-8 bytes and folder names to 120 characters.
+Renaming is unavailable while the vault is locked or in read-only recovery mode.
+
 ## Getting a trusted Windows signature
 
 Use **Azure Artifact Signing (Public Trust)** for direct Windows downloads. Microsoft's

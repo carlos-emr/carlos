@@ -310,6 +310,53 @@ function UnlockVault({ busy, notice, autoLockMinutes, onUnlock, onReset }: {
   </VaultAuthFrame>;
 }
 
+type RenameTarget = { kind: "folder" | "document"; id: string; name: string };
+
+function RenameDialog({ target, readOnly, onSave, onClose }: {
+  target: RenameTarget;
+  readOnly: boolean;
+  onSave: (name: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(target.name);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const close = () => { if (!saving) onClose(); };
+  useModalFocus(true, dialogRef, close);
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (saving || readOnly || !name.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(name.trim());
+      onClose();
+    } catch (failure) {
+      setError(vaultErrorMessage(failure));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={close}>
+    <section ref={dialogRef} className="record-dialog native-rename-dialog" role="dialog" aria-modal="true" aria-labelledby="rename-title" onMouseDown={(event) => event.stopPropagation()}>
+      <header className="dialog-head"><h2 id="rename-title">Rename {target.kind}</h2></header>
+      <form onSubmit={(event) => void save(event)}>
+        <div className="native-rename-fields">
+          <label htmlFor="rename-name">{target.kind === "folder" ? "Folder name" : "File name"}</label>
+          <input id="rename-name" required maxLength={target.kind === "folder" ? 120 : 240} value={name} disabled={saving || readOnly} aria-describedby="rename-help" onChange={(event) => { setName(event.target.value); setError(""); }} />
+          <p id="rename-help">{target.kind === "folder" ? "The folder and its contents stay in the same location." : "This changes the name in myCarlos and suggested export name. Keep the .pdf extension for PDF files."}</p>
+          {error && <p role="alert">{error}</p>}
+        </div>
+        <footer className="dialog-actions">
+          <button className="button" type="button" disabled={saving} onClick={close}>Cancel</button>
+          <button className="button primary" disabled={saving || readOnly || !name.trim()}>{saving ? "Saving…" : "Save name"}</button>
+        </footer>
+      </form>
+    </section>
+  </div>;
+}
+
 function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh, onLock, autoLockMinutes, onAutoLockMinutes }: {
   bridge: VaultBridge;
   snapshot: VaultSnapshot;
@@ -331,6 +378,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [moveFolderId, setMoveFolderId] = useState("");
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
   const [showFolderForm, setShowFolderForm] = useState(false);
   const [dragItem, setDragItem] = useState<DragItem | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -416,7 +464,21 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
     setQuery("");
   }, [currentFolderId]);
 
-  useModalFocus(Boolean(activeRecordId), dialogRef, () => setActiveRecordId(null));
+  useModalFocus(Boolean(activeRecordId) && !renameTarget, dialogRef, () => setActiveRecordId(null));
+
+  const renameFolder = (folder: VaultFolder) => setRenameTarget({ kind: "folder", id: folder.id, name: folder.name });
+  const saveName = async (name: string) => {
+    if (!renameTarget || busy || readOnly) return;
+    if (renameTarget.kind === "folder") {
+      const folder = folders.find((candidate) => candidate.id === renameTarget.id);
+      if (!folder) throw new Error("That folder is no longer available.");
+      await bridge.updateFolder(folder.id, folder.parentId, name);
+    } else {
+      await bridge.renameRecord(renameTarget.id, name);
+    }
+    await refresh();
+    setNotice(`${renameTarget.kind === "folder" ? "Folder" : "Document"} renamed to ${name}.`);
+  };
 
   const importFiles = () => run(async () => {
     const outcome = await bridge.importFiles(profileId, currentFolderId ? [currentFolderId] : []);
@@ -538,7 +600,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
     </div>
     <div className="page-wrap">
       <section className="app-window" aria-label="myCarlos encrypted record library">
-        <header className="titlebar" inert={Boolean(activeRecord)}>
+        <header className="titlebar" inert={Boolean(activeRecord || renameTarget)}>
           <span className="window-dots" aria-hidden="true"><i /><i /><i /></span>
           <span className="window-title">myCarlos</span>
           <button className="unlock-pill native-lock-button" type="button" disabled={busy} onClick={() => void onLock()}>
@@ -546,7 +608,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
           </button>
         </header>
 
-        <label className="mobile-section-picker" inert={Boolean(activeRecord)}>
+        <label className="mobile-section-picker" inert={Boolean(activeRecord || renameTarget)}>
           <span>Section</span>
           <select aria-label="Section" value={section} onChange={(event) => setSection(event.target.value as NativeSection)}>
             <option value="records">My records</option>
@@ -554,7 +616,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
           </select>
         </label>
 
-        <div className="app-body" inert={Boolean(activeRecord)}>
+        <div className="app-body" inert={Boolean(activeRecord || renameTarget)}>
           <aside className="sidebar">
             <div className="brand">
               <span className="brand-mark"><Icon name="activity" /></span>
@@ -588,6 +650,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
             <div className="main-head">
               <div><h1>{locationTitle}</h1><p>{visibleFolders.length} folders · {visibleRecords.length} documents in this location</p></div>
               <div className="head-actions">
+                {currentFolder && <button className="button" type="button" disabled={busy || readOnly} onClick={() => renameFolder(currentFolder)}>Rename folder</button>}
                 <button className="button" type="button" disabled={readOnly} onClick={() => setShowFolderForm((current) => !current)}><Icon name="folder-plus" /><span>New folder</span></button>
                 <button className="button primary" type="button" disabled={busy || readOnly || !profileId} onClick={() => void importFiles()} aria-label="Choose files to import"><Icon name="plus" /><span>{busy ? "Working…" : "New"}</span></button>
               </div>
@@ -626,9 +689,9 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
               <div className="file-head" aria-hidden="true"><span /><span className="sorted">Name</span><span className="column">Source</span><span className="column">Date added</span><span /></div>
               {visibleFolders.map((folder) => <article aria-label={`${folder.name} folder`} className={dropClass(dragClass("file-row", { kind: "folder", id: folder.id }), `list:${folder.id}`)} key={folder.id} draggable={!busy && !readOnly} onDragStart={(event) => startDrag(event, { kind: "folder", id: folder.id })} onDragEnd={dragEnd} onDragOver={(event) => dragOver(event, `list:${folder.id}`)} onDrop={(event) => dropInto(event, folder.id)}>
                 <span />
-                <button className="file-name native-file-open" type="button" onClick={() => setCurrentFolderId(folder.id)}><span className="document-icon folder"><Icon name="folder" /></span><span className="name-copy"><strong>{folder.name}</strong><small>{folderCount(folder.id)} items</small></span></button>
+                <button className="file-name native-file-open" type="button" aria-label={`Open ${folder.name}`} onClick={() => setCurrentFolderId(folder.id)}><span className="document-icon folder"><Icon name="folder" /></span><span className="name-copy"><strong>{folder.name}</strong><small>{folderCount(folder.id)} items</small></span></button>
                 <span className="column">—</span><span className="column">Folder</span>
-                <button className="more-button" type="button" aria-label={`Open ${folder.name}`} onClick={() => setCurrentFolderId(folder.id)}><Icon name="more" /></button>
+                <button className="native-rename-button" type="button" aria-label={`Rename folder ${folder.name}`} disabled={busy || readOnly} onClick={() => renameFolder(folder)}>Rename</button>
               </article>)}
               {visibleRecords.map((record) => { const kind = recordKind(record.displayName); const item = recordDragItem(record.id); return <article aria-label={`${record.displayName} document`} className={dragClass("file-row", item)} key={record.id} draggable={!busy && !readOnly} onDragStart={(event) => startDrag(event, item)} onDragEnd={dragEnd}>
                 <button className={`check ${selectedIds.includes(record.id) ? "checked" : ""}`} type="button" aria-label={`Select ${record.displayName}`} aria-pressed={selectedIds.includes(record.id)} onClick={() => toggleSelected(record.id)} />
@@ -638,7 +701,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
               </article>; })}
               {!visibleFolders.length && !visibleRecords.length && <div className="empty-state"><Icon name="folder" /><strong>{query ? "No matching records" : "This location is empty"}</strong><span>{query ? "Try another search." : "Add a folder or import a document here."}</span></div>}
             </div> : <div className="file-grid" aria-label={`${visibleFolders.length + visibleRecords.length} visible library items`}>
-              {visibleFolders.map((folder) => <article aria-label={`${folder.name} folder`} className={dropClass(dragClass("file-tile", { kind: "folder", id: folder.id }), `grid:${folder.id}`)} key={folder.id} draggable={!busy && !readOnly} onDragStart={(event) => startDrag(event, { kind: "folder", id: folder.id })} onDragEnd={dragEnd} onDragOver={(event) => dragOver(event, `grid:${folder.id}`)} onDrop={(event) => dropInto(event, folder.id)}><button className="tile-open" type="button" onClick={() => setCurrentFolderId(folder.id)}><span className="tile-preview folder"><Icon name="folder" /></span><span className="tile-caption"><span><strong>{folder.name}</strong><small>{folderCount(folder.id)} items</small></span></span></button></article>)}
+              {visibleFolders.map((folder) => <article aria-label={`${folder.name} folder`} className={dropClass(dragClass("file-tile", { kind: "folder", id: folder.id }), `grid:${folder.id}`)} key={folder.id} draggable={!busy && !readOnly} onDragStart={(event) => startDrag(event, { kind: "folder", id: folder.id })} onDragEnd={dragEnd} onDragOver={(event) => dragOver(event, `grid:${folder.id}`)} onDrop={(event) => dropInto(event, folder.id)}><button className="tile-open" type="button" onClick={() => setCurrentFolderId(folder.id)}><span className="tile-preview folder"><Icon name="folder" /></span><span className="tile-caption"><span><strong>{folder.name}</strong><small>{folderCount(folder.id)} items</small></span></span></button><button className="native-rename-button" type="button" aria-label={`Rename folder ${folder.name}`} disabled={busy || readOnly} onClick={() => renameFolder(folder)}>Rename</button></article>)}
               {visibleRecords.map((record) => { const kind = recordKind(record.displayName); const item = recordDragItem(record.id); return <article aria-label={`${record.displayName} document`} className={dragClass("file-tile", item)} key={record.id} draggable={!busy && !readOnly} onDragStart={(event) => startDrag(event, item)} onDragEnd={dragEnd}><button className="tile-open" type="button" onClick={() => setActiveRecordId(record.id)}><span className="tile-preview paper-preview"><i /><i /><i /><i /></span><span className="tile-caption"><span className={`document-icon ${kind.icon}`}><Icon name={kind.icon} /></span><span><strong>{record.displayName}</strong><small>{new Date(record.importedAtMs).toLocaleDateString()}</small></span></span></button></article>; })}
               {!visibleFolders.length && !visibleRecords.length && <div className="empty-state"><Icon name="folder" /><strong>{query ? "No matching records" : "This location is empty"}</strong><span>{query ? "Try another search." : "Add a folder or import a document here."}</span></div>}
             </div>}
@@ -659,10 +722,12 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
           </main>}
         </div>
 
-        {activeRecord && <div className="dialog-backdrop" role="presentation" onMouseDown={() => setActiveRecordId(null)}><section ref={dialogRef} className="record-dialog" role="dialog" aria-modal="true" aria-labelledby="native-record-title" onMouseDown={(event) => event.stopPropagation()}>
+        {renameTarget && <RenameDialog target={renameTarget} readOnly={busy || readOnly} onSave={saveName} onClose={() => setRenameTarget(null)} />}
+        {activeRecord && !renameTarget && <div className="dialog-backdrop" role="presentation" onMouseDown={() => setActiveRecordId(null)}><section ref={dialogRef} className="record-dialog" role="dialog" aria-modal="true" aria-labelledby="native-record-title" onMouseDown={(event) => event.stopPropagation()}>
           <header className="dialog-head"><div><span className="eyebrow">Encrypted document</span><h2 id="native-record-title">{activeRecord.displayName}</h2></div><button className="dialog-close" type="button" aria-label="Close document details" onClick={() => setActiveRecordId(null)}>×</button></header>
           <div className="document-preview" aria-label="Encrypted document details"><span className={`document-icon ${recordKind(activeRecord.displayName).icon}`}><Icon name={recordKind(activeRecord.displayName).icon} /></span><div className="preview-paper" aria-hidden="true"><i /><i /><i /><i /><i /></div><p>The file stays encrypted in the vault. Save a copy only when you need a readable file outside myCarlos.</p></div>
           <dl className="record-metadata"><div><dt>Kind</dt><dd>{recordKind(activeRecord.displayName).label}</dd></div><div><dt>Source</dt><dd>{activeRecord.sourceLabel}</dd></div><div><dt>Date added</dt><dd>{new Date(activeRecord.importedAtMs).toLocaleString()}</dd></div><div><dt>File</dt><dd>{bytes(activeRecord.plaintextSize)}</dd></div><div><dt>Folder</dt><dd>{activeRecord.folderIds.map((id) => folderNameById.get(id)).filter(Boolean).join(", ") || "My records"}</dd></div></dl>
+          <div className="native-record-rename"><button className="button" type="button" disabled={busy || readOnly} onClick={() => setRenameTarget({ kind: "document", id: activeRecord.id, name: activeRecord.displayName })}>Rename document</button></div>
           <footer className="dialog-actions native-dialog-actions"><label>Move to<select disabled={readOnly} value={activeRecord.folderIds[0] ?? ""} onChange={(event) => void run(async () => { await bridge.assignFolders(activeRecord.id, event.target.value ? [event.target.value] : []); await refresh(); setNotice("Document moved."); })}><option value="">My records</option>{folders.map((folder) => <option value={folder.id} key={folder.id}>{folder.name}</option>)}</select></label><button className="button danger" type="button" disabled={busy || readOnly} onClick={() => deleteRecord(activeRecord)}>Permanently delete</button><button className="button primary" type="button" disabled={busy} onClick={() => exportRecord(activeRecord)}>Save a copy to this computer</button></footer>
         </section></div>}
       </section>

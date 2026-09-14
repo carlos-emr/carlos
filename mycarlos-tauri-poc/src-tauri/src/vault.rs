@@ -582,6 +582,24 @@ impl VaultStore {
         })
     }
 
+    pub fn rename_record(&self, record_id: Uuid, name: &str) -> Result<(), VaultError> {
+        let name = name.trim();
+        // Display names also become export suggestions. Reject unsafe names instead
+        // of silently changing the name the patient asked to save.
+        if !valid_record_name(name) || sanitize_basename(name) != name {
+            return Err(VaultError::Invalid);
+        }
+        self.mutate_manifest(|manifest| {
+            let record = manifest
+                .records
+                .iter_mut()
+                .find(|record| record.id == record_id)
+                .ok_or(VaultError::NotFound)?;
+            record.display_name = name.to_owned();
+            Ok(())
+        })
+    }
+
     pub fn assign_folders(&self, record_id: Uuid, folder_ids: Vec<Uuid>) -> Result<(), VaultError> {
         self.assign_folders_batch(vec![record_id], folder_ids)
     }
@@ -2733,12 +2751,148 @@ mod tests {
     }
 
     #[test]
+    fn renamed_records_and_nested_folders_persist_without_changing_documents() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let parent = store.create_folder(profile, None, "Hospital", 2).unwrap();
+        let folder = store
+            .create_folder(profile, Some(parent), "Old folder", 3)
+            .unwrap();
+        let record = store
+            .import(
+                profile,
+                vec![folder],
+                vec![source("old.pdf", b"synthetic PDF content")],
+                4,
+            )
+            .unwrap()
+            .imported[0];
+        let mut expected = store
+            .unlocked
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .manifest
+            .records[0]
+            .clone();
+        let object_path = root.join("objects").join(&expected.object_name);
+        let ciphertext = fs::read(&object_path).unwrap();
+
+        store
+            .update_folder(folder, Some(parent), "  FAKE renamed folder  ")
+            .unwrap();
+        store
+            .rename_record(record, "  FAKE renamed document.pdf  ")
+            .unwrap();
+        expected.display_name = "FAKE renamed document.pdf".to_owned();
+        assert!(
+            store
+                .unlocked
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .manifest
+                .records[0]
+                == expected
+        );
+        assert_eq!(fs::read(&object_path).unwrap(), ciphertext);
+        store.lock();
+
+        let restarted = VaultStore::new(root.clone());
+        restarted.unlock(PASSWORD).unwrap();
+        let snapshot = restarted.snapshot().unwrap();
+        let renamed_folder = snapshot
+            .folders
+            .iter()
+            .find(|item| item.id == folder)
+            .unwrap();
+        assert_eq!(renamed_folder.name, "FAKE renamed folder");
+        assert_eq!(renamed_folder.parent_id, Some(parent));
+        assert_eq!(snapshot.records[0].folder_ids, vec![folder]);
+        assert_eq!(
+            restarted.export_name(record).unwrap(),
+            "FAKE renamed document.pdf"
+        );
+        let mut exported = Vec::new();
+        restarted.export(record, &mut exported).unwrap();
+        assert_eq!(exported, b"synthetic PDF content");
+        assert!(restarted
+            .import(
+                profile,
+                vec![],
+                vec![source("copy.pdf", b"synthetic PDF content")],
+                5
+            )
+            .unwrap()
+            .imported
+            .is_empty());
+        for entry in fs::read_dir(&root).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_file() {
+                let bytes = fs::read(path).unwrap();
+                assert!(!bytes
+                    .windows(b"FAKE renamed".len())
+                    .any(|part| part == b"FAKE renamed"));
+            }
+        }
+    }
+
+    #[test]
+    fn invalid_and_read_only_renames_leave_metadata_unchanged() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = VaultStore::new(temp.path().join("vault"));
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let record = store
+            .import(profile, vec![], vec![source("old.pdf", b"synthetic")], 2)
+            .unwrap()
+            .imported[0];
+        let before = store.snapshot().unwrap().records;
+        for name in [
+            "",
+            "   ",
+            "../escape.pdf",
+            "a/b.pdf",
+            "a\\b.pdf",
+            "CON.pdf",
+            "bad:name.pdf",
+            "bad\nname.pdf",
+            "trailing.",
+            "hidden\u{202e}.pdf",
+            &"x".repeat(241),
+            &"é".repeat(121),
+        ] {
+            assert!(
+                matches!(store.rename_record(record, name), Err(VaultError::Invalid)),
+                "{name:?}"
+            );
+            assert_eq!(store.snapshot().unwrap().records, before);
+        }
+        store.unlocked.lock().unwrap().as_mut().unwrap().degraded = true;
+        assert!(matches!(
+            store.rename_record(record, "new.pdf"),
+            Err(VaultError::RecoveryMode)
+        ));
+        assert_eq!(store.snapshot().unwrap().records, before);
+    }
+
+    #[test]
     fn privileged_operations_reject_locked_state_and_unknown_ids() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("vault");
         let store = VaultStore::new(root);
         store.create(PASSWORD, "Jamie", 1).unwrap();
         let unknown = Uuid::new_v4();
+
+        assert!(matches!(
+            store.rename_record(unknown, "new.pdf"),
+            Err(VaultError::NotFound)
+        ));
 
         assert!(matches!(
             store.create_folder(unknown, None, "Unknown", 2),
@@ -2771,6 +2925,10 @@ mod tests {
         ));
 
         store.lock();
+        assert!(matches!(
+            store.rename_record(unknown, "new.pdf"),
+            Err(VaultError::Locked)
+        ));
         assert!(matches!(store.snapshot(), Err(VaultError::Locked)));
         assert!(matches!(
             store.create_profile("Morgan", 3),
