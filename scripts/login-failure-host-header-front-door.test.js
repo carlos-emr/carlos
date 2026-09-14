@@ -115,6 +115,50 @@ test('login-failure host header check compares the status as well as the body', 
   // narrowed rejection rule would fall through to a byte diff between an error page and
   // the real one, which reads as a confusing failure rather than the real finding.
   assert.match(SOURCE, /spoofed\.status === honest\.status,/);
-  assert.match(SOURCE, /const spoofRejectedAtFrontDoor = isFrontDoorRejection\(frontDoorObserved, spoofed\.status\);/);
   assert.doesNotMatch(SOURCE, /if \(spoofed\.status >= 400\)/);
+});
+
+test('login-failure host header check reads the front-door signal off the spoofed response', () => {
+  // nginx may serve the legitimate request while the spoofed one reaches a different
+  // upstream that answers 400/421 itself. Excusing that on the HONEST response's header
+  // would be exactly the false pass the narrowed rule exists to prevent, so the header
+  // consulted here must be the spoofed response's own.
+  assert.match(
+    SOURCE,
+    /const spoofRejectedAtFrontDoor = isFrontDoorRejection\(sawFrontDoor\(spoofed\.headers\), spoofed\.status\);/,
+  );
+  // frontDoorObserved stays honest-derived on purpose: it answers "did this RUN go
+  // through the front door", which is the coverage question, not the excuse question.
+  assert.match(SOURCE, /const frontDoorObserved = sawFrontDoor\(honest\.headers\);/);
+});
+
+test('login-failure host header check refuses a target whose channel cannot be authenticated', () => {
+  // ALLOW_NON_LOCAL_BASE_URL still admits plain http, where neither rejectUnauthorized
+  // nor ignoreHTTPSErrors means anything -- an on-path attacker would supply both halves
+  // of the byte-for-byte comparison and the check would pass without testing the target.
+  const start = SOURCE.indexOf('function assertBaseUrlIntegrity');
+  assert.ok(start >= 0, 'assertBaseUrlIntegrity is no longer declared in the check script');
+  const end = SOURCE.indexOf('\n}', start) + 2;
+  const context = vm.createContext({});
+  const assertBaseUrlIntegrity = vm.runInContext(
+    `${SOURCE.slice(SOURCE.indexOf('const LOOPBACK_HOSTS ='), SOURCE.indexOf('const isLoopbackTarget ='))}`
+      + `\n${SOURCE.slice(start, end)}\nassertBaseUrlIntegrity;`,
+    context,
+  );
+
+  for (const url of [
+    'http://127.0.0.1:8080/carlos',
+    'http://localhost:8080/carlos',
+    'http://[::1]:8080/carlos',
+    'https://emr.example.org/carlos',
+  ]) {
+    assert.doesNotThrow(() => assertBaseUrlIntegrity(new URL(url)), url);
+  }
+  for (const url of [
+    'http://emr.example.org/carlos',
+    'http://10.0.0.5/carlos',
+    'http://host.docker.internal:8080/carlos',
+  ]) {
+    assert.throws(() => assertBaseUrlIntegrity(new URL(url)), /Refusing plain-http BASE_URL/, url);
+  }
 });

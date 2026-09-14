@@ -69,8 +69,10 @@
  *
  * A FRONT DOOR THAT REJECTS THE SPOOFED HOST IS A PASS, and is reported as
  * such -- but narrowly. Only an nginx-served 400 or 421 counts: those are the
- * statuses nginx answers a refused Host with, and the nginx Server header is
- * what proves the refusal came from the front door rather than the application.
+ * statuses nginx answers a refused Host with, and the nginx Server header on
+ * THAT response -- the spoofed one, not the legitimate one -- is what proves the
+ * refusal came from the front door rather than from whatever upstream the
+ * spoofed request actually reached.
  * Any OTHER status difference, an application-generated 404 or 500 included, is
  * the application answering differently because of the Host header, which is
  * the defect class under test, so it is asserted on rather than excused. The
@@ -89,6 +91,13 @@
  * Env: BASE_URL (default http://127.0.0.1:8080/carlos). Optional CHROME_PATH,
  * LOGIN_FAILURE_SCREENSHOT_DIR (default /tmp), EXPECT_FRONT_DOOR (1/true/yes to
  * require the packaged front door).
+ *
+ * A NON-LOOPBACK TARGET MUST BE https AND MUST PRESENT A TRUSTED CERTIFICATE.
+ * The finding this check reports is a byte-for-byte comparison of two responses,
+ * which an on-path attacker could satisfy without the target being involved at
+ * all, so an unauthenticated channel would make it pass vacuously. Certificate
+ * verification is relaxed only for loopback, and a plain-http non-loopback
+ * BASE_URL is refused outright even with ALLOW_NON_LOCAL_BASE_URL=true.
  *
  * FIXTURE SAFETY: reads only. No login, no credentials, no DB access, no
  * writes -- /loginfailed is a public page and every request here is a GET.
@@ -114,6 +123,15 @@ const config = {
   chromePath: process.env.CHROME_PATH || '',
   screenshotDir: process.env.LOGIN_FAILURE_SCREENSHOT_DIR || '/tmp',
 };
+
+// validateBaseUrl's ALLOW_NON_LOCAL_BASE_URL opt-in still admits a plain-http
+// non-loopback target, and over cleartext neither rejectUnauthorized nor
+// ignoreHTTPSErrors means anything -- there is no certificate to verify. This check
+// reads a page back and compares two responses byte for byte, so an on-path attacker
+// would supply both halves and every assertion would pass without testing the target
+// at all. Loopback over http is fine (the hop does not leave the machine); anything
+// else has to be https, the same bound clinical-freetext applies.
+assertBaseUrlIntegrity(config.baseUrl);
 
 // .invalid is reserved by RFC 2606 and can never resolve, so if this string ever
 // appears in a served page it can only have come from the request's Host header.
@@ -154,9 +172,21 @@ const isFrontDoorRejection = (frontDoorObserved, status) => frontDoorObserved
 // make every assertion below meaningless. This is the same rule allergy-rx-alert
 // and billing-on-third-party apply to their browser contexts.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
-const isLoopbackTarget = () => LOOPBACK_HOSTS.has(
-  config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase(),
+const isLoopbackHost = (hostname) => LOOPBACK_HOSTS.has(
+  hostname.replace(/^\[|\]$/g, '').toLowerCase(),
 );
+const isLoopbackTarget = () => isLoopbackHost(config.baseUrl.hostname);
+
+/** Refuse a target whose channel cannot be authenticated at all; see the call site. */
+function assertBaseUrlIntegrity(baseUrl) {
+  if (!isLoopbackHost(baseUrl.hostname) && baseUrl.protocol !== 'https:') {
+    throw new Error(
+      `Refusing plain-http BASE_URL to non-loopback host ${baseUrl.hostname}: this check's finding `
+      + 'is a byte-for-byte comparison of two responses, which an on-path attacker could satisfy '
+      + 'over cleartext without the target being involved. Use https for a non-loopback target.',
+    );
+  }
+}
 
 /**
  * GET a path over a raw socket with a caller-chosen Host header.
@@ -267,7 +297,11 @@ function describeFirstDifference(left, right) {
       );
     }
 
-    const spoofRejectedAtFrontDoor = isFrontDoorRejection(frontDoorObserved, spoofed.status);
+    // The signal has to come from the SPOOFED response, not the honest one: nginx may
+    // serve the legitimate request while the spoofed one reaches a different upstream
+    // that answers 400/421 itself. Excusing that on the honest response's header would
+    // be the false pass this branch exists to avoid.
+    const spoofRejectedAtFrontDoor = isFrontDoorRejection(sawFrontDoor(spoofed.headers), spoofed.status);
     if (spoofRejectedAtFrontDoor) {
       // Defence in depth rather than a failure: the bad Host never reached the app.
       console.log(
