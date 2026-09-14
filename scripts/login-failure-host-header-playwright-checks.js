@@ -68,10 +68,13 @@
  * comparing two identical requests and would pass vacuously.
  *
  * A FRONT DOOR THAT REJECTS THE SPOOFED HOST IS A PASS, and is reported as
- * such. nginx answering 400/421 means the bad Host never reached the
- * application, which satisfies the same property by a different mechanism.
- * The check fails only if the app SERVES a page whose content depends on the
- * Host header. It does not fail the run when only assertion 1's mechanism is
+ * such -- but narrowly. Only an nginx-served 400 or 421 counts: those are the
+ * statuses nginx answers a refused Host with, and the nginx Server header is
+ * what proves the refusal came from the front door rather than the application.
+ * Any OTHER status difference, an application-generated 404 or 500 included, is
+ * the application answering differently because of the Host header, which is
+ * the defect class under test, so it is asserted on rather than excused. The
+ * check does not fail the run when assertion 1's mechanism is legitimately
  * short-circuited, because assertions 2-4 still execute against the legitimate
  * Host and independently establish that no <base> is emitted.
  *
@@ -131,6 +134,18 @@ const ERROR_MESSAGE = 'Probe <b>message</b> for host header check';
 const FRONT_DOOR_SERVER = /nginx/i;
 const sawFrontDoor = (headers) => FRONT_DOOR_SERVER.test(headers.server || '');
 const expectFrontDoor = /^(1|true|yes)$/i.test(process.env.EXPECT_FRONT_DOOR || '');
+
+// A front door that REFUSES the spoofed Host satisfies the property under test by a
+// different mechanism, so it is a pass -- but only if the refusal actually came from
+// the front door. 400 (malformed/rejected Host) and 421 (Misdirected Request) are the
+// two statuses nginx answers with, and they count only when an nginx-served response
+// was observed. Every other status, an application-generated 404 or 500 included, is
+// the application answering DIFFERENTLY because of the Host header, which is the exact
+// defect class this check exists to catch; treating it as a rejection would turn the
+// defect into a green run.
+const FRONT_DOOR_REJECTION_STATUSES = new Set([400, 421]);
+const isFrontDoorRejection = (frontDoorObserved, status) => frontDoorObserved
+  && FRONT_DOOR_REJECTION_STATUSES.has(status);
 
 // Certificate verification is relaxed ONLY for loopback, where the packaged install
 // serves its own self-signed cert. A non-local target opted in through
@@ -252,16 +267,25 @@ function describeFirstDifference(left, right) {
       );
     }
 
-    let spoofRejectedAtFrontDoor = false;
-    if (spoofed.status >= 400) {
+    const spoofRejectedAtFrontDoor = isFrontDoorRejection(frontDoorObserved, spoofed.status);
+    if (spoofRejectedAtFrontDoor) {
       // Defence in depth rather than a failure: the bad Host never reached the app.
-      spoofRejectedAtFrontDoor = true;
       console.log(
         `NOTE the front door answered ${spoofed.status} for Host: ${SPOOFED_HOST}, so the spoofed `
         + 'value never reached the application. Assertions 2-4 below still run against the real '
         + 'Host and independently establish that no <base> element is emitted.',
       );
     } else {
+      // Status first: a differing status is already a Host-dependent response, and
+      // saying so plainly beats a byte diff between an error page and the real one.
+      assert(
+        spoofed.status === honest.status,
+        `The failed-login page's STATUS changed when the Host header changed: Host: ${honestHost} `
+          + `returned ${honest.status} but Host: ${SPOOFED_HOST} returned ${spoofed.status}. That is `
+          + 'the response depending on a value an attacker controls. Only an nginx-served 400 or 421 '
+          + 'counts as the front door refusing the Host; this was not one, so it is the application '
+          + 'answering differently.',
+      );
       assert(
         spoofed.body === honest.body,
         `The failed-login page changed when the Host header changed: a request with `

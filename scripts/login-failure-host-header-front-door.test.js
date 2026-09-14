@@ -38,6 +38,15 @@ function sawFrontDoorFor(headers) {
   return sawFrontDoor(headers);
 }
 
+function isFrontDoorRejectionFor(frontDoorObserved, status) {
+  const isFrontDoorRejection = evaluateBinding(
+    'const FRONT_DOOR_REJECTION_STATUSES =',
+    'const isFrontDoorRejection =',
+    'isFrontDoorRejection',
+  );
+  return isFrontDoorRejection(frontDoorObserved, status);
+}
+
 function expectFrontDoorFor(value) {
   return evaluateBinding(
     'const expectFrontDoor =',
@@ -80,4 +89,32 @@ test('login-failure host header check still reports the layer it covered when th
   assert.match(SOURCE, /WARNING: no response carried an nginx Server header/);
   // The PASS line must say which layer was covered, so a green log is not ambiguous.
   assert.match(SOURCE, /frontDoorObserved\s*\n?\s*\?\s*' -- through the packaged nginx front door/);
+});
+
+test('login-failure host header check excuses the spoofed Host only on an nginx-served 400 or 421', () => {
+  assert.equal(isFrontDoorRejectionFor(true, 400), true, 'nginx 400');
+  assert.equal(isFrontDoorRejectionFor(true, 421), true, 'nginx 421');
+});
+
+test('login-failure host header check asserts on any other Host-dependent response', () => {
+  // The hole this closes: `spoofed.status >= 400` treated an application-generated
+  // 404/500 as the front door refusing the Host, so a page that answered DIFFERENTLY
+  // because of the Host header -- the defect under test -- skipped the comparison and
+  // the run went green. Only nginx-served 400/421 may short-circuit it.
+  for (const status of [403, 404, 429, 500, 502, 503]) {
+    assert.equal(isFrontDoorRejectionFor(true, status), false, `nginx ${status}`);
+  }
+  for (const status of [400, 421, 404, 500]) {
+    assert.equal(isFrontDoorRejectionFor(false, status), false, `no front door, ${status}`);
+  }
+  assert.equal(isFrontDoorRejectionFor(true, 200), false, 'nginx 200');
+});
+
+test('login-failure host header check compares the status as well as the body', () => {
+  // A differing status is already a Host-dependent response; without this assertion the
+  // narrowed rejection rule would fall through to a byte diff between an error page and
+  // the real one, which reads as a confusing failure rather than the real finding.
+  assert.match(SOURCE, /spoofed\.status === honest\.status,/);
+  assert.match(SOURCE, /const spoofRejectedAtFrontDoor = isFrontDoorRejection\(frontDoorObserved, spoofed\.status\);/);
+  assert.doesNotMatch(SOURCE, /if \(spoofed\.status >= 400\)/);
 });

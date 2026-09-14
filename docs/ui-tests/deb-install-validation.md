@@ -927,7 +927,13 @@ Notes on the contract:
   fixture, no database access), so it needs no credentials and leaves nothing
   behind. A front door that answers 400/421 to the spoofed `Host` is reported on
   stdout and treated as a pass: the bad value never reached the application, and
-  the DOM assertions still run against the legitimate `Host`.
+  the DOM assertions still run against the legitimate `Host`. That excuse is
+  narrow on purpose — it needs the nginx `Server` header *and* one of those two
+  statuses. Any other difference between the two responses, an
+  application-generated 404 or 500 included, is the application answering
+  differently because of the `Host` header, which is the defect under test, so
+  the check asserts on it (status first, then the bodies) instead of excusing
+  it.
 - **`echart-playwright-checks.js` allows 90 seconds for note pagination to settle.**
   The chart loads 20 entries per one-second poll, including eForms and other
   chart entries as well as encounter notes. A populated fixture can legitimately
