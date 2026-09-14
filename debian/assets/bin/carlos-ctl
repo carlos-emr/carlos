@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+# Shim for the carlos_ctl Python package — same shape as carlos-podman's
+# /usr/local/sbin/carlos-ctl shim. Everything real lives in
+# /usr/lib/carlos-emr/carlos_ctl/.
+export PYTHONPATH="/usr/lib/carlos-emr${PYTHONPATH:+:${PYTHONPATH}}"
+# The invoked NAME survives into the Python side via the environment:
+# `python3 -m` replaces sys.argv[0] with the module path, so the deprecation
+# note for the old `carlosctl` spelling cannot be detected from argv.
+CARLOS_CTL_INVOKED_AS="${0##*/}" exec python3 -m carlos_ctl.cli "$@"

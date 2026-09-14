@@ -15,8 +15,8 @@
 # are intentionally excluded to avoid noise on legacy code.
 #
 # Usage:
-# - Triggered on pull requests targeting develop, main, experimental
-# - Triggered on pushes to develop
+# - Triggered on pull requests targeting develop, main, experimental, or release/*
+# - Triggered on pushes to develop or release/*
 # - Scheduled weekly full scan (Monday 5:00 UTC)
 # - Manual dispatch available
 #
@@ -35,12 +35,13 @@ on:
       - main
       - develop
       - experimental
+      - release/*
     paths:
       - '**.java'
       - '.github/pmd/**'
       - '.github/workflows/pmd.yml'
   push:
-    branches: [develop]
+    branches: [develop, "release/*"]
     paths:
       - '**.java'
       - '.github/pmd/**'

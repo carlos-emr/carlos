@@ -77,6 +77,8 @@ public interface SecuserroleDao {
 
     public List findByProviderNo(Object providerNo);
 
+    public List findActiveByProviderNo(Object providerNo);
+
     public List findByRoleName(Object roleName);
 
     public List findByOrgcd(Object orgcd, boolean activeOnly);

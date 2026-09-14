@@ -58,7 +58,7 @@
         <title><fmt:message key="eform.showmyform.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<%@ include file="eformBootstrapScript.jspf" %>
 
         <script type="text/javascript">
             function popupPage(varpage, windowname) {

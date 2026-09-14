@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -129,17 +130,73 @@ class AllergyWsSecurityTest {
     @Test
     @DisplayName("should delegate getAllergy when _allergy read privilege is granted")
     void shouldDelegate_whenGetAllergyPrivilegeGranted() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null))
-                .thenReturn(true);
-        Allergy allergy = new Allergy();
-        allergy.setDescription("Penicillin");
-        when(allergyManager.getAllergy(loggedInInfo, 12)).thenReturn(allergy);
+        allowAllergyReadPrivilege();
+        when(allergyManager.getAllergy(loggedInInfo, 12)).thenReturn(allergy("Penicillin"));
 
         assertThat(service.getAllergy(12)).isNotNull();
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
         verify(allergyManager).getAllergy(loggedInInfo, 12);
         verifyNoMoreInteractions(allergyManager);
+    }
+
+    @Test
+    @DisplayName("should delegate getAllergiesUpdatedAfterDate when _allergy read privilege is granted")
+    void shouldDelegate_whenGetAllergiesUpdatedAfterDatePrivilegeGranted() {
+        allowAllergyReadPrivilege();
+        Date updatedAfter = new Date();
+        when(allergyManager.getUpdatedAfterDate(loggedInInfo, updatedAfter, 5))
+                .thenReturn(List.of(allergy("Penicillin")));
+
+        assertThat(service.getAllergiesUpdatedAfterDate(updatedAfter, 5)).hasSize(1);
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
+        verify(allergyManager).getUpdatedAfterDate(loggedInInfo, updatedAfter, 5);
+        verifyNoMoreInteractions(allergyManager);
+    }
+
+    @Test
+    @DisplayName("should delegate composite query when _allergy read privilege is granted")
+    void shouldDelegate_whenCompositeQueryPrivilegeGranted() {
+        allowAllergyReadPrivilege();
+        Calendar updatedAfter = Calendar.getInstance();
+        when(allergyManager.getAllergiesByProgramProviderDemographicDate(
+                loggedInInfo, 1, "999990", 12345, updatedAfter, 5))
+                .thenReturn(List.of(allergy("Sulfa")));
+
+        assertThat(service.getAllergiesByProgramProviderDemographicDate(
+                1, "999990", 12345, updatedAfter, 5)).hasSize(1);
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
+        verify(allergyManager).getAllergiesByProgramProviderDemographicDate(
+                loggedInInfo, 1, "999990", 12345, updatedAfter, 5);
+        verifyNoMoreInteractions(allergyManager);
+    }
+
+    @Test
+    @DisplayName("should delegate getAllergiesByDemographicIdAfter when _allergy read privilege is granted")
+    void shouldDelegate_whenDemographicQueryPrivilegeGranted() {
+        allowAllergyReadPrivilege();
+        Calendar lastUpdate = Calendar.getInstance();
+        when(allergyManager.getByDemographicIdUpdatedAfterDate(loggedInInfo, 12345, lastUpdate.getTime()))
+                .thenReturn(List.of(allergy("Latex")));
+
+        assertThat(service.getAllergiesByDemographicIdAfter(lastUpdate, 12345)).hasSize(1);
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null);
+        verify(allergyManager).getByDemographicIdUpdatedAfterDate(loggedInInfo, 12345, lastUpdate.getTime());
+        verifyNoMoreInteractions(allergyManager);
+    }
+
+    private static Allergy allergy(String description) {
+        Allergy allergy = new Allergy();
+        allergy.setDescription(description);
+        return allergy;
+    }
+
+    private void allowAllergyReadPrivilege() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_allergy"),
+                eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
     }
 
     private void denyAllergyReadPrivilege() {

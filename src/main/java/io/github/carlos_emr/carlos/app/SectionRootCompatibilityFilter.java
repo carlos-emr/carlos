@@ -30,6 +30,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Restores clean section-root URLs for migrated index-style pages that used to
@@ -48,6 +49,8 @@ public class SectionRootCompatibilityFilter extends HttpFilter {
             "/administration", "/administration/index"
     );
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     protected void doFilter(
             HttpServletRequest request,

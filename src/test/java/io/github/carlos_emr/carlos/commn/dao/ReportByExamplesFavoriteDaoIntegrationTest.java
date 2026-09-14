@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link ReportByExamplesFavoriteDao} covering persist,
- * findByQuery, findByEverything, and findByProvider.
+ * provider-scoped lookup, findByEverything, and findByProvider.
  *
  * <p>Migrated from legacy {@code ReportByExamplesFavoriteDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -92,32 +92,21 @@ public class ReportByExamplesFavoriteDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Nested
-    @DisplayName("findByQuery")
-    class FindByQuery {
+    @DisplayName("findByProviderAndQuery")
+    class FindByProviderAndQuery {
 
         @Test
         @Tag("query")
-        @DisplayName("should return favorites with matching query string using LIKE")
-        void shouldReturnFavorites_whenQueryMatches() {
-            createFavorite("200001", "Fav1", "SELECT demographics");
-            createFavorite("200002", "Fav2", "SELECT appointments");
-            createFavorite("200003", "Fav3", "INSERT something");
+        @DisplayName("should not return another provider's matching query")
+        void shouldReturnOnlyCurrentProviderFavorites_whenQueryMatches() {
+            createFavorite("200010", "Mine", "SELECT appointments");
+            createFavorite("200011", "Theirs", "SELECT appointments");
 
-            List<ReportByExamplesFavorite> results = dao.findByQuery("SELECT%");
+            List<ReportByExamplesFavorite> results =
+                    dao.findByProviderAndQuery("200010", "SELECT appointments");
 
-            assertThat(results).hasSize(2);
-            assertThat(results).allMatch(f -> f.getQuery().startsWith("SELECT"));
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("should return empty list when no query matches")
-        void shouldReturnEmptyList_whenNoQueryMatches() {
-            createFavorite("200001", "Fav1", "SELECT something");
-
-            List<ReportByExamplesFavorite> results = dao.findByQuery("NO_MATCH%");
-
-            assertThat(results).isEmpty();
+            assertThat(results).singleElement()
+                    .satisfies(favorite -> assertThat(favorite.getName()).isEqualTo("Mine"));
         }
     }
 
@@ -127,30 +116,27 @@ public class ReportByExamplesFavoriteDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should return favorites matching provider and name")
-        void shouldReturnFavorites_whenProviderAndNameMatch() {
+        @DisplayName("should require provider, name, and query to match")
+        void shouldReturnFavorites_whenAllFieldsMatch() {
             createFavorite("300001", "MatchFav", "some query");
             createFavorite("300001", "OtherFav", "other query");
             createFavorite("300002", "MatchFav", "diff query");
 
-            List<ReportByExamplesFavorite> results = dao.findByEverything("300001", "MatchFav", "NO_MATCH");
+            List<ReportByExamplesFavorite> results = dao.findByEverything("300001", "MatchFav", "some query");
 
-            assertThat(results).isNotEmpty();
-            assertThat(results).anyMatch(f ->
-                    f.getProviderNo().equals("300001") && f.getName().equals("MatchFav"));
+            assertThat(results).singleElement()
+                    .satisfies(favorite -> assertThat(favorite.getProviderNo()).isEqualTo("300001"));
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should return favorites matching query string via OR clause")
-        void shouldReturnFavorites_whenQueryStringMatchesViaOr() {
+        @DisplayName("should not return another provider's matching query")
+        void shouldReturnEmpty_whenOnlyQueryMatches() {
             createFavorite("300003", "SomeFav", "unique query string");
 
-            // The findByEverything method uses OR for query: providerNo = ?1 AND name LIKE ?2 OR query LIKE ?3
             List<ReportByExamplesFavorite> results = dao.findByEverything("NOPROVIDER", "NONAME", "unique query string");
 
-            assertThat(results).isNotEmpty();
-            assertThat(results).anyMatch(f -> f.getQuery().equals("unique query string"));
+            assertThat(results).isEmpty();
         }
     }
 

@@ -100,14 +100,21 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
         injectDependency(allergyManager, "allergyDao", mockAllergyDao);
         injectDependency(allergyManager, "patientConsentManager", mockPatientConsentManager);
         injectDependency(allergyManager, "securityInfoManager", mockSecurityInfoManager);
-        grantAllergyReadPrivilege();
+
+        // Default: caller is authorized for _allergy read. The broad matcher covers both the
+        // role-level checks used by the SOAP-reachable reads (null scope) and the demographic-scoped
+        // check in getActiveAllergies. Denial is exercised explicitly in the authorization tests below.
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(), eq("_allergy"),
+                eq(SecurityInfoManager.READ), any())).thenReturn(true);
     }
 
-    private void grantAllergyReadPrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_allergy"),
-                eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
-    }
-
+    /**
+     * Revokes the role-level {@code _allergy} read privilege for the test caller.
+     *
+     * <p>Declared after the permissive default in {@link #setUp()}, so Mockito's
+     * last-matching-stubbing rule makes this win for the null-scope checks performed by the
+     * manager's read methods.</p>
+     */
     private void denyAllergyReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_allergy"),
                 eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
@@ -285,6 +292,21 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
             assertThat(result).hasSize(2);
             assertThat(result).isSameAs(expected);
             verify(mockAllergyDao).findActiveAllergiesOrderByDescription(TEST_DEMO_NO);
+        }
+
+        @Test
+        @DisplayName("should reject cross-patient read when _allergy privilege missing for demographic")
+        void shouldRejectRead_whenAllergyPrivilegeMissingForDemographic() {
+            // Caller lacks _allergy read for this specific demographic (cross-patient probe).
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_allergy", "r", String.valueOf(TEST_DEMO_NO)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> allergyManager.getActiveAllergies(mockLoggedInInfo, TEST_DEMO_NO))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object (_allergy)");
+
+            // The DAO is never queried, so no allergy data leaks.
+            verify(mockAllergyDao, never()).findActiveAllergiesOrderByDescription(any());
         }
 
         @Test

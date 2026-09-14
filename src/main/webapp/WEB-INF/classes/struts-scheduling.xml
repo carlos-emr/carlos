@@ -26,7 +26,7 @@
     Contains action mappings for appointments, ticklers, waiting lists, notifications, contacts, and miscellaneous administrative, billing, reporting, and clinical actions.
 -->
 <struts>
-    <package name="scheduling" namespace="/" extends="struts-default" strict-method-invocation="true">
+    <package name="scheduling" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -205,15 +205,16 @@
         </action>
         <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
         <!--
-            Direct-response PDF actions intentionally use basicStack. The default
-            validation/workflow interceptors can rewrite a streamed NONE response to
+            Direct-response PDF actions intentionally use the basic stack (carlosBasicStack,
+            struts-default's basicStack with exception logging, defined in struts.xml). The
+            default validation/workflow interceptors can rewrite a streamed NONE response to
             input/error and render errorpage.jsp as "CARLOS Error: 0". See issue #2064.
         -->
         <action name="BillingInvoicePrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoicePrint2Action">
-            <interceptor-ref name="basicStack"/>
+            <interceptor-ref name="carlosBasicStack"/>
         </action>
         <action name="BillingInvoiceListPrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoiceListPrint2Action">
-            <interceptor-ref name="basicStack"/>
+            <interceptor-ref name="carlosBasicStack"/>
         </action>
         <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>

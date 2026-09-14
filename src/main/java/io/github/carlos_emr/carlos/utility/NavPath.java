@@ -81,10 +81,14 @@ public final class NavPath {
      * requests activate the correct tab.
      *
      * @param request  the current servlet request
-     * @param patterns one or more path prefixes or segments to test
+     * @param patterns one or more path patterns or segments to test
      * @return {@code true} if any path source matches any pattern
      */
     public static boolean requestPathMatches(HttpServletRequest request, String... patterns) {
+        if (request == null || patterns == null || patterns.length == 0) {
+            return false;
+        }
+
         String requestUri = StringUtils.defaultString(request.getRequestURI());
         String servletPath = StringUtils.defaultString(request.getServletPath());
         String forwardRequestUri = forwardAttribute(request.getAttribute("jakarta.servlet.forward.request_uri"));
