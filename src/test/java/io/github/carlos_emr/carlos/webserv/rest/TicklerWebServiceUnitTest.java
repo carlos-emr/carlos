@@ -41,6 +41,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -136,8 +139,11 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         assertThatThrownBy(() -> service.completeTicklers(payload("{\"ticklers\":[1]}")))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOfSatisfying(WebApplicationException.class, ex -> {
+                    assertThat(ex.getResponse().getStatus())
+                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
+                    assertThat(ex.getResponse().getEntity()).isEqualTo("Access Denied");
+                });
         verify(ticklerManager, never()).completeTickler(any(), any(), any());
     }
 
@@ -149,8 +155,11 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         assertThatThrownBy(() -> service.deleteTicklers(payload("{\"ticklers\":[1]}")))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOfSatisfying(WebApplicationException.class, ex -> {
+                    assertThat(ex.getResponse().getStatus())
+                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
+                    assertThat(ex.getResponse().getEntity()).isEqualTo("Access Denied");
+                });
         verify(ticklerManager, never()).deleteTickler(any(), any(), any());
     }
 
