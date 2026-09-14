@@ -1713,7 +1713,7 @@
       "name": "next-appointment-lookup",
       "script": "scripts/next-appointment-lookup-playwright-checks.js",
       "tiers": [
-        "standalone"
+        "extended"
       ],
       "assertsDatabase": true,
       "provinces": [
