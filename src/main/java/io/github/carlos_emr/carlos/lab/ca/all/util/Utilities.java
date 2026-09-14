@@ -131,50 +131,51 @@ public class Utilities {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String saveFile(InputStream stream, String filename) {
         String retVal = null;
-        File outputFile = null;
-        boolean createdOutputFile = false;
 
         try {
             File safeDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, safeDir);
 
-            outputFile = PathValidationUtils.validateGeneratedChildPath(
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
                     PathValidationUtils.validateGeneratedFileName(
                             "LabUpload." + targetFile.getName().replaceFirst("\\.enc$", "") + "." + (new Date()).getTime()),
                     targetFile.getParentFile());
             String outputPath = outputFile.getPath();
 
+            // Only the configured directory is logged, never the generated name: it is derived from
+            // the caller-supplied lab filename, which can carry patient-identifying text.
             if (logger.isDebugEnabled()) {
-                logger.debug("saveFile place={}, retVal={}",
-                        LogSafe.sanitize(safeDir.getPath(), 1024),
-                        LogSafe.sanitize(outputPath, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.debug("saveFile place={}",
+                        LogSafe.sanitize(safeDir.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
 
             // CREATE_NEW, not the default CREATE/TRUNCATE_EXISTING: the generated name is only
             // millisecond-unique, so two concurrent uploads of the same filename can resolve to the
             // same path. Failing the second one is better than silently interleaving two labs into
-            // one file, and it guarantees the cleanup below only ever removes a file this call owns.
+            // one file.
             try (OutputStream os = Files.newOutputStream(outputFile.toPath(),
-                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                createdOutputFile = true;
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                    BufferedInputStream bis = new BufferedInputStream(stream)) {
 
-                try (BufferedInputStream bis = new BufferedInputStream(stream)) {
-                    byte[] buffer = new byte[8192]; // 8KB buffer
-                    int bytesRead;
-                    while ((bytesRead = bis.read(buffer)) != -1) {
-                        os.write(buffer, 0, bytesRead);
-                    }
+                byte[] buffer = new byte[8192]; // 8KB buffer
+                int bytesRead;
+                while ((bytesRead = bis.read(buffer)) != -1) {
+                    os.write(buffer, 0, bytesRead);
                 }
+            } catch (FileAlreadyExistsException nameCollision) {
+                // Another in-flight upload already created this name, so the file on disk is theirs.
+                // Fail this upload without any cleanup rather than deleting their output. Neither the
+                // name nor the exception is logged: both carry the lab filename.
+                logger.error("Generated lab upload name is already in use; upload not written");
+                return null;
+            } catch (IOException writeFailure) {
+                // Reachable only after CREATE_NEW succeeded above, so this call exclusively created
+                // outputFile and removing it cannot discard another request's output.
+                deletePartialOutput(outputFile);
+                throw writeFailure;
             }
             retVal = outputPath;
-        } catch (FileAlreadyExistsException faee) {
-            // Another in-flight upload already owns this generated name. Do not delete its file.
-            logger.error("Generated lab upload name is already in use: {}", LogSafe.sanitize(filename), faee); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-        } catch (FileNotFoundException fnfe) {
-            deletePartialOutput(createdOutputFile ? outputFile : null);
-            logger.error("Unable to create or write to file: {}", LogSafe.sanitize(filename), fnfe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } catch (IOException ioe) {
-            deletePartialOutput(createdOutputFile ? outputFile : null);
             logger.error("Error processing file: {}", LogSafe.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
         return retVal;

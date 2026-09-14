@@ -4602,7 +4602,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         // was removed; surface it through the enclosing import-error handling.
                         throw new IllegalStateException("Unable to save lab file for demographic import");
                     }
-                    File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+                    File file = PathValidationUtils.validateExistingDocumentPath(filePath);
 
                     localFileIs = new FileInputStream(file);
 
