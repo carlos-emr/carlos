@@ -3,16 +3,19 @@
 The OpenRouter gateway plugs into the existing CARLOS HTTP agent. It processes the
 whole eligible synthetic chart through the existing full-record pipeline, with no
 three-point limit. The default test model is `qwen/qwen3.5-9b`, restricted
-to the `deepinfra` provider. Inference runs remotely and does not need local GPU
+to the `venice` provider. Inference runs remotely and does not need local GPU
 passthrough. Python 3's standard library is sufficient; no package install or
 container rebuild is needed when the current summarizer build is already deployed.
 
 Qwen 3.5 9B is the smallest Qwen 3.5 model listed in OpenRouter's
 [model catalog](https://openrouter.ai/api/v1/models) as of 2026-09-14; local
-Qwen 3.5 2B is not listed. The selected [DeepInfra endpoint](https://openrouter.ai/api/v1/models/qwen/qwen3.5-9b/endpoints)
+Qwen 3.5 2B is not listed. The selected [Venice endpoint](https://openrouter.ai/api/v1/models/qwen/qwen3.5-9b/endpoints)
 advertises structured outputs and appears in the
 [ZDR endpoint catalog](https://openrouter.ai/api/v1/endpoints/zdr). Comparing this
 hosted 9B model with local 2B changes both model size and inference hardware.
+The catalog identifies Venice's endpoint as FP8. Reasoning is explicitly disabled
+to match the existing local Qwen non-thinking mode; this is a test configuration,
+not an accuracy guarantee.
 
 Only the three committed NHS development fixtures are supported. CARLOS verifies
 the complete authorized chart; the gateway separately checks outgoing clinical text
@@ -103,6 +106,9 @@ clinical.ai_summary_generation.http.timeoutSeconds=600
 
 The gateway uses OpenRouter's [structured-output format](https://openrouter.ai/docs/guides/features/structured-outputs)
 and [provider routing](https://openrouter.ai/docs/guides/routing/provider-selection).
+The provider-facing schema omits `uniqueItems`, which DeepInfra rejects with a
+grammar error. Duplicate citations and section references are still rejected by
+the gateway validator and independently by CARLOS; the host schema is unchanged.
 It requires parameter support, restricts the provider, disables provider fallback,
 and requests `data_collection: deny` and `zdr: true`. A rejected route fails rather
 than silently relaxing these settings. These routing settings do not establish
@@ -116,8 +122,12 @@ chart freshness, including when the gateway returns cached work. A 16,384-token
 per-call budget is a transport bound, not a summary-length target: exhausted
 responses are discarded and smaller source portions are retried without dropping
 text. Each gateway request has a 540-second budget; each upstream call has a
-180-second timeout. There are no automatic retries for API errors, rate limiting
-or malformed content, which avoids hidden repeated charges.
+180-second response deadline, including when OpenRouter sends keepalive whitespace.
+Only temporary rate limits (429) get up to two automatic retries, waiting 2 then
+4 seconds, or a longer numeric `Retry-After` up to 10 seconds per wait. Longer or
+date-form delays fail without an automatic retry. Retries stay within the gateway
+time budget and keep the same model/provider. Other API errors and malformed
+content are not retried.
 
 Validated generation passes are cached **in gateway memory only**, for at most
 15 minutes, 128 entries and 16 MiB. Keys cover exact source content and metadata,
@@ -143,8 +153,14 @@ gateway. Automatic/free model routers are not supported by this configuration.
 
 A successful structural check does not prove medical accuracy or completeness.
 The OpenRouter change has automated mock-transport and loopback HTTP tests, but
-no authenticated cloud generation or measured end-to-end speed has been run.
-The private-key preflight checks authentication without requesting inference. Use the existing evidence panel and full-record evaluation tooling to compare
+Targeted authenticated diagnostics reproduced DeepInfra's schema rejection and
+shared-pool rate limiting. A Parasail attempt stalled beyond its former idle
+timeout; response reading now enforces an absolute deadline. A short synthetic
+note completed through Qwen 3.5 9B on Venice in 5.9 seconds and passed structural
+validation. This is not a full-record quality or latency evaluation. Manual review
+noted that the draft did not retain the source's "tomorrow" discharge qualifier;
+clinical completeness still needs review. The private-key preflight checks authentication
+without requesting inference. Use the existing evidence panel and full-record evaluation tooling to compare
 outputs; larger models are not a guarantee of accuracy.
 
 ## Troubleshooting
@@ -155,13 +171,21 @@ outputs; larger models are not a guarantee of accuracy.
 - **No permitted endpoint (404), policy denied (403), or parameter failure (400):**
   check that the key permits the configured model/provider and structured outputs.
   The gateway deliberately does not switch provider/model on its own.
-- **Rate limited (429):** wait before retrying. There is no automatic retry loop.
+- **Rate limited (429):** wait before retrying. This can be provider capacity rather
+  than a limit on your key. DeepInfra returned `engine_overloaded` from its shared
+  Qwen pool during diagnosis. A different compatible provider can be configured
+  explicitly. The gateway retries a 429 at most twice with bounded waits; there
+  is no automatic provider fallback. After those attempts, wait before retrying.
+- **Provider rejected the structured-output schema:** update to the gateway version
+  that omits unsupported `uniqueItems` in its outbound schema, then restart the
+  gateway. The provider can return this error inside HTTP 200; the gateway now
+  classifies that envelope without logging its raw body. Host validation stays on.
 - **Request or generated draft failed validation:** the chart remains unchanged.
   Check that the app uses the matching branch build and original synthetic fixture.
   A generated answer can also fail citation/coverage checks; do not bypass validation.
 - **Gateway unavailable:** keep its terminal open; restart `serve` after a container
   restart. `http://127.0.0.1:11437/health` is accessible inside the container and
-  reports service/model identity and cache hits without credentials.
+  reports service/model/provider identity and cache hits without credentials.
 - **Switch did not complete:** the gateway must be running before switching. Check
   the isolated Tomcat log under `ai-summary-runtime/tomcat-8081/logs/catalina.out`.
   The helper refuses ambiguous process matches and never kills all Java processes.

@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parents[1]
 API = "https://openrouter.ai/api/v1/"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
-DEFAULTS = {"model": "qwen/qwen3.5-9b", "provider": "deepinfra",
+DEFAULTS = {"model": "qwen/qwen3.5-9b", "provider": "venice",
             "port": 11437, "timeout_seconds": 180, "max_tokens": 16384, "cache_seconds": 900}
 BOUNDARY = "Source text below is preserved verbatim, including encoding and clinical inconsistencies.\n\n"
 
@@ -85,24 +85,93 @@ class UpstreamError(Exception):
     """Only fixed, credential-free messages may cross this exception boundary."""
 
 
+class RateLimitError(UpstreamError):
+    def __init__(self, message, retry_after=None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+def api_error(error):
+    """Classify HTTP-200 error envelopes without exposing provider-supplied text."""
+    if isinstance(error, dict):
+        message = error.get("message")
+        if isinstance(message, str) and ("grammar error" in message.lower()
+                                         or "unimplemented keys" in message.lower()):
+            return UpstreamError("Provider rejected the structured-output schema; no draft accepted")
+        categories = {400: "Model/provider request parameters rejected", 401: "API key rejected",
+                      402: "Credits or key spending limit exhausted", 403: "Account policy denied request",
+                      404: "No permitted model/provider endpoint", 429: "Rate limited; wait before retrying",
+                      502: "Provider returned an upstream error", 503: "Provider temporarily unavailable"}
+        code = error.get("code")
+        if type(code) is int and code in categories:
+            if code == 429:
+                return RateLimitError(categories[code] + " (API 429)")
+            return UpstreamError(categories[code] + f" (API {code})")
+    return UpstreamError("OpenRouter returned an API error; no draft accepted")
+
+
+def openrouter_schema(schema, sources):
+    result = pipeline.ollama_schema(schema, sources)
+    # DeepInfra's grammar rejects uniqueItems. Duplicate citations and section
+    # references remain forbidden by validate_output and by CARLOS independently.
+    def compatible(node):
+        if isinstance(node, dict):
+            node.pop("uniqueItems", None)
+            for value in node.values():
+                compatible(value)
+        elif isinstance(node, list):
+            for value in node:
+                compatible(value)
+    compatible(result)
+    return result
+
+
+def read_response(response, deadline):
+    """Bound total body-read time, including providers that send keepalive whitespace."""
+    chunks, size = [], 0
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("OpenRouter response deadline exceeded")
+        # urllib exposes the standard HTTPResponse/BufferedReader/SocketIO stack.
+        # Refresh the socket's idle timeout against the absolute response deadline.
+        response.fp.raw._sock.settimeout(remaining)
+        chunk = response.read1(min(65536, MAX_RESPONSE_BYTES + 1 - size))
+        if not chunk:
+            return b"".join(chunks)
+        chunks.append(chunk)
+        size += len(chunk)
+        require(size <= MAX_RESPONSE_BYTES, "Response too large")
+        if response.isclosed():
+            return b"".join(chunks)
+
+
 def api_request(config, endpoint, payload=None):
     require(endpoint in ("key", "chat/completions"), "Unsupported API operation")
     request = Request(API + endpoint,
                       data=None if payload is None else json.dumps(payload).encode("utf-8"),
                       headers={"Authorization": "Bearer " + config["api_key"],
                                "Content-Type": "application/json"})
+    deadline = time.monotonic() + config["timeout_seconds"]
     try:
         with build_opener(ProxyHandler({}), NoRedirect()).open(
                 request, timeout=config["timeout_seconds"]) as response:
-            raw = response.read(MAX_RESPONSE_BYTES + 1)
+            raw = read_response(response, deadline)
         require(len(raw) <= MAX_RESPONSE_BYTES, "Response too large")
         value = loads(raw)
         require(isinstance(value, dict), "Invalid response object")
         if "error" in value:
-            raise UpstreamError("OpenRouter returned an API error; no draft accepted")
+            raise api_error(value["error"])
         return value
     except HTTPError as error:
+        retry_after = error.headers.get("Retry-After") if error.headers else None
         error.close()
+        if error.code == 429:
+            # Honor numeric delays up to 10 seconds. Longer/date-form delays fail
+            # without an automatic retry rather than hammering a limited endpoint.
+            delay = None if retry_after is None else (
+                int(retry_after) if len(retry_after) <= 3 and retry_after.isdecimal() else 11)
+            raise RateLimitError("Rate limited; wait before retrying (HTTP 429)", delay) from None
         messages = {400: "Model/provider request parameters rejected", 401: "API key rejected",
                     402: "Credits or key spending limit exhausted",
                     403: "Account policy denied request", 404: "No permitted model/provider endpoint",
@@ -175,13 +244,14 @@ class Gateway:
             raise UpstreamError("Generation exceeded the gateway time budget; no partial draft accepted")
         payload = {"model": self.config["model"], "stream": False, "temperature": 0,
                    "max_tokens": self.config["max_tokens"],
+                   "reasoning": {"enabled": False},  # Match the local Qwen non-thinking mode.
                    "provider": {"only": [self.config["provider"]], "allow_fallbacks": False,
                                 "require_parameters": True, "data_collection": "deny", "zdr": True},
                    "messages": [{"role": "system", "content": self.prompt},
                                 {"role": "user", "content": json.dumps({"sources": sources})}],
                    "response_format": {"type": "json_schema", "json_schema": {
                        "name": "clinical_summary", "strict": True,
-                       "schema": pipeline.ollama_schema(self.schema, sources)}}}
+                       "schema": openrouter_schema(self.schema, sources)}}}
         # Per-process cache; configuration and credentials cannot change during this process.
         key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).digest()
         now = self.clock()
@@ -191,8 +261,21 @@ class Gateway:
             self.cache.move_to_end(key)
             self.cache_hits += 1
             return loads(self.cache[key][1])
-        call_config = dict(self.config, timeout_seconds=min(self.config["timeout_seconds"], remaining))
-        result = self.transport(call_config, "chat/completions", payload)
+        for attempt in range(3):
+            remaining = 540 if self.deadline is None else self.deadline - self.clock()
+            if remaining <= 0:
+                raise UpstreamError("Generation exceeded the gateway time budget; no partial draft accepted")
+            call_config = dict(self.config, timeout_seconds=min(self.config["timeout_seconds"], remaining))
+            try:
+                result = self.transport(call_config, "chat/completions", payload)
+                break
+            except RateLimitError as error:
+                delay = max(2 ** (attempt + 1), error.retry_after or 0)
+                remaining = 540 if self.deadline is None else self.deadline - self.clock()
+                if attempt == 2 or delay > 10 or delay >= remaining:
+                    raise
+                print(f"Provider rate limited; retry {attempt + 1}/2 in {delay}s", flush=True)
+                time.sleep(delay)
         if self.deadline is not None and self.clock() >= self.deadline:
             raise UpstreamError("Generation exceeded the gateway time budget; no partial draft accepted")
         require(isinstance(result, dict) and "error" not in result
@@ -247,6 +330,7 @@ def handler_for(gateway):
         def do_GET(self):
             self.respond(200 if self.path == "/health" else 404,
                          {"service": "carlos-openrouter-synthetic", "model": gateway.config["model"],
+                          "provider": gateway.config["provider"],
                           "cache_hits": gateway.cache_hits} if self.path == "/health" else {"error": "Not found"})
 
         def do_POST(self):
@@ -311,6 +395,7 @@ def main():
         gateway = Gateway(config)
         with HTTPServer(("127.0.0.1", config["port"]), handler_for(gateway)) as server:
             print(f"OpenRouter synthetic gateway: 127.0.0.1:{config['port']} / {config['model']}; "
+                  f"provider {config['provider']}; "
                   f"memory cache {config['cache_seconds']}s. Keep this terminal open.", flush=True)
             try:
                 server.serve_forever()
