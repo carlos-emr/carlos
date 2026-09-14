@@ -26,7 +26,22 @@
     Contains action mappings for provider preferences, inbox, email, fax, printing, scratch pads, and signature management.
 -->
 <struts>
-    <package name="provider" namespace="/" extends="struts-default" strict-method-invocation="true">
+    <package name="provider" namespace="/" extends="carlos-default" strict-method-invocation="true">
+
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+
+        <!-- Deliberately narrower than the clinical/demographic/admin packages: only
+             SecurityException is mapped (validation/privilege denials render securityError.jsp
+             with the action's bridged actionErrors). A generic java.lang.Exception mapping is
+             NOT declared because the Struts ExceptionMappingInterceptor forwards without
+             servlet error attributes and logs nothing by default — every unexpected NPE/DAO
+             failure would become an unlogged HTTP 200 "CARLOS Error: 0" page. Unmapped
+             exceptions keep the web.xml error path: HTTP 500, logged with full stack. -->
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -56,6 +71,7 @@
             <result name="faxstatus">/WEB-INF/jsp/admin/faxStatusResults.jspf</result>
         </action>
         <action name="fax/faxAction" class="io.github.carlos_emr.carlos.fax.action.Fax2Action">
+            <result name="faxUncertain">/WEB-INF/jsp/fax/FaxSubmissionUncertain.jsp</result>
             <result name="preview">/WEB-INF/jsp/fax/CoverPage.jsp</result>
             <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="CONSULTATION">/encounter/ViewRequest</result>
@@ -74,7 +90,6 @@
         </action>
         <action name="email/emailSendAction" class="io.github.carlos_emr.carlos.email.action.EmailSend2Action">
             <result name="success">/WEB-INF/jsp/email/emailCompose.jsp</result>
-            <result name="EFORM">/eform/efmshowform_data</result>
         </action>
         <action name="setProviderStaleDate" class="io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action" method="execute">
             <result name="success">/WEB-INF/jsp/provider/setNoteStaleDate.jsp</result>
@@ -114,7 +129,7 @@
         </action>
         <action name="provider/providerSignatureImage" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureImage2Action"/>
         <action name="provider/providerSignatureStamp" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action">
-            <interceptor-ref name="defaultStack">
+            <interceptor-ref name="carlosDefaultStack">
             <param name="actionFileUpload.allowedTypes">image/png,image/jpeg,image/gif</param>
             <param name="actionFileUpload.maximumSize">2097152</param>
         </interceptor-ref>

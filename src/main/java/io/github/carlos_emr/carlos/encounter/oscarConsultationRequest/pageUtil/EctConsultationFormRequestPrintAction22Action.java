@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -53,6 +54,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.form.gate.FormShortcutRouteResolver;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
@@ -248,29 +250,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(reqId), Integer.parseInt(demoNo));
 
             for (EctFormData.PatientForm formItem : forms) {
-                FormTransportContainer formTransportContainer = new FormTransportContainer(
-                        response, request, "/form/forwardshortcutname"
-                        + "?method=fetch&formname="
-                        + formItem.getFormName()
-                        + "&demographic_no="
-                        + formItem.getDemoNo()
-                        + "&formId="
-                        + formItem.getFormId());
-                formTransportContainer.setDemographicNo(demoNo);
-                formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-                formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
-                formTransportContainer.setFormName(formItem.getFormName());
-                formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
-                Path attachedForm;
-                try {
-                    attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
-                } catch (PDFGenerationException e) {
-                    throw new PDFGenerationException(
-                            "Attached form \"" + formItem.getFormName() + "\" could not be rendered: " + e.getMessage(), e);
-                }
-                // Register in streams so the finally block below closes it (see attached-eForms
-                // site above for the matching leak fix).
-                InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                InputStream attachedFormStream = renderFormAttachment(
+                        loggedInInfo, request, response, faxManager, formItem);
                 streams.add(attachedFormStream);
                 alist.add(attachedFormStream);
             }
@@ -283,6 +264,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                     // A document PDFBox could not parse was dropped — do not stream a consultation
                     // packet silently missing content; surface it via the error path below.
                     throw new IOException(skipped + " document(s) could not be included in the combined consultation PDF.");
+                }
+                if (response.isCommitted()) {
+                    throw new IOException("Consultation print response committed before PDF output");
                 }
                 response.setContentType("application/pdf"); // octet-stream
                 response.setHeader(
@@ -305,8 +289,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             // of a context-free NullPointerException from Files.newInputStream(null).
             error = "PDFGenerationException";
             exception = pge;
-        } catch (ServletException e) {
-            throw new RuntimeException(e);
         } finally {
             // Cleaning up InputStreams created for concatenation. A close failure here is
             // cleanup-only: the response bytes are already written (or the real failure was
@@ -335,5 +317,39 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         // result or bare null) stops Struts from resolving a view into the binary response.
         return NONE;
 
+    }
+
+    private InputStream renderFormAttachment(
+            LoggedInInfo loggedInInfo,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FaxManager faxManager,
+            EctFormData.PatientForm formItem) throws PDFGenerationException {
+        if (formItem == null) {
+            throw new PDFGenerationException(
+                    "Attached form \"unknown\" could not be rendered: form metadata is missing");
+        }
+        String formName = formItem.getFormName();
+        try {
+            String formDemoNo = formItem.getDemoNo();
+            String formId = formItem.getFormId();
+            String formPath = FormShortcutRouteResolver.resolve(
+                    formDemoNo, formName, formId, null, null);
+            FormTransportContainer formTransportContainer = new FormTransportContainer(response, request, formPath);
+            formTransportContainer.setDemographicNo(formDemoNo);
+            formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+            formTransportContainer.setSubject(formName + " Form ID " + formId);
+            formTransportContainer.setFormName(formName);
+            formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
+            Path attachedForm = faxManager.renderFaxDocument(
+                    loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
+            return Files.newInputStream(attachedForm);
+        } catch (SQLException | IOException | ServletException | RuntimeException e) {
+            throw new PDFGenerationException(
+                    "Attached form \"" + formName + "\" could not be rendered: " + e.getMessage(), e);
+        } catch (PDFGenerationException e) {
+            throw new PDFGenerationException(
+                    "Attached form \"" + formName + "\" could not be rendered: " + e.getMessage(), e);
+        }
     }
 }

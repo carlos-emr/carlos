@@ -37,6 +37,8 @@ import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
+import io.github.carlos_emr.carlos.utility.SafeEncode;
+
 /**
  * SAX XML parser handler for generating antenatal (pregnancy) risk assessment forms.
  * <p>
@@ -200,17 +202,27 @@ public class DesAntenatalPlannerRisksHandler_99_12 extends DefaultHandler {
             results += "<table border=0 cellpadding=0 cellspacing=0 width=\"98%\">";
             results += "<tr><td align='center'><font size=-2><b>\n";
         }
-        for (int i = 0; i < atts.getLength(); i++) {
-            if ("name".equals(atts.getQName(i))) {
-                riskName = atts.getValue(i);
-                results += "<input type=checkbox name=\"risk_" + riskName + "\" value='checked' id='risk_" + riskName + "'></font></td><td width=" + 100 / numcols + "% >";
-                riskNameObj.setProperty(riskName, "checked");
-            }
-            if ("href".equals(atts.getQName(i))) {
-                results += "<a href=# onClick=\"popupPage(400,500,'" + atts.getValue(i) + "');return false;\">";
-                href = 1; //there is a href there
-            }
-
+        String configuredRiskName = atts.getValue("name");
+        if (configuredRiskName != null) {
+            riskName = configuredRiskName;
+            String encodedRiskName = SafeEncode.forHtmlAttribute(riskName);
+            results += "<input type=checkbox name=\"risk_" + encodedRiskName
+                    + "\" value='checked' id='risk_" + encodedRiskName
+                    + "'></font></td><td width=" + 100 / numcols + "% >";
+            riskNameObj.setProperty(riskName, "checked");
+        }
+        // The configuration file is not a trusted artifact: it predates save-side
+        // validation and is writable outside the editor. Escaping alone would not
+        // help here -- popupPage() hands the value to window.open(), where a
+        // javascript: URL runs in this page's origin -- so an unsafe link is
+        // dropped and the label renders as plain text.
+        String configuredHref = atts.getValue("href");
+        if (AntenatalRiskLink.isSafe(configuredHref)) {
+            String popupScript = "popupPage(400,500,'"
+                    + SafeEncode.forJavaScript(configuredHref) + "');return false;";
+            results += "<a href=\"#\" onclick=\""
+                    + SafeEncode.forHtmlAttribute(popupScript) + "\">";
+            href = 1; //there is a href there
         }
         //for (int i=0; i < atts.getLength(); i++) {
         //  if ("riskno".equals(atts.getQName(i))) {
@@ -254,7 +266,9 @@ public class DesAntenatalPlannerRisksHandler_99_12 extends DefaultHandler {
         }
         // Generate text input for quantitative pregnancy risk data entry
         else if (rawName.equals("entry")) {
-            results += "</font></td><td><input type=text size=6 name=\"risk_" + riskName + "\" datafld='risk_" + riskName + "'>";
+            String encodedRiskName = SafeEncode.forHtmlAttribute(riskName);
+            results += "</font></td><td><input type=text size=6 name=\"risk_" + encodedRiskName
+                    + "\" datafld='risk_" + encodedRiskName + "'>";
             riskName = "";
         }
     }
@@ -274,7 +288,7 @@ public class DesAntenatalPlannerRisksHandler_99_12 extends DefaultHandler {
      */
     public void characters(char[] ch, int start, int length) throws SAXException {
         String s = new String(ch, start, length);
-        results += s;
+        results += SafeEncode.forHtmlContent(s);
     }
 
 

@@ -758,6 +758,21 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
             assertThat(result).isTrue();
             assertThat(prescription.getDigitalSignatureId()).isNull();
         }
+
+        @Test
+        @DisplayName("should return false when the script does not exist instead of throwing")
+        void shouldReturnFalse_whenScriptNotFound() {
+            // Given
+            when(mockPrescriptionDao.find((int) TEST_SCRIPT_NO)).thenReturn(null);
+
+            // When
+            boolean result = prescriptionManager.setPrescriptionSignature(
+                mockLoggedInInfo, TEST_SCRIPT_NO, TEST_DIGITAL_SIG_ID);
+
+            // Then
+            assertThat(result).isFalse();
+            verify(mockPrescriptionDao, never()).merge(any());
+        }
     }
 
     /**

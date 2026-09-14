@@ -29,15 +29,39 @@
 
 --%>
 
-<%
+<%--
+    Antenatal add-on risk list editor.
 
-    String user_no = (String) session.getAttribute("user");
-%>
-<%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+    Purpose:
+      Presents the shared antenatal risk-list XML for editing by a configuration
+      administrator. The rendered document drives the risk checkboxes and popup
+      links on every antenatal planner, so it is shared clinical-decision
+      configuration rather than per-patient data.
+
+    Flow:
+      GET  -> decision/antenatal/obarriskedit_99_12 (ViewDecision2Action, _form r)
+      POST -> decision/antenatal/SaveAntenatalRiskConfig
+              (SaveAntenatalRiskConfig2Action, _form w plus _admin w or _admin.misc w)
+      Persistence lives entirely in that action; this page performs no writes.
+
+    Request attributes (set by the save action on its "input" result):
+      riskEditorChecklist - the rejected submission, redisplayed so the edit is not lost
+      riskEditorError     - a safe, user-displayable validation or storage message
+    Session attribute:
+      riskEditorSaved     - one-shot success flag consumed after a post/redirect/get
+
+    Configuration source:
+      DOCUMENT_DIR override if present, otherwise the default packaged in the webapp.
+      Same precedence as antenatalplanner.jsp and antenatalplannerprint.jsp, but the
+      packaged copy is read as a resource stream so it also works unexploded. A
+      readable symbolic-link override remains active but is shown read-only because
+      the atomic writer deliberately refuses to replace links.
+
+    @since 2026-08-11
+--%>
+<%@ page import="java.util.*, java.io.*, java.nio.charset.StandardCharsets, java.nio.file.Files, java.nio.file.LinkOption, java.nio.file.Path" %>
+<%@ page import="io.github.carlos_emr.carlos.decision.AntenatalConfigLocation" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
 <head>
@@ -58,20 +82,38 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="<%= request.getContextPath() %>/decision/antenatal/obarriskedit_99_12" method="POST">
+<form name="checklistedit" action="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/decision/antenatal/SaveAntenatalRiskConfig" method="POST">
     <%
-        char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
-        String str = null;
-        if (request.getParameter("submit") != null && request.getParameter("submit").compareTo(" Save ") == 0) {
-            //FileWriter inf = new FileWriter(".."+sep+"webapps"+sep+oscarVariables.getProperty("project_home")+sep+"decision"+sep+"antenatal"+sep+"desantenatalplannerrisks_99_12.xml");
-            FileWriter inf = new FileWriter(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
-            str = request.getParameter("checklist");
-            if (str == null) str = "";
-            str = SxmlMisc.replaceString(str, " & ", " &amp; ");
-            str = SxmlMisc.replaceString(str, " > ", " &gt; ");
-            str = SxmlMisc.replaceString(str, " < ", " &lt; ");
-            inf.write(str);
-            inf.close();
+        String submittedChecklist = (String) request.getAttribute("riskEditorChecklist");
+        String editorError = (String) request.getAttribute("riskEditorError");
+        boolean editorSaved = Boolean.TRUE.equals(session.getAttribute("riskEditorSaved"));
+        String riskFileName = AntenatalConfigLocation.RISK_FILE_NAME;
+        File overrideFile = AntenatalConfigLocation.readableOverride(
+                riskFileName);
+        String readOnlyReason = null;
+        try {
+            Path configuredOverride = AntenatalConfigLocation.configuredPath(riskFileName);
+            Path configuredDirectory = configuredOverride.getParent();
+            if (configuredDirectory == null || !Files.isDirectory(configuredDirectory)
+                    || !Files.isWritable(configuredDirectory)) {
+                readOnlyReason = "The configured document directory is unavailable or not writable.";
+            } else if (Files.isSymbolicLink(configuredOverride)) {
+                // Keep an existing operator-managed symlink live for the planner, but
+                // do not present it as editable: the atomic writer refuses links, and
+                // falling back would silently change the active clinical rules.
+                readOnlyReason = "This risk list is configured through a symbolic link and is read-only here. "
+                        + "Update the linked file through the deployment configuration process.";
+            } else if (Files.exists(configuredOverride, LinkOption.NOFOLLOW_LINKS)
+                    && overrideFile == null) {
+                readOnlyReason = "The configured risk-list target is not a readable regular file. "
+                        + "Correct the deployment configuration before editing.";
+            }
+        } catch (IOException e) {
+            readOnlyReason = "Risk-list storage is unavailable: " + e.getMessage();
+        }
+        boolean readOnlyOverride = readOnlyReason != null;
+        if (editorSaved) {
+            session.removeAttribute("riskEditorSaved");
         }
     %>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
@@ -81,8 +123,11 @@
             <th width="25%" nowrap>
                 <div align="right"><a href=#
                                       onClick="popupPage(450,900,'ar1risk_99_12.htm')"><font
-                        color="#FFFF66">View Risk Number</font></a> <input type='submit'
-                                                                           name='submit' value=' Save '> <input
+                        color="#FFFF66">View Risk Number</font></a>
+                    <% if (!readOnlyOverride) { %>
+                    <input type='submit' name='submit' value=' Save '>
+                    <% } %>
+                    <input
                         type="button"
                         name="Button"
                         value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
@@ -90,44 +135,85 @@
                 </div>
             </th>
         </tr>
+        <% if (editorError != null) { %>
+        <tr>
+            <td colspan="2" style="padding: 0.5em;">
+                <div role="alert" style="color: #a00; font-weight: bold;">
+                    <%= SafeEncode.forHtmlContent(editorError) %>
+                </div>
+            </td>
+        </tr>
+        <% } else if (readOnlyOverride) { %>
+        <tr>
+            <td colspan="2" style="padding: 0.5em;">
+                <div role="alert" style="color: #a00; font-weight: bold;">
+                    <%= SafeEncode.forHtmlContent(readOnlyReason) %>
+                </div>
+            </td>
+        </tr>
+        <% } else if (editorSaved) { %>
+        <tr>
+            <td colspan="2" style="padding: 0.5em;">
+                <output style="color: #063; font-weight: bold;">
+                    The antenatal risk list was saved.
+                </output>
+            </td>
+        </tr>
+        <% } %>
         <tr>
             <td align=CENTER colspan="2"><font
                     face="Times New Roman, Times, serif"> <textarea
-                    name="checklist" cols="100" rows="38" style="width: 100%">
-<%
-    boolean fileFound = true;
-    File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
-    if (!file.isFile() || !file.canRead()) {
-        file = new File(".." + sep + "webapps" + sep + oscarVariables.getProperty("project_home") + sep + "decision" + sep + "antenatal" + sep + "desantenatalplannerrisks_99_12.xml");
-        if (!file.isFile() || !file.canRead()) {
-            fileFound = false; //throw new IOException();
+                    name="checklist" cols="100" rows="38" style="width: 100%"<%= readOnlyOverride ? " readonly" : "" %>>
+<% if (submittedChecklist != null) {
+       out.print(SafeEncode.forHtml(submittedChecklist));
+   } else {
+    // Same precedence every reader of this configuration uses (see
+    // antenatalplanner.jsp and antenatalplannerprint.jsp): an administrator's
+    // DOCUMENT_DIR copy wins, otherwise show the default shipped in the webapp.
+    //
+    // The previous fallback built a path relative to the JVM's working directory
+    // out of "file_separator" and "project_home". That could not resolve under a
+    // modern Tomcat layout — the working directory is wherever the server was
+    // launched from, and "project_home" does not name the deployed context — so a
+    // site that had never saved an override opened this editor on an empty box
+    // with no way back to the packaged default, even though the planner was
+    // rendering that default at the same moment.
+    Reader source = null;
+    if (overrideFile != null) {
+        source = Files.newBufferedReader(overrideFile.toPath(), StandardCharsets.UTF_8);
+    } else {
+        // getResourceAsStream rather than getRealPath: the latter returns null when
+        // the application is served from an unexploded WAR, which would leave the
+        // editor blank even though the packaged default is present.
+        InputStream packaged = application.getResourceAsStream(
+                "/decision/antenatal/" + riskFileName);
+        if (packaged != null) {
+            source = new InputStreamReader(packaged, StandardCharsets.UTF_8);
         }
     }
 
-    if (fileFound) {
-        RandomAccessFile raf = new RandomAccessFile(file, "r");
-        String aline = ""; //, temp="";
-        while (true) {
-            aline = raf.readLine();
-            if (aline != null) {
+    if (source != null) {
+        try (BufferedReader reader = new BufferedReader(source)) {
+            String aline;
+            while ((aline = reader.readLine()) != null) {
                 out.println(SafeEncode.forHtml(aline));
-            } else {
-                break;
             }
         }
-        raf.close();
     }
+   }
 %>
 </textarea> </font></td>
         </tr>
         <TR>
-            <td><b>*</b> The Symbols ("&", "<", or ">") should be written as
-                " & ", " < ", or " > " in the content. Or use ("&amp;amp;","&amp;lt;",
-                or "&amp;gt;") instead.
+            <td><b>*</b> Enter a complete risk-list XML document. In text content,
+                write the symbols &amp;, &lt;, and &gt; as &amp;amp;, &amp;lt;, and &amp;gt;.
             </td>
         </tr>
     </table>
-    <input type='submit' name='submit' value=' Save '> <input
+    <% if (!readOnlyOverride) { %>
+    <input type='submit' name='submit' value=' Save '>
+    <% } %>
+    <input
         type="button" name="Button" value=" Exit " onClick="onExit();">
 </form>
 </body>

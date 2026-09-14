@@ -77,7 +77,9 @@ class Fax2ActionCancelUnitTest extends CarlosUnitTestBase {
         securityInfoManager = mock(SecurityInfoManager.class);
 
         request = new MockHttpServletRequest();
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        LoggedInInfo info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         response = new MockHttpServletResponse();
 
         // cancel() gates on _fax read before touching the flush/redirect flow.
@@ -127,6 +129,7 @@ class Fax2ActionCancelUnitTest extends CarlosUnitTestBase {
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setTransactionId(55);
             action.setDemographicNo(10);
+            claim(55, 10, "999998");
 
             String result = action.cancel();
 
@@ -153,6 +156,7 @@ class Fax2ActionCancelUnitTest extends CarlosUnitTestBase {
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setTransactionId(55);
             action.setDemographicNo(10);
+            claim(55, 10, "999998");
 
             String result = action.cancel();
 
@@ -176,6 +180,8 @@ class Fax2ActionCancelUnitTest extends CarlosUnitTestBase {
             action.setTransactionType("EFORM");
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setTransactionId(77);
+            action.setDemographicNo(10);
+            claim(77, 10, "999998");
 
             String result = action.cancel();
 
@@ -199,6 +205,8 @@ class Fax2ActionCancelUnitTest extends CarlosUnitTestBase {
             action.setTransactionType("EFORM");
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setTransactionId(77);
+            action.setDemographicNo(10);
+            claim(77, 10, "999998");
 
             String result = action.cancel();
 
@@ -206,5 +214,102 @@ class Fax2ActionCancelUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("faxCleanupFailed")).isEqualTo(Boolean.TRUE);
             assertThat(response.getRedirectedUrl()).isNull();
         }
+    }
+    private java.util.Map<String, Fax2Action.FaxPreviewClaim> claim(int eform, int patient, String provider) {
+        var claims = new java.util.concurrent.ConcurrentHashMap<String, Fax2Action.FaxPreviewClaim>();
+        claims.put(APP_TEMP_ROOT + "/fax.pdf", new Fax2Action.FaxPreviewClaim(eform, patient, provider));
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, claims);
+        return claims;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"77,11,999998", "78,10,999998", "77,10,999997"})
+    @DisplayName("should reject cancellation when any preview ownership binding differs")
+    void shouldRejectCancellation_whenClaimBindingDiffers(int eform, int patient, String provider) {
+        setUpCommonMocks();
+        var claims = claim(eform, patient, provider);
+        try (var context = mockStatic(ServletActionContext.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            var action = eformCancel();
+            assertThat(action.cancel()).isEqualTo(Fax2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(claims.get(APP_TEMP_ROOT + "/fax.pdf").cancelled()).isFalse();
+            org.mockito.Mockito.verifyNoInteractions(faxManager);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"/unclaimed-preview.pdf", "/var/lib/carlos/document/other-patient.pdf"})
+    @DisplayName("should reject unclaimed paths without validating or flushing another document")
+    void shouldRejectCancellation_whenPathIsUnclaimed(String path) {
+        setUpCommonMocks();
+        var claims = claim(77, 10, "999998");
+        try (var context = mockStatic(ServletActionContext.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            var action = eformCancel();
+            action.setFaxFilePath(path);
+            assertThat(action.cancel()).isEqualTo(Fax2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(claims).hasSize(1);
+            org.mockito.Mockito.verifyNoInteractions(faxManager);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should retain failed cancellation for cleanup retry but never for queueing")
+    void shouldAllowCleanupRetryWithoutQueueing_whenFlushFails(boolean throwsFailure) {
+        setUpCommonMocks();
+        var claims = claim(77, 10, "999998");
+        claims.put("other-owned-preview", new Fax2Action.FaxPreviewClaim(88, 11, "999998"));
+        if (throwsFailure) {
+            when(faxManager.flush(any(), anyString())).thenThrow(new IllegalStateException("PRIVATE_CLINICAL_TEXT")).thenReturn(true);
+        } else {
+            when(faxManager.flush(any(), anyString())).thenReturn(false, true);
+        }
+        try (var context = mockStatic(ServletActionContext.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(Fax2Action.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            var action = eformCancel();
+            assertThat(action.cancel()).isEqualTo("preview");
+            assertThat(claims.get(APP_TEMP_ROOT + "/fax.pdf").cancelled()).isTrue();
+            assertThat((Object) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    action, "consumeClaimedFaxFilePathFromSession")).isNull();
+            assertThat(action.cancel()).isEqualTo(Fax2Action.NONE);
+            assertThat(claims).containsOnlyKeys("other-owned-preview");
+            assertThat(logs.events()).allSatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).doesNotContain("PRIVATE_CLINICAL_TEXT");
+                assertThat(event.getThrown()).isNull();
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should leave a queued source untouched when its preview claim was consumed")
+    void shouldRejectCancellation_whenQueueAlreadyConsumedClaim() {
+        setUpCommonMocks();
+        claim(77, 10, "999998");
+        try (var context = mockStatic(ServletActionContext.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            var action = eformCancel();
+            assertThat((String) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    action, "consumeClaimedFaxFilePathFromSession")).isEqualTo(APP_TEMP_ROOT + "/fax.pdf");
+            assertThat(action.cancel()).isEqualTo(Fax2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            org.mockito.Mockito.verifyNoInteractions(faxManager);
+        }
+    }
+
+    private Fax2Action eformCancel() {
+        var action = new Fax2Action();
+        action.setTransactionType("EFORM");
+        action.setTransactionId(77);
+        action.setDemographicNo(10);
+        action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+        return action;
     }
 }
