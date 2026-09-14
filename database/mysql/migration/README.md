@@ -27,7 +27,8 @@ migration/
            V1.0.21__serialize_missing_lab_routing_creation.sql
            V1.0.22__add_lab_routing_lock_audit_columns.sql
            V1.0.24__add_email_consent_audit.sql
-           V1.0.25__widen_email_config_for_encrypted_credentials.sql
+           V1.0.25__add_sms_system_of_record.sql
+           V1.0.26__widen_email_config_for_encrypted_credentials.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -42,13 +43,13 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.25`
-(`common/V1.0.25`, shared by both provinces), and the next free number for ANY
-location — shared or province — is `V1.0.26`. The version line is global:
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.26`
+(`common/V1.0.26`, shared by both provinces), and the next free number for ANY
+location — shared or province — is `V1.0.27`. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.25` today on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.25`) but would silently
+run — `common/V1.0.26` today on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.26`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province.

@@ -33,12 +33,12 @@ run the updated acknowledgement code to participate in this coordination protoco
 metadata when the idempotent V1.0.21 creation finds a pre-existing coordination table.
 `V1.0.24__add_email_consent_audit.sql` records the consent decision enforced for each
 provider-to-patient email attempt.
-`V1.0.25__widen_email_config_for_encrypted_credentials.sql` expands email configuration storage
+`V1.0.26__widen_email_config_for_encrypted_credentials.sql` expands email configuration storage
 to TEXT so encrypted credentials fit even when the plaintext configuration filled the old column.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.25`
-(also the highest shared one), so the next free version for ANY location is `V1.0.26`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.26`
+(also the highest shared one), so the next free version for ANY location is `V1.0.27`
 (see `../README.md`).

@@ -46,7 +46,7 @@ class EmailCredentialSchemaMigrationUnitTest {
 
                 String migration;
                 try (var input = new ClassPathResource(
-                        "db/migration/common/V1.0.25__widen_email_config_for_encrypted_credentials.sql")
+                        "db/migration/common/V1.0.26__widen_email_config_for_encrypted_credentials.sql")
                         .getInputStream()) {
                     migration = new String(input.readAllBytes(), StandardCharsets.UTF_8);
                 }
