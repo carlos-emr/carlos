@@ -67,13 +67,16 @@ class JspEncodingRegressionTest {
 
     /**
      * {@code /closenreload} is reachable before authentication and copies {@code parentAjaxId}
-     * straight off the query string into a JavaScript string literal. HTML escaping is the wrong
-     * sink for that position: it leaves backslashes and line terminators untouched, so a crafted
-     * value can still escape the closing quote. Pin the JavaScript context so the legacy
-     * {@code forHtml} alias cannot be reintroduced here.
+     * straight off the query string into a JavaScript string literal. The legacy {@code forHtml}
+     * alias encoded it for the wrong sink: HTML entities are not decoded inside {@code <script>},
+     * so it only held because {@code &quot;} happens to be inert there, while backslashes and line
+     * terminators passed through unescaped and could still corrupt the literal. {@code javaScript}
+     * encodes for the sink that actually parses the value. Pin the context so the alias cannot be
+     * reintroduced here.
      */
     @Test
     @DisplayName("should encode closenreload parentAjaxId in the JavaScript string context")
+    @Tag("security")
     void shouldEncodeParentAjaxId_inCloseNReloadJavaScriptString() throws Exception {
         String closeNReloadJsp = readJsp("common/closenreload.jsp");
 
