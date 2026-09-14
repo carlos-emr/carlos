@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const { execFileSync } = require('node:child_process');
 const vm = require('node:vm');
 
 // login-failure-host-header-playwright-checks.js is documented as requiring the
@@ -161,4 +162,66 @@ test('login-failure host header check refuses a target whose channel cannot be a
   ]) {
     assert.throws(() => assertBaseUrlIntegrity(new URL(url)), /Refusing plain-http BASE_URL/, url);
   }
+});
+
+/**
+ * Load the check module for real in a child process, with `playwright` stubbed so the
+ * test needs neither the package nor a browser, and return everything it printed.
+ *
+ * The other tests here read the source as text, which is why they were blind to the
+ * defect this one exists for: `assertBaseUrlIntegrity(config.baseUrl)` was called
+ * above the `const LOOPBACK_HOSTS` / `const isLoopbackHost` it depends on. The
+ * function declaration hoists, the consts do not, so every real invocation of the
+ * check died with `ReferenceError: Cannot access 'isLoopbackHost' before
+ * initialization` before the browser opened -- while `node --check` and every
+ * source-level assertion stayed green. Only evaluating the module catches that.
+ */
+function loadCheckModule(env) {
+  const script = `
+    const Module = require('node:module');
+    const load = Module._load;
+    Module._load = function (request, ...rest) {
+      if (request === 'playwright') {
+        return { chromium: { launch: async () => { throw new Error('__STUB_LAUNCH__'); } } };
+      }
+      return load.call(this, request, ...rest);
+    };
+    try {
+      require(${JSON.stringify(path.join(__dirname, 'login-failure-host-header-playwright-checks.js'))});
+    } catch (error) {
+      console.log('THREW ' + error.constructor.name + ': ' + error.message);
+    }
+  `;
+  const options = {
+    env: { ...process.env, ...env },
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 30000,
+  };
+  try {
+    return execFileSync(process.execPath, ['-e', script], options);
+  } catch (error) {
+    // An accepted target runs on into the IIFE, where the stubbed launch rejects
+    // outside any try -- an unhandled rejection, so the child exits non-zero. That is
+    // the expected shape for that case; what matters is everything it printed first.
+    return `${error.stdout || ''}${error.stderr || ''}`;
+  }
+}
+
+test('login-failure host header check evaluates its module without a temporal-dead-zone error', () => {
+  const output = loadCheckModule({
+    BASE_URL: 'http://emr.example.org/carlos',
+    ALLOW_NON_LOCAL_BASE_URL: 'true',
+  });
+  assert.doesNotMatch(output, /ReferenceError/, output);
+  assert.match(output, /THREW Error: Refusing plain-http BASE_URL/, output);
+});
+
+test('login-failure host header check reaches its browser step for an accepted target', () => {
+  // The refusal path alone would still pass if the guard ran too early and threw for
+  // every target, so drive an ACCEPTED one through to the launch call as well.
+  const output = loadCheckModule({ BASE_URL: 'http://127.0.0.1:8080/carlos' });
+  assert.doesNotMatch(output, /ReferenceError/, output);
+  assert.doesNotMatch(output, /Refusing plain-http BASE_URL/, output);
+  assert.match(output, /__STUB_LAUNCH__/, output);
 });

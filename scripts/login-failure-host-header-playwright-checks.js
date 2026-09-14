@@ -124,15 +124,6 @@ const config = {
   screenshotDir: process.env.LOGIN_FAILURE_SCREENSHOT_DIR || '/tmp',
 };
 
-// validateBaseUrl's ALLOW_NON_LOCAL_BASE_URL opt-in still admits a plain-http
-// non-loopback target, and over cleartext neither rejectUnauthorized nor
-// ignoreHTTPSErrors means anything -- there is no certificate to verify. This check
-// reads a page back and compares two responses byte for byte, so an on-path attacker
-// would supply both halves and every assertion would pass without testing the target
-// at all. Loopback over http is fine (the hop does not leave the machine); anything
-// else has to be https, the same bound clinical-freetext applies.
-assertBaseUrlIntegrity(config.baseUrl);
-
 // .invalid is reserved by RFC 2606 and can never resolve, so if this string ever
 // appears in a served page it can only have come from the request's Host header.
 const SPOOFED_HOST = 'carlos-host-header-probe.invalid';
@@ -177,7 +168,17 @@ const isLoopbackHost = (hostname) => LOOPBACK_HOSTS.has(
 );
 const isLoopbackTarget = () => isLoopbackHost(config.baseUrl.hostname);
 
-/** Refuse a target whose channel cannot be authenticated at all; see the call site. */
+/**
+ * Refuse a target whose channel cannot be authenticated at all.
+ *
+ * validateBaseUrl's ALLOW_NON_LOCAL_BASE_URL opt-in still admits a plain-http
+ * non-loopback target, and over cleartext neither rejectUnauthorized nor
+ * ignoreHTTPSErrors means anything -- there is no certificate to verify. This check
+ * reads a page back and compares two responses byte for byte, so an on-path attacker
+ * would supply both halves and every assertion would pass without testing the target
+ * at all. Loopback over http is fine (the hop does not leave the machine); anything
+ * else has to be https, the same bound clinical-freetext applies.
+ */
 function assertBaseUrlIntegrity(baseUrl) {
   if (!isLoopbackHost(baseUrl.hostname) && baseUrl.protocol !== 'https:') {
     throw new Error(
@@ -187,6 +188,13 @@ function assertBaseUrlIntegrity(baseUrl) {
     );
   }
 }
+
+// Called here, AFTER the const helpers above are initialized: hoisting makes the
+// function callable earlier, but LOOPBACK_HOSTS and isLoopbackHost would still be in
+// their temporal dead zone and every run would die with a ReferenceError before the
+// browser opened. login-failure-host-header-front-door.test.js loads this module for
+// real to keep that from coming back.
+assertBaseUrlIntegrity(config.baseUrl);
 
 /**
  * GET a path over a raw socket with a caller-chosen Host header.
