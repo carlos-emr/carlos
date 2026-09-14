@@ -21,6 +21,9 @@
 --     (identical label catalogs in ON and BC) rather than hard-coded
 --     serviceIds, and are guarded by WHERE NOT EXISTS (the table has no
 --     primary key, so INSERT IGNORE alone could not deduplicate re-runs).
+--   * a final block fixes up the six fictional consultation services that
+--     only exist in the devcontainer's development.sql snapshot; it matches
+--     nothing under `carlos-ctl demo-data`. See its own header below.
 -- ---------------------------------------------------------------------------
 
 INSERT IGNORE INTO professionalSpecialists
@@ -118,4 +121,70 @@ JOIN professionalSpecialists ps
 WHERE NOT EXISTS (
     SELECT 1 FROM serviceSpecialists ss
     WHERE ss.serviceId = cs.serviceId AND ss.specId = ps.specId
+  );
+
+-- ---------------------------------------------------------------------------
+-- Dev-snapshot-only consultation services.
+--
+-- development.sql truncate-reloads consultationServices with six fictional
+-- labels -- Radiology, Cardiology, Acarology, Cetology, Embryology, Geology --
+-- and links EVERY one of them to the same two legacy snapshot specialists. The
+-- consultation request form and Administration > Edit Specialists Listing then
+-- render an identical list whichever service is picked, so a broken service
+-- filter looks exactly like a working one.
+--
+-- The specType join above only reaches Cardiology, the single label that also
+-- names a real specialty. The other five get an explicit slice of the
+-- 9001-9060 fake roster below, deliberately different in both membership and
+-- size (1/2/3/4/5 against Cardiology's 7) so switching service visibly
+-- changes the list. Which specialty block backs which label is arbitrary:
+-- these are the snapshot's joke labels, not clinical services.
+--
+-- Scope: none of the five labels exists in either province's Flyway
+-- consultationServices catalog (ON and BC both seed 'Cardiology' and neither
+-- seeds the rest), and the additive demo artifact excludes that table, so
+-- under `carlos-ctl demo-data` every statement below matches zero rows.
+-- 'Cardiology' is deliberately left out of the DELETE for the same reason in
+-- reverse -- it IS a real provincial label, and Flyway data must win.
+--
+-- Idempotency: serviceSpecialists has no primary key, so the insert is
+-- deduplicated with WHERE NOT EXISTS (INSERT IGNORE cannot). The DELETE is
+-- restricted to specIds outside the fake roster, so it can only ever remove
+-- the snapshot's own uniform links and never a row this file just wrote.
+-- ---------------------------------------------------------------------------
+
+DELETE ss
+FROM serviceSpecialists ss
+JOIN consultationServices cs
+  ON cs.serviceId = ss.serviceId
+WHERE cs.serviceDesc IN ('Acarology', 'Cetology', 'Embryology', 'Geology', 'Radiology')
+  AND ss.specId NOT BETWEEN 9001 AND 9060;
+
+INSERT INTO serviceSpecialists (serviceId, specId)
+SELECT cs.serviceId, demo_links.specId
+FROM (
+  SELECT 'Acarology'  AS serviceDesc, 9006 AS specId UNION ALL
+  SELECT 'Acarology',  9007 UNION ALL
+  SELECT 'Acarology',  9008 UNION ALL
+  SELECT 'Cetology',   9021 UNION ALL
+  SELECT 'Cetology',   9022 UNION ALL
+  SELECT 'Embryology', 9041 UNION ALL
+  SELECT 'Embryology', 9042 UNION ALL
+  SELECT 'Embryology', 9043 UNION ALL
+  SELECT 'Embryology', 9044 UNION ALL
+  SELECT 'Embryology', 9045 UNION ALL
+  SELECT 'Geology',    9031 UNION ALL
+  SELECT 'Radiology',  9036 UNION ALL
+  SELECT 'Radiology',  9037 UNION ALL
+  SELECT 'Radiology',  9038 UNION ALL
+  SELECT 'Radiology',  9039
+) demo_links
+JOIN consultationServices cs
+  ON cs.serviceDesc = demo_links.serviceDesc
+WHERE EXISTS (
+    SELECT 1 FROM professionalSpecialists ps WHERE ps.specId = demo_links.specId
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM serviceSpecialists ss
+    WHERE ss.serviceId = cs.serviceId AND ss.specId = demo_links.specId
   );
