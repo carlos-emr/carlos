@@ -2066,14 +2066,16 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                     .contains("\"success\":false")
                     .contains("\"error\":\"Invalid credentials.\"");
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
-            logActionMock.verify(() -> LogAction.addLog(USERNAME, "login", "failed",
-                    "bad_credentials", request.getRemoteAddr()));
+            // LoginCheckLoginBean.cleanNullObj() already persisted the durable "failed" login row
+            // before auth() returned, so the action must not add a second row for the same attempt.
+            logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(),
+                    anyString(), anyString()), never());
         }
     }
 
     @Test
-    @DisplayName("should audit failed login when password is expired")
-    void shouldAuditFailedLogin_whenPasswordIsExpired() throws Exception {
+    @DisplayName("should not write a duplicate audit row when password is expired")
+    void shouldNotWriteDuplicateAuditRow_whenPasswordIsExpired() throws Exception {
         request.setParameter("forcedpasswordchange", "false");
         String password = VALID_PASSWORD;
 
@@ -2093,13 +2095,16 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getRedirectedUrl()).contains("/loginfailed");
             verify(mockedLoginChecks.constructed().get(0)).updateLoginList(request.getRemoteAddr(), USERNAME);
-            logActionMock.verify(() -> LogAction.addLog(USERNAME, "login", "failed",
-                    "bad_credentials", request.getRemoteAddr()));
+            // LoginCheckLoginBean.cleanNullObjExpire() owns the durable row for this verdict, and it
+            // records it as "expired". A row written here would both double-count the attempt and
+            // misclassify an expiry as a credential failure.
+            logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(),
+                    anyString(), anyString()), never());
         }
     }
 
     @Test
-    @DisplayName("should count failed login when authentication provider throws")
+    @DisplayName("should count and audit failed login when authentication provider throws")
     void shouldCountAndAuditFailedLogin_whenAuthenticationProviderThrows() throws Exception {
         request.setParameter("forcedpasswordchange", "false");
         String password = VALID_PASSWORD;
@@ -2120,8 +2125,12 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getRedirectedUrl()).contains("/loginfailed");
             verify(mockedLoginChecks.constructed().get(0)).updateLoginList(request.getRemoteAddr(), USERNAME);
+            // The provider threw before any credential verdict, so this is the one failed-login
+            // path LoginCheckLoginBean never audits - and it must not be filed as a bad password.
             logActionMock.verify(() -> LogAction.addLog(USERNAME, "login", "failed",
-                    "bad_credentials", request.getRemoteAddr()));
+                    "auth_provider_error", request.getRemoteAddr()));
+            logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(),
+                    eq("bad_credentials"), anyString()), never());
         }
     }
 
