@@ -187,6 +187,16 @@ class AppointmentUtilUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should answer only invalid ids without querying the database")
+        void shouldReturnNone_withoutLookupWhenAllIdsInvalid() {
+            assertThat(AppointmentUtil.getNextAppointments(Arrays.asList(null, 0, -1)))
+                .containsOnlyKeys(0, -1)
+                .containsEntry(0, NONE)
+                .containsEntry(-1, NONE);
+            verifyNoInteractions(appointmentDao);
+        }
+
+        @Test
         @DisplayName("should return an empty map without a lookup when there is nothing to look up")
         void shouldReturnEmptyMap_forNoUsableIds() {
             assertThat(AppointmentUtil.getNextAppointments(null)).isEmpty();
