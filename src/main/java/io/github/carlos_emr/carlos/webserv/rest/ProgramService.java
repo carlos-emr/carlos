@@ -46,7 +46,9 @@ import org.apache.tools.ant.util.DateUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.AdmissionConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ProgramConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
@@ -58,6 +60,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ProgramService extends AbstractServiceImpl {
 
+    /** Security object guarding program-management data, matching the PMmodule actions. */
+    private static final String SECURITY_OBJECT = "_pmm_management";
 
     @Autowired
     ProgramManager2 programManager;
@@ -65,11 +69,18 @@ public class ProgramService extends AbstractServiceImpl {
     @Autowired
     AdmissionManager admissionManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
 
     @GET
     @Path("/patientList")
     @Produces("application/json")
     public AbstractSearchResponse<AdmissionTo1> getPatientList(@QueryParam("programNo") String programNo, @QueryParam("day") String day, @QueryParam("startIndex") Integer startIndex, @QueryParam("numToReturn") Integer numToReturn) throws Exception {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "r", null)) {
+            throw new AccessDeniedException(SECURITY_OBJECT, "r");
+        }
 
         AbstractSearchResponse<AdmissionTo1> response = new AbstractSearchResponse<AdmissionTo1>();
 
@@ -114,6 +125,10 @@ public class ProgramService extends AbstractServiceImpl {
     @Path("/programList")
     @Produces("application/json")
     public AbstractSearchResponse<ProgramTo1> getProgramList() throws Exception {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "r", null)) {
+            throw new AccessDeniedException(SECURITY_OBJECT, "r");
+        }
+
         AbstractSearchResponse<ProgramTo1> response = new AbstractSearchResponse<ProgramTo1>();
 
         List<ProgramProvider> programProviders = programManager.getProgramDomain(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo());
