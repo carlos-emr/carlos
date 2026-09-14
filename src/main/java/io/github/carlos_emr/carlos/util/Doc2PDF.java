@@ -382,15 +382,7 @@ public class Doc2PDF {
             throw new IllegalArgumentException("Internal Doc2PDF fetch URI must target the local application connector");
         }
 
-        // Packaged nginx forwards to a loopback-only HTTP connector. Permit that
-        // same-host hop without relying on DNS; other connector names require TLS.
-        String targetHost = normalizeHost(target.getHost());
-        if ("http".equalsIgnoreCase(scheme)
-                && !"127.0.0.1".equals(targetHost)
-                && !"::1".equals(targetHost)
-                && !"0:0:0:0:0:0:0:1".equals(targetHost)) {
-            throw new IllegalArgumentException("Internal HTTP fetches require a numeric loopback address");
-        }
+        validateInternalFetchTransport(target);
 
         int targetPort = effectivePort(target.getScheme(), target.getPort());
         int requestPort = effectivePort(request.getScheme(), getRequestLocalPort(request));
@@ -416,6 +408,19 @@ public class Doc2PDF {
         }
 
         return target;
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed ASCII URI schemes in fail-closed transport validation")
+    private static void validateInternalFetchTransport(URI target) {
+        // Packaged nginx forwards to a loopback-only HTTP connector. Permit that
+        // same-host hop without relying on DNS; other connector names require TLS.
+        String targetHost = normalizeHost(target.getHost());
+        if ("http".equalsIgnoreCase(target.getScheme())
+                && !"127.0.0.1".equals(targetHost)
+                && !"::1".equals(targetHost)
+                && !"0:0:0:0:0:0:0:1".equals(targetHost)) {
+            throw new IllegalArgumentException("Internal HTTP fetches require a numeric loopback address");
+        }
     }
 
     private static boolean isAllowedInternalHost(HttpServletRequest request, String targetHost) {
