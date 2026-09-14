@@ -101,11 +101,22 @@ async function jumpToDay(context, schedulePage, day, recorder, timeout) {
   // Read the cells once and address the match by position, rather than building
   // a RegExp from the day number: the repo's Semgrep rules flag new RegExp(...)
   // and a substring match would make "1" also match "11", "21" and "31".
-  const days = await popup.$$eval('td a', (cells) => cells.map((cell) => (cell.textContent || '').trim()));
+  //
+  // DAY CELLS ONLY, named by the handler that makes them day cells. `td a`
+  // also matched the four month/year arrows in the header row
+  // (CalendarPopup.jsp:141-154), which are icon-only and so happened to carry
+  // no text to collide with -- the index was right by luck rather than by
+  // construction. Review raised the adjacent-month case too: this calendar
+  // renders out-of-month positions as `<td></td>` with no anchor
+  // (CalendarPopup.jsp:187), so there are no duplicate day numbers to pick the
+  // wrong one of. Selecting the typeInDate handler holds whether or not that
+  // stays true.
+  const DAY_CELL = 'td a[onclick*="typeInDate"]';
+  const days = await popup.$$eval(DAY_CELL, (cells) => cells.map((cell) => (cell.textContent || '').trim()));
   const index = days.indexOf(String(Number(day)));
   assert(index >= 0,
     `The calendar popup offers no cell for day ${day} of the shown month (it offers ${days.filter(Boolean).length} days)`);
-  const cell = popup.locator('td a').nth(index);
+  const cell = popup.locator(DAY_CELL).nth(index);
   await clickAndAwaitReload(schedulePage, cell, { timeout, label: 'the calendar day cell' });
   await popup.close().catch(() => {});
   return shownDate(schedulePage, timeout);

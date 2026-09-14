@@ -170,12 +170,22 @@ test('the runner refuses a remote MYSQL_HOST even when BASE_URL is local', () =>
   }));
 });
 
-test('certificate verification is waived for the build probe only on a local target', () => {
-  // The devcontainer serves a self-signed certificate, so the probe must accept
-  // it there or the restart guard is disabled on every local run. Anywhere else
-  // -- a remote deployment reached under ALLOW_NON_LOCAL_BASE_URL=true -- "skip
-  // verification" means this fingerprint can be supplied by anyone on the path,
-  // and a guard that proves nothing is worse than none.
+test('certificate verification is waived for the build probe on loopback and private ranges, nowhere else', () => {
+  // The wording matters, so it is exact: the policy is LOOPBACK AND RFC1918,
+  // not "local". isLocalTlsTarget() covers both, because a devcontainer is as
+  // often reached at a LAN address as at 127.0.0.1 and both serve the same
+  // self-signed certificate -- without the waiver the restart guard is disabled
+  // on every such run. The 192.168.1.20 case below is that branch, and an
+  // earlier version of this test called it "local", which read as though only
+  // loopback were waived.
+  //
+  // The residual is worth stating rather than glossing: on a private range the
+  // certificate is unverified, so a host on that network could supply this
+  // fingerprint. That is accepted for a disposable dev target and is why the
+  // waiver stops there -- for a public host, reached under
+  // ALLOW_NON_LOCAL_BASE_URL=true, "skip verification" would mean the guard can
+  // be satisfied by anyone on the path, and a guard that proves nothing is
+  // worse than none.
   const headers = 'HTTP/1.1 200\r\nETag: "abc"\r\n\r\n';
   const flagsFor = (base) => {
     let seen = null;
@@ -185,9 +195,13 @@ test('certificate verification is waived for the build probe only on a local tar
     });
     return seen;
   };
-  assert.equal(flagsFor('https://127.0.0.1:8443/carlos'), '-sSkI');
-  assert.equal(flagsFor('https://192.168.1.20:8443/carlos'), '-sSkI');
-  assert.equal(flagsFor('https://emr.example.com/carlos'), '-sSI');
+  assert.equal(flagsFor('https://127.0.0.1:8443/carlos'), '-sSkI', 'loopback: waived');
+  assert.equal(flagsFor('https://192.168.1.20:8443/carlos'), '-sSkI', 'RFC1918: waived, deliberately');
+  assert.equal(flagsFor('https://emr.example.com/carlos'), '-sSI', 'public host: verified');
+  // A name that merely LOOKS private is not private -- the host must parse as
+  // four numeric octets before the range test, or 10.example.com would be
+  // waived. That is the #3598 boundary, pinned here at the probe as well.
+  assert.equal(flagsFor('https://10.example.com/carlos'), '-sSI', 'a private-looking NAME is still public');
 });
 
 test('an unparseable BASE_URL disables the build probe rather than guessing', () => {

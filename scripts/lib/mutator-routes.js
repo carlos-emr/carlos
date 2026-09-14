@@ -86,14 +86,29 @@ function strutsActions(directory = STRUTS_DIR) {
     .filter((name) => name.startsWith('struts') && name.endsWith('.xml'))
     .map((name) => fs.readFileSync(path.join(directory, name), 'utf8'))
     .join('\n');
-  // ONE pattern. The config is hand-formatted and puts the class attribute on
-  // the same line as the name or on the next one -- but \s+ already matches a
-  // newline, so the first pattern covered both and a second "multiline" pattern
-  // matched every multiline action a SECOND time. The live check then probed
-  // those mutators twice and reported an inflated route count, which is the
-  // number a reader uses to judge whether coverage shrank.
-  return [...xml.matchAll(/<action\s+name="([^"]+)"\s+class="([^"]+)"/g)]
-    .map((found) => ({ route: found[1], declared: found[2] }));
+  // THE START TAG FIRST, THEN ITS ATTRIBUTES. The old pattern required class to
+  // follow name with only whitespace between them, so `<action name="x"
+  // method="y" class="Z">` matched nothing and that mutator dropped silently
+  // out of the live check -- a security check quietly covering less, which is
+  // the failure this suite exists to report. Measured on release/2026.08: both
+  // spellings find the same 1,077 actions today, so this is protection against
+  // a reformat rather than a fix for a present gap, and the test pins that
+  // equality so the change stays behaviour-preserving.
+  //
+  // ONE pass, not two. An earlier attempt added a second "multiline" pattern
+  // beside the first; \s+ already matches a newline, so every multiline action
+  // matched twice and the live check probed those mutators twice and reported
+  // an inflated route count -- the number a reader uses to judge whether
+  // coverage shrank.
+  const actions = [];
+  for (const tag of xml.matchAll(/<action\b[^>]*>/g)) {
+    const name = tag[0].match(/\bname="([^"]+)"/);
+    const declared = tag[0].match(/\bclass="([^"]+)"/);
+    if (name && declared) {
+      actions.push({ route: name[1], declared: declared[1] });
+    }
+  }
+  return actions;
 }
 
 /**

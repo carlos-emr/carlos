@@ -120,14 +120,24 @@ function assertIsPdf(item, status, contentType, body) {
     `${item.label} answered HTTP ${status}. A direct-response action that fails before writing must send a real `
     + 'error status; CLAUDE.md records that returning an unmapped result surfaces as "CARLOS Error: 0" instead.');
 
+  // THE BYTES ARE EXAMINED, NOT QUOTED. These messages become runCheck()'s
+  // `detail`, which is written to stdout and into RESULT_JSON. What comes back
+  // here when the assertion fires is whatever the endpoint served instead of a
+  // PDF -- an error page carrying a stack trace and the request URL, or page
+  // content for the patient whose labels were requested. Quoting its first
+  // bytes put that in the artifact of every failure.
+  //
+  // What a reader needs is what it WAS, not a sample: the classification, the
+  // content type and the size say "HTML error page, 4KB, text/html" without
+  // reproducing a line of it, and the run's screenshot is there for the rest.
   const head = body.subarray(0, Math.min(body.length, 2048)).toString('latin1');
   assert(!HTML_ERROR.test(head),
     `${item.label} returned HTML where a PDF was expected. This is the PR #2043 shape: the action wrote an error `
-    + `page into the download. First bytes: ${JSON.stringify(head.slice(0, 120))}`);
+    + `page into the download (${body.length} bytes, content-type ${JSON.stringify(contentType)})`);
 
   assert(body.subarray(0, 5).toString('latin1') === '%PDF-',
     `${item.label} does not start with the %PDF magic bytes, so it is not a PDF whatever its Content-Type says `
-    + `(first bytes: ${JSON.stringify(head.slice(0, 40))})`);
+    + `(${body.length} bytes, content-type ${JSON.stringify(contentType)})`);
 
   assert(/application\/pdf/i.test(contentType),
     `${item.label} has the right bytes but Content-Type ${JSON.stringify(contentType)}; a browser will not open it`);

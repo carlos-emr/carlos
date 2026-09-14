@@ -141,3 +141,40 @@ test('the Today link landing is asserted against today, not against the page it 
   // day wears on and the same deployment passes in the morning, fails at night.
   assert.match(body, /setHours\(0, 0, 0, 0\)/);
 });
+
+test('the calendar day cells are selected by their handler, not by being in a td', () => {
+  // `td a` also matched the four month/year arrows in CalendarPopup.jsp's
+  // header row. They are icon-only, so they carried no text to collide with a
+  // day number and the index happened to line up -- correct by luck rather than
+  // by construction, and only while the arrows stay icon-only.
+  //
+  // Review also raised leading/trailing days from adjacent months. That is a
+  // real hazard in most calendars but not in this one: CalendarPopup.jsp:187
+  // renders an out-of-month position as `<td></td>` with no anchor, so there is
+  // no duplicate day number to pick the wrong one of. Selecting on the
+  // typeInDate handler holds either way.
+  const source = require('node:fs').readFileSync(
+    require.resolve('./schedule-date-navigation-playwright-checks'), 'utf8',
+  );
+  const jump = source.slice(source.indexOf('async function jumpToDay'));
+  const body = jump.slice(0, jump.indexOf('\n}\n'));
+  assert.match(body, /const DAY_CELL = 'td a\[onclick\*="typeInDate"\]'/);
+  // Both the text read and the click must use the same list, or the index the
+  // one produced addresses a different anchor in the other.
+  assert.match(body, /\$\$eval\(DAY_CELL,/);
+  assert.match(body, /popup\.locator\(DAY_CELL\)\.nth\(index\)/);
+  assert.ok(!/locator\('td a'\)/.test(body), 'the bare selector also matches the month arrows');
+});
+
+test('the calendar markup really does render out-of-month cells empty', () => {
+  // The claim the test above rests on, checked against the JSP rather than
+  // asserted. If CalendarPopup ever starts rendering adjacent-month days, this
+  // fails and the reasoning gets revisited.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const jsp = fs.readFileSync(path.join(
+    __dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp', 'share', 'CalendarPopup.jsp',
+  ), 'utf8');
+  assert.match(jsp, /if \(dateGrid\[i\]\[j\] == 0\) out\.println\("<td><\/td>"\)/);
+  assert.match(jsp, /onclick="typeInDate\(/);
+});

@@ -154,3 +154,39 @@ test('the check writes nothing', () => {
     assert.ok(!statement.test(SOURCE), `generating a label is read-only; found ${statement}`);
   }
 });
+
+test('a failed PDF assertion describes the response without quoting it', () => {
+  // These messages become runCheck()'s `detail`, which goes to stdout and into
+  // RESULT_JSON. What arrives here when the assertion fires is whatever the
+  // endpoint served INSTEAD of a PDF -- an error page carrying a stack trace
+  // and the request URL, or page content for the patient whose labels were
+  // requested -- so quoting its first bytes put that in every failure artifact.
+  const item = { label: 'Patient Labels' };
+  const html = Buffer.from('<html><head><title>CARLOS Error</title></head><body>FAKE-Smith, demographic_no=42</body></html>');
+
+  let message = '';
+  try {
+    assertIsPdf(item, 200, 'text/html;charset=UTF-8', html);
+  } catch (error) {
+    message = error.message;
+  }
+  assert.ok(message, 'an HTML body must fail the PDF assertion');
+  // The diagnosis survives.
+  assert.match(message, /returned HTML where a PDF was expected/);
+  assert.match(message, /text\/html/);
+  assert.match(message, new RegExp(`${html.length} bytes`));
+  // The body does not.
+  assert.ok(!message.includes('FAKE-Smith'), 'the response body must not be quoted into the message');
+  assert.ok(!message.includes('demographic_no'), 'the response body must not be quoted into the message');
+  assert.ok(!/First bytes/i.test(message));
+
+  // Same for the magic-bytes assertion, which fires on a non-HTML non-PDF.
+  let magic = '';
+  try {
+    assertIsPdf(item, 200, 'application/octet-stream', Buffer.from('GIF89a FAKE-Smith'));
+  } catch (error) {
+    magic = error.message;
+  }
+  assert.match(magic, /%PDF magic bytes/);
+  assert.ok(!magic.includes('FAKE-Smith'), 'the response body must not be quoted into the message');
+});
