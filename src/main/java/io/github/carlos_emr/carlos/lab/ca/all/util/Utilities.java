@@ -153,9 +153,13 @@ public class Utilities {
             // millisecond-unique, so two concurrent uploads of the same filename can resolve to the
             // same path. Failing the second one is better than silently interleaving two labs into
             // one file.
-            try (OutputStream os = Files.newOutputStream(outputFile.toPath(),
-                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-                    BufferedInputStream bis = new BufferedInputStream(stream)) {
+            // bis is declared FIRST on purpose: try-with-resources only closes resources it has
+            // already constructed, so if the CREATE_NEW open below fails (name collision or any other
+            // open error) a later-declared wrapper would never be built and the caller's stream would
+            // leak out of the early return.
+            try (BufferedInputStream bis = new BufferedInputStream(stream);
+                    OutputStream os = Files.newOutputStream(outputFile.toPath(),
+                            StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
 
                 byte[] buffer = new byte[8192]; // 8KB buffer
                 int bytesRead;
@@ -188,7 +192,10 @@ public class Utilities {
         try {
             Files.deleteIfExists(outputFile.toPath());
         } catch (IOException deleteException) {
-            logger.error("Error deleting partial output file: {}", LogSafe.sanitize(outputFile.getPath()), deleteException); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            // Neither the path nor the throwable is logged: the generated name embeds the caller's lab
+            // filename and the exception message repeats it. The exception type is enough to tell a
+            // permissions failure from a missing file.
+            logger.error("Error deleting partial lab upload output ({})", deleteException.getClass().getSimpleName());
         }
     }
 

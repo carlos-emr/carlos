@@ -768,12 +768,18 @@ public final class PathValidationUtils {
     }
 
     /**
-     * Validates that the path string resolves to an existing file under DOCUMENT_DIR.
+     * Validates that the path string is contained within DOCUMENT_DIR, which must be configured.
      * Use this for application-created lab file paths that must fail closed when
      * DOCUMENT_DIR is unavailable.
      *
+     * <p><strong>Containment only.</strong> Like {@link #validateExistingPath(File, File)}, this
+     * canonicalizes and checks directory containment; it does <em>not</em> assert that the target
+     * exists or is a regular file. Callers that need those guarantees must still check
+     * {@link File#exists()} / {@link File#isFile()} themselves. It does require DOCUMENT_DIR itself
+     * to be a configured, existing directory.</p>
+     *
      * @param path the file path to validate; must be non-null and non-empty
-     * @return the validated File
+     * @return the validated File, contained within DOCUMENT_DIR
      * @throws IOException if DOCUMENT_DIR is unavailable or cannot be canonicalized
      * @throws SecurityException if the path is null/empty or resolves outside DOCUMENT_DIR
      */
