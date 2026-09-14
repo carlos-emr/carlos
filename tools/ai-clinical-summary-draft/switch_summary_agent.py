@@ -10,13 +10,13 @@ import subprocess
 import time
 from urllib.request import ProxyHandler, build_opener
 
-from openrouter_agent import NoRedirect, loads, private_write, read_config, runtime_directory
+from openrouter_agent import DEFAULTS, NoRedirect, loads, private_write, read_config, runtime_directory
 from validate_artifact import require
 
 PREFIX = "clinical.ai_summary_generation."
 
 
-def settings(agent, port=11437, model="google/gemini-2.5-flash"):
+def settings(agent, port=DEFAULTS["port"], model=DEFAULTS["model"]):
     values = {"clinical.ai_summary_prototype.enabled": "true", PREFIX + "enabled": "true",
               PREFIX + "agent": agent}
     if agent == "openrouter":
@@ -70,7 +70,7 @@ def main():
     try:
         require(properties.is_file() and runner.is_file(), "The isolated local runtime must already exist")
         config = read_config(runtime_directory() / "openrouter/config.json") if args.agent == "openrouter" else {}
-        values = settings(args.agent, config.get("port", 11437), config.get("model", "google/gemini-2.5-flash"))
+        values = settings(args.agent, config.get("port", DEFAULTS["port"]), config.get("model", DEFAULTS["model"]))
         pids = runtime_processes(base)
         require(len(pids) <= 1, "Multiple matching Tomcat instances; refusing ambiguous restart")
         if args.dry_run:
