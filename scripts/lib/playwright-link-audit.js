@@ -44,6 +44,44 @@ const DEFAULT_TIMEOUT = 20000;
 // as one that acts in place. Generous for a local Tomcat, short enough that a
 // 120-item sweep does not pay the full item timeout for every in-place item.
 const NAVIGATION_START_TIMEOUT = 4000;
+/**
+ * Runs IN THE PAGE. Fingerprints document.body and, given a previous
+ * fingerprint, reports whether the body has changed since.
+ *
+ * ONE DEFINITION, TWO USES. openItem needs the value before the click and a
+ * predicate after it. Written twice they drift, and a before-value computed
+ * differently from the after-value compares unequal forever -- every item would
+ * read as "something happened". So this is passed to evaluate() with null to
+ * read the fingerprint, and to waitForFunction() with that fingerprint to wait
+ * for it to change. A real function rather than an interpolated source string:
+ * it needs no string evaluation, which CARLOS pages under a CSP would block.
+ *
+ * LENGTH AND CONTENT, not length alone. The length-only test missed any
+ * replacement that happened to be the same size, and the Administration shell
+ * swaps one templated panel for another inside #dynamic-content -- exactly the
+ * shape that collides, so a working item read as "nothing happened" and was
+ * reported broken. FNV-1a folded to 32 bits, so only a short string crosses the
+ * boundary; a whole admin body is routinely 100KB.
+ *
+ * @param previous null to read the current fingerprint, or a previous one to
+ *   compare against -- in which case it returns the new fingerprint once they
+ *   differ and null while they do not, which is the truthiness waitForFunction
+ *   polls on.
+ */
+function bodyFingerprint(previous) {
+  const markup = document.body.innerHTML;
+  let hash = 2166136261;
+  for (let i = 0; i < markup.length; i += 1) {
+    hash ^= markup.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const current = `${markup.length}:${hash >>> 0}`;
+  if (previous === null || previous === undefined) {
+    return current;
+  }
+  return current === previous ? null : current;
+}
+
 const ERROR_PAGE_RE = /CARLOS has encountered an unexpected error|HTTP Status 5\d\d|Exception Report|There is no Action mapped|Whitelabel Error Page/i;
 
 /**
@@ -294,8 +332,16 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
   const navigationStarted = hostPage.waitForURL((url) => String(url) !== before, { timeout: startTimeout })
     .then(() => true, () => false);
   // For the in-place case below: what the page looked like before the click.
-  const markupBefore = await hostPage.evaluate(() => document.body.innerHTML.length) // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code, no interpolation
-    .catch(() => -1);
+  //
+  // A CHECKSUM, NOT A LENGTH. Comparing innerHTML.length alone missed any
+  // replacement that happened to be the same size -- and the Administration
+  // shell swaps one templated panel for another inside #dynamic-content, which
+  // is exactly the shape that collides. A same-length swap read as "nothing
+  // happened", so a working item was reported broken. The hash is computed in
+  // the page so only a number crosses the boundary; a whole admin body is
+  // routinely 100KB and there is no reason to serialise it per item.
+  // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- a fixed module function, and its only argument is null
+  const markupBefore = await hostPage.evaluate(bodyFingerprint, null).catch(() => null);
   // COPIED, not aliased. The comparison below asks which page is new, so it
   // needs the list as it was BEFORE the click -- and a caller whose pages()
   // hands back its own live array would otherwise have that array grow under
@@ -357,9 +403,10 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
       };
     }
   }
-  if (!actedInPlace && markupBefore >= 0) {
+  if (!actedInPlace && markupBefore !== null) {
     actedInPlace = await hostPage.waitForFunction(
-      (previousLength) => document.body.innerHTML.length !== previousLength, // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code, no interpolation
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- a fixed module function; the argument is a fingerprint this module computed
+      bodyFingerprint,
       markupBefore,
       { timeout: startTimeout },
     ).then(() => true, () => false);
@@ -502,6 +549,7 @@ function assertAuditClean(result, options = {}) {
 }
 
 module.exports = {
+  bodyFingerprint,
   ERROR_PAGE_RE,
   assertAuditClean,
   auditCatalogue,

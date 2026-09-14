@@ -131,8 +131,20 @@ test('the patient the check asserts on is the one the UI actually opened', () =>
 
 test('the edit is asserted to have been RECORDED, not only stored', () => {
   assert.match(SOURCE, /const auditBefore = await auditRows/);
-  assert.match(SOURCE, /const auditAfter = await auditRows/);
+  assert.match(SOURCE, /let auditAfter = await auditRows/);
   assert.match(SOURCE, /added no row to the audit trail/);
+});
+
+test('the audit row is waited for, because LogAction writes it off the request thread', () => {
+  // LogAction.addLog hands the write to a background executor, so the row is not
+  // guaranteed to be committed when the update response returns. Reading once is
+  // a race that passes on a quick machine and reports "CARLOS wrote no audit
+  // record" on a loaded one -- a compliance alarm that is really a timing
+  // artefact, and the worst way for this check to be wrong.
+  assert.match(SOURCE, /while \(auditAfter\.length <= auditBefore\.length && Date\.now\(\) < auditDeadline\)/,
+    'the check must re-read the audit trail until a row appears or the deadline passes');
+  // Bounded: a write that never happens must still fail, just later.
+  assert.match(SOURCE, /const auditDeadline = Date\.now\(\) \+ timeout/);
 });
 
 test('the new audit row is found by difference, not by a timestamp guess', () => {

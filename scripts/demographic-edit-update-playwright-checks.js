@@ -291,7 +291,20 @@ async function main() {
     // page is where a clinic reads it back. A trail that silently stops
     // recording looks exactly like a working one -- the page renders, every old
     // row is there, and only this edit is missing.
-    const auditAfter = await auditRows(context, masterPage, recorder, timeout);
+    // POLLED, NOT READ ONCE. LogAction.addLog hands the write to a background
+    // executor, so the row is not guaranteed to be committed by the time the
+    // update response comes back. A single read here is a race: it passes on a
+    // quick machine and reports "CARLOS wrote no audit record" on a loaded one,
+    // which is the worst kind of failure to hand a maintainer -- a compliance
+    // alarm that is really a timing artefact. Re-opening the audit popup until
+    // a new row appears turns a slow write into a slow check rather than a
+    // false finding; a write that never happens still fails, just later.
+    const auditDeadline = Date.now() + timeout;
+    let auditAfter = await auditRows(context, masterPage, recorder, timeout);
+    while (auditAfter.length <= auditBefore.length && Date.now() < auditDeadline) {
+      await masterPage.waitForTimeout(500);
+      auditAfter = await auditRows(context, masterPage, recorder, timeout);
+    }
     // MULTIPLICITY, NOT SET MEMBERSHIP. The row key is the first three cells,
     // and demographicAudit.jsp formats `created` with
     // SimpleDateFormat("yyyy-MM-dd HH:mm:ss") -- second precision, with the log

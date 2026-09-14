@@ -500,6 +500,39 @@ async function pickDate(page, inputSelector, isoDate, options = {}) {
   await calendar.waitFor({ state: 'hidden', timeout }).catch(() => {});
   const value = await input.inputValue();
   assert(value && value.trim() !== '', `The flatpickr picker left ${isoDate} unset`);
+
+  // NON-EMPTY IS NOT THE POSTCONDITION. A field that already held a date, or a
+  // click that landed on a neighbouring day, satisfies "not empty" -- so the one
+  // thing this helper exists to guarantee, that the date asked for is the date
+  // now selected, went unchecked.
+  //
+  // Asserted against flatpickr's OWN selectedDates rather than the formatted
+  // string, because dateFormat differs field to field across CARLOS and
+  // comparing the rendered text would either be wrong or would hard-code one
+  // form. Read in local components for the same reason as the day search above:
+  // toISOString() is off by one for every negative offset, which is every
+  // Canadian deployment. A field whose instance is not reachable falls back to
+  // the non-empty check rather than failing a check over an unreadable internal.
+  let selected = null;
+  try {
+    selected = await input.evaluate((element) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code, no interpolation and no argument
+      const picker = element._flatpickr;
+      const date = picker && picker.selectedDates && picker.selectedDates[0];
+      if (!date || typeof date.getFullYear !== 'function') {
+        return null;
+      }
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    });
+  } catch {
+    // An input whose instance cannot be read at all. Fall back to the non-empty
+    // check rather than failing a check over an unreadable internal.
+    selected = null;
+  }
+  if (selected !== null) {
+    assert(selected === isoDate,
+      `The flatpickr picker selected ${selected}, not the ${isoDate} that was asked for -- the field now reads `
+      + `"${value}", which a non-empty check would have accepted`);
+  }
   return value;
 }
 

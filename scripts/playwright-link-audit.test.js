@@ -371,13 +371,31 @@ test('each item carries the document it was read from, for resolving its route',
  * browser finding at the moment the item is clicked, so findingsSince attributes
  * it to that item.
  */
+/**
+ * Run a page-side function against a fake `document`, so the production body is
+ * what executes rather than a restatement of it in the double.
+ */
+function runInPage(fn, arg) {
+  const previous = global.document;
+  global.document = { body: { get innerHTML() { return runInPage.markup; } } };
+  try {
+    return fn(arg);
+  } finally {
+    if (previous === undefined) delete global.document; else global.document = previous;
+  }
+}
+
 function fakeAuditPage(options = {}) {
   const waitForUrlTimeouts = [];
   const screenshots = [];
   let pending = 0;
-  // The host page's markup length, so openItem can tell an in-place action from
-  // a click that did nothing. `actsInPlace` makes each click change it.
-  let markup = 100;
+  // The host page's markup, so openItem can tell an in-place action from a click
+  // that did nothing. `actsInPlace` makes each click change it. A STRING, not a
+  // length: openItem fingerprints the markup now, and a double that modelled
+  // only its length could not tell a same-length replacement from no change --
+  // which is the case the fingerprint exists for.
+  let markup = 'x'.repeat(100);
+  runInPage.markup = markup;
   const page = {
     url: () => 'http://127.0.0.1:8080/carlos/admin',
     locator(selector) {
@@ -386,7 +404,7 @@ function fakeAuditPage(options = {}) {
           textContent: async () => options.textFor(index),
           scrollIntoViewIfNeeded: async () => {},
           click: async () => {
-            if (options.actsInPlace) { markup += 1; }
+            if (options.actsInPlace) { markup += 'y'; runInPage.markup = markup; }
             if (options.onClick) { options.onClick(index); }
           },
         }),
@@ -399,11 +417,19 @@ function fakeAuditPage(options = {}) {
     // document.body.innerHTML.length, csrfBootstrapFinding asks whether the
     // page reads the token. Answering `markup` to both made the CSRF probe see
     // a truthy value and report a finding for every item.
-    evaluate: async (fn) => (String(fn).includes('innerHTML.length') ? markup : false),
-    waitForFunction: async (predicate, previousLength) => {
-      // openItem's predicate reads document.body.innerHTML.length in the page.
-      // Model that here rather than running it against a real DOM.
-      if (markup !== previousLength) { return true; }
+    // Two different callers evaluate against this page, and they are told apart
+    // by what they ask for: openItem passes bodyFingerprint, csrfBootstrapFinding
+    // asks whether the page reads the token. Answering the same value to both
+    // made the CSRF probe see something truthy and report a finding per item.
+    evaluate: async (fn, arg) => (String(fn).includes('document.body.innerHTML')
+      ? runInPage(fn, arg)
+      : false),
+    waitForFunction: async (fn, arg) => {
+      // openItem's predicate reads document.body.innerHTML in the page. Model
+      // the DOM it reads rather than paraphrasing what the predicate does, so
+      // the REAL function under test is what runs.
+      const result = runInPage(fn, arg);
+      if (result) { return { jsonValue: async () => result }; }
       throw new Error('timeout');
     },
     async screenshot({ path: outputPath }) { screenshots.push(outputPath); },
@@ -938,3 +964,75 @@ test('the browser-side CSRF audit knows about the shared helper too', () => {
   assert.equal(mutates("CarlosAjax.updater('dd', url, { method: 'POST', parameters: p });"), true);
   assert.equal(mutates('somethingElse.request(url);'), false);
 });
+
+/*
+ * SAME LENGTH, DIFFERENT PANEL.
+ *
+ * The in-place test compared document.body.innerHTML.length before and after
+ * the click. The Administration shell swaps one templated panel for another
+ * inside #dynamic-content, and two templates of the same size compare equal --
+ * so a working item read as "clicking it did nothing" and was reported broken.
+ * Length alone can only ever notice a change that also changes the size.
+ */
+const { bodyFingerprint } = require('./lib/playwright-link-audit');
+
+test('two bodies of the same length but different content fingerprint differently', () => {
+  const a = runInPageWith('<div>Provider Roles</div>', () => bodyFingerprint(null));
+  const b = runInPageWith('<div>Provider Rules</div>', () => bodyFingerprint(null));
+  assert.equal('<div>Provider Roles</div>'.length, '<div>Provider Rules</div>'.length,
+    'the two panels must be the same length, or this test proves nothing');
+  assert.notEqual(a, b);
+});
+
+test('an unchanged body reports no change, and a changed one reports the new fingerprint', () => {
+  const before = runInPageWith('<div>panel</div>', () => bodyFingerprint(null));
+  assert.equal(runInPageWith('<div>panel</div>', () => bodyFingerprint(before)), null,
+    'nothing changed, so the predicate must stay falsy and waitForFunction must keep waiting');
+  const after = runInPageWith('<div>other</div>', () => bodyFingerprint(before));
+  assert.ok(after && after !== before);
+});
+
+test('a missing previous fingerprint reads the current one rather than comparing', () => {
+  // openItem calls this with null to take the before-value. Returning null there
+  // would make markupBefore null and skip the in-place test entirely.
+  for (const previous of [null, undefined]) {
+    assert.match(runInPageWith('<div>panel</div>', () => bodyFingerprint(previous)), /^\d+:\d+$/);
+  }
+});
+
+test('an item that swaps in a same-length panel is not reported as inert', async () => {
+  const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const fake = fakeAuditPage({
+    textFor: () => 'Provider Roles',
+    // Replace the markup with content of exactly the same length.
+    onClick: () => { runInPage.markup = 'z'.repeat(runInPage.markup.length); },
+  });
+  // A STABLE list, as Playwright's own pages() returns: openItem asks which page
+  // is new by identity, so a double handing back a fresh object each call would
+  // claim a popup appeared on every click.
+  const pages = [{}];
+  const result = await auditCatalogue({
+    context: { pages: () => pages },
+    hostPage: fake.page,
+    items: [{
+      text: 'Provider Roles', index: 0, selector: 'a', href: '/x', opensPopup: false,
+    }],
+    recorder: createRecorder(),
+    labelPrefix: 'admin',
+    timeout: 1000,
+  });
+  assert.deepEqual(result.failures, [],
+    'a same-length panel swap is a working item; the length-only test called it broken');
+  assert.deepEqual(result.opened, ['Provider Roles']);
+});
+
+/** Run a page-side function against a body carrying this markup. */
+function runInPageWith(markup, fn) {
+  const previous = runInPage.markup;
+  runInPage.markup = markup;
+  try {
+    return runInPage(fn);
+  } finally {
+    runInPage.markup = previous;
+  }
+}

@@ -220,6 +220,22 @@ async function applyStatusFilter(page, filter, timeout) {
 /**
  * The partition assertions, shared by both filter families.
  *
+ * WHAT THIS PROVES, AND WHAT IT DOES NOT. Every row appears under exactly one
+ * filter value and the parts add back up to the whole -- which catches the
+ * failures this slice is for: a filter that returns everything, one that
+ * returns nothing, a row that vanishes from every narrowing, and one that is
+ * counted twice. It does NOT prove each row landed under the RIGHT value: two
+ * filters whose results were swapped partition just as cleanly.
+ *
+ * That stronger claim is not available from this UI. InboxhubListMode.jsp emits
+ * data-segment-id and data-lab-type on each row and no per-row review status;
+ * the nearest signal is the rendered acknowledgement count, whose relationship
+ * to each filter value (and to multipleAckCount) I cannot establish without a
+ * live deployment to read. Asserting a mapping I had guessed would trade this
+ * check's honesty for a stronger-looking assertion that could fail against
+ * working code. Stated here so the partition is not mistaken for more than it
+ * is.
+ *
  * @param whole   rows with no narrowing applied
  * @param parts   [{ title, rows }] one entry per filter value that was applied
  */

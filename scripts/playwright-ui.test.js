@@ -277,6 +277,15 @@ function flatpickrDouble(shownDays, options = {}) {
     scrollIntoViewIfNeeded: async () => {},
     click: async () => {},
     inputValue: async () => options.value || '2026-09-20',
+    // flatpickr hangs its instance off the input; pickDate reads selectedDates
+    // from there because the FORMATTED value differs field to field across
+    // CARLOS and cannot be compared against an ISO date. `selectedIso` lets a
+    // test say the picker ended up on a different day than was asked for.
+    evaluate: async (fn) => fn({
+      _flatpickr: options.selectedIso === null ? undefined : {
+        selectedDates: [new Date(`${options.selectedIso || options.value || '2026-09-20'}T00:00:00`)],
+      },
+    }),
   };
   const page = {
     locator: (selector) => {
@@ -509,4 +518,39 @@ test('a popup that fails its own checks is closed, not leaked', async () => {
     /navigation failed/,
   );
   assert.equal(closed, true, 'the popup must be closed before the error is rethrown');
+});
+
+/*
+ * WHAT pickDate GUARANTEES.
+ *
+ * The postcondition was `value.trim() !== ''`. A field that already held a date
+ * satisfies that, and so does a click that landed on a neighbouring day -- so
+ * the one thing the helper exists to promise, that the date asked for is the
+ * date now selected, went unchecked. It is asserted against flatpickr's own
+ * selectedDates rather than the rendered string, because dateFormat differs
+ * field to field across CARLOS.
+ */
+test('pickDate fails when the picker ended up on a different day than was asked for', async () => {
+  const { pickDate } = require('./lib/playwright-ui');
+  const september = [];
+  for (let day = 1; day <= 30; day += 1) {
+    september.push({ year: 2026, month: 9, day });
+  }
+  // The day is found and clicked, the field is non-empty -- and flatpickr has
+  // the WRONG date selected. The old postcondition passed this.
+  const double = flatpickrDouble(() => september, { value: '2026-09-21', selectedIso: '2026-09-21' });
+  await assert.rejects(
+    () => pickDate(double.page, '#appointment_date', '2026-09-20', { timeout: 50 }),
+    /selected 2026-09-21, not the 2026-09-20 that was asked for/,
+  );
+});
+
+test('pickDate accepts an input whose flatpickr instance cannot be read', async () => {
+  // Not every date field in CARLOS is a flatpickr, and an unreadable internal
+  // must not fail a check that otherwise succeeded. The non-empty check stands
+  // on its own there.
+  const { pickDate } = require('./lib/playwright-ui');
+  const september = [{ year: 2026, month: 9, day: 20 }];
+  const double = flatpickrDouble(() => september, { selectedIso: null });
+  assert.equal(await pickDate(double.page, '#appointment_date', '2026-09-20', { timeout: 50 }), '2026-09-20');
 });
