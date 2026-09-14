@@ -68,6 +68,21 @@ async function catalogueLinks(page, options = {}) {
     // would hold, so it is read the same way.
     const jsHref = /^javascript:/i.test(href) ? href.replace(/^javascript:/i, '') : '';
     const opener = onclick || jsHref;
+    // THE ADMINISTRATION SHELL PUTS ITS ROUTE IN rel. Its left nav is 124
+    // anchors written
+    //   <a href='javascript:void(0);' class="xlink" rel="<ctx>/admin/UnLock">
+    // and the .xlink handler (leftNav.jspf:906) reads $(this).attr('rel') and
+    // loads it into an iframe. href gives nothing -- void(0) has no route in it
+    // -- and there is no onclick, so every one of those was dropped and
+    // admin-index-links swept a surface with its primary navigation missing.
+    //
+    // Only when it looks like a PATH. rel is a standard HTML attribute whose
+    // ordinary values are keywords (noopener, noreferrer, nofollow, stylesheet);
+    // requiring a slash keeps those out without maintaining a keyword list.
+    const relAttribute = (anchor.getAttribute('rel') || '').trim();
+    const relRoute = /^[./]/.test(relAttribute) || /^[A-Za-z0-9_][A-Za-z0-9_.-]*\//.test(relAttribute)
+      ? relAttribute
+      : '';
     // Three shapes, in order, because CARLOS writes all three and an
     // absolute-only pattern dropped the other two: the item was catalogued
     // with no route, and an item with href="#" and no route was filtered out
@@ -93,6 +108,7 @@ async function catalogueLinks(page, options = {}) {
       && (/^[./]/.test(routeInOnclick[1])
         || /[/?]/.test(routeInOnclick[1])
         || /\.(?:jsp|do|html?)$/i.test(routeInOnclick[1]));
+    const route = looksLikeRoute ? routeInOnclick[1] : relRoute;
     // A FRAGMENT IS NOT A DESTINATION. Excluding only the exact string '#' let
     // every in-page tab and collapse through (`href="#custom"`,
     // `href="#collapseClinical"`, `href="#top"`). Clicking one stays on the host
@@ -102,7 +118,7 @@ async function catalogueLinks(page, options = {}) {
     // same anchor is still kept: many CARLOS openers are written
     // `href="#" onclick="popupPage(...)"`.
     const hasRealHref = href && !href.startsWith('#') && !/^javascript:/i.test(href);
-    if (!text || text.length > 80 || (!hasRealHref && !looksLikeRoute)) {
+    if (!text || text.length > 80 || (!hasRealHref && !route)) {
       return null;
     }
     return {
@@ -120,7 +136,7 @@ async function catalogueLinks(page, options = {}) {
       index,
       text,
       href: hasRealHref ? href : '',
-      route: looksLikeRoute ? routeInOnclick[1] : '',
+      route,
       // window.open and target="_blank" open a window exactly as popupPage()
       // does. Classifying them as same-tab sent the audit down the navigation
       // branch, where it waited for a navigation that never came and then read
@@ -300,6 +316,42 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
 }
 
 /**
+ * The text of the DESTINATION, which for an in-place item is not the host body.
+ *
+ * The Administration shell loads a .contentLink route into #dynamic-content by
+ * AJAX and an .xlink route into an iframe inside it. Either way the host body
+ * still contains the whole shell -- its nav, its header, its chrome -- so
+ * reading document.body found plenty of text no matter what came back. A
+ * destination that was blank, zero bytes, or an error page passed as an opened
+ * item, which is the failure this audit exists to report.
+ *
+ * `inPlaceTarget` is the container a surface loads into, supplied by the check
+ * that knows its own shell. Without it the host body is still the best
+ * available reading, and the actedInPlace test in openItem is what stands
+ * between an inert click and a pass.
+ */
+async function destinationText(target, inPlaceTarget, timeout) {
+  const read = (locator) => locator.innerText({ timeout }).catch(() => '');
+  if (target.isPopup || !inPlaceTarget) {
+    return read(target.page.locator('body'));
+  }
+  const container = target.page.locator(inPlaceTarget).first();
+  if (await container.count().catch(() => 0) === 0) {
+    return read(target.page.locator('body'));
+  }
+  // An .xlink item renders into an iframe: the container's own innerText is
+  // empty because the content lives in another document.
+  const frame = container.locator('iframe').first();
+  if (await frame.count().catch(() => 0) > 0) {
+    const frameBody = await frame.contentFrame().catch(() => null);
+    if (frameBody) {
+      return read(frameBody.locator('body'));
+    }
+  }
+  return read(container);
+}
+
+/**
  * Click every item, assert the destination, and put the host page back.
  *
  * @returns {{opened: string[], skipped: number, failures: string[]}}
@@ -309,6 +361,7 @@ async function auditCatalogue(options) {
     context, hostPage, items, recorder, labelPrefix,
   } = options;
   const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const inPlaceTarget = options.inPlaceTarget || '';
   const skipRules = options.skipRules || [];
   const limit = options.limit || 0;
   const screenshotDir = options.screenshotDir || '';
@@ -332,7 +385,7 @@ async function auditCatalogue(options) {
     let target = null;
     try {
       target = await openItem(context, hostPage, item, recorder, label, timeout);
-      const body = await target.page.locator('body').innerText({ timeout }).catch(() => '');
+      const body = await destinationText(target, inPlaceTarget, timeout);
       if (ERROR_PAGE_RE.test(body)) {
         failures.push(`${item.text}: rendered an error page`);
       } else if (!body.trim()) {

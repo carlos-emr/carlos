@@ -122,10 +122,17 @@ Everything else in this document is still a plan.
 
 **Checks implementing this plan, landed so far.** Each script's header names the
 section it implements, and every *browser* check is UI-driven: it is entered by
-clicking from the schedule, never by a URL. `csrf-bootstrap-audit` is the one
-exception in the table below and is marked as such — it reads the webapp's JSPs
-from disk and drives no browser at all, which is why it can run on every pull
-request without a deployment.
+clicking from the schedule, never by a URL.
+
+**Two checks in the table below are exceptions, and are marked as such.**
+`csrf-bootstrap-audit` drives no browser at all — it reads the webapp's JSPs
+from disk, which is why it can run on every pull request without a deployment.
+`mutator-get-rejection-live` logs in through the browser and then issues its
+GET/HEAD probes with `context.request.fetch()`: its assertion is about the
+*transport* — what the server does when a mutator route is asked with a read
+method — and no control in the UI issues one, so there is no click that would
+exercise it. Both are protocol- or source-level assertions that the UI cannot
+make; neither is a shortcut around the rule.
 
 | Check | Implements | Covers |
 |---|---|---|
@@ -147,8 +154,8 @@ request without a deployment.
 | `clinical-calculators` | §2.5 | The chart's osteoporotic-fracture and simple calculators — the numbers themselves, not just that the page rendered |
 | `demographic-labels` | §2.4 | The Master Record's Print / Labels menu — the PDF *bytes* of every envelope and label, not just that the popup opened |
 | `inboxhub-filters` | §2.6 | The Inbox's type and review-status filters, asserted as a *partition* of the unfiltered list — which is what catches a filter that is silently ignored |
-| `mutator-get-rejection-live` | §2.2 | Every action the GET/HEAD rejection contract covers, driven through the **real** stack. Its route list is derived from `MutatorActionGetRejectionContractUnitTest`, so it cannot cover less than the unit contract does |
-| `csrf-bootstrap-audit` (static) | §2.2 | CLAUDE.md's CSRF token-bootstrapping rule, enforced across all 1,031 JSPs. Not a browser check — it needs no deployment, so it runs on every pull request |
+| `mutator-get-rejection-live` (protocol probe) | §2.2 | The **unconditional** half of the GET/HEAD rejection contract, asserted through the real stack — Tomcat, the filter chain, Struts and the action, which is where a unit test's mocks stop. Its route list is derived from `MutatorActionGetRejectionContractUnitTest`, so it cannot cover less than the unconditional half of the unit contract. **The second exception to the UI-driven rule below**: it logs in through the browser and then issues GET/HEAD with `context.request.fetch()`, because the assertion is about the *transport* — what the server does with a read method — and no control in the UI issues one. It reports the conditional mutators it does not probe, and why |
+| `csrf-bootstrap-audit` (static) | §2.2 | CLAUDE.md's CSRF token-bootstrapping rule, enforced across all 1,031 JSPs. **The first exception to the UI-driven rule below**: not a browser check at all — it reads the webapp's JSPs from disk, needs no deployment, and so runs on every pull request |
 | `schedule-date-navigation` | §2.3 | The day sheet's month-boundary arithmetic (`day-1` on the 1st, `day+1` on the last), reached through the calendar popup — the two days a month where a clinician hits it and cannot reproduce it the next day |
 | `anonymous-access-refused` | §2.2 | Everything a clinician reaches from the Administration panel and the Master Record, re-requested from a **session-less** context. Routes catalogued from the UI, not listed |
 

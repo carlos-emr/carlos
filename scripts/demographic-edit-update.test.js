@@ -138,9 +138,43 @@ test('the edit is asserted to have been RECORDED, not only stored', () => {
 test('the new audit row is found by difference, not by a timestamp guess', () => {
   // Matching on "a row from the last minute" would be flaky on a slow run and
   // would match an unrelated concurrent change on a shared deployment.
-  assert.match(SOURCE, /knownAuditRows = new Set\(auditBefore\)/);
-  assert.match(SOURCE, /auditAfter\.filter\(\(row\) => !knownAuditRows\.has\(row\)\)/);
   assert.ok(!/Date\.now\(\) - \d+/.test(SOURCE), 'the check must not date-match audit rows');
+  assert.match(SOURCE, /tally\(auditBefore\)/);
+  assert.match(SOURCE, /tally\(auditAfter\)/);
+});
+
+test('a repeated audit row counts as new, because the key is not unique', () => {
+  // The row key is the first three cells, and demographicAudit.jsp formats
+  // `created` with SimpleDateFormat("yyyy-MM-dd HH:mm:ss") -- second precision,
+  // with the log id and content deliberately not rendered. Two updates by the
+  // same provider in one second are therefore the SAME STRING. Set membership
+  // called the new row already-known and the check reported that CARLOS failed
+  // to write an audit record it had written, which is the worst way for this
+  // check to be wrong: a false accusation against the application.
+  assert.ok(!/new Set\(auditBefore\)/.test(SOURCE),
+    'set membership cannot tell a duplicated row from an absent one');
+
+  // The counting itself, as the check does it.
+  const tally = (rows) => rows.reduce(
+    (counts, row) => counts.set(row, (counts.get(row) || 0) + 1),
+    new Map(),
+  );
+  const added = (auditBefore, auditAfter) => {
+    const countsBefore = tally(auditBefore);
+    const found = [];
+    for (const [row, count] of tally(auditAfter)) {
+      for (let copy = countsBefore.get(row) || 0; copy < count; copy += 1) {
+        found.push(row);
+      }
+    }
+    return found;
+  };
+  const row = '2026-09-14 09:15:00|999998|update';
+  assert.deepEqual(added([row], [row, row]), [row],
+    'a second identical row is a new row');
+  assert.deepEqual(added([row], [row]), [],
+    'an unchanged trail adds nothing');
+  assert.deepEqual(added([], [row]), [row]);
 });
 
 test('an audit row that names no provider is a finding', () => {

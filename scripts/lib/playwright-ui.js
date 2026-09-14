@@ -95,7 +95,6 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   const context = options.context || page.context();
   const label = options.label || 'target';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
-  const startedAt = page.url();
 
   // A loser must never settle: Promise.race takes the FIRST settlement, so a
   // rejected loser (both share one deadline) would otherwise win the race and
@@ -103,8 +102,16 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   const never = () => new Promise(() => {});
   const popupArrived = context.waitForEvent('page', { timeout })
     .then((popup) => ({ page: popup, isPopup: true }), never);
-  const navigated = page.waitForURL((url) => String(url) !== startedAt, { timeout })
-    .then(() => ({ page, isPopup: false }), never);
+  // A MAIN-FRAME NAVIGATION, not merely a different address. waitForURL's
+  // predicate stays false for a navigation that lands on the SAME url -- a form
+  // that posts and redirects back to its own route, a control that reloads the
+  // page it is on -- so the helper waited out the whole timeout and reported
+  // that the click opened neither a popup nor a navigation, when it had
+  // navigated perfectly well. framenavigated fires for both.
+  const navigated = page.waitForEvent('framenavigated', {
+    predicate: (frame) => frame === page.mainFrame(),
+    timeout,
+  }).then(() => ({ page, isPopup: false }), never);
 
   let expire;
   const deadline = new Promise((resolve, reject) => {

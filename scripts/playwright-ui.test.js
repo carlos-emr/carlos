@@ -158,10 +158,17 @@ test('a same-tab navigation is relabelled, so a later scoped assertion can see i
       click: async () => {},
       innerText: async () => 'Search Patient',
     }),
-    async waitForEvent() { return new Promise(() => {}); },
-    async waitForURL(predicate) {
+    mainFrame: () => 'main',
+    // The helper waits for a main-frame navigation event rather than comparing
+    // addresses, so that a navigation landing on the same route still counts.
+    async waitForEvent(event, opts) {
+      if (event !== 'framenavigated') {
+        return new Promise(() => {});
+      }
+      assert.equal(opts.predicate('main'), true, 'the predicate must accept the main frame');
+      assert.equal(opts.predicate('child'), false, 'a subframe navigating is not this click navigating');
       current = 'https://carlos.test/carlos/PMmodule/ClientSearch2';
-      assert.equal(predicate(current), true);
+      return 'main';
     },
     async waitForLoadState() {},
   };
@@ -395,4 +402,27 @@ test('a failed navigation names the page by path, never by its query string', ()
   assert.match(body, /pathOnly\(watchPage\.url\(\)\)/);
   assert.ok(!/\$\{watchPage\.url\(\)\}/.test(body),
     'the raw url must not be interpolated into a message runCheck() archives');
+});
+
+test('a navigation that lands on the same url still counts as a navigation', () => {
+  // waitForURL's predicate compared the address to the one before the click, so
+  // a control that posts and redirects back to its own route -- or simply
+  // reloads the page it is on -- left the predicate false. The helper then waited
+  // out the whole timeout and reported that the click "opened neither a popup
+  // nor a navigation", on a control that had worked. framenavigated fires for
+  // both shapes.
+  //
+  // The trade-off, stated rather than hidden: framenavigated also fires for a
+  // same-document history navigation, so a fragment change now counts as a
+  // navigation where before it timed out. The caller asserts the resulting page
+  // is not an error page either way, and a working control being reported as
+  // broken is the worse of the two.
+  const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-ui'), 'utf8');
+  const helper = source.slice(source.indexOf('async function clickOpensPopupOrNavigates'));
+  const body = helper.slice(0, helper.indexOf('\n}\n'));
+  assert.match(body, /waitForEvent\('framenavigated'/);
+  assert.ok(!/waitForURL\(\(url\) => String\(url\) !== startedAt/.test(body),
+    'comparing the address misses a navigation that lands on the same route');
+  assert.match(body, /frame === page\.mainFrame\(\)/,
+    'a subframe navigating is not this click navigating');
 });

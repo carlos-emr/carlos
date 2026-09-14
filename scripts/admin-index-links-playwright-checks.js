@@ -112,6 +112,12 @@ async function main() {
       items,
       recorder,
       labelPrefix: 'admin',
+      // The shell loads a .contentLink route into #dynamic-content by AJAX and
+      // an .xlink route into an iframe inside it, so the HOST body still holds
+      // the whole panel whatever came back: a blank or error destination read
+      // as a page full of text and passed. Naming the container makes the
+      // audit read what the click actually loaded.
+      inPlaceTarget: '#dynamic-content',
       skipRules: SKIP_ITEMS,
       limit,
       timeout,

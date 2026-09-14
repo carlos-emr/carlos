@@ -658,3 +658,104 @@ test('an item that opens an unclassified popup is not reported as inert', async 
   assert.deepEqual(result.failures, []);
   assert.deepEqual(result.opened, ['Hidden Opener']);
 });
+
+test('the administration shell keeps its route in rel, and that is catalogued', async () => {
+  // 124 anchors in the administration left nav are written
+  //   <a href='javascript:void(0);' class="xlink" rel="<ctx>/admin/UnLock">
+  // and the .xlink handler (leftNav.jspf:906) reads $(this).attr('rel') and
+  // loads it into an iframe. href gives nothing -- void(0) has no route -- and
+  // there is no onclick, so every one of those was dropped: admin-index-links
+  // swept the Administration panel with its primary navigation missing.
+  const items = await catalogue([
+    anchorDouble({ href: 'javascript:void(0);', rel: '/carlos/admin/UnLock' }, 'Unlock Accounts'),
+    anchorDouble({ href: 'javascript:void(0);', rel: '/carlos/admin/ProviderRole' }, 'Provider Roles'),
+  ]);
+  assert.deepEqual(items.map((item) => [item.text, item.route]), [
+    ['Unlock Accounts', '/carlos/admin/UnLock'],
+    ['Provider Roles', '/carlos/admin/ProviderRole'],
+  ]);
+});
+
+test('an ordinary rel keyword is not mistaken for a route', async () => {
+  // rel is a standard HTML attribute. Treating every value as a route would put
+  // an item in the catalogue for every noopener link on the page, each of them
+  // then reported as a route that cannot be reached.
+  const items = await catalogue([
+    anchorDouble({ href: 'javascript:void(0);', rel: 'noopener' }, 'Noopener'),
+    anchorDouble({ href: 'javascript:void(0);', rel: 'noreferrer nofollow' }, 'Nofollow'),
+    anchorDouble({ href: 'javascript:void(0);', rel: 'stylesheet' }, 'Stylesheet'),
+  ]);
+  assert.deepEqual(items, []);
+});
+
+test('an onclick route still wins over rel when both are present', async () => {
+  // rel is the fallback, not the override: an anchor carrying both is driven by
+  // its handler, and the handler reads the onclick.
+  const items = await catalogue([
+    anchorDouble({
+      href: '#',
+      onclick: "popupPage(600,900,'/carlos/admin/fromOnclick')",
+      rel: '/carlos/admin/fromRel',
+    }, 'Both'),
+  ]);
+  assert.equal(items[0].route, '/carlos/admin/fromOnclick');
+});
+
+test('an in-place destination is read from the container, not from the shell around it', async () => {
+  // The Administration shell loads a .contentLink route into #dynamic-content
+  // by AJAX and an .xlink route into an iframe inside it. The host body still
+  // holds the whole shell either way, so reading document.body found plenty of
+  // text no matter what came back -- a blank or error destination passed as an
+  // opened item.
+  const { auditCatalogue } = require('./lib/playwright-link-audit');
+  const shellText = 'Administration  Providers  Billing  Reports';
+  const panel = { text: '', frames: 0 };
+  const page = {
+    url: () => 'http://127.0.0.1:8080/carlos/administration',
+    locator: (selector) => {
+      if (selector === '#dynamic-content') {
+        return {
+          first: () => ({
+            count: async () => 1,
+            innerText: async () => panel.text,
+            locator: () => ({
+              first: () => ({
+                count: async () => panel.frames,
+                contentFrame: async () => null,
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        nth: () => ({
+          textContent: async () => 'Broken Item',
+          scrollIntoViewIfNeeded: async () => {},
+          click: async () => { panel.text = ''; },
+        }),
+        first: () => ({ inputValue: async () => '' }),
+        innerText: async () => shellText,
+        evaluate: async () => false,
+      };
+    },
+    evaluate: async (fn) => (String(fn).includes('innerHTML.length') ? 1 : false),
+    waitForFunction: async () => true,
+    waitForURL: () => new Promise((_r, reject) => { setTimeout(() => reject(new Error('none')), 1); }),
+    waitForLoadState: async () => {},
+    goBack: async () => {},
+  };
+  const result = await auditCatalogue({
+    context: { pages: () => [] },
+    hostPage: page,
+    items: [{
+      text: 'Broken Item', index: 0, selector: 'a', route: '/carlos/admin/x', opensPopup: false,
+    }],
+    recorder: createRecorder(),
+    labelPrefix: 'admin',
+    inPlaceTarget: '#dynamic-content',
+    timeout: 500,
+  });
+  assert.deepEqual(result.opened, [], 'a blank panel must not count as an opened page');
+  assert.equal(result.failures.length, 1);
+  assert.match(result.failures[0], /rendered a blank page/);
+});

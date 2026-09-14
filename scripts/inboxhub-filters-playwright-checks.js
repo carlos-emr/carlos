@@ -142,10 +142,41 @@ async function settle(page, timeout) {
  * same rows as everything else.
  */
 async function shownRows(page) {
-  const rows = await page.$$eval('#inboxhubListModeTableBody tr[data-segment-id]', (elements) => elements.map(
-    (row) => `${row.getAttribute('data-lab-type') || '?'}:${row.getAttribute('data-segment-id')}`,
-  ));
-  return [...new Set(rows)].sort();
+  // EVERY BODY ROW IS READ, not only the ones carrying the attribute. The
+  // selector used to be `tr[data-segment-id]`, so a markup regression that
+  // stopped emitting the attribute made the list look EMPTY -- which this check
+  // reads as "no results" and skips, reporting a green run over a table it never
+  // examined. Reading every row and failing on a missing identity turns that
+  // into the finding it is.
+  const rows = await page.$$eval('#inboxhubListModeTableBody tr', (elements) => elements.map((row) => ({
+    segment: row.getAttribute('data-segment-id'),
+    type: row.getAttribute('data-lab-type') || '?',
+    // Only for the diagnostic below; a row with no identity has to be
+    // describable without one.
+    text: (row.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60),
+  })));
+  // A spacer or "no results" row legitimately has no cells to identify; a row
+  // with content and no segment id is the regression.
+  const unidentified = rows.filter((row) => !row.segment && row.text);
+  assert(unidentified.length === 0,
+    `${unidentified.length} Inbox row(s) render content but carry no data-segment-id, so this check cannot tell `
+    + 'which results are on screen and every partition assertion below would be comparing incomplete sets');
+  const identities = rows
+    .filter((row) => row.segment)
+    .map((row) => `${row.type}:${row.segment}`)
+    .sort();
+  // A DUPLICATE IS ITS OWN FINDING. [...new Set(rows)] collapsed two rows with
+  // the same identity, so the same result listed twice -- a real rendering
+  // defect a clinician would see -- disappeared silently while every assertion
+  // below still passed. It is asserted HERE rather than left to fall through:
+  // assertPartitions would meet the second copy as "returned by more than one
+  // filter value" and blame an ignored filter, which is a different defect and
+  // the wrong thing to tell someone.
+  const duplicates = identities.filter((row, index) => index > 0 && row === identities[index - 1]);
+  assert(duplicates.length === 0,
+    `The Inbox lists ${duplicates.length} result(s) more than once (${[...new Set(duplicates)].slice(0, 3).join(', ')}). `
+    + 'A clinician would see the same result twice and could action it twice.');
+  return identities;
 }
 
 /** Open the Inbox from the schedule's own control. */

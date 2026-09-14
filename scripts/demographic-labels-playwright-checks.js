@@ -143,7 +143,7 @@ function assertIsPdf(item, status, contentType, body) {
 }
 
 /** Click one menu item, then read back what it produced. */
-async function checkItem(context, masterPage, menu, item, timeout) {
+async function checkItem(context, masterPage, menu, item, recorder, timeout) {
   const entry = menu.locator('a.dropdown-item', { hasText: item.label }).first();
   if (await entry.count() === 0) {
     if (item.optional) {
@@ -152,8 +152,15 @@ async function checkItem(context, masterPage, menu, item, timeout) {
     assert(false, `The Print / Labels menu offers no "${item.label}" item`);
   }
 
+  // THE RECORDER TRAVELS WITH IT. clickDownloadsOrOpens only wires a popup when
+  // it is given one, so without this the label PDF's own page was unwatched:
+  // its script errors, failed subresources, bad script MIME types and dialogs
+  // were never recorded, and assertStrictPage(recorder) at the end of the check
+  // had nothing of this popup to find. The check validated bytes and text while
+  // the strict browser contract it claims to enforce was not being applied to
+  // the one page it opens.
   const produced = await clickDownloadsOrOpens(masterPage, entry, {
-    context, label: `label:${item.label}`, timeout,
+    context, label: `label:${item.label}`, recorder, timeout,
   });
   try {
     assert(produced.url && !/^about:blank$/i.test(produced.url),
@@ -216,7 +223,7 @@ async function main() {
     const failures = [];
     for (const item of MENU_ITEMS) {
       try {
-        generated.push(await checkItem(context, masterPage, menu, item, timeout));
+        generated.push(await checkItem(context, masterPage, menu, item, recorder, timeout));
       } catch (error) {
         if (error instanceof SkipCheck) {
           skipped.push(error.message);

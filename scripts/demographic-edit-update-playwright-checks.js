@@ -292,8 +292,25 @@ async function main() {
     // recording looks exactly like a working one -- the page renders, every old
     // row is there, and only this edit is missing.
     const auditAfter = await auditRows(context, masterPage, recorder, timeout);
-    const knownAuditRows = new Set(auditBefore);
-    const added = auditAfter.filter((row) => !knownAuditRows.has(row));
+    // MULTIPLICITY, NOT SET MEMBERSHIP. The row key is the first three cells,
+    // and demographicAudit.jsp formats `created` with
+    // SimpleDateFormat("yyyy-MM-dd HH:mm:ss") -- second precision, with the log
+    // id and content deliberately not shown. Two updates by the same provider
+    // in the same second are therefore the SAME STRING, so a Set said the new
+    // row was already known and the check reported that CARLOS had failed to
+    // write an audit record it had in fact written. Counting occurrences tells
+    // a duplicated row from an absent one.
+    const tally = (rows) => rows.reduce(
+      (counts, row) => counts.set(row, (counts.get(row) || 0) + 1),
+      new Map(),
+    );
+    const countsBefore = tally(auditBefore);
+    const added = [];
+    for (const [row, count] of tally(auditAfter)) {
+      for (let copy = countsBefore.get(row) || 0; copy < count; copy += 1) {
+        added.push(row);
+      }
+    }
     assert(added.length > 0,
       `Updating the patient added no row to the audit trail (${auditBefore.length} rows before, `
       + `${auditAfter.length} after). Who changed a patient record and when is a compliance control, not a log.`);
