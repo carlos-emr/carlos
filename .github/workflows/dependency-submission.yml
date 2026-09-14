@@ -13,6 +13,38 @@
 #   - Validates the dependency lock file
 #   - Submits dependency graph to GitHub
 #
+# ---------------------------------------------------------------------------
+# Recovering a red "submit-maven" check (built-in Automatic Dependency
+# Submission) — NOT this workflow, but the failure people hit:
+#
+# GitHub's *managed* "Automatic Dependency Submission" feature (repo Settings >
+# Code security > Automatic dependency submission; job name "submit-maven")
+# runs its own `mvn` and CANNOT be customized, so it lacks the ~/.m2 eviction
+# the Validate-lock-file step below performs. Symptom: it fails with
+#   [ERROR] ... com.github.openosp:ultrabuk-htmltopdf-java ... wrong integrity
+# (or com.github.librepdf.openpdf:*), "Dependencies differ".
+#
+# Cause: those coordinates were once served by JitPack, whose on-demand rebuilds
+# return different bytes per fetch. They are now vendored in local_repo with the
+# exact bytes in dependencies-lock.json (JitPack is fully removed from the pom's
+# <repositories>), but any Actions cache saved BEFORE the vendoring still holds
+# the old jar, Maven prefers ~/.m2 over every repository, and prefix restore-keys
+# keep propagating the stale copy into each new cache generation. The lock file
+# itself is correct — do NOT "fix" it by running `make lock` against the stale
+# bytes; that would bless the wrong artifact.
+#
+# Fix (one-time, self-healing thereafter): delete the poisoned Maven caches, then
+# re-run the job so a clean run re-saves the deterministic-key cache from
+# local_repo.
+#   gh cache list  | grep -iE 'Linux-maven|Linux-.*-maven'   # find them
+#   gh cache delete <id>                                     # delete each stale one
+#   gh run rerun <failed-run-id>
+# Nothing can re-poison it now that JitPack is gone, so this is a one-time
+# cleanup — a bump of a vendored coordinate would land under a new cache key and
+# re-resolve clean. Better still: disable the redundant managed feature; THIS
+# workflow already submits the graph and validates the lock with the eviction.
+# ---------------------------------------------------------------------------
+#
 # License:
 # This GitHub Workflow file is part of the Carlos EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
@@ -62,6 +94,12 @@ jobs:
           echo "Validating dependencies"
           echo "Lock file: dependencies-lock.json"
           echo "========================================="
+          # The formerly-JitPack coordinates (ultrabuk, openpdf 3.x) are vendored in
+          # local_repo with different bytes than JitPack ever served; a restored Maven
+          # cache from before the vendoring still holds the old jars, and Maven prefers
+          # ~/.m2 over any repository — so the integrity check fails forever until the
+          # stale copies are evicted and re-resolved from local_repo.
+          rm -rf ~/.m2/repository/com/github/openosp ~/.m2/repository/com/github/librepdf
           mvn validate
 
       - name: Submit dependency graph

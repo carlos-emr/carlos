@@ -1,0 +1,33 @@
+# AppArmor profile for the vendored Chromium that renders eForms to PDF.
+#
+# WHY THIS EXISTS. Chromium sandboxes its renderers with an unprivileged user
+# namespace. Ubuntu 23.10+ restricts unprivileged userns with AppArmor
+# (kernel.apparmor_restrict_unprivileged_userns=1, the stock 26.04 default), so
+# without this profile the browser aborts before it renders anything:
+#
+#   FATAL:content/browser/zygote_host/zygote_host_impl_linux.cc
+#   No usable sandbox! ... has disabled unprivileged user namespaces with AppArmor
+#
+# The usual escape is --no-sandbox. This package does NOT take it: the renderer
+# opens clinic-authored eForm HTML, which is the least trustworthy input in the
+# application, and it runs inside the EMR's own service account.
+#
+# The other way to sandbox is the setuid helper (chrome_sandbox). That is not
+# available here and deliberately so: carlos-emr.service sets
+# NoNewPrivileges=yes, under which a setuid binary can never elevate, and
+# shipping a setuid-root binary in a clinical package to work around a hardening
+# flag would be a downgrade, not a fix. chrome_sandbox therefore ships 0755.
+#
+# flags=(unconfined) grants no confinement of its own — this profile exists only
+# to hand back the `userns` permission that the system-wide restriction removed,
+# which is the arrangement Ubuntu itself uses for browser packages. Chromium's
+# own sandbox does the actual containment.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile carlos-emr-chromium /usr/lib/carlos-emr/chromium/chrome flags=(unconfined) {
+  userns,
+
+  # Site-local additions, if any.
+  include if exists <local/carlos-emr-chromium>
+}
