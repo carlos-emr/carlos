@@ -789,6 +789,11 @@ The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silen
   A later successful finish-install unmasks the unit for you. Do not unmask it
   by hand before that credential has actually been replaced.
 
+  While `carlos-ctl import-o19` is copying an OSCAR 19 database, finish-install
+  refuses and says so; at boot it records that and waits. Nothing is lost —
+  resume the import (`carlos-ctl import-o19 ... --resume`), and the install
+  finishes itself at the next boot.
+
   Only one repair runs at a time. The boot-time provisioner and an operator can
   invoke finish-install at the same moment, and both would otherwise generate an
   administrator credential; the second run is refused with a message naming the

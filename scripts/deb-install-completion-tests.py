@@ -33,6 +33,7 @@ class RecoveryFailures(unittest.TestCase):
                 (p, '_table_count', 431), (p.dbops, 'run_flyway', 0),
                 (p.dbops, 'cmd_db_migrate', 0), (p.dbops, 'cmd_bootstrap_admin', 0),
                 (p.dbops, 'cmd_demo_data', 0), (p, '_report_drugref_seed', None),
+                (p, '_o19_import_running', None),
                 (p.util, 'reset_emr_start_limit', None),
                 (p, 'run', subprocess.CompletedProcess([], 0, '', ''))]:
             self.mocks[name] = self.stack.enter_context(patch.object(owner, name, return_value=value))
@@ -244,9 +245,9 @@ class RecoveryFailures(unittest.TestCase):
         # recognize it: `systemctl enable` fails outright on a masked unit, and
         # an EMR left masked would never come back.
         self.marker.write_text('reset_admin=true\ndemo_data=false\n')
-        # is-enabled is asked three times: the guard check, the mask check inside
-        # it, and the verification after `enable` — which must read 'enabled'.
-        states = {'is-enabled': ['masked', 'masked', 'enabled']}
+        # is-enabled is asked twice: once to read the unit's install state, and
+        # once to verify it after `enable` — which must then read 'enabled'.
+        states = {'is-enabled': ['masked', 'enabled']}
 
         def systemctl(argv, **kwargs):
             queue = states.get(argv[1])
@@ -260,6 +261,64 @@ class RecoveryFailures(unittest.TestCase):
         self.assertIn(['systemctl', 'enable', 'carlos-emr.service'], calls)
         self.assertFalse(self.marker.exists())
 
+    def test_import_in_progress_refuses_to_provision_and_keeps_the_marker(self):
+        # carlos-ctl import-o19 owns the clinical database while it copies. A
+        # migration, a grants rewrite or a MariaDB restart under it is
+        # unrecoverable, so this verb must refuse before touching any of them.
+        self.mocks['_o19_import_running'].return_value = 'an OSCAR 19 import is in progress'
+        self.assertNotEqual(self.run_recovery(), 0)
+        self.assertTrue(self.marker.exists())
+        self.mocks['_wait_for_db'].assert_not_called()
+        self.mocks['cmd_db_apply_settings'].assert_not_called()
+        self.mocks['cmd_db_users'].assert_not_called()
+        self.mocks['run_flyway'].assert_not_called()
+        self.mocks['run'].assert_not_called()
+
+    def test_import_in_progress_leaves_boot_recovery_pending_without_failing(self):
+        # At boot this is not a failure of the boot: the import is resumed by an
+        # operator. The marker has to survive so the boot after it completes
+        # finishes the install.
+        self.mocks['_o19_import_running'].return_value = 'an OSCAR 19 import is in progress'
+        self.assertEqual(self.run_recovery(['--boot']), 0)
+        self.assertTrue(self.marker.exists())
+        self.mocks['_wait_for_db'].assert_not_called()
+        self.mocks['run'].assert_not_called()
+
+    def test_missing_import_guard_fails_closed_rather_than_assuming_no_import(self):
+        # A guard that is not installed is a broken unpack, not an absent
+        # import — the same posture carlos-emr.postinst takes.
+        with patch.object(p.os.path, 'exists', return_value=False):
+            reason = original_o19_check()
+        self.assertIsNotNone(reason)
+        self.assertIn('carlos-emr-o19-guard', reason)
+
+    def test_disabled_unit_is_re_enabled_even_with_no_sentinel_to_notice(self):
+        # The postinst writes the sentinel best-effort: a failed write with a
+        # successful disable leaves the unit down with nothing to key recovery
+        # from. Clearing the marker there would strand the EMR permanently.
+        self.marker.write_text('reset_admin=true\ndemo_data=false\n')
+        states = {'is-enabled': ['disabled', 'enabled']}
+
+        def systemctl(argv, **kwargs):
+            queue = states.get(argv[1])
+            value = queue.pop(0) if queue else ''
+            return subprocess.CompletedProcess(argv, 0, value, '')
+
+        self.mocks['run'].side_effect = systemctl
+        self.assertEqual(self.run_recovery(['--boot']), 0)
+        calls = [call.args[0] for call in self.mocks['run'].call_args_list]
+        self.assertIn(['systemctl', 'enable', 'carlos-emr.service'], calls)
+        self.assertIn(['systemctl', 'start', '--no-block', 'carlos-emr.service'], calls)
+        self.assertFalse(self.marker.exists())
+
+    def test_boot_start_resets_the_limiter_the_broken_window_may_have_burned(self):
+        self.marker.write_text('reset_admin=true\ndemo_data=false\n')
+        Path(p.SEED_SENTINEL).touch()
+        self.mocks['run'].side_effect = lambda argv, **kw: subprocess.CompletedProcess(
+            argv, 0, 'enabled' if argv[1] == 'is-enabled' else '', '')
+        self.assertEqual(self.run_recovery(['--boot']), 0)
+        self.mocks['reset_emr_start_limit'].assert_called()
+
     def test_concurrent_repair_is_refused_rather_than_racing_bootstrap_admin(self):
         import fcntl
         held = open(p.LOCK, 'w')
@@ -272,6 +331,9 @@ class RecoveryFailures(unittest.TestCase):
         self.mocks['run'].assert_not_called()
         self.assertTrue(self.marker.exists())
 
+# Saved before setUp patches them; the tests that exercise the real functions
+# (rather than the command that calls them) use these.
 original_drugref_report = p._report_drugref_seed
+original_o19_check = p._o19_import_running
 if __name__ == '__main__':
     unittest.main(verbosity=2)

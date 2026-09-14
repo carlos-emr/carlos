@@ -70,7 +70,21 @@ def cmd_check(argv) -> int:
     # the WAF policy): without it half the probes false-failed with
     # misleading diagnoses instead of one clear message.
     need_root("check")
-    s = config.load()
+    # config.load() EXITS on an invalid CARLOS_DB_NAME or CARLOS_PROVINCE, and
+    # "the configuration could not be applied" is one of the reasons the
+    # installer records — so that exit is exactly the case where an operator
+    # most needs the unfinished-install line and the command that fixes it.
+    # Report it there too, then let the exit stand: with no settings loaded
+    # there is nothing further this command can probe.
+    try:
+        s = config.load()
+    except SystemExit:
+        if provision.pending():
+            print("\ninstallation")
+            _bad(f"this installation never finished: {provision.reason()}. "
+                 "The configuration above must be fixed first, then finish the "
+                 "install with 'sudo carlos-ctl finish-install'")
+        raise
     print(f"\nCARLOS EMR deployment check ({s.server_name})\n")
 
     # First, because it explains most of what follows: the installer records

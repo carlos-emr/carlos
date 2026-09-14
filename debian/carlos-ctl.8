@@ -233,6 +233,17 @@ so. A later successful
 .B finish-install
 unmasks it; do not unmask it by hand before the credential has been replaced.
 .IP
+While
+.B import-o19
+is copying a clinic's database this command refuses to run: it consults the
+same shipped guard
+.BR carlos\-emr.service
+runs as its
+.B ExecCondition=
+\(em settings, grants and a migration would all land inside a half\-copied
+schema. At boot it records that and stops there instead of failing, so the
+boot after the import finishes completes the install.
+.IP
 DrugRef data is provisioned separately. An empty drugref2 database requires
 .BR "dpkg-reconfigure carlos-emr-drugref" .
 Existing tables without a seed-completion marker require a backup and

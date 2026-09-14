@@ -1238,10 +1238,16 @@ positive control also passed with a 4 GiB heap on the same 8 GiB VM.
 | Two marker-free boot invocations | No-op; generated administrator credential file remains unchanged |
 | Real DrugRef dataset with its marker temporarily renamed | Warns about a potentially incomplete/older seed, preserves data and requests backup/administrator review |
 
-Automated coverage comprises 235 passing Node script tests, including the
-recovery harness's 22 Python behavioral tests. Fault injection covers required
+Automated coverage comprises 592 passing Node script tests, including the
+recovery harness's 30 Python behavioral tests. Fault injection covers required
 step return codes and exceptions, marker write/delete failures, credential
 containment and re-enablement, failed service starts, and DrugRef query failures.
+It also covers the cases a concurrent or gated repair creates: a second
+finish-install refused while one holds the lock, a masked unit when the
+credential guard cannot be written and its unmasking once the credential is
+replaced, a unit left merely disabled with no sentinel to key recovery from,
+and an OSCAR 19 import in progress (refused by hand, left pending at boot,
+with a missing guard failing closed).
 Shell syntax, Python compilation and manpage checks pass. Systemd verifies the
 CARLOS units; Ubuntu emits unrelated deprecation warnings for its XFS units.
 

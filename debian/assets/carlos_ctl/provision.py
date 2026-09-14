@@ -69,6 +69,13 @@ _DEBCONF_KEY = {
 # demonstration-data loader already applies to itself.
 LOCK = os.path.join(STATE, ".finish-install.lock")
 
+# The SHIPPED guard, and the same file carlos-emr.service runs as its
+# ExecCondition= and cli._refuse_start_during_o19_import() consults before a
+# start: one predicate, so none of them can disagree about what "an OSCAR 19
+# import is in progress" means. Referenced by path rather than imported
+# because cli imports this module, not the other way round.
+O19_GUARD = os.path.join(util.LIB, "carlos-emr-o19-guard")
+
 
 def pending() -> bool:
     return os.path.exists(MARKER)
@@ -214,9 +221,34 @@ def _required(what: str, fn, *args, note: str = "") -> None:
             f"then re-run 'carlos-ctl finish-install'.{note}")
 
 
-def _unit_masked() -> bool:
+def _unit_enablement() -> str:
+    """systemd's own word for the unit's install state: enabled, disabled,
+    masked, static, or "" when systemd is not running."""
     return run(["systemctl", "is-enabled", "carlos-emr.service"],
-               capture_output=True).stdout.strip() == "masked"
+               capture_output=True).stdout.strip()
+
+
+def _o19_import_running() -> Optional[str]:
+    """Whether an OSCAR 19 import owns the clinical database right now.
+
+    `carlos-ctl import-o19` copies a clinic's OSCAR 19 database into this
+    schema, and the guard exists because even *starting* CARLOS during that
+    window writes the startup listener's rows into a half-copied schema. This
+    verb does considerably more than start it — db-apply-settings restarts
+    MariaDB under the importer, db-users rewrites grants, and a migration on a
+    schema mid-copy is unrecoverable — so it has to consult the same guard.
+
+    Returns the guard's reason when an import is running, None when it is not.
+    A missing guard is a broken unpack, not an absent import: it fails CLOSED,
+    exactly as carlos-emr.postinst's o19_import_in_progress() does.
+    """
+    if not os.path.exists(O19_GUARD):
+        return (f"{O19_GUARD} is missing, so whether an OSCAR 19 import is "
+                "running cannot be established (reinstall carlos-emr)")
+    verdict = run([O19_GUARD], capture_output=True)
+    if verdict.returncode == 0:
+        return None
+    return (verdict.stderr or "").strip() or "an OSCAR 19 import is in progress"
 
 
 def _fail_closed() -> None:
@@ -320,6 +352,23 @@ def cmd_finish_install(argv) -> int:
     if pending():
         log(f"resuming an unfinished installation: {reason()}")
 
+    # Before the database is touched at all: settings, grants and a migration
+    # would all land inside an import's half-copied schema.
+    import_running = _o19_import_running()
+    if import_running:
+        if boot:
+            # Not a failure of this boot: the import owns the database, and it
+            # is resumed by an operator, not by a boot. The marker stays, so
+            # the next boot after the import finishes completes the install.
+            log("NOT provisioning: " + import_running
+                + ". The unfinished install stays recorded; it is completed after "
+                "the import finishes (carlos-ctl import-o19 --resume).")
+            return 0
+        die("finish-install refused: " + import_running
+            + ". Finish or retire the import first ('carlos-ctl import-o19 --resume' "
+            "or '--cleanup'), then re-run 'carlos-ctl finish-install'. The "
+            "unfinished install stays recorded until then.")
+
     if not _wait_for_db(120 if boot else 0):
         fail("MariaDB is not answering as root over the unix socket. Start it "
              "(systemctl status mariadb), then re-run 'carlos-ctl finish-install'.")
@@ -370,15 +419,25 @@ def cmd_finish_install(argv) -> int:
                 "been stopped and disabled rather than served with a credential published "
                 "in the CARLOS source repository. Fix the cause above, then re-run "
                 "'carlos-ctl finish-install'.")
-        if os.path.exists(SEED_SENTINEL) or _unit_masked():
+        # Containment has three shapes, because the postinst writes the
+        # sentinel best-effort and then VERIFIES rather than asserts: the
+        # sentinel is present; the unit is masked (what _fail_closed() does
+        # when the sentinel cannot be written); or the unit is merely disabled
+        # (the sentinel write failed but the disable succeeded). All three have
+        # to be lifted here. Recognizing only the sentinel left the third case
+        # with a cleared marker and a unit that never starts again — nothing
+        # for a later run to notice, and at boot no start queued either.
+        # Re-enabling a unit an operator disabled by hand is within this verb's
+        # contract: it ends by starting the EMR.
+        enablement = _unit_enablement()
+        if os.path.exists(SEED_SENTINEL) or enablement in ("masked", "disabled"):
             # Cleared here as well as in the postinst: this verb is the other
             # route out of that state, and leaving the unit disabled would mean
-            # the EMR silently fails to come back at the next boot. A masked
-            # unit is the same guard in its other shape — _fail_closed() masks
-            # when it cannot write the sentinel — and `enable` fails outright on
-            # one, so lift the mask first or the EMR never comes back at all.
-            if _unit_masked() and run(["systemctl", "unmask", "carlos-emr.service"],
-                                      capture_output=True).returncode != 0:
+            # the EMR silently fails to come back at the next boot. `enable`
+            # fails outright on a masked unit, so lift the mask first or the
+            # EMR never comes back at all.
+            if enablement == "masked" and run(["systemctl", "unmask", "carlos-emr.service"],
+                                              capture_output=True).returncode != 0:
                 die("could not unmask carlos-emr.service, so the EMR cannot be started "
                     "even though the seeded credential has been replaced. Fix the "
                     "systemctl errors, then re-run 'carlos-ctl finish-install'.")
@@ -418,6 +477,10 @@ def cmd_finish_install(argv) -> int:
     if boot:
         # A disabled EMR had no start job queued at boot. Queue one now, without
         # waiting for a service that is ordered after this running provisioner.
+        # Reset the start limiter first, exactly as the manual path does: the
+        # EMR may well have burned its six failures against the schema this run
+        # has just created, and systemd would refuse the queued start outright.
+        util.reset_emr_start_limit()
         if reenabled and run(["systemctl", "start", "--no-block", "carlos-emr.service"]).returncode != 0:
             _record(reset_admin, demo_data, "the application server start could not be queued")
             die("could not queue the recovered EMR start; retry finish-install")

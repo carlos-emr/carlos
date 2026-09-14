@@ -167,6 +167,20 @@ print("ok")
   // the only containment left, and recovery has to lift it again.
   assert.match(provision, /"systemctl", "mask", "carlos-emr\.service"/);
   assert.match(provision, /"systemctl", "unmask", "carlos-emr\.service"/);
+  // The postinst falls back to the same mask, so the two paths cannot leave a
+  // host in different states.
+  assert.match(postinst, /deb-systemd-helper mask carlos-emr\.service/);
+  assert.match(postinst, /deb-systemd-helper unmask carlos-emr\.service/);
+
+  // One predicate for "an OSCAR 19 import is in progress": the shipped guard
+  // that carlos-emr.service also runs as its ExecCondition. finish-install
+  // does far more than start the EMR, so it must consult it too.
+  assert.match(provision, /carlos-emr-o19-guard/);
+  assert.ok(provision.indexOf('_o19_import_running()') <
+    provision.indexOf('_wait_for_db(120 if boot else 0)'));
+  // A configure that deliberately provisioned nothing (the import gate) must
+  // not delete the marker a previous failed configure left behind.
+  assert.match(postinst, /INSTALL_INCOMPLETE\}" = 0 \] && \[ "\$\{MIGRATION_OK:-1\}" = 1/);
 
   const validate = read('debian', 'assets', 'carlos_ctl', 'validate.py');
   // check reports the unfinished install FIRST: it is the one cause behind the
@@ -240,6 +254,33 @@ clear_incomplete
 test ! -e "$INCOMPLETE_MARKER"
 `], { encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a configure that provisioned nothing keeps the marker it did not earn', () => {
+  // The OSCAR 19 import gate sets MIGRATION_OK=0 and deliberately skips every
+  // provisioning step without marking anything itself. Deleting the marker an
+  // earlier failed configure left would throw away the only recovery trigger
+  // while still reporting the install as finished.
+  const functions = postinst.slice(postinst.indexOf('mark_incomplete() {'),
+    postinst.indexOf('# deb-systemd-invoke'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-marker-gated-'));
+  try {
+    const marker = path.join(root, '.install-incomplete');
+    fs.writeFileSync(marker, 'reason=MariaDB was not reachable\n');
+    const result = spawnSync('sh', ['-c', `set -e
+STATE="${root}"
+INCOMPLETE_MARKER="${marker}"
+INSTALL_INCOMPLETE=0
+${functions}
+MIGRATION_OK=0
+clear_incomplete
+test -f "$INCOMPLETE_MARKER"
+grep -q 'MariaDB was not reachable' "$INCOMPLETE_MARKER"
+`], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

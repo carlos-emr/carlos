@@ -66,7 +66,13 @@ mark_incomplete() {
 }
 
 clear_incomplete() {
-    if [ "${INSTALL_INCOMPLETE}" = 0 ]; then
+    # Only a run that actually PROVISIONED may declare that nothing is owed.
+    # MIGRATION_OK=0 without a mark_incomplete above means this configure
+    # deliberately did no provisioning at all -- the OSCAR 19 import gate is
+    # that case -- and deleting the marker a previous failed configure left
+    # would throw away the only thing that triggers recovery, at boot or by
+    # hand, while still reporting the install as finished.
+    if [ "${INSTALL_INCOMPLETE}" = 0 ] && [ "${MIGRATION_OK:-1}" = 1 ]; then
         if ! rm -f "${INCOMPLETE_MARKER}"; then
             mark_incomplete "the completed provisioning state could not be recorded"
         fi
@@ -872,7 +878,24 @@ case "$1" in
                     # next configure would happily START the service while it
                     # stayed disabled, so the EMR would silently fail to come
                     # back at the following reboot.
-                    if [ -e "${SEED_SENTINEL}" ]; then
+                    # The sentinel is written best-effort and then VERIFIED, so
+                    # containment has three shapes: sentinel present, unit masked
+                    # (what a failed sentinel write falls back to), or unit merely
+                    # disabled (the write failed, the disable succeeded). Keying
+                    # this on the sentinel alone left that third case disabled
+                    # forever: this configure would start the service once and the
+                    # next reboot would not.
+                    unit_state=""
+                    if [ -d /run/systemd/system ]; then
+                        unit_state="$(systemctl is-enabled carlos-emr.service 2>/dev/null || true)"
+                    fi
+                    if [ -e "${SEED_SENTINEL}" ] || [ "${unit_state}" = masked ] ||
+                        [ "${unit_state}" = disabled ]; then
+                        # `enable` fails outright on a masked unit, so lift the
+                        # mask first or the EMR never comes back at all.
+                        if [ "${unit_state}" = masked ]; then
+                            deb-systemd-helper unmask carlos-emr.service >/dev/null 2>&1 || true
+                        fi
                         if deb-systemd-helper enable carlos-emr.service &&
                             { [ ! -d /run/systemd/system ] || systemctl is-enabled --quiet carlos-emr.service; } &&
                             rm -f "${SEED_SENTINEL}"; then
@@ -1117,6 +1140,17 @@ if [ "$1" = configure ] && [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
     containment_failed=0
     if [ ! -f "${SEED_SENTINEL}" ]; then
         echo "carlos-emr: ERROR: could not persist the seeded credential guard." >&2
+        # The sentinel is what actually blocks a start: carlos-emr.service
+        # carries ConditionPathExists=! on it precisely because `disable` does
+        # not stop a queued or hand-typed `systemctl start`. With /var refusing
+        # the sentinel, masking is the only guard left that lives outside it --
+        # the same fallback carlos-ctl finish-install takes, so the two paths
+        # cannot leave a host in different states. A later successful
+        # finish-install (or configure) unmasks the unit once the credential
+        # has actually been replaced.
+        deb-systemd-helper mask carlos-emr.service >/dev/null 2>&1 || true
+        echo "carlos-emr: carlos-emr.service has been MASKED instead; it is unmasked" >&2
+        echo "carlos-emr: for you once the credential is replaced." >&2
         containment_failed=1
     fi
     if [ -d /run/systemd/system ]; then
