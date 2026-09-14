@@ -781,6 +781,19 @@ The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silen
   reports an error if it cannot verify it. A successful retry re-enables the
   service and removes the guard; boot recovery also queues its start.
 
+  That guard is a file under /var/lib/carlos-emr, and disabling a unit does not
+  stop a manual `systemctl start`. So if the guard itself cannot be written —
+  a full or read-only /var — the recovery masks carlos-emr.service instead, and
+  says so: the mask is then the only thing standing between an internet-facing
+  EMR and the administrator password published in the CARLOS source repository.
+  A later successful finish-install unmasks the unit for you. Do not unmask it
+  by hand before that credential has actually been replaced.
+
+  Only one repair runs at a time. The boot-time provisioner and an operator can
+  invoke finish-install at the same moment, and both would otherwise generate an
+  administrator credential; the second run is refused with a message naming the
+  first. Wait for it, then confirm with `carlos-ctl check`.
+
 eForm print, fax or archive fails
   Those three are the only workflows that need a browser, and it runs as its own
   service. Check, in this order:

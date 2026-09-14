@@ -35,6 +35,16 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     completes by itself. It is skipped outright when there is no marker, and it
     refuses to migrate a schema that already has tables: an upgrade migration
     stays an operator decision taken after a verified backup.
+  * Only one recovery runs at a time. The boot-time provisioner and an operator
+    could previously both pass the schema checks and both generate an
+    administrator credential, leaving the saved credentials file naming the
+    other run's password; finish-install now holds an exclusive lock for the
+    life of the run and refuses a second one. When the credential guard file
+    itself cannot be written -- a full or read-only /var -- the unit is masked
+    rather than only disabled, because disabling does not stop a manual start;
+    a later successful recovery unmasks it. A failure before the credential has
+    been replaced now says so, rather than leaving an operator to assume the
+    published password is already gone.
   * "carlos-ctl check" reports an unfinished install first, before the dozen
     unrelated-looking failures it causes, and names the command that fixes it.
     Its table count no longer reports a query that FAILED as a database with no

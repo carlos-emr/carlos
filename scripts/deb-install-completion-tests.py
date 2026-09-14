@@ -20,8 +20,11 @@ class RecoveryFailures(unittest.TestCase):
         self.marker.write_text('reason=test failure\nreset_admin=false\ndemo_data=false\n')
         props = Path(self.tmp, 'properties')
         props.touch()
-        for name, value in [('MARKER', str(self.marker)), ('SEED_SENTINEL', str(Path(self.tmp, 'seed'))), ('PROPERTIES', str(props))]:
+        for name, value in [('MARKER', str(self.marker)), ('SEED_SENTINEL', str(Path(self.tmp, 'seed'))), ('PROPERTIES', str(props)), ('LOCK', str(Path(self.tmp, 'lock')))]:
             self.stack.enter_context(patch.object(p, name, value))
+        # The repair holds its lock for the life of the process; in-process tests
+        # re-acquire it, so release each one rather than leaking descriptors.
+        self.addCleanup(self._release_lock)
         self.mocks = {}
         for owner, name, value in [(p, 'need_root', None), (p, '_wait_for_db', True),
                 (p.config, 'load', types.SimpleNamespace(db_name='test')),
@@ -33,6 +36,11 @@ class RecoveryFailures(unittest.TestCase):
                 (p.util, 'reset_emr_start_limit', None),
                 (p, 'run', subprocess.CompletedProcess([], 0, '', ''))]:
             self.mocks[name] = self.stack.enter_context(patch.object(owner, name, return_value=value))
+
+    def _release_lock(self):
+        if p._LOCK_HANDLE is not None:
+            p._LOCK_HANDLE.close()
+            p._LOCK_HANDLE = None
 
     def run_recovery(self, argv=None):
         try:
@@ -219,6 +227,50 @@ class RecoveryFailures(unittest.TestCase):
         with patch('builtins.open', side_effect=PermissionError('injected write failure')):
             with self.assertRaises(SystemExit):
                 p._fail_closed()
+
+    def test_unwritable_guard_masks_the_unit_it_cannot_otherwise_block(self):
+        # .seed-credential-live is what stops a start (ConditionPathExists in the
+        # unit); `disable` alone does not. With /var refusing the sentinel, the
+        # mask is the only remaining guard, so it must be taken.
+        self.mocks['run'].side_effect = self.systemctl
+        with patch('builtins.open', side_effect=PermissionError('injected write failure')):
+            with self.assertRaises(SystemExit):
+                p._fail_closed()
+        calls = [call.args[0] for call in self.mocks['run'].call_args_list]
+        self.assertIn(['systemctl', 'mask', 'carlos-emr.service'], calls)
+
+    def test_masked_unit_is_unmasked_once_the_credential_is_replaced(self):
+        # The mask has no sentinel to key its removal from, so recovery has to
+        # recognize it: `systemctl enable` fails outright on a masked unit, and
+        # an EMR left masked would never come back.
+        self.marker.write_text('reset_admin=true\ndemo_data=false\n')
+        # is-enabled is asked three times: the guard check, the mask check inside
+        # it, and the verification after `enable` — which must read 'enabled'.
+        states = {'is-enabled': ['masked', 'masked', 'enabled']}
+
+        def systemctl(argv, **kwargs):
+            queue = states.get(argv[1])
+            value = queue.pop(0) if queue else ''
+            return subprocess.CompletedProcess(argv, 0, value, '')
+
+        self.mocks['run'].side_effect = systemctl
+        self.assertEqual(self.run_recovery(), 0)
+        calls = [call.args[0] for call in self.mocks['run'].call_args_list]
+        self.assertIn(['systemctl', 'unmask', 'carlos-emr.service'], calls)
+        self.assertIn(['systemctl', 'enable', 'carlos-emr.service'], calls)
+        self.assertFalse(self.marker.exists())
+
+    def test_concurrent_repair_is_refused_rather_than_racing_bootstrap_admin(self):
+        import fcntl
+        held = open(p.LOCK, 'w')
+        self.addCleanup(held.close)
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        self.assertNotEqual(self.run_recovery(), 0)
+        # Refused before any provisioning: the other run owns all of it.
+        self.mocks['_wait_for_db'].assert_not_called()
+        self.mocks['cmd_bootstrap_admin'].assert_not_called()
+        self.mocks['run'].assert_not_called()
+        self.assertTrue(self.marker.exists())
 
 original_drugref_report = p._report_drugref_seed
 if __name__ == '__main__':

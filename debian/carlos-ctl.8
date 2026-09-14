@@ -216,6 +216,23 @@ pending. Fix the reported error, then run the command again. A failed service
 start also restores the marker. If the marker cannot be written, automatic
 retry is not assured; retry manually after fixing the filesystem.
 .IP
+Only one repair runs at a time: an exclusive lock on
+.I /var/lib/carlos-emr/.finish-install.lock
+is held for the life of the run, so a hand\-typed repair and the boot\-time
+provisioner cannot both provision accounts or both generate an administrator
+credential. A second run is refused, and names the first.
+.IP
+The credential guard the postinst and this command use \(em
+.I /var/lib/carlos-emr/.seed-credential-live
+\(em is what blocks a start of
+.BR carlos\-emr.service ;
+disabling a unit does not. If that file cannot be written while the published
+.B carlosdoc
+credential may still be live, the unit is MASKED instead and the failure says
+so. A later successful
+.B finish-install
+unmasks it; do not unmask it by hand before the credential has been replaced.
+.IP
 DrugRef data is provisioned separately. An empty drugref2 database requires
 .BR "dpkg-reconfigure carlos-emr-drugref" .
 Existing tables without a seed-completion marker require a backup and
@@ -563,6 +580,11 @@ Present when the installer could not provision the database. Names the reason
 and what the install asked for; removed by a successful
 .B finish-install
 or reconfigure.
+.TP
+.I /var/lib/carlos-emr/.finish-install.lock
+The lock that keeps a hand\-typed
+.B finish-install
+and the boot\-time provisioner from provisioning at the same time.
 .TP
 .I /var/lib/carlos-emr/o19-import/
 Workspace of an OSCAR 19 import (root\-only, created by

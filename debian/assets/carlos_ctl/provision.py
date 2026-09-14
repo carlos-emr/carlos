@@ -60,6 +60,15 @@ _DEBCONF_KEY = {
     "demo_data": "carlos-emr/install-demo-data",
 }
 
+# One repair at a time. carlos-emr-provision.service runs this verb at boot and
+# an operator can run it by hand, so two runs can overlap: both would pass the
+# schema checks, both would call bootstrap-admin — and each writes
+# initial-admin.txt before updating `security`, so the surviving file could name
+# the other run's password — and they would race the marker clearing and the
+# service start. Same discipline, and the same non-blocking lock, that the
+# demonstration-data loader already applies to itself.
+LOCK = os.path.join(STATE, ".finish-install.lock")
+
 
 def pending() -> bool:
     return os.path.exists(MARKER)
@@ -71,10 +80,15 @@ def reason() -> str:
 
 
 def clear() -> None:
+    """Record that nothing is owed. Only an absent marker is tolerated: it is
+    what a completed repair looks like, and clearing twice is not an error.
+    Every other failure — a read-only or full /var — must reach the caller,
+    because a marker that outlives the work it describes would have this verb
+    and the boot provisioner repeat a repair that is already done."""
     try:
         os.unlink(MARKER)
     except FileNotFoundError:
-        pass
+        pass  # already clear; nothing was owed
 
 
 def _record(reset_admin: bool, demo_data: bool, why: str) -> None:
@@ -129,15 +143,47 @@ def _table_count(db_name: str) -> Optional[int]:
     """Tables in the clinical schema, or None when the COUNT itself failed.
     'could not check' and 'nothing there' must stay different answers: the
     whole point of this verb is deciding whether to create a schema."""
-    cp = dbops.db_root(
-        ["-N", "-B", "-e",
-         "SELECT COUNT(*) FROM information_schema.tables "
-         f"WHERE table_schema='{db_name}'"],
-        capture_output=True)
+    count = ("SELECT COUNT(*) FROM information_schema.tables "
+             f"WHERE table_schema='{db_name}'")
+    cp = dbops.db_root(["-N", "-B", "-e", count], capture_output=True)
     if cp.returncode != 0:
         return None
     value = cp.stdout.strip()
     return int(value) if value.isdigit() else None
+
+
+# The open descriptor IS the lock, so it has to outlive _acquire_lock(): a
+# dropped local would be closed by the garbage collector and unlock mid-repair.
+_LOCK_HANDLE = None
+
+
+def _acquire_lock() -> None:
+    """Hold an exclusive, non-blocking lock for the whole repair.
+
+    The boot provisioner and an operator can invoke this verb at the same time.
+    Without the lock both would clear the same schema checks and both would call
+    bootstrap-admin, which writes initial-admin.txt before it updates `security`
+    — so the file left on disk could name the other run's password — and they
+    would also race the marker clearing and the service start. The lock is held
+    for the life of the process (the descriptor stays open) and goes with it.
+    """
+    import fcntl
+
+    global _LOCK_HANDLE
+
+    try:
+        os.makedirs(os.path.dirname(LOCK), exist_ok=True)
+        handle = open(LOCK, "w", encoding="utf-8")
+    except OSError as exc:
+        die(f"could not open {LOCK}: {exc}; finish-install cannot serialize itself "
+            "against the boot-time provisioner, so it will not start")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        die("another 'carlos-ctl finish-install' is already running (the boot-time "
+            "carlos-emr-provision.service is one) — wait for it to finish, then check "
+            "the result with 'carlos-ctl check'")
+    _LOCK_HANDLE = handle
 
 
 def _succeeded(fn, *args) -> bool:
@@ -148,10 +194,29 @@ def _succeeded(fn, *args) -> bool:
         return exc.code in (None, 0)
 
 
-def _required(what: str, fn, *args) -> None:
+# Appended to any failure that stops this verb BEFORE bootstrap-admin has run,
+# when the install asked for the seeded credential to be replaced. The guard is
+# NOT armed from those paths on purpose: .seed-credential-live stops every start
+# of carlos-emr.service, and arming it because a settings drop-in or a GRANT
+# failed would take a clinic's already-serving EMR down over a transient
+# database error. The case that can be proved — a bootstrap-admin that ran and
+# failed — is contained, by _fail_closed() here and by the postinst. What is
+# left is a host whose published password may not have been replaced yet, and
+# the operator is the one who knows whether it is serving, so tell them.
+_SEED_NOTE = (" The seeded 'carlosdoc' password has NOT been replaced yet: if this host "
+              "is already serving, treat the credential published in the CARLOS source "
+              "repository as LIVE until finish-install completes.")
+
+
+def _required(what: str, fn, *args, note: str = "") -> None:
     if not _succeeded(fn, *args):
         die(f"{what} failed; installation remains incomplete. Fix the cause above, "
-            "then re-run 'carlos-ctl finish-install'.")
+            f"then re-run 'carlos-ctl finish-install'.{note}")
+
+
+def _unit_masked() -> bool:
+    return run(["systemctl", "is-enabled", "carlos-emr.service"],
+               capture_output=True).stdout.strip() == "masked"
 
 
 def _fail_closed() -> None:
@@ -165,6 +230,17 @@ def _fail_closed() -> None:
         persisted = False
         warn(f"could not write {SEED_SENTINEL}: {exc}")
     disabled = run(["systemctl", "disable", "carlos-emr.service"], capture_output=True)
+    if not persisted:
+        # The sentinel is what actually blocks a start: carlos-emr.service
+        # carries ConditionPathExists=!.seed-credential-live precisely because
+        # `disable` does not stop a queued or hand-typed `systemctl start`. With
+        # /var refusing the sentinel, masking is the only guard left that lives
+        # outside it, so take it — the recovery path below unmasks the unit once
+        # the credential has actually been replaced.
+        masked = run(["systemctl", "mask", "carlos-emr.service"], capture_output=True)
+        if masked.returncode != 0:
+            warn("could not mask carlos-emr.service either: "
+                 f"{masked.stderr.strip() or 'systemctl mask failed'}")
     # Do not wait on an EMR start job ordered after this very provisioner at boot.
     stopped = run(["systemctl", "stop", "--no-block", "carlos-emr.service"],
                   capture_output=True)
@@ -181,18 +257,21 @@ def _fail_closed() -> None:
         die("COULD NOT verify that the EMR is stopped and protected at boot while "
             "the published administrator credential may still be live. Check "
             "'systemctl status carlos-emr' and 'systemctl disable --now carlos-emr' "
-            "immediately; fix the errors above before retrying finish-install.")
+            "immediately; fix the errors above before retrying finish-install. "
+            "A unit reported as masked was masked HERE, because the credential "
+            "guard could not be written: a successful finish-install unmasks it.")
 
 
 def _report_drugref_seed() -> None:
     """Diagnose the companion package without overwriting an existing dataset."""
     if not os.path.isfile(util.DRUGREF_PROPERTIES):
         return
-    cp = dbops.db_root(
-        ["-N", "-B", "-e", "SELECT COUNT(*), "
-         "COALESCE(SUM(table_name='_carlos_seed_complete'), 0) "
-         "FROM information_schema.tables WHERE table_schema='drugref2'"],
-        capture_output=True)
+    # One literal, assembled before the call: adjacent strings inside the
+    # argument list read as a missing comma to both a reviewer and CodeQL.
+    seed_state = ("SELECT COUNT(*), "
+                  "COALESCE(SUM(table_name='_carlos_seed_complete'), 0) "
+                  "FROM information_schema.tables WHERE table_schema='drugref2'")
+    cp = dbops.db_root(["-N", "-B", "-e", seed_state], capture_output=True)
     values = cp.stdout.split()
     if cp.returncode != 0 or len(values) != 2 or not all(v.isdigit() for v in values):
         warn("could not verify the drug reference dataset. Check MariaDB and run "
@@ -224,8 +303,15 @@ def cmd_finish_install(argv) -> int:
     need_root("finish-install")
     if boot and not pending():
         return 0
+    _acquire_lock()
     reset_admin = _answer("reset_admin", True)
     demo_data = _answer("demo_data", False)
+    # Every failure before bootstrap-admin carries this; see _SEED_NOTE.
+    note = _SEED_NOTE if reset_admin else ""
+
+    def fail(message: str) -> None:
+        die(message + note)
+
     if not pending():
         try:
             _record(reset_admin, demo_data, "manual install completion has not finished")
@@ -235,43 +321,43 @@ def cmd_finish_install(argv) -> int:
         log(f"resuming an unfinished installation: {reason()}")
 
     if not _wait_for_db(120 if boot else 0):
-        die("MariaDB is not answering as root over the unix socket. Start it "
-            "(systemctl status mariadb), then re-run 'carlos-ctl finish-install'.")
+        fail("MariaDB is not answering as root over the unix socket. Start it "
+             "(systemctl status mariadb), then re-run 'carlos-ctl finish-install'.")
     s = config.load()
 
     # init-config requires this file too; only the package installs its skeleton.
     if not os.path.isfile(PROPERTIES):
-        die(f"{PROPERTIES} is missing; reinstall carlos-emr to restore the configuration, "
-            "then re-run 'carlos-ctl finish-install'.")
+        fail(f"{PROPERTIES} is missing; reinstall carlos-emr to restore the configuration, "
+             "then re-run 'carlos-ctl finish-install'.")
 
-    _required("init-config", config.cmd_init_config, [])
-    _required("db-apply-settings", dbops.cmd_db_apply_settings, [])
-    _required("db-users", dbops.cmd_db_users, [])
+    _required("init-config", config.cmd_init_config, [], note=note)
+    _required("db-apply-settings", dbops.cmd_db_apply_settings, [], note=note)
+    _required("db-users", dbops.cmd_db_users, [], note=note)
 
     tables = _table_count(s.db_name)
     if tables is None:
-        die(f"could not count the tables in `{s.db_name}` — the database answered "
-            "root a moment ago, so investigate before provisioning further")
+        fail(f"could not count the tables in `{s.db_name}` — the database answered "
+             "root a moment ago, so investigate before provisioning further")
     if tables == 0:
         # run_flyway rather than the db-migrate verb: that verb opens with
         # "back up first", which is the right warning before an upgrade
         # migration and a misleading one over a schema that does not exist yet.
         log(f"`{s.db_name}` is empty; creating the schema (a few minutes)")
         if dbops.run_flyway("migrate") != 0:
-            die("the schema migration FAILED (the Flyway message is above). "
-                "'carlos-ctl db-info' shows the state; fix the cause, then re-run "
-                "'carlos-ctl finish-install'.")
+            fail("the schema migration FAILED (the Flyway message is above). "
+                 "'carlos-ctl db-info' shows the state; fix the cause, then re-run "
+                 "'carlos-ctl finish-install'.")
     elif dbops.run_flyway("validate") == 0:
         log(f"`{s.db_name}` is already migrated ({tables} tables)")
     elif boot:
         # Tables but not a schema this WAR accepts: a failed or partial
         # migration, or an upgrade whose migration has not been applied. Both
         # are operator decisions taken after a verified backup.
-        die(f"`{s.db_name}` has {tables} tables but does not validate against the "
-            "deployed application. NOT migrating unattended — back up, then run "
-            "'carlos-ctl db-migrate' by hand ('carlos-ctl db-info' shows the state).")
+        fail(f"`{s.db_name}` has {tables} tables but does not validate against the "
+             "deployed application. NOT migrating unattended — back up, then run "
+             "'carlos-ctl db-migrate' by hand ('carlos-ctl db-info' shows the state).")
     else:
-        _required("the schema migration", dbops.cmd_db_migrate, [])
+        _required("the schema migration", dbops.cmd_db_migrate, [], note=note)
 
     # The schema seeds 'carlosdoc' with a password hash published in the CARLOS
     # source repository. Replacing it is the last thing that must happen before
@@ -284,10 +370,18 @@ def cmd_finish_install(argv) -> int:
                 "been stopped and disabled rather than served with a credential published "
                 "in the CARLOS source repository. Fix the cause above, then re-run "
                 "'carlos-ctl finish-install'.")
-        if os.path.exists(SEED_SENTINEL):
+        if os.path.exists(SEED_SENTINEL) or _unit_masked():
             # Cleared here as well as in the postinst: this verb is the other
             # route out of that state, and leaving the unit disabled would mean
-            # the EMR silently fails to come back at the next boot.
+            # the EMR silently fails to come back at the next boot. A masked
+            # unit is the same guard in its other shape — _fail_closed() masks
+            # when it cannot write the sentinel — and `enable` fails outright on
+            # one, so lift the mask first or the EMR never comes back at all.
+            if _unit_masked() and run(["systemctl", "unmask", "carlos-emr.service"],
+                                      capture_output=True).returncode != 0:
+                die("could not unmask carlos-emr.service, so the EMR cannot be started "
+                    "even though the seeded credential has been replaced. Fix the "
+                    "systemctl errors, then re-run 'carlos-ctl finish-install'.")
             enabled = run(["systemctl", "enable", "carlos-emr.service"], capture_output=True)
             state = run(["systemctl", "is-enabled", "carlos-emr.service"], capture_output=True)
             if enabled.returncode != 0 or state.stdout.strip() != "enabled":
@@ -296,6 +390,8 @@ def cmd_finish_install(argv) -> int:
                     "then re-run 'carlos-ctl finish-install'.")
             try:
                 os.unlink(SEED_SENTINEL)
+            except FileNotFoundError:
+                pass  # the mask was the only guard; it has just been lifted
             except OSError as exc:
                 die(f"could not remove the credential guard {SEED_SENTINEL}: {exc}; "
                     "installation remains incomplete")

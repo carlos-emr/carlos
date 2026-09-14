@@ -160,6 +160,14 @@ print("ok")
   assert.match(provision, /dpkg-reconfigure carlos-emr-drugref/);
   assert.match(provision, /table_schema='drugref2'/);
 
+  // One repair at a time: the boot provisioner and a manual run can overlap,
+  // and each would generate its own administrator credential.
+  assert.match(provision, /fcntl\.LOCK_EX \| fcntl\.LOCK_NB/);
+  // The sentinel is the per-start guard; when it cannot be written the mask is
+  // the only containment left, and recovery has to lift it again.
+  assert.match(provision, /"systemctl", "mask", "carlos-emr\.service"/);
+  assert.match(provision, /"systemctl", "unmask", "carlos-emr\.service"/);
+
   const validate = read('debian', 'assets', 'carlos_ctl', 'validate.py');
   // check reports the unfinished install FIRST: it is the one cause behind the
   // dozen unrelated-looking failures the rest of the run then reports.
