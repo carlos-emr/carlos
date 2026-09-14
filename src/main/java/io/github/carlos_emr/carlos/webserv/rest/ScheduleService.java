@@ -204,6 +204,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse addAppointment(NewAppointmentTo1 appointmentTo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
 
         NewAppointmentConverter converter = new NewAppointmentConverter();
@@ -240,6 +244,9 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public Response deleteAppointment(AppointmentTo1 appointmentTo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "d", null)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
 
         appointmentManager.deleteAppointment(getLoggedInInfo(), appointmentTo.getId());
 
@@ -251,6 +258,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse updateAppointment(AppointmentTo1 appointmentTo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         if (appointmentTo == null || appointmentTo.getId() == null) {
             throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
                     .entity("Appointment id is required").build());
@@ -279,11 +290,25 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves a patient's non-deleted appointment history with available billing details.
+     *
+     * <p>Because {@code demographicNo} is a required path segment, omitting it does not
+     * dispatch to this method and the JAX-RS router returns HTTP 404. The handler retains
+     * defensive validation for direct calls and rejects non-positive identifiers with HTTP 400.
+     *
+     * @param demographicNo demographic whose appointment history is requested
+     * @return scheduling response containing appointments, enriched with billing details when present
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} reaches the handler
+     * as null or non-positive, or HTTP 403 when appointment read access is denied
+     * @since 2026-01-24
+     */
     @POST
     @Path("/{demographicNo}/appointmentHistory")
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse findExistAppointments(@PathParam("demographicNo") Integer demographicNo) {
+        requireAppointmentReadPrivilege(demographicNo);
         SchedulingResponse response = new SchedulingResponse();
         List<AppointmentTo1> appts = getAppointmentHistoryWithoutDeleted(demographicNo);
 
@@ -299,6 +324,30 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Enforces patient-level read access to appointment data for the given demographic.
+     *
+     * <p>Guards the appointment-history endpoint so its appointment and billing detail
+     * cannot be read for another patient by altering the {@code demographicNo} in the URL.
+     *
+     * @param demographicNo the demographic whose appointment data is being requested.
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when the current user lacks {@code _appointment} read access
+     */
+    private void requireAppointmentReadPrivilege(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
+        }
+        if (demographicNo <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo must be positive").build());
+        }
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "r", demographicNo)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+    }
+
     private Map<Integer, BillingDetailTo1> getAppointmentIdToBillingDetailMap(Integer demographicNo) {
         // findByDemoNoWithItems eagerly fetches each header's billingItems —
         // BillingDetailConverter copies the collection into the REST DTO,
@@ -306,7 +355,8 @@ public class ScheduleService extends AbstractServiceImpl {
         // BillingONCHeader1.billingItems is FetchType.LAZY.
         List<BillingONCHeader1> billingHeaders = billingONCHeader1Dao.findByDemoNoWithItems(demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
         if (billingHeaders.size() == OscarAppointmentDao.MAX_LIST_RETURN_SIZE) {
-            logger.warn("Billing history over MAX_LIST_RETURN_SIZE for demographic " + demographicNo);
+            String safeDemographicNo = LogSafe.sanitizeObject(demographicNo);
+            logger.warn("Billing history over MAX_LIST_RETURN_SIZE for demographic {}", safeDemographicNo);
         }
 
         BillingDetailConverter converter = new BillingDetailConverter();
@@ -323,7 +373,8 @@ public class ScheduleService extends AbstractServiceImpl {
         SchedulingResponse response = new SchedulingResponse();
         List<Appointment> appts = appointmentManager.getAppointmentHistoryWithoutDeleted(getLoggedInInfo(), demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
         if (appts.size() == OscarAppointmentDao.MAX_LIST_RETURN_SIZE) {
-            logger.warn("appointment history over MAX_LIST_RETURN_SIZE for demographic " + demographicNo);
+            String safeDemographicNo = LogSafe.sanitizeObject(demographicNo);
+            logger.warn("appointment history over MAX_LIST_RETURN_SIZE for demographic {}", safeDemographicNo);
         }
         AppointmentConverter converter = new AppointmentConverter();
         return converter.getAllAsTransferObjects(getLoggedInInfo(), appts);
@@ -334,6 +385,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentStatus(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
         String status = appt.getStatus();
@@ -350,6 +405,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentType(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
         String type = appt.getType();
@@ -366,6 +425,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentUrgency(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         // This route was previously unrouted (missing @POST); now that it is reachable, guard a
         // null/empty request body rather than NPE-ing on appt.getUrgency().
         if (appt == null) {

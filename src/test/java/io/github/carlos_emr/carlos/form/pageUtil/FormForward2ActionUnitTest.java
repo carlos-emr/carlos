@@ -35,6 +35,59 @@ import static org.mockito.Mockito.when;
 class FormForward2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
+    @DisplayName("should return bad request when form name is missing")
+    void shouldReturnBadRequest_whenFormNameIsMissing() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(EncounterFormDao.class, mock(EncounterFormDao.class));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/form/forward");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.setContextPath("/carlos");
+        request.addParameter("demographic_no", "123");
+        when(securityInfoManager.hasPrivilege(any(), eq("_form"), eq(SecurityInfoManager.READ), eq("123")))
+                .thenReturn(true);
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
+             MockedConstruction<FrmData> frmDataConstruction = mockConstruction(FrmData.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            FormForward2Action action = new FormForward2Action();
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(frmDataConstruction.constructed()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should return bad request when form name encoding is malformed")
+    void shouldReturnBadRequest_whenFormNameEncodingIsMalformed() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(EncounterFormDao.class, mock(EncounterFormDao.class));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/form/forward");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.setContextPath("/carlos");
+        request.addParameter("demographic_no", "123");
+        request.addParameter("formname", "%");
+        when(securityInfoManager.hasPrivilege(any(), eq("_form"), eq(SecurityInfoManager.READ), eq("123")))
+                .thenReturn(true);
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
+             MockedConstruction<FrmData> frmDataConstruction = mockConstruction(FrmData.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            FormForward2Action action = new FormForward2Action();
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(frmDataConstruction.constructed()).isEmpty();
+        }
+    }
+
+    @Test
     @DisplayName("should omit form name when action path cannot be resolved")
     void shouldOmitFormName_whenActionPathCannotBeResolved() throws Exception {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
@@ -62,7 +115,7 @@ class FormForward2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(400);
             assertThat(frmDataConstruction.constructed()).hasSize(1);
             String logged = capture.messages().stream()
-                    .filter(message -> message.startsWith("Failed to resolve action path"))
+                    .filter(message -> message.startsWith("Invalid form shortcut path requested"))
                     .findFirst()
                     .orElseThrow();
             assertThat(logged).doesNotContain("\r").doesNotContain("\n");

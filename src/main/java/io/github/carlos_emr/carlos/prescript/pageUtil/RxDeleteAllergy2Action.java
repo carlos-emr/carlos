@@ -60,7 +60,7 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
             throws IOException, ServletException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "u", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
 
@@ -86,6 +86,10 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
         RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
 
         Allergy allergy = patient.getAllergy(id);
+        if (allergy == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
         if (action != null && action.equals("activate")) {
             patient.activateAllergy(id);
             String ip = request.getRemoteAddr();

@@ -16,6 +16,7 @@
 #   - main
 #   - develop
 #   - experimental
+#   - release/*
 #
 # Key Jobs:
 # - build:
@@ -44,6 +45,13 @@
 name: Check Carlos EMR
 
 on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to verify; defaults to the event commit
+        required: false
+        type: string
+        default: ""
   pull_request:
     branches:
       - main
@@ -51,6 +59,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
       - community/*/develop
       - community/*/staging/*
 
@@ -68,6 +77,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -132,8 +144,13 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Purge stale local_repo artifacts from Maven cache
+        # Both formerly-JitPack groupIds are vendored in local_repo with bytes
+        # that differ from what JitPack ever served; a restored cache copy
+        # shadows local_repo (Maven prefers ~/.m2 and never re-verifies cached
+        # bytes), so evict them and let them re-copy from file://local_repo.
         run: |
-          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/com/github/openosp \
+                 .m2-cache/repository/com/github/librepdf
 
       - name: Build dev container (fallback)
         if: steps.pull-image.outputs.pulled != 'true'
@@ -180,6 +197,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Restore Maven cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -277,8 +297,13 @@ jobs:
           "
 
       - name: Purge stale local_repo artifacts from Maven cache
+        # Both formerly-JitPack groupIds are vendored in local_repo with bytes
+        # that differ from what JitPack ever served; a restored cache copy
+        # shadows local_repo (Maven prefers ~/.m2 and never re-verifies cached
+        # bytes), so evict them and let them re-copy from file://local_repo.
         run: |
-          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/com/github/openosp \
+                 .m2-cache/repository/com/github/librepdf
 
       - name: Run tests
         run: |
@@ -302,6 +327,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
+      - name: Set up JDK 21 for hermetic source checks
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Run encoder null-safety lint
         run: bash scripts/lint/check-encoder-null-safety.sh
       - name: Run encoder null-safety lint fixtures
@@ -310,6 +343,8 @@ jobs:
         run: bash scripts/lint/check-security-exception-message-convention.sh
       - name: Run SecurityException message convention lint fixtures
         run: bash scripts/lint/test-security-exception-message-convention.sh
+      - name: Run Struts DTD validation
+        run: bash scripts/lint/check-struts-dtd.sh
   jspc:
     needs: build
     runs-on: ubuntu-latest
@@ -319,6 +354,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Restore Maven cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -416,8 +454,13 @@ jobs:
           "
 
       - name: Purge stale local_repo artifacts from Maven cache
+        # Both formerly-JitPack groupIds are vendored in local_repo with bytes
+        # that differ from what JitPack ever served; a restored cache copy
+        # shadows local_repo (Maven prefers ~/.m2 and never re-verifies cached
+        # bytes), so evict them and let them re-copy from file://local_repo.
         run: |
-          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/com/github/openosp \
+                 .m2-cache/repository/com/github/librepdf
 
       - name: Compile JSPs
         run: |

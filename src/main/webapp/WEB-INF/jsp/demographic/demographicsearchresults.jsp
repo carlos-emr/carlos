@@ -371,7 +371,7 @@
 
                     List<Demographic> demoList = null;
 
-                    if (keyword != null && keyword.length() == 0) {
+                    if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) {
                         int mostRecentPatientListSize = Integer.parseInt(CarlosProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
                         List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize);
                         demoList = new ArrayList<Demographic>();

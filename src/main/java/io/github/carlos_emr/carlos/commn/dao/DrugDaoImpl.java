@@ -500,8 +500,15 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @Override
     public List<Drug> findByRegionBrandDemographicAndProvider(String regionalIdentifier, String brandName,
                                                               int demographicNo, String providerNo) {
+        // HQL/JPQL must order by the entity PROPERTY (Drug.id, mapped to column
+        // "drugid"), not the raw column name. Hibernate 7's stricter HQL parser
+        // rejects the bare "drugid" path with SemanticException "Could not interpret
+        // path expression 'drugid'", which propagated up through
+        // RxUtil.setSpecialQuantityRepeat and blanked the Rx staging pane whenever a
+        // clinician picked a drug. (Contrast the native-SQL query above, where the
+        // raw column name "drugid" is correct.)
         Query query = createQuery("d",
-                "d.regionalIdentifier = :ri and d.brandName = :bn and d.demographicId = :dn and d.providerNo = :pn order by drugid desc");
+                "d.regionalIdentifier = :ri and d.brandName = :bn and d.demographicId = :dn and d.providerNo = :pn order by d.id desc");
         query.setParameter("ri", regionalIdentifier);
         query.setParameter("bn", brandName);
         query.setParameter("dn", demographicNo);

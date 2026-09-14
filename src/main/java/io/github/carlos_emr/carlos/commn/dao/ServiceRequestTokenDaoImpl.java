@@ -57,4 +57,14 @@ public class ServiceRequestTokenDaoImpl extends AbstractDaoImpl<ServiceRequestTo
         query.setParameter(1, token);
         return this.getSingleResultOrNull(query);
     }
+
+    @Override
+    public int deleteByTokenId(String token) {
+        // Bulk DELETE (not an entity remove) so it runs immediately as a single SQL statement that
+        // takes a row lock and returns the affected-row count — the atomic single-use consume the
+        // access-token exchange relies on.
+        Query query = this.entityManager.createQuery("DELETE FROM ServiceRequestToken x WHERE x.tokenId = ?1");
+        query.setParameter(1, token);
+        return query.executeUpdate();
+    }
 }

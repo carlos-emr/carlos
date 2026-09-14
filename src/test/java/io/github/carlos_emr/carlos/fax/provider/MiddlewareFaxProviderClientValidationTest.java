@@ -207,10 +207,80 @@ class MiddlewareFaxProviderClientValidationTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should not throw when all config values are valid")
         void shouldNotThrow_whenAllConfigValuesAreValid() throws Throwable {
-            FaxConfig config = createConfig("https://fax.example.com", "siteUser", "faxUser");
+            // Literal public IP (RFC 5737 TEST-NET-3) so URL validation needs no DNS lookup.
+            FaxConfig config = createConfig("https://203.0.113.10", "siteUser", "faxUser");
 
             // Should not throw
             invokeValidateMiddlewareConfig(config);
+        }
+    }
+
+    @Nested
+    @DisplayName("validateMiddlewareUrl() SSRF guard")
+    class SsrfGuardTests {
+
+        @Test
+        @DisplayName("should reject a non-http(s) scheme")
+        void shouldReject_nonHttpScheme() {
+            FaxConfig config = createConfig("file:///etc/passwd", "siteUser", "faxUser");
+            assertThatThrownBy(() -> invokeValidateMiddlewareConfig(config))
+                    .isInstanceOf(FaxProviderException.class)
+                    .hasMessageContaining("HTTP or HTTPS");
+        }
+
+        @Test
+        @DisplayName("should reject a URL that embeds user-info credentials")
+        void shouldReject_userInfoInUrl() {
+            FaxConfig config = createConfig("https://user:pass@203.0.113.10/fax", "siteUser", "faxUser");
+            assertThatThrownBy(() -> invokeValidateMiddlewareConfig(config))
+                    .isInstanceOf(FaxProviderException.class)
+                    .hasMessageContaining("user-info");
+        }
+
+        @Test
+        @DisplayName("should reject a loopback host")
+        void shouldReject_loopbackHost() {
+            FaxConfig config = createConfig("http://127.0.0.1/fax", "siteUser", "faxUser");
+            assertThatThrownBy(() -> invokeValidateMiddlewareConfig(config))
+                    .isInstanceOf(FaxProviderException.class)
+                    .hasMessageContaining("disallowed local or private address");
+        }
+
+        @Test
+        @DisplayName("should reject the link-local cloud-metadata address")
+        void shouldReject_linkLocalMetadataHost() {
+            FaxConfig config = createConfig("http://169.254.169.254/latest/meta-data", "siteUser", "faxUser");
+            assertThatThrownBy(() -> invokeValidateMiddlewareConfig(config))
+                    .isInstanceOf(FaxProviderException.class)
+                    .hasMessageContaining("disallowed local or private address");
+        }
+
+        @Test
+        @DisplayName("should reject a private-LAN clinic relay unless explicitly allowlisted")
+        void shouldReject_privateLanRelayByDefault() {
+            FaxConfig config = createConfig("http://192.168.1.50/fax", "siteUser", "faxUser");
+            assertThatThrownBy(() -> invokeValidateMiddlewareConfig(config))
+                    .isInstanceOf(FaxProviderException.class)
+                    .hasMessageContaining("disallowed local or private address");
+        }
+
+        @Test
+        @DisplayName("should allow an explicitly configured private-LAN clinic relay")
+        void shouldAllow_explicitlyAllowlistedPrivateLanRelay() throws Throwable {
+            String property = "carlos.fax.middleware.allowedHosts";
+            String original = System.getProperty(property);
+            try {
+                System.setProperty(property, "192.168.1.50");
+                FaxConfig config = createConfig("http://192.168.1.50/fax", "siteUser", "faxUser");
+
+                invokeValidateMiddlewareConfig(config);
+            } finally {
+                if (original == null) {
+                    System.clearProperty(property);
+                } else {
+                    System.setProperty(property, original);
+                }
+            }
         }
     }
 
