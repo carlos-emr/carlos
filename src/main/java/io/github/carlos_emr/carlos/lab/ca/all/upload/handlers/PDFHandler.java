@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -115,8 +116,7 @@ public class PDFHandler implements MessageHandler {
 
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
-            File targetFile = new File(filePath);
-            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+            File targetFile = PathValidationUtils.validateExistingPath(filePath, baseDir);
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {
