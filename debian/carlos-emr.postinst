@@ -944,6 +944,19 @@ case "$1" in
                     unit_state=""
                     if [ -d /run/systemd/system ]; then
                         unit_state="$(systemctl is-enabled carlos-emr.service 2>/dev/null || true)"
+                    elif [ "$(readlink /etc/systemd/system/carlos-emr.service 2>/dev/null)" = /dev/null ]; then
+                        # No running systemd to ask (a chroot or golden-image
+                        # build), but the containment above may still have
+                        # masked or disabled the unit through
+                        # deb-systemd-helper -- and a mask is a symlink to
+                        # /dev/null, which is readable either way. Without this
+                        # the retry would clear the marker and ship an image
+                        # whose EMR is masked for its first real boot.
+                        unit_state=masked
+                    else
+                        helper_rc=0
+                        deb-systemd-helper is-enabled carlos-emr.service >/dev/null 2>&1 || helper_rc=$?
+                        [ "${helper_rc}" != 1 ] || unit_state=disabled
                     fi
                     if [ -e "${SEED_SENTINEL}" ] || [ "${unit_state}" = masked ] ||
                         [ "${unit_state}" = disabled ]; then

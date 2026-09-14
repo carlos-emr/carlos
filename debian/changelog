@@ -52,6 +52,14 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     provisions nothing and records the install as unfinished, and a boot-time
     recovery that finds the lock held leaves the work to whoever holds it
     rather than failing its unit.
+  * The DrugRef package's configure takes that lock too: db-users provisions
+    both packages' accounts and rewrites both properties files with the
+    passwords it generates, so an overlapping run could leave the database
+    holding one generated password and a properties file naming the other.
+  * A credential guard that had to fall back to masking the unit is now also
+    detected on a host with no running systemd -- a chroot or golden-image
+    build -- so a retry there cannot clear the recovery marker and ship an
+    image whose EMR is masked for its first real boot.
   * "carlos-ctl check" reports an unfinished install first, before the dozen
     unrelated-looking failures it causes, and names the command that fixes it.
     Its table count no longer reports a query that FAILED as a database with no

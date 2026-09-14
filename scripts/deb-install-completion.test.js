@@ -191,6 +191,18 @@ print("ok")
   // host in different states.
   assert.match(postinst, /deb-systemd-helper mask carlos-emr\.service/);
   assert.match(postinst, /deb-systemd-helper unmask carlos-emr\.service/);
+  // And a chroot or image build, with no systemd to ask, still sees that mask:
+  // it is a symlink to /dev/null, readable either way.
+  assert.match(postinst,
+    /readlink \/etc\/systemd\/system\/carlos-emr\.service[^\n]*= \/dev\/null/);
+
+  // db-users provisions BOTH packages' accounts and rewrites both properties
+  // files, so the DrugRef package's configure takes the same lock.
+  const drugref = read('debian', 'carlos-emr-drugref.postinst');
+  assert.match(drugref, /PROVISION_LOCK="\$\{STATE\}\/\.finish-install\.lock"/);
+  assert.match(drugref, /flock -w 300 9/);
+  assert.ok(drugref.indexOf('acquire_provision_lock') <
+    drugref.indexOf('carlos-ctl db-users'));
 
   // One predicate for "an OSCAR 19 import is in progress": the shipped guard
   // that carlos-emr.service also runs as its ExecCondition. finish-install
