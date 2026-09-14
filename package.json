@@ -107,7 +107,8 @@
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
     "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js",
     "test:o19-migrated-smoke": "node scripts/o19-migrated-smoke-playwright-checks.js",
-    "test:first-nations-encoding-playwright": "node scripts/first-nations-encoding-playwright-checks.js"
+    "test:first-nations-encoding-playwright": "node scripts/first-nations-encoding-playwright-checks.js",
+    "test:next-appointment-lookup-playwright": "node scripts/next-appointment-lookup-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
