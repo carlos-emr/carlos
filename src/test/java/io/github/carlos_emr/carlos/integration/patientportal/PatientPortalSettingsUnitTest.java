@@ -64,6 +64,7 @@ class PatientPortalSettingsUnitTest {
         properties.put(SERVICE_TOKEN_KEY, TOKEN);
         properties.put(STAFF_ASSERTION_KEY, ASSERTION_PRIVATE_KEY);
         properties.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary");
+        properties.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN);
         return properties;
     }
 
@@ -193,7 +194,7 @@ class PatientPortalSettingsUnitTest {
                             Duration.ofSeconds(5),
                             Duration.ofSeconds(15),
                             Duration.ofSeconds(20),
-                            java.util.Set.of());
+                            java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN));
 
             assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
         }
@@ -267,7 +268,7 @@ class PatientPortalSettingsUnitTest {
                                             Duration.ofSeconds(5),
                                             Duration.ofSeconds(15),
                                             Duration.ofSeconds(20),
-                                            java.util.Set.of()))
+                                            java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
@@ -285,7 +286,7 @@ class PatientPortalSettingsUnitTest {
                                             Duration.ZERO,
                                             Duration.ofSeconds(15),
                                             Duration.ofSeconds(20),
-                                            java.util.Set.of()))
+                                            java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
@@ -303,7 +304,7 @@ class PatientPortalSettingsUnitTest {
                                             Duration.ofNanos(1),
                                             Duration.ofSeconds(15),
                                             Duration.ofSeconds(20),
-                                            Set.of()))
+                                            Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(CONNECT_TIMEOUT_KEY);
         }
@@ -322,7 +323,7 @@ class PatientPortalSettingsUnitTest {
                                             Duration.ofSeconds(Long.MAX_VALUE),
                                             Duration.ofSeconds(15),
                                             Duration.ofSeconds(20),
-                                            Set.of()))
+                                            Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(CONNECT_TIMEOUT_KEY);
         }
@@ -341,7 +342,7 @@ class PatientPortalSettingsUnitTest {
                                             Duration.ofSeconds(5),
                                             Duration.ofSeconds(15),
                                             Duration.ofSeconds(20),
-                                            java.util.Set.of()))
+                                            java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
@@ -575,8 +576,8 @@ class PatientPortalSettingsUnitTest {
     }
 
     /**
-     * Pins are the one optional value that is a security control, so a mistake in them must not be
-     * discovered by a failed handshake.
+     * Pins are required server authentication, so missing or malformed pins must fail before
+     * any network call.
      */
     @Nested
     @DisplayName("certificate pins")
@@ -638,20 +639,31 @@ class PatientPortalSettingsUnitTest {
                     .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);
         }
 
-        /**
-         * Absent means unpinned, which is a supported deployment — but it is also what a misspelled
-         * property key produces, so the transport says which mode it is in when it is built.
-         */
-        @Test
-        @DisplayName("should treat an absent or blank value as no pinning")
-        void shouldReturnNoPins_whenTheValueIsAbsentOrBlank() {
-            assertThat(PatientPortalSettings.fromProperties(validProperties()).certificatePins())
-                    .isEmpty();
-
-            Map<String, String> blank = validProperties();
-            blank.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, "   ");
-            assertThat(PatientPortalSettings.fromProperties(blank).certificatePins()).isEmpty();
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.NullAndEmptySource
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"   ", ",", " , , "})
+        @DisplayName("should reject missing or empty pins before constructing a client")
+        void shouldRejectMissingPins_whenReadingProperties(String value) {
+            Map<String, String> properties = validProperties();
+            properties.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, value);
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);
         }
+
+        @Test
+        @DisplayName("should reject null and empty pins through the public settings constructor")
+        void shouldRejectMissingPins_whenConstructedDirectly() {
+            PatientPortalSettings valid = PatientPortalSettings.fromProperties(validProperties());
+            for (Set<String> pins : java.util.Arrays.<Set<String>>asList(null, Set.of())) {
+                assertThatThrownBy(() -> new PatientPortalSettings(valid.baseUrl(), valid.clinicId(),
+                        valid.serviceToken(), valid.staffAssertionPrivateKey(), valid.staffAssertionKeyId(),
+                        valid.connectTimeout(), valid.readTimeout(), valid.requestTimeout(), pins))
+                        .isInstanceOf(PatientPortalConfigurationException.class)
+                        .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);
+            }
+        }
+
     }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 65536, 2147483647})

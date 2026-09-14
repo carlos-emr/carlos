@@ -64,7 +64,7 @@ import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Pooled HTTP transport with TLS 1.2/1.3, standard certificate validation and optional leaf-key pins.
+ * Pooled HTTP transport with TLS 1.2/1.3, standard certificate validation and required leaf-key pins.
  * Redirects and automatic retries are disabled. An overall deadline bounds servlet waiting in
  * addition to connect and read inactivity timeouts. At most four exchanges run, with no queue.
  * Cookie management is disabled so a response cannot add shared state to later staff requests.
@@ -77,9 +77,6 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
 
     private static final String PINNING_ON =
             "patient portal transport: certificate pinning active ({} pin(s))";
-    private static final String PINNING_OFF =
-            "patient portal transport: certificate pinning NOT configured; the portal is trusted on"
-                    + " CA validation alone";
 
     /**
      * Cap on the decoded response we will hold in memory, counted in UTF-16 characters.
@@ -105,20 +102,14 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     }
 
     /**
-     * Takes only the values this class uses: the two timeouts, and the pins in the overload below.
+     * Takes only the transport timeouts and required pins.
      *
      * <p>Depending on the whole settings record would drag the https rule into a test that needs a
      * plain loopback socket, and would tempt a bypass in production code to satisfy a test. The
      * transport has no business knowing the base URL or the credential — the request it is handed
      * already carries both.
-     */
-    PatientPortalHttpClientExchange(Duration connectTimeout, Duration readTimeout) {
-        this(connectTimeout, readTimeout, Set.of());
-    }
-
-    /**
-     * @param certificatePins public-key pins the portal must present, or empty for standard TLS
-     *     validation only
+     *
+     * @param certificatePins public-key pins the portal must present; must not be empty
      */
     PatientPortalHttpClientExchange(
             Duration connectTimeout, Duration readTimeout, Set<String> certificatePins) {
@@ -127,6 +118,8 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
 
     PatientPortalHttpClientExchange(Duration connectTimeout, Duration readTimeout,
             Duration requestTimeout, Set<String> certificatePins) {
+        // Enforce pinning here too, so direct construction cannot bypass settings validation.
+        SSLContext sslContext = pinnedContext(certificatePins);
         this.requestTimeout = requestTimeout;
         ConnectionConfig connectionConfig =
                 ConnectionConfig.custom()
@@ -137,19 +130,12 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                         .setMaxConnTotal(MAX_CONCURRENT_REQUESTS)
                         .setMaxConnPerRoute(MAX_CONCURRENT_REQUESTS)
                         .setDefaultConnectionConfig(connectionConfig);
-        // Record whether optional pinning is active without logging configuration values.
-        if (certificatePins == null || certificatePins.isEmpty()) {
-            logger.info(PINNING_OFF);
-        } else {
-            logger.info(PINNING_ON, certificatePins.size());
-        }
-        // Keep the default hostname verifier and explicitly require modern TLS on both paths.
+        logger.info(PINNING_ON, certificatePins.size());
+        // Keep the default hostname verifier and explicitly require modern TLS.
         SSLConnectionSocketFactoryBuilder socketFactoryBuilder =
                 SSLConnectionSocketFactoryBuilder.create()
-                        .setTlsVersions(TLS.V_1_2, TLS.V_1_3);
-        if (certificatePins != null && !certificatePins.isEmpty()) {
-            socketFactoryBuilder.setSslContext(pinnedContext(certificatePins));
-        }
+                        .setTlsVersions(TLS.V_1_2, TLS.V_1_3)
+                        .setSslContext(sslContext);
         connectionManagerBuilder.setSSLSocketFactory(socketFactoryBuilder.build());
         PoolingHttpClientConnectionManager connectionManager = connectionManagerBuilder.build();
         RequestConfig requestConfig =

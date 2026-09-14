@@ -65,7 +65,8 @@ class PatientPortalServiceUnitTest {
                                 TOKEN,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY,
                                 PortalTestKeys.PRIVATE_KEY,
-                                PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary"));
+                                PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
+                                PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN));
         // Request-building tests do not need a real pooled client that every test must remember to
         // close. The exchange is never called here.
         return new PatientPortalService(
@@ -221,7 +222,7 @@ class PatientPortalServiceUnitTest {
         var settings = new PatientPortalSettings("https://portal.example/porté", "maplecreek",
                 PortalSecret.of(TOKEN), PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary",
                 java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1),
-                java.time.Duration.ofSeconds(20), Set.of());
+                java.time.Duration.ofSeconds(20), Set.of(PortalTestKeys.UNUSED_TLS_PIN));
         var portal = new PatientPortalService(settings, request -> null);
         String body = "{\"enabled\":false,\"reason\":\"café 李\"}";
         ClassicHttpRequest request = portal.buildRequest("POST",

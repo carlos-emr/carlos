@@ -45,6 +45,8 @@ import java.util.function.Function;
  *       one plaintext hop hands clinic-wide portal access to anyone on the path.
  *   <li><b>Config-pinned destination.</b> The URL is read from deployment properties and never from
  *       request input, so no CARLOS request can redirect portal calls at an attacker's host.
+ *   <li><b>Pinned server identity.</b> At least one portal TLS public-key pin is required in
+ *       addition to certificate and hostname validation. There is no CA-only fallback.
  *   <li><b>Fail closed.</b> Missing or malformed configuration throws. Portal calls never silently
  *       become no-ops that a clinic would misread as "the invite was sent".
  * </ul>
@@ -79,11 +81,11 @@ public record PatientPortalSettings(
     static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(20);
 
     /**
-     * Optional public-key pins, comma separated.
+     * Required portal TLS public-key pins, comma separated.
      *
-     * <p>Absent means standard TLS validation only, which trusts every CA in the JVM truststore.
-     * Set this where a TLS-inspecting proxy CA may be installed on clinic machines — see {@link
-     * PortalCertificatePinning}.
+     * <p>Obtain these from the TLS terminator's certificate through a trusted administration
+     * channel. Missing pins disable the integration rather than trusting any certificate
+     * accepted by the JVM truststore. See {@link PortalCertificatePinning}.
      */
     public static final String CERTIFICATE_PINS_KEY = "patient_portal.certificate.pins";
 
@@ -222,26 +224,26 @@ public record PatientPortalSettings(
             throw new PatientPortalConfigurationException(
                     REQUEST_TIMEOUT_KEY + " must be less than 60000 milliseconds");
         }
-        Set<String> configuredPins = certificatePins == null ? Set.of() : certificatePins;
+        if (certificatePins == null || certificatePins.isEmpty()) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, MISSING_MESSAGE, CERTIFICATE_PINS_KEY));
+        }
         // Format is checked here rather than only where the socket factory is built, so a typo in
         // carlos.properties fails when the settings are read — with the deployment's other
         // configuration errors — instead of surviving until the first handshake and surfacing as
         // "did not match any configured pin", which reads like a rotated key rather than a typo.
-        for (String pin : configuredPins) {
+        for (String pin : certificatePins) {
             if (!PortalCertificatePinning.isWellFormed(pin)) {
                 throw new PatientPortalConfigurationException(
                         String.format(Locale.ROOT, BAD_PIN_MESSAGE, CERTIFICATE_PINS_KEY));
             }
         }
-        certificatePins = Set.copyOf(configuredPins);
+        certificatePins = Set.copyOf(certificatePins);
     }
 
-    /** Blank means optional pinning is off; a nonblank list must contain valid pins. */
+    /** Missing or blank pins are a configuration failure, never an unpinned connection. */
     private static Set<String> pins(Function<String, String> lookup) {
-        String configured = lookup.apply(CERTIFICATE_PINS_KEY);
-        if (configured == null || configured.isBlank()) {
-            return Set.of();
-        }
+        String configured = requireValue(lookup.apply(CERTIFICATE_PINS_KEY), CERTIFICATE_PINS_KEY);
         Set<String> parsed = new LinkedHashSet<>();
         for (String pin : configured.split(",")) {
             String trimmed = pin.strip();

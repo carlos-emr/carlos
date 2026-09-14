@@ -27,5 +27,8 @@ final class PortalTestKeys {
     static final String PUBLIC_KEY =
             "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo";
 
+    /** Format-valid placeholder for stub transports and HTTP loopback tests; never a real TLS key. */
+    static final String UNUSED_TLS_PIN = "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
     private PortalTestKeys() {}
 }

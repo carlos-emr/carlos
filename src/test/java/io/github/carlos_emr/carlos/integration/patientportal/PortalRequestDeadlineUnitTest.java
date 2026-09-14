@@ -81,7 +81,7 @@ class PortalRequestDeadlineUnitTest {
 
     private PatientPortalHttpClientExchange transport(Duration deadline) {
         return new PatientPortalHttpClientExchange(
-                Duration.ofSeconds(1), Duration.ofSeconds(5), deadline, Set.of());
+                Duration.ofSeconds(1), Duration.ofSeconds(5), deadline, Set.of(PortalTestKeys.UNUSED_TLS_PIN));
     }
 
     @Test
