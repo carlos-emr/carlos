@@ -80,7 +80,8 @@ def main():
         if args.agent == "openrouter":
             health = loads(local_get(config["port"], "/health"))
             require(health.get("service") == "carlos-openrouter-synthetic"
-                    and health.get("model") == config["model"], "Start the configured OpenRouter gateway first")
+                    and health.get("model") == config["model"]
+                    and health.get("provider") == config["provider"], "Start the configured OpenRouter gateway first")
         else:
             local_get(11436, "/api/tags")
         original = properties.read_text()
