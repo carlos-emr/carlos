@@ -920,6 +920,38 @@ Notes on the contract:
   eChart checks (nginx `Server` header; warning when absent, failure with
   `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
   mistaken for coverage of 1100/1131.
+- **`login-failure-host-header-playwright-checks.js` must be run through `:443`.**
+  It fetches `/loginfailed` twice over a raw socket, once with the real `Host`
+  and once with an attacker-controlled one, and requires the two bodies to be
+  byte-identical; it then parses the page in the browser and requires no
+  `<base>` element, `document.baseURI` still equal to the page's own URL, the
+  favicon and `global.js` resolved under the servlet context path, and the
+  `errormsg` still rendered HTML-encoded. Going straight to Tomcat on
+  `127.0.0.1:18080` skips nginx, so it cannot see a front-door rewrite
+  re-introducing a Host-derived `<base href>` — the construct this pins. Its
+  default `BASE_URL` is bare Tomcat, so it says which layer it actually covered
+  rather than letting a standalone run read as full coverage: no nginx `Server`
+  header on the response prints a WARNING and stamps the PASS line accordingly,
+  and `EXPECT_FRONT_DOOR=true` makes that absence a failure — the same signal
+  and spelling as the eChart and clinical-freetext checks. Like `echart-print`,
+  it relaxes certificate verification only for loopback, so a non-loopback
+  target opted in through `ALLOW_NON_LOCAL_BASE_URL` must present a certificate
+  the runtime trusts, and a plain-`http` non-loopback `BASE_URL` is refused
+  outright — over cleartext there is no certificate for either bound to act on.
+  Without those an on-path attacker would supply both halves of its
+  byte-for-byte comparison and every assertion would pass vacuously. It is pre-auth and read-only (every request is a GET; no login, no
+  fixture, no database access), so it needs no credentials and leaves nothing
+  behind. A front door that answers 400/421 to the spoofed `Host` is reported on
+  stdout and treated as a pass: the bad value never reached the application, and
+  the DOM assertions still run against the legitimate `Host`. That excuse is
+  narrow on purpose — it needs the nginx `Server` header **on that same spoofed
+  response** *and* one of those two statuses, since nginx may serve the
+  legitimate request while the spoofed one reaches a different upstream that
+  answers 400/421 itself. Any other difference between the two responses, an
+  application-generated 404 or 500 included, is the application answering
+  differently because of the `Host` header, which is the defect under test, so
+  the check asserts on it (status first, then the bodies) instead of excusing
+  it.
 - **`echart-playwright-checks.js` allows 90 seconds for note pagination to settle.**
   The chart loads 20 entries per one-second poll, including eForms and other
   chart entries as well as encounter notes. A populated fixture can legitimately
