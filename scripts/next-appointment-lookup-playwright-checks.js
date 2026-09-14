@@ -89,16 +89,20 @@ function expectedNextAppointment(sql, demographicNo) {
  * Types the patient's name into the quick-search widget and returns their row
  * from the JSON the widget itself receives.
  */
-async function searchRow(page, surname, demographicNo, timeout) {
+async function searchRow(page, surname, demographicNo, timeout, throwIfCancelled = () => {}) {
+  throwIfCancelled();
   // The trailing comma selects surname search explicitly. The widget's
   // detectSearchType() reads a bare surname that ends in digits -- a synthetic
   // one such as Pr3668 -- as a health-card number, and would then answer about
   // no patient at all.
   const term = `${surname},`;
   await page.reload({ waitUntil: 'domcontentloaded', timeout });
+  throwIfCancelled();
   const quickSearch = page.locator('#quickSearch');
   await quickSearch.waitFor({ state: 'visible', timeout });
+  throwIfCancelled();
   await quickSearch.click();
+  throwIfCancelled();
   // The widget fires a request per keystroke and aborts the previous one, so
   // wait for the response to the request carrying the WHOLE term rather than to
   // a prefix of it, which would answer about a different set of patients. The
@@ -110,6 +114,7 @@ async function searchRow(page, surname, demographicNo, timeout) {
       && new URLSearchParams(candidate.request().postData() || '').get('term') === term, { timeout }),
     page.keyboard.type(term, { delay: 40 }),
   ]);
+  throwIfCancelled();
   assert(response.status() === 200, `the quick search answered HTTP ${response.status()}`);
   const contentType = response.headers()['content-type'] || '';
   assert(/application\/json/i.test(contentType),
@@ -124,6 +129,7 @@ async function searchRow(page, surname, demographicNo, timeout) {
   // The dropdown rendering from this same payload is what proves the widget
   // consumed it rather than discarding the response into a catch block.
   await page.locator('#quickSearchDropdown .qs-result-row').first().waitFor({ state: 'visible', timeout });
+  throwIfCancelled();
   const row = results.find((entry) => String(entry.demographicNo) === String(demographicNo));
   // No identifier in the message: runCheck() writes it to stdout and into
   // RESULT_JSON, and a demographic number joins straight back to a patient.
@@ -133,18 +139,20 @@ async function searchRow(page, surname, demographicNo, timeout) {
 
 function assertColumn(row, expected, when) {
   assert(row.nextAppointment === expected,
-    `the next-appointment column reported ${row.nextAppointment} ${when}, but the database says ${expected}`);
+    `the next-appointment column disagrees with the database ${when}`);
   assert(row.nextAppt === row.nextAppointment,
-    `the nextAppt alias (${row.nextAppt}) disagrees with nextAppointment (${row.nextAppointment})`);
+    'the nextAppt alias disagrees with nextAppointment');
 }
 
-async function main() {
+async function main({ throwIfCancelled = () => {} } = {}) {
+  throwIfCancelled();
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
   const demographicNo = process.env.NEXT_APPT_DEMOGRAPHIC_NO || '1';
   const providerNo = process.env.NEXT_APPT_PROVIDER_NO || '999998';
   const timeout = Number(process.env.NEXT_APPT_TIMEOUT_MS || '30000');
   assert(/^\d+$/.test(demographicNo), 'NEXT_APPT_DEMOGRAPHIC_NO must be digits only');
   assert(/^\d+$/.test(providerNo), 'NEXT_APPT_PROVIDER_NO must be digits only');
+  assert(Number.isFinite(timeout) && timeout > 0, 'NEXT_APPT_TIMEOUT_MS must be a positive finite number');
   const stamp = `PW_NEXT_APPT_${Date.now()}`;
 
   const sql = createSqlRunner(config.mysql);
@@ -161,14 +169,16 @@ async function main() {
   }
 
   try {
+    throwIfCancelled();
     // Never printed: it is a patient's name.
     const surname = sql.value(`SELECT last_name FROM demographic WHERE demographic_no = ${Number(demographicNo)}`);
     assert(surname, 'NEXT_APPT_DEMOGRAPHIC_NO names a patient that does not exist in this database');
 
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
+    throwIfCancelled();
 
-    const before = await searchRow(schedulePage, surname, demographicNo, timeout);
+    const before = await searchRow(schedulePage, surname, demographicNo, timeout, throwIfCancelled);
     if (!Object.prototype.hasOwnProperty.call(before, 'nextAppointment')) {
       throw new SkipCheck('the search result carries no nextAppointment field, so workflow_enhance is false on this'
         + ' deployment; set workflow_enhance = true in carlos.properties and restart to run this check');
@@ -186,7 +196,7 @@ async function main() {
     assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE notes = ${sqlString(stamp)}`) === '1',
       'the fixture appointment was not created');
 
-    const after = await searchRow(schedulePage, surname, demographicNo, timeout);
+    const after = await searchRow(schedulePage, surname, demographicNo, timeout, throwIfCancelled);
     const expectedAfter = expectedNextAppointment(sql, demographicNo);
     assert(expectedAfter !== NONE, 'the seeded appointment is not the next one the DAO would select');
     // The assertion that fails on issue #2651: before the fix the column was the
@@ -197,9 +207,10 @@ async function main() {
     assertColumn(after, expectedAfter, 'with an appointment seeded for tomorrow');
 
     sql.execute(`DELETE FROM appointment WHERE notes = ${sqlString(stamp)}`);
-    const restored = await searchRow(schedulePage, surname, demographicNo, timeout);
+    const restored = await searchRow(schedulePage, surname, demographicNo, timeout, throwIfCancelled);
     assertColumn(restored, expectedBefore, 'after the fixture was removed');
 
+    throwIfCancelled();
     assertStrictPage(recorder);
     console.log('  the next-appointment column tracked the seeded appointment and returned to its original value');
     return { seeded: true };
@@ -207,9 +218,13 @@ async function main() {
     try {
       sql.execute(`DELETE FROM appointment WHERE notes = ${sqlString(stamp)}`);
     } finally {
-      sql.dispose();
-      await browser.close().catch(() => {});
+      try {
+        sql.dispose();
+      } finally {
+        await browser.close();
+      }
     }
+    throwIfCancelled();
   }
 }
 
