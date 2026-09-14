@@ -23,7 +23,8 @@
  * so a unit test alone cannot show the wired path answering through the packaged
  * front door. This check drives it end to end:
  *
- *   1. logs in and reads the search JSON for the patient as the browser does;
+ *   1. logs in and types the patient's name into the schedule's quick-search widget,
+ *      reading the JSON the widget itself receives;
  *   2. asserts the value matches the patient's real next appointment as the DAO
  *      defines it (earliest uncancelled appointment from now on), which on a
  *      patient who has none is the "(none)" sentinel;
@@ -51,8 +52,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
-  appUrl,
   assert,
+  assertNotErrorPage,
   buildFailureDetails,
   createRecorder,
   getLaunchOptions,
@@ -161,26 +162,40 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
-// Reads the autocomplete JSON from inside the logged-in page, the way the booking
-// and search widgets do, and returns this patient's row.
-async function searchRow(page, keyword) {
-  const url = appUrl(config.baseUrl, `/demographic/SearchDemographic?demographicKeyword=${encodeURIComponent(keyword)}`);
-  const payload = await page.evaluate(async (target) => {
-    const response = await fetch(target, { credentials: 'include', headers: { Accept: 'application/json' } });
-    return { status: response.status, contentType: response.headers.get('content-type') || '', body: await response.text() };
-  }, url);
-  assert(payload.status === 200, `patient search answered HTTP ${payload.status}`);
-  assert(/application\/json/i.test(payload.contentType),
-    `patient search answered ${payload.contentType || 'no content type'} instead of JSON`);
-  let parsed;
+// Drives the schedule's quick-search widget the way a user does and reads the JSON
+// it receives. The next-appointment value is not rendered in the dropdown -- no page
+// renders it today -- so the widget's own response is the surface to assert on, and
+// typing into the widget is what makes the application produce it.
+async function searchRow(page, lastName) {
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+  await assertNotErrorPage(page, 'schedule');
+  const quickSearch = page.locator('#quickSearch');
+  await quickSearch.waitFor({ state: 'visible', timeout: 30000 });
+  await quickSearch.click();
+  // The widget fires a request per keystroke and aborts the previous one, so wait for
+  // the response to the request carrying the WHOLE name rather than to a prefix of it.
+  const wholeName = `term=${encodeURIComponent(lastName)}&searchType=`;
+  const [response] = await Promise.all([
+    page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && new URL(candidate.url()).pathname.endsWith('/demographic/SearchDemographic')
+      && (candidate.request().postData() || '').includes(wholeName), { timeout: 30000 }),
+    page.keyboard.type(lastName, { delay: 40 }),
+  ]);
+  assert(response.status() === 200, `quick search answered HTTP ${response.status()}`);
+  const contentType = (response.headers()['content-type'] || '');
+  assert(/application\/json/i.test(contentType),
+    `quick search answered ${contentType || 'no content type'} instead of JSON`);
+  let results;
   try {
-    parsed = JSON.parse(payload.body);
+    results = await response.json();
   } catch (parseError) {
-    throw new Error(`patient search did not return JSON: ${parseError.message}`);
+    throw new Error(`quick search did not return JSON: ${parseError.message}`);
   }
-  const results = Array.isArray(parsed.results) ? parsed.results : [];
+  assert(Array.isArray(results), 'quick search did not return a result array');
+  // The dropdown rendering from the same payload is what proves the widget consumed it.
+  await page.locator('#quickSearchDropdown .qs-result-row').first().waitFor({ state: 'visible', timeout: 15000 });
   const row = results.find((entry) => String(entry.demographicNo) === String(demographicNo));
-  assert(row, `patient search returned ${results.length} rows, none of them demographic ${demographicNo}`);
+  assert(row, `quick search returned ${results.length} rows, none of them demographic ${demographicNo}`);
   return row;
 }
 

@@ -666,6 +666,14 @@ suite_failed=0
 #                                query is the only row written and a finally removes it.)
 #   MEASUREMENT_DEMOGRAPHIC_NO=1 MEASUREMENT_GROUP=Anthropometrics MEASUREMENT_TYPE=WT
 #                                (measurement-validation)
+#   NEXT_APPT_DEMOGRAPHIC_NO=1 NEXT_APPT_PROVIDER_NO=999998
+#                                (next-appointment-lookup, issue #2651: the patient search's next
+#                                appointment column. ONE PREREQUISITE the dataset does not provide --
+#                                the field is rendered only when workflow_enhance is true, which the
+#                                package ships false, so set it in /etc/carlos-emr/carlos.properties
+#                                and `carlos-ctl restart` before the loop; the check fails with that
+#                                instruction rather than passing vacuously when it is off. It seeds one
+#                                appointment for tomorrow and deletes it in a finally.)
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
