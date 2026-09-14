@@ -50,6 +50,10 @@ commit the mutations. Tests that change legacy static state restore it and run
 in isolation. Manager tests use strict Mockito checks, with narrowly scoped
 lenient shared permission defaults where a test does not use that permission.
 
+The restored harness also passed all ten self-tests with two concurrent JUnit
+workers. The Surefire discovery guard includes the new `EndpointTest` suffix,
+matching the POM; the guard and four seed-security checks pass together.
+
 ## Application findings
 
 The replacement PR description lists the fixed defects and remaining findings.

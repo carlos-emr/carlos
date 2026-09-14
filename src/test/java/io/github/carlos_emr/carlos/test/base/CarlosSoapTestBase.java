@@ -217,6 +217,9 @@ public abstract class CarlosSoapTestBase extends CarlosUnitTestBase {
         pf.setTransportId(LocalTransportFactory.TRANSPORT_ID);
         T proxy = (T) pf.create();
         ((BindingProvider) proxy).getRequestContext().put(LocalConduit.DIRECT_DISPATCH, true);
+        // CXF 4.1.8's JaxWsProxyFactoryBean.getImplementingClasses() adds Client
+        // to both interface and concrete-class proxies. ClientProxy.getClient()
+        // only accepts JDK proxies and rejects these concrete-service proxies.
         clients.add((org.apache.cxf.endpoint.Client) proxy);
         return proxy;
     }
