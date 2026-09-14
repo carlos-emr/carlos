@@ -66,11 +66,11 @@ class PortalEncodingBoundaryUnitTest {
             }
         });
         server.start();
-        try (var transport = new PatientPortalHttpClientExchange(Duration.ofSeconds(5), Duration.ofSeconds(5))) {
+        try (var transport = new PatientPortalHttpClientExchange(Duration.ofSeconds(5), Duration.ofSeconds(5), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {
             var settings = new PatientPortalSettings("https://portal.example", "clinic",
                     PortalSecret.of("synthetic-service-token-0000000001"),
                     PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary", Duration.ofSeconds(5),
-                    Duration.ofSeconds(5), Duration.ofSeconds(20), Set.of());
+                    Duration.ofSeconds(5), Duration.ofSeconds(20), Set.of(PortalTestKeys.UNUSED_TLS_PIN));
             // Only this test redirects the request to a loopback socket; production settings stay HTTPS-only.
             var service = new PatientPortalService(settings, request -> transport.send(
                     ClassicRequestBuilder.copy(request).setUri("http://127.0.0.1:"
@@ -110,7 +110,7 @@ class PortalEncodingBoundaryUnitTest {
             }
         });
         server.start();
-        try (var transport = new PatientPortalHttpClientExchange(Duration.ofSeconds(5), Duration.ofSeconds(5))) {
+        try (var transport = new PatientPortalHttpClientExchange(Duration.ofSeconds(5), Duration.ofSeconds(5), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {
             assertThat(transport.send(ClassicRequestBuilder.get("http://127.0.0.1:"
                     + server.getAddress().getPort() + "/valid").build()).body()).isEqualTo(expected);
         } finally {

@@ -56,7 +56,7 @@ class PortalBoundaryRegressionUnitTest {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
                 PortalSecret.of("synthetic-service-token-0000000001"),
                 PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary", Duration.ofSeconds(1),
-                Duration.ofSeconds(1), Duration.ofSeconds(20), Set.of());
+                Duration.ofSeconds(1), Duration.ofSeconds(20), Set.of(PortalTestKeys.UNUSED_TLS_PIN));
         return new PatientPortalService(settings, request -> new PatientPortalHttpResponse(201, body));
     }
 
@@ -105,7 +105,7 @@ class PortalBoundaryRegressionUnitTest {
         });
         server.start();
         try (var transport = new PatientPortalHttpClientExchange(
-                Duration.ofMillis(300), Duration.ofSeconds(2))) {
+                Duration.ofMillis(300), Duration.ofSeconds(2), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {
             transport.send(ClassicRequestBuilder.post("http://127.0.0.1:"
                     + server.getAddress().getPort() + "/mutate").build());
             assertThat(calls.get()).as("one staff action must not replay a mutation").isEqualTo(1);
@@ -136,7 +136,7 @@ class PortalBoundaryRegressionUnitTest {
         });
         server.start();
         try (var transport = new PatientPortalHttpClientExchange(
-                Duration.ofMillis(300), Duration.ofMillis(300))) {
+                Duration.ofMillis(300), Duration.ofMillis(300), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {
             long start = System.nanoTime();
             assertThatThrownBy(() -> transport.send(ClassicRequestBuilder.get("http://127.0.0.1:"
                     + server.getAddress().getPort() + "/large").build()))
@@ -168,7 +168,7 @@ class PortalBoundaryRegressionUnitTest {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
                 PortalSecret.of("synthetic-service-token-0000000001"),
                 PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary", Duration.ofSeconds(1),
-                Duration.ofSeconds(1), Duration.ofSeconds(20), Set.of());
+                Duration.ofSeconds(1), Duration.ofSeconds(20), Set.of(PortalTestKeys.UNUSED_TLS_PIN));
         var client = new PatientPortalService(settings, request -> new PatientPortalHttpResponse(
                 409, "{\"detail\":\"SyntheticSecretToken123\"}"));
         var failure = catchThrowableOfType(() -> client.listInvites(123, staff()), PatientPortalException.class);
@@ -216,7 +216,7 @@ class PortalBoundaryRegressionUnitTest {
     void redactsMalformedHttpStatusFromTransportExceptionChain() throws Exception {
         try (var server = new java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress());
                 var workers = java.util.concurrent.Executors.newSingleThreadExecutor();
-                var transport = new PatientPortalHttpClientExchange(Duration.ofSeconds(1), Duration.ofSeconds(1))) {
+                var transport = new PatientPortalHttpClientExchange(Duration.ofSeconds(1), Duration.ofSeconds(1), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {
             var response = workers.submit(() -> {
                 try (var connection = server.accept()) {
                     connection.getOutputStream().write(

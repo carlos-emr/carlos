@@ -161,6 +161,7 @@ class PatientPortalSpringWiringUnitTest {
                 "synthetic-service-token-0000000001");
         properties.put(PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY);
         properties.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary");
+        properties.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN);
 
         assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
                 .isInstanceOf(PatientPortalConfigurationException.class);
@@ -188,6 +189,7 @@ class PatientPortalSpringWiringUnitTest {
                 "synthetic-service-token-0000000001");
         present.put(PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY);
         present.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary");
+        present.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN);
 
         assertThat(PatientPortalSettings.isConfigured(present::get)).isTrue();
     }

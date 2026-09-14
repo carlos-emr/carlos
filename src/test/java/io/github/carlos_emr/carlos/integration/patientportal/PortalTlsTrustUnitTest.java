@@ -56,10 +56,14 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 /**
  * What stops a fake portal from collecting the service token and a patient's identity.
@@ -160,6 +164,106 @@ class PortalTlsTrustUnitTest {
         return Duration.ofSeconds(5);
     }
 
+    @Test
+    @DisplayName("should reject missing pins even when constructing the transport directly")
+    void shouldRejectMissingPins_whenConstructingTransport() {
+        for (Set<String> pins : java.util.Arrays.<Set<String>>asList(null, Set.of())) {
+            assertThatThrownBy(() -> new PatientPortalHttpClientExchange(quick(), quick(), pins))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);
+            assertThatThrownBy(() -> new PatientPortalHttpClientExchange(quick(), quick(), quick(), pins))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);
+        }
+    }
+
+    /** Exercise the production TLS path with certificates explicitly trusted by this test JVM. */
+    @Nested
+    @ResourceLock(Resources.SYSTEM_PROPERTIES)
+    @DisplayName("trusted certificates still require the portal key and hostname")
+    class TrustedCertificates {
+        @TempDir
+        java.nio.file.Path temporaryDirectory;
+
+        private final java.util.Map<String, String> previousProperties = new java.util.HashMap<>();
+
+        @BeforeEach
+        void saveTrustStoreProperties() {
+            for (String property : new String[] {"javax.net.ssl.trustStore", "javax.net.ssl.trustStoreType",
+                    "javax.net.ssl.trustStorePassword"}) {
+                previousProperties.put(property, System.getProperty(property));
+            }
+        }
+
+        @AfterEach
+        void restoreTrustStoreProperties() {
+            previousProperties.forEach((key, value) -> {
+                if (value == null) {
+                    System.clearProperty(key);
+                } else {
+                    System.setProperty(key, value);
+                }
+            });
+        }
+
+        private void trust(Identity identity) throws Exception {
+            KeyStore store = KeyStore.getInstance("PKCS12");
+            store.load(null, null);
+            store.setCertificateEntry("test-portal", identity.certificate());
+            java.nio.file.Path file = temporaryDirectory.resolve("trust.p12");
+            try (OutputStream output = java.nio.file.Files.newOutputStream(file)) {
+                store.store(output, "changeit".toCharArray());
+            }
+            System.setProperty("javax.net.ssl.trustStore", file.toString());
+            System.setProperty("javax.net.ssl.trustStoreType", "PKCS12");
+            System.setProperty("javax.net.ssl.trustStorePassword", "changeit");
+        }
+
+        @Test
+        @DisplayName("should send nothing to a trusted impostor with the wrong public key")
+        void shouldRejectTrustedImpostor_beforeSendingRequest() throws Exception {
+            Identity impostor = identity("localhost", "127.0.0.1");
+            trust(impostor);
+            String origin = startServer(impostor);
+            Identity genuine = identity("localhost", "127.0.0.1");
+            try (var transport = new PatientPortalHttpClientExchange(quick(), quick(),
+                    Set.of(PortalCertificatePinning.pinFor(genuine.certificate())))) {
+                assertThatThrownBy(() -> transport.send(request(origin)))
+                        .isInstanceOf(IOException.class)
+                        .hasStackTraceContaining("portal certificate did not match any pin");
+            }
+            assertThat(requestsReceived.get()).isZero();
+        }
+
+        @Test
+        @DisplayName("should require the correct hostname even when trust and pin match")
+        void shouldRejectWrongHostname_beforeSendingRequest() throws Exception {
+            Identity otherHost = identity("other-host", "127.0.0.2");
+            trust(otherHost);
+            String origin = startServer(otherHost);
+            try (var transport = new PatientPortalHttpClientExchange(quick(), quick(),
+                    Set.of(PortalCertificatePinning.pinFor(otherHost.certificate())))) {
+                assertThatThrownBy(() -> transport.send(request(origin))).isInstanceOf(IOException.class);
+            }
+            assertThat(requestsReceived.get()).isZero();
+        }
+
+        @Test
+        @DisplayName("should accept the trusted portal during key overlap and after retiring the old pin")
+        void shouldAcceptVerifiedPortal_whenCurrentKeyIsPinned() throws Exception {
+            Identity portal = identity("localhost", "127.0.0.1");
+            trust(portal);
+            String origin = startServer(portal);
+            String current = PortalCertificatePinning.pinFor(portal.certificate());
+            for (Set<String> pins : java.util.List.of(Set.of(current, PortalTestKeys.UNUSED_TLS_PIN), Set.of(current))) {
+                try (var transport = new PatientPortalHttpClientExchange(quick(), quick(), pins)) {
+                    assertThat(transport.send(request(origin)).statusCode()).isEqualTo(200);
+                }
+            }
+            assertThat(requestsReceived.get()).isEqualTo(2);
+        }
+    }
+
     /**
      * Reads the versions a ClientHello offers, from the {@code supported_versions} extension.
      *
@@ -210,49 +314,46 @@ class PortalTlsTrustUnitTest {
      * this as a guard on the observable outcome, not as evidence for one mechanism.
      */
     @Test
-    @DisplayName("should offer only TLS 1.2 and 1.3, on both the pinned and unpinned paths")
-    void shouldOfferOnlyModernTlsVersions_onEveryPath() throws Exception {
-        for (Set<String> pins : java.util.List.of(Set.<String>of(), Set.of("sha256/" + "A".repeat(43) + "="))) {
-            try (java.net.ServerSocket listener =
-                    new java.net.ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
-                byte[][] captured = new byte[1][];
-                Thread accepter =
-                        new Thread(
-                                () -> {
-                                    try (java.net.Socket accepted = listener.accept()) {
-                                        byte[] buffer = new byte[4096];
-                                        int read = accepted.getInputStream().read(buffer);
-                                        captured[0] = java.util.Arrays.copyOf(buffer, Math.max(read, 0));
-                                    } catch (IOException ignored) {
-                                        // The client tears the connection down once we never reply.
-                                    }
-                                });
-                accepter.start();
+    @DisplayName("should offer only TLS 1.2 and 1.3 with required pinning")
+    void shouldOfferOnlyModernTlsVersions_whenPinned() throws Exception {
+        Set<String> pins = Set.of(PortalTestKeys.UNUSED_TLS_PIN);
+        try (java.net.ServerSocket listener =
+                new java.net.ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            byte[][] captured = new byte[1][];
+            Thread accepter =
+                    new Thread(
+                            () -> {
+                                try (java.net.Socket accepted = listener.accept()) {
+                                    byte[] buffer = new byte[4096];
+                                    int read = accepted.getInputStream().read(buffer);
+                                    captured[0] = java.util.Arrays.copyOf(buffer, Math.max(read, 0));
+                                } catch (IOException ignored) {
+                                    // The client tears the connection down once we never reply.
+                                }
+                            });
+            accepter.start();
 
-                String origin = "https://127.0.0.1:" + listener.getLocalPort();
-                try (PatientPortalHttpClientExchange transport =
-                        pins.isEmpty()
-                                ? new PatientPortalHttpClientExchange(quick(), quick())
-                                : new PatientPortalHttpClientExchange(quick(), quick(), pins)) {
-                    assertThatThrownBy(() -> transport.send(request(origin)))
-                            .isInstanceOf(IOException.class);
-                }
-                accepter.join(Duration.ofSeconds(10).toMillis());
-
-                assertThat(captured[0]).isNotNull();
-                assertThat(captured[0][0])
-                        .withFailMessage("expected a TLS handshake record")
-                        .isEqualTo((byte) 0x16);
-                Set<Integer> offered = offeredTlsVersions(captured[0]);
-                assertThat(offered)
-                        .withFailMessage(
-                                "ClientHello offered %s; the portal channel must not negotiate"
-                                        + " below TLS 1.2",
-                                offered)
-                        .isNotEmpty()
-                        .allMatch(version -> version >= 0x0303);
-                assertThat(offered).contains(0x0304); // TLS 1.3 still available
+            String origin = "https://127.0.0.1:" + listener.getLocalPort();
+            try (PatientPortalHttpClientExchange transport =
+                    new PatientPortalHttpClientExchange(quick(), quick(), pins)) {
+                assertThatThrownBy(() -> transport.send(request(origin)))
+                        .isInstanceOf(IOException.class);
             }
+            accepter.join(Duration.ofSeconds(10).toMillis());
+
+            assertThat(captured[0]).isNotNull();
+            assertThat(captured[0][0])
+                    .withFailMessage("expected a TLS handshake record")
+                    .isEqualTo((byte) 0x16);
+            Set<Integer> offered = offeredTlsVersions(captured[0]);
+            assertThat(offered)
+                    .withFailMessage(
+                            "ClientHello offered %s; the portal channel must not negotiate"
+                                    + " below TLS 1.2",
+                            offered)
+                    .isNotEmpty()
+                    .allMatch(version -> version >= 0x0303);
+            assertThat(offered).contains(0x0304); // TLS 1.3 still available
         }
     }
 
@@ -262,7 +363,7 @@ class PortalTlsTrustUnitTest {
         String origin = startServer(identity("localhost", "127.0.0.1"));
 
         try (PatientPortalHttpClientExchange transport =
-                new PatientPortalHttpClientExchange(quick(), quick())) {
+                new PatientPortalHttpClientExchange(quick(), quick(), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {
             assertThatThrownBy(() -> transport.send(request(origin)))
                     .isInstanceOf(IOException.class);
         }

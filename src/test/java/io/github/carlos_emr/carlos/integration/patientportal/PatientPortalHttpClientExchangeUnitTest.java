@@ -94,7 +94,7 @@ class PatientPortalHttpClientExchangeUnitTest {
     }
 
     private PatientPortalHttpClientExchange exchange() {
-        return new PatientPortalHttpClientExchange(QUICK, QUICK);
+        return new PatientPortalHttpClientExchange(QUICK, QUICK, java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN));
     }
 
     /**
@@ -163,7 +163,7 @@ class PatientPortalHttpClientExchangeUnitTest {
         ClassicHttpRequest request = ClassicRequestBuilder.get("http://192.0.2.1:9/blackhole").build();
 
         try (PatientPortalHttpClientExchange transport =
-                new PatientPortalHttpClientExchange(QUICK, QUICK)) {
+                new PatientPortalHttpClientExchange(QUICK, QUICK, java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {
             long startedAt = System.nanoTime();
 
             assertThatThrownBy(() -> transport.send(request)).isInstanceOf(IOException.class);
@@ -276,7 +276,7 @@ class PatientPortalHttpClientExchangeUnitTest {
         respond("/exact", 200, body);
         // This checks body size, not timing. Allow scheduling delays on a loaded build host.
         try (PatientPortalHttpClientExchange transport = new PatientPortalHttpClientExchange(
-                Duration.ofSeconds(5), Duration.ofSeconds(10))) {
+                Duration.ofSeconds(5), Duration.ofSeconds(10), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {
             assertThat(transport.send(get("/exact")).body()).isEqualTo(body);
         }
     }

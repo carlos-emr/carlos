@@ -80,7 +80,8 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                                 PatientPortalSettings.SERVICE_TOKEN_KEY, TOKEN,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY,
                                 PortalTestKeys.PRIVATE_KEY,
-                                PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary")),
+                                PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
+                                PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN)),
                 exchange);
     }
 

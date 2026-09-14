@@ -43,8 +43,8 @@ import javax.net.ssl.X509TrustManager;
  * invitation carries. Pinning narrows "any CA the machine trusts" to "the portal's actual key".
  *
  * <p><b>Pinning is additive and must stay that way.</b> This delegates to the platform trust
- * manager first, so chain building, expiry, and revocation all still apply, and only then requires
- * a pin match. The common way pinning is implemented wrongly is to replace the trust manager with
+ * manager first, retaining its chain and expiry checks and configured revocation policy, and only
+ * then requires a pin match. The common way pinning is implemented wrongly is to replace the trust manager with
  * one that accepts everything and then compare a fingerprint — which silently discards expiry and
  * chain validation in exchange for the pin. The delegate call below is what prevents that, and
  * {@code PortalTlsTrustUnitTest} fails if it is removed.
@@ -152,10 +152,11 @@ final class PortalCertificatePinning implements X509TrustManager {
     }
 
     /**
-     * Computes the pin for a certificate, for operators reading one off a live portal.
+     * Computes the pin for a certificate obtained through a trusted administration channel.
      *
      * <p>Read it from the <b>leaf</b> — the certificate the portal itself serves — since that is
-     * the only one compared.
+     * the only one compared. A certificate fetched from an unverified connection is not a safe
+     * source for the initial pin.
      */
     static String pinFor(X509Certificate certificate) {
         try {
@@ -182,7 +183,8 @@ final class PortalCertificatePinning implements X509TrustManager {
         String presented = pinFor(chain[0]);
         if (!pins.contains(presented)) {
             // The presented pin is a hash of a public key, so naming it is safe, and it is exactly
-            // what an operator needs to update configuration after a legitimate key rotation.
+            // useful for diagnosis. Operators must verify rotations through a trusted channel,
+            // never approve a new key just because it appears in this error.
             throw new CertificateException(
                     String.format(
                             Locale.ROOT,
