@@ -12,7 +12,9 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 
@@ -63,6 +65,31 @@ public final class PathValidationUtils {
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
             "jsp", "jspx", "war", "class", "jar", "jnlp");
 
+    /**
+     * Directory name of the CARLOS-owned temporary root beneath {@code java.io.tmpdir} into which the
+     * application writes its own generated PDFs (see {@code NioFileManagerImpl.saveTempFile}). Keeping
+     * these under a single named root lets {@link #isInApplicationTempDirectory(File)} distinguish
+     * CARLOS-generated temp files from arbitrary files elsewhere in the shared temp roots.
+     */
+    public static final String APPLICATION_TEMP_ROOT_NAME = "carlos-temp";
+
+    /**
+     * CARLOS-owned first-path-segment names that legitimately live directly below
+     * {@code java.io.tmpdir}: {@code carlos-temp} is written by {@code saveTempFile};
+     * {@code carlos-eform-browser-pdf-temp} is the eForm browser renderer's {@code java.io.tmpdir}
+     * fallback root.
+     */
+    private static final Set<String> TMPDIR_APPLICATION_TEMP_SEGMENTS =
+            Set.of(APPLICATION_TEMP_ROOT_NAME, "carlos-eform-browser-pdf-temp");
+
+    /**
+     * CARLOS-owned first-path-segment name below a Tomcat {@code work} root: {@code work/carlos} is
+     * the eForm browser renderer's catalina temp root. {@code carlos-temp} /
+     * {@code carlos-eform-browser-pdf-temp} are deliberately NOT accepted here — they only ever live
+     * under {@code java.io.tmpdir}.
+     */
+    private static final Set<String> WORK_APPLICATION_TEMP_SEGMENTS = Set.of("carlos");
+
     private static final Logger logger = MiscUtils.getLogger();
 
     /**
@@ -70,6 +97,19 @@ public final class PathValidationUtils {
      * Uses LinkedHashSet to preserve insertion order for debugging.
      */
     private static volatile Set<String> allowedTempDirectories;
+
+    /**
+     * Lazily-initialized map of canonical temp-root path to the CARLOS-owned first segments permitted
+     * directly beneath that specific root (see {@link #buildApplicationTempRoots()}).
+     */
+    // Sonar java:S3077 ("volatile is not enough for a mutable type") does not apply: this field is
+    // only ever assigned the result of buildApplicationTempRoots(), which returns an
+    // unmodifiableMap whose values are Set.copyOf(...) — deeply immutable. Volatile is then exactly
+    // the right idiom, giving safe publication of a fully-constructed immutable value under the
+    // double-checked lock below. Swapping in a ConcurrentHashMap would make the CONTENTS mutable
+    // and lose the immutability this depends on.
+    @SuppressWarnings("java:S3077")
+    private static volatile Map<String, Set<String>> applicationTempRoots;
 
     private PathValidationUtils() {
         // Utility class - prevent instantiation
@@ -130,7 +170,7 @@ public final class PathValidationUtils {
     /**
      * Validates a user-provided filename and returns a normalized safe filename component.
      * Normalization preserves the legacy {@link MiscUtils#sanitizeFileName(String)}
-     * contract: whitespace becomes underscores, characters outside {@code [a-zA-Z0-9._]}
+     * contract: whitespace becomes underscores, characters outside {@code [a-zA-Z0-9._-]}
      * are removed, and repeated dots collapse to a single dot.
      *
      * @param userProvidedFileName the filename provided by the user
@@ -308,9 +348,25 @@ public final class PathValidationUtils {
         return value;
     }
 
+    /**
+     * Applies the legacy {@code MiscUtils.sanitizeFileName} normalization: whitespace becomes
+     * underscores, characters outside the keep-class are deleted, and dot runs collapse.
+     *
+     * <p>Hyphens are kept. They were accepted by the original guard ({@code ^[a-zA-Z0-9._-]+$}) and
+     * their deletion arrived incidentally with the move to {@code MiscUtils.sanitizeFileName}
+     * ({@code 60b81ac10e3}), whose stated intent was only to replace spaces. Deleting them is not a
+     * safety property — containment comes from {@code FilenameUtils.getName},
+     * {@link #validateWithinDirectory} and the blocked-extension list, and the read paths
+     * ({@link #validatePath}, {@link #validatePathComponent}) accept hyphens unchanged. It was also
+     * inconsistent within the eForm feature: ZIP import preserves the packaged name, so the same
+     * image kept its hyphens via one route and silently lost them via the image manager. There is no
+     * database record of eForm image names ({@code EFormUtil.listImages()} is a directory scan), so
+     * the on-disk name is the contract and a silent rename permanently breaks the form referencing
+     * it.</p>
+     */
     static String normalizeFileNameCharacters(String fileName) {
         return fileName.replaceAll("\\s+", "_")
-                .replaceAll("[^a-zA-Z0-9._]", "")
+                .replaceAll("[^a-zA-Z0-9._-]", "")
                 .replaceAll("\\.+", ".");
     }
 
@@ -826,6 +882,75 @@ public final class PathValidationUtils {
         }
     }
 
+    /**
+     * Checks if a file resides within a CARLOS <em>application-owned</em> temporary subtree — a
+     * stricter boundary than {@link #isInAllowedTempDirectory(File)}.
+     *
+     * <p>{@link #isInAllowedTempDirectory(File)} accepts the entire shared temp roots
+     * ({@code java.io.tmpdir}, Tomcat {@code work}), which is appropriate for container-managed
+     * uploads. That is too broad, however, for endpoints that render or stream a caller-named temp
+     * file back to the user: any file another process left in the shared temp root would then be
+     * exposed. This method narrows acceptance to the temp subtrees CARLOS creates itself — the
+     * {@link #APPLICATION_TEMP_ROOT_NAME} root written by {@code NioFileManagerImpl.saveTempFile}
+     * and the {@code carlos-eform-browser-pdf-temp} / {@code work/carlos} roots written by the eForm
+     * browser PDF renderer — so a caller cannot point such an endpoint at an unrelated file
+     * elsewhere in the shared temp space.</p>
+     *
+     * @param file the file to check
+     * @return true if the file is within a CARLOS-owned temp subtree, false otherwise
+     */
+    public static boolean isInApplicationTempDirectory(File file) {
+        try {
+            validateApplicationTempPath(file);
+            return true;
+        } catch (SecurityException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Validates that a file lies within a CARLOS-owned temp subtree and returns its canonicalized
+     * form for further use — the parse-don't-validate companion to
+     * {@link #isInApplicationTempDirectory(File)}. Prefer this method whenever the file will be
+     * read, streamed, or deleted after the check: operating on the returned canonical file closes
+     * the check-vs-use gap the boolean guard leaves open (checking one path object, then using the
+     * original, possibly symlinked, one).
+     *
+     * @param file the file to validate; need not exist (the boundary is purely path-based)
+     * @return the canonicalized file, guaranteed to be inside a CARLOS-owned temp subtree
+     * @throws SecurityException when the file is null, cannot be canonicalized, or lies outside
+     *         every CARLOS-owned temp subtree
+     */
+    public static File validateApplicationTempPath(File file) {
+        if (file == null) {
+            throw new SecurityException("Temp path is null");
+        }
+
+        String canonicalPath;
+        try {
+            canonicalPath = file.getCanonicalPath();
+        } catch (IOException e) {
+            logger.error("Error validating application temp path", e);
+            throw new SecurityException("Cannot resolve temp path");
+        }
+        for (Map.Entry<String, Set<String>> root : getApplicationTempRoots().entrySet()) {
+            String prefix = root.getKey() + File.separator;
+            if (!canonicalPath.startsWith(prefix)) {
+                continue;
+            }
+            String remainder = canonicalPath.substring(prefix.length());
+            int separatorIndex = remainder.indexOf(File.separatorChar);
+            String firstSegment = separatorIndex >= 0 ? remainder.substring(0, separatorIndex) : remainder;
+            // Accept only the CARLOS-owned first segment that belongs to *this* root, so a
+            // segment valid under one root (e.g. carlos-temp under java.io.tmpdir) is not honoured
+            // under another (e.g. Tomcat work).
+            if (root.getValue().contains(firstSegment)) {
+                return new File(canonicalPath);
+            }
+        }
+        throw new SecurityException("Path is outside every CARLOS-owned temp subtree");
+    }
+
     // ========================================================================
     // INTERNAL VALIDATION METHODS
     // ========================================================================
@@ -976,6 +1101,55 @@ public final class PathValidationUtils {
         addTempDir(dirs, System.getProperty("catalina.home"), "work");
 
         return dirs;
+    }
+
+    private static Map<String, Set<String>> getApplicationTempRoots() {
+        if (applicationTempRoots == null) {
+            synchronized (PathValidationUtils.class) {
+                if (applicationTempRoots == null) {
+                    // buildApplicationTempRoots() returns a deep-immutable map (frozen keys AND value
+                    // sets), so publishing it through this volatile reference is fully safe — nothing
+                    // can mutate it via a leaked value reference after publication.
+                    applicationTempRoots = buildApplicationTempRoots();
+                }
+            }
+        }
+        return applicationTempRoots;
+    }
+
+    /**
+     * Maps each canonical temp root to the CARLOS-owned first segments that legitimately live
+     * directly beneath it. Keying per-root — rather than testing one flat segment set against every
+     * allowed temp root — stops a caller from smuggling e.g. {@code <java.io.tmpdir>/carlos} or
+     * {@code <work>/carlos-temp} past the boundary: only the exact subtree a renderer/temp writer
+     * actually creates under a given root is accepted.
+     */
+    private static Map<String, Set<String>> buildApplicationTempRoots() {
+        Map<String, Set<String>> roots = new LinkedHashMap<>();
+        addApplicationTempRoot(roots, TMPDIR_APPLICATION_TEMP_SEGMENTS, System.getProperty("java.io.tmpdir"), null);
+        addApplicationTempRoot(roots, WORK_APPLICATION_TEMP_SEGMENTS, System.getProperty("catalina.base"), "work");
+        addApplicationTempRoot(roots, WORK_APPLICATION_TEMP_SEGMENTS, System.getProperty("catalina.home"), "work");
+        // Freeze the value sets too (not just the map): a volatile reference only guarantees safe
+        // publication of the top-level map, so the contained per-root segment sets must be immutable
+        // for the whole structure to be thread-safe after publication.
+        Map<String, Set<String>> frozen = new LinkedHashMap<>();
+        roots.forEach((root, segments) -> frozen.put(root, Set.copyOf(segments)));
+        return Collections.unmodifiableMap(frozen);
+    }
+
+    private static void addApplicationTempRoot(Map<String, Set<String>> roots, Set<String> segments, String basePath, String subDir) {
+        if (basePath == null || basePath.trim().isEmpty()) {
+            return;
+        }
+        try {
+            File dir = (subDir != null) ? new File(basePath, subDir) : new File(basePath);
+            // Merge rather than overwrite: when two configured roots canonicalize to the same directory
+            // (e.g. java.io.tmpdir == catalina.base/work on some deployments), both legitimate segment
+            // sets must be honoured, otherwise a valid carlos-temp file could fail validation.
+            roots.computeIfAbsent(dir.getCanonicalPath(), ignored -> new LinkedHashSet<>()).addAll(segments);
+        } catch (IOException e) {
+            logger.debug("Could not resolve canonical path for {}: {}", basePath, e.getMessage());
+        }
     }
 
     /**

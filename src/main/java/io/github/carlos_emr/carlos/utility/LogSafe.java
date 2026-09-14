@@ -94,6 +94,39 @@ public final class LogSafe {
      */
     static final int MAX_ENCODED_LENGTH = DEFAULT_MAX_LENGTH * ENCODING_EXPANSION_FACTOR;
 
+    /**
+     * Bounded diagnostic trace containing exception types and code locations only. Never calls
+     * Throwable.toString/getMessage or attaches the original throwable to a logging event: those
+     * paths can expose clinical values in nested causes and suppressed exceptions.
+     */
+    public static String exceptionTrace(Throwable failure) {
+        StringBuilder trace = new StringBuilder();
+        appendExceptionTrace(failure, "", trace, new java.util.IdentityHashMap<>());
+        return trace.toString();
+    }
+
+    private static void appendExceptionTrace(Throwable failure, String relation, StringBuilder trace,
+                                             java.util.IdentityHashMap<Throwable, Boolean> seen) {
+        if (failure == null) return;
+        if (seen.containsKey(failure) || seen.size() >= 16) {
+            trace.append("\n[repeated or truncated exception]");
+            return;
+        }
+        seen.put(failure, Boolean.TRUE);
+        trace.append("\n").append(relation).append(failure.getClass().getName());
+        StackTraceElement[] frames = failure.getStackTrace();
+        for (int i = 0; i < Math.min(frames.length, 32); i++) {
+            trace.append("\n  at ").append(sanitize(frames[i].toString(), 500));
+        }
+        if (frames.length > 32) trace.append("\n  [remaining frames omitted]");
+        appendExceptionTrace(failure.getCause(), "Caused by: ", trace, seen);
+        Throwable[] suppressed = failure.getSuppressed();
+        for (int i = 0; i < Math.min(suppressed.length, 8); i++) {
+            appendExceptionTrace(suppressed[i], "Suppressed: ", trace, seen);
+        }
+        if (suppressed.length > 8) trace.append("\n[remaining suppressed exceptions omitted]");
+    }
+
     private LogSafe() {
         // utility class — no instances
     }

@@ -120,7 +120,7 @@
                                                                         MAXLENGTH="100">
                         <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name">
 
-                        <INPUT TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT TYPE="hidden" NAME="limit2" VALUE="10">
+                        <INPUT TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT TYPE="hidden" NAME="limit2" VALUE="10000">
 
                         <INPUT TYPE="SUBMIT" NAME="button" VALUE=
                             <fmt:message key="admin.search.btnSubmit"/> SIZE="17"></td>

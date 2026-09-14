@@ -38,6 +38,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -64,6 +66,9 @@ public class TeleplanResponse {
     }
 
 
+    // FindSecBugs PREDICTABLE_RANDOM: Math.random only adds a local Teleplan temp filename suffix.
+    // Do not use this suppression for secrets, tokens, authorization, or request-controlled random values.
+    @SuppressFBWarnings(value = "PREDICTABLE_RANDOM", justification = "Math.random only creates a local Teleplan temporary filename suffix, not a secret, token, or authorization decision")
     void processResponseStream(InputStream in) {
         File tempFile = null;
         try {

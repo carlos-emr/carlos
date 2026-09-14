@@ -104,10 +104,8 @@
     if (!authed) {
         return;
     }
-    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
-    String scheduleNavQuerySuffix = showScheduleNav ? "&scheduleNav=1" : "";
-    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
+<%@ include file="messengerScheduleNav.jspf" %>
 
 <%
     // bodyTextAsHTML: the message body content retrieved from session for display.
@@ -202,7 +200,7 @@ function popup(demographicNo, msgId, providerNo, action) {
         	  var openerRef = window.parent.opener || window.opener;
         	  if (openerRef) {
         	      getAngJsPath = openerRef.location.href;
-        	      newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#')+2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURI(txt);
+              newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#')+2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURIComponent(txt);
         	      openerRef.location.href = newAngJsPath;
         	  }
           } else {
@@ -390,7 +388,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA>
 									<tr>
 										<td class="messengerButtonsA">
-                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage"
+                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>"
                                                 class="btn btn-outline-secondary">
                                                 <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>
@@ -411,6 +409,7 @@ function fmtOscarMsg() {
 							</table>
 							</td>
 
+							<% if (showMessengerExitButton) { %>
 							<td>
 							<table class=messButtonsA >
 								<tr>
@@ -422,6 +421,7 @@ function fmtOscarMsg() {
 								</tr>
 							</table>
 							</td>
+							<% } %>
 						</tr>
 					</table>
 					</td>

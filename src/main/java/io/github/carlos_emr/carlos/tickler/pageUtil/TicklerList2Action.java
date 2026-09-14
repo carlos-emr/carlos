@@ -44,7 +44,6 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.slf4j.Logger;
@@ -58,6 +57,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerCommentDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -77,7 +77,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class TicklerList2Action extends ActionSupport {
 
     private static final Logger logger = LoggerFactory.getLogger(TicklerList2Action.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final int MAX_PAGE_SIZE = 500;
     private static final String DATE_FORMAT_PATTERN = "yyyy-MM-dd";
     private static final String TIME_FORMAT_PATTERN = "HH:mm";
@@ -85,16 +84,11 @@ public class TicklerList2Action extends ActionSupport {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @Override
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
 
         if (loggedInInfo == null) {
             writeJsonError(response, HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
@@ -158,8 +152,7 @@ public class TicklerList2Action extends ActionSupport {
             result.put("data", rows);
             result.put("comments", commentsMap);
 
-            String json = objectMapper.writeValueAsString(result);
-            response.getWriter().write(json);
+            JsonResponseWriter.write(response, result);
 
             LogAction.addLogSynchronous(loggedInInfo, "TicklerList2Action",
                     "draw=" + draw + ",start=" + start + ",length=" + length + ",total=" + totalRecords);
@@ -180,7 +173,7 @@ public class TicklerList2Action extends ActionSupport {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private CustomFilter buildFilterFromRequest(HttpServletRequest request) {
+    static CustomFilter buildFilterFromRequest(HttpServletRequest request) {
         CustomFilter filter = new CustomFilter();
 
         String status = getStringParam(request, "status", "A");
@@ -200,6 +193,11 @@ public class TicklerList2Action extends ActionSupport {
 
         String demographicNo = getStringParam(request, "demographicNo", "");
         filter.setDemographicNo(demographicNo);
+        // The patient view has no date controls. Include future recalls unless
+        // the caller supplies an explicit date filter below.
+        if (demographicNo.matches("\\d+")) {
+            filter.setEndDate(null);
+        }
 
         String client = getStringParam(request, "client", "");
         filter.setClient(client);
@@ -243,7 +241,7 @@ public class TicklerList2Action extends ActionSupport {
      * @param colIndexStr String the DataTables column index from the request
      * @return String the CustomFilter sortColumn value
      */
-    private String mapColumnIndexToField(String colIndexStr) {
+    private static String mapColumnIndexToField(String colIndexStr) {
         switch (colIndexStr) {
             case "6":  return "priority";
             case "4":  // fall-through to default
@@ -332,8 +330,6 @@ public class TicklerList2Action extends ActionSupport {
      * @param message String the error message
      * @throws IOException if writing fails
      */
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJsonError(HttpServletResponse response, int statusCode, String message) throws IOException {
         response.setStatus(statusCode);
         Map<String, Object> error = new HashMap<>();
@@ -342,7 +338,7 @@ public class TicklerList2Action extends ActionSupport {
         error.put("recordsTotal", 0);
         error.put("recordsFiltered", 0);
         error.put("data", new ArrayList<>());
-        response.getWriter().write(objectMapper.writeValueAsString(error));
+        JsonResponseWriter.write(response, error);
     }
 
     /**
@@ -406,7 +402,7 @@ public class TicklerList2Action extends ActionSupport {
      * @param defaultValue String the default value if parameter is missing
      * @return String the parameter value or default
      */
-    private String getStringParam(HttpServletRequest request, String name, String defaultValue) {
+    private static String getStringParam(HttpServletRequest request, String name, String defaultValue) {
         String val = request.getParameter(name);
         return (val != null) ? val.trim() : defaultValue;
     }

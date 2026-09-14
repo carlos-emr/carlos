@@ -233,7 +233,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // sender which encrypts with PKCS#1 v1.5. Changing the padding here would break
             // decryption of incoming lab uploads. This is decrypt-only (not encrypt), which
             // limits the attack surface. If the external protocol is ever updated, migrate to OAEP.
-            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding"); // NOPMD HardCodedCryptoKey — JCA name, not key material // nosemgrep: java.lang.security.audit.crypto.ecb-cipher.ecb-cipher -- "ECB" is JCA convention for RSA single-block, not AES-ECB mode; PKCS#1v1.5 constraint documented above
             cipher.init(Cipher.DECRYPT_MODE, key);
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));
 

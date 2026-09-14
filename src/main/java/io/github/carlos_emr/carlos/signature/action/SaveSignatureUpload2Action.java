@@ -71,6 +71,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>400 — malformed {@code data:} URI or non-Base64 {@code signatureImage}
  *       on the IPAD branch</li>
  *   <li>413 — raw-stream upload exceeds {@value #MAX_UPLOAD_BYTES} bytes</li>
+ *   <li>403 — persistence requested while the current facility is missing or
+ *       has digital signatures disabled</li>
  *   <li>500 "Upload failed" — I/O error writing the temp file</li>
  *   <li>500 "Save failed" — DB persistence failed after a successful upload
  *       (null return or propagated exception from
@@ -145,6 +147,13 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             return NONE;
         }
 
+        if (saveToDB && (loggedInInfo.getCurrentFacility() == null
+                || !loggedInInfo.getCurrentFacility().isEnableDigitalSignatures())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                    "Digital signatures are disabled for this facility");
+            return NONE;
+        }
+
         if ("IPAD".equalsIgnoreCase(uploadSource)) {
             if (imageString == null || imageString.isEmpty()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing signatureImage");
@@ -181,7 +190,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 return NONE;
             }
             try (FileOutputStream fos = new FileOutputStream(safeTarget)) {
-                fos.write(imageData);
+                fos.write(imageData); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- writes decoded image bytes to validated file target, not HTTP response HTML
                 MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSafe.sanitize(filename), imageData.length); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             } catch (IOException e) {
                 MiscUtils.getLogger().error("Error uploading signature from IPAD: {}", LogSafe.sanitize(filename), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
