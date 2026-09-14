@@ -148,16 +148,13 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 filePath = Utilities.saveFile(is, fileName);
             }
             if (filePath == null) {
-                // saveFile/savePdfFile return null when the write failed. Close the decrypted stream
-                // here: neither closes it when it fails before opening its output, and reporting the
-                // upload failure directly beats letting the validator throw into the generic handler.
+                // saveFile/savePdfFile return null when the write failed, and neither closes the
+                // decrypted stream when it fails before opening its output.
                 is.close();
-                logger.error("Lab file save returned no path; aborting upload");
-                outcome = OUTCOME_EXCEPTION;
-                httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
-                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-                request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
-                return SUCCESS;
+                // Thrown rather than returned: the shared epilogue below is what honours
+                // use_http_response_code, so returning here would have sent a client that asked for
+                // HTTP status codes a success response despite httpCode being set to 500.
+                throw new IOException("Lab file save returned no path");
             }
 
             File file = PathValidationUtils.validateExistingDocumentPath(filePath);

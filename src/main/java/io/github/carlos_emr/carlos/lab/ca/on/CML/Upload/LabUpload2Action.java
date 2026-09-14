@@ -208,9 +208,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 return null;
             }
 
-            // CREATE_NEW: the generated name is only millisecond-unique and FileOutputStream
-            // truncated a colliding destination, destroying the other upload's lab. The output is
-            // also closed by try-with-resources now, rather than only on the success path.
+            // CREATE_NEW: the generated name is only millisecond-unique and a truncating open
+            // destroyed the colliding upload's lab. The output is also closed by try-with-resources
+            // now, rather than only on the success path.
             try (OutputStream bos = Files.newOutputStream(targetFile.toPath(),
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 int bytesRead = 0;

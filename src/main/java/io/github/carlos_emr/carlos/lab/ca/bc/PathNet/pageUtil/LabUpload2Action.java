@@ -184,8 +184,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             File outputFile = PathValidationUtils.validateGeneratedChildPath(
                     PathValidationUtils.validateGeneratedFileName("LabUpload." + filename + "." + (new Date()).getTime()),
                     baseDir);
-            // CREATE_NEW: the generated name is only millisecond-unique and FileOutputStream
-            // truncated a colliding destination, destroying the other upload's lab.
+            // CREATE_NEW: the generated name is only millisecond-unique and a truncating open
+            // destroyed the colliding upload's lab.
             try (OutputStream bos = Files.newOutputStream(outputFile.toPath(),
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 uploadStream.transferTo(bos);

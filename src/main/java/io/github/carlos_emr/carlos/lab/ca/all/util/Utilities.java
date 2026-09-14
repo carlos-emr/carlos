@@ -44,7 +44,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -214,26 +213,29 @@ public class Utilities {
         String retVal = null;
         String place = CarlosProperties.getInstance().getProperty("OMD_hrm");
 
-        try {
+        // try-with-resources over the caller's stream, and exclusive creation below: the last of the
+        // four upload writers to get the contract the others now share.
+        try (InputStream uploadStream = stream) {
             File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "OMD_hrm");
             File outputFile = PathValidationUtils.validateGeneratedChildPath(
                     PathValidationUtils.validateGeneratedFileName("KeyUpload." + filename + "." + (new Date()).getTime()),
                     baseDir);
-            retVal = outputFile.getPath();
 
-            try (OutputStream os = new FileOutputStream(outputFile)) {
+            try (OutputStream os = Files.newOutputStream(outputFile.toPath(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 int bytesRead;
-                while ((bytesRead = stream.read()) != -1) {
+                while ((bytesRead = uploadStream.read()) != -1) {
                     os.write(bytesRead);
                 }
             }
 
-            stream.close();
-        } catch (FileNotFoundException fnfe) {
-            logger.error("Error", fnfe);
-            return retVal;
+            // Assigned only after a complete write, like the other writers.
+            retVal = outputFile.getPath();
+        } catch (FileAlreadyExistsException nameCollision) {
+            logger.error("Generated HRM upload name is already in use; upload not written");
+            return null;
         } catch (IOException | SecurityException ioe) {
-            logger.error("Error", ioe);
+            logger.error("Error writing HRM upload: {}", LogSafe.exceptionTrace(ioe));
             return retVal;
         }
         return retVal;
@@ -262,9 +264,8 @@ public class Utilities {
                     PathValidationUtils.validateGeneratedFileName("DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf"),
                     baseDir);
 
-            // CREATE_NEW like saveFile: the generated name is only millisecond-unique, and
-            // FileOutputStream truncated a colliding destination, destroying the other upload's
-            // document rather than failing.
+            // CREATE_NEW like saveFile: the generated name is only millisecond-unique, and a
+            // truncating open destroyed the colliding upload's document rather than failing.
             try (OutputStream os = Files.newOutputStream(outputFile.toPath(),
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 int bytesRead;
