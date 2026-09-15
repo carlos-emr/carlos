@@ -75,7 +75,7 @@ import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @Tag("action")
-class ManageDocument2ActionTest extends CarlosUnitTestBase {
+class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private DocumentDao documentDao;
