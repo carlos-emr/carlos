@@ -84,7 +84,7 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
         outcome = delivery.send(user, log, data, this::encrypt, this::send);
         assertThat(operations).containsExactly("create", "encrypt", "send", "publish");
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.PUBLISHED);
-        assertThat(outcome == null ? log.getStatus() == EmailStatus.SUCCESS : outcome.isTransportAccepted()).isTrue();
+        assertThat(outcome.isTransportAccepted()).isTrue();
         assertThat(data.getPassword()).isEmpty();
         var order = inOrder(logs, portal);
         order.verify(logs).initializePortalDelivery(log);
@@ -115,7 +115,7 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
     @Test void shouldRetryOnlyPublicationAfterSentEmail() {
         when(portal.publishUnlockSecret(eq(77L), any())).thenThrow(new IllegalStateException("portal outage"));
         outcome = delivery.send(user, log, data, this::encrypt, this::send);
-        assertThat(outcome == null ? log.getStatus() == EmailStatus.SUCCESS : outcome.isTransportAccepted()).isTrue();
+        assertThat(outcome.isTransportAccepted()).isTrue();
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.SENT);
         assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDelivery.PUBLISH_PENDING);
         when(portal.publishUnlockSecret(eq(77L), any())).thenReturn(null);
@@ -208,7 +208,7 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
         stored(PortalDeliveryState.SENDING);
         delivery.recover(user, 45, "confirmSent", true);
         assertThat(operations).containsExactly("publish");
-        assertThat(outcome == null ? log.getStatus() == EmailStatus.SUCCESS : outcome.isTransportAccepted()).isTrue();
+        assertThat(log.getStatus()).isEqualTo(EmailStatus.SUCCESS);
     }
 
     @Test void shouldRevokeExplicitlyConfirmedNonAcceptance() {
@@ -238,6 +238,29 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
         stored(PortalDeliveryState.SENT);
         assertThatThrownBy(() -> delivery.recover(user, 45, "retry", false))
                 .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(portal);
+    }
+
+    @Test void shouldRevokeWhenTransportDefinitelyDidNotAcceptEmail() {
+        outcome = delivery.send(user, log, data, this::encrypt,
+                () -> { throw new EmailSendingException("connection refused"); });
+        assertThat(outcome.getTransportOutcome()).isEqualTo(
+                io.github.carlos_emr.carlos.email.core.EmailSendResult.TransportOutcome.FAILED);
+        assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKED);
+        assertThat(operations).containsExactly("create", "encrypt", "revoke");
+    }
+
+    @Test void shouldKeepRecoveryAwayFromRecentActiveSends() {
+        stored(PortalDeliveryState.SENDING); log.setTimestamp(new java.util.Date());
+        assertThatThrownBy(() -> delivery.recover(user, 45, "confirmSent", true))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(portal);
+    }
+
+    @Test void shouldRepairPublishedEmailTrackingWithoutSendingOrRepublishing() {
+        stored(PortalDeliveryState.PUBLISHED);
+        delivery.recover(user, 45, "retry", false);
+        assertThat(log.getStatus()).isEqualTo(EmailStatus.SUCCESS);
         verifyNoInteractions(portal);
     }
 

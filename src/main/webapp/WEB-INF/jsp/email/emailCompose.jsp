@@ -21,7 +21,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery" %>
 <% request.setAttribute("portalEmailEnabled", PortalEmailDelivery.isEnabled()); %>
-<c:set var="portalDeliveryNeedsRecovery" value="${not empty emailLog.portalDeliveryState and emailLog.portalDeliveryState ne 'PUBLISHED' and emailLog.portalDeliveryState ne 'REVOKED'}"/>
+<c:set var="portalDeliveryNeedsRecovery" value="${not empty emailLog.portalDeliveryState and (emailLog.status eq 'PENDING' or (emailLog.portalDeliveryState ne 'PUBLISHED' and emailLog.portalDeliveryState ne 'REVOKED'))}"/>
 
 
 <html>

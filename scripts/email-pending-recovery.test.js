@@ -15,7 +15,7 @@ function handler(name) {
   return jsp.slice(start, jsp.indexOf('\n    }', start) + 6);
 }
 function fixture({ accepted = false, recorded = false, uncertain = false, pendingCopy = false, followUp = false,
-  confirm = true, valid = true } = {}) {
+  confirm = true, valid = true, portalPending = false } = {}) {
   const calls = { submitted: 0, closed: 0, confirmed: 0, initialized: 0, opened: 0 };
   const fields = {
     isEmailError: { value: 'false' }, isEmailSuccessful: { value: String(accepted) },
@@ -36,7 +36,7 @@ function fixture({ accepted = false, recorded = false, uncertain = false, pendin
     selectPatientChartOption() {}, showAdditionalParamOption() {}, toggleInternalTextArea() {},
   });
   vm.runInContext(handler('validateEmailForm') + handler('autoSendEmail')
-    .replace('${carlos:forJavaScript(isEmailAutoSend)}', 'true') + ready, context);
+    .replace('${carlos:forJavaScript(isEmailAutoSend)}', 'true') + ready.replace('${portalDeliveryNeedsRecovery}', String(portalPending)), context);
   return { context, calls };
 }
 
@@ -78,6 +78,13 @@ test('a new valid automatic send is submitted once', () => {
 
 test('post-send follow-up warning keeps accepted mail open without resending', () => {
   const { context, calls } = fixture({ accepted: true, recorded: true, followUp: true });
+  context.ready();
+  assert.equal(calls.closed, 0);
+  assert.equal(calls.submitted, 0);
+});
+
+test('pending Portal publication keeps accepted mail open without sending again', () => {
+  const { context, calls } = fixture({ accepted: true, recorded: true, portalPending: true });
   context.ready();
   assert.equal(calls.closed, 0);
   assert.equal(calls.submitted, 0);

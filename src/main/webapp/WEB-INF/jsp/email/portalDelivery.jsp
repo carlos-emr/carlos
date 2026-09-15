@@ -31,6 +31,13 @@
                 </form>
             </c:otherwise>
         </c:choose>
+        <c:if test="${emailLog.status eq 'PENDING' and (emailLog.portalDeliveryState eq 'PUBLISHED' or emailLog.portalDeliveryState eq 'REVOKED')}">
+            <p>The delivery record still needs to be updated. This will not send another email.</p>
+            <form method="post" action="${pageContext.request.contextPath}/email/portalDelivery">
+                <input type="hidden" name="emailLogId" value="${carlos:forHtmlAttribute(emailLog.id)}"/>
+                <button name="operation" value="retry">Update delivery record</button>
+            </form>
+        </c:if>
     </c:otherwise>
 </c:choose>
 </body></html>
