@@ -10,6 +10,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.PortalDeliveryState;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -67,7 +68,7 @@ public class PortalEmailDelivery {
      * A transport exception is ambiguous (the provider may have accepted the email), so its
      * password remains pending until staff reconcile the provider's record.
      */
-    public void send(LoggedInInfo user, EmailLog log, EmailData data, SendStep encrypt, SendStep send) {
+    public EmailSendResult send(LoggedInInfo user, EmailLog log, EmailData data, SendStep encrypt, SendStep send) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("Portal email cannot run inside a database transaction");
         }
@@ -104,18 +105,23 @@ public class PortalEmailDelivery {
             send.run();
             accepted = true;
             move(log, PortalDeliveryState.SENT, log.getPortalSecretId());
-            status(log, EmailStatus.SUCCESS, PUBLISH_PENDING);
             publish(client, staff, log);
+            return EmailSendResult.accepted(log, false);
         } catch (EmailSendingException | RuntimeException failure) {
             // Never expose transport/portal exception messages, which may contain credentials or PHI.
             if (accepted || log.getPortalDeliveryState() == PortalDeliveryState.SENT
                     || log.getPortalDeliveryState() == PortalDeliveryState.PUBLISHED) {
-                status(log, EmailStatus.SUCCESS, PUBLISH_PENDING);
-            } else if (log.getPortalDeliveryState() == PortalDeliveryState.SENDING) {
-                status(log, EmailStatus.FAILED, UNCERTAIN);
+                log.setErrorMessage(PUBLISH_PENDING);
+                return EmailSendResult.accepted(log, false, true);
+            } else if (log.getPortalDeliveryState() == PortalDeliveryState.SENDING
+                    && !(failure instanceof EmailSendingException sendingFailure
+                        && !sendingFailure.isDeliveryOutcomeUncertain())) {
+                log.setErrorMessage(UNCERTAIN);
+                return EmailSendResult.unconfirmed(log);
             } else {
                 cancelBeforeSend(client, staff, log);
-                status(log, EmailStatus.FAILED, UNAVAILABLE);
+                log.setErrorMessage(UNAVAILABLE);
+                return EmailSendResult.failed(log, false);
             }
         } finally {
             data.setPassword("");
@@ -135,7 +141,9 @@ public class PortalEmailDelivery {
         var client = portal.get();
         var state = log.getPortalDeliveryState();
         if ("confirmSent".equals(decision) || "confirmNotSent".equals(decision)) {
-            if (!confirmed || state != PortalDeliveryState.SENDING) {
+            if (!confirmed || state != PortalDeliveryState.SENDING
+                    || log.getTimestamp() == null
+                    || log.getTimestamp().getTime() > System.currentTimeMillis() - 15L * 60L * 1000L) {
                 throw new IllegalArgumentException("Check the mail provider delivery record and explicitly confirm its outcome");
             }
             move(log, "confirmSent".equals(decision) ? PortalDeliveryState.SENT
@@ -147,13 +155,17 @@ public class PortalEmailDelivery {
                 "emailLogId=" + log.getId() + "&operation=" + decision, "", "");
         state = log.getPortalDeliveryState();
         if (state == PortalDeliveryState.SENT) {
-            status(log, EmailStatus.SUCCESS, PUBLISH_PENDING);
             publish(client, staff, log);
+            status(log, EmailStatus.SUCCESS, "");
         } else if (state == PortalDeliveryState.PREPARING || state == PortalDeliveryState.READY
                 || state == PortalDeliveryState.REVOKE_PENDING) {
             revoke(client, staff, log);
             status(log, EmailStatus.FAILED, "Email was not sent. Its portal password has been revoked.");
-        } else if (state != PortalDeliveryState.PUBLISHED && state != PortalDeliveryState.REVOKED) {
+        } else if (state == PortalDeliveryState.PUBLISHED) {
+            status(log, EmailStatus.SUCCESS, "");
+        } else if (state == PortalDeliveryState.REVOKED) {
+            status(log, EmailStatus.FAILED, "Email was not sent. Its portal password has been revoked.");
+        } else {
             throw new IllegalStateException(UNCERTAIN);
         }
         return log;
@@ -211,7 +223,6 @@ public class PortalEmailDelivery {
     private void publish(PatientPortalService client, PatientPortalStaffContext staff, EmailLog log) {
         client.publishUnlockSecret(log.getPortalSecretId(), staff);
         move(log, PortalDeliveryState.PUBLISHED, log.getPortalSecretId());
-        status(log, EmailStatus.SUCCESS, "");
     }
 
     private void cancelBeforeSend(PatientPortalService client, PatientPortalStaffContext staff, EmailLog log) {
@@ -245,9 +256,12 @@ public class PortalEmailDelivery {
 
     private void status(EmailLog log, EmailStatus state, String message) {
         Date now = new Date();
-        logs.updateEmailStatus(log.getId(), state, message, now);
-        log.setStatus(state);
-        log.setErrorMessage(message);
-        log.setTimestamp(now);
+        if (logs.transitionEmailStatus(log.getId(), EmailStatus.PENDING, state, message, now) == 1) {
+            log.setStatus(state);
+            log.setErrorMessage(message);
+            log.setTimestamp(now);
+        }
+        // A terminal transport status (including a concurrent manual resolution) stays intact.
+        // Portal completion remains independently visible through portalDeliveryState.
     }
 }

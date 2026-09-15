@@ -14,7 +14,7 @@
             <c:when test="${emailLog.portalDeliveryState eq 'PUBLISHED'}"><p>The email was accepted by the mail provider and its password is available in the patient's Portal.</p></c:when>
             <c:when test="${emailLog.portalDeliveryState eq 'REVOKED'}"><p>The unsent email's password has been revoked. A new email can now be composed if needed.</p></c:when>
             <c:when test="${emailLog.portalDeliveryState eq 'SENDING'}">
-                <p>Delivery is uncertain. Check the mail provider's record for this email before continuing. Do not send it again while its outcome is unknown.</p>
+                <p>Delivery is uncertain. Recovery is available after 15 minutes. Check the mail provider's record for this email before continuing. Do not send it again while its outcome is unknown.</p>
                 <form method="post" action="${pageContext.request.contextPath}/email/portalDelivery">
                     <input type="hidden" name="emailLogId" value="${carlos:forHtmlAttribute(emailLog.id)}"/>
                     <label><input type="checkbox" name="confirmed" value="true" required/> I checked the mail provider's record and confirmed the outcome.</label>
