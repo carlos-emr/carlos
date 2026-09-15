@@ -429,7 +429,7 @@ public class EmailSend2Action extends ActionSupport {
             throw new EmailSendValidationException(
                     "Attachment encryption requires message encryption");
         }
-        if (!encrypted) {
+        if (!encrypted || io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery.isEnabled()) {
             return;
         }
 
