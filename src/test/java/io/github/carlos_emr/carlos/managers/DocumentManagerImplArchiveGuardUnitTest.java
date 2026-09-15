@@ -46,6 +46,7 @@ import static org.mockito.Mockito.when;
  * a guard that is correct but not called is worth nothing, and a call site is easy to lose in a
  * merge. Each test drives a real entry point with an archive-backed document and asserts the
  * operation is refused rather than performed.</p>
+ * @since 2026-08-19
  */
 @DisplayName("DocumentManagerImpl outbound email archive guard")
 @Tag("unit")

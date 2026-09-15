@@ -97,7 +97,10 @@ Read audits commit independently of the caller's transaction. An audit failure
 prevents a successful read from returning data. For a failed integrity check, the
 original `IOException` remains primary and an audit-write failure is attached as a
 suppressed exception; the application also logs the archive ID. A rollback by an
-outer caller cannot discard a successfully recorded integrity event.
+outer caller cannot discard a successfully recorded event. `INTEGRITY_FAILURE`
+means a verified recorded-size or SHA-256 mismatch; `READ_FAILURE` covers unavailable
+files, invalid metadata/paths, read limits, and other I/O failures. A read-limit
+refusal by itself is not evidence that the stored bytes are corrupt.
 
 Ordinary eDoc previews, edits, deletes, refile, split/combine, attachment selectors,
 and synchronization listings protect archive artifacts and linked attachment eDocs,

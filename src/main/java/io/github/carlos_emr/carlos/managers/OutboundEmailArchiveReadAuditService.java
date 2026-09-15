@@ -20,7 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Persists archive access evidence independently of the caller's transaction. */
+/**
+ * Persists archive access evidence independently of the caller's transaction.
+ * @since 2026-09-15
+ */
 @Service
 public class OutboundEmailArchiveReadAuditService {
     private final OscarLogDao oscarLogDao;
@@ -60,6 +63,7 @@ public class OutboundEmailArchiveReadAuditService {
     public enum Event {
         METADATA_READ("getActiveArchive"),
         ARTIFACT_READ("readArchivedArtifact"),
+        READ_FAILURE("readArchivedArtifact.readFailure"),
         INTEGRITY_FAILURE("readArchivedArtifact.integrityFailure");
 
         private final String action;

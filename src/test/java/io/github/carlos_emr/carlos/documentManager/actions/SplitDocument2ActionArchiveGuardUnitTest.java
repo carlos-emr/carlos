@@ -28,6 +28,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Regression coverage for archive access protections.
+ * @since 2026-08-25
+ */
 @DisplayName("SplitDocument2Action archive guard")
 @Tag("unit")
 @Tag("security")

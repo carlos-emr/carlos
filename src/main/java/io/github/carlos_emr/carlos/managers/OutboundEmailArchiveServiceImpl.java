@@ -302,7 +302,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             artifactBytes = readArchivedArtifactBytes(archivePath, expectedByteSize);
             validateArchivedArtifactHash(expectedSha256Hash, artifactBytes);
         } catch (IOException e) {
-            auditArtifactReadIntegrityFailure(loggedInInfo, archive, document, e);
+            auditArtifactReadFailure(loggedInInfo, archive, document, e);
             throw e;
         }
 
@@ -917,17 +917,17 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             long fileSize = channel.size();
             requireReadableArtifactSize(fileSize);
             if (fileSize != expectedByteSize) {
-                throw new IOException("Archived artifact size does not match archive metadata");
+                throw new ArtifactIntegrityException("Archived artifact size does not match archive metadata");
             }
             ByteBuffer buffer = ByteBuffer.allocate((int) fileSize);
             while (buffer.hasRemaining() && channel.read(buffer) != -1) {
                 // read until the buffer is full or the file ends
             }
             if (buffer.hasRemaining()) {
-                throw new IOException("Archived artifact is shorter than archive metadata");
+                throw new ArtifactIntegrityException("Archived artifact is shorter than archive metadata");
             }
             if (channel.read(ByteBuffer.allocate(1)) != -1 || channel.size() != expectedByteSize) {
-                throw new IOException("Archived artifact size changed while reading");
+                throw new ArtifactIntegrityException("Archived artifact size changed while reading");
             }
             return buffer.array();
         }
@@ -948,31 +948,42 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         if (!MessageDigest.isEqual(
                 expectedSha256Hash.getBytes(StandardCharsets.US_ASCII),
                 sha256Hex(artifactBytes).getBytes(StandardCharsets.US_ASCII))) {
-            throw new IOException("Archived artifact hash does not match archive metadata");
+            throw new ArtifactIntegrityException("Archived artifact hash does not match archive metadata");
         }
     }
 
     /**
-     * Records a size or hash mismatch on a stored artifact as a security event.
+     * Audits a failed artifact read, distinguishing verified corruption from read failures.
      *
      * <p>Written in an independent transaction so even an enclosing caller's rollback cannot
      * discard the event. Audit persistence failures remain attached to the integrity error.
      * Everything logged is an internal surrogate identifier or a fixed constant -- no filename,
      * no user input, no clinical content.</p>
      */
-    private void auditArtifactReadIntegrityFailure(
+    private void auditArtifactReadFailure(
             LoggedInInfo loggedInInfo, OutboundEmailArchive archive, Document document, IOException failure) {
         MiscUtils.getLogger().warn(
-                "Outbound email archive artifact integrity failure archiveId={} failureType={}",
+                "Outbound email archive artifact read failure archiveId={} failureType={}",
                 archive.getId(),
                 failure.getClass().getSimpleName());
         try {
             readAuditService.record(loggedInInfo, archive.getId(), document != null ? document.getId() : null,
-                    requireArchiveDemographicNo(archive), OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
+                    requireArchiveDemographicNo(archive), failure instanceof ArtifactIntegrityException
+                            ? OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE
+                            : OutboundEmailArchiveReadAuditService.Event.READ_FAILURE);
         } catch (RuntimeException auditFailure) {
             // Preserve the original integrity error while making lost database evidence explicit.
-            MiscUtils.getLogger().error("Archive integrity audit persistence failed archiveId={}", archive.getId());
+            MiscUtils.getLogger().error("Archive read failure audit persistence failed archiveId={}", archive.getId());
             failure.addSuppressed(auditFailure);
+        }
+    }
+
+    /** Marks a verified size or hash mismatch without changing the public IOException contract. */
+    private static final class ArtifactIntegrityException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        private ArtifactIntegrityException(String message) {
+            super(message);
         }
     }
 

@@ -29,6 +29,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/**
+ * Tests archive recognition without relying on filesystem path normalization.
+ * @since 2026-08-19
+ */
 @DisplayName("OutboundEmailArchiveDocumentGuard")
 @Tag("unit")
 @Tag("email")
@@ -105,13 +109,14 @@ class OutboundEmailArchiveDocumentGuardUnitTest {
                 archiveDao, "20260707120000_outbound-email-44.eml")).isTrue();
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"discarded-directory/archive.eml", "discarded-directory\\archive.eml"})
     @DisplayName("should recognize an archive basename hidden behind discarded path components")
-    void shouldRecognizeArchiveBasename_hiddenBehindDiscardedPathComponents() {
+    void shouldRecognizeArchiveBasename_hiddenBehindDiscardedPathComponents(String name) {
         when(archiveDao.existsByFileName("archive.eml")).thenReturn(true);
 
         assertThat(OutboundEmailArchiveDocumentGuard.isArchiveFileName(
-                archiveDao, "discarded-directory/archive.eml")).isTrue();
+                archiveDao, name)).isTrue();
     }
 
     @Test
@@ -121,6 +126,14 @@ class OutboundEmailArchiveDocumentGuardUnitTest {
         assertThat(OutboundEmailArchiveDocumentGuard.isArchiveFileName(archiveDao, "  ")).isFalse();
 
         verify(archiveDao, never()).existsByFileName(anyString());
+    }
+
+    @Test
+    void shouldRejectNullBytes_beforeQueryingArchiveMetadata() {
+        assertThatThrownBy(() -> OutboundEmailArchiveDocumentGuard.isArchiveFileName(archiveDao, "ignored/\0archive.eml"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Stored filename must not contain null bytes");
+        verifyNoInteractions(archiveDao);
     }
 
     @Test

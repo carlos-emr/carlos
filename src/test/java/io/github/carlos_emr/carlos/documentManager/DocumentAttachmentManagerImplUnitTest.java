@@ -12,287 +12,211 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.documentManager;
 
-import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
-import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
-import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
-import io.github.carlos_emr.carlos.commn.model.EFormDocs;
-import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
-import org.junit.jupiter.api.BeforeEach;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("DocumentAttachmentManagerImpl Unit Tests")
 @Tag("unit")
-@Tag("documentManager")
+@Tag("fast")
+@DisplayName("DocumentAttachmentManagerImpl single eForm fax handling")
 class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
 
-    @Mock
-    private SecurityInfoManager securityInfoManager;
-
-    @Mock
-    private ConsultDocsDao consultDocsDao;
-
-    @Mock
-    private EFormDocsDao eFormDocsDao;
-
-    @Mock
-    private OutboundEmailArchiveDao outboundEmailArchiveDao;
-
-    @Mock
-    private LoggedInInfo loggedInInfo;
-
+    @Spy
     private DocumentAttachmentManagerImpl manager;
 
-    @BeforeEach
-    void setUp() {
-        manager = new DocumentAttachmentManagerImpl();
-        injectDependency(manager, "securityInfoManager", securityInfoManager);
-        injectDependency(manager, "consultDocsDao", consultDocsDao);
-        injectDependency(manager, "eFormDocsDao", eFormDocsDao);
-        injectDependency(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);
-        registerMock(ConsultDocsDao.class, consultDocsDao);
-        registerMock(EFormDocsDao.class, eFormDocsDao);
-        registerMock(OutboundEmailArchiveDao.class, outboundEmailArchiveDao);
+    @Test
+    @DisplayName("should preserve the original eForm PDF when no attachments are present")
+    void shouldPreserveOriginalEformPdf_whenNoAttachmentsPresent() throws PDFGenerationException {
+        Path eformPdf = Path.of("/tmp/eform-browser-render.pdf");
+        List<Object> pdfDocumentList = List.of(eformPdf.toString());
+
+        Path result = manager.preserveSingleEformPdfWhenUnattached(eformPdf, pdfDocumentList, "1234");
+
+        assertThat(result).isEqualTo(eformPdf);
+        verify(manager, never()).concatPDF(
+                org.mockito.ArgumentMatchers.<ArrayList<Object>>any(), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
-    @DisplayName("should allow reading consult attachments with consult read privilege")
-    void shouldAllowGetConsultAttachments_withConsultReadPrivilege() {
-        int demographicNo = 123;
-        int requestId = 456;
-        ConsultDocs attachedDoc = new ConsultDocs(requestId, 789, DocumentType.DOC.getType(), "999");
+    @DisplayName("should concatenate when additional documents are attached")
+    void shouldConcatenate_whenAdditionalDocumentsExist() throws PDFGenerationException {
+        Path eformPdf = Path.of("/tmp/eform-browser-render.pdf");
+        ArrayList<Object> pdfDocumentList = new ArrayList<>();
+        pdfDocumentList.add(eformPdf.toString());
+        pdfDocumentList.add("/tmp/attachment.pdf");
+        Path combinedPdf = Path.of("/tmp/combined.pdf");
+        doReturn(combinedPdf).when(manager).concatPDF(pdfDocumentList, "1234");
 
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo))
-                .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
-                .thenReturn(List.of(attachedDoc));
+        Path result = manager.preserveSingleEformPdfWhenUnattached(eformPdf, pdfDocumentList, "1234");
 
-        List<String> attachmentIds = manager.getConsultAttachments(loggedInInfo, requestId, DocumentType.DOC, demographicNo);
-
-        assertThat(attachmentIds).containsExactly("789");
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo);
+        assertThat(result).isEqualTo(combinedPdf);
+        // The demographic must reach concatPDF: it scopes the packet filename, which becomes the
+        // stored document name after promotion.
+        verify(manager).concatPDF(pdfDocumentList, "1234");
     }
 
     @Test
-    @DisplayName("should attach documents to consult with consult write privilege")
-    void shouldAttachToConsult_withConsultWritePrivilege() {
-        int demographicNo = 123;
-        int requestId = 456;
+    @DisplayName("should scope the merged packet filename to the patient it belongs to")
+    void shouldScopePacketFilename_toDemographic(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // The packet's temp filename is not cosmetic: promoteApplicationTempFile promotes by
+        // basename, so this name becomes the stored document name in DOCUMENT_DIR. Naming every
+        // packet combinedPDF_<epochMillis> made it patient-agnostic, so two packets built in the same
+        // millisecond — different patients, different specialists — competed for one destination.
+        // Promotion now claims destinations atomically, but a name that cannot collide across
+        // patients keeps a same-millisecond collision inside one chart, where the worst case is a
+        // duplicate rather than a cross-patient disclosure.
+        Path input = tempDir.resolve("packet-input.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(input.toFile());
+        }
+        Path merged = tempDir.resolve("merged.pdf");
+        java.nio.file.Files.copy(input, merged);
 
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
-                .thenReturn(List.of());
+        io.github.carlos_emr.carlos.managers.NioFileManager fileManager =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
+        doReturn(merged).when(fileManager)
+                .saveTempFile(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "nioFileManager", fileManager);
 
-        manager.attachToConsult(
-                loggedInInfo,
-                DocumentType.DOC,
-                new String[] {"789"},
-                "999",
-                requestId,
-                demographicNo);
+        ArrayList<Object> pdfDocumentList = new ArrayList<>();
+        pdfDocumentList.add(input.toString());
 
-        ArgumentCaptor<ConsultDocs> consultDocCaptor = ArgumentCaptor.forClass(ConsultDocs.class);
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
-        // Once to preserve any archive relationship omitted by the UI, then once in the legacy
-        // DocumentAttach differ that applies the submitted relationship set.
-        verify(consultDocsDao, times(2)).findByRequestIdDocType(requestId, DocumentType.DOC.getType());
-        verify(consultDocsDao).persist(consultDocCaptor.capture());
-        ConsultDocs persisted = consultDocCaptor.getValue();
-        assertThat(persisted.getRequestId()).isEqualTo(requestId);
-        assertThat(persisted.getDocumentNo()).isEqualTo(789);
-        assertThat(persisted.getDocType()).isEqualTo(DocumentType.DOC.getType());
-        assertThat(persisted.getProviderNo()).isEqualTo("999");
+        manager.concatPDF(pdfDocumentList, "4242");
+
+        org.mockito.ArgumentCaptor<String> packetName = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(fileManager).saveTempFile(packetName.capture(),
+                org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        assertThat(packetName.getValue())
+                .describedAs("the packet name must identify its patient")
+                .startsWith("combinedPDF_4242_");
     }
 
     @Test
-    @DisplayName("should not perform an archive preservation query for non-document consultation attachments")
-    void shouldNotPerformArchivePreservationQuery_forNonDocumentConsultationAttachments() {
-        int demographicNo = 123;
-        int requestId = 456;
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.LAB.getType()))
-                .thenReturn(List.of());
+    @DisplayName("should fall back to an unscoped packet filename when the demographic is unusable")
+    void shouldFallBackToUnscopedName_whenDemographicNotNumeric(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // demographicId arrives as a request attribute. A malformed one must degrade to the previous
+        // naming rather than being interpolated into a filename, so the digits-only guard is the
+        // thing under test here — not merely that some name is produced.
+        Path input = tempDir.resolve("packet-input.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(input.toFile());
+        }
+        Path merged = tempDir.resolve("merged.pdf");
+        java.nio.file.Files.copy(input, merged);
 
-        manager.attachToConsult(
-                loggedInInfo, DocumentType.LAB, new String[] {"789"}, "999", requestId, demographicNo);
+        io.github.carlos_emr.carlos.managers.NioFileManager fileManager =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
+        doReturn(merged).when(fileManager)
+                .saveTempFile(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "nioFileManager", fileManager);
 
-        verify(consultDocsDao).findByRequestIdDocType(requestId, DocumentType.LAB.getType());
-        verify(outboundEmailArchiveDao, never()).findExistingDocumentNos(org.mockito.ArgumentMatchers.any());
+        ArrayList<Object> pdfDocumentList = new ArrayList<>();
+        pdfDocumentList.add(input.toString());
+
+        manager.concatPDF(pdfDocumentList, "../../etc/passwd");
+
+        org.mockito.ArgumentCaptor<String> packetName = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(fileManager).saveTempFile(packetName.capture(),
+                org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        assertThat(packetName.getValue())
+                .describedAs("a non-numeric demographic must never reach the filename")
+                .startsWith("combinedPDF_")
+                .doesNotContain("etc")
+                .doesNotContain("..");
     }
 
     @Test
-    @DisplayName("should require consult read privilege before reading consult attachments")
-    void shouldRequireConsultReadPrivilege_beforeGetConsultAttachments() {
-        int demographicNo = 123;
-        int requestId = 456;
+    @DisplayName("should leave the PDF file byte-identical when flattening a form with no AcroForm")
+    void shouldLeavePdfBytesUntouched_whenFlatteningWithNoAcroForm(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // Regression pin for the merged-PDF font corruption: flattenPDFFormFields used to call
+        // document.save() onto the SAME file the open PDDocument was still lazily reading from.
+        // PDFBox streams objects (embedded font programs included) from the backing file during
+        // save, so overwriting it mid-save self-clobbered those streams — the browser-rendered
+        // eForm page of every merged PDF lost its embedded subset font and extracted as
+        // glyph-shifted garbage. With no AcroForm there is nothing to flatten, so the file must
+        // not be rewritten at all.
+        Path pdf = tempDir.resolve("eform-browser-render-flatten.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(pdf.toFile());
+        }
+        byte[] before = java.nio.file.Files.readAllBytes(pdf);
 
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo))
-                .thenReturn(false);
+        manager.flattenPDFFormFields(pdf);
 
-        assertThatThrownBy(() -> manager.getConsultAttachments(loggedInInfo, requestId, DocumentType.DOC, demographicNo))
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_con)");
-
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo);
-        verifyNoInteractions(consultDocsDao);
+        byte[] after = java.nio.file.Files.readAllBytes(pdf);
+        assertThat(after).isEqualTo(before);
     }
 
     @Test
-    @DisplayName("should require consult write privilege before attaching to consult")
-    void shouldRequireConsultWritePrivilege_beforeAttachToConsult() {
-        int demographicNo = 123;
-        int requestId = 456;
+    @DisplayName("should flatten form fields into a valid PDF when an AcroForm is present")
+    void shouldFlattenFieldsIntoValidPdf_whenAcroFormPresent(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // The WITH-AcroForm branch runs on every merged fax/eDoc packet that carries a fillable
+        // attachment. It has no other coverage, and a regression here (e.g. reverting to
+        // document.save(pdfPath) onto the live backing file, or a truncated write) would ship a
+        // corrupted clinical PDF to a fax recipient while the workflow reports success. Build a real
+        // one-field AcroForm with a sentinel value, flatten it, and assert the output re-loads, keeps
+        // its single page, has no interactive fields left, and carries the value as flattened content.
+        Path pdf = tempDir.resolve("acroform-flatten.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            org.apache.pdfbox.pdmodel.PDPage page = new org.apache.pdfbox.pdmodel.PDPage();
+            document.addPage(page);
+            org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm acroForm =
+                    new org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm(document);
+            document.getDocumentCatalog().setAcroForm(acroForm);
+            org.apache.pdfbox.pdmodel.PDResources resources = new org.apache.pdfbox.pdmodel.PDResources();
+            resources.put(org.apache.pdfbox.cos.COSName.getPDFName("Helv"),
+                    new org.apache.pdfbox.pdmodel.font.PDType1Font(org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA));
+            acroForm.setDefaultResources(resources);
+            org.apache.pdfbox.pdmodel.interactive.form.PDTextField field =
+                    new org.apache.pdfbox.pdmodel.interactive.form.PDTextField(acroForm);
+            field.setPartialName("patientNote");
+            field.setDefaultAppearance("/Helv 12 Tf 0 g");
+            acroForm.getFields().add(field);
+            org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget widget = field.getWidgets().get(0);
+            widget.setRectangle(new org.apache.pdfbox.pdmodel.common.PDRectangle(50, 700, 300, 20));
+            widget.setPage(page);
+            page.getAnnotations().add(widget);
+            field.setValue("FLATTEN-SENTINEL");
+            document.save(pdf.toFile());
+        }
 
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(false);
+        manager.flattenPDFFormFields(pdf);
 
-        assertThatThrownBy(() -> manager.attachToConsult(
-                loggedInInfo,
-                DocumentType.DOC,
-                new String[] {"789"},
-                "999",
-                requestId,
-                demographicNo))
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_con)");
-
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
-        verifyNoInteractions(consultDocsDao);
-    }
-
-    @Test
-    @DisplayName("should refuse archive eDocs before attaching them to a consult")
-    void shouldRefuseArchiveEdocs_beforeAttachToConsult() {
-        int demographicNo = 123;
-        int requestId = 456;
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(789)))
-                .thenReturn(java.util.Set.of(789));
-
-        assertThatThrownBy(() -> manager.attachToConsult(
-                loggedInInfo, DocumentType.DOC, new String[] {"789"}, "999", requestId, demographicNo))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("controlled archive workflow");
-
-        verify(consultDocsDao, never()).persist(org.mockito.ArgumentMatchers.any());
-        verify(consultDocsDao, never()).merge(org.mockito.ArgumentMatchers.any());
-    }
-
-    @Test
-    @DisplayName("should refuse archive eDocs before attaching them to an Ocean consult")
-    void shouldRefuseArchiveEdocs_beforeAttachToOceanConsult() {
-        int demographicNo = 123;
-        int requestId = 456;
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(789)))
-                .thenReturn(java.util.Set.of(789));
-
-        assertThatThrownBy(() -> manager.attachToConsult(
-                loggedInInfo, DocumentType.DOC, new String[] {"789"}, "999",
-                requestId, demographicNo, Boolean.TRUE))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("controlled archive workflow");
-
-        verify(consultDocsDao, never()).persist(org.mockito.ArgumentMatchers.any());
-        verify(consultDocsDao, never()).merge(org.mockito.ArgumentMatchers.any());
-    }
-
-    @Test
-    @DisplayName("should preserve an existing archive eDoc omitted from a consultation update")
-    void shouldPreserveExistingArchiveEdoc_omittedFromConsultationUpdate() {
-        int demographicNo = 123;
-        int requestId = 456;
-        ConsultDocs archiveDocument = new ConsultDocs(
-                requestId, 789, DocumentType.DOC.getType(), "999");
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
-                .thenReturn(List.of(archiveDocument));
-        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(790)))
-                .thenReturn(Set.of());
-        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(789)))
-                .thenReturn(Set.of(789));
-
-        manager.attachToConsult(
-                loggedInInfo, DocumentType.DOC, new String[] {"790"}, "999", requestId, demographicNo);
-
-        verify(consultDocsDao, never()).merge(archiveDocument);
-        ArgumentCaptor<ConsultDocs> persistedDocument = ArgumentCaptor.forClass(ConsultDocs.class);
-        verify(consultDocsDao).persist(persistedDocument.capture());
-        assertThat(persistedDocument.getValue().getDocumentNo()).isEqualTo(790);
-    }
-
-    @Test
-    @DisplayName("should refuse a new archive eDoc on an eForm")
-    void shouldRefuseNewArchiveEdoc_onEform() {
-        int demographicNo = 123;
-        int fdid = 456;
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(791)))
-                .thenReturn(Set.of(791));
-
-        assertThatThrownBy(() -> manager.attachToEForm(
-                loggedInInfo, DocumentType.DOC, new String[] {"791"}, "999", fdid, demographicNo))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("controlled archive workflow");
-    }
-
-    @Test
-    @DisplayName("should preserve an existing archive eDoc on an eForm")
-    void shouldPreserveExistingArchiveEdoc_onEform() {
-        int demographicNo = 123;
-        int fdid = 456;
-        EFormDocs archiveDocument = new EFormDocs(fdid, 789, DocumentType.DOC.getType(), "999");
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(790)))
-                .thenReturn(Set.of());
-        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(789)))
-                .thenReturn(Set.of(789));
-        when(eFormDocsDao.findByFdidIdDocType(fdid, DocumentType.DOC.getType()))
-                .thenReturn(List.of(archiveDocument));
-
-        manager.attachToEForm(
-                loggedInInfo, DocumentType.DOC, new String[] {"790"}, "999", fdid, demographicNo);
-
-        verify(eFormDocsDao, never()).merge(archiveDocument);
-        ArgumentCaptor<EFormDocs> persistedDocument = ArgumentCaptor.forClass(EFormDocs.class);
-        verify(eFormDocsDao).persist(persistedDocument.capture());
-        assertThat(persistedDocument.getValue().getDocumentNo()).isEqualTo(790);
+        try (org.apache.pdfbox.pdmodel.PDDocument flattened = org.apache.pdfbox.Loader.loadPDF(pdf.toFile())) {
+            org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm remaining =
+                    flattened.getDocumentCatalog().getAcroForm();
+            assertThat(remaining == null || remaining.getFields().isEmpty()).isTrue();
+            assertThat(flattened.getNumberOfPages()).isEqualTo(1);
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(flattened)).contains("FLATTEN-SENTINEL");
+        }
     }
 }

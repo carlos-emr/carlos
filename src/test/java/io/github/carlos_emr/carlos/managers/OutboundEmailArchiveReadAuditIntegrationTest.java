@@ -37,6 +37,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Regression coverage for archive access protections.
+ * @since 2026-09-15
+ */
 @Tag("integration")
 @DisplayName("Archive read audit transaction")
 class OutboundEmailArchiveReadAuditIntegrationTest extends CarlosTestBase {

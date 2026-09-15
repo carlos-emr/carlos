@@ -1258,6 +1258,10 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 assertThatThrownBy(() -> boundedService.readArchivedArtifact(loggedInInfo, 888))
                         .isInstanceOf(IOException.class)
                         .hasMessageContaining("exceeds maximum read size"));
+        verify(readAuditService).record(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.READ_FAILURE);
+        verify(readAuditService, never()).record(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
     }
 
     @Test
@@ -1280,6 +1284,10 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         withDocumentDir(documentDir, () ->
                 assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
                         .isInstanceOf(IOException.class));
+        verify(readAuditService).record(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.READ_FAILURE);
+        verify(readAuditService, never()).record(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
     }
 
     @Test
@@ -1297,6 +1305,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldExposeAuditFailure_whenIntegrityAuditCannotBePersisted(@TempDir Path documentDir) throws Exception {
         OutboundEmailArchive archive = archiveUnderLegalHold();
         stubArchiveArtifactRead(archive);
+        Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), new byte[] {1});
         IllegalStateException auditFailure = new IllegalStateException("audit unavailable");
         doThrow(auditFailure).when(readAuditService).record(
                 loggedInInfo, 888, 321, 123, OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);

@@ -41,6 +41,7 @@ import static org.mockito.Mockito.when;
  * <p>EDocUtil is the legacy static gateway most eDoc operations still route through, so a missing
  * call site here reopens the archive to the whole document surface. These tests drive the entry
  * points directly with an archive-backed identifier.</p>
+ * @since 2026-08-19
  */
 @DisplayName("EDocUtil outbound email archive guard")
 @Tag("unit")

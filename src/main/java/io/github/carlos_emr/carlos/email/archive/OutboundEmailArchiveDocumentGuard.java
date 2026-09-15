@@ -14,7 +14,6 @@
 package io.github.carlos_emr.carlos.email.archive;
 
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
-import org.apache.commons.io.FilenameUtils;
 
 /**
  * Recognises eDocs that belong to an outbound email archive, so the ordinary document surface
@@ -91,10 +90,14 @@ public final class OutboundEmailArchiveDocumentGuard {
      * @param archiveDao archive DAO to query
      * @param fileName stored eDoc filename, may be null or blank
      * @return {@code true} when it matches an archive artifact or attachment
+     * @throws IllegalArgumentException when the supplied name contains a null byte
      */
     public static boolean isArchiveFileName(OutboundEmailArchiveDao archiveDao, String fileName) {
         if (fileName == null || fileName.isBlank()) {
             return false;
+        }
+        if (fileName.indexOf('\0') >= 0) {
+            throw new IllegalArgumentException("Stored filename must not contain null bytes");
         }
         OutboundEmailArchiveDao requiredDao = requireArchiveDao(archiveDao);
         if (requiredDao.existsByFileName(fileName)) {
@@ -104,7 +107,9 @@ public final class OutboundEmailArchiveDocumentGuard {
         // Some legacy file APIs sanitize caller input by discarding path components. Guard the
         // effective basename too: otherwise "ignored/<archive-name>" misses the exact lookup and
         // is subsequently normalized onto the protected file in DOCUMENT_DIR.
-        String baseName = FilenameUtils.getName(fileName);
+        // Comparison only: callers still validate filesystem containment independently.
+        int separator = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+        String baseName = fileName.substring(separator + 1);
         return !baseName.equals(fileName) && requiredDao.existsByFileName(baseName);
     }
 
