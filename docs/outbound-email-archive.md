@@ -37,11 +37,14 @@ to the patient's record when investigating an authorization failure.
 - `recordControlledDeletion` retires the archive logically. It retains its eDoc row,
   file, attachment metadata, and a tombstone containing the artifact hash and size.
   It does not hide the eDoc from the ordinary document browser or erase its bytes.
-- Attachment entries describe the finalized message's attachments. Supplied bytes
-  are hashed but are not stored as new attachment eDocs by this service. A linked
-  eDoc must belong to the same patient. Caller-supplied hashes and provenance are
-  metadata; the service does not verify them against a linked eDoc's current bytes.
-  A future viewer must never use `sourceDocumentId` as an authorized document lookup.
+- Attachment entries describe the finalized message's attachments. For a linked
+  eDoc, the service reloads its stored filename, checks read authority and patient
+  ownership, and verifies both hash and size against its stored bytes before creating
+  the archive. A mismatch or missing/unreadable file aborts creation. Use a persisted
+  eDoc containing the finalized attachment (including any encryption/transformation).
+  These reads use a bounded buffer and do not create separate attachment eDocs.
+  Metadata-only external entries have no eDoc link; their provenance remains caller
+  asserted. Never use `sourceDocumentId` as an authorized document lookup.
 - The append-only audit entities prevent ordinary JPA update/removal. This is not
   filesystem immutability or protection against direct administrative SQL changes.
 
@@ -57,6 +60,10 @@ Concurrent hold/retirement requests can be rejected as transaction conflicts. Re
 current state and recheck the requested action in a fresh transaction. MariaDB's
 snapshot isolation can reject a locking read after another transaction changed the
 row; this fails closed rather than acting on the old hold state.
+
+The archive, legal-hold events, and tombstones are the durable audit records stored
+in the same transaction as the state change. Failure to persist them propagates for
+rollback. `OscarLog` is a secondary activity index and is delivered asynchronously.
 
 If `Outbound email archive committed but audit logging failed` appears, use the
 logged archive ID to reconcile the durable archive, legal-hold event, or tombstone
