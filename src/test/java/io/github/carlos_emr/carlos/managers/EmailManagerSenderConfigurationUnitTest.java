@@ -82,7 +82,7 @@ class EmailManagerSenderConfigurationUnitTest extends CarlosUnitTestBase {
 
         emailSenderFactory = mock(EmailSenderFactory.class);
         emailConsentResolver = mock(EmailConsentResolver.class);
-        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory);
+        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager);
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "caseManagementManager", mock(CaseManagementManager.class));
@@ -90,7 +90,6 @@ class EmailManagerSenderConfigurationUnitTest extends CarlosUnitTestBase {
         injectDependency(emailManager, "documentAttachmentManager", mock(DocumentAttachmentManager.class));
         injectDependency(emailManager, "programManager", mock(ProgramManager.class));
         injectDependency(emailManager, "providerManager", providerManager);
-        injectDependency(emailManager, "securityInfoManager", securityInfoManager);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_email"), anyString(), nullable(String.class)))
                 .thenReturn(true);
