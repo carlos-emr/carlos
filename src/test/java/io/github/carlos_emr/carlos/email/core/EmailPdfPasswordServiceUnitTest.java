@@ -139,6 +139,7 @@ class EmailPdfPasswordServiceUnitTest {
                 EmailPdfPasswordService.WORDLIST_RESOURCE);
         assertThat(stream).isNotNull();
 
+        var separatorPattern = java.util.regex.Pattern.compile("\\t");
         var indexPattern = java.util.regex.Pattern.compile("\\d{4}");
         var wordPattern = java.util.regex.Pattern.compile("[a-z]+");
         List<String> words = new ArrayList<>();
@@ -149,7 +150,7 @@ class EmailPdfPasswordServiceUnitTest {
                 if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
                     continue;
                 }
-                String[] parts = trimmedLine.split("\\t");
+                String[] parts = separatorPattern.split(trimmedLine);
                 assertThat(parts).hasSize(2);
                 assertThat(parts[0]).matches(indexPattern);
                 assertThat(parts[1]).matches(wordPattern);

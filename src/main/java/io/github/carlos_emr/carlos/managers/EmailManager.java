@@ -874,8 +874,7 @@ public class EmailManager {
             logger.error("Failed to secure generated email message PDF", e);
             throw new EmailSendingException("Failed to create encrypted email message", e);
         }
-        EmailAttachment emailAttachment = new EmailAttachment("message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
-        return emailAttachment;
+        return new EmailAttachment("message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
     }
 
     /**

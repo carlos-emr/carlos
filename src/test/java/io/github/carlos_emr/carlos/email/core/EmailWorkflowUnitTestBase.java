@@ -28,7 +28,7 @@ public abstract class EmailWorkflowUnitTestBase extends CarlosUnitTestBase {
     protected EmailComposeSubmissionStateService submissionStates;
 
     @BeforeEach
-    void registerSubmissionServices() throws Exception {
+    void registerSubmissionServices() {
         submissionStates = spy(new EmailComposeSubmissionStateService());
         doAnswer(call -> ReflectionTestUtils.invokeMethod(EmailComposeWorkingDirectory.class,
                 "create", emailTempDir)).when(submissionStates).createWorkingDirectory();

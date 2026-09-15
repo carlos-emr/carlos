@@ -295,6 +295,7 @@ public class EmailComposeSubmissionStateService {
      * Creates an isolated directory for generated PDFs.
      * @return caller-owned directory that must be closed or transferred to stored submission state
      * @throws IllegalStateException if a secure working directory cannot be created
+     * @since 2026-08-14
      */
     public EmailComposeWorkingDirectory createWorkingDirectory() {
         try {

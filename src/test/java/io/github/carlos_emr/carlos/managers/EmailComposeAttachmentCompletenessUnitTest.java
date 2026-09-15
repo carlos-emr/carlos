@@ -40,18 +40,22 @@ class EmailComposeAttachmentCompletenessUnitTest extends CarlosUnitTestBase {
         when(properties.isOntarioBillingRegion()).thenReturn(true);
         try (MockedStatic<CarlosProperties> config = mockStatic(CarlosProperties.class)) {
             config.when(CarlosProperties::getInstance).thenReturn(properties);
-            assertThatThrownBy(() -> {
-                String[] selected = {"42"};
-                switch (type) {
-                    case EFORM -> manager.prepareEFormAttachments(loggedInInfo, "", selected);
-                    case DOC -> manager.prepareEDocAttachments(loggedInInfo, selected);
-                    case LAB -> manager.prepareLabAttachments(loggedInInfo, selected);
-                    case HRM -> manager.prepareHRMAttachments(loggedInInfo, selected);
-                    case FORM -> manager.prepareFormAttachments(request, new MockHttpServletResponse(), selected, 123);
-                    default -> throw new AssertionError("Unexpected test type");
-                }
-            }).isInstanceOf(PDFGenerationException.class)
+            assertThatThrownBy(() -> prepareSelectedAttachment(manager, type, loggedInInfo, request))
+                    .isInstanceOf(PDFGenerationException.class)
                     .hasMessage("A selected email attachment could not be rendered");
         }
     }
+    private void prepareSelectedAttachment(EmailComposeManager manager, DocumentType type,
+            LoggedInInfo loggedInInfo, MockHttpServletRequest request) throws PDFGenerationException {
+        String[] selected = {"42"};
+        switch (type) {
+            case EFORM -> manager.prepareEFormAttachments(loggedInInfo, "", selected);
+            case DOC -> manager.prepareEDocAttachments(loggedInInfo, selected);
+            case LAB -> manager.prepareLabAttachments(loggedInInfo, selected);
+            case HRM -> manager.prepareHRMAttachments(loggedInInfo, selected);
+            case FORM -> manager.prepareFormAttachments(request, new MockHttpServletResponse(), selected, 123);
+            default -> throw new AssertionError("Unexpected test type");
+        }
+    }
+
 }

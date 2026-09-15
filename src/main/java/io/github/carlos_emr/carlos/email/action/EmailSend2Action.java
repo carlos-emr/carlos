@@ -82,6 +82,8 @@ public class EmailSend2Action extends ActionSupport {
     private transient EmailComposeSubmissionStateService emailComposeSubmissionStateService =
             SpringUtils.getBean(EmailComposeSubmissionStateService.class);
 
+    private static final String PARAM_RECEIVER_EMAIL_ADDRESS = "receiverEmailAddress";
+    private static final String PARAM_PATIENT_CHART_OPTION = "patientChartOption";
     private static final String PARAM_MESSAGE = "message";
     private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
@@ -359,7 +361,7 @@ public class EmailSend2Action extends ActionSupport {
             HttpServletRequest request,
             EmailComposeSubmissionContext trustedContext
     ) {
-        String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
+        String[] receiverEmails = request.getParameterValues(PARAM_RECEIVER_EMAIL_ADDRESS);
         request.setAttribute(
                 PARAM_TRANSACTION_TYPE,
                 trustedContext == null
@@ -371,7 +373,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute(PARAM_SENDER_CONFIG_ID, request.getParameter(PARAM_SENDER_CONFIG_ID));
         request.setAttribute(PARAM_SUBJECT_EMAIL, request.getParameter(PARAM_SUBJECT_EMAIL));
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
-        request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
+        request.setAttribute("emailPatientChartOption", request.getParameter(PARAM_PATIENT_CHART_OPTION));
         request.setAttribute(
                 PARAM_DEMOGRAPHIC_ID,
                 trustedContext == null
@@ -435,7 +437,7 @@ public class EmailSend2Action extends ActionSupport {
                 PARAM_EMAIL_PDF_PASSWORD, "");
         request.setAttribute(
                 PARAM_EMAIL_PDF_PASSWORD_CLUE, "");
-        request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
+        request.setAttribute("emailPatientChartOption", request.getParameter(PARAM_PATIENT_CHART_OPTION));
         request.setAttribute(PARAM_INTERNAL_COMMENT, request.getParameter(PARAM_INTERNAL_COMMENT));
         request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
         request.setAttribute("emailConsentName", request.getParameter("emailConsentName"));
@@ -451,7 +453,7 @@ public class EmailSend2Action extends ActionSupport {
                 emailLog.getConsentOverride() ? emailLog.getConsentOverrideReason() : "");
         request.setAttribute("invalidReceiverEmailList", List.of());
 
-        String[] recipients = request.getParameterValues("receiverEmailAddress");
+        String[] recipients = request.getParameterValues(PARAM_RECEIVER_EMAIL_ADDRESS);
         request.setAttribute("receiverEmailList",
                 recipients == null ? List.of() : Arrays.asList(recipients));
         // Keep every currently active sender available. The selected account may be the reason the
@@ -640,7 +642,7 @@ public class EmailSend2Action extends ActionSupport {
      */
     private EmailData prepareEmailFields(HttpServletRequest request, EmailComposeSubmissionState composeState) {
         String senderConfigId = request.getParameter(PARAM_SENDER_CONFIG_ID);
-        String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
+        String[] receiverEmails = request.getParameterValues(PARAM_RECEIVER_EMAIL_ADDRESS);
         String subject = request.getParameter(PARAM_SUBJECT_EMAIL);
         String isEncrypted = request.getParameter(PARAM_IS_EMAIL_ENCRYPTED);
 
@@ -667,7 +669,7 @@ public class EmailSend2Action extends ActionSupport {
         String password = resolveEmailPdfPassword(composeState, encrypted);
         String passwordClue = encrypted ? resolveEmailPdfPasswordClue(request, composeState) : "";
         EmailComposeSubmissionContext context = composeState.context();
-        String chartDisplayOption = request.getParameter("patientChartOption");
+        String chartDisplayOption = request.getParameter(PARAM_PATIENT_CHART_OPTION);
         String internalComment = request.getParameter(PARAM_INTERNAL_COMMENT);
         String additionalParams = request.getParameter("additionalURLParams");
         String consentOverride = request.getParameter(PARAM_CONSENT_OVERRIDE);
