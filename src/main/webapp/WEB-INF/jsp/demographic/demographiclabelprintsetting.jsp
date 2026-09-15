@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
@@ -155,7 +156,7 @@
             if (demo.getPhone() != null) phone = demo.getPhone();
             if (demo.getPhone2() != null) phone2 = demo.getPhone2();
             if (demo.getHin() != null) hin = "HN " + demo.getHcType() + " " + demo.getHin() + " " + demo.getVer();
-            if (demo.getFamilyDoctor() != null) refDoc = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
+            if (demo.getFamilyDoctor() != null) refDoc = DemographicXml.referralDoctor(demo.getFamilyDoctor());
         }
         /* phone2 is split into two variables to avoid double-encoding:
              phone2Raw holds the unencoded value for hidden form inputs (encoded at output with forHtmlAttribute);

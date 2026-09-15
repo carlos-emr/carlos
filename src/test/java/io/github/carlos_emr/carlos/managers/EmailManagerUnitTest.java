@@ -105,7 +105,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailSenderFactory = mock(EmailSenderFactory.class);
         emailSender = mock(EmailSender.class);
         loggedInInfo = new LoggedInInfo();
-        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager);
+        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
 
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
