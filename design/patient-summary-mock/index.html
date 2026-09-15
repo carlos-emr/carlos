@@ -1,0 +1,1570 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Abena Bonsu — Citation-backed patient overview mock</title>
+  <style>
+    :root {
+      --ink: #142d38;
+      --muted: #5e727b;
+      --line: #dbe4e7;
+      --line-strong: #c3d0d5;
+      --canvas: #edf3f3;
+      --panel: #ffffff;
+      --teal-900: #0b3b40;
+      --teal-800: #0c4e52;
+      --teal-700: #0d6667;
+      --teal-100: #dff3f0;
+      --teal-50: #f0faf8;
+      --blue: #246b9e;
+      --blue-50: #eff7fc;
+      --amber: #a86005;
+      --amber-100: #ffedc7;
+      --amber-50: #fff8e9;
+      --red: #a63d3d;
+      --red-50: #fff2f1;
+      --green: #33745b;
+      --green-50: #edf8f3;
+      --shadow: 0 6px 24px rgba(18, 50, 56, .08);
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { height: 100%; }
+
+    body {
+      min-height: 100%;
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, a { font: inherit; }
+    button { color: inherit; }
+
+    .app-bar {
+      height: 58px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #fff;
+      background: var(--teal-900);
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: .01em; }
+    .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid rgba(255,255,255,.38); border-radius: 8px; background: rgba(255,255,255,.11); }
+    .brand small { display: block; margin-top: 1px; color: #bcd7d8; font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+    .app-actions { display: flex; align-items: center; gap: 10px; color: #d8e8e8; font-size: 12px; }
+    .avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--teal-900); background: #d8eceb; font-weight: 800; }
+
+    .synthetic-banner {
+      min-height: 48px;
+      padding: 9px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      color: #5e3a00;
+      background: var(--amber-100);
+      border-bottom: 1px solid #e9c981;
+    }
+
+    .synthetic-banner strong { display: inline-flex; align-items: center; gap: 8px; }
+    .synthetic-banner p { margin: 2px 0 0; font-size: 12px; }
+    .synthetic-banner a { flex: 0 0 auto; color: #6b3d00; font-size: 12px; font-weight: 700; text-underline-offset: 3px; }
+
+    .patient-header {
+      padding: 18px 24px 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .patient-main { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+    .patient-avatar { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border-radius: 11px; color: #fff; background: var(--teal-700); font-size: 17px; font-weight: 800; }
+    .patient-name { margin: 0 0 5px; font: 700 21px/1.2 Georgia, "Times New Roman", serif; }
+    .patient-name button { padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; border-bottom: 1px dotted var(--blue); }
+    .patient-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 12px; }
+    .patient-meta span { display: inline-flex; align-items: center; gap: 5px; }
+
+    .header-status { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+    .status-line { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line-strong); background: #fff; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .pill.alert { color: var(--red); border-color: #e5b9b5; background: var(--red-50); }
+    .pill.ok { color: var(--green); border-color: #bcdbcd; background: var(--green-50); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .header-status small { color: var(--muted); }
+
+    .workspace {
+      height: calc(100vh - 58px - 48px - 95px);
+      min-height: 650px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: minmax(520px, 1.07fr) minmax(430px, .93fr);
+      gap: 14px;
+    }
+
+    .panel {
+      min-width: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .panel-top {
+      min-height: 57px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .panel-title { min-width: 0; }
+    .panel-title h2 { margin: 0; font-size: 14px; line-height: 1.25; }
+    .panel-title p { margin: 2px 0 0; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+
+    .tabs { height: 100%; display: flex; gap: 18px; }
+    .tab {
+      position: relative;
+      padding: 0 1px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab[aria-selected="true"] { color: var(--teal-700); }
+    .tab[aria-selected="true"]::after { content: ""; position: absolute; right: 0; bottom: 0; left: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--teal-700); }
+
+    .scroll { min-height: 0; overflow: auto; scrollbar-color: #b7c7ca transparent; scrollbar-width: thin; }
+    .summary-content { padding: 18px 20px 32px; }
+
+    .summary-section { margin: 0 0 21px; }
+    .summary-section h3 { margin: 0 0 8px; color: var(--teal-800); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+    .summary-section p { margin: 0; color: #233d48; font-size: 14px; line-height: 1.72; }
+
+    .claim {
+      display: inline;
+      margin: 0;
+      padding: 2px 2px 3px;
+      border: 0;
+      border-radius: 4px;
+      color: #1e5f89;
+      background: transparent;
+      box-shadow: inset 0 -1px 0 #87afc9;
+      text-align: left;
+      cursor: pointer;
+      transition: background .15s, box-shadow .15s;
+    }
+    .claim:hover, .claim:focus-visible { outline: none; background: var(--blue-50); box-shadow: inset 0 -2px 0 var(--blue); }
+    .claim.active { color: #174f77; background: #e3f2fa; box-shadow: inset 0 -2px 0 var(--blue); }
+    .claim.conflict { color: #934b00; background: var(--amber-50); box-shadow: inset 0 -1px 0 #dc9c41; }
+    .claim.conflict.active { background: #ffedc8; box-shadow: inset 0 -2px 0 var(--amber); }
+    .source-count { display: inline-flex; align-items: center; margin: 0 2px 0 3px; padding: 1px 5px; border-radius: 999px; color: inherit; background: rgba(36,107,158,.1); font-size: 9px; font-weight: 800; vertical-align: 1px; white-space: nowrap; }
+    .conflict .source-count { background: rgba(168,96,5,.12); }
+
+    .med-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .med-item { padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfc; }
+    .med-item strong { display: block; margin-bottom: 2px; font-size: 12px; }
+    .med-item small { color: var(--muted); }
+    .med-item.warning { border-color: #e4c68f; background: var(--amber-50); }
+
+    .footnote { padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+
+    .ledger, .coverage { display: none; padding: 18px; }
+    .ledger.active, .coverage.active, .summary-view.active { display: block; }
+    .summary-view { display: none; }
+    .ledger-intro, .coverage-intro { margin: 0 0 14px; color: var(--muted); font-size: 12px; }
+    .ledger-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .ledger-table th { padding: 8px 9px; border-bottom: 1px solid var(--line-strong); color: var(--muted); text-align: left; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+    .ledger-table td { padding: 10px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .ledger-table button { padding: 0; border: 0; color: var(--blue); background: transparent; text-align: left; cursor: pointer; }
+    .state { display: inline-flex; padding: 3px 7px; border-radius: 999px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+    .state.supported { color: var(--green); background: var(--green-50); }
+    .state.conflicted { color: var(--amber); background: var(--amber-50); }
+    .state.pending { color: var(--muted); background: #edf1f2; }
+
+    .coverage-metric { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; margin-bottom: 16px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; }
+    .coverage-metric strong { font-size: 13px; }
+    .coverage-metric span { color: var(--green); font-size: 12px; font-weight: 800; }
+    .coverage-metric p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 11px; }
+    .coverage-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .coverage-item { padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+    .coverage-item strong { display: block; }
+    .coverage-item small { color: var(--muted); }
+    .safety-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+    .safety-item { min-width: 0; padding: 16px 0; border-bottom: 1px solid var(--line); }
+    .safety-item h3 { margin: 0 0 7px; color: #17242b; font-size: 14px; }
+    .safety-item p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .safety-item .claim { font-size: 14px; }
+    .safety-item .empty-value { color: #52616a; font-style: italic; }
+
+    .evidence-panel .panel-top { padding-right: 12px; }
+    .evidence-controls { display: flex; gap: 5px; }
+    .icon-button { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--muted); cursor: pointer; }
+    .icon-button:hover { border-color: var(--line-strong); color: var(--teal-700); background: var(--teal-50); }
+    .icon-button:disabled { opacity: .45; cursor: default; background: #f5f5f5; }
+
+    .evidence-scroll { padding: 17px 18px 32px; }
+    .empty-evidence { min-height: 100%; padding: 48px 24px; display: grid; place-content: center; justify-items: center; color: var(--muted); text-align: center; }
+    .empty-evidence-icon { width: 54px; height: 54px; margin-bottom: 13px; display: grid; place-items: center; border: 1px solid #b8cddd; border-radius: 50%; color: #337ab7; background: #eef7fc; font-size: 24px; }
+    .empty-evidence h3 { margin: 0 0 6px; color: #333; font-size: 16px; }
+    .empty-evidence p { max-width: 330px; margin: 0; font-size: 12px; line-height: 1.55; }
+    .evidence-kicker { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .evidence-kicker span:first-child { color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .review-state { color: var(--muted); font-size: 10px; }
+    .evidence-title { margin: 0 0 7px; font: 700 19px/1.35 Georgia, "Times New Roman", serif; }
+    .evidence-description { margin: 0 0 16px; color: var(--muted); font-size: 12px; }
+
+    .source-summary { margin-bottom: 14px; padding: 10px 12px; border: 1px solid #bcd9e9; border-radius: 8px; background: var(--blue-50); color: #285772; font-size: 11px; }
+    .source-summary strong { display: block; margin-bottom: 2px; color: #174f70; }
+
+    .source-card { margin-bottom: 10px; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+    .source-card.conflicts { border-color: #e5bd80; }
+    .source-card summary { padding: 11px 12px; display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 9px; list-style: none; cursor: pointer; }
+    .source-card summary::-webkit-details-marker { display: none; }
+    .source-card summary:hover { background: #fafcfc; }
+    .source-index { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; color: var(--teal-700); background: var(--teal-100); font-size: 10px; font-weight: 900; }
+    .source-card.conflicts .source-index { color: var(--amber); background: var(--amber-100); }
+    .source-heading { min-width: 0; }
+    .source-heading strong { display: block; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .source-heading small { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .relation { padding: 3px 6px; border-radius: 999px; color: var(--green); background: var(--green-50); font-size: 8px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+    .relation.conflicts { color: var(--amber); background: var(--amber-50); }
+    .relation.context { color: var(--blue); background: var(--blue-50); }
+
+    .source-body { padding: 0 12px 12px 45px; }
+    .source-meta { display: grid; grid-template-columns: 86px 1fr; gap: 4px 8px; margin-bottom: 10px; color: var(--muted); font-size: 10px; }
+    .source-meta dt { font-weight: 700; }
+    .source-meta dd { margin: 0; overflow-wrap: anywhere; color: #3a5059; }
+    .excerpt { margin: 0 0 10px; padding: 10px 11px; border-left: 3px solid #82b8b2; border-radius: 0 6px 6px 0; background: #f5f9f8; color: #304850; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .source-card.conflicts .excerpt { border-left-color: #dfa14a; background: var(--amber-50); }
+    mark { padding: 1px 2px; color: inherit; background: #ffdfa2; }
+    .source-note { margin: -2px 0 10px; color: var(--muted); font-size: 9px; }
+    .source-link { display: inline-flex; align-items: center; gap: 5px; color: var(--blue); font-size: 10px; font-weight: 800; text-decoration: none; }
+    .source-link:hover { text-decoration: underline; }
+
+    .evidence-panel { position: relative; }
+    .btn { padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: #fff; font-size: 10px; font-weight: 800; cursor: pointer; }
+    .btn:hover { background: #f6f9f9; }
+    .btn.primary { border-color: var(--teal-700); color: #fff; background: var(--teal-700); }
+    .btn.primary:hover { background: var(--teal-800); }
+    .btn.danger { color: var(--red); border-color: #e1b7b4; }
+
+    .mobile-evidence-label { display: none; }
+
+    @media (max-width: 1050px) {
+      .workspace { height: auto; min-height: 0; grid-template-columns: 1fr; }
+      .panel { min-height: 650px; }
+      .evidence-panel { min-height: 700px; }
+      .mobile-evidence-label { display: inline; }
+    }
+
+    @media (max-width: 680px) {
+      .app-bar, .synthetic-banner, .patient-header { padding-right: 14px; padding-left: 14px; }
+      .app-actions span { display: none; }
+      .synthetic-banner { align-items: flex-start; flex-direction: column; gap: 5px; }
+      .patient-header { flex-direction: column; }
+      .header-status { align-items: flex-start; }
+      .status-line { justify-content: flex-start; }
+      .workspace { padding: 8px; }
+      .panel { min-height: 720px; }
+      .panel-top { padding: 0 12px; }
+      .tabs { gap: 10px; }
+      .summary-content { padding: 15px 14px 30px; }
+      .med-grid, .coverage-list { grid-template-columns: 1fr; }
+    }
+
+    /* CARLOS-oriented visual treatment: compact, Bootstrap-like, and familiar. */
+    :root {
+      --ink: #222;
+      --muted: #66717a;
+      --line: #d3d7da;
+      --line-strong: #b8bec3;
+      --canvas: #f7f7f7;
+      --teal-900: #00283c;
+      --teal-800: #245580;
+      --teal-700: #337ab7;
+      --teal-100: #d9edf7;
+      --teal-50: #eef7fc;
+      --blue: #337ab7;
+      --blue-50: #eef7fc;
+      --shadow: none;
+      --radius: 4px;
+    }
+
+    body { font: 13px/1.4 Arial, Helvetica, sans-serif; }
+    .app-bar { height: 27px; padding: 0 12px; color: #00283c; background: #fff; border-bottom: 1px solid #c0c0c0; }
+    .brand { gap: 7px; font-size: 12px; }
+    .brand-mark { width: 19px; height: 19px; border: 0; border-radius: 0; color: #337ab7; background: transparent; }
+    .brand small { display: none; }
+    .carlos-nav { display: flex; align-self: stretch; align-items: stretch; gap: 0; }
+    .carlos-nav a { padding: 5px 7px 3px; color: #00283c; font-weight: bold; text-decoration: underline; }
+    .carlos-nav a:hover { color: #fff; background: #486ebd; }
+    .carlos-nav a.active { background: #d9d9d9; text-decoration: none; }
+    .carlos-nav a.alert-link { color: #d00; }
+    .app-actions { color: #00283c; }
+    .avatar { width: 21px; height: 21px; color: #fff; background: #337ab7; font-size: 10px; }
+
+    .synthetic-banner { min-height: 42px; padding: 6px 15px; color: #5d4200; background: #fff3cd; border-bottom-color: #ead79a; }
+    .synthetic-banner strong { font-size: 12px; }
+    .synthetic-banner p, .synthetic-banner a { font-size: 11px; }
+
+    .patient-header { padding: 9px 15px; background: #f3f3f3; }
+    .patient-main { gap: 9px; }
+    .patient-avatar { width: 37px; height: 37px; flex-basis: 37px; border-radius: 3px; background: #337ab7; font-size: 14px; }
+    .patient-name { margin-bottom: 3px; font: bold 18px/1.15 Arial, Helvetica, sans-serif; }
+    .patient-meta { gap: 3px 13px; font-size: 11px; }
+    .header-status { gap: 4px; }
+    .pill { padding: 3px 7px; border-radius: 3px; font-size: 10px; }
+    .header-status small { font-size: 10px; }
+
+    .workspace { height: calc(100vh - 27px - 42px - 76px); min-height: 650px; padding: 9px; gap: 9px; background: #eceff1; }
+    .panel { border-radius: 4px; box-shadow: none; }
+    .panel-top { min-height: 44px; padding: 0 12px; background: #f5f5f5; }
+    .tabs { gap: 14px; }
+    .tab { font-size: 11px; }
+    .tab[aria-selected="true"] { color: #245580; }
+    .tab[aria-selected="true"]::after { height: 2px; border-radius: 0; background: #337ab7; }
+    .summary-content { padding: 12px 14px 28px; }
+    .summary-section { margin-bottom: 14px; }
+    .summary-section h3 { margin-bottom: 7px; padding: 5px 7px; border-left: 4px solid #337ab7; color: #222; background: #f1f1f1; font-size: 11px; letter-spacing: 0; text-transform: none; }
+    .summary-section p { font-size: 12px; line-height: 1.62; }
+    .claim { border-radius: 2px; color: #1769aa; }
+    .source-count { border-radius: 2px; font-size: 8px; }
+    .med-item, .coverage-item, .coverage-metric { border-radius: 3px; }
+    .btn, .icon-button { border-radius: 3px; }
+    .btn.primary { border-color: #2e6da4; background: #337ab7; }
+    .btn.primary:hover { background: #286090; }
+    .evidence-title { font: bold 16px/1.3 Arial, Helvetica, sans-serif; }
+    .source-card { border-radius: 3px; }
+    .source-index { border-radius: 2px; color: #245580; background: #d9edf7; }
+    .excerpt { border-left-color: #337ab7; border-radius: 0; background: #f5f8fa; }
+
+    .quick-glance { margin-bottom: 14px; border: 1px solid #b8cddd; background: #f7fbfe; }
+    .quick-glance-title { padding: 5px 8px; color: #fff; background: #337ab7; font-size: 11px; font-weight: bold; }
+    .quick-grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .quick-item { padding: 8px 9px; border-right: 1px solid #dbe5ec; border-bottom: 1px solid #dbe5ec; }
+    .quick-item:nth-child(even) { border-right: 0; }
+    .quick-item:nth-last-child(-n+2) { border-bottom: 0; }
+    .quick-item strong { display: block; margin-bottom: 2px; font-size: 10px; color: #555; text-transform: uppercase; }
+    .quick-item .claim { font-size: 12px; line-height: 1.45; }
+
+    .summary-scope { margin: -4px 0 12px; color: #66717a; font-size: 10px; }
+    .fact-list { margin: 0; padding-left: 18px; }
+    .fact-list li { margin-bottom: 5px; }
+
+    .timeline { margin: 0; padding: 0; list-style: none; }
+    .timeline li { position: relative; margin-left: 5px; padding: 0 0 9px 18px; border-left: 2px solid #c9d9e4; }
+    .timeline li:last-child { border-left-color: transparent; }
+    .timeline li::before { content: ""; position: absolute; top: 4px; left: -5px; width: 8px; height: 8px; border: 1px solid #337ab7; border-radius: 50%; background: #fff; }
+    .timeline time { display: block; color: #65717a; font-size: 9px; font-weight: bold; text-transform: uppercase; }
+
+    @media (max-width: 680px) {
+      .carlos-nav a:nth-last-child(-n+5) { display: none; }
+      .quick-grid { grid-template-columns: 1fr; }
+      .quick-item, .quick-item:nth-child(even), .quick-item:nth-last-child(-n+2) { border-right: 0; border-bottom: 1px solid #dbe5ec; }
+      .quick-item:last-child { border-bottom: 0; }
+    }
+
+    /* Readability pass: higher contrast and larger clinical text. */
+    :root {
+      --ink: #111;
+      --muted: #46525a;
+      --line: #afb9bf;
+      --line-strong: #8f9ba3;
+      --blue: #005b9f;
+      --blue-50: #eaf4fb;
+      --amber: #7a3c00;
+      --amber-100: #ffe0a3;
+      --amber-50: #fff4dc;
+      --red: #941f1f;
+      --red-50: #fff0ef;
+      --green: #1b6946;
+      --green-50: #e7f5ed;
+    }
+
+    body { font-size: 15px; line-height: 1.52; }
+    .app-bar { height: 30px; font-size: 13px; }
+    .carlos-nav a { padding: 5px 8px 4px; }
+    .app-actions { font-size: 12px; }
+    .synthetic-banner { min-height: 54px; }
+    .synthetic-banner strong { font-size: 14px; }
+    .synthetic-banner p, .synthetic-banner a { font-size: 12.5px; }
+    .patient-header { min-height: 82px; padding-top: 12px; padding-bottom: 12px; }
+    .patient-avatar { width: 43px; height: 43px; flex-basis: 43px; font-size: 16px; }
+    .patient-name { font-size: 21px; }
+    .patient-meta { font-size: 13px; }
+    .pill, .header-status small { font-size: 11.5px; }
+    .workspace { height: calc(100vh - 30px - 54px - 82px); }
+    .panel-top { min-height: 50px; }
+    .panel-title h2 { font-size: 16px; }
+    .panel-title p { font-size: 12.5px; }
+    .tab { font-size: 13px; }
+    .btn { font-size: 12px; }
+
+    .summary-scope, .footnote { color: #3f4c54; font-size: 12.5px; line-height: 1.55; }
+    .summary-section h3 { padding: 7px 9px; border-left-width: 5px; color: #111; font-size: 14px; }
+    .summary-section p, .fact-list, .timeline { color: #17242b; font-size: 15px; line-height: 1.65; }
+    .fact-list li { margin-bottom: 8px; }
+    .timeline li { padding-bottom: 12px; }
+    .timeline time { color: #3f4c54; font-size: 11px; }
+    .claim { color: #005a9c; font-size: 15px; font-weight: 500; line-height: 1.6; box-shadow: inset 0 -1px 0 #337fb2; }
+    .claim:hover, .claim:focus-visible, .claim.active { color: #003f73; background: #dceefa; box-shadow: inset 0 -2px 0 #005b9f; }
+    .claim.conflict { color: #773800; background: #fff2d6; box-shadow: inset 0 -1px 0 #b86100; }
+    .claim.conflict:hover, .claim.conflict:focus-visible, .claim.conflict.active { color: #592900; background: #ffe4af; box-shadow: inset 0 -2px 0 #8c4800; }
+    .source-count { padding: 2px 5px; color: #174c72; background: #dcecf6; font-size: 10px; font-weight: 800; }
+    .conflict .source-count { color: #633000; background: #ffe2aa; }
+
+    .quick-glance { border-color: #7da4bf; }
+    .quick-glance-title { padding: 7px 9px; background: #286da6; font-size: 14px; }
+    .quick-item { padding: 10px 11px; }
+    .quick-item strong { color: #303b42; font-size: 12px; }
+    .quick-item .claim { font-size: 15px; line-height: 1.55; }
+
+    .ledger-intro, .coverage-intro { font-size: 14px; }
+    .ledger-table { font-size: 14px; }
+    .ledger-table th { color: #37434a; font-size: 11.5px; }
+    .coverage-metric strong, .coverage-item strong { font-size: 14px; }
+    .coverage-metric p, .coverage-item small { color: #46525a; font-size: 12.5px; }
+
+    .evidence-kicker span:first-child { color: #005b9f; font-size: 11.5px; }
+    .review-state { color: #46525a; font-size: 12px; }
+    .evidence-title { font-size: 20px; }
+    .evidence-description { color: #36434b; font-size: 14.5px; line-height: 1.55; }
+    .source-summary { border-color: #86b5d2; color: #163f59; font-size: 13px; line-height: 1.5; }
+    .source-summary strong { color: #083e62; font-size: 13px; }
+    .source-card { border-color: #aeb8be; }
+    .source-card summary { padding: 13px; }
+    .source-heading strong { color: #111; font-size: 14.5px; }
+    .source-heading small { color: #46525a; font-size: 12px; }
+    .source-index { width: 28px; height: 28px; font-size: 12px; }
+    .relation { padding: 4px 7px; font-size: 9.5px; }
+    .source-body { padding: 0 13px 14px 50px; }
+    .source-meta { grid-template-columns: 100px 1fr; color: #46525a; font-size: 12.5px; }
+    .source-meta dd { color: #202d34; }
+    .excerpt { color: #18272f; font-size: 14px; line-height: 1.65; }
+    .source-note { color: #46525a; font-size: 11.5px; }
+    .source-link { color: #005a9c; font-size: 12.5px; }
+    .empty-evidence h3 { font-size: 21px; }
+    .empty-evidence p { color: #46525a; font-size: 15px; }
+    .empty-evidence-icon { width: 62px; height: 62px; color: #005b9f; font-size: 27px; }
+
+    .source-switcher { position: sticky; top: -17px; z-index: 4; margin: 0 -18px 14px; padding: 10px 18px; border-top: 1px solid #c7d0d5; border-bottom: 1px solid #9eabb3; background: #f4f6f7; box-shadow: 0 2px 4px rgba(0,0,0,.08); }
+    .source-switcher-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
+    .source-switcher label { color: #26343c; font-size: 12.5px; font-weight: bold; }
+    .source-picker { min-width: 0; height: 36px; padding: 5px 30px 5px 8px; border: 1px solid #7f8f99; border-radius: 3px; color: #111; background: #fff; font-size: 13px; }
+    .source-step { width: 34px; height: 34px; padding: 0; border: 1px solid #8f9ba3; border-radius: 3px; color: #174d75; background: #fff; font-weight: bold; cursor: pointer; }
+    .source-step:disabled { opacity: .4; cursor: default; }
+    .source-switcher-help { margin: 5px 0 0 112px; color: #46525a; font-size: 11.5px; }
+
+    .full-source-shell { border: 1px solid #9faab1; background: #fff; }
+    .full-source-toolbar { padding: 10px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; border-bottom: 1px solid #aeb8be; background: #eef1f3; }
+    .full-source-toolbar h4 { margin: 0 0 3px; color: #111; font-size: 16px; }
+    .full-source-toolbar p { margin: 0; color: #36434b; font-size: 12.5px; }
+    .full-source-id { padding: 7px 12px; border-bottom: 1px solid #c5ccd0; color: #37444b; background: #fafafa; font: 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+    .full-source-note { min-height: 330px; margin: 0; padding: 22px 24px 44px; color: #15232a; background: #fff; font: 14.5px/1.72 Arial, Helvetica, sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .full-source-note mark { padding: 2px 3px; outline: 2px solid #d28b00; border-radius: 2px; color: #111; background: #ffe08a; font-weight: bold; }
+    .full-source-actions { padding: 9px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #c5ccd0; background: #fafafa; }
+    .full-source-actions span { color: #46525a; font-size: 11.5px; }
+    .source-loading, .source-error { padding: 40px 24px; color: #46525a; text-align: center; font-size: 14px; }
+    .source-error { color: #8a1e1e; background: #fff5f4; }
+
+    .problem-list { border: 1px solid #aeb8be; background: #fff; }
+    .problem-row { padding: 10px 11px; display: grid; grid-template-columns: minmax(150px, .72fr) minmax(260px, 1.55fr) auto; align-items: start; gap: 10px; border-bottom: 1px solid #cbd2d6; }
+    .problem-row:last-child { border-bottom: 0; }
+    .problem-name { color: #17242b; font-size: 14px; font-weight: bold; }
+    .problem-status { padding: 3px 7px; border: 1px solid #8ebea6; border-radius: 2px; color: #15583a; background: #e7f5ed; font-size: 10.5px; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
+    .problem-status.unresolved { border-color: #c58528; color: #703700; background: #fff0cf; }
+    .problem-status.history { border-color: #95a6b1; color: #3d4c55; background: #edf1f3; }
+    .record-limit { margin: 0 0 14px; padding: 9px 10px; border: 1px solid #8fa9ba; border-left: 5px solid #337ab7; color: #26353d; background: #eef6fb; font-size: 13px; line-height: 1.5; }
+    .medication-warning { margin-bottom: 9px; padding: 8px 10px; border: 1px solid #c8811a; color: #542900; background: #fff0cf; font-size: 13px; }
+
+    @media (max-width: 680px) {
+      body { font-size: 14px; }
+      .claim, .quick-item .claim, .summary-section p, .fact-list, .timeline { font-size: 14px; }
+      .source-switcher-row { grid-template-columns: 1fr auto auto; }
+      .source-switcher label { grid-column: 1 / -1; }
+      .source-switcher-help { margin-left: 0; }
+      .full-source-note { padding: 17px 15px 36px; font-size: 14px; }
+      .problem-row { grid-template-columns: 1fr; }
+      .problem-status { justify-self: start; }
+      .safety-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Readability/layout trial: larger small text and a closeable 75/25 evidence split. */
+    body { font-size: 16px; }
+    .workspace {
+      --evidence-width: 25%;
+      grid-template-columns: minmax(0, 1fr) 16px minmax(300px, var(--evidence-width));
+      gap: 0;
+    }
+    .workspace.evidence-closed { grid-template-columns: minmax(0, 1fr); }
+    .workspace.evidence-closed .evidence-panel,
+    .workspace.evidence-closed .pane-splitter { display: none; }
+    .pane-splitter {
+      position: relative;
+      min-width: 16px;
+      border: 0;
+      background: transparent;
+      cursor: col-resize;
+      touch-action: none;
+    }
+    .pane-splitter::before {
+      content: "";
+      position: absolute;
+      top: 12px;
+      bottom: 12px;
+      left: 50%;
+      width: 2px;
+      border-radius: 2px;
+      background: #8f9ba3;
+      transform: translateX(-50%);
+      transition: width .15s, background .15s;
+    }
+    .pane-splitter::after {
+      content: "⋮";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      display: grid;
+      place-items: center;
+      width: 14px;
+      height: 38px;
+      border: 1px solid #8f9ba3;
+      border-radius: 8px;
+      color: #46525a;
+      background: #fff;
+      font-size: 18px;
+      line-height: 1;
+      transform: translate(-50%, -50%);
+    }
+    .pane-splitter:hover::before,
+    .pane-splitter:focus-visible::before,
+    body.resizing-evidence .pane-splitter::before { width: 4px; background: var(--blue); }
+    .pane-splitter:hover::after,
+    .pane-splitter:focus-visible::after,
+    body.resizing-evidence .pane-splitter::after { border-color: var(--blue); color: var(--blue); background: var(--blue-50); }
+    body.resizing-evidence { cursor: col-resize; user-select: none; }
+    .panel-actions { display: flex; align-items: center; gap: 8px; }
+    .show-evidence { display: none; }
+    .workspace.evidence-closed .show-evidence { display: inline-flex; }
+
+    .synthetic-banner p, .synthetic-banner a,
+    .patient-meta,
+    .ledger-intro, .coverage-intro,
+    .summary-scope, .footnote,
+    .evidence-description,
+    .source-summary, .source-summary strong,
+    .source-meta,
+    .source-link,
+    .source-note,
+    .full-source-toolbar p,
+    .full-source-actions span,
+    .record-limit,
+    .medication-warning { font-size: 14px; }
+
+    .summary-section p, .fact-list, .timeline,
+    .claim, .quick-item .claim,
+    .excerpt, .full-source-note { font-size: 16px; }
+
+    .pill, .header-status small,
+    .source-count,
+    .state, .relation,
+    .problem-status { font-size: 12px; }
+
+    .btn { font-size: 14px; }
+    .ledger-table { font-size: 15px; }
+    .ledger-table button { font-size: 15px; line-height: 1.5; }
+
+    @media (max-width: 1050px) {
+      .workspace, .workspace.evidence-closed { grid-template-columns: 1fr; row-gap: 9px; }
+      .pane-splitter { display: none; }
+    }
+
+    @media (max-width: 680px) {
+      body { font-size: 15px; }
+      .summary-section p, .fact-list, .timeline,
+      .claim, .quick-item .claim,
+      .excerpt, .full-source-note { font-size: 16px; }
+    }
+
+    /* Readability/layout trial 2: calmer headings, more vertical rhythm, larger controls. */
+    .summary-content { padding: 20px 24px 48px; }
+    .quick-glance { margin-bottom: 22px; border-color: var(--line-strong); background: #fff; }
+    .quick-glance-title,
+    .summary-section h3 {
+      margin: 0 0 12px;
+      padding: 8px 10px;
+      border: 0;
+      border-left: 5px solid var(--blue);
+      border-bottom: 1px solid var(--line-strong);
+      color: #17242b;
+      background: transparent;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .quick-glance-title { margin-bottom: 0; }
+    .quick-item { padding: 14px 13px; }
+    .summary-section { margin-bottom: 30px; }
+    .summary-section > p,
+    .summary-section > .fact-list,
+    .summary-section > .timeline { max-width: 78ch; }
+    .summary-section p { margin-bottom: 12px; }
+    .record-limit { margin-bottom: 24px; padding: 12px 13px; max-width: 92ch; }
+    .problem-row { padding: 15px 13px; gap: 16px; }
+    .medication-warning { margin-bottom: 16px; padding: 11px 13px; }
+    .fact-list li { margin-bottom: 13px; }
+    .timeline li { padding-bottom: 18px; }
+    .footnote { margin-top: 8px; padding-top: 18px; max-width: 82ch; }
+
+    .btn { min-height: 44px; padding: 9px 13px; }
+    .icon-button,
+    .source-step { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+    .tab { min-height: 44px; }
+    button:focus-visible,
+    a:focus-visible,
+    select:focus-visible {
+      outline: 3px solid #0b6fb8;
+      outline-offset: 2px;
+    }
+    .claim:focus-visible {
+      outline: 3px solid #0b6fb8;
+      outline-offset: 3px;
+      background: #dceefa;
+      box-shadow: inset 0 -2px 0 #005b9f;
+    }
+
+    @media (max-width: 680px) {
+      .summary-content { padding: 18px 16px 40px; }
+      .summary-section { margin-bottom: 26px; }
+      .quick-item { padding: 14px 12px; }
+      .problem-row { padding: 14px 12px; }
+    }
+
+    /* Neutral clinical-reading palette: color communicates state, not clickability. */
+    .claim {
+      color: #17242b;
+      background: transparent;
+      box-shadow: inset 0 -1px 0 #98a7af;
+    }
+    .claim:hover {
+      color: #111;
+      background: #f1f4f5;
+      box-shadow: inset 0 -2px 0 #647780;
+    }
+    .claim.conflict {
+      padding-left: 7px;
+      color: #17242b;
+      background: #f7f8f8;
+      box-shadow: inset 3px 0 0 #758791, inset 0 -1px 0 #b7c0c5;
+    }
+    .claim.conflict:hover {
+      color: #111;
+      background: #eef1f2;
+      box-shadow: inset 3px 0 0 #5f717b, inset 0 -2px 0 #89979e;
+    }
+    .claim.active,
+    .claim:focus-visible {
+      color: #111;
+      background: #e8f1f7;
+      box-shadow: inset 3px 0 0 #4d7f9d, inset 0 -2px 0 #4d7f9d;
+    }
+    .claim.conflict.active,
+    .claim.conflict:focus-visible {
+      color: #111;
+      background: #edf2f5;
+      box-shadow: inset 3px 0 0 #758791, inset 0 -2px 0 #4d7f9d;
+    }
+    .source-count,
+    .conflict .source-count {
+      color: #36454f;
+      background: #e8edef;
+    }
+    .source-card.conflicts { border-color: #aeb8be; }
+    .source-card.conflicts .source-index { color: #455761; background: #e7ecee; }
+    .source-card.conflicts .excerpt { border-left-color: #758791; background: #f5f7f8; }
+    .relation.conflicts { color: #455761; background: #e7ecee; }
+    .documentation-note {
+      margin: 14px 0 20px;
+      padding: 12px 14px;
+      border-left: 3px solid #9aa7ad;
+      color: #26353d;
+      background: #f7f8f8;
+    }
+    .documentation-note-label {
+      margin-bottom: 5px;
+      color: #52616a;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: .045em;
+      text-transform: uppercase;
+    }
+    .documentation-note p { margin: 0; }
+    .documentation-note .claim {
+      padding: 0 1px 2px;
+      background: transparent;
+      box-shadow: inset 0 -1px 0 #98a7af;
+    }
+    .documentation-note .claim:hover,
+    .documentation-note .claim:focus-visible,
+    .documentation-note .claim.active {
+      background: #e8edef;
+      box-shadow: inset 0 -2px 0 #647780;
+    }
+    .ledger-table button {
+      color: #17242b;
+      border-bottom: 1px dotted #7e8e96;
+    }
+    .ledger-table button:hover,
+    .ledger-table button:focus-visible {
+      color: #111;
+      background: #f1f4f5;
+      border-bottom-color: #394950;
+    }
+
+    /* Alternative format: orientation rail plus a focused clinical reading column. */
+    #summary-panel { container-name: summary-panel; container-type: inline-size; }
+    .summary-content { padding: 22px 26px 56px; }
+    .briefing-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, .78fr) minmax(0, 2fr);
+      align-items: start;
+      gap: 34px;
+    }
+    .briefing-rail {
+      position: sticky;
+      top: 0;
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid #b9c2c7;
+      background: #f7f8f8;
+    }
+    .briefing-rail .quick-glance {
+      margin: 0;
+      border: 0;
+      background: transparent;
+    }
+    .briefing-rail .quick-glance-title {
+      margin: 0;
+      padding: 0 0 11px;
+      border: 0;
+      border-bottom: 2px solid #263840;
+      color: #17242b;
+      background: transparent;
+      font-size: 17px;
+    }
+    .briefing-rail .quick-grid { grid-template-columns: 1fr; }
+    .briefing-rail .quick-item,
+    .briefing-rail .quick-item:nth-child(even),
+    .briefing-rail .quick-item:nth-last-child(-n+2) {
+      padding: 16px 0;
+      border-right: 0;
+      border-bottom: 1px solid #ccd3d6;
+      background: transparent;
+    }
+    .briefing-rail .quick-item:last-child { border-bottom: 0; }
+    .briefing-rail .quick-item strong {
+      margin-bottom: 5px;
+      color: #3c4a51;
+      font-size: 12px;
+      letter-spacing: .045em;
+    }
+    .briefing-rail .quick-item .claim { line-height: 1.58; }
+    .briefing-rail .record-limit {
+      max-width: none;
+      margin: 18px 0 0;
+      padding: 14px;
+      border: 0;
+      border-left: 4px solid #758791;
+      color: #26353d;
+      background: #fff;
+    }
+    .briefing-body { min-width: 0; }
+    .briefing-body .summary-section { margin-bottom: 42px; }
+    .briefing-body .summary-section h3 {
+      margin: 0 0 17px;
+      padding: 0 0 9px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      border: 0;
+      border-bottom: 2px solid #263840;
+      color: #17242b;
+      background: transparent;
+      font-size: 19px;
+      line-height: 1.3;
+    }
+    .briefing-body .summary-section h3 span {
+      flex: 0 0 auto;
+      color: #53636b;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .briefing-body .summary-section > p,
+    .briefing-body .summary-section > .fact-list,
+    .briefing-body .summary-section > .timeline { max-width: 72ch; }
+    .briefing-body .problem-list { border: 0; }
+    .briefing-body .problem-row {
+      padding: 15px 0;
+      border-top: 1px solid #c8d0d4;
+      border-bottom: 0;
+    }
+    .briefing-body .problem-row:last-child { border-bottom: 1px solid #c8d0d4; }
+
+    @container summary-panel (max-width: 850px) {
+      .briefing-layout { grid-template-columns: 1fr; gap: 28px; }
+      .briefing-rail {
+        position: static;
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(220px, .75fr);
+        gap: 20px;
+      }
+      .briefing-rail .record-limit { margin-top: 0; align-self: start; }
+    }
+
+    @container summary-panel (max-width: 600px) {
+      .summary-content { padding: 18px 16px 42px; }
+      .briefing-rail { grid-template-columns: 1fr; padding: 16px; }
+      .briefing-rail .record-limit { margin-top: 4px; }
+      .briefing-body .summary-section h3 { align-items: flex-start; flex-direction: column; gap: 3px; }
+    }
+
+    /* The summary follows the page scroll; only source evidence scrolls independently. */
+    .workspace {
+      height: auto;
+      min-height: calc(100vh - 30px - 54px - 82px);
+      align-items: start;
+    }
+    #summary-panel {
+      height: auto;
+      min-height: calc(100vh - 30px - 54px - 82px - 18px);
+    }
+    #summary-panel > .scroll { overflow: visible; }
+    .briefing-rail { position: static; }
+    .pane-splitter {
+      position: sticky;
+      top: 12px;
+      align-self: start;
+      height: calc(100vh - 24px);
+    }
+    #source-evidence {
+      position: sticky;
+      top: 12px;
+      align-self: start;
+      height: calc(100vh - 24px);
+    }
+
+    @media (max-width: 1050px) {
+      #source-evidence {
+        position: relative;
+        top: auto;
+        height: 700px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-bar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">✥</div>
+      <nav class="carlos-nav" aria-label="CARLOS main navigation">
+        <a href="#">Schedule</a><a href="#">Search</a><a class="alert-link" href="#">Inbox</a><a href="#">Consultations</a><a href="#">eDoc</a><a href="#">Report</a><a href="#">Administration</a><a href="#">Help</a><a class="active" href="#">Patient Overview</a>
+      </nav>
+    </div>
+    <div class="app-actions"><span>doctor carlosdoc</span><div class="avatar" aria-label="Reviewer Ben">BH</div><span aria-hidden="true">⏻</span></div>
+  </header>
+
+  <aside class="synthetic-banner" aria-label="Synthetic patient warning">
+    <div>
+      <strong><span aria-hidden="true">⚠</span> SYNTHETIC PATIENT — NOT A REAL PERSON — NOT FOR CLINICAL USE</strong>
+      <p>Abena Bonsu from the NHS England Synthetic Clinical Notes dataset. Names, identifiers, notes, clinicians, and events shown here are fabricated test data.</p>
+    </div>
+    <a href="https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes" target="_blank" rel="noreferrer">View dataset source ↗</a>
+  </aside>
+
+  <section class="patient-header">
+    <div class="patient-main">
+      <div class="patient-avatar" aria-hidden="true">AB</div>
+      <div>
+        <h1 class="patient-name"><button type="button" data-claim="demographics">Abena Bonsu <span class="source-count">2 sources</span></button></h1>
+        <div class="patient-meta">
+          <span>Female</span>
+          <span id="patient-age" title="Calculated from date of birth at the viewing date">Age 46</span>
+          <span>DOB 17 Feb 1980</span>
+          <span>Synthetic NHS no. 395 107 142</span>
+          <span>Available records 3–10 Jan 2026</span>
+        </div>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-line">
+        <span class="pill ok"><span class="dot"></span>45 of 45 notes retrieved</span>
+        <span class="pill"><span class="dot"></span>3 documentation differences noted</span>
+        <span class="pill">AI overview v0.2</span>
+      </div>
+      <small>Last generated 18 Aug 2026 · No production PHI</small>
+    </div>
+  </section>
+
+  <main class="workspace" id="workspace">
+    <section class="panel" id="summary-panel" aria-label="AI-generated patient overview">
+      <div class="panel-top">
+        <div class="tabs" role="tablist" aria-label="Patient overview views">
+          <button class="tab" type="button" role="tab" aria-selected="true" data-tab="summary-view">Overview</button>
+          <button class="tab" type="button" role="tab" aria-selected="false" data-tab="safety">Allergies &amp; safety</button>
+          <button class="tab" type="button" role="tab" aria-selected="false" data-tab="ledger">Fact ledger</button>
+          <button class="tab" type="button" role="tab" aria-selected="false" data-tab="coverage">Coverage</button>
+        </div>
+        <div class="panel-actions">
+          <button class="btn show-evidence" type="button" id="show-evidence" aria-controls="source-evidence" aria-expanded="true">Show evidence</button>
+        </div>
+      </div>
+
+      <div class="scroll">
+        <article class="summary-view active" id="summary-view">
+          <div class="summary-content">
+            <div class="briefing-layout">
+              <aside class="briefing-rail" aria-label="Patient orientation and record context">
+                <div class="quick-glance">
+              <div class="quick-glance-title">Clinical snapshot</div>
+              <div class="quick-grid">
+                <div class="quick-item"><strong>Who she is</strong><button class="claim" type="button" data-claim="baseline">School teacher living alone; independent with daily activities before admission, with her brother involved in discharge support.<span class="source-count">3 sources</span></button></div>
+                <div class="quick-item"><strong>Active clinical picture</strong><button class="claim" type="button" data-claim="current_status">Discharged 10 Jan after improvement from hypoxic exertional breathlessness. CTEPH with severe pulmonary hypertension and right-heart strain was documented; last SpO₂ was 94% on room air.<span class="source-count">3 sources</span></button></div>
+                <div class="quick-item"><strong>Known history</strong><button class="claim" type="button" data-claim="background">Hypertension, asthma, and nut allergy are documented. No pre-admission medicines were reported in the available episode notes.<span class="source-count">3 sources</span></button></div>
+                <div class="quick-item"><strong>Record context</strong><button class="claim conflict" type="button" data-claim="record_context">Anticoagulant plans change across the admission, and the renal values cited for dosing are absent. These are reported as documentation context.<span class="source-count">4 sources</span></button></div>
+              </div>
+            </div>
+            <div class="record-limit"><strong>Record limitation:</strong> all 45 notes belong to one acute admission from 3–10 Jan 2026. A duplicate synthetic admission was excluded. The absence of broader diagnoses, medications, visits, or preventive history must not be interpreted as evidence that none exist.</div>
+              </aside>
+
+              <div class="briefing-body">
+
+            <section class="summary-section">
+              <h3>Last documented status <span>10 Jan 2026</span></h3>
+              <p><button class="claim" type="button" data-claim="current_status">Comfortable at rest with reduced breathlessness and good mobility. HR 84, BP 118/72, RR 16, temperature 36.8°C, and SpO₂ 94% on room air; chest and cardiovascular examination were documented as unremarkable, with no peripheral oedema. She completed breathing and mobility education before discharge.<span class="source-count">3 sources</span></button></p>
+            </section>
+
+            <section class="summary-section">
+              <h3>Active problems and status</h3>
+              <div class="problem-list">
+                <div class="problem-row"><div class="problem-name">Chronic thromboembolic pulmonary hypertension</div><button class="claim" type="button" data-claim="cteph">CTPA confirmed chronic thromboembolic disease; echocardiography documented severe pulmonary hypertension with right-ventricular strain, and V/Q scanning showed mismatched perfusion defects.<span class="source-count">4 sources</span></button><span class="problem-status">Specialist referral</span></div>
+                <div class="problem-row"><div class="problem-name">Mild anaemia</div><button class="claim" type="button" data-claim="anaemia">Hb 110 g/L, previously 120 g/L, was attributed to chronic disease in the notes. Ferrous sulfate 200 mg twice daily was started and outpatient repeat Hb requested.<span class="source-count">3 sources</span></button><span class="problem-status history">Repeat planned</span></div>
+                <div class="problem-row"><div class="problem-name">Hypertension</div><button class="claim" type="button" data-claim="hypertension">Recorded in the admission history; no pre-admission antihypertensive was reported or named in this episode.<span class="source-count">2 sources</span></button><span class="problem-status history">History</span></div>
+                <div class="problem-row"><div class="problem-name">Asthma</div><button class="claim" type="button" data-claim="asthma">Recorded in the admission history. No wheeze or asthma exacerbation was documented, and no regular inhaler appears in the available notes.<span class="source-count">2 sources</span></button><span class="problem-status history">History</span></div>
+                <div class="problem-row"><div class="problem-name">Reduced exertional tolerance</div><button class="claim" type="button" data-claim="therapy">Improved with respiratory physiotherapy, pacing, mobility work, and energy-conservation education; a wheeled walker and home-safety adaptations were discussed.<span class="source-count">3 sources</span></button><span class="problem-status">Improved</span></div>
+              </div>
+            </section>
+
+            <section class="summary-section">
+              <h3>Medication and allergy picture</h3>
+              <div class="medication-warning"><strong>Not a reconciled medication list:</strong> the dataset contains narrative plans but no authoritative medication order, administration record, or dispensing record.</div>
+              <p><button class="claim" type="button" data-claim="allergy">Nut allergy is repeatedly documented; reaction, severity, and verification status are not recorded.<span class="source-count">4 sources</span></button></p>
+              <div class="documentation-note">
+                <div class="documentation-note-label">Last medical discharge plan</div>
+                <p><button class="claim" type="button" data-claim="discharge_meds">The 10 Jan medical note lists rivaroxaban 15 mg twice daily for three weeks then 20 mg once daily, sildenafil 20 mg three times daily, and ferrous sulfate 200 mg twice daily.<span class="source-count">3 sources</span></button></p>
+              </div>
+              <div class="documentation-note">
+                <div class="documentation-note-label">Documentation note · anticoagulation</div>
+                <p><button class="claim" type="button" data-claim="anticoag_initial">Therapeutic enoxaparin was started in ED.<span class="source-count">2 sources</span></button> <button class="claim" type="button" data-claim="anticoag_apixaban">The first consultant ward round records an apixaban plan,<span class="source-count">1 source</span></button> <button class="claim" type="button" data-claim="anticoag_rivaroxaban">while subsequent pharmacy and medical notes use rivaroxaban.<span class="source-count">3 sources</span></button> <button class="claim" type="button" data-claim="anticoag_enoxaparin">A later education note separately describes post-discharge enoxaparin injections.<span class="source-count">1 source</span></button> The final medical plan documents rivaroxaban.</p>
+              </div>
+              <ul class="fact-list">
+                <li><button class="claim conflict" type="button" data-claim="furosemide">Furosemide 40 mg once daily was started for fluid retention and continued in early plans, but it is not mentioned in the final medical discharge plan.<span class="source-count">4 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="patient_education">Pulmonary-hypertension, anticoagulation, bleeding-risk, breathing-exercise, and symptom-escalation education were documented.<span class="source-count">3 sources</span></button></li>
+              </ul>
+            </section>
+
+            <section class="summary-section">
+              <h3>Key investigations</h3>
+              <p><button class="claim" type="button" data-claim="investigations">CTPA confirmed chronic thromboembolic disease; echo documented severe pulmonary hypertension and right-ventricular strain; V/Q scan showed mismatched perfusion defects. NT-proBNP was 4,500 pg/mL initially and remained elevated. A blood review documented no acute infection.<span class="source-count">4 sources</span></button></p>
+            </section>
+
+            <section class="summary-section">
+              <h3>Relevant history and living situation</h3>
+              <ul class="fact-list">
+                <li><button class="claim" type="button" data-claim="baseline">School teacher living alone and independent with ADLs before admission; non-smoker, rare or no alcohol use recorded, and no recreational drug use.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="therapy">Therapy addressed breathing, pacing, endurance, transfers, short-distance walking, and home safety. A wheeled walker, removal of trip hazards, and bathroom grab bars were discussed.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="support">Her brother was contacted to support transport and discharge arrangements; no broader formal home-care package is documented.<span class="source-count">1 source</span></button></li>
+              </ul>
+            </section>
+
+            <section class="summary-section">
+              <h3>Recent care timeline</h3>
+              <ul class="timeline">
+                <li><time>03 Jan 2026</time><button class="claim" type="button" data-claim="presentation">Presented with two weeks of progressive exertional breathlessness, tachycardia, borderline hypotension, and SpO₂ 89% on room air; admitted to respiratory HDU.<span class="source-count">3 sources</span></button></li>
+                <li><time>03–05 Jan</time><button class="claim" type="button" data-claim="cteph">CTPA and echo confirmed chronic thromboembolic disease with severe pulmonary hypertension and right-heart strain; anticoagulation and oxygen were started.<span class="source-count">4 sources</span></button></li>
+                <li><time>06–07 Jan</time><button class="claim" type="button" data-claim="followup">V/Q scanning showed mismatched defects and referral was sent to a tertiary pulmonary-hypertension centre for pulmonary endarterectomy assessment.<span class="source-count">3 sources</span></button></li>
+                <li><time>08–09 Jan</time><button class="claim" type="button" data-claim="anaemia">Mild anaemia was documented and iron started; oxygen was weaned to room air while mobility and discharge planning progressed.<span class="source-count">3 sources</span></button></li>
+                <li><time>10 Jan 2026</time><button class="claim" type="button" data-claim="current_status">Discharged clinically improved with a medical medication plan, home exercise programme, safety-net advice, and specialist follow-up.<span class="source-count">3 sources</span></button></li>
+              </ul>
+            </section>
+
+            <section class="summary-section">
+              <h3>Follow-up and pending actions</h3>
+              <ul class="fact-list">
+                <li><button class="claim" type="button" data-claim="followup">Referral to a tertiary pulmonary-hypertension centre was sent for management and pulmonary endarterectomy assessment; the final note specifies follow-up in four weeks.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="anaemia">Outpatient repeat haemoglobin was requested after starting ferrous sulfate.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="therapy">The final physiotherapy note documents a home exercise programme and outpatient physiotherapy follow-up, without an appointment date.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="gp_update">The GP was updated after CTPA confirmation.<span class="source-count">1 source</span></button></li>
+              </ul>
+            </section>
+
+            <div class="footnote"><strong>Source context:</strong> select any statement with a source badge or record-difference marker to open its complete source note. Differences are reported as documented and do not require a decision in this overview. This is not a discharge summary or proof of a complete longitudinal history.</div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <section class="coverage safety" id="safety">
+          <p class="coverage-intro">Expected safety categories remain visible even when this single synthetic admission contains no relevant entry. “Nothing relevant documented” describes the available record, not the patient.</p>
+          <div class="safety-grid">
+            <div class="safety-item"><h3>Allergies and adverse reactions</h3><button class="claim" type="button" data-claim="allergy">Nut allergy documented.<span class="source-count">4 sources</span></button><p>Reaction, severity, and verification status are not recorded.</p></div>
+            <div class="safety-item"><h3>Current medication source</h3><button class="claim conflict" type="button" data-claim="discharge_meds">A final medical plan is available, but no authoritative medication order, MAR, dispensing record, or reconciliation timestamp is present.<span class="source-count">3 sources</span></button></div>
+            <div class="safety-item"><h3>Renal function and weight</h3><button class="claim conflict" type="button" data-claim="renal_context">A pharmacist states rivaroxaban was adjusted for renal function and body weight; the underlying values are not present.<span class="source-count">1 source</span></button></div>
+            <div class="safety-item"><h3>Communication or accessibility needs</h3><p class="empty-value">Nothing relevant documented in the available records.</p></div>
+            <div class="safety-item"><h3>Cognition and capacity</h3><p class="empty-value">Nothing relevant documented in the available records. Notes describe her as alert; no formal capacity assessment is present.</p></div>
+            <div class="safety-item"><h3>Resuscitation or escalation plan</h3><p class="empty-value">Nothing relevant documented in the available records.</p></div>
+            <div class="safety-item"><h3>Safeguarding concerns</h3><p class="empty-value">Nothing relevant documented in the available records.</p></div>
+            <div class="safety-item"><h3>Pregnancy status</h3><p class="empty-value">Nothing relevant documented in the available records.</p></div>
+          </div>
+        </section>
+
+        <section class="ledger" id="ledger">
+          <p class="ledger-intro">Atomic facts are extracted before prose generation. Select a row to inspect the source mapping.</p>
+          <table class="ledger-table">
+            <thead><tr><th>Fact</th><th>Status</th><th>Sources</th><th>Evidence</th></tr></thead>
+            <tbody>
+              <tr><td><button type="button" data-claim="presentation">Progressive exertional breathlessness · hypoxia · HDU admission</button></td><td><span class="state supported">Supported</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="cteph">CTEPH · severe pulmonary hypertension · RV strain · mismatched V/Q defects</button></td><td><span class="state supported">Supported</span></td><td>4</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="allergy">Nut allergy · reaction and severity absent</button></td><td><span class="state pending">Detail absent</span></td><td>4</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="background">Hypertension · asthma · no pre-admission medicines reported</button></td><td><span class="state supported">Supported</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="investigations">CTPA · echo · V/Q · NT-proBNP</button></td><td><span class="state supported">Supported</span></td><td>4</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anaemia">Hb 110 g/L · ferrous sulfate started · outpatient repeat planned</button></td><td><span class="state pending">Follow-up planned</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anticoag_initial">Initial therapeutic enoxaparin</button></td><td><span class="state supported">Supported</span></td><td>2</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anticoag_apixaban">Early apixaban plan</button></td><td><span class="state conflicted">Earlier plan</span></td><td>1</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anticoag_rivaroxaban">Subsequent and final rivaroxaban plan</button></td><td><span class="state supported">Latest medical plan</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anticoag_enoxaparin">Post-discharge enoxaparin education</button></td><td><span class="state conflicted">Different account</span></td><td>1</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="furosemide">Furosemide started and later omitted from final plan</button></td><td><span class="state pending">Final status absent</span></td><td>4</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="therapy">Mobility, home safety, breathing and exercise programme</button></td><td><span class="state supported">Supported</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="followup">Tertiary pulmonary-hypertension referral · four-week follow-up</button></td><td><span class="state supported">Referral sent</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="renal_context">Renal function and body weight used for dosing · values absent</button></td><td><span class="state pending">Values absent</span></td><td>1</td><td>Linked</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="coverage" id="coverage">
+          <p class="coverage-intro">This manifest is produced from retrieval metadata, not model prose. “Retrieved” does not mean clinically complete.</p>
+          <div class="coverage-metric"><strong>Available patient-record retrieval</strong><span>45 / 45</span><p>All retrieved records belong to admission 7b266c9e… and are dated 3–10 Jan 2026. The dataset's duplicate admission 8ab5fb09… was deliberately excluded. No broader longitudinal chart is available.</p></div>
+          <div class="coverage-list">
+            <div class="coverage-item"><strong>Medicine inpatient notes</strong><small>14 retrieved</small></div>
+            <div class="coverage-item"><strong>Physiotherapy</strong><small>12 retrieved</small></div>
+            <div class="coverage-item"><strong>Respiratory inpatient notes</strong><small>11 retrieved</small></div>
+            <div class="coverage-item"><strong>Emergency department</strong><small>5 retrieved</small></div>
+            <div class="coverage-item"><strong>Cardiology</strong><small>1 retrieved</small></div>
+            <div class="coverage-item"><strong>Occupational/general therapies</strong><small>2 retrieved</small></div>
+            <div class="coverage-item"><strong>Medication orders/MAR</strong><small>Not present in dataset</small></div>
+            <div class="coverage-item"><strong>Renal values and recorded weight</strong><small>Not found</small></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <div class="pane-splitter" id="pane-splitter" role="separator" aria-label="Resize summary and source evidence panes" aria-orientation="vertical" aria-controls="summary-panel source-evidence" aria-valuemin="20" aria-valuemax="60" aria-valuenow="25" tabindex="0" title="Drag to resize · use arrow keys · double-click to reset"></div>
+
+    <aside class="panel evidence-panel" id="source-evidence" aria-label="Source evidence">
+      <div class="panel-top">
+        <div class="panel-title"><h2>Source evidence <span class="mobile-evidence-label">drawer</span></h2><p id="evidence-subtitle">Click a highlighted line to see sources</p></div>
+        <div class="evidence-controls">
+          <button class="icon-button" type="button" id="previous-claim" aria-label="Previous claim" title="Previous claim" disabled>↑</button>
+          <button class="icon-button" type="button" id="next-claim" aria-label="Next claim" title="Next claim" disabled>↓</button>
+          <button class="icon-button" type="button" id="hide-evidence" aria-label="Hide source evidence" title="Hide source evidence">×</button>
+        </div>
+      </div>
+
+      <div class="scroll evidence-scroll" id="evidence-content" aria-live="polite">
+        <div class="empty-evidence">
+          <div class="empty-evidence-icon" aria-hidden="true">↗</div>
+          <h3>Click a line to see sources</h3>
+          <p>Select any statement with a source badge or record-difference marker. Its supporting and contextual records will appear here.</p>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <script>
+    const datasetUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes";
+    const notesUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/blob/main/silver/synthetic_clinical_notes.csv";
+    const patientsUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/blob/main/silver/patients.csv";
+    const admissionsUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/blob/main/silver/admissions.csv";
+    const rawNotesUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/main/silver/synthetic_clinical_notes.csv";
+    const rawPatientsUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/main/silver/patients.csv";
+    const rawAdmissionsUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/main/silver/admissions.csv";
+
+    function calculateAgeAt(dateOfBirth, referenceDate) {
+      let age = referenceDate.getFullYear() - dateOfBirth.getFullYear();
+      const birthdayHasPassed = referenceDate.getMonth() > dateOfBirth.getMonth()
+        || (referenceDate.getMonth() === dateOfBirth.getMonth() && referenceDate.getDate() >= dateOfBirth.getDate());
+      if (!birthdayHasPassed) age -= 1;
+      return age;
+    }
+
+    const viewingDate = new Date();
+    const ageElement = document.getElementById("patient-age");
+    ageElement.textContent = `Age ${calculateAgeAt(new Date(1980, 1, 17), viewingDate)}`;
+    ageElement.title = `Calculated from DOB at ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(viewingDate)}`;
+
+    const claimHighlightTerms = {
+      demographics: ["17/02/1980", "43", "03/01/2026 01:35"],
+      presentation: ["Progressive breathlessness", "SpO2 89% on room air", "Respiratory High Dependency Unit"],
+      baseline: ["Lives alone", "independent in ADLs", "school teacher", "Kwame Bonsu"],
+      current_status: ["Feelswell", "SpO2: 94% RA", "Mobilising well", "home exercise programme"],
+      background: ["Past Medical History", "HTN", "Asthma", "None reported"],
+      record_context: ["apixaban", "Rivaroxaban", "enoxaparin 40 mg OD", "renal function"],
+      cteph: ["chronic thromboembolic", "Severe pulmonary hypertension", "right ventricular strain", "Mismatched perfusion defects"],
+      anaemia: ["Hb 110 g/L", "ferrous sulfate 200 mg BD", "repeat Hb check"],
+      hypertension: ["HTN", "No current medications reported"],
+      asthma: ["Asthma", "No wheeze"],
+      therapy: ["wheeled walker", "grab bars", "home exercise programme", "energy conservation"],
+      allergy: ["Allergy to nuts", "Allergies", "Nuts", "Nut allergy"],
+      discharge_meds: ["rivaroxaban 15 mg BD x 3 weeks", "sildenafil 20 mg TID", "ferrous sulfate 200 mg BD"],
+      anticoag_initial: ["therapeutic-dose enoxaparin", "enoxaparin 1.5 mg/kg daily"],
+      anticoag_apixaban: ["apixaban 10 mg BD x 7 days", "Continue LMWH"],
+      anticoag_rivaroxaban: ["Rivaroxaban adjusted to 15 mg BD", "Rivaroxaban 20 mg OD", "rivaroxaban 15 mg BD x 3 weeks"],
+      anticoag_enoxaparin: ["self-administering SC enoxaparin", "enoxaparin 40 mg OD post-discharge"],
+      furosemide: ["furosemide 40 mg OD", "Discharge today with rivaroxaban"],
+      patient_education: ["pulmonary HTN", "monitoring for bleeding", "severe SOB or chest pain"],
+      investigations: ["CT pulmonary angiogram confirming", "Severe pulmonary hypertension", "Mismatched perfusion defects", "No acute infxn", "NT-proBNP"],
+      support: ["Kwame Bonsu", "home support"],
+      followup: ["tertiary PH ctr referral", "FU at tertiary PH centre in 4 weeks", "outpatient follow-up plan"],
+      gp_update: ["GP", "CTEPH dx", "Anticoag plan"],
+      renal_context: ["based on renal function and body weight"]
+    };
+
+    const sources = {
+      patients: { title: "Patient demographics row", created: "Dataset snapshot", author: "NHS England synthetic dataset", type: "patients.csv", id: "person_id c6c45c39-cd73-49dd-818d-0a7865fe8a7f", relation: "direct", excerpt: "The row reports Abena Bonsu, female, DOB <mark>17/02/1980</mark>, dataset age <mark>43</mark>, and synthetic NHS number 395107142.", url: patientsUrl },
+      admission: { title: "Admission record", created: "03 Jan 2026 · 01:35", author: "Synthetic structured record", type: "admissions.csv", id: "7b266c9e-fb25-4209-b856-95bda6915f12", relation: "context", excerpt: "A&E admission to Respiratory HDU for Abena Bonsu at <mark>03/01/2026 01:35</mark>.", url: admissionsUrl },
+      triage: { title: "ED Triage Assessment", created: "03 Jan 2026 · 01:35", author: "Nurse Audrey Phyllis Gill", type: "ED", id: "f191854f-167f-48e6-8311-84081c6fdb76", relation: "direct", excerpt: "Progressive breathlessness with <mark>SpO2 89% on room air</mark>; HTN, asthma and nut allergy documented, with no current medicines reported.", url: notesUrl },
+      edDepart: { title: "ED Depart Summary", created: "03 Jan 2026 · 04:00", author: "Dr Brenda Veronica Miles · ED Consultant", type: "ED Depart Summary", id: "1891df2e-6957-485e-a785-e0b93a925ecc", relation: "direct", excerpt: "Two weeks of progressive exertional dyspnoea, hypoxia and right-heart strain prompted therapeutic enoxaparin, CTPA, echo and HDU admission.", url: notesUrl },
+      clerking: { title: "Medical Clerking", created: "03 Jan 2026 · 04:30", author: "Dr Sade Olowoyeye · SpR", type: "Respiratory Inpatients", id: "3db53382-b56a-455a-91ee-4dfa4d7cdac5", relation: "corroborates", excerpt: "HTN, asthma, nut allergy, independent ADLs and no reported medicines were documented; <mark>enoxaparin 1.5 mg/kg daily</mark> was planned.", url: notesUrl },
+      ptwr: { title: "Post-take ward round", created: "03 Jan 2026 · 09:00", author: "Dr Elizabeth Kathryn Singh · Consultant", type: "Respiratory Medicine Inpatients", id: "21ffe1bd-1749-4562-9325-50bf4ddf2954", relation: "conflicts", excerpt: "The initial consultant plan records <mark>apixaban 10 mg BD for 7 days, then 5 mg BD</mark>, with LMWH until initiation.", url: notesUrl },
+      gpCtp: { title: "GP update post-CTPA", created: "03 Jan 2026 · 13:00", author: "Dr Sade Olowoyeye · SpR", type: "Respiratory Inpatients", id: "920725d2-784f-4e2f-8497-a1889662cfc5", relation: "corroborates", excerpt: "The GP was updated regarding the <mark>CTEPH diagnosis</mark>, hospital plan and anticoagulation.", url: notesUrl },
+      bloodReview: { title: "Blood-results review", created: "03 Jan 2026 · 20:00", author: "Dr Ivy Elsie Baker · Foundation Trainee", type: "Respiratory Inpatients", id: "ab857782-f21a-4ad6-b2d2-d6c72f8958ac", relation: "direct", excerpt: "Bloods showed <mark>no acute infection</mark>; elevated NT-proBNP was attributed to ongoing right-heart strain.", url: notesUrl },
+      amwr4: { title: "Respiratory AMWR", created: "04 Jan 2026 · 08:30", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "83f455b4-09f0-4b03-ba94-500abc6c7566", relation: "direct", excerpt: "Echo documented severe pulmonary hypertension and RV strain; <mark>furosemide 40 mg OD</mark> was started for fluid retention.", url: notesUrl },
+      anticoagPharm: { title: "Anticoagulation optimisation", created: "04 Jan 2026 · 12:00", author: "Dr Anne Marion Perkins · Pharmacist", type: "Respiratory Medicine Inpatients", id: "91cf55da-51a2-4489-8c47-d22174eef288", relation: "direct", excerpt: "<mark>Rivaroxaban was adjusted to 15 mg BD based on renal function and body weight</mark>, then planned at 20 mg once daily.", url: notesUrl },
+      amwr5: { title: "Respiratory AMWR", created: "05 Jan 2026 · 08:00", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "eeb90c54-2c7c-49f9-81c5-d3ba6a48c739", relation: "corroborates", excerpt: "Rivaroxaban 15 mg BD and <mark>furosemide 40 mg OD</mark> were continued while tertiary referral was planned.", url: notesUrl },
+      cardio: { title: "Cardiology review: CTEPH", created: "05 Jan 2026 · 11:00", author: "Dr Sade Olowoyeye and Dr Seán Seán", type: "Cardiology Inpatients", id: "f80a55dd-5f93-4e9b-b340-9ccf6aa873a1", relation: "direct", excerpt: "CTPA confirmed chronic thromboembolic disease; echo showed <mark>severe pulmonary hypertension and right ventricular strain</mark>. Rivaroxaban, sildenafil and furosemide were listed.", url: notesUrl },
+      education: { title: "Pulmonary-hypertension education", created: "05 Jan 2026 · 16:00", author: "Dr Anne Marion Perkins", type: "Respiratory Inpatients", id: "baa7d03d-c17d-4e8f-a008-1ff96f4ffa68", relation: "direct", excerpt: "Education covered <mark>pulmonary hypertension, anticoagulation therapy, and prevention of complications</mark>.", url: notesUrl },
+      vq: { title: "V/Q scan review and referral", created: "06 Jan 2026 · 11:30", author: "Dr Sade Olowoyeye · SpR", type: "Respiratory Medicine Inpatients", id: "24c4c68a-4c66-41a1-91c8-44f3a3f51ede", relation: "direct", excerpt: "The V/Q scan showed <mark>mismatched perfusion defects</mark>; tertiary pulmonary-hypertension referral for PEA assessment was planned.", url: notesUrl },
+      homeSafety: { title: "Mobility and Home Safety Assessment", created: "06 Jan 2026 · 13:00", author: "Joan Winifred Shaw · Therapist", type: "Therapies Inpatients", id: "8ff54cf2-ad64-4046-950f-90319b5c35d3", relation: "direct", excerpt: "Training covered short-distance walking with a <mark>wheeled walker</mark>, trip-hazard removal and bathroom grab bars.", url: notesUrl },
+      phReferral: { title: "Pulmonary-hypertension referral", created: "07 Jan 2026 · 12:00", author: "Dr Sade Olowoyeye · SpR", type: "Respiratory Inpatients", id: "7d1549c7-328e-4dde-bfff-156a367055db", relation: "direct", excerpt: "<mark>Referral sent to tertiary PH centre</mark> for management and pulmonary endarterectomy consideration; feedback was awaited.", url: notesUrl },
+      amwr8: { title: "Respiratory AMWR", created: "08 Jan 2026 · 09:00", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "02e77db9-897c-4003-a788-782963479696", relation: "direct", excerpt: "Hb was <mark>110 g/L</mark>; ferrous sulfate 200 mg BD and outpatient repeat haemoglobin were planned.", url: notesUrl },
+      selfInjection: { title: "Self-injection education", created: "08 Jan 2026 · 14:00", author: "Nurse Audrey Phyllis Gill", type: "Respiratory Medicine Inpatients", id: "cda05edc-45b1-453d-8056-6034d2097785", relation: "conflicts", excerpt: "The note describes <mark>post-discharge enoxaparin 40 mg OD</mark> self-administration and bleeding monitoring.", url: notesUrl },
+      amwr9: { title: "Respiratory AMWR", created: "09 Jan 2026 · 08:30", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "7f5c81a3-1be6-4487-b979-4e1deee4cacf", relation: "corroborates", excerpt: "Clinically stable on room air; <mark>rivaroxaban 20 mg OD</mark> was prescribed and four-week tertiary follow-up planned.", url: notesUrl },
+      homeExercise: { title: "Home Exercise Plan", created: "09 Jan 2026 · 10:30", author: "Joan Winifred Shaw · Therapist", type: "Physiotherapy Documentation", id: "db5a27a8-fbb0-497d-a369-59c58f8b69d4", relation: "direct", excerpt: "A personalised <mark>home exercise plan</mark> covered breathing, light aerobic activity, overexertion precautions, and urgent help for severe breathlessness or chest pain.", url: notesUrl },
+      nok: { title: "Next of kin contacted for discharge", created: "09 Jan 2026 · 12:00", author: "Nurse Audrey Phyllis Gill", type: "Respiratory Medicine Inpatients", id: "ac51d4b2-ed93-47d9-b87f-abe352c6f204", relation: "direct", excerpt: "Her brother <mark>Kwame Bonsu</mark> was contacted to confirm transport and home support.", url: notesUrl },
+      finalAmwr: { title: "Final respiratory AMWR", created: "10 Jan 2026 · 08:00", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "6758fabe-e6c4-4ad0-806f-7efa4566d435", relation: "direct", excerpt: "Comfortable, mobilising and SpO₂ 94% on room air. Discharge medicines were <mark>rivaroxaban, sildenafil and ferrous sulfate</mark>, with four-week tertiary follow-up and safety-netting.", url: notesUrl },
+      dischargeSummary: { title: "Discharge summary provided", created: "10 Jan 2026 · 09:30", author: "Nurse Audrey Phyllis Gill", type: "Respiratory Medicine Inpatients", id: "5205b118-03eb-46ff-8a3d-85a84f0fd0c8", relation: "corroborates", excerpt: "A detailed discharge summary and <mark>outpatient follow-up plan</mark> were provided, with pulmonary-hypertension support contacts.", url: notesUrl },
+      finalPhysio: { title: "Final breathing and mobility session", created: "10 Jan 2026 · 10:15", author: "Joan Winifred Shaw · Therapist", type: "Physiotherapy Documentation", id: "13847185-3fb7-4040-85e6-88bb14ac2394", relation: "corroborates", excerpt: "Final therapy reinforced breathing, light mobilisation, energy conservation and the <mark>home exercise programme</mark>, with outpatient physiotherapy follow-up.", url: notesUrl }
+    };
+
+    const claims = {
+      demographics: { title: "Patient identity and calculated age", description: "Age in the patient header is calculated from DOB 17 February 1980 at the viewing date. She was 45 on admission on 3 January 2026. The undated stored age of 43 is not used as a current or episode age.", sources: ["patients", "admission"], summary: "2 linked records · age calculated from DOB", sourceRelations: { patients: "direct", admission: "context" } },
+      presentation: { title: "Presentation and admission", description: "ED and clerking records describe two weeks of progressive exertional breathlessness with hypoxia, tachycardia and borderline hypotension, leading to Respiratory HDU admission.", sources: ["triage", "edDepart", "clerking"], summary: "3 linked notes · acute presentation" },
+      baseline: { title: "Home, work and functional baseline", description: "The ED summary and clerking record describe a school teacher living alone and independent with ADLs; her brother later supported discharge arrangements.", sources: ["edDepart", "clerking", "nok"], summary: "3 linked notes · baseline and support" },
+      current_status: { title: "Last documented clinical and functional status", description: "The final medical, nursing and therapy notes are grouped to show the last bedside assessment, discharge communication and functional plan. They describe status on 10 January 2026, not the patient's current condition today.", sources: ["finalAmwr", "dischargeSummary", "finalPhysio"], summary: "3 linked notes · last documented 10 Jan" },
+      background: { title: "Documented history at admission", description: "Hypertension, asthma and nut allergy recur in the admission records. The patient reported no current medicines; this episode does not contain an authoritative longitudinal medication history.", sources: ["triage", "edDepart", "clerking"], summary: "3 linked notes · admission history" },
+      record_context: { title: "Documentation differences and data limitations", description: "This bundle shows the changing anticoagulation accounts and the missing renal and weight values cited for dosing. These are presented as record context rather than tasks for the clinician.", sources: ["ptwr", "anticoagPharm", "selfInjection", "finalAmwr"], summary: "4 linked records · contextual differences", sourceRelations: { finalAmwr: "direct", ptwr: "conflicts", selfInjection: "conflicts" } },
+      cteph: { title: "Confirmed chronic thromboembolic pulmonary hypertension", description: "CTPA, echocardiography and V/Q documentation support chronic thromboembolic disease with severe pulmonary hypertension, right-ventricular strain and mismatched perfusion defects.", sources: ["gpCtp", "cardio", "vq", "finalAmwr"], summary: "4 linked notes · imaging and clinical synthesis" },
+      anaemia: { title: "Mild anaemia and follow-up plan", description: "Later ward rounds document Hb 110 g/L, previously 120 g/L, initiation of ferrous sulfate and an outpatient repeat-haemoglobin plan.", sources: ["amwr8", "amwr9", "finalAmwr"], summary: "3 linked notes · repeat planned" },
+      hypertension: { title: "Hypertension history", description: "Hypertension is included in ED and clerking history, but no regular antihypertensive is named in the available admission notes.", sources: ["edDepart", "clerking"], summary: "2 linked notes · regular medicine not recorded" },
+      asthma: { title: "Asthma history", description: "Asthma is included in admission history. The ED review documents no wheeze, and no regular inhaler appears in the available episode.", sources: ["edDepart", "clerking"], summary: "2 linked notes · no regular inhaler recorded" },
+      therapy: { title: "Mobility, respiratory therapy and home plan", description: "Therapy documentation covers short-distance walking, a wheeled walker, home safety, breathing exercises, pacing, energy conservation and outpatient follow-up.", sources: ["homeSafety", "homeExercise", "finalPhysio"], summary: "3 linked notes · functional and home plan" },
+      allergy: { title: "Documented nut allergy", description: "Nut allergy is repeated in four clinical records. None supplies the reaction, severity or verification status, and no structured allergy record is present in this dataset.", sources: ["triage", "edDepart", "clerking", "cardio"], summary: "4 linked notes · reaction not recorded" },
+      discharge_meds: { title: "Last medical discharge medication plan", description: "The final medical note lists rivaroxaban, sildenafil and ferrous sulfate. Earlier notes corroborate these medicines, but the dataset contains no medication order, MAR, dispensing record or reconciliation timestamp.", sources: ["finalAmwr", "amwr8", "cardio"], summary: "3 linked notes · not an authoritative medication list", sourceRelations: { finalAmwr: "direct", amwr8: "corroborates", cardio: "context" } },
+      anticoag_initial: { title: "Initial therapeutic enoxaparin", description: "The ED summary and medical clerking document therapeutic-dose enoxaparin at admission.", sources: ["edDepart", "clerking"], summary: "2 linked notes · initial anticoagulation" },
+      anticoag_apixaban: { title: "Early consultant apixaban plan", description: "The first consultant ward round documents apixaban 10 mg twice daily for seven days then 5 mg twice daily, with LMWH until initiation.", sources: ["ptwr"], summary: "1 direct source · early plan" },
+      anticoag_rivaroxaban: { title: "Subsequent rivaroxaban documentation", description: "Pharmacy and later medical notes use rivaroxaban. The final note specifies 15 mg twice daily for three weeks followed by 20 mg once daily.", sources: ["anticoagPharm", "amwr9", "finalAmwr"], summary: "3 linked notes · latest medical plan" },
+      anticoag_enoxaparin: { title: "Post-discharge enoxaparin education", description: "A later nursing education note separately describes enoxaparin 40 mg once daily after discharge, which differs from the final medical rivaroxaban plan.", sources: ["selfInjection"], summary: "1 direct source · different account" },
+      furosemide: { title: "Furosemide documentation", description: "Furosemide 40 mg once daily was started for fluid retention and repeated in early plans. The final medical discharge list names other medicines but does not mention furosemide.", sources: ["amwr4", "amwr5", "cardio", "finalAmwr"], summary: "4 linked notes · final status not stated", sourceRelations: { finalAmwr: "context" } },
+      patient_education: { title: "Education and safety netting", description: "The notes document pulmonary-hypertension and anticoagulation education, bleeding precautions, breathing exercises, pacing and urgent help for severe breathlessness or chest pain.", sources: ["education", "selfInjection", "homeExercise"], summary: "3 linked notes · education and escalation advice" },
+      investigations: { title: "Key investigation findings", description: "This bundle links the CTPA, echo, V/Q and blood-review documentation used in the summary. It also shows the persistently elevated NT-proBNP and lack of acute infection in the reviewed bloods.", sources: ["gpCtp", "cardio", "vq", "bloodReview"], summary: "4 linked notes · imaging and laboratory context" },
+      support: { title: "Discharge support", description: "The only explicit informal-support entry records her brother being contacted for transport and home support. No broader formal care package is visible.", sources: ["nok"], summary: "1 direct source · brother involved" },
+      followup: { title: "Specialist and outpatient follow-up", description: "A referral was sent to a tertiary pulmonary-hypertension centre for management and pulmonary endarterectomy assessment. The final medical note specifies four-week follow-up; nursing and therapy notes record discharge and outpatient plans.", sources: ["phReferral", "finalAmwr", "dischargeSummary"], summary: "3 linked notes · referral sent" },
+      gp_update: { title: "GP communication", description: "A brief entry records that the GP was updated after CTPA confirmation regarding the CTEPH diagnosis, hospital management and anticoagulation.", sources: ["gpCtp"], summary: "1 direct source · GP updated" },
+      renal_context: { title: "Renal function and body-weight context", description: "The pharmacist states that rivaroxaban dosing was adjusted for renal function and body weight. The underlying renal values and recorded weight do not appear in the available admission notes.", sources: ["anticoagPharm"], summary: "1 direct source · underlying values absent" }
+    };
+
+    const claimOrder = ["baseline", "current_status", "background", "record_context", "presentation", "cteph", "anaemia", "hypertension", "asthma", "therapy", "allergy", "discharge_meds", "anticoag_initial", "anticoag_apixaban", "anticoag_rivaroxaban", "anticoag_enoxaparin", "furosemide", "patient_education", "investigations", "support", "followup", "gp_update", "renal_context", "demographics"];
+    let activeClaim = null;
+
+    const relationLabel = { direct: "Direct support", corroborates: "Corroborates", conflicts: "Different account", context: "Context" };
+
+    const csvCache = new Map();
+    let activeSourceIndex = 0;
+    let sourceLoadToken = 0;
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeRegExp(value) {
+      return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function parseCsv(text) {
+      const matrix = [];
+      let row = [];
+      let field = "";
+      let quoted = false;
+
+      for (let index = 0; index < text.length; index += 1) {
+        const character = text[index];
+        if (character === '"') {
+          if (quoted && text[index + 1] === '"') {
+            field += '"';
+            index += 1;
+          } else {
+            quoted = !quoted;
+          }
+        } else if (character === "," && !quoted) {
+          row.push(field);
+          field = "";
+        } else if ((character === "\n" || character === "\r") && !quoted) {
+          if (character === "\r" && text[index + 1] === "\n") index += 1;
+          row.push(field);
+          if (row.some(value => value !== "")) matrix.push(row);
+          row = [];
+          field = "";
+        } else {
+          field += character;
+        }
+      }
+
+      if (field !== "" || row.length) {
+        row.push(field);
+        matrix.push(row);
+      }
+
+      const headers = (matrix.shift() || []).map(header => header.replace(/^\uFEFF/, ""));
+      return matrix.map(values => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""])));
+    }
+
+    async function loadCsv(url) {
+      if (!csvCache.has(url)) {
+        csvCache.set(url, fetch(url).then(response => {
+          if (!response.ok) throw new Error(`Source request failed (${response.status})`);
+          return response.text();
+        }).then(parseCsv));
+      }
+      return csvCache.get(url);
+    }
+
+    function structuredRecordText(record) {
+      return Object.entries(record)
+        .filter(([, value]) => value !== "")
+        .map(([field, value]) => `${field}\n${value}`)
+        .join("\n\n");
+    }
+
+    async function loadFullSource(source) {
+      if (source.type === "patients.csv") {
+        const rows = await loadCsv(rawPatientsUrl);
+        const personId = source.id.split(" ").at(-1);
+        const record = rows.find(row => row.person_id === personId);
+        if (!record) throw new Error("Patient row not found in the source file.");
+        return { text: structuredRecordText(record), title: "Complete patient demographics row", subtitle: "patients.csv · synthetic structured record" };
+      }
+
+      if (source.type === "admissions.csv") {
+        const rows = await loadCsv(rawAdmissionsUrl);
+        const record = rows.find(row => row.admission_id === source.id);
+        if (!record) throw new Error("Admission row not found in the source file.");
+        return { text: structuredRecordText(record), title: "Complete admission row", subtitle: "admissions.csv · synthetic structured record" };
+      }
+
+      const rows = await loadCsv(rawNotesUrl);
+      const record = rows.find(row => row.clinical_note_id === source.id);
+      if (!record) throw new Error("Clinical note not found in the source file.");
+      return {
+        text: record.clean_note_text,
+        title: record.note_subject || source.title,
+        subtitle: `${record.creation_timestamp} · ${record.note_type}`
+      };
+    }
+
+    function excerptHighlightTerms(source) {
+      const holder = document.createElement("div");
+      holder.innerHTML = source.excerpt;
+      return [...holder.querySelectorAll("mark")].map(mark => mark.textContent.trim()).filter(Boolean);
+    }
+
+    function highlightFullText(text, terms) {
+      const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(term => term.length > 2))]
+        .sort((left, right) => right.length - left.length);
+      if (!uniqueTerms.length) return { html: escapeHtml(text), count: 0 };
+
+      const escapedText = escapeHtml(text);
+      const escapedTerms = uniqueTerms.map(term => escapeRegExp(escapeHtml(term)));
+      const matcher = new RegExp(escapedTerms.join("|"), "gi");
+      let count = 0;
+      const html = escapedText.replace(matcher, match => {
+        count += 1;
+        return `<mark data-evidence-target="${count === 1 ? "first" : "additional"}">${match}</mark>`;
+      });
+      return { html, count };
+    }
+
+    function effectiveRelation(claim, sourceId) {
+      return claim.sourceRelations?.[sourceId] || sources[sourceId].relation;
+    }
+
+    const defaultEvidencePercent = 25;
+    const evidenceWidthStorageKey = "patient-summary-evidence-width";
+    const workspaceElement = document.getElementById("workspace");
+    const splitterElement = document.getElementById("pane-splitter");
+    let pendingEvidenceWidth = null;
+
+    function evidenceWidthBounds() {
+      const style = getComputedStyle(workspaceElement);
+      const horizontalPadding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const contentWidth = workspaceElement.clientWidth - horizontalPadding;
+      const splitterWidth = splitterElement.getBoundingClientRect().width || 16;
+      const minimumEvidence = Math.min(320, Math.max(240, contentWidth - 520 - splitterWidth));
+      const maximumEvidence = Math.max(minimumEvidence, Math.min(contentWidth * .6, contentWidth - 520 - splitterWidth));
+      return { contentWidth, minimumEvidence, maximumEvidence };
+    }
+
+    function setEvidenceWidth(width, persist = false) {
+      if (window.innerWidth <= 1050) return;
+      const bounds = evidenceWidthBounds();
+      const nextWidth = Math.max(bounds.minimumEvidence, Math.min(width, bounds.maximumEvidence));
+      const percent = Math.round((nextWidth / bounds.contentWidth) * 100);
+      pendingEvidenceWidth = nextWidth;
+      workspaceElement.style.setProperty("--evidence-width", `${nextWidth}px`);
+      splitterElement.setAttribute("aria-valuemin", String(Math.round((bounds.minimumEvidence / bounds.contentWidth) * 100)));
+      splitterElement.setAttribute("aria-valuemax", String(Math.round((bounds.maximumEvidence / bounds.contentWidth) * 100)));
+      splitterElement.setAttribute("aria-valuenow", String(percent));
+      splitterElement.setAttribute("aria-valuetext", `${percent}% source evidence, ${100 - percent}% patient summary`);
+      if (persist) localStorage.setItem(evidenceWidthStorageKey, String(percent));
+    }
+
+    function setEvidencePercent(percent, persist = false) {
+      const bounds = evidenceWidthBounds();
+      setEvidenceWidth(bounds.contentWidth * (percent / 100), persist);
+    }
+
+    function restoreEvidenceWidth() {
+      const storedPercent = Number(localStorage.getItem(evidenceWidthStorageKey));
+      setEvidencePercent(Number.isFinite(storedPercent) && storedPercent > 0 ? storedPercent : defaultEvidencePercent);
+    }
+
+    splitterElement.addEventListener("pointerdown", event => {
+      if (event.button !== 0 || window.innerWidth <= 1050) return;
+      splitterElement.setPointerCapture(event.pointerId);
+      document.body.classList.add("resizing-evidence");
+      event.preventDefault();
+    });
+
+    splitterElement.addEventListener("pointermove", event => {
+      if (!splitterElement.hasPointerCapture(event.pointerId)) return;
+      const workspaceRect = workspaceElement.getBoundingClientRect();
+      const rightPadding = parseFloat(getComputedStyle(workspaceElement).paddingRight);
+      setEvidenceWidth(workspaceRect.right - rightPadding - event.clientX);
+    });
+
+    function finishEvidenceResize(event) {
+      if (!splitterElement.hasPointerCapture(event.pointerId)) return;
+      splitterElement.releasePointerCapture(event.pointerId);
+      document.body.classList.remove("resizing-evidence");
+      if (pendingEvidenceWidth !== null) setEvidenceWidth(pendingEvidenceWidth, true);
+    }
+
+    splitterElement.addEventListener("pointerup", finishEvidenceResize);
+    splitterElement.addEventListener("pointercancel", finishEvidenceResize);
+    splitterElement.addEventListener("dblclick", () => setEvidencePercent(defaultEvidencePercent, true));
+    splitterElement.addEventListener("keydown", event => {
+      const bounds = evidenceWidthBounds();
+      const currentWidth = document.getElementById("source-evidence").getBoundingClientRect().width;
+      const step = bounds.contentWidth * .05;
+      let nextWidth = null;
+      if (event.key === "ArrowLeft") nextWidth = currentWidth + step;
+      if (event.key === "ArrowRight") nextWidth = currentWidth - step;
+      if (event.key === "Home") nextWidth = bounds.maximumEvidence;
+      if (event.key === "End") nextWidth = bounds.minimumEvidence;
+      if (nextWidth === null) return;
+      event.preventDefault();
+      setEvidenceWidth(nextWidth, true);
+    });
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 1050) restoreEvidenceWidth();
+    });
+
+    function setEvidenceVisible(visible) {
+      const workspace = document.getElementById("workspace");
+      const evidencePanel = document.getElementById("source-evidence");
+      const showButton = document.getElementById("show-evidence");
+      workspace.classList.toggle("evidence-closed", !visible);
+      evidencePanel.setAttribute("aria-hidden", String(!visible));
+      evidencePanel.toggleAttribute("inert", !visible);
+      showButton.setAttribute("aria-expanded", String(visible));
+      if (visible) requestAnimationFrame(() => evidencePanel.querySelector(".panel-top").focus?.());
+    }
+
+    async function showSourceDocument(claimId, sourceIndex) {
+      const claim = claims[claimId];
+      if (!claim) return;
+      activeSourceIndex = Math.max(0, Math.min(sourceIndex, claim.sources.length - 1));
+      const sourceId = claim.sources[activeSourceIndex];
+      const source = sources[sourceId];
+      const relation = effectiveRelation(claim, sourceId);
+      const loadToken = ++sourceLoadToken;
+
+      const picker = document.getElementById("source-picker");
+      if (picker) picker.value = String(activeSourceIndex);
+      const positionLabel = document.getElementById("source-position");
+      if (positionLabel) positionLabel.textContent = claim.sources.length === 1 ? "Source" : `Source ${activeSourceIndex + 1} of ${claim.sources.length}`;
+      document.getElementById("previous-source").disabled = activeSourceIndex === 0;
+      document.getElementById("next-source").disabled = activeSourceIndex === claim.sources.length - 1;
+      document.getElementById("full-source-document").innerHTML = '<div class="source-loading">Loading the complete synthetic source note…</div>';
+
+      try {
+        const record = await loadFullSource(source);
+        if (loadToken !== sourceLoadToken || activeClaim !== claimId) return;
+        const terms = [...(claimHighlightTerms[claimId] || []), ...excerptHighlightTerms(source)];
+        const highlighted = highlightFullText(record.text, terms);
+
+        document.getElementById("full-source-document").innerHTML = `
+          <article class="full-source-shell">
+            <header class="full-source-toolbar">
+              <div><h4>${escapeHtml(record.title)}</h4><p>${escapeHtml(record.subtitle)} · ${escapeHtml(source.author)}</p></div>
+              <span class="relation ${relation}">${relationLabel[relation]}</span>
+            </header>
+            <div class="full-source-id">Source ID: ${escapeHtml(source.id)}</div>
+            <pre class="full-source-note">${highlighted.html}</pre>
+            <footer class="full-source-actions">
+              <span>${highlighted.count ? `${highlighted.count} relevant passage${highlighted.count === 1 ? "" : "s"} highlighted in the complete note` : "No exact phrase match; complete note shown from the beginning"}</span>
+              <a class="source-link" href="${source.url}" target="_blank" rel="noreferrer">Open dataset file ↗</a>
+            </footer>
+          </article>`;
+
+        requestAnimationFrame(() => {
+          const scroller = document.getElementById("evidence-content");
+          const target = scroller.querySelector('[data-evidence-target="first"]');
+          if (!target) return;
+          const scrollerRect = scroller.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
+          scroller.scrollTop += targetRect.top - scrollerRect.top - Math.min(190, scroller.clientHeight * .25);
+        });
+      } catch (error) {
+        if (loadToken !== sourceLoadToken) return;
+        document.getElementById("full-source-document").innerHTML = `
+          <div class="source-error"><strong>The complete note could not be loaded.</strong><br>${escapeHtml(error.message)}<br><br><a class="source-link" href="${source.url}" target="_blank" rel="noreferrer">Open the primary dataset file ↗</a></div>`;
+      }
+    }
+
+    function selectClaim(id, scrollPanel = false) {
+      if (!claims[id]) return;
+      setEvidenceVisible(true);
+      activeClaim = id;
+      document.getElementById("previous-claim").disabled = false;
+      document.getElementById("next-claim").disabled = false;
+      document.querySelectorAll(".claim.active").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(`[data-claim="${id}"]`).forEach(el => el.classList.add("active"));
+
+      const claim = claims[id];
+      document.getElementById("evidence-subtitle").textContent = claim.summary;
+      document.getElementById("evidence-content").innerHTML = `
+        <div class="evidence-kicker"><span>Selected summary statement</span><span class="review-state">Source context</span></div>
+        <h3 class="evidence-title">${claim.title}</h3>
+        <p class="evidence-description">${claim.description}</p>
+        <div class="source-summary"><strong>Full-note context view</strong>The complete source document is shown below and automatically positioned at highlighted evidence. Use the source selector to inspect every document linked to this line.</div>
+        <div class="source-switcher">
+          <div class="source-switcher-row">
+            <label for="source-picker" id="source-position">${claim.sources.length === 1 ? "Source" : `Source 1 of ${claim.sources.length}`}</label>
+            <select class="source-picker" id="source-picker" aria-label="Choose a source document">
+              ${claim.sources.map((sourceId, index) => {
+                const source = sources[sourceId];
+                const relation = effectiveRelation(claim, sourceId);
+                return `<option value="${index}">${index + 1}. ${relationLabel[relation]} — ${escapeHtml(source.title)} — ${escapeHtml(source.created)}</option>`;
+              }).join("")}
+            </select>
+            <button class="source-step" type="button" id="previous-source" aria-label="Previous source">‹</button>
+            <button class="source-step" type="button" id="next-source" aria-label="Next source">›</button>
+          </div>
+          <p class="source-switcher-help">Complete note shown · automatically scrolled to highlighted evidence</p>
+        </div>
+        <div id="full-source-document"><div class="source-loading">Loading the complete synthetic source note…</div></div>`;
+
+      document.getElementById("source-picker").addEventListener("change", event => showSourceDocument(id, Number(event.target.value)));
+      document.getElementById("previous-source").addEventListener("click", () => showSourceDocument(id, activeSourceIndex - 1));
+      document.getElementById("next-source").addEventListener("click", () => showSourceDocument(id, activeSourceIndex + 1));
+      showSourceDocument(id, 0);
+
+      if (scrollPanel && window.innerWidth <= 1050) document.querySelector(".evidence-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    document.addEventListener("click", event => {
+      const claimButton = event.target.closest("[data-claim]");
+      if (claimButton) selectClaim(claimButton.dataset.claim, true);
+
+      const tab = event.target.closest("[data-tab]");
+      if (tab) {
+        document.querySelectorAll(".tab").forEach(item => item.setAttribute("aria-selected", "false"));
+        tab.setAttribute("aria-selected", "true");
+        document.querySelectorAll(".summary-view, .ledger, .coverage").forEach(view => view.classList.remove("active"));
+        document.getElementById(tab.dataset.tab).classList.add("active");
+      }
+    });
+
+    document.getElementById("previous-claim").addEventListener("click", () => {
+      if (!activeClaim) return;
+      const current = claimOrder.indexOf(activeClaim);
+      selectClaim(claimOrder[(current - 1 + claimOrder.length) % claimOrder.length]);
+    });
+
+    document.getElementById("next-claim").addEventListener("click", () => {
+      if (!activeClaim) return;
+      const current = claimOrder.indexOf(activeClaim);
+      selectClaim(claimOrder[(current + 1) % claimOrder.length]);
+    });
+
+    document.getElementById("hide-evidence").addEventListener("click", () => {
+      setEvidenceVisible(false);
+      document.getElementById("show-evidence").focus();
+    });
+
+    document.getElementById("show-evidence").addEventListener("click", () => {
+      setEvidenceVisible(true);
+      document.getElementById("hide-evidence").focus();
+    });
+
+    restoreEvidenceWidth();
+  </script>
+</body>
+</html>
