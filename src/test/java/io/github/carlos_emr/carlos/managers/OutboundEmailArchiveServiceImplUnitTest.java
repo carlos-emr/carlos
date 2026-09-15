@@ -1323,6 +1323,36 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(readAuditService);
     }
 
+    @Test
+    void shouldRejectGrowingFile_afterReadingExpectedBytes(@TempDir Path documentDir) throws Exception {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveArtifactRead(archive);
+        Path path = documentDir.resolve(archive.getDocument().getDocfilename());
+        Files.write(path, RFC822_BYTES);
+        java.nio.channels.FileChannel channel = mock(java.nio.channels.FileChannel.class);
+        when(channel.size()).thenReturn((long) RFC822_BYTES.length);
+        java.util.concurrent.atomic.AtomicInteger reads = new java.util.concurrent.atomic.AtomicInteger();
+        when(channel.read(any(java.nio.ByteBuffer.class))).thenAnswer(invocation -> {
+            java.nio.ByteBuffer buffer = invocation.getArgument(0);
+            if (reads.getAndIncrement() == 0) {
+                buffer.put(RFC822_BYTES);
+                return RFC822_BYTES.length;
+            }
+            buffer.put((byte) 1);
+            return 1;
+        });
+        try (var channels = org.mockito.Mockito.mockStatic(java.nio.channels.FileChannel.class)) {
+            channels.when(() -> java.nio.channels.FileChannel.open(path,
+                    java.nio.file.StandardOpenOption.READ, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                    .thenReturn(channel);
+            withDocumentDir(documentDir, () -> assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                    .isInstanceOf(IOException.class).hasMessage("Archived artifact size changed while reading"));
+        }
+        verifyIntegrityFailureAudit();
+        verify(readAuditService, never()).record(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.ARTIFACT_READ);
+    }
+
     private void allowArchiveRead() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)).thenReturn(true);
     }
