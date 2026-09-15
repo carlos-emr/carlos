@@ -61,7 +61,7 @@ class APISendGridEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should prepare SendGrid JSON and matching attachment metadata from one byte snapshot")
-    void shouldPreparePayloadAndMatchingAttachmentMetadata() throws Exception {
+    void shouldPreparePayloadAndMatchingAttachmentMetadata_fromSameSnapshot() throws Exception {
         byte[] attachmentBytes = "clinical-pdf-content".getBytes(StandardCharsets.UTF_8);
         Path attachmentPath = tempDir.resolve("clinical.pdf");
         Files.write(attachmentPath, attachmentBytes);
@@ -101,7 +101,7 @@ class APISendGridEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject missing API key before producing an archive artifact")
-    void shouldRejectMissingApiKeyBeforeProducingArtifact() {
+    void shouldRejectMissingApiKey_beforeProducingArtifact() {
         EmailConfig emailConfig = validConfig();
         emailConfig.setConfigDetailsJson("{\"end_point\":\"https://203.0.113.10/v3/mail/send\"}");
         APISendGridEmailSender sender = sender(emailConfig, List.of());
@@ -116,7 +116,7 @@ class APISendGridEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject a private endpoint before producing an archive artifact")
-    void shouldRejectPrivateEndpointBeforeProducingArtifact() {
+    void shouldRejectPrivateEndpoint_beforeProducingArtifact() {
         EmailConfig emailConfig = validConfig();
         emailConfig.setConfigDetailsJson(
                 "{\"api_key\":\"test-key\",\"end_point\":\"https://127.0.0.1/v3/mail/send\"}");
@@ -125,6 +125,28 @@ class APISendGridEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(sender::prepareArtifactBytes)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("endpoint was rejected");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1, 2})
+    void shouldRejectOversizedAttachments_beforePreparingArtifact(int attachmentCount) throws Exception {
+        Path source = tempDir.resolve("large.pdf");
+        long bytes = attachmentCount == 1 ? 51L * 1024 * 1024 : 20L * 1024 * 1024;
+        try (var file = new java.io.RandomAccessFile(source.toFile(), "rw")) {
+            file.setLength(bytes);
+        }
+        var attachment = new EmailAttachment("large.pdf", source.toString(), DocumentType.DOC, 77);
+        var sender = sender(validConfig(), java.util.Collections.nCopies(attachmentCount, attachment));
+        assertThatThrownBy(sender::prepareArtifactBytes).isInstanceOf(EmailSendingException.class);
+        assertThatThrownBy(sender::describePreparedAttachments).isInstanceOf(EmailSendingException.class);
+    }
+
+    @Test
+    void shouldRejectOversizedJson_whenEscapingExpandsBody() {
+        var sender = new APISendGridEmailSender(loggedInInfo, validConfig(),
+                new String[]{"patient@example.test"}, "Subject", "\u0001".repeat(9 * 1024 * 1024), List.of());
+        assertThatThrownBy(sender::prepareArtifactBytes).isInstanceOf(EmailSendingException.class);
+        assertThatThrownBy(sender::describePreparedAttachments).isInstanceOf(EmailSendingException.class);
     }
 
     private APISendGridEmailSender sender(EmailConfig emailConfig, List<EmailAttachment> attachments) {

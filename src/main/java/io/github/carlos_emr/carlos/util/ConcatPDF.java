@@ -86,6 +86,19 @@ public class ConcatPDF {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static int concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream) {
+        return concat(fileOrInputStreamPdfList, outputStream, false);
+    }
+
+    /**
+     * Merges required clinical sections. Any unreadable input fails before writing the destination,
+     * so a chart or lab report cannot look complete while omitting a requested attachment.
+     */
+    public static void concatRequired(List<Object> inputs, OutputStream outputStream) {
+        concat(inputs, outputStream, true);
+    }
+
+    private static int concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream,
+                              boolean requireAll) {
         PDFMergerUtility pdfMerger = new PDFMergerUtility();
         PDDocument documentReader;
         int totalFiles = fileOrInputStreamPdfList.size();
@@ -109,7 +122,7 @@ public class ConcatPDF {
                 // SecurityException covers PathValidationUtils rejecting a malformed entry path; skip that
                 // entry and continue merging the rest rather than aborting the whole concatenation.
                 skippedFiles++;
-                MiscUtils.getLogger().error("Failed to open file for concatenation: " + o, e);
+                MiscUtils.getLogger().error("Failed to open PDF input ({})", e.getClass().getSimpleName());
                 continue;
             }
 
@@ -124,7 +137,7 @@ public class ConcatPDF {
                 }
             } catch (IOException e) {
                 skippedFiles++;
-                MiscUtils.getLogger().error("Document could not be added to merge " + o, e);
+                MiscUtils.getLogger().error("PDF input could not be added to merge ({})", e.getClass().getSimpleName());
             }
         }
 
@@ -133,12 +146,17 @@ public class ConcatPDF {
                     skippedFiles, totalFiles);
         }
 
+        if (requireAll && skippedFiles > 0) {
+            // No response bytes have been written. Callers can still return a real error.
+            throw new IllegalStateException("Required PDF inputs could not be included");
+        }
+
         try {
             pdfMerger.setDestinationStream(outputStream);
             pdfMerger.mergeDocuments(null);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Document merge failed.", e);
-            throw new RuntimeException("PDF merge failed after processing " + totalFiles + " documents", e);
+            MiscUtils.getLogger().error("Document merge failed ({})", e.getClass().getSimpleName());
+            throw new RuntimeException("PDF merge failed after processing " + totalFiles + " documents");
         }
 
         // Return how many inputs were skipped (bad path / unreadable / corrupt) so direct-response

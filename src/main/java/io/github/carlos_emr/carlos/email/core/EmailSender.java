@@ -158,9 +158,8 @@ public class EmailSender {
     /**
      * Resolves the configured transport, or refuses the send.
      *
-     * <p>This is the single place that decides which transports exist. Both {@link #send()} and
-     * {@link #prepareOutboundArchive(EmailLog)} route through it, so "can this configuration
-     * send?" and "can this configuration be archived?" cannot give different answers — every
+     * <p>This is the single place that decides which transports exist.
+     * {@link #prepareOutboundArchive(EmailLog)} resolves a transport here before sending; every
      * transport reachable here is an {@link OutboundEmailTransport} and therefore describes its
      * own archive artifact.</p>
      *
@@ -194,7 +193,7 @@ public class EmailSender {
      * <p>There is no "is archiving supported?" question to ask first. Any configuration that can
      * send resolves to an {@link OutboundEmailTransport} through {@link #createTransport()}, and
      * every such transport supplies its own artifact; a configuration that resolves to nothing
-     * throws here exactly as it would from {@link #send()}.</p>
+     * throws here before transport.</p>
      *
      * @param emailLog persisted email log that owns the archive artifact
      * @return archive request containing the transport's artifact and attachment metadata
@@ -251,9 +250,16 @@ public class EmailSender {
      * Releases a prepared payload when archiving or another pre-send step fails.
      */
     public void discardPrepared() {
-        if (preparedTransport != null) {
-            preparedTransport.discardPrepared();
-            preparedTransport = null;
+        OutboundEmailTransport helper = preparedTransport;
+        preparedTransport = null;
+        if (helper != null) {
+            try {
+                helper.discardPrepared();
+            } catch (RuntimeException cleanupFailure) {
+                // Cleanup cannot rewrite an already accepted delivery or hide its primary failure.
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                        "Prepared email cleanup failed; causeType={}", cleanupFailure.getClass().getSimpleName());
+            }
         }
     }
 

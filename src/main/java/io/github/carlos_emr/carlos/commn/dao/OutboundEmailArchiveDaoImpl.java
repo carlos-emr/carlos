@@ -23,11 +23,15 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
+import jakarta.persistence.Query;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Set;
+import java.util.Objects;
+import java.util.Collection;
 
 /**
  * JPA DAO implementation for durable outbound email archive records.
@@ -51,17 +55,101 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
     }
 
     @Override
+    public OutboundEmailArchive findForRead(Integer archiveId) {
+        if (archiveId == null) {
+            return null;
+        }
+        // Single text block rather than concatenated literals: the repo's SQL-safety hook treats
+        // any '+' inside createQuery(...) as an injection risk, and a constant-only concatenation
+        // is not worth an exception to that rule.
+        TypedQuery<OutboundEmailArchive> query = entityManager.createQuery("""
+                SELECT archive FROM OutboundEmailArchive archive
+                LEFT JOIN FETCH archive.demographic
+                LEFT JOIN FETCH archive.document
+                WHERE archive.id = :archiveId
+                """,
+                OutboundEmailArchive.class);
+        query.setParameter("archiveId", archiveId);
+        List<OutboundEmailArchive> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
     public OutboundEmailArchive findForUpdate(Integer archiveId) {
         if (archiveId == null) {
             return null;
         }
-        TypedQuery<OutboundEmailArchive> query = entityManager.createQuery(
-                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.id = :archiveId",
+        Query query = entityManager.createNativeQuery(
+                "SELECT * FROM outboundEmailArchive WHERE id = ?1 FOR UPDATE",
                 OutboundEmailArchive.class);
-        query.setParameter("archiveId", archiveId);
-        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        query.setParameter(1, archiveId);
         List<OutboundEmailArchive> rows = query.getResultList();
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        OutboundEmailArchive archive = rows.get(0);
+        // Native entity queries reuse an already-managed instance. Refresh with a
+        // locking read so an earlier snapshot cannot bypass a newly placed hold.
+        entityManager.refresh(archive, LockModeType.PESSIMISTIC_WRITE);
+        return archive;
+    }
+
+    @Override
+    public boolean existsByDocumentNo(Integer documentNo) {
+        if (documentNo == null) {
+            return false;
+        }
+        return !findExistingDocumentNos(Set.of(documentNo)).isEmpty();
+    }
+
+    @Override
+    public Set<Integer> findExistingDocumentNos(Collection<Integer> documentNos) {
+        if (documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        List<Integer> candidates = documentNos.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (candidates.isEmpty()) {
+            return Set.of();
+        }
+        TypedQuery<Integer> query = entityManager.createQuery("""
+                SELECT DISTINCT document.documentNo FROM Document document
+                WHERE document.documentNo IN :documentNos
+                  AND (EXISTS (SELECT archive.id FROM OutboundEmailArchive archive
+                               WHERE archive.document = document
+                                  OR archive.fileName = document.docfilename
+                                  OR archive.document.docfilename = document.docfilename)
+                    OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
+                               WHERE attachment.document = document
+                                  OR attachment.document.docfilename = document.docfilename))
+                """,
+                Integer.class);
+        query.setParameter("documentNos", candidates);
+        return Set.copyOf(query.getResultList());
+    }
+
+    @Override
+    public boolean existsByFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return false;
+        }
+        // Filename-only eDoc routes receive Document.docfilename (the generated stored basename).
+        // Do not match attachment.fileName here: it is a sender-facing display name, is not unique,
+        // and may not name a stored eDoc at all. Matching it would let one attachment called
+        // "referral.pdf" globally block unrelated legacy eDocs with that basename.
+        TypedQuery<Long> query = entityManager.createQuery("""
+                SELECT COUNT(archive) FROM OutboundEmailArchive archive
+                WHERE archive.fileName = :fileName
+                   OR archive.document.docfilename = :fileName
+                   OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
+                              WHERE attachment.archive = archive
+                                AND attachment.document.docfilename = :fileName)
+                """,
+                Long.class);
+        query.setParameter("fileName", fileName);
+        return query.getSingleResult() > 0L;
     }
 
     @Override
@@ -70,8 +158,7 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
             return null;
         }
         // Scalar projection on purpose. Dereferencing only the identifier of a @ManyToOne
-        // reads the FK column without a join, and selecting a scalar leaves the
-        // persistence context empty so findForUpdate still hydrates under its lock.
+        // reads the FK column without hydrating patient data before authorization.
         TypedQuery<Integer> query = entityManager.createQuery(
                 "SELECT archive.demographic.demographicNo FROM OutboundEmailArchive archive WHERE archive.id = :archiveId",
                 Integer.class);

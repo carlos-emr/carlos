@@ -21,6 +21,12 @@
  */
 package io.github.carlos_emr.carlos.email.core;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
+
+import static org.mockito.Mockito.mockConstruction;
+
+import static org.mockito.Mockito.doThrow;
+
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
@@ -86,6 +92,27 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
                 .thenAnswer(invocation -> Files.createTempFile(
                         tempDir, invocation.getArgument(0), invocation.getArgument(1)));
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+    }
+
+    @Test
+    void shouldKeepDeliveryAccepted_whenSnapshotCleanupThrows() throws Exception {
+        EmailConfig config = smtpEmailConfig();
+        EmailData data = emailData(List.of());
+        EmailLog log = new EmailLog(config, "provider@example.test", data.getRecipients(),
+                data.getSubject(), data.getBody(), EmailLog.EmailStatus.PENDING);
+        injectDependency(log, "id", 44);
+        try (var helpers = mockConstruction(SMTPEmailSender.class, (helper, context) -> {
+            when(helper.prepareArtifactBytes()).thenReturn("message".getBytes(StandardCharsets.UTF_8));
+            doThrow(new IllegalStateException("cleanup failure"))
+                    .when(helper).discardPrepared();
+        })) {
+            EmailSender sender = new EmailSender(loggedInInfo, config, data);
+            sender.prepareOutboundArchive(log);
+            assertThatCode(sender::sendPrepared).doesNotThrowAnyException();
+            verify(helpers.constructed().get(0)).sendPrepared();
+            assertThatThrownBy(sender::sendPrepared).isInstanceOf(EmailSendingException.class)
+                    .hasMessageContaining("must be prepared");
+        }
     }
 
     @Test
@@ -159,7 +186,7 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject repeated SMTP archive preparation")
-    void shouldRejectRepeatedSmtpArchivePreparation() throws Exception {
+    void shouldRejectSmtpArchivePreparation_whenAlreadyPrepared() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
         EmailData emailData = emailData(List.of());
         EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(),
@@ -281,7 +308,7 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject the legacy direct unarchived send entry point")
-    void shouldRejectLegacyDirectSend() {
+    void shouldRejectLegacyDirectSend_withoutArchiveOrchestration() {
         EmailSender emailSender = new EmailSender(loggedInInfo, smtpEmailConfig(), emailData(List.of()));
 
         assertThatThrownBy(emailSender::send)

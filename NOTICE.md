@@ -44,6 +44,17 @@ Dates are mostly taken from the copyright notices and may not reflect contributi
 All original copyright notices are preserved in source files as required by
 the GNU General Public License.
 
+## Data Attribution
+
+- Email PDF passphrase generation uses an English wordlist derived in part from
+  EFF's Long Wordlist for dice-generated passphrases, published by the
+  Electronic Frontier Foundation.
+  Source: https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt
+  License: Creative Commons Attribution 3.0 United States (CC BY 3.0 US),
+  https://creativecommons.org/licenses/by/3.0/us/
+  Local changes include filtering for lowercase ASCII words, removing
+  patient-unfriendly terms, and reducing the list to 4096 entries.
+
 ## Trademark Notice
 
 "OSCAR" is an official mark of McMaster University. Any references to
@@ -60,4 +71,3 @@ CARLOS has no organizational affiliation with:
 The presence of copyright notices from these organizations reflects the
 open-source heritage of the code and compliance with GPL requirements to
 preserve attribution, not any current organizational relationship.
-

@@ -1,0 +1,125 @@
+# GitHub Workflow: PR Type Labels
+#
+# Description:
+# Applies the `type: *` labels that .github/release.yml's generated release
+# notes categorize by, derived from the PR's Conventional Commits title
+# prefix. Without this, no automation labels PRs at all and every entry in
+# the generated notes falls into the "Other changes" catch-all.
+#
+# Mapping (title prefix -> label):
+#   feat            -> type: feature        perf     -> type: performance
+#   fix             -> type: bug            refactor -> type: refactor
+#   docs            -> type: documentation  test(s)  -> type: tests
+#   any(security)   -> type: security       (scope wins over the prefix)
+#   any(deps)/deps  -> type: dependencies   (Dependabot PRs included)
+#   chore/ci/build/style/update -> no label (lands under "Other changes")
+#
+# Security posture: pull_request_target runs with write permissions, so this
+# job deliberately performs NO checkout and executes NO code from the PR —
+# it only reads the PR title (handled as data, passed via env) and edits
+# labels through the gh CLI.
+#
+# License:
+# This GitHub Workflow file is part of the CARLOS EMR project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+#
+# Last Updated:
+# August 2026
+
+name: PR Type Labels
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+
+permissions:
+  pull-requests: write
+  issues: write  # label creation goes through the Issues API
+
+concurrency:
+  group: pr-type-labels-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Derive and apply the type label from the PR title
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          ACTOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+
+          # Conventional Commits: type(scope)!: subject — capture type+scope.
+          # (The regex lives in a variable: inline parens inside [[ =~ ]]
+          # are a bash parse error.)
+          cc_re='^([A-Za-z]+)(\(([^)]*)\))?!?:'
+          prefix=""; scope=""
+          if [[ "$TITLE" =~ $cc_re ]]; then
+            prefix="${BASH_REMATCH[1],,}"
+            scope="${BASH_REMATCH[3],,}"
+          fi
+
+          desired=""
+          case "$scope" in
+            security) desired="type: security" ;;
+            deps|dependencies) desired="type: dependencies" ;;
+          esac
+          if [ -z "$desired" ]; then
+            case "$prefix" in
+              feat)     desired="type: feature" ;;
+              fix)      desired="type: bug" ;;
+              perf)     desired="type: performance" ;;
+              refactor) desired="type: refactor" ;;
+              docs)     desired="type: documentation" ;;
+              test|tests) desired="type: tests" ;;
+              deps)     desired="type: dependencies" ;;
+            esac
+          fi
+          if [ -z "$desired" ] && [[ "${ACTOR,,}" == dependabot* ]]; then
+            desired="type: dependencies"
+          fi
+
+          # The managed set: exactly the `type: *` labels release.yml
+          # categorizes by. Stale managed labels are swapped out when a
+          # title edit changes the mapping; labels outside this set are
+          # never touched. `type: enhancement` is a legacy alias for
+          # `type: feature`; it remains managed only so stale uses are
+          # removed rather than propagated by the automation.
+          managed=("type: security" "type: feature" "type: enhancement" \
+                   "type: bug" "type: performance" "type: refactor" \
+                   "type: dependencies" "type: documentation" "type: tests")
+          current=$(gh pr view "$PR" --repo "$REPO" --json labels --jq '.labels[].name')
+
+          for label in "${managed[@]}"; do
+            if [ "$label" != "$desired" ] && grep -qxF "$label" <<< "$current"; then
+              gh pr edit "$PR" --repo "$REPO" --remove-label "$label"
+              echo "removed stale label: $label"
+            fi
+          done
+
+          if [ -z "$desired" ]; then
+            echo "title prefix '${prefix:-none}' maps to no type label — the PR lands under 'Other changes'"
+            exit 0
+          fi
+          if grep -qxF "$desired" <<< "$current"; then
+            echo "label already present: $desired"
+            exit 0
+          fi
+          # Create-if-missing, then apply: gh pr edit refuses unknown labels.
+          # The create tolerates losing a race with another PR's concurrent
+          # run (per-PR concurrency groups don't serialize across PRs; an
+          # already-exists failure is success for our purposes) — the
+          # add-label below still fails loudly if the label truly is absent.
+          if ! gh api --paginate "repos/$REPO/labels?per_page=100" --jq '.[].name' \
+              | grep -qxF "$desired"; then
+            gh label create "$desired" --repo "$REPO" --color BFD4F2 \
+              --description "Release-notes category (applied from the PR title prefix)" \
+              || echo "label create failed (likely created concurrently) — applying anyway"
+          fi
+          gh pr edit "$PR" --repo "$REPO" --add-label "$desired"
+          echo "applied: $desired"

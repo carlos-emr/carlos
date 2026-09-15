@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.utility.EmailSendingException;
  * satisfy this interface, and a transport that does not satisfy this interface cannot be returned
  * by the switch, so it cannot send at all.</p>
  *
- * <p>Implementations are single-use and stateful: {@link #prepareArtifactBytes()} captures the
+ * <p>Implementations hold at most one prepared payload: {@link #prepareArtifactBytes()} captures the
  * finalized payload, {@link #sendPrepared()} transmits that same captured payload rather than
  * rebuilding it, and {@link #discardPrepared()} releases it. Preparing twice is an error. The
  * archive-before-transport ordering that {@code EmailManager} relies on is only meaningful because
