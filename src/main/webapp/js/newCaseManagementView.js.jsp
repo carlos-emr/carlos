@@ -42,6 +42,7 @@
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+    <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
     var ctx;        //url context
