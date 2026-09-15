@@ -230,7 +230,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should archive SMTP email before sending prepared message")
-    void shouldArchiveSmtpEmailBeforeSendingPreparedMessage() throws Exception {
+    void shouldArchiveSmtpEmail_beforeSendingPreparedMessage() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
         when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
         doAnswer(invocation -> {
@@ -746,6 +746,94 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         EmailSender emailSender = new EmailSender(loggedInInfo, null, emailData());
 
         assertThat(emailSender.supportsOutboundArchive()).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("transportFailureCases")
+    void shouldRecordTransportOutcome_whenFailureStageVaries(String kind, String stage) throws Exception {
+        EmailConfig config = smtpEmailConfig();
+        config.setEmailProvider(EmailConfig.EmailProvider.LOCAL);
+        config.setConfigDetailsJson("{\"host\":\"127.0.0.1\",\"port\":\"2525\"}");
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(config);
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", 79);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        Exception cause = switch (kind) {
+            case "connection" -> new java.net.ConnectException("synthetic secret");
+            case "dns" -> new java.net.UnknownHostException("synthetic secret");
+            case "handshake" -> new javax.net.ssl.SSLHandshakeException("synthetic secret");
+            case "timeout" -> new java.net.SocketTimeoutException("synthetic secret");
+            case "tls-record" -> new javax.net.ssl.SSLException("synthetic secret");
+            case "mixed" -> new org.springframework.mail.MailSendException(java.util.Map.of(
+                    "first", new java.net.ConnectException("synthetic secret"),
+                    "second", new java.net.SocketTimeoutException("synthetic secret")));
+            case "partial" -> new jakarta.mail.SendFailedException("synthetic secret",
+                    new java.net.ConnectException("synthetic secret"),
+                    new jakarta.mail.Address[]{new jakarta.mail.internet.InternetAddress("accepted@example.test")},
+                    null, null);
+            default -> throw new IllegalArgumentException(kind);
+        };
+        boolean uncertain = !stage.equals("connect");
+        var message = new jakarta.mail.internet.MimeMessage(jakarta.mail.Session.getInstance(new java.util.Properties()));
+        var nested = new jakarta.mail.MessagingException("synthetic remote text", cause);
+        var wire = mock(jakarta.mail.Transport.class);
+        if (stage.equals("send")) {
+            doThrow(nested).when(wire).sendMessage(any(), any());
+        } else if (stage.equals("close")) {
+            doThrow(nested).when(wire).close();
+        }
+        // Exercise Spring's real connect/send/close exception reporting, rather than inventing wrappers.
+        var springSender = new org.springframework.mail.javamail.JavaMailSenderImpl() {
+            @Override
+            protected jakarta.mail.Transport connectTransport() throws jakarta.mail.MessagingException {
+                if (stage.equals("connect")) {
+                    throw nested;
+                }
+                return wire;
+            }
+        };
+        try (var transports = mockConstruction(org.springframework.mail.javamail.JavaMailSenderImpl.class,
+                (transport, context) -> {
+                    when(transport.createMimeMessage()).thenReturn(message);
+                    doAnswer(invocation -> {
+                        springSender.send((jakarta.mail.internet.MimeMessage) invocation.getArgument(0));
+                        return null;
+                    }).when(transport).send(any(jakarta.mail.internet.MimeMessage.class));
+                })) {
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.getTransportOutcome()).isEqualTo(uncertain
+                    ? io.github.carlos_emr.carlos.email.core.EmailSendResult.TransportOutcome.UNCONFIRMED
+                    : io.github.carlos_emr.carlos.email.core.EmailSendResult.TransportOutcome.FAILED);
+            assertThat(result.getEmailLog().getStatus()).isEqualTo(uncertain
+                    ? EmailLog.EmailStatus.PENDING : EmailLog.EmailStatus.FAILED);
+            assertThat(result.isTransportOutcomeRecorded()).isEqualTo(!uncertain);
+            var order = inOrder(outboundEmailArchiveService, transports.constructed().get(0));
+            order.verify(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+            order.verify(transports.constructed().get(0)).send(message);
+            if (uncertain) {
+                verify(emailLogDao, never()).transitionEmailStatus(any(), any(), eq(EmailLog.EmailStatus.FAILED), any(), any());
+            } else {
+                String category = switch (kind) {
+                    case "connection" -> "connection failure";
+                    case "dns" -> "host lookup failure";
+                    case "handshake" -> "TLS negotiation failure";
+                    case "timeout" -> "network timeout";
+                    default -> "I/O failure";
+                };
+                assertThat(result.getEmailLog().getErrorMessage()).isEqualTo("Failed to send email (" + category + ")");
+                verify(emailLogDao).transitionEmailStatus(eq(79), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (" + category + ")"), any());
+            }
+        }
+    }
+
+    private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> transportFailureCases() {
+        return java.util.stream.Stream.of("connection", "dns", "handshake", "timeout", "tls-record", "partial", "mixed")
+                .flatMap(kind -> java.util.stream.Stream.of("connect", "send", "close")
+                        .filter(stage -> !stage.equals("connect") || !(kind.equals("partial") || kind.equals("mixed")))
+                        .map(stage -> org.junit.jupiter.params.provider.Arguments.of(kind, stage)));
     }
 
     private EmailData emailData() {

@@ -21,7 +21,10 @@ package io.github.carlos_emr.carlos.email.helpers;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.mockito.MockedStatic;
+import org.junit.jupiter.api.AfterEach;
+import static org.mockito.Mockito.mockStatic;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.BufferedReader;
@@ -51,21 +54,31 @@ import static org.mockito.Mockito.when;
  * @since 2026-09-15
  */
 @Tag("integration")
-class SMTPEmailSenderTransportIntegrationTest extends CarlosUnitTestBase {
+class SMTPEmailSenderTransportIntegrationTest {
+    private MockedStatic<SpringUtils> springUtils;
     private LoggedInInfo caller;
 
     @BeforeEach
     void setUp() {
+        springUtils = mockStatic(SpringUtils.class);
         caller = mock(LoggedInInfo.class);
-        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
         when(security.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
-        createAndRegisterMock(JavaMailSender.class);
-        createAndRegisterMock(NioFileManager.class);
+        springUtils.when(() -> SpringUtils.getBean(JavaMailSender.class)).thenReturn(mock(JavaMailSender.class));
+        springUtils.when(() -> SpringUtils.getBean(NioFileManager.class)).thenReturn(mock(NioFileManager.class));
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (springUtils != null) {
+            springUtils.close();
+        }
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void shouldPreservePreparedMimeBytes_andReportMissingAcknowledgement(boolean dropAcknowledgement) throws Exception {
+    void shouldPreservePreparedMimeBytes_whenAcknowledgementVaries(boolean dropAcknowledgement) throws Exception {
         try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
             receiver.setSoTimeout(10_000);
             CompletableFuture<byte[]> received = new CompletableFuture<>();

@@ -823,8 +823,8 @@ public class NioFileManagerImpl implements NioFileManager {
                             PosixFilePermission.OWNER_READ,
                             PosixFilePermission.OWNER_WRITE)));
         } catch (UnsupportedOperationException e) {
-            log.debug("POSIX permissions unsupported for managed temp file; using platform defaults");
-            return Files.createTempFile(tempRoot, validatedPrefix, validatedSuffix);
+            // Never create a PHI-bearing snapshot with unverified inherited permissions.
+            throw new IOException("Owner-only temporary files require POSIX permission support", e);
         }
     }
 

@@ -137,7 +137,9 @@ snapshots, and commits the archive before opening SMTP transport. It suspends a 
 database transaction while sending, so a later caller rollback cannot erase the archive
 of a message already handed to SMTP. Always call the Spring-managed `EmailManager`.
 The total finalized MIME message is limited to 50 MiB; attachment encoding adds overhead.
-Oversized preparation fails before archive creation or transport.
+Oversized preparation fails before archive creation or transport. SMTP snapshots require
+a filesystem supporting POSIX owner-only permissions; unsupported filesystems fail
+before sensitive snapshot contents are written.
 
 The archived `.eml` contains the attachment bytes actually prepared for sending, even
 if their source files subsequently change. Attachment metadata records provenance and

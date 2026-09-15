@@ -236,12 +236,28 @@ public class SMTPEmailSender {
         } catch (MailAuthenticationException | MailPreparationException e) {
             throw new EmailSendingException("SMTP failed before accepting the message.", e);
         } catch (Exception e) {
+            if (isDefinitelyUnsent(e)) {
+                throw new EmailSendingException("SMTP failed before accepting the message.", e);
+            }
             // A lost SMTP acknowledgement cannot prove non-delivery; do not invite a duplicate.
             throw new EmailSendingException(
                     "SMTP transport did not confirm whether the message was accepted.", e, true);
         } finally {
             discardPreparedMessage();
         }
+    }
+
+    private boolean isDefinitelyUnsent(Exception failure) {
+        if (!(failure instanceof org.springframework.mail.MailSendException sendFailure)) {
+            return false;
+        }
+        // This sender dispatches exactly one message. Spring's connectTransport failure reports
+        // the same exception as both the top-level cause and that message's failure. Failures
+        // during DATA have no top-level cause; closing an accepted connection has no failed message.
+        // Do not infer the stage from a TLS/timeout exception type or from remote diagnostic text.
+        Exception[] messageFailures = sendFailure.getMessageExceptions();
+        return sendFailure.getCause() != null && messageFailures.length == 1
+                && messageFailures[0] == sendFailure.getCause();
     }
 
     /**

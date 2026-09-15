@@ -179,7 +179,7 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject repeated SMTP archive preparation")
-    void shouldRejectRepeatedSmtpArchivePreparation() throws Exception {
+    void shouldRejectSmtpArchivePreparation_whenAlreadyPrepared() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
         EmailData emailData = emailData(List.of());
         EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(),

@@ -113,7 +113,7 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(longs = {40L * 1024 * 1024, SMTPEmailSender.MAX_PREPARED_MESSAGE_BYTES + 1})
-    void shouldRejectOversizedMessage_andRemoveItsSnapshot(long attachmentBytes) throws Exception {
+    void shouldRejectOversizedMessage_whenPreparingSnapshot(long attachmentBytes) throws Exception {
         Path source = tempDir.resolve("large.bin");
         try (var channel = java.nio.channels.FileChannel.open(source,
                 java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE)) {
@@ -237,43 +237,15 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
         return null;
     }
 
-    @Test
-    @DisplayName("should fail with sending exception when required SMTP config field is absent")
-    void shouldFailWithSendingException_whenRequiredSmtpConfigFieldIsAbsent() {
-        // A durable archive artifact is written between preparation and transport, so a config that
-        // could never have sent must fail here rather than raise a raw NPE past the caller's
-        // EmailSendingException handling.
-        SMTPEmailSender sender = senderWithConfigJson("{\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}");
-
-        assertThatThrownBy(sender::prepareMessageBytes)
-                .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("Invalid credentials configured for");
-    }
-
-    @Test
-    @DisplayName("should fail with sending exception when required SMTP config field is blank")
-    void shouldFailWithSendingException_whenRequiredSmtpConfigFieldIsBlank() {
-        SMTPEmailSender sender = senderWithConfigJson("{\"host\":\"  \",\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}");
-
-        assertThatThrownBy(sender::prepareMessageBytes)
-                .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("Invalid credentials configured for");
-    }
-
-    @Test
-    @DisplayName("should fail with sending exception when SMTP port is not a valid port number")
-    void shouldFailWithSendingException_whenSmtpPortIsNotAValidPortNumber() {
-        SMTPEmailSender sender = senderWithConfigJson("{\"host\":\"smtp.example.test\",\"port\":\"not-a-port\",\"username\":\"user\",\"password\":\"secret\"}");
-
-        assertThatThrownBy(sender::prepareMessageBytes)
-                .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("Invalid credentials configured for");
-    }
-
-    @Test
-    @DisplayName("should fail with sending exception when SMTP port is out of range")
-    void shouldFailWithSendingException_whenSmtpPortIsOutOfRange() {
-        SMTPEmailSender sender = senderWithConfigJson("{\"host\":\"smtp.example.test\",\"port\":\"70000\",\"username\":\"user\",\"password\":\"secret\"}");
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}",
+            "{\"host\":\"  \",\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}",
+            "{\"host\":\"smtp.example.test\",\"port\":\"not-a-port\",\"username\":\"user\",\"password\":\"secret\"}",
+            "{\"host\":\"smtp.example.test\",\"port\":\"70000\",\"username\":\"user\",\"password\":\"secret\"}"
+    })
+    void shouldRejectPreparation_whenSmtpConfigurationIsInvalid(String json) {
+        SMTPEmailSender sender = senderWithConfigJson(json);
 
         assertThatThrownBy(sender::prepareMessageBytes)
                 .isInstanceOf(EmailSendingException.class)

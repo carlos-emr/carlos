@@ -355,6 +355,9 @@ public class EmailManager {
         // MessagingException and MailSendException are handled in
         // genericDiagnosticCategoryFor, not here: they name a layer, not a fault, and
         // matching them at this point would hide the specific cause they wrap.
+        if (failure instanceof javax.net.ssl.SSLHandshakeException) {
+            return "TLS negotiation failure";
+        }
         if (failure instanceof IOException) {
             return "I/O failure";
         }

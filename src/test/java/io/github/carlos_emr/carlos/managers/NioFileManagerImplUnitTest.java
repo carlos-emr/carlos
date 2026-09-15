@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
@@ -753,6 +754,23 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     void shouldRejectManagedTempFile_whenSuffixContainsPathComponents(String suffix) {
         assertThatThrownBy(() -> nioFileManager.createManagedTempFile("smtp-", suffix))
                 .isInstanceOf(io.github.carlos_emr.carlos.utility.FileValidationException.class);
+    }
+
+    @Test
+    void shouldRefuseManagedTempFile_whenPrivatePermissionsAreUnsupported() {
+        try (var files = mockStatic(Files.class, invocation -> {
+            if (invocation.getMethod().getName().equals("createTempFile")) {
+                throw new UnsupportedOperationException("synthetic non-POSIX filesystem");
+            }
+            return invocation.callRealMethod();
+        })) {
+            assertThatThrownBy(() -> nioFileManager.createManagedTempFile("smtp-", ".tmp"))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Owner-only temporary files require POSIX")
+                    .hasCauseInstanceOf(UnsupportedOperationException.class);
+            files.verify(() -> Files.createTempFile(any(Path.class), anyString(), anyString(),
+                    any(java.nio.file.attribute.FileAttribute[].class)));
+        }
     }
 
     private static Path createApplicationTempDirectory(String prefix) throws IOException {
