@@ -63,8 +63,8 @@ class EmailNoteUtilUnitTest {
         String note = noteUtil(emailLog).createNote();
 
         assertThat(note)
-                .contains("Use the separately provided clue", "Attached Message (message.pdf)")
-                .doesNotContain("unique-pdf-password", "with password");
+                .contains("password was delivered separately", "Attached Message (message.pdf encrypted)")
+                .doesNotContain("unique-pdf-password", "with password", "Use the separately provided clue");
     }
 
     @Test

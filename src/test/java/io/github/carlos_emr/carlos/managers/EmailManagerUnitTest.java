@@ -102,6 +102,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         originalKey = EncryptionKeyTestSupport.seedFreshKey();
         emailConfigDao = mock(EmailConfigDaoImpl.class);
         emailLogDao = mock(EmailLogDaoImpl.class);
+        when(emailLogDao.transitionEmailStatus(any(), any(), any(), any(), any())).thenReturn(1);
         demographicManager = mock(DemographicManager.class);
         providerManager = mock(ProviderManager2.class);
         securityInfoManager = mock(SecurityInfoManager.class);
@@ -136,8 +137,8 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(emailLog.getConsentId()).isEqualTo(55);
         verify(emailLogDao).persist(any(EmailLog.class));
         verify(emailLogDao).merge(emailLog);
-        verify(emailLogDao).updateEmailStatus(
-                eq(emailLog.getId()), eq(EmailStatus.BLOCKED), any(), any(Date.class));
+        verify(emailLogDao).transitionEmailStatus(
+                eq(emailLog.getId()), eq(EmailStatus.PENDING), eq(EmailStatus.BLOCKED), any(), any(Date.class));
         verifyNoInteractions(emailSenderFactory, emailSender);
     }
 
@@ -244,8 +245,8 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(emailLog.getConsentOverrideReason())
                 .isEqualTo("Patient verbally confirmed email consent");
         verify(emailSender).send();
-        verify(emailLogDao).updateEmailStatus(
-                eq(emailLog.getId()), eq(EmailStatus.SUCCESS), eq(""), any(Date.class));
+        verify(emailLogDao).transitionEmailStatus(
+                eq(emailLog.getId()), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS), eq(""), any(Date.class));
     }
 
     @Test
@@ -402,12 +403,11 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     }
 
     private void initializeEmailManager(EmailConsentResolver resolver) {
-        emailManager = new EmailManager(resolver, emailSenderFactory);
+        emailManager = new EmailManager(resolver, emailSenderFactory, securityInfoManager);
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "demographicManager", demographicManager);
         injectDependency(emailManager, "providerManager", providerManager);
-        injectDependency(emailManager, "securityInfoManager", securityInfoManager);
     }
 
     private void useImpliedConsentRecord(boolean optout) {

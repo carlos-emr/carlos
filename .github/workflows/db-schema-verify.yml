@@ -15,6 +15,7 @@ on:
   pull_request:
     paths:
       - 'database/mysql/**'
+      - 'scripts/verify-outbound-archive-engines.py'
       - 'release/**'
       - 'pom.xml'
       - 'src/main/java/io/github/carlos_emr/carlos/db/FlywaySchemaValidator.java'
@@ -398,3 +399,47 @@ jobs:
           fi
 
           echo "Flyway baseline verified for province ${PROV}: ${TABLES} fresh tables, ${ADOPT_TABLES} adopted tables, reference data present"
+
+      - name: Verify archive reference engine conversion and failure paths
+        env:
+          MYSQL_PWD: password
+        run: python3 scripts/verify-outbound-archive-engines.py
+
+  archive-engines-case-folded:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install MariaDB client
+        run: sudo apt-get update && sudo apt-get install -y mariadb-client
+
+      - name: Verify archive engines with case-folded identifiers
+        env:
+          MYSQL_PWD: password
+        run: |
+          set -euo pipefail
+          # lower_case_table_names is fixed when the datadir is initialized.
+          # Use a separate, disposable instance; this job needs no full baseline.
+          docker run -d --name archive-engine-db -p 127.0.0.1:3306:3306 \
+            -e MARIADB_ROOT_PASSWORD=password mariadb:11.8.8 \
+            --lower-case-table-names=1 --innodb-page-size=32768 \
+            --innodb-buffer-pool-size=128M
+          for attempt in $(seq 1 60); do
+            if mariadb -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+              break
+            fi
+            if [ "$attempt" = 60 ]; then
+              docker logs archive-engine-db
+              exit 1
+            fi
+            sleep 2
+          done
+          CASE_MODE=$(mariadb -h 127.0.0.1 -uroot -N -e 'SELECT @@lower_case_table_names')
+          if [ "$CASE_MODE" != "1" ]; then
+            echo "::error::expected lower_case_table_names=1, got $CASE_MODE"
+            exit 1
+          fi
+          python3 scripts/verify-outbound-archive-engines.py
