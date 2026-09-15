@@ -35,9 +35,9 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Locale;
 
 import io.github.carlos_emr.Misc;
-import java.util.Locale;
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;

@@ -42,7 +42,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -350,9 +349,12 @@ public class DemographicContactCreator {
     /**
      * Sort Contacts Alpha
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (last-name sort); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (last-name sort); not a security or authorization decision")
     public static Comparator<Contact> byLastName = new Comparator<Contact>() {
+        // Annotated on compare() rather than the field: FindSecBugs reports the case fold
+        // against this anonymous class's method, which a field-level suppression never covers.
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (last-name sort); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (last-name sort); not a security or authorization decision")
+        @Override
         public int compare(Contact contact1, Contact contact2) {
             String lastname1 = contact1.getLastName();
             String lastname2 = contact2.getLastName();

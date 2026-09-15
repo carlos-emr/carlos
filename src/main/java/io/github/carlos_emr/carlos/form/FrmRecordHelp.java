@@ -59,7 +59,6 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.CachedDateFormats;
-
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRecordHelp {

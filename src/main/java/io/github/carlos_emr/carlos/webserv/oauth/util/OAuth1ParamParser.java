@@ -54,6 +54,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @Component
 public class OAuth1ParamParser {
 
+    /** Media type whose body params join the OAuth1 signature base string (RFC 5849 s3.4.1.3.1). */
+    private static final String FORM_URLENCODED = "application/x-www-form-urlencoded";
+
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public OAuth1Request parseFromRequest(HttpServletRequest req) {
@@ -93,7 +96,7 @@ public class OAuth1ParamParser {
 
         // 3) Body params for x-www-form-urlencoded
         String ctype = req.getContentType();
-        if (ctype != null && ctype.regionMatches(true, 0, "application/x-www-form-urlencoded", 0, 33)) {
+        if (ctype != null && ctype.regionMatches(true, 0, FORM_URLENCODED, 0, FORM_URLENCODED.length())) {
             req.getParameterMap().forEach((k, arr) -> {
                 for (String v : arr) r.addParam(k, v);
             });

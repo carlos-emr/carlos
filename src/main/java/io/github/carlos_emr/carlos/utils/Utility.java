@@ -35,7 +35,6 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 
 import io.github.carlos_emr.MyDateFormat;
-
 import io.github.carlos_emr.carlos.PMmodule.model.FieldDefinition;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
