@@ -65,8 +65,10 @@ class SMTPEmailSenderTransportIntegrationTest {
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
         when(security.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
-        springUtils.when(() -> SpringUtils.getBean(JavaMailSender.class)).thenReturn(mock(JavaMailSender.class));
-        springUtils.when(() -> SpringUtils.getBean(NioFileManager.class)).thenReturn(mock(NioFileManager.class));
+        JavaMailSender mailSender = mock(JavaMailSender.class);
+        NioFileManager fileManager = mock(NioFileManager.class);
+        springUtils.when(() -> SpringUtils.getBean(JavaMailSender.class)).thenReturn(mailSender);
+        springUtils.when(() -> SpringUtils.getBean(NioFileManager.class)).thenReturn(fileManager);
     }
 
     @AfterEach
