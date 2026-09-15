@@ -1050,7 +1050,7 @@
     function disableForm() {
         const emailComposeFormFields = document.getElementById("emailComposeForm").getElementsByTagName('*');
         // Disabled controls are omitted from submission; Cancel still needs routing and cleanup state.
-        const cancelFieldNames = new Set(["close", "transactionType", "fdid", "emailPDFPasswordToken"]);
+        const cancelFieldNames = new Set(["close", "transactionType", "fdid", "emailPDFPasswordToken", "CSRF-TOKEN"]);
         for (let i = 0; i < emailComposeFormFields.length; i++) {
             if (cancelFieldNames.has(emailComposeFormFields[i].name)) {
                 continue;

@@ -26,7 +26,7 @@ function fixture(fetch, type = 'DIRECT') {
     FormData: class {
       constructor(value) { assert.equal(value, form); }
       *[Symbol.iterator]() {
-        yield ["OWASP_CSRFTOKEN", "synthetic-csrf-token"];
+        yield ["CSRF-TOKEN", "synthetic-csrf-token"];
         yield ["emailPDFPasswordToken", "opaque-compose-token"];
       }
     },
@@ -43,7 +43,7 @@ test('direct cancellation waits for server cleanup before closing', async () => 
     assert.equal(options.method, 'POST');
     assert.equal(options.credentials, 'same-origin');
     assert.ok(options.body instanceof URLSearchParams);
-    assert.equal(options.body.get('OWASP_CSRFTOKEN'), 'synthetic-csrf-token');
+    assert.equal(options.body.get('CSRF-TOKEN'), 'synthetic-csrf-token');
     assert.equal(options.body.get('emailPDFPasswordToken'), 'opaque-compose-token');
     return new Promise(resolve => { acknowledge = resolve; });
   });
@@ -94,4 +94,23 @@ test('an unavailable cleartext compose state does not open a disabled confirmati
     disableForm: () => events.push('disabled')
   });
   assert.deepEqual(events, ['state', 'disabled']);
+});
+
+test('disabled compose state retains the CSRF token needed to cancel', () => {
+  const fields = [
+    { name: 'CSRF-TOKEN', disabled: false },
+    { name: 'emailPDFPasswordToken', disabled: false },
+    { name: 'transactionType', disabled: false },
+    { name: 'fdid', disabled: false },
+    { name: 'close', disabled: false },
+    { name: 'subjectEmail', disabled: false }
+  ];
+  const first = source.indexOf('    function disableForm()');
+  const code = source.slice(first, source.indexOf('\n    function openDemographicPage', first));
+  vm.runInNewContext(code + '\ndisableForm();', {
+    document: { getElementById: () => ({ getElementsByTagName: () => fields }) }
+  });
+  assert.equal(fields[0].disabled, false, 'CSRF token must survive disabled-form cancellation');
+  assert.ok(fields.slice(1, 5).every(field => !field.disabled));
+  assert.equal(fields[5].disabled, true);
 });
