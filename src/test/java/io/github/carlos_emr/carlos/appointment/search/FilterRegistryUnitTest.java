@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.appointment.search;
 
+import io.github.carlos_emr.carlos.managers.ScheduleManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -33,6 +36,7 @@ import io.github.carlos_emr.carlos.appointment.search.filters.OpenAccessFilter;
 import io.github.carlos_emr.carlos.appointment.search.filters.SufficientContiguousTimeFilter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -50,7 +54,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("fast")
 @Tag("appointment")
 @DisplayName("FilterRegistry known-key + legacy FQCN resolution")
-class FilterRegistryTest {
+class FilterRegistryUnitTest extends CarlosUnitTestBase {
+
+    @BeforeEach
+    void registerFilterDependencies() {
+        // ExistingAppointmentFilter resolves ScheduleManager from SpringUtils in its field
+        // initialiser, so simply constructing it needs the container stubbed. These tests only
+        // assert which class the registry returns, never call the filter, so a bare mock is enough.
+        registerMock(ScheduleManager.class, mock(ScheduleManager.class));
+    }
+
 
     @Test
     @DisplayName("should create SufficientContiguousTimeFilter for short key")

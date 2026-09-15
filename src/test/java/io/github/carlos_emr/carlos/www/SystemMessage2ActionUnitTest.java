@@ -42,7 +42,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("SystemMessage2Action Tests")
 @Tag("unit")
 @Tag("admin")
-class SystemMessage2ActionTest extends CarlosWebTestBase {
+class SystemMessage2ActionUnitTest extends CarlosWebTestBase {
 
     @Mock
     private SystemMessageDao mockSystemMessageDao;
@@ -54,7 +54,13 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(SystemMessageDao.class, mockSystemMessageDao);
 
-        action = new SystemMessage2Action();
+        // Spied so getText() can be stubbed. ActionSupport.getText() resolves its TextProvider
+        // through the Struts Container, and these tests invoke the action method directly rather
+        // than through a Struts dispatch, so getContainer() is null and any getText() call NPEs.
+        // Returning the key keeps assertions readable and keeps the test about the action's own
+        // behaviour rather than about message-bundle resolution.
+        action = spy(new SystemMessage2Action());
+        doAnswer(invocation -> invocation.getArgument(0)).when(action).getText(anyString());
         injectField("systemMessageDao", mockSystemMessageDao);
         injectField("securityInfoManager", mockSecurityInfoManager);
     }
@@ -166,7 +172,7 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
             // When/Then
             assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessage("missing required sec object (_admin)");
         }
     }
 }
