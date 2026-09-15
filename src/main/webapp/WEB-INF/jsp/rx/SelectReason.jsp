@@ -1,4 +1,3 @@
-<%@ include file="rxContext.jspf" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -64,6 +63,7 @@
 
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
             <%-- <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>

@@ -65,7 +65,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.Objects" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
-<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
@@ -95,6 +94,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
             <%--<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>--%>
             <%--<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>--%>

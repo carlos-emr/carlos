@@ -1,4 +1,3 @@
-<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%--
@@ -58,6 +57,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/rx/styles.css">
         <script type="text/javascript"

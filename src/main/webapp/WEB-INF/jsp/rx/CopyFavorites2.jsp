@@ -41,7 +41,6 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
-<%@ include file="rxContext.jspf" %>
 <%
     FavoritesDao favoritesDao = SpringUtils.getBean(FavoritesDao.class);
     FavoritesPrivilegeDao favoritesPrivilegeDao = SpringUtils.getBean(FavoritesPrivilegeDao.class);
@@ -66,6 +65,7 @@
 
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
         <title><fmt:message key="SearchDrug.title.CopyFavorites"/></title>

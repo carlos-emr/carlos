@@ -76,7 +76,6 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% request.setAttribute("rxContextOwnerPage", Boolean.TRUE); %>
-<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%
@@ -204,6 +203,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 <!DOCTYPE html>
     <html lang="${pageContext.request.locale.language}">
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
 
@@ -2583,10 +2583,10 @@ function updateQty(element){
          function getCost(divId, randomId, din, qty) {
             var url = ctx + "/rx/ViewDrugPrice";
             var params = "randomId=" + randomId + "&din=" +encodeURIComponent(din) + "&qty=" +encodeURIComponent(qty);
-            new CarlosAjax.Updater(divId, url, {
+            CarlosAjax.updater(divId, url, {
                 method: 'get',
                 parameters: params,
-                insertion: Insertion.Bottom,
+                insertion: 'bottom',
                 asynchronous: true
             });
         }  

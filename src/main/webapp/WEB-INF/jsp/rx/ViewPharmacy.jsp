@@ -34,7 +34,6 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page
         import="io.github.carlos_emr.carlos.rx.pageUtil.*,io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
-<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
@@ -60,6 +59,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/rx/styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
