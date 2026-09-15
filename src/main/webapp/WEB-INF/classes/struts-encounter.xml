@@ -26,7 +26,7 @@
     Contains action mappings for patient encounters, consultations, clinical documentation, measurements, and chart display.
 -->
 <struts>
-    <package name="encounter" namespace="/" extends="struts-default" strict-method-invocation="true">
+    <package name="encounter" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -56,7 +56,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -76,7 +76,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -96,7 +96,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -116,7 +116,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -137,7 +137,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -158,7 +158,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -178,7 +178,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -198,7 +198,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -218,7 +218,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -239,7 +239,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -259,7 +259,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -280,7 +280,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -300,7 +300,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -320,7 +320,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -340,7 +340,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -360,7 +360,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -381,7 +381,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -418,6 +418,10 @@
         <action name="encounter/RequestConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest?error=true</result>
+            <!-- The action's own rejections (malformed ids, a request that is not this patient's):
+                 back to the form, whose alert reads the errorMessage attribute the action set.
+                 Unmapped until 2026-09, so each of them crashed into the generic error page. -->
+            <result name="input">/encounter/ViewRequest?error=true</result>
             <result name="failESend">/encounter/ViewRequest</result>
             <result name="printpdf">/encounter/oscarConsultationRequest/printPdf</result>
             <result name="printIndivica">/encounter/oscarConsultationRequest/printPdf2</result>
@@ -428,6 +432,7 @@
             <result name="attachform">/form/forwardshortcutname</result>
         </action>
         <action name="encounter/oscarConsultationRequest/ConsultationFormFax" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action">
+            <result name="faxUncertain">/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp</result>
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest?error=true</result>
             <result name="attachform">/form/forwardshortcutname</result>
@@ -442,6 +447,7 @@
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddService.jsp</result>
         </action>
         <action name="encounter/ShowAllServices" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action">
+            <result name="list">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/ShowAllServices.jsp</result>
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/DisplayService.jsp</result>
         </action>
         <action name="encounter/ShowAllInstitutions" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action">
@@ -614,7 +620,7 @@
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
-            <interceptor-ref name="defaultStack"/>
+            <interceptor-ref name="carlosDefaultStack"/>
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
             <result name="input">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
@@ -655,7 +661,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -675,7 +681,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
@@ -695,7 +701,7 @@
             <result name="consultation">/encounter/displayConsultation</result>
             <result name="allergies">/encounter/displayAllergy</result>
             <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayIssues</result>
+            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
             <result name="Rx">/encounter/displayRx</result>
             <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>

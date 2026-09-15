@@ -469,6 +469,42 @@ class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should serve a clinic letter template unsandboxed so the editor can load it")
+        void shouldServeClinicLetterTemplateUnsandboxed_whenRtlOnDisk() throws Exception {
+            // Any *.rtl in the image directory is offered by the template dropdown and navigated into
+            // the editor iframe; a sandbox CSP makes that frame cross-origin and breaks the editor.
+            mockRequest.setParameter("imagefile", "MissedAppointment.rtl");
+            Files.writeString(tempDir.resolve("MissedAppointment.rtl"),
+                    "<html><body>Dear ##patient_name##</body></html>", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentType()).startsWith("text/html");
+            assertThat(mockResponse.getContentAsString()).contains("Dear ##patient_name##");
+            assertThat(mockResponse.getHeader("Content-Security-Policy")).isNull();
+            assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        }
+
+        @Test
+        @DisplayName("should return 404 for a clinic letter template that is not on disk")
+        void shouldReturnNotFound_whenClinicLetterTemplateAbsent() throws Exception {
+            // Only the two seeded names have a WAR fallback; a clinic template either exists or 404s.
+            mockRequest.setParameter("imagefile", "MissedAppointment.rtl");
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(404);
+        }
+
+        @Test
         @DisplayName("should keep serving the bundled editControl2.js even when a local copy exists")
         void shouldServeBundledEditor_whenLocalEditControlExists() throws Exception {
             withBundledAsset("editControl2.js", "// SHIPPED EDITOR");

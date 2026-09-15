@@ -56,7 +56,7 @@ import java.io.OutputStream;
  * stamp by supplying {@code providerNo}, but only when they have the relevant
  * clinical privileges.</p>
  *
- * <p>Returns HTTP 401 if not authenticated, 404 if the signature file does not exist,
+ * <p>Returns HTTP 401 if not authenticated, 204 if no signature has been uploaded,
  * or 500 on internal error. On success, streams the PNG image inline.</p>
  *
  * <p>URL: {@code /provider/providerSignatureImage}</p>
@@ -96,6 +96,11 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             return NONE;
         }
 
+        // Absence is a normal state for providers who sign manually. It must not
+        // be cached, because a stamp may be uploaded during this same session.
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
         String signatureName = PathValidationUtils.validatePathComponent(
                 UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png", "signatureName");
         File sigFile = getValidatedSignatureFile(signatureName, response);
@@ -165,7 +170,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             return null;
         }
         if (!imageFolder.exists()) {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
             return null;
         }
 
@@ -179,7 +184,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         }
 
         if (!sigFile.exists()) {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
             return null;
         }
         return sigFile;
@@ -198,7 +203,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             IOUtils.copy(fileStream, outputStream);
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().debug("Signature image file not found on disk: {}", signatureName);
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error serving provider signature image", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

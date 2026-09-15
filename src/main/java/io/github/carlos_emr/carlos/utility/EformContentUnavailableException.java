@@ -44,6 +44,7 @@ public class EformContentUnavailableException extends PDFGenerationException {
 
     private final int fdid;
     private final EFormRenderCompletenessReport report;
+    private final java.util.List<String> severeConsoleDetails;
 
     /**
      * @param message the detail message (must not embed asset URLs/names — count only)
@@ -51,9 +52,22 @@ public class EformContentUnavailableException extends PDFGenerationException {
      */
     public EformContentUnavailableException(
             String message, int fdid, EFormRenderCompletenessReport report) {
+        this(message, fdid, report, java.util.List.of());
+    }
+
+    /**
+     * @param severeConsoleDetails PHI-safe per-error descriptions (type + line:col only) for the
+     *     informed-override screen. NOT part of the completeness report and NOT bound into the
+     *     approval digest — the digest is over the report's counts; these are display only.
+     */
+    public EformContentUnavailableException(
+            String message, int fdid, EFormRenderCompletenessReport report,
+            java.util.List<String> severeConsoleDetails) {
         super(message);
         this.fdid = fdid;
         this.report = java.util.Objects.requireNonNull(report, "report must not be null");
+        this.severeConsoleDetails = java.util.List.copyOf(
+                java.util.Objects.requireNonNullElse(severeConsoleDetails, java.util.List.of()));
     }
 
     public int getFdid() {
@@ -66,5 +80,13 @@ public class EformContentUnavailableException extends PDFGenerationException {
 
     public EFormRenderCompletenessReport getReport() {
         return report;
+    }
+
+    /**
+     * PHI-safe one-line descriptions of the severe page-script errors (type + source line:col),
+     * for display on the informed-override screen. Empty unless severe console errors were present.
+     */
+    public java.util.List<String> getSevereConsoleDetails() {
+        return severeConsoleDetails;
     }
 }

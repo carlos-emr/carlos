@@ -79,13 +79,34 @@ public class DemographicAddRecord2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
-    private DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
-    private DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
-    private DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
-    private WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient DemographicDao demographicDao;
+    private final transient DemographicCustDao demographicCustDao;
+    private final transient DemographicExtDao demographicExtDao;
+    private final transient DemographicArchiveDao demographicArchiveDao;
+    private final transient DemographicExtArchiveDao demographicExtArchiveDao;
+    private final transient WaitingListDao waitingListDao;
+
+    public DemographicAddRecord2Action(
+            SecurityInfoManager securityInfoManager,
+            DemographicDao demographicDao,
+            DemographicCustDao demographicCustDao,
+            DemographicExtDao demographicExtDao,
+            DemographicArchiveDao demographicArchiveDao,
+            DemographicExtArchiveDao demographicExtArchiveDao,
+            WaitingListDao waitingListDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.demographicDao = demographicDao;
+        this.demographicCustDao = demographicCustDao;
+        this.demographicExtDao = demographicExtDao;
+        this.demographicArchiveDao = demographicArchiveDao;
+        this.demographicExtArchiveDao = demographicExtArchiveDao;
+        this.waitingListDao = waitingListDao;
+    }
+
+    public DemographicAddRecord2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(DemographicDao.class), SpringUtils.getBean(DemographicCustDao.class), SpringUtils.getBean(DemographicExtDao.class), SpringUtils.getBean(DemographicArchiveDao.class), SpringUtils.getBean(DemographicExtArchiveDao.class), SpringUtils.getBean(WaitingListDao.class));
+    }
 
     /**
      * Processes a demographic add form POST, persisting all related records and

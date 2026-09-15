@@ -72,6 +72,19 @@ public class EctFormProp {
     }
 
     /**
+     * The measurements bound to THIS instance by JAXB, as opposed to {@link #getMeasurementTypes()},
+     * which is a static accumulator that every unmarshal resets and appends to. Callers that hold
+     * the instance they unmarshalled should read this, since the static one can be replaced by any
+     * concurrent unmarshal in the same JVM.
+     */
+    public Vector<EctMeasurementTypesBean> getMeasurements() {
+        // A copy, not the bound field: callers (the form save and the setup check) iterate it,
+        // and a caller that cleared it would corrupt this instance's JAXB state — afterUnmarshal
+        // still reads the field to fill the static accumulator.
+        return measurements == null ? null : new Vector<>(measurements);
+    }
+
+    /**
      * Called by JAXB after unmarshalling to populate the static measurementTypes vector.
      */
     @SuppressWarnings("unused")

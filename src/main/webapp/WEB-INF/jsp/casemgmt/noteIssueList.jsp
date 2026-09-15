@@ -451,8 +451,17 @@
         completeChangeToView(noteTxt, newId);
 
         if (origId.substr(0, 1) == "0") {
-            $("nc" + origId).id = "nc" + numNotes;
-            ++numNotes;
+            // A first save turns a new-note container into a saved one so the print
+            // loops (nc1..maxNcId) can find it. The container is not "nc" + origId: the
+            // page renders the initial note as nc<offset><idx> ("nc00" for n0) and
+            // newNote() as nc0N, so walk up from the note div renamed above instead.
+            var savedNoteDiv = $("n" + newId);
+            var noteContainer = savedNoteDiv != null ? savedNoteDiv.parentNode : null;
+            if (noteContainer != null && noteContainer.id != null && noteContainer.id.indexOf("nc") == 0
+                    && typeof maxNcId == "number" && !isNaN(maxNcId)) {
+                maxNcId = maxNcId + 1;
+                noteContainer.id = "nc" + maxNcId;
+            }
         }
 
         <c:if test="${not empty DateError}">

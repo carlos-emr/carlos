@@ -114,6 +114,7 @@ class ViewInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
     }
 
     @AfterEach
@@ -170,7 +171,7 @@ class ViewInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("inrbilling7", "on");
         mockRequest.setParameter("clinic_no", "12");
         mockRequest.setParameter("xml_location", "REF1");
-        mockRequest.setParameter("curUser", "carlosdoc");
+        mockRequest.setParameter("curUser", "spoofed");
         mockRequest.setParameter("curDate", "2026-04-26");
         mockRequest.setParameter("xml_appointment_date", "2026-04-26");
 
@@ -186,7 +187,7 @@ class ViewInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(b.getDemographicNo()).isEqualTo(101);
         assertThat(b.getProviderNo()).isEqualTo("999998");
         assertThat(b.getClinicNo()).isEqualTo(12);
-        assertThat(b.getCreator()).isEqualTo("carlosdoc");
+        assertThat(b.getCreator()).isEqualTo("999998");
         assertThat(b.getTotal()).isEqualTo("3370"); // decimal stripped
         assertThat(b.getStatus()).isEqualTo("O");
 
