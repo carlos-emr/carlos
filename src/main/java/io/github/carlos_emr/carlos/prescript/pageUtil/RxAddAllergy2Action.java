@@ -64,7 +64,10 @@ public final class RxAddAllergy2Action extends ActionSupport {
      * Requests must use {@code POST}; other methods return HTTP 405 with
      * {@code Allow: POST} and {@link #NONE}. Missing, malformed, or
      * mismatched rendered patient context returns HTTP 403 and {@link #NONE}.
-     * Valid add and archive requests return {@link #SUCCESS}.
+     * A missing, blank, or non-numeric {@code type} returns HTTP 400 and
+     * {@link #NONE} before any allergy is persisted, so malformed requests
+     * cannot surface as a 500. Valid add and archive requests return
+     * {@link #SUCCESS}.
      */
     public String execute() throws IOException, ServletException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "w", null)) {
@@ -102,9 +105,26 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         String name = request.getParameter("name");
         String type = request.getParameter("type");
+        if (type == null || type.isBlank()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or empty type parameter");
+            return NONE;
+        }
+        int typeCode;
+        try {
+            typeCode = Integer.parseInt(type.trim());
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid type parameter");
+            return NONE;
+        }
         String description = request.getParameter("reactionDescription");
 
         String startDate = request.getParameter("startDate");
+        if (startDate == null) {
+            // startDate is optional; normalise to empty so the partial-date
+            // length/separator checks below stay null-safe and simply fall
+            // through, leaving the allergy start date unset.
+            startDate = "";
+        }
         String ageOfOnset = request.getParameter("ageOfOnset");
         String severityOfReaction = request.getParameter("severityOfReaction");
         String onSetOfReaction = request.getParameter("onSetOfReaction");
@@ -118,7 +138,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
 			// this can be overwritten with the conditions further down this code block
 			allergy.setRegionalIdentifier(id);
         allergy.setDescription(name);
-        allergy.setTypeCode(Integer.parseInt(type));
+        allergy.setTypeCode(typeCode);
         allergy.setReaction(description);
 
         if (startDate.length() >= 8 && getCharOccur(startDate, '-') == 2) {
@@ -143,15 +163,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
         }
 
 
-            if (nonDrug != null && "on".equals(nonDrug)) {
-            	allergy.setNonDrug(true);
-
-            } else if (nonDrug != null && "off".equals(nonDrug)) {
-            	allergy.setNonDrug(false);
-            }
-
-
-            if (! "0".equals(type) && ! id.isEmpty() && ! "0".equals(id)){
+            if (typeCode != 0 && ! id.isEmpty() && ! "0".equals(id)){
             RxDrugData drugData = new RxDrugData();
             try {
                 RxDrugData.DrugMonograph f = drugData.getDrug(id);

@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -49,6 +50,8 @@ import java.util.Locale;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -110,6 +113,7 @@ public class DocumentPreview2Action extends ActionSupport {
     private final transient EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
     private final transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
     private final transient HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -260,7 +264,8 @@ public class DocumentPreview2Action extends ActionSupport {
                     EFormRenderApprovalService.Operation.PREVIEW, e.getReport(),
                     approval, e.getFdid());
             generateMissingContentResponse(
-                    response, PreviewError.EFORM_MISSING_CONTENT, token, e.getReport());
+                    response, PreviewError.EFORM_MISSING_CONTENT, token, e.getReport(),
+                    e.getSevereConsoleDetails());
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
             generateResponse(response, PreviewError.EFORM_RENDER_FAILED);
@@ -385,6 +390,11 @@ public class DocumentPreview2Action extends ActionSupport {
         Path pdfPath = pdfPreviewCapabilityService.resolve(
                 request, loggedInInfo, request.getParameter("previewToken"));
         if (pdfPath == null) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+        if (isOutboundEmailArchiveDocumentPath(pdfPath)) {
+            logger.warn("Blocked direct preview of outbound email archive eDoc");
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
@@ -562,7 +572,8 @@ public class DocumentPreview2Action extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateMissingContentResponse(HttpServletResponse response, PreviewError error,
-            String approvalToken, EFormRenderCompletenessReport report) {
+            String approvalToken, EFormRenderCompletenessReport report,
+            List<String> severeConsoleErrorDetails) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorCode", error.code);
         json.put("errorMessage", error.message);
@@ -576,7 +587,16 @@ public class DocumentPreview2Action extends ActionSupport {
         // Keep in step with EFormRenderCompletenessReport: an omitted category would let the caller
         // present an incomplete issue set for an approval whose digest covers all of them.
         json.put("severeConsoleErrors", report.severeConsoleErrors());
+        // Display-only, PHI-safe per-error descriptions (type + source location) that let the
+        // clinician judge the script errors before overriding. Never part of the approval digest.
+        ArrayNode severeConsoleErrorDetailsNode = json.putArray("severeConsoleErrorDetails");
+        if (severeConsoleErrorDetails != null) {
+            for (String detail : severeConsoleErrorDetails) {
+                severeConsoleErrorDetailsNode.add(detail);
+            }
+        }
         json.put("containedInteractions", report.containedInteractions());
+        json.put("decorativeExcludedElements", report.decorativeExcludedElements());
         json.put("stabilizationCapped", report.stabilizationCapped());
         json.put("labDecisionSupportStubbed", report.labDecisionSupportStubbed());
         response.setContentType("application/json");
@@ -729,5 +749,21 @@ public class DocumentPreview2Action extends ActionSupport {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+    /**
+     * Reports whether an authorized preview path points at an outbound email archive artifact.
+     *
+     * <p>Matched on the resolved file name rather than a document id, because this route never
+     * sees one -- the preview token resolves straight to a path. The resolver has already
+     * authorized and validated that path, so the only question left here is what the file is.</p>
+     *
+     * <p>A name collision with a file outside the document directory would block a legitimate
+     * preview rather than expose one, which is the safe direction to fail; archive artifacts
+     * carry timestamped generated names, so a real collision is not a practical concern.</p>
+     */
+    private boolean isOutboundEmailArchiveDocumentPath(Path pdfPath) {
+        Path fileName = pdfPath == null ? null : pdfPath.getFileName();
+        return fileName != null
+                && OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, fileName.toString());
     }
 }

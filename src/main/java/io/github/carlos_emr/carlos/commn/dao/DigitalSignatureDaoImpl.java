@@ -60,7 +60,7 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
     @Override
     public DigitalSignature findMetadataById(int id) {
         Query query = entityManager.createQuery(
-                "SELECT ds.demographicId, ds.moduleType FROM DigitalSignature ds WHERE ds.id = ?1");
+                "SELECT ds.demographicId, ds.moduleType, ds.providerNo FROM DigitalSignature ds WHERE ds.id = ?1");
         query.setParameter(1, id);
         query.setMaxResults(1);
 
@@ -72,6 +72,7 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
 
         Object[] row = results.get(0);
         DigitalSignature digitalSignature = metadata((Integer) row[0], (ModuleType) row[1]);
+        digitalSignature.setProviderNo((String) row[2]);
         if (digitalSignature.getModuleType() != null) {
             return digitalSignature;
         }
@@ -80,6 +81,12 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
         }
 
         DigitalSignature inferredMetadata = findLegacyMetadataByReference(id, digitalSignature.getDemographicId());
+        if (inferredMetadata != null) {
+            // Legacy inference determines only module/patient ownership. Provider ownership still
+            // comes from the signature row itself and must survive the projection; fax/signature
+            // binding rejects a null or mismatched provider rather than guessing an identity.
+            inferredMetadata.setProviderNo(digitalSignature.getProviderNo());
+        }
         return inferredMetadata != null ? inferredMetadata : digitalSignature;
     }
 

@@ -117,6 +117,21 @@ public final class LoggedInInfo implements Serializable {
     }
 
     /**
+     * Retrieves the browser-request {@link LoggedInInfo} from the current HTTP session.
+     *
+     * @param request non-null current HTTP request used to access the session
+     * @return non-null {@link LoggedInInfo} stored in the session
+     * @throws SecurityException when session {@link LoggedInInfo} is missing
+     */
+    public static LoggedInInfo requireLoggedInInfoFromSession(HttpServletRequest request) {
+        LoggedInInfo loggedInInfo = getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+        return loggedInInfo;
+    }
+
+    /**
      * This method should be used for www services.
      * This will be stored in the requestAttributes, not the session.
      */
