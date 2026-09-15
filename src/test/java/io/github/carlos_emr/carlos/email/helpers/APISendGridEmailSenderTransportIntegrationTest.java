@@ -114,7 +114,7 @@ class APISendGridEmailSenderTransportIntegrationTest {
                 assertThatThrownBy(sender::sendPrepared).isInstanceOfSatisfying(EmailSendingException.class,
                         e -> assertThat(e.isDeliveryOutcomeUncertain()).isEqualTo(status == 0));
             }
-            assertThat(received.size()).isEqualTo(1);
+            assertThat(received).hasSize(1);
             assertThat(received.get(0)).containsExactly(archived);
             assertThat(authorization).containsExactly("Bearer synthetic-key");
             assertThat(new String(archived, java.nio.charset.StandardCharsets.UTF_8)).doesNotContain("synthetic-key");

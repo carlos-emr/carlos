@@ -54,6 +54,8 @@ public interface OutboundEmailTransport {
      * @throws EmailSendingException if transport delivery fails
      * @deprecated use the archive-first {@code EmailManager.sendEmail} orchestration
      */
+    // Retained for downstream source compatibility during migration to archive-first EmailManager calls.
+    @SuppressWarnings("java:S1133")
     @Deprecated(since = "2026-08-24", forRemoval = false)
     void send() throws EmailSendingException;
 

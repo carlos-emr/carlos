@@ -59,7 +59,6 @@ import java.util.HexFormat;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mockConstruction;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;

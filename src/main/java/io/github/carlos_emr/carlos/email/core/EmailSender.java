@@ -148,6 +148,8 @@ public class EmailSender {
      * @throws EmailSendingException always, directing the caller to archive-first orchestration
      * @deprecated use {@code EmailManager.sendEmail}
      */
+    // Intentional fail-closed compatibility shim; downstream callers migrate to EmailManager.
+    @SuppressWarnings("java:S1133")
     @Deprecated(since = "2026-08-24", forRemoval = false)
     public void send() throws EmailSendingException {
         assertEmailWritePrivilege();

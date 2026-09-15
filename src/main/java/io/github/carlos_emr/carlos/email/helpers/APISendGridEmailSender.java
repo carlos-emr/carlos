@@ -163,7 +163,7 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
         try {
             ValidatedHttpEndpoint endpoint = validateEndpoint(getEndPoint());
             HttpPost request = new HttpPost(endpoint.uri());
-            request.setHeader("Content-Type", "application/json");
+            request.setHeader("Content-Type", JSON_CONTENT_TYPE);
             request.setHeader("Authorization", "Bearer " + getAPIKey());
             request.setEntity(new ByteArrayEntity(payloadBytes, ContentType.APPLICATION_JSON));
             dispatchRequest(createHttpClient(endpoint), request);
