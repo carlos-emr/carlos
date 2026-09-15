@@ -178,7 +178,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         String fileName = uniqueArchiveFileName(emailLog, contentType);
         Integer demographicNo = emailLog.getDemographic().getDemographicNo();
         requirePatientRecordAccess(loggedInInfo, demographicNo);
-        List<OutboundEmailArchiveAttachment> attachments = buildAttachments(request, providerNo, demographicNo);
+        List<OutboundEmailArchiveAttachment> attachments = buildAttachments(loggedInInfo, request, providerNo, demographicNo);
 
         Document document = buildDocument(emailLog, fileName, contentType, providerNo);
         Document savedDocument;
@@ -421,7 +421,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return archive;
     }
 
-    private List<OutboundEmailArchiveAttachment> buildAttachments(OutboundEmailArchiveDto request, String providerNo, Integer demographicNo) {
+    private List<OutboundEmailArchiveAttachment> buildAttachments(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request, String providerNo, Integer demographicNo) throws IOException {
         List<OutboundEmailArchiveAttachmentDto> attachmentRequests = safeAttachmentList(request.getAttachments());
         if (attachmentRequests.isEmpty()) {
             return List.of();
@@ -429,12 +429,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         List<OutboundEmailArchiveAttachment> attachments = new ArrayList<>();
         for (OutboundEmailArchiveAttachmentDto attachmentRequest : attachmentRequests) {
-            attachments.add(buildAttachment(attachmentRequest, providerNo, demographicNo));
+            attachments.add(buildAttachment(loggedInInfo, attachmentRequest, providerNo, demographicNo));
         }
         return attachments;
     }
 
-    private OutboundEmailArchiveAttachment buildAttachment(OutboundEmailArchiveAttachmentDto request, String providerNo, Integer demographicNo) {
+    private OutboundEmailArchiveAttachment buildAttachment(LoggedInInfo loggedInInfo, OutboundEmailArchiveAttachmentDto request, String providerNo, Integer demographicNo) throws IOException {
         if (request == null) {
             throw new IllegalArgumentException("Attachment request is required");
         }
@@ -457,6 +457,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         }
 
         validateSourceDocumentId(request.getSourceDocumentId(), attachmentDocument);
+        if (attachmentDocument != null) {
+            // Reload the eDoc: a caller-provided entity must not choose the file we read.
+            attachmentDocument = documentManager.getDocument(loggedInInfo, attachmentDocument.getId());
+            if (attachmentDocument == null) {
+                throw new IOException("Linked attachment document no longer exists");
+            }
+            verifyAttachmentContent(attachmentDocument, sha256Hash, byteSize);
+        }
 
         OutboundEmailArchiveAttachment attachment = new OutboundEmailArchiveAttachment();
         attachment.setFileName(truncate(defaultIfBlank(request.getFileName(), "attachment"), 255));
@@ -471,6 +479,29 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         attachment.setDocument(attachmentDocument);
         attachment.setLastUpdateUser(providerNo);
         return attachment;
+    }
+
+    /** Verifies the linked eDoc using a bounded buffer before any new archive file is written. */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "Uses the persisted eDoc filename, validates one path component and real-path containment within DOCUMENT_DIR.")
+    private void verifyAttachmentContent(Document document, String expectedHash, long expectedSize) throws IOException {
+        File directory = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        String filename = PathValidationUtils.validatePathComponent(document.getDocfilename(), "attachment eDoc filename");
+        File file = PathValidationUtils.validateExistingPath(new File(directory, filename), directory);
+        MessageDigest digest = newSha256Digest();
+        long size = 0;
+        byte[] buffer = new byte[8192];
+        try (java.io.InputStream input = Files.newInputStream(file.toPath())) {
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, count);
+                size += count;
+            }
+        }
+        if (size != expectedSize || !HEX_FORMAT.formatHex(digest.digest()).equals(expectedHash)) {
+            throw new IllegalArgumentException("Attachment content does not match the linked eDoc");
+        }
     }
 
     /**
@@ -756,6 +787,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         });
     }
 
+    // The archive, legal-hold event, and tombstone are the durable audit records,
+    // written in the state-change transaction. OscarLog is a secondary activity index;
+    // losing its asynchronous entry does not lose the attributed state-change evidence.
     private void registerAfterCommitLog(Integer archiveId, Runnable logAction) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             logAction.run();
@@ -801,9 +835,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     }
 
     private String sha256Hex(byte[] input) {
+        return HEX_FORMAT.formatHex(newSha256Digest().digest(input));
+    }
+
+    private MessageDigest newSha256Digest() {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HEX_FORMAT.formatHex(digest.digest(input));
+            return MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }

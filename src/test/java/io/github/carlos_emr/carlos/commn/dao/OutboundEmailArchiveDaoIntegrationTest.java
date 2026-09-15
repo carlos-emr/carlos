@@ -257,6 +257,22 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("create")
+        @DisplayName("should reject a tombstone without its artifact document")
+        void shouldRejectTombstone_whenArtifactDocumentMissing() {
+            OutboundEmailArchive archive = newArchive();
+            outboundEmailArchiveDao.persist(archive);
+            entityManager.flush();
+            OutboundEmailArchiveDeletion deletion = OutboundEmailArchiveDeletion.fromArchive(
+                    archive, PROVIDER_NO, "Retirement");
+            deletion.setDocument(null);
+            assertThatThrownBy(() -> {
+                outboundEmailArchiveDeletionDao.persist(deletion);
+                entityManager.flush();
+            }).hasMessageContaining("document");
+        }
+
+        @Test
         @Tag("update")
         @DisplayName("should reject mutation of a persisted tombstone")
         void shouldRejectMutation_ofPersistedTombstone() {
@@ -432,7 +448,7 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return archives for an email log newest first")
-        void shouldReturnArchivesForEmailLog_newestFirst() {
+        void shouldReturnArchivesForEmailLog_inNewestFirstOrder() {
             OutboundEmailArchive older = newArchive();
             older.setArchivedAt(new Date(1_700_000_000_000L));
             outboundEmailArchiveDao.persist(older);
@@ -451,7 +467,7 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return archives for a demographic newest first")
-        void shouldReturnArchivesForDemographic_newestFirst() {
+        void shouldReturnArchivesForDemographic_inNewestFirstOrder() {
             OutboundEmailArchive older = newArchive();
             older.setArchivedAt(new Date(1_700_000_000_000L));
             outboundEmailArchiveDao.persist(older);

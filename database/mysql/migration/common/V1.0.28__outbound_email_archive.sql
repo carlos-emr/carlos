@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     `archiveId` INT NOT NULL,
     `emailLogId` BIGINT NOT NULL,
     `demographicNo` INT NOT NULL,
-    `documentNo` INT,
+    `documentNo` INT NOT NULL,
     `fileName` VARCHAR(255) NOT NULL,
     `contentType` VARCHAR(100),
     `sha256Hash` CHAR(64) NOT NULL,

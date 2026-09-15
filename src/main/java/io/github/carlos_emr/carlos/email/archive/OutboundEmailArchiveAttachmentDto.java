@@ -26,6 +26,9 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 
 /**
  * Transfer data for an attachment included with an outbound email archive operation.
+ * A linked eDoc must contain the finalized attachment bytes: the service verifies its
+ * stored content against the supplied bytes or hash/size. It does not create that eDoc.
+ * Without an eDoc link, hash and size remain caller-asserted external metadata.
  *
  * @since 2026-08-14
  */

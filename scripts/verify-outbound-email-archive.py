@@ -102,6 +102,7 @@ def main():
             sql('DELETE FROM outboundEmailArchive WHERE id=1', error='1451')
             sql('UPDATE outboundEmailArchive SET documentNo=NULL', error='1048')
             sql('UPDATE outboundEmailArchive SET contentType=NULL', error='1048')
+            sql('UPDATE outboundEmailArchiveDeletion SET documentNo=NULL', error='1048')
             before = [sql('SELECT * FROM ' + table) for table in TABLE_COLUMNS]
             definitions = [sql('SHOW CREATE TABLE ' + table) for table in TABLE_COLUMNS]
             sql(migration)

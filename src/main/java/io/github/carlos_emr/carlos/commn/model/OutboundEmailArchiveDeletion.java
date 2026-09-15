@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.AssociationOverride;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -43,6 +44,7 @@ import java.util.Date;
  */
 @Entity
 @Table(name = "outboundEmailArchiveDeletion")
+@AssociationOverride(name = "document", joinColumns = @JoinColumn(name = "documentNo", nullable = false))
 @SuppressWarnings({"java:S2160", "java:S2143"}) // Equality is inherited from AbstractModel id; DATETIME mappings follow CARLOS Hibernate conventions.
 public class OutboundEmailArchiveDeletion extends OutboundEmailArchiveArtifact {
 

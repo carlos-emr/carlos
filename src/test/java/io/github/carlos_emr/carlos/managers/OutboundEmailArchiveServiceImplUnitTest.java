@@ -51,6 +51,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -338,6 +340,28 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 ""));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"release", "place", "retire"})
+    @DisplayName("should propagate durable audit persistence failures for transaction rollback")
+    void shouldPropagateFailure_whenDurableAuditCannotPersist(String operation) {
+        TransactionSynchronizationManager.initSynchronization();
+        OutboundEmailArchive archive = operation.equals("release") ? archiveUnderLegalHold() : archiveForDeletion();
+        stubArchiveLookup(archive);
+        IllegalStateException failure = new IllegalStateException("durable audit store unavailable");
+        if (operation.equals("retire")) {
+            doThrow(failure).when(outboundEmailArchiveDeletionDao).persist(any());
+            assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "Reason")).isSameAs(failure);
+        } else {
+            doThrow(failure).when(outboundEmailArchiveLegalHoldEventDao).persist(any());
+            assertThatThrownBy(() -> {
+                if (operation.equals("release")) service.releaseLegalHold(loggedInInfo, 888, "Reason");
+                else service.placeLegalHold(loggedInInfo, 888, "Reason");
+            }).isSameAs(failure);
+        }
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
+        logActionMock.verifyNoInteractions();
+    }
+
     @Test
     @DisplayName("should preserve successful retirement when audit logging fails after commit")
     void shouldPreserveSuccessfulRetirement_whenAfterCommitAuditFails() {
@@ -386,66 +410,131 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should strip MIME parameters from an attachment content type")
-    void shouldStripMimeParameters_fromAttachmentContentType() throws Exception {
-        // The raw value exceeds the 100-character column, so truncating it verbatim would
-        // store a content type cut mid-parameter. Normalising first keeps the media type
-        // intact and drops the parameters, matching how the main artifact is handled.
-        byte[] attachmentBytes = "pdf bytes".getBytes(StandardCharsets.UTF_8);
-        EmailLog emailLog = emailLog();
-        OutboundEmailArchiveDto request = archiveRequest(emailLog);
-        OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
-        Document attachmentDocument = attachmentDocument();
-        attachmentRequest.setFileName("report.pdf");
-        attachmentRequest.setContentType("application/pdf; name=\"" + "x".repeat(200) + "\"");
-        attachmentRequest.setArtifactBytes(attachmentBytes);
-        attachmentRequest.setSourceDocumentType("DOCUMENT");
-        attachmentRequest.setSourceDocumentId(777);
-        attachmentRequest.setDocument(attachmentDocument);
-        request.addAttachment(attachmentRequest);
+    void shouldStripMimeParameters_fromAttachmentContentType(@TempDir Path documentDir) throws Exception {
+        withDocumentDir(documentDir, () -> {
+            // The raw value exceeds the 100-character column, so truncating it verbatim would
+            // store a content type cut mid-parameter. Normalising first keeps the media type
+            // intact and drops the parameters, matching how the main artifact is handled.
+            byte[] attachmentBytes = "pdf bytes".getBytes(StandardCharsets.UTF_8);
+            EmailLog emailLog = emailLog();
+            OutboundEmailArchiveDto request = archiveRequest(emailLog);
+            OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
+            Document attachmentDocument = attachmentDocument();
+            attachmentRequest.setFileName("report.pdf");
+            attachmentRequest.setContentType("application/pdf; name=\"" + "x".repeat(200) + "\"");
+            attachmentRequest.setArtifactBytes(attachmentBytes);
+            attachmentRequest.setSourceDocumentType("DOCUMENT");
+            attachmentRequest.setSourceDocumentId(777);
+            attachmentRequest.setDocument(attachmentDocument);
+            request.addAttachment(attachmentRequest);
+            Files.write(documentDir.resolve(attachmentDocument.getDocfilename()), attachmentBytes);
+            when(documentManager.getDocument(loggedInInfo, 777)).thenReturn(attachmentDocument);
 
-        when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
-                .thenReturn(savedDocument());
+            when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
+            when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                    .thenReturn(savedDocument());
 
-        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+            OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
-        assertThat(archive.getAttachments()).hasSize(1);
-        assertThat(archive.getAttachments().get(0).getContentType()).isEqualTo("application/pdf");
+            assertThat(archive.getAttachments()).hasSize(1);
+            assertThat(archive.getAttachments().get(0).getContentType()).isEqualTo("application/pdf");
+        });
     }
 
     @Test
     @DisplayName("should calculate final attachment hashes from supplied bytes")
-    void shouldCalculateAttachmentHashes_whenBytesSupplied() throws Exception {
-        byte[] attachmentBytes = "encrypted pdf bytes".getBytes(StandardCharsets.UTF_8);
-        EmailLog emailLog = emailLog();
-        OutboundEmailArchiveDto request = archiveRequest(emailLog);
-        OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
-        Document attachmentDocument = attachmentDocument();
-        attachmentRequest.setFileName("message.pdf");
-        attachmentRequest.setContentType("application/pdf");
-        attachmentRequest.setArtifactBytes(attachmentBytes);
-        attachmentRequest.setSourceDocumentType("DOCUMENT");
-        attachmentRequest.setSourceDocumentId(777);
-        attachmentRequest.setDocument(attachmentDocument);
-        request.addAttachment(attachmentRequest);
+    void shouldCalculateAttachmentHashes_whenBytesSupplied(@TempDir Path documentDir) throws Exception {
+        withDocumentDir(documentDir, () -> {
+            byte[] attachmentBytes = "encrypted pdf bytes".getBytes(StandardCharsets.UTF_8);
+            EmailLog emailLog = emailLog();
+            OutboundEmailArchiveDto request = archiveRequest(emailLog);
+            OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
+            Document attachmentDocument = attachmentDocument();
+            attachmentRequest.setFileName("message.pdf");
+            attachmentRequest.setContentType("application/pdf");
+            attachmentRequest.setArtifactBytes(attachmentBytes);
+            attachmentRequest.setSourceDocumentType("DOCUMENT");
+            attachmentRequest.setSourceDocumentId(777);
+            attachmentRequest.setDocument(attachmentDocument);
+            request.addAttachment(attachmentRequest);
+            Files.write(documentDir.resolve(attachmentDocument.getDocfilename()), attachmentBytes);
+            when(documentManager.getDocument(loggedInInfo, 777)).thenReturn(attachmentDocument);
 
-        when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
-                .thenReturn(savedDocument());
+            when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
+            when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                    .thenReturn(savedDocument());
 
-        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+            OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
-        assertThat(archive.getAttachments()).hasSize(1);
-        OutboundEmailArchiveAttachment attachment = archive.getAttachments().get(0);
-        assertThat(attachment.getArchive()).isSameAs(archive);
-        assertThat(attachment.getFileName()).isEqualTo("message.pdf");
-        assertThat(attachment.getContentType()).isEqualTo("application/pdf");
-        assertThat(attachment.getSha256Hash()).isEqualTo(sha256Hex(attachmentBytes));
-        assertThat(attachment.getByteSize()).isEqualTo((long) attachmentBytes.length);
-        assertThat(attachment.getSourceDocumentType()).isEqualTo("DOCUMENT");
-        assertThat(attachment.getSourceDocumentId()).isEqualTo(777);
-        assertThat(attachment.getDocument()).isSameAs(attachmentDocument);
-        assertThat(attachment.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
+            assertThat(archive.getAttachments()).hasSize(1);
+            OutboundEmailArchiveAttachment attachment = archive.getAttachments().get(0);
+            assertThat(attachment.getArchive()).isSameAs(archive);
+            assertThat(attachment.getFileName()).isEqualTo("message.pdf");
+            assertThat(attachment.getContentType()).isEqualTo("application/pdf");
+            assertThat(attachment.getSha256Hash()).isEqualTo(sha256Hex(attachmentBytes));
+            assertThat(attachment.getByteSize()).isEqualTo((long) attachmentBytes.length);
+            assertThat(attachment.getSourceDocumentType()).isEqualTo("DOCUMENT");
+            assertThat(attachment.getSourceDocumentId()).isEqualTo(777);
+            assertThat(attachment.getDocument()).isSameAs(attachmentDocument);
+            assertThat(attachment.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"bytes", "hash", "size", "missing-file", "missing-row", "unsafe-filename"})
+    @DisplayName("should reject unverified linked attachment content before creating an archive")
+    void shouldRejectLinkedAttachment_whenContentCannotBeVerified(String problem, @TempDir Path documentDir) throws Exception {
+        withDocumentDir(documentDir, () -> {
+            byte[] actual = "stored attachment".getBytes(StandardCharsets.UTF_8);
+            OutboundEmailArchiveDto request = archiveRequest(emailLog());
+            OutboundEmailArchiveAttachmentDto attachment = new OutboundEmailArchiveAttachmentDto();
+            attachment.setDocument(attachmentDocument());
+            attachment.setSha256Hash(problem.equals("hash") ? "0".repeat(64) : sha256Hex(actual));
+            attachment.setByteSize(problem.equals("size") ? 0L : (long) actual.length);
+            if (problem.equals("bytes")) attachment.setArtifactBytes("different bytes".getBytes(StandardCharsets.UTF_8));
+            request.addAttachment(attachment);
+            when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
+            Document persisted = attachmentDocument();
+            if (problem.equals("unsafe-filename")) persisted.setDocfilename("../outside.pdf");
+            when(documentManager.getDocument(loggedInInfo, 777)).thenReturn(problem.equals("missing-row") ? null : persisted);
+            if (!problem.equals("missing-file")) Files.write(documentDir.resolve("message.pdf"), actual);
+
+            if (problem.startsWith("missing")) {
+                assertThatThrownBy(() -> service.archive(loggedInInfo, request)).isInstanceOf(java.io.IOException.class);
+            } else if (problem.equals("unsafe-filename")) {
+                assertThatThrownBy(() -> service.archive(loggedInInfo, request)).isInstanceOf(SecurityException.class);
+            } else {
+                assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                        .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("does not match");
+            }
+            verify(documentManager, never()).createDocument(any(), any(), any(), any(), any());
+            verify(outboundEmailArchiveDao, never()).persist(any());
+        });
+    }
+
+    @Test
+    @DisplayName("should verify metadata against the persisted document instead of a caller filename")
+    void shouldVerifyMetadata_whenCallerSuppliesDocumentStub(@TempDir Path documentDir) throws Exception {
+        withDocumentDir(documentDir, () -> {
+            byte[] actual = "stored attachment".getBytes(StandardCharsets.UTF_8);
+            Files.write(documentDir.resolve("message.pdf"), actual);
+            OutboundEmailArchiveDto request = archiveRequest(emailLog());
+            OutboundEmailArchiveAttachmentDto attachment = new OutboundEmailArchiveAttachmentDto();
+            Document callerDocument = attachmentDocument();
+            callerDocument.setDocfilename("../untrusted.pdf");
+            attachment.setDocument(callerDocument);
+            attachment.setSha256Hash(sha256Hex(actual));
+            attachment.setByteSize((long) actual.length);
+            request.addAttachment(attachment);
+            when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
+            Document persisted = attachmentDocument();
+            when(documentManager.getDocument(loggedInInfo, 777)).thenReturn(persisted);
+            when(documentManager.createDocument(any(), any(), any(), any(), any())).thenReturn(savedDocument());
+
+            OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+            assertThat(archive.getAttachments().get(0).getDocument()).isSameAs(persisted);
+        });
     }
 
     @Test
@@ -751,7 +840,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should release legal hold and record who did it")
-    void shouldReleaseLegalHold_andRecordResponsibleProvider() {
+    void shouldRecordResponsibleProvider_whenLegalHoldReleased() {
         OutboundEmailArchive archive = archiveUnderLegalHold();
         stubArchiveLookup(archive);
 
@@ -772,7 +861,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should re-apply legal hold and record who did it")
-    void shouldPlaceLegalHold_andRecordResponsibleProvider() {
+    void shouldRecordResponsibleProvider_whenLegalHoldPlaced() {
         OutboundEmailArchive archive = archiveForDeletion();
         stubArchiveLookup(archive);
 
@@ -1055,8 +1144,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
      * demographic read that the patient-record gate runs on, then the locked row.
      */
     private void stubArchiveLookup(OutboundEmailArchive archive) {
-        // Deliberately findDemographicNoById, not find: the service must not hydrate the
-        // archive before findForUpdate, or the locked read returns pre-lock state.
+        // The authorization lookup reads only the patient identifier before locking.
         when(outboundEmailArchiveDao.findDemographicNoById(888)).thenReturn(
                 archive.getDemographic() != null ? archive.getDemographic().getDemographicNo() : null);
         when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
