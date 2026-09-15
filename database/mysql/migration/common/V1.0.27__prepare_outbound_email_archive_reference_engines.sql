@@ -1,5 +1,6 @@
 -- Ensure tables referenced by the outbound email archive foreign keys are
--- InnoDB before V1.0.16__outbound_email_archive.sql runs.
+-- InnoDB before the outbound email archive migration in PR #3138 runs.
+-- That dependent migration must use a version greater than V1.0.27.
 --
 -- Fresh installs on current CARLOS database configuration already inherit
 -- InnoDB. This migration is for upgraded legacy installs where one of these
@@ -13,7 +14,13 @@
 --     AND TABLE_NAME IN ('document', 'emailConfig', 'emailLog');
 --
 -- If any row reports a non-InnoDB engine, this migration will rebuild that
--- table. Schedule the update accordingly on large legacy databases.
+-- table. Back up the database and stop application writers before updating;
+-- schedule a maintenance window with free disk space for a table rebuild.
+-- MariaDB DDL commits per table: if a conversion fails, earlier conversions
+-- remain applied. Correct the reported cause, inspect all three engines, and
+-- follow the normal Flyway failed-migration recovery process before retrying.
+-- Retrying skips tables already converted; never mark a failed conversion as
+-- successful or disable foreign-key checks to bypass the failure.
 
 SET @document_innodb_sql = 'ALTER TABLE `document` ENGINE=InnoDB';
 SET @email_config_innodb_sql = 'ALTER TABLE `emailConfig` ENGINE=InnoDB';
@@ -30,6 +37,10 @@ SELECT required_reference_tables.table_name
   LEFT JOIN information_schema.TABLES actual_tables
     ON actual_tables.TABLE_SCHEMA = DATABASE()
    AND actual_tables.TABLE_NAME = required_reference_tables.table_name
+   -- Metadata joins can compare names case-insensitively even when table lookup
+   -- is case-sensitive. Match the server's identifier rules before any ALTER.
+   AND (@@lower_case_table_names <> 0
+        OR BINARY actual_tables.TABLE_NAME = BINARY required_reference_tables.table_name)
    AND actual_tables.TABLE_TYPE = 'BASE TABLE'
  WHERE actual_tables.TABLE_NAME IS NULL
  ORDER BY required_reference_tables.sort_order

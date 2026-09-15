@@ -15,6 +15,7 @@ on:
   pull_request:
     paths:
       - 'database/mysql/**'
+      - 'scripts/verify-outbound-archive-engines.py'
       - 'release/**'
       - 'pom.xml'
       - 'src/main/java/io/github/carlos_emr/carlos/db/FlywaySchemaValidator.java'
@@ -398,3 +399,8 @@ jobs:
           fi
 
           echo "Flyway baseline verified for province ${PROV}: ${TABLES} fresh tables, ${ADOPT_TABLES} adopted tables, reference data present"
+
+      - name: Verify archive reference engine conversion and failure paths
+        env:
+          MYSQL_PWD: password
+        run: python3 scripts/verify-outbound-archive-engines.py
