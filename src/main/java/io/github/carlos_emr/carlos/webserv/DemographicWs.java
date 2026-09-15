@@ -80,6 +80,7 @@ public class DemographicWs extends AbstractWs {
 
 
     public DemographicTransfer[] searchDemographicByName(String searchString, int startIndex, int itemsToReturn) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         List<Demographic> demographics = demographicManager.searchDemographicByName(getLoggedInInfo(), searchString, startIndex, itemsToReturn);
         return (DemographicTransfer.toTransfers(filterReadableDemographics(demographics)));
     }
@@ -90,6 +91,7 @@ public class DemographicWs extends AbstractWs {
      * Searches demographics by various attributes. See DemographicManager for parameter details.
      */
     public DemographicTransfer[] searchDemographicsByAttributes(String hin, String firstName, String lastName, Gender gender, Calendar dateOfBirth, String city, String province, String phone, String email, String alias, int startIndex, int itemsToReturn) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         List<Demographic> demographics = demographicManager.searchDemographicsByAttributes(getLoggedInInfo(), hin, firstName, lastName, gender, dateOfBirth, city, province, phone, email, alias, startIndex, itemsToReturn);
         return (DemographicTransfer.toTransfers(filterReadableDemographics(demographics)));
     }
@@ -161,6 +163,19 @@ public class DemographicWs extends AbstractWs {
     }
 
 
+    /**
+     * Drops search hits the caller may not read, rather than failing the whole search.
+     *
+     * <p>Throwing on the first restricted hit would itself leak: "your search matched a patient you
+     * cannot see" is exactly what a {@code _demographic$<id>} override exists to hide. Callers reach
+     * this only after the coarse {@code _demographic r} check at the endpoint, so a caller with no
+     * demographic rights at all still gets a fault rather than a silently empty result list.</p>
+     *
+     * <p>Known limit: {@code SecurityInfoManagerImpl.hasPrivilege} catches its own infrastructure
+     * exceptions and returns false, so a transient database failure during one patient's check is
+     * indistinguishable here from a deliberate deny, and that patient drops out of the results.
+     * Only the manager can tell those two apart; fixing it belongs there, not in this loop.</p>
+     */
     private List<Demographic> filterReadableDemographics(List<Demographic> demographics) {
         List<Demographic> readableDemographics = new ArrayList<Demographic>();
         if (demographics == null) {

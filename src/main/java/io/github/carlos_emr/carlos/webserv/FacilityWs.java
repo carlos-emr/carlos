@@ -59,6 +59,18 @@ public class FacilityWs extends AbstractWs {
         return (FacilityTransfer.toTransfer(facilityManager.getDefaultFacility(getLoggedInInfo())));
     }
 
+    /**
+     * Requires {@code _admin r}.
+     *
+     * <p><b>Upgrade impact.</b> Both province migration sets grant {@code _admin} to the
+     * {@code admin} role only (as {@code x}, which satisfies {@code r}). Integrator / inter-EMR
+     * sync accounts provisioned with a provider-type role will start faulting here until an
+     * operator grants them the object. See the upgrade checklist in
+     * {@code docs/soap-rbac-hardening.md} before deploying.</p>
+     *
+     * <p>{@link #getDefaultFacility()} and its deprecated alias remain unguarded pending the
+     * facility-access policy decision tracked as follow-up work.</p>
+     */
     public FacilityTransfer[] getAllFacilities(Boolean active) {
         requirePrivilege("_admin", "r");
         List<Facility> results = facilityManager.getAllFacilities(getLoggedInInfo(), active);

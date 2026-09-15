@@ -175,8 +175,18 @@ public class ScheduleWs extends AbstractWs {
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
 
+    /**
+     * Archive counterpart of {@link #getAppointmentsUpdatedAfterDate} and guarded identically.
+     *
+     * <p>Deliberately <em>not</em> gated on {@code _appointment.UpdatedAfterDate}. Despite the name
+     * that flag is a consent-<em>bypass</em> marker, not an access gate: in
+     * {@code ScheduleManagerImpl.getAppointmentUpdatedAfterDate} its absence means "filter these
+     * results by patient consent" and its presence means "you may see them unfiltered". It is also
+     * granted to no role in either province's migration set, so requiring it here would deny every
+     * caller including admin and break Integrator archive sync on a stock install.</p>
+     */
     public AppointmentArchiveTransfer[] getAppointmentArchivesUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
-        requirePrivilege("_appointment.UpdatedAfterDate", "x");
+        requirePrivilege(APPOINTMENT_OBJECT, "r");
         List<AppointmentArchive> appointments = scheduleManager.getAppointmentArchiveUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
         return (AppointmentArchiveTransfer.toTransfers(appointments, useGMTTime));
     }

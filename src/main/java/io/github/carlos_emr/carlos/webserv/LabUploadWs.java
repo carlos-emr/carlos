@@ -58,6 +58,21 @@ import java.text.ParseException;
 import java.util.Date;
 
 
+/**
+ * SOAP intake for externally-pushed lab result files.
+ *
+ * <p><b>RBAC.</b> Every upload method requires {@code _lab w} on the <em>calling</em> account. The
+ * {@code oscar_provider_no} parameter names the provider the lab is filed against, not the caller,
+ * so it is not an authorization input. The check sits before each method's try block so a denial
+ * propagates as a SOAP fault rather than being flattened into a benign <code>success:0</code> JSON
+ * body, which a sending lab system would read as a routine per-file rejection and not retry.</p>
+ *
+ * <p><b>Upgrade impact.</b> Both province migration sets grant {@code _lab} to the {@code doctor}
+ * role only. A dedicated lab-uploader service account on a minimal custom role will start faulting,
+ * and from the EMR side lab intake simply stops - the failure is visible only to the sender. Grant
+ * {@code _lab w} to those roles before deploying; see the upgrade checklist in
+ * {@code docs/soap-rbac-hardening.md}.</p>
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
