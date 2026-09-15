@@ -606,17 +606,14 @@ class JspEncodingRegressionTest {
                 "rx/SideLinksEditFavorites2.jsp",
                 "rx/SideLinksNoEditFavorites.jsp",
                 "rx/SideLinksNoEditFavorites2.jsp")) {
-            assertThat(readJsp(sidebar))
+            String sidebarJsp = readJsp(sidebar);
+            assertThat(sidebarJsp)
                     .as(sidebar)
                     .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
                     .containsPattern(carlosEncodePattern("allergies\\[j\\]\\.getDescription\\(\\)", "htmlAttribute"))
                     .containsPattern(carlosEncodePattern("allergies\\[j\\]\\.getReaction\\(\\)", "htmlAttribute"))
                     .containsPattern(carlosEncodePattern(
                             "allergies\\[j\\]\\.getShortDesc\\(13, 8, \"\\.\\.\\.\"\\)", "html"))
-                    .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "htmlAttribute"))
-                    .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "html"))
-                    .containsPattern(carlosEncodePattern(
-                            "favorites\\[j\\]\\.getFavoriteName\\(\\)\\.substring\\(0, 10\\) \\+ \"\\.\\.\\.\"", "html"))
                     .doesNotContainPattern(
                             "title\\s*=\\s*\"<%=\\s*allergies\\[j\\]\\.getDescription\\(\\)\\s*%>")
                     // The negative lookbehind keeps these from matching the scriptlet inside a
@@ -624,6 +621,23 @@ class JspEncodingRegressionTest {
                     .doesNotContainPattern("(?<!value=')<%=\\s*allergies\\[j\\]\\.getShortDesc\\(")
                     .doesNotContainPattern("title\\s*=\\s*\"<%=\\s*favorites\\[j\\]\\.getFavoriteName\\(\\)\\s*%>\"")
                     .doesNotContainPattern("(?<!value=')<%=\\s*favorites\\[j\\]\\.getFavoriteName\\(\\)");
+            if (sidebar.equals("rx/SideLinksEditFavorites2.jsp")) {
+                // The editable sidebar uses SafeEncode rather than the equivalent tag.
+                // Require both the encoded assignments and their actual output sinks.
+                assertThat(sidebarJsp)
+                        .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
+                        .contains("String favoriteName = StringUtils.noNull(favorites[j].getFavoriteName());")
+                        .contains("String favoriteTitle = SafeEncode.forHtmlAttribute(favoriteName);")
+                        .contains("title=\"<%= favoriteTitle %>\"")
+                        .contains("<%= SafeEncode.forHtmlContent(favoriteDisplayName) %>")
+                        .doesNotContain("<%= favoriteDisplayName %>");
+            } else {
+                assertThat(sidebarJsp)
+                        .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "htmlAttribute"))
+                        .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "html"))
+                        .containsPattern(carlosEncodePattern(
+                                "favorites\\[j\\]\\.getFavoriteName\\(\\)\\.substring\\(0, 10\\) \\+ \"\\.\\.\\.\"", "html"));
+            }
         }
     }
 
