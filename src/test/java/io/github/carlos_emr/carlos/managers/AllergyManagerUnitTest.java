@@ -232,7 +232,9 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
         void shouldThrow_whenGetUpdatedAfterDatePrivilegeDenied() {
             denyAllergyReadPrivilege();
 
-            assertThatThrownBy(() -> allergyManager.getUpdatedAfterDate(mockLoggedInInfo, new Date(), 5))
+            Date updatedAfter = new Date();
+
+            assertThatThrownBy(() -> allergyManager.getUpdatedAfterDate(mockLoggedInInfo, updatedAfter, 5))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_allergy");
 
@@ -246,8 +248,10 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
         void shouldThrow_whenDemographicQueryPrivilegeDenied() {
             denyAllergyReadPrivilege();
 
+            Date updatedAfter = new Date();
+
             assertThatThrownBy(() -> allergyManager.getByDemographicIdUpdatedAfterDate(
-                    mockLoggedInInfo, TEST_DEMO_NO, new Date()))
+                    mockLoggedInInfo, TEST_DEMO_NO, updatedAfter))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_allergy");
 
@@ -261,8 +265,10 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
         void shouldThrow_whenCompositeQueryPrivilegeDenied() {
             denyAllergyReadPrivilege();
 
+            Calendar updatedAfter = Calendar.getInstance();
+
             assertThatThrownBy(() -> allergyManager.getAllergiesByProgramProviderDemographicDate(
-                    mockLoggedInInfo, 100, TEST_PROVIDER, TEST_DEMO_NO, Calendar.getInstance(), 5))
+                    mockLoggedInInfo, 100, TEST_PROVIDER, TEST_DEMO_NO, updatedAfter, 5))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_allergy");
 

@@ -99,7 +99,9 @@ class AllergyWsSecurityUnitTest {
     void shouldThrow_whenGetAllergiesUpdatedAfterDatePrivilegeDenied() {
         denyAllergyReadPrivilege();
 
-        assertThatThrownBy(() -> service.getAllergiesUpdatedAfterDate(new Date(), 5))
+        Date updatedAfter = new Date();
+
+        assertThatThrownBy(() -> service.getAllergiesUpdatedAfterDate(updatedAfter, 5))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
@@ -112,8 +114,10 @@ class AllergyWsSecurityUnitTest {
     void shouldThrow_whenCompositeQueryPrivilegeDenied() {
         denyAllergyReadPrivilege();
 
+        Calendar updatedAfter = Calendar.getInstance();
+
         assertThatThrownBy(() -> service.getAllergiesByProgramProviderDemographicDate(
-                1, "999990", TEST_DEMOGRAPHIC_ID, Calendar.getInstance(), 5))
+                1, "999990", TEST_DEMOGRAPHIC_ID, updatedAfter, 5))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
@@ -126,7 +130,9 @@ class AllergyWsSecurityUnitTest {
     void shouldThrow_whenDemographicQueryPrivilegeDenied() {
         denyAllergyReadPrivilege();
 
-        assertThatThrownBy(() -> service.getAllergiesByDemographicIdAfter(Calendar.getInstance(), TEST_DEMOGRAPHIC_ID))
+        Calendar lastUpdate = Calendar.getInstance();
+
+        assertThatThrownBy(() -> service.getAllergiesByDemographicIdAfter(lastUpdate, TEST_DEMOGRAPHIC_ID))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
