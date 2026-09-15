@@ -36,9 +36,24 @@ provider-to-patient email attempt.
 `V1.0.26__widen_email_config_for_encrypted_credentials.sql` expands email configuration storage
 to TEXT so encrypted credentials fit even when the plaintext configuration filled the old column.
 
+`V1.0.27__prepare_outbound_email_archive_reference_engines.sql` preflights `document`,
+`emailConfig`, and `emailLog` and converts legacy storage engines to InnoDB before archive
+foreign keys are introduced. It is a no-op for existing InnoDB tables; see the migration header
+for backup, maintenance-window, and partial-DDL recovery guidance. The dependent archive
+migration is `V1.0.28__outbound_email_archive.sql`.
+
+`V1.0.28__outbound_email_archive.sql` adds the archive, attachment, deletion tombstone,
+and legal-hold event tables, plus the admin eDoc deletion grant. Existing customized
+grants are preserved. Retirement retains the eDoc and its bytes; SMTP/SendGrid wiring
+and archive UI are separate follow-up work. Earlier development copies of this schema
+must be rebuilt or explicitly reconciled before adopting this migration: Flyway
+`repair` alone does not apply changed table definitions. See the
+[archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
+retirement semantics, and failure investigation.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.26`
-(also the highest shared one), so the next free version for ANY location is `V1.0.27`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.28`
+(also the highest shared one), so the next free version for ANY location is `V1.0.29`
 (see `../README.md`).

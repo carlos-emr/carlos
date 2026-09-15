@@ -1538,7 +1538,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                                     <option value="<%=i%>"
                                                             <% if ( rxAddr != null && rxAddr.equals(""+i)){ %>SELECTED<%}%>
-                                                    ><%=te%>
+                                                    ><carlos:encode value='<%= te %>' context="html"/>
                                                     </option>
                                                     <% }%>
 
@@ -1725,8 +1725,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td><span><a
-                                                    href="javascript:ShowDrugInfo('<%= rx.getGenericName() %>');">
-						<%= rx.getGenericName() %> (<%= rx.getBrandName() %>) </a></span></td>
+                                                    href="javascript:ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>');">
+						<carlos:encode value='<%= rx.getGenericName() %>' context="html"/> (<carlos:encode value='<%= rx.getBrandName() %>' context="html"/>) </a></span></td>
                                         </tr>
                                         <%
                                                 }
