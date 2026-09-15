@@ -105,7 +105,7 @@
             }
     %>
     <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
-           value="<carlos:encode value='<%= request.getParameter(temp) %>' context="htmlAttribute"/>"/>
+           value="<carlos:encode value='<%= request.getParameter(temp) %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
     <%
         }
     %>

@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.fax.util.PdfCoverPageCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,8 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 @Service
 public class FaxDocumentManagerImpl implements FaxDocumentManager {
+
+    private static final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
 
 //	@Autowired
 //	DocumentManager documentManager;
@@ -68,7 +71,8 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
     /*
      * Returns a temporary path to a PDF version of the given eformId.
      */
-    public Path getEformFaxDocument(LoggedInInfo loggedInInfo, int eformId) {
+    @Override
+    public Path getEformFaxDocument(LoggedInInfo loggedInInfo, int eformId) throws PDFGenerationException {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_fax)");
@@ -79,24 +83,30 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
         /*
          * For future code refactoring, the 'getEformFaxDocument' method is unnecessary.
          * Instead, developers should directly use 'EformDataManager.createEformPDF()'.
+         *
+         * PDFGenerationException propagates to the caller: swallowing it here and returning null
+         * used to detonate later as a context-free NullPointerException in consumers that opened
+         * the returned path, discarding the renderer's diagnosis.
          */
-        Path path = null;
-        try {
-            eformDataManager.createEformPDF(loggedInInfo, eformId);
-        } catch (PDFGenerationException e) {
-            MiscUtils.getLogger().error("An error occurred while creating the pdf of the eForm.", e);
-        }
-
-        return path;
+        return eformDataManager.createEformPDF(loggedInInfo, eformId);
     }
 
-    public Path getFormFaxDocument(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
+    @Override
+    public Path getFormFaxDocument(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_fax)");
         }
-        LogAction.addLogSynchronous(loggedInInfo, "FaxDocumentManager.getFormFaxDocument", "eformID: " + formTransportContainer.getFormName());
-        return ConvertToEdoc.saveAsTempPDF(formTransportContainer);
-
+        LogAction.addLogSynchronous(loggedInInfo, "FaxDocumentManager.getFormFaxDocument", "formName: " + formTransportContainer.getFormName());
+        Path tempPdf = ConvertToEdoc.saveAsTempPDF(formTransportContainer);
+        if (tempPdf == null) {
+            // A null path means the form-to-PDF conversion produced nothing; the fax preview/send flow
+            // would otherwise treat this silent failure as "no document" with no trace of why.
+            logger.warn("Form-to-PDF conversion for fax returned no document (form={})",
+                    LogSafe.sanitize(formTransportContainer.getFormName()));
+            throw new PDFGenerationException(
+                    "Form-to-PDF conversion produced no document for form " + formTransportContainer.getFormName());
+        }
+        return tempPdf;
     }
 
     /**

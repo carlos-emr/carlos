@@ -44,11 +44,21 @@ class RemovedJspReferenceRegressionTest {
     private static final Pattern OSCAR_JS_SCRIPT =
             Pattern.compile("<script\\b[^>]*src=[\"'][^\"']*/share/javascript/Oscar\\.js[\"'][^>]*>",
                     Pattern.CASE_INSENSITIVE);
+    private static final List<Path> BC_BILLING_REPORT_FRAGMENTS = List.of(
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_flu.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billed.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unsettled.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billob.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unbilled.jspf"));
+    private static final Pattern CARLOS_TAGLIB = Pattern.compile(
+            "<%@\\s*taglib\\s+uri=\"carlos\"\\s+prefix=\"carlos\"\\s*%>");
+    private static final Pattern HTML_ENCODED_DEMO_NAME = Pattern.compile(
+            "<carlos:encode\\s+value\\s*=\\s*['\"]<%=\\s*demoName\\s*%>['\"]\\s+context\\s*=\\s*['\"]html['\"]\\s*/>");
 
     @Test
     @DisplayName("Appointment admin day should not link to removed PMmodule popup JSPs")
     void shouldNotContainRemovedPmmodulePopups_inAppointmentAdminDayJsp() throws IOException {
-        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp"));
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp"), StandardCharsets.UTF_8);
 
         assertThat(jsp)
                 .doesNotContain("/PMmodule/createAnonymousClient.jsp")
@@ -58,7 +68,7 @@ class RemovedJspReferenceRegressionTest {
     @Test
     @DisplayName("SearchDrug3 should not reference removed TreatmentMyD JSP")
     void shouldNotContainRemovedTreatmentMyDJsp_inSearchDrug3Jsp() throws IOException {
-        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp"));
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp"), StandardCharsets.UTF_8);
 
         assertThat(jsp).doesNotContain("/rx/TreatmentMyD.jsp");
     }
@@ -106,7 +116,7 @@ class RemovedJspReferenceRegressionTest {
     @Test
     @DisplayName("Oscar.js force-window list should tolerate duplicate script includes")
     void shouldUseRedeclarableForceWindowList_inOscarJs() throws IOException {
-        String oscarJs = Files.readString(Path.of("src/main/webapp/share/javascript/Oscar.js"));
+        String oscarJs = Files.readString(Path.of("src/main/webapp/share/javascript/Oscar.js"), StandardCharsets.UTF_8);
 
         assertThat(oscarJs)
                 .as("legacy JSPs can still include Oscar.js more than once on the same page")
@@ -116,10 +126,94 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("Demographic edit view should encode patient controlled read-only fields")
+    void shouldEncodePatientControlledReadOnlyFields_inDemographicEditViewJsp() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"));
+
+        assertThat(jsp)
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getTitle())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getOfficialLanguage())%>")
+                .doesNotContain("<%=countryCode.getCountryName() %>")
+                .doesNotContain("<%=sp_lang%>")
+                .doesNotContain("<%=sin%>")
+                .doesNotContain("<%=relHash.get(\"relation\")%>")
+                .doesNotContain("<%=relHash.get(\"lastName\")%>")
+                .doesNotContain("<%=relHash.get(\"firstName\")%>")
+                .doesNotContain("<%=dContact.getRole()%>")
+                .doesNotContain("<%=dContact.getContactName() %>")
+                .doesNotContain("<%=demographic.getRosterStatusDisplay()%>")
+                .doesNotContain("<%=demographic.getPatientStatus()%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getChartNo())%>")
+                .doesNotContain("<%=OtherIdManager.getDemoOtherId(demographic_no, \"meditech_id\")%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demoExt.get(\"cytolNum\"))%>")
+                .doesNotContain("<%=alert%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getPhone())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getPhone2())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demoExt.get(\"demo_cell\"))%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(ISO36612.getInstance().translateCodeToHumanReadableString(demographic.getProvince()))%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getPostal())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(ISO36612.getInstance().translateCodeToHumanReadableString(demographic.getResidentialProvince()))%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getResidentialPostal())%>")
+                .doesNotContain("<%=demographic.getEmail() != null ? demographic.getEmail() : \"\"%>")
+                .doesNotContain("<%=demographic.getNewsletter() != null ? demographic.getNewsletter() : \"Unknown\"%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getHin())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getVer())%>")
+                .doesNotContain("<%=demographic.getHcType() == null ? \"\" : demographic.getHcType() %>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getTitle()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getOfficialLanguage()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= countryCode.getCountryName() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= sp_lang %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= sin %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty((String) relHash.get(\"relation\")) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty((String) relHash.get(\"lastName\")) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty((String) relHash.get(\"firstName\")) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= dContact.getRole() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= dContact.getContactName() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= demographic.getRosterStatusDisplay() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= demographic.getPatientStatus() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getChartNo()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= OtherIdManager.getDemoOtherId(demographic_no, \"meditech_id\") %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(\"cytolNum\")) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPhone()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(\"hPhoneExt\")) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPhone2()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(\"wPhoneExt\")) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(\"demo_cell\")) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(ISO36612.getInstance().translateCodeToHumanReadableString(demographic.getProvince())) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPostal()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(ISO36612.getInstance().translateCodeToHumanReadableString(demographic.getResidentialProvince())) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getResidentialPostal()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= alert %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= demographic.getEmail() != null ? demographic.getEmail() : \"\" %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= demographic.getNewsletter() != null ? demographic.getNewsletter() : \"Unknown\" %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getHin()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getVer()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= demographic.getHcType() == null ? \"\" : demographic.getHcType() %>' context=\"html\"/>");
+    }
+
+    @Test
+    @DisplayName("Print-label JSPs should HTML-encode stored default printer names")
+    void shouldEncodeDefaultPrinterName_inPrintLabelJsps() throws IOException {
+        String printDemoLabel = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/demographic/printDemoLabel.jsp"), StandardCharsets.UTF_8);
+        String printClientLabLabel = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/demographic/printClientLabLabel.jsp"), StandardCharsets.UTF_8);
+        String printEnvelope = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/demographic/printEnvelope.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(printDemoLabel)
+                .contains("<carlos:encode value='<%= defaultPrinterName %>' context=\"html\"/>")
+                .doesNotContain("<%=defaultPrinterName%>");
+        assertThat(printClientLabLabel)
+                .contains("<carlos:encode value='<%= defaultPrinterName %>' context=\"html\"/>")
+                .doesNotContain("<%=defaultPrinterName%>");
+        assertThat(printEnvelope)
+                .contains("<carlos:encode value='<%= defaultPrinterName %>' context=\"html\"/>")
+                .doesNotContain("<%=defaultPrinterName%>");
+    }
+
+    @Test
     @DisplayName("Standalone admin JSPs should guard admin-chrome helper calls")
     void shouldGuardAdminChromeHelpers_inStandaloneAdminJsps() throws IOException {
-        String myGroup = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admindisplaymygroup.jsp"));
-        String labForwarding = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/labforwardingrules.jsp"));
+        String myGroup = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admindisplaymygroup.jsp"), StandardCharsets.UTF_8);
+        String labForwarding = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/labforwardingrules.jsp"), StandardCharsets.UTF_8);
 
         assertThat(myGroup)
                 .doesNotContain("if it is")
@@ -141,7 +235,7 @@ class RemovedJspReferenceRegressionTest {
     @Test
     @DisplayName("Lab forwarding JSP should load jQuery for standalone popup use")
     void shouldLoadJqueryBeforeInlineScript_inLabForwardingJsp() throws IOException {
-        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/labforwardingrules.jsp"));
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/labforwardingrules.jsp"), StandardCharsets.UTF_8);
 
         assertThat(jsp.indexOf("/library/jquery/jquery-3.7.1.min.js"))
                 .isPositive()
@@ -149,14 +243,72 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("BC billing report fragments should HTML-encode demoName")
+    void shouldHtmlEncodeDemoName_inBcBillingReportFragments() throws IOException {
+        for (Path fragment : BC_BILLING_REPORT_FRAGMENTS) {
+            String jspf = Files.readString(fragment);
+
+            assertThat(jspf)
+                    .as("BC billing report fragments must encode demoName in HTML output: %s", fragment)
+                    .doesNotContainPattern(">(?:\\s*)<%=\\s*demoName\\s*%>(?:\\s*)<");
+            assertThat(CARLOS_TAGLIB.matcher(jspf).find())
+                    .as("BC billing report fragments must declare the carlos taglib: %s", fragment)
+                    .isTrue();
+            assertThat(HTML_ENCODED_DEMO_NAME.matcher(jspf).find())
+                    .as("BC billing report fragments must HTML-encode demoName: %s", fragment)
+                    .isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("BC billing report fragments should encode related reason and note fields")
+    void shouldEncodeRelatedReasonAndNoteFields_inBcBillingReportFragments() throws IOException {
+        String flu = readBcBillingReportFragment("billingReport_flu.jspf");
+        String billOb = readBcBillingReportFragment("billingReport_billob.jspf");
+        String billed = readBcBillingReportFragment("billingReport_billed.jspf");
+        String unsettled = readBcBillingReportFragment("billingReport_unsettled.jspf");
+        String unbilled = readBcBillingReportFragment("billingReport_unbilled.jspf");
+
+        assertThat(flu)
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .contains("SafeEncode.forJavaScriptAttribute(")
+                .contains("SafeEncode.forUriComponent(reason)")
+                .doesNotContainPattern("title=\"\\s*<%=\\s*reason\\s*%>\\s*\"")
+                .doesNotContainPattern("&billCode=\\\"\\s*\\+\\s*reason\\s*\\+");
+        assertThat(billOb)
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>")
+                .doesNotContainPattern("title=\\\"\\s*<%=\\s*reason\\s*%>\\s*\\\"")
+                .doesNotContainPattern(">(?:\\s*)<%=\\s*reason\\s*%>(?:\\s*)<");
+        assertThat(billed)
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>(<carlos:encode value='<%= note %>' context=\"html\"/>)")
+                .doesNotContainPattern("<%=\\s*reason\\s*%>\\s*\\(\\s*<%=\\s*note\\s*%>\\s*\\)")
+                .doesNotContainPattern("title=\\\"\\s*<%=\\s*reason\\s*%>\\s*\\\"");
+        assertThat(unsettled)
+                .contains("<carlos:encode value='<%= note %>' context=\"html\"/>")
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .doesNotContainPattern(">(?:\\s*)<%=\\s*note\\s*%>(?:\\s*)<")
+                .doesNotContainPattern("title=\\\"\\s*<%=\\s*reason\\s*%>\\s*\\\"");
+        assertThat(unbilled)
+                .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>")
+                .contains("SafeEncode.forJavaScriptAttribute(")
+                .contains("SafeEncode.forUriComponent(demoName)")
+                .doesNotContain("demographic_name=<%=URLEncoder.encode(demoName)%>")
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .doesNotContainPattern(">(?:\\s*)<%=\\s*reason\\s*%>(?:\\s*)<")
+                .doesNotContainPattern("title=\\\"\\s*<%=\\s*reason\\s*%>\\s*\\\"");
+    }
+
+    @Test
     @DisplayName("Admin routes, UI, permissions, and docs should not expose removed Traceability report")
     void shouldNotExposeTraceabilityReport_fromAdminSurfaces() throws IOException {
-        String strutsAdmin = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-admin.xml"));
-        String adminJsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp"));
-        String adminLeftNav = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf"));
-        String oscarData = Files.readString(Path.of("database/mysql/oscardata.sql"));
+        String strutsAdmin = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-admin.xml"), StandardCharsets.UTF_8);
+        String adminJsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp"), StandardCharsets.UTF_8);
+        String adminLeftNav = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf"), StandardCharsets.UTF_8);
+        String oscarData = Files.readString(Path.of("database/mysql/migration/on/V1.0.2__on_data.sql"), StandardCharsets.UTF_8);
         String traceabilityPermissionCleanup = Files.readString(Path.of(
-                "database/mysql/updates/update-2026-05-26-remove-traceability-permission.sql"));
+                "database/mysql/updates/update-2026-05-26-remove-traceability-permission.sql"), StandardCharsets.UTF_8);
 
         assertThat(strutsAdmin)
                 .doesNotContain("GenerateTraceAction")
@@ -246,6 +398,14 @@ class RemovedJspReferenceRegressionTest {
         } catch (IOException e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
         }
+    }
+
+    private static String readBcBillingReportFragment(String fileName) throws IOException {
+        Path fragment = BC_BILLING_REPORT_FRAGMENTS.stream()
+                .filter(path -> path.getFileName().toString().equals(fileName))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown BC billing fragment: " + fileName));
+        return Files.readString(fragment);
     }
 
     private static final Pattern GLOBAL_HEAD_INCLUDE = Pattern.compile(

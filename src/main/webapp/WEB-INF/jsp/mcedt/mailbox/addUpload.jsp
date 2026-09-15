@@ -41,6 +41,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
+<%@ taglib prefix="s" uri="/struts-tags" %>
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -78,6 +79,19 @@
     </head>
 
     <body>
+<%-- Multipart rejections (an empty part, a file over the 50MB cap, too many
+     files, a field over struts.multipart.maxStringLength, a parse failure) are
+     produced by the interceptor stack BEFORE this page's action runs, and reach
+     this page through its "input" result. The action never executed, so any
+     error channel keyed off an attribute the action sets is empty here -- and
+     without this block the rejection renders the ordinary form again with no
+     explanation, which is indistinguishable from a page refresh. --%>
+<s:if test="hasActionErrors()">
+    <div class="alert alert-danger" role="alert">
+        <s:actionerror/>
+    </div>
+</s:if>
+
     <div class="greyBox">
         <div class="center">
             <h1>Upload Details</h1>

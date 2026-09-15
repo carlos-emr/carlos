@@ -192,8 +192,23 @@ public class RxPatientData {
             else return "";
         }
 
+        /**
+         * Finds an allergy only when it belongs to this patient.
+         *
+         * @param id allergy identifier
+         * @return the allergy when found and owned by this patient; {@code null} when the
+         *         allergy does not exist or belongs to a different patient
+         */
         public Allergy getAllergy(int id) {
             Allergy allergy = allergyDao.find(id);
+            if (allergy == null) {
+                return null;
+            }
+            if (allergy.getDemographicNo() != getDemographicNo()) {
+                MiscUtils.getLogger().warn("Blocked cross-patient allergy access: demographicNo={} sessionDemographicNo={}",
+                        allergy.getDemographicNo(), getDemographicNo());
+                return null;
+            }
             PartialDate pd = partialDateDao.getPartialDate(PartialDate.ALLERGIES, allergy.getId(), PartialDate.ALLERGIES_STARTDATE);
             if (pd != null) allergy.setStartDateFormat(pd.getFormat());
 
@@ -218,15 +233,19 @@ public class RxPatientData {
             partialDateDao.setPartialDate(PartialDate.ALLERGIES, allergy.getId(), PartialDate.ALLERGIES_STARTDATE, allergy.getStartDateFormat());
         }
 
-        private static boolean setAllergyArchive(int allergyId, boolean archive) {
+        private boolean setAllergyArchive(int allergyId, boolean archive) {
             Allergy allergy = allergyDao.find(allergyId);
-            if (allergy != null) {
-                allergy.setArchived(archive);
-                allergyDao.merge(allergy);
-                return (true);
+            if (allergy == null) {
+                return false;
             }
-
-            return (false);
+            if (allergy.getDemographicNo() != getDemographicNo()) {
+                MiscUtils.getLogger().warn("Blocked cross-patient allergy archive: demographicNo={} sessionDemographicNo={}",
+                        allergy.getDemographicNo(), getDemographicNo());
+                return false;
+            }
+            allergy.setArchived(archive);
+            allergyDao.merge(allergy);
+            return true;
         }
 
         public boolean deleteAllergy(int allergyId) {

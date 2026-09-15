@@ -239,6 +239,10 @@ public class BillingOnFormViewModelAssembler {
             providerNo = !fromPicker.isEmpty() ? fromPicker : userNo;
         }
         b.providerNo(providerNo);
+        // Default to the encounter's provider. If that provider cannot bill,
+        // the picker retains its explicit placeholder instead of choosing a
+        // different physician merely because their name is first in the list.
+        if (providerView.isEmpty()) b.providerView(providerNo);
 
         // ---- demographic + age + referral + validation messages ----
 
@@ -427,7 +431,7 @@ public class BillingOnFormViewModelAssembler {
                     throw sec;
                 } catch (RuntimeException e) {
                     b.siteContextDegraded(true);
-                    MiscUtils.getLogger().warn(
+                    MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                             "Site-suggest lookup failed for provider={}; rendering empty suggestion",
                             LogSafe.sanitize(apptProviderNo), e);
                 }
@@ -442,7 +446,7 @@ public class BillingOnFormViewModelAssembler {
             try {
                 admDate = nullToEmpty(admissionDateLoader.getAdmissionDate(loggedInInfo, demoNo));
             } catch (RuntimeException e) {
-                MiscUtils.getLogger().error(
+                MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         "Admission-date lookup failed for demo={}", LogSafe.sanitize(demoNo), e);
                 b.admissionDateUnavailable(true);
             }
@@ -594,7 +598,7 @@ public class BillingOnFormViewModelAssembler {
                     name = p.getFormattedName();
                 }
             } catch (RuntimeException e) {
-                MiscUtils.getLogger().warn(
+                MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         "assgProvider display lookup failed for provider={}; rendering blank",
                         LogSafe.sanitize(apptProviderNo), e);
                 return new ResolvedAssgProviderDisplay("", true);
@@ -633,7 +637,7 @@ public class BillingOnFormViewModelAssembler {
             }
         } catch (RuntimeException rtEx) {
             unavailable = true;
-            MiscUtils.getLogger().error(
+            MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "Billing history rows lookup failed for demo={}; rendering with empty history",
                     LogSafe.sanitize(demoNo), rtEx);
         }
@@ -709,7 +713,7 @@ public class BillingOnFormViewModelAssembler {
                 }
             }
         } catch (NumberFormatException nfe) {
-            MiscUtils.getLogger().warn(
+            MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "Invalid demographic_no for dx lookup: {}",
                     LogSafe.sanitize(demoNo), nfe);
         }
@@ -744,12 +748,12 @@ public class BillingOnFormViewModelAssembler {
             }
         } catch (ClassCastException ccEx) {
             unavailable = true;
-            MiscUtils.getLogger().error(
+            MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "Billing history data-shape regression for demo={} — BillingOnClaimLoader returned unexpected types",
                     LogSafe.sanitize(demoNo), ccEx);
         } catch (RuntimeException rtEx) {
             unavailable = true;
-            MiscUtils.getLogger().error(
+            MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "Billing history lookup failed for demo={}; rendering with empty history",
                     LogSafe.sanitize(demoNo), rtEx);
         }

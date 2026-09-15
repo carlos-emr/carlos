@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.model.LstOrgcd;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
+import io.github.carlos_emr.carlos.util.SqlIdentifierValidator;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -108,6 +109,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[100];
         String fieldNames[] = new String[17];
         String sSQL1 = "";
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         String sSQL = "select distinct ";
         boolean activeFieldExists = true;
         for (int i = 1; i <= 17; i++) {
@@ -115,12 +117,15 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             for (int j = 0; j < fields.size(); j++) {
                 FieldDefValue fdef = (FieldDefValue) fields.get(j);
                 if (fdef.getGenericIdx() == i) {
-                    if (fdef.getFieldSQL().indexOf('(') >= 0) {
-                        sSQL += fdef.getFieldSQL() + " " + fdef.getFieldName() + ",";
-                        fieldNames[i - 1] = fdef.getFieldName();
+                    String fieldSqlExpression = validateFieldSql(fdef.getFieldSQL());
+                    if (fieldSqlExpression.indexOf('(') >= 0) {
+                        String fieldName = validateSqlAlias(fdef.getFieldName());
+                        sSQL += fieldSqlExpression + " " + fieldName + ",";
+                        fieldNames[i - 1] = fieldName;
                     } else {
-                        sSQL += "s." + fdef.getFieldSQL() + ",";
-                        fieldNames[i - 1] = fdef.getFieldSQL();
+                        String fieldName = validateLoadCodeListFieldName(fieldSqlExpression);
+                        sSQL += qualifyLoadCodeListField(fieldSqlExpression) + ",";
+                        fieldNames[i - 1] = fieldName;
                     }
                     ok = true;
                     break;
@@ -137,7 +142,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             }
         }
         sSQL = sSQL.substring(0, sSQL.length() - 1);
-        sSQL += " from " + tableDef.getTableName();
+        sSQL += " from " + tableName;
         sSQL1 = Misc.replace(sSQL, "s.", "a.") + " a,";
         sSQL += " s where 1=1";
         int i = 0;
@@ -276,13 +281,81 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * <p>Note: {@code LookupCodeEdit2Action} also validates {@code tableId} with a stricter
      * {@code ^[A-Z0-9_]+$} regex before it reaches this DAO. This method provides a
      * second layer of defense for all identifier usage within the DAO.</p>
+     *
+     * <p>Surrounding whitespace is tolerated and the trimmed value is returned,
+     * consistent with {@link #validateFieldSql(String)}, so padded legacy
+     * configuration is accepted and emitted in canonical form.</p>
      */
     private String validateSqlIdentifier(String identifier) {
-        if (identifier == null || !identifier.matches("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$")) {
+        String trimmed = identifier == null ? null : identifier.trim();
+        if (!SqlIdentifierValidator.isValidIdentifier(trimmed)) {
             MiscUtils.getLogger().error("Invalid SQL identifier rejected in lookup configuration");
             throw new IllegalArgumentException("Invalid SQL identifier in lookup configuration");
         }
-        return identifier;
+        return trimmed;
+    }
+
+    private String validateSqlAlias(String alias) {
+        if (!SqlIdentifierValidator.isValidIdentifier(alias) || alias.indexOf('.') >= 0) {
+            MiscUtils.getLogger().error("Invalid SQL alias rejected in lookup configuration");
+            throw new IllegalArgumentException("Invalid SQL alias in lookup configuration");
+        }
+        return alias;
+    }
+
+    /**
+     * Returns the unqualified column name for a {@code LoadCodeList} field.
+     *
+     * @param fieldSql String the validated simple column or {@code s.column} reference
+     * @return String the simple column name used by later WHERE/tree predicates
+     * @throws IllegalArgumentException when the field is blank or uses an unexpected qualifier or nested path
+     */
+    private String validateLoadCodeListFieldName(String fieldSql) {
+        requireConfiguredLoadCodeListField(fieldSql);
+        int dotIndex = fieldSql.indexOf('.');
+        if (dotIndex < 0) {
+            return validateSqlAlias(fieldSql);
+        }
+        String qualifier = fieldSql.substring(0, dotIndex);
+        String columnName = fieldSql.substring(dotIndex + 1);
+        boolean hasMultipleSegments = columnName.indexOf('.') >= 0;
+        if (hasMultipleSegments) {
+            MiscUtils.getLogger().error("Nested path not allowed in lookup field SQL");
+            throw new IllegalArgumentException("Nested path not allowed in lookup field SQL");
+        }
+        if (!"s".equals(qualifier)) {
+            MiscUtils.getLogger().error("Only s qualifier allowed in lookup field SQL");
+            throw new IllegalArgumentException("Only s qualifier allowed in lookup field SQL");
+        }
+        // LoadCodeList owns the "s" table alias; other qualifiers would escape that fixed FROM shape.
+        return validateSqlAlias(columnName);
+    }
+
+    /**
+     * Adds the {@code LoadCodeList} table alias when field metadata stores a bare column name.
+     *
+     * @param fieldSql String the validated simple column or {@code s.column} reference
+     * @return String the field reference to emit in the SELECT list
+     */
+    private String qualifyLoadCodeListField(String fieldSql) {
+        requireConfiguredLoadCodeListField(fieldSql);
+        if (fieldSql.indexOf('.') >= 0) {
+            return fieldSql;
+        }
+        return "s." + fieldSql;
+    }
+
+    /**
+     * Rejects missing field metadata before the legacy SQL builder inspects it.
+     *
+     * @param fieldSql String the validated simple column or {@code s.column} reference
+     * @throws IllegalArgumentException when the field metadata is missing or empty
+     */
+    private void requireConfiguredLoadCodeListField(String fieldSql) {
+        if (fieldSql == null || fieldSql.isEmpty()) {
+            MiscUtils.getLogger().error("Blank SQL field rejected in lookup configuration");
+            throw new IllegalArgumentException("Blank SQL field in lookup configuration");
+        }
     }
 
     /**
@@ -293,11 +366,15 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * single-quoted string literals, commas, and whitespace are permitted.
      */
     private String validateFieldSql(String fieldSql) {
-        if (fieldSql == null || !fieldSql.matches("^[A-Za-z_][A-Za-z0-9_.,() ']*$")) {
+        if (!SqlIdentifierValidator.isValidFieldExpression(fieldSql)) {
             MiscUtils.getLogger().error("Invalid field SQL expression rejected in lookup configuration");
             throw new IllegalArgumentException("Invalid field SQL expression in lookup configuration");
         }
-        return fieldSql;
+        // isValidFieldExpression tolerates surrounding whitespace, but downstream
+        // identifier/alias checks (validateLoadCodeListFieldName, validateSqlIdentifier)
+        // do not. Return the trimmed form so a whitespace-padded config value validates
+        // here and stays accepted there, matching the pre-parser behaviour.
+        return fieldSql.trim();
     }
 
     @Override

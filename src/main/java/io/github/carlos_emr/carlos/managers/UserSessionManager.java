@@ -55,6 +55,15 @@ public interface UserSessionManager {
     HttpSession unregisterUserSession(Integer userSecurityCode) throws UserSessionNotFoundException;
 
     /**
+     * Unregisters one user session without affecting other active sessions for the same user.
+     * @param userSecurityCode The user's sec code.
+     * @param session The HTTP session object to unregister.
+     * @return The unregistered HTTP session object.
+     * @throws UserSessionNotFoundException If the user session is not found.
+     */
+    HttpSession unregisterUserSession(Integer userSecurityCode, HttpSession session) throws UserSessionNotFoundException;
+
+    /**
      * Retrieves a registered user session.
      * @param userSecurityCode The user's sec code.
      * @return The registered HTTP session object, or null if not found.

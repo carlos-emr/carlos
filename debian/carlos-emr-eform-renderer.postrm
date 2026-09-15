@@ -1,0 +1,71 @@
+#!/bin/sh
+# postrm for carlos-emr-eform-renderer.
+#
+# Removing the browser must also retract the configuration that points at it:
+# carlos.properties would otherwise keep an eform_pdf_browser_chromium_path
+# aimed at a deleted binary, and the startup probe (now enabled) would fail on
+# every boot for a feature the operator has deliberately removed.
+set -e
+
+case "$1" in
+    remove|purge)
+        # carlos-ctl comes from carlos-emr, which this package depends on — but
+        # on a purge of BOTH packages carlos-emr may already be gone, so this is
+        # advisory rather than required.
+        if command -v carlos-ctl >/dev/null 2>&1; then
+            # The binaries are gone by now, so init-config takes its
+            # "no browser installed" branch and puts the probe back to off.
+            carlos-ctl init-config \
+                || echo "carlos-emr-eform-renderer: WARNING: carlos-ctl init-config failed; " \
+                        "carlos.properties may still point eform_pdf_browser_service_url at the " \
+                        "removed browser service — run 'carlos-ctl init-config' by hand." >&2
+            # daemon-reload BEFORE the restart, and explicitly rather than relying
+            # on the debhelper-inserted block below. (Never spell the substitution
+            # token in a comment: debhelper substitutes every occurrence, comments
+            # included, splicing its snippet mid-sentence and leaving the comment
+            # tail behind as a broken command — command-not-found under set -e
+            # aborts the script and wedges dpkg.) dpkg has already deleted the drop-in
+            # from disk, but systemd still holds it in memory — so a restart here
+            # would bring the EMR back up with EFORM_RENDER_SANDBOX=true still set
+            # and a Wants= on a unit file that no longer exists. debhelper's own
+            # reload lands after this point and nothing restarts the EMR again,
+            # so the flag would survive removal indefinitely.
+            if [ -d /run/systemd/system ]; then
+                systemctl daemon-reload >/dev/null 2>&1 || true
+                if systemctl is-active --quiet carlos-emr.service; then
+                    deb-systemd-invoke restart carlos-emr.service || true
+                fi
+            fi
+        fi
+        ;;
+esac
+
+# Generated from a skeleton by postinst, so it is NOT a conffile and dpkg will
+# not remove it. It holds the url-base bearer token, and the carlos-render group
+# that owns it outlives the package too — leaving a readable secret behind whose
+# gid can later be reused.
+case "$1" in
+    purge)
+        rm -f /etc/carlos-emr/render-browser.env
+        # The browser's HOME. Chromium's crashpad database lives here, and a crash
+        # minidump captures renderer memory — i.e. the rendered patient page. The same
+        # PHI reasoning the EMR package applies to heapdumps applies here: purge must
+        # not leave it behind on a host the operator believes is clean.
+        rm -rf /var/lib/carlos-emr/render
+        ;;
+esac
+
+case "$1" in
+    remove|purge)
+        ;;
+    upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

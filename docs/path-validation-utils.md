@@ -276,11 +276,11 @@ File target = PathValidationUtils.validateExistingPath(
 
 Tests are located at:
 - `src/test/java/io/github/carlos_emr/carlos/utility/PathValidationUtilsUnitTest.java`
-- `src/test/java/io/github/carlos_emr/carlos/documentManager/IncomingDocUtilPathValidationTest.java`
+- `src/test/java/io/github/carlos_emr/carlos/documentManager/IncomingDocUtilPathValidationUnitTest.java`
 
 Run tests with:
 ```bash
-mvn -q -Dtest=PathValidationUtilsUnitTest,IncomingDocUtilPathValidationTest test
+mvn -q -Dtest=PathValidationUtilsUnitTest,IncomingDocUtilPathValidationUnitTest test
 ```
 
 ## CodeQL Model Pack (Static Analysis Integration)

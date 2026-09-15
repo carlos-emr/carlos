@@ -306,7 +306,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
         private String downloadFilename;
 
         @Override
-        public void download(boolean bDownload, HttpServletResponse res, String dir, String filename, String contentType)
+        public void download(boolean bDownload, HttpServletResponse res, String dir, String filename)
                 throws IOException {
             downloadCalled = true;
             bDownloadValue = bDownload;

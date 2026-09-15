@@ -294,8 +294,12 @@ public class JDBCUtil {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs IMPROPER_UNICODE: fixed XML wrapper/id element names;
+    // import-managed DB fields are checked separately. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification = "case-insensitive comparison of fixed XML wrapper/id element names; "
+                    + "import-managed DB fields are checked separately")
     static ResultSet toResultSet(Node node, ResultSet rs) throws SQLException {
         int type = node.getNodeType();
 
@@ -329,6 +333,12 @@ public class JDBCUtil {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: fixed ASCII import-managed DB columns;
+    // archive entry name remains the trusted source for patient/timestamp. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification = "case-insensitive comparison against fixed ASCII import-managed DB column names; "
+                    + "XML body cannot choose patient/timestamp")
     private static boolean isImportTargetManagedField(String name) {
         return IMPORT_TARGET_MANAGED_FIELDS.stream().anyMatch(field -> field.equalsIgnoreCase(name));
     }
