@@ -9,6 +9,13 @@ import java.io.IOException;
 public final class BoundedEmailOutputStream extends FilterOutputStream {
     private long remaining;
 
+    /**
+     * Creates a stream with the given byte budget. Writes exceeding the remaining budget
+     * throw {@link IOException} before any bytes from that write reach the delegate.
+     *
+     * @param output the delegate stream
+     * @param limit maximum number of bytes accepted
+     */
     public BoundedEmailOutputStream(OutputStream output, long limit) {
         super(output);
         remaining = limit;

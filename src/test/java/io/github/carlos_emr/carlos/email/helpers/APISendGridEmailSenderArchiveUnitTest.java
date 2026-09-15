@@ -149,6 +149,25 @@ class APISendGridEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(sender::describePreparedAttachments).isInstanceOf(EmailSendingException.class);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "clinical.pdf, application/pdf", "notes.txt, text/plain", "scan.png, image/png",
+            "data.unknown, application/octet-stream"})
+    void shouldMatchAttachmentContentType_inPayloadAndArchive(String fileName, String expectedType) throws Exception {
+        Path source = tempDir.resolve("attachment-source.bin");
+        Files.writeString(source, "synthetic attachment");
+        var attachment = new EmailAttachment(fileName, source.toString(), DocumentType.DOC, 77);
+        var sender = sender(validConfig(), List.of(attachment));
+        try {
+            JsonNode payload = OBJECT_MAPPER.readTree(sender.prepareArtifactBytes());
+            assertThat(payload.path("attachments").get(0).path("type").asText()).isEqualTo(expectedType);
+            assertThat(sender.describePreparedAttachments()).singleElement()
+                    .satisfies(metadata -> assertThat(metadata.getContentType()).isEqualTo(expectedType));
+        } finally {
+            sender.discardPrepared();
+        }
+    }
+
     private APISendGridEmailSender sender(EmailConfig emailConfig, List<EmailAttachment> attachments) {
         return new APISendGridEmailSender(
                 loggedInInfo,

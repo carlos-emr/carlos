@@ -102,6 +102,10 @@ class APISendGridEmailSenderTransportIntegrationTest {
                     new EmailAttachment("attachment.txt", attachment.toString(), null, 0)));
             byte[] returned = sender.prepareArtifactBytes();
             byte[] archived = returned.clone();
+            assertThat(sender.describePreparedAttachments()).singleElement()
+                    .satisfies(metadata -> assertThat(metadata.getContentType()).isEqualTo("text/plain"));
+            var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(archived);
+            assertThat(payload.path("attachments").get(0).path("type").asText()).isEqualTo("text/plain");
             java.util.Arrays.fill(returned, (byte) 0);
             Files.writeString(attachment, "changed after preparation");
             if (status == 202) {

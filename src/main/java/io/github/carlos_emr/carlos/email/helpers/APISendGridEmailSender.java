@@ -74,7 +74,8 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
     private static final String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
     private static final int MAX_PAYLOAD_BYTES = 50 * 1024 * 1024;
     private static final String JSON_CONTENT_TYPE = "application/json";
-    private static final String SENDGRID_ATTACHMENT_CONTENT_TYPE = "application/pdf";
+    private final jakarta.activation.FileTypeMap attachmentFileTypes =
+            new org.springframework.mail.javamail.ConfigurableMimeFileTypeMap();
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private final List<EmailAttachment> attachments;
 
@@ -342,6 +343,9 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
                     || emailAttachment.getFilePath().isBlank()) {
                 throw new EmailSendingException("An email attachment has no readable file path.");
             }
+            if (emailAttachment.getFileName() == null || emailAttachment.getFileName().isBlank()) {
+                throw new EmailSendingException("An email attachment has no file name.");
+            }
             try {
                 ObjectNode jsonAttachment = objectMapper.createObjectNode();
                 Path path = PathValidationUtils.resolveTrustedPath(new File(emailAttachment.getFilePath())).toPath();
@@ -355,10 +359,11 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
                 remainingBytes -= attachmentBytes.length;
                 jsonAttachment.put("content", Base64.encodeBase64String(attachmentBytes));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
-                jsonAttachment.put("type", SENDGRID_ATTACHMENT_CONTENT_TYPE);
+                String contentType = attachmentFileTypes.getContentType(emailAttachment.getFileName());
+                jsonAttachment.put("type", contentType);
                 jsonAttachment.put("disposition", "attachment");
                 jsonAttachments.add(jsonAttachment);
-                attachmentMetadata.add(describeAttachment(emailAttachment, attachmentBytes));
+                attachmentMetadata.add(describeAttachment(emailAttachment, attachmentBytes, contentType));
             } catch (IOException | SecurityException e) {
                 throw new EmailSendingException("An email attachment could not be read.", e);
             }
@@ -367,12 +372,12 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
         preparedAttachmentMetadata = List.copyOf(attachmentMetadata);
     }
 
-    private OutboundEmailArchiveAttachmentDto describeAttachment(EmailAttachment attachment, byte[] attachmentBytes)
+    private OutboundEmailArchiveAttachmentDto describeAttachment(EmailAttachment attachment, byte[] attachmentBytes, String contentType)
             throws EmailSendingException {
         OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
         attachmentDto.setFileName(attachment.getFileName());
         // The declared type, not a sniffed one: this records what SendGrid was told the part is.
-        attachmentDto.setContentType(SENDGRID_ATTACHMENT_CONTENT_TYPE);
+        attachmentDto.setContentType(contentType);
         attachmentDto.setSha256Hash(sha256Hex(attachmentBytes));
         attachmentDto.setByteSize((long) attachmentBytes.length);
         attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);

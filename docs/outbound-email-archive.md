@@ -4,7 +4,8 @@ This service stores a finalized outbound email artifact as a patient eDoc, with 
 SHA-256 hash and byte count. It provides archive creation, legal-hold transitions,
 and logical retirement with a retained tombstone. SMTP sends through `EmailManager`
 (including the LOCAL provider) now archive the finalized RFC 822 message before
-transport. SendGrid/API delivery is unchanged. There is no new archive user interface.
+transport. SendGrid/API sends archive the finalized JSON request body before transport.
+There is no new archive user interface.
 
 ## Installation and upgrade
 
@@ -159,8 +160,8 @@ categories, without storing or logging raw server error text or credentials.
 
 ## SendGrid capture and delivery outcomes
 
-SendGrid uses the same archive-before-send workflow and permissions as SMTP. The stored
-`-sendgrid.json` artifact is the exact UTF-8 request body submitted to the provider,
+SendGrid uses the same archive-before-send workflow and permissions as SMTP. The JSON artifact, labeled
+`outbound-email-<log-id>-sendgrid.json`, is the exact UTF-8 request body submitted to the provider,
 including encoded attachment snapshots. API credentials are sent only in the authorization
 header and are excluded from the artifact. Source documents remain editable.
 
