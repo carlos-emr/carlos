@@ -77,7 +77,7 @@ class DatabaseChecks:
     def engines(self, database):
         """Snapshot all fixture object engines to detect partial conversion."""
         return self.sql('SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES '
-                        'WHERE TABLE_SCHEMA=DATABASE() ORDER BY BINARY TABLE_NAME', database)
+                        'WHERE BINARY TABLE_SCHEMA=BINARY DATABASE() ORDER BY BINARY TABLE_NAME', database)
 
     def success_case(self, engines):
         """Verify conversion, row/index preservation, FK eligibility, and repeat safety."""
@@ -98,7 +98,7 @@ class DatabaseChecks:
                     "WHERE NAME LIKE CONCAT(DATABASE(), '/%') ORDER BY NAME", database):
                 raise AssertionError('Compliant InnoDB tables were rebuilt')
             if self.sql("SELECT COUNT(*) FROM information_schema.TABLES WHERE "
-                        "TABLE_SCHEMA=DATABASE() AND ENGINE='InnoDB'", database) != '3':
+                        "BINARY TABLE_SCHEMA=BINARY DATABASE() AND ENGINE='InnoDB'", database) != '3':
                 raise AssertionError('Not all references converted')
             for table, before, before_indexes in zip(TABLES, rows, indexes):
                 if self.sql('SELECT * FROM `' + table + '`', database) != before:
@@ -126,6 +126,26 @@ class DatabaseChecks:
                 raise AssertionError('Preflight allowed partial conversion: ' + kind + ' ' + table)
         self.passed += 1
 
+    def neighboring_schema_case(self):
+        """Ignore same-spelling schemas with different case in preflight and lookup."""
+        for missing in ('emailLog', None):
+            with self.fixture(('MyISAM',) * 3, missing=missing) as database:
+                neighbor = database.upper()
+                self.sql('CREATE DATABASE `' + neighbor + '`')
+                try:
+                    for ddl in self.definitions.values():
+                        self.sql(ddl, neighbor)
+                    before = self.engines(database)
+                    self.sql(self.migration, database, error='1146' if missing else None)
+                    after = self.engines(database)
+                    if missing and before != after:
+                        raise AssertionError('Neighbor schema bypassed preflight')
+                    if not missing and ('MyISAM' in after or after.count('InnoDB') != 3):
+                        raise AssertionError('Neighbor schema changed engine lookup')
+                finally:
+                    self.sql('DROP DATABASE `' + neighbor + '`')
+            self.passed += 1
+
     def run(self):
         """Cover compliant, legacy, mixed, missing, view, and case-folded schemas."""
         for engines in [('InnoDB',) * 3, ('MyISAM',) * 3,
@@ -137,6 +157,8 @@ class DatabaseChecks:
             self.failure_case('view', table)
             if self.case_sensitive:
                 self.failure_case('wrong_case', table)
+        if self.case_sensitive:
+            self.neighboring_schema_case()
         print(f'Passed {self.passed} live archive-engine scenarios; case_sensitive={self.case_sensitive}')
 
 

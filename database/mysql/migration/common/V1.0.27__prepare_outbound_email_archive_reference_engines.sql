@@ -10,7 +10,7 @@
 -- Operator diagnostic:
 --   SELECT TABLE_NAME, ENGINE
 --   FROM information_schema.TABLES
---   WHERE TABLE_SCHEMA = DATABASE()
+--   WHERE BINARY TABLE_SCHEMA = BINARY DATABASE()
 --     AND TABLE_NAME IN ('document', 'emailConfig', 'emailLog');
 --
 -- If any row reports a non-InnoDB engine, this migration will rebuild that
@@ -40,7 +40,8 @@ SELECT required_reference_tables.table_name
    -- Metadata joins can compare names case-insensitively even when table lookup
    -- is case-sensitive. Match the server's identifier rules before any ALTER.
    AND (@@lower_case_table_names <> 0
-        OR BINARY actual_tables.TABLE_NAME = BINARY required_reference_tables.table_name)
+        OR (BINARY actual_tables.TABLE_SCHEMA = BINARY DATABASE()
+            AND BINARY actual_tables.TABLE_NAME = BINARY required_reference_tables.table_name))
    AND actual_tables.TABLE_TYPE = 'BASE TABLE'
  WHERE actual_tables.TABLE_NAME IS NULL
  ORDER BY required_reference_tables.sort_order
@@ -71,6 +72,7 @@ SELECT `ENGINE`
   INTO @document_engine
   FROM information_schema.TABLES
  WHERE TABLE_SCHEMA = DATABASE()
+   AND (@@lower_case_table_names <> 0 OR BINARY TABLE_SCHEMA = BINARY DATABASE())
    AND TABLE_NAME = 'document'
    AND TABLE_TYPE = 'BASE TABLE'
  LIMIT 1;
@@ -89,6 +91,7 @@ SELECT `ENGINE`
   INTO @email_config_engine
   FROM information_schema.TABLES
  WHERE TABLE_SCHEMA = DATABASE()
+   AND (@@lower_case_table_names <> 0 OR BINARY TABLE_SCHEMA = BINARY DATABASE())
    AND TABLE_NAME = 'emailConfig'
    AND TABLE_TYPE = 'BASE TABLE'
  LIMIT 1;
@@ -107,6 +110,7 @@ SELECT `ENGINE`
   INTO @email_log_engine
   FROM information_schema.TABLES
  WHERE TABLE_SCHEMA = DATABASE()
+   AND (@@lower_case_table_names <> 0 OR BINARY TABLE_SCHEMA = BINARY DATABASE())
    AND TABLE_NAME = 'emailLog'
    AND TABLE_TYPE = 'BASE TABLE'
  LIMIT 1;
