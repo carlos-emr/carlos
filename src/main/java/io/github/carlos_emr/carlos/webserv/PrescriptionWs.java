@@ -49,14 +49,27 @@ import org.springframework.stereotype.Component;
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class PrescriptionWs extends AbstractWs {
+    private static final String RX_OBJECT = "_rx";
+
     @Autowired
     private PrescriptionManager prescriptionManager;
 
+    /**
+     * The coarse {@code _rx r} check runs at method entry, before the record is loaded.
+     *
+     * <p>{@code PrescriptionManagerImpl.getPrescription} performs no privilege check of its own, so
+     * without this an unprivileged caller reached a PHI-bearing load, and a missing prescription
+     * returned null having been checked not at all -- the difference between a SOAP fault and a
+     * null answer enumerated valid prescription IDs. The demographic-scoped re-check below still
+     * runs once the record is in hand, because the patient scope is not knowable before the load.</p>
+     */
     public PrescriptionTransfer getPrescription(Integer prescriptionId) {
+        requirePrivilege(RX_OBJECT, "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         Prescription prescription = prescriptionManager.getPrescription(loggedInInfo, prescriptionId);
 
         if (prescription != null) {
+            requirePrivilege(RX_OBJECT, "r", prescription.getDemographicId() != null ? prescription.getDemographicId().toString() : null);
             List<Drug> drugs = prescriptionManager.getDrugsByScriptNo(loggedInInfo, prescription.getId(), false);
             return (PrescriptionTransfer.toTransfer(prescription, drugs));
         }
@@ -65,18 +78,21 @@ public class PrescriptionWs extends AbstractWs {
     }
 
     public PrescriptionTransfer[] getPrescriptionUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege(RX_OBJECT, "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prescription> prescriptions = prescriptionManager.getPrescriptionUpdatedAfterDate(loggedInInfo, updatedAfterThisDateExclusive, itemsToReturn);
         return (PrescriptionTransfer.getTransfers(loggedInInfo, prescriptions));
     }
 
     public PrescriptionTransfer[] getPrescriptionsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege(RX_OBJECT, "r", demographicId != null ? demographicId.toString() : null);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prescription> prescriptions = prescriptionManager.getPrescriptionsByProgramProviderDemographicDate(loggedInInfo, programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         return (PrescriptionTransfer.getTransfers(loggedInInfo, prescriptions));
     }
 
     public PrescriptionTransfer[] getPrescriptionsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
+        requirePrivilege(RX_OBJECT, "r", demographicId != null ? demographicId.toString() : null);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prescription> prescriptions = prescriptionManager.getPrescriptionByDemographicIdUpdatedAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
         return (PrescriptionTransfer.getTransfers(loggedInInfo, prescriptions));

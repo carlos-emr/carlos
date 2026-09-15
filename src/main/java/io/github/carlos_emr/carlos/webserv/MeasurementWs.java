@@ -49,20 +49,25 @@ import org.springframework.stereotype.Component;
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class MeasurementWs extends AbstractWs {
+    private static final String MEASUREMENT_OBJECT = "_measurement";
+
     @Autowired
     private MeasurementManager measurementManager;
 
     public MeasurementTransfer getMeasurement(Integer measurementId) {
+        requirePrivilege(MEASUREMENT_OBJECT, "r");
         Measurement measurement = measurementManager.getMeasurement(getLoggedInInfo(), measurementId);
         return (MeasurementTransfer.toTransfer(measurement));
     }
 
     public MeasurementTransfer[] getMeasurementsCreatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege(MEASUREMENT_OBJECT, "r");
         List<Measurement> results = measurementManager.getCreatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
         return (MeasurementTransfer.toTransfers(results));
     }
 
     public MeasurementMapTransfer[] getMeasurementMaps() {
+        requirePrivilege(MEASUREMENT_OBJECT, "r");
         List<MeasurementMap> measurementMaps = measurementManager.getMeasurementMaps();
         return (MeasurementMapTransfer.toTransfers(measurementMaps));
     }
@@ -71,6 +76,7 @@ public class MeasurementWs extends AbstractWs {
      * @return the ID of the added measurement
      */
     public Integer addMeasurement(MeasurementTransfer measurementTransfer) {
+        requirePrivilege(MEASUREMENT_OBJECT, "w", measurementTransfer.getDemographicId() != null ? measurementTransfer.getDemographicId().toString() : null);
         Measurement measurement = new Measurement();
         measurementTransfer.copyTo(measurement);
         measurementManager.addMeasurement(getLoggedInInfo(), measurement);
@@ -78,11 +84,13 @@ public class MeasurementWs extends AbstractWs {
     }
 
     public MeasurementTransfer[] getMeasurementsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege(MEASUREMENT_OBJECT, "r");
         List<Measurement> measurements = measurementManager.getMeasurementsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         return (MeasurementTransfer.toTransfers(measurements));
     }
 
     public MeasurementTransfer[] getMeasurementsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
+        requirePrivilege(MEASUREMENT_OBJECT, "r");
         List<Measurement> measurements = measurementManager.getMeasurementByDemographicIdAfter(getLoggedInInfo(), demographicId, lastUpdate.getTime());
         return (MeasurementTransfer.toTransfers(measurements));
     }
