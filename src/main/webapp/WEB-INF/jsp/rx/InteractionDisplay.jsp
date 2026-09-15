@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     RxSessionBean bean = (RxSessionBean) session.getAttribute("RxSessionBean");
@@ -61,10 +62,10 @@
         for (int i = 0; i < interactions.length; i++) { %>
 <div
         style="background-color:<%=sigColor(interactions[i].significance)%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;width:300px;">
-    <%=interactions[i].affectingdrug%> <%=effect(interactions[i].effect)%> <%=interactions[i].affecteddrug%>
-    &nbsp;&nbsp;&nbsp;&nbsp;SIGNIFICANCE = <%=significance(interactions[i].significance)%>
-    &nbsp;&nbsp;&nbsp;EVIDENCE = <%=evidence(interactions[i].evidence)%><br/>
-    <%=interactions[i].comment%>
+    <carlos:encode value='<%= interactions[i].affectingdrug %>' context="html"/> <carlos:encode value='<%= effect(interactions[i].effect) %>' context="html"/> <carlos:encode value='<%= interactions[i].affecteddrug %>' context="html"/>
+    &nbsp;&nbsp;&nbsp;&nbsp;SIGNIFICANCE = <carlos:encode value='<%= significance(interactions[i].significance) %>' context="html"/>
+    &nbsp;&nbsp;&nbsp;EVIDENCE = <carlos:encode value='<%= evidence(interactions[i].evidence) %>' context="html"/><br/>
+    <carlos:encode value='<%= interactions[i].comment %>' context="html"/>
 </div>
 <% }
 } else if (interactions == null && bean.getStashSize() > 1) { %>

@@ -499,7 +499,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                 size += count;
             }
         }
-        if (size != expectedSize || !HEX_FORMAT.formatHex(digest.digest()).equals(expectedHash)) {
+        if (size != expectedSize || !MessageDigest.isEqual(digest.digest(), HEX_FORMAT.parseHex(expectedHash))) {
             throw new IllegalArgumentException("Attachment content does not match the linked eDoc");
         }
     }
