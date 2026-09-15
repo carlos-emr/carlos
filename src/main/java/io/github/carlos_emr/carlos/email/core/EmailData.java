@@ -58,13 +58,13 @@ public class EmailData {
     private String[] recipients;
     private String subject;
     private String body;
-    private String encryptedMessage;
+    private String encryptedMessage = "";
     private String password;
     private String passwordClue;
     private boolean isEncrypted;
     private boolean isAttachmentEncrypted;
     private ChartDisplayOption chartDisplayOption = ChartDisplayOption.WITHOUT_NOTE;
-    private String internalComment;
+    private String internalComment = "";
     private TransactionType transactionType;
     private Integer demographicNo;
     private String providerNo;

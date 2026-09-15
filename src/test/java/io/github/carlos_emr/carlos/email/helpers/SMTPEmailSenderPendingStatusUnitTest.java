@@ -49,6 +49,7 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(JavaMailSender.class, mock(JavaMailSender.class));
+        createAndRegisterMock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
     }
 
     @Test
