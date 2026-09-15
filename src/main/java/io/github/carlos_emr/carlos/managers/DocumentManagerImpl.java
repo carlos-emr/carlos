@@ -355,6 +355,9 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
+        if (document == null) {
+            throw new IllegalArgumentException("Document is required");
+        }
         assertNotOutboundEmailArchiveDocument(document);
 
         Integer savedId = null;
@@ -446,6 +449,9 @@ public class DocumentManagerImpl implements DocumentManager {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "x", "")) {
             throw new RuntimeException("Read and Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+        }
+        if (document == null) {
+            throw new IllegalArgumentException("Document is required");
         }
         assertNotOutboundEmailArchiveDocument(document);
 

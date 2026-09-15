@@ -106,7 +106,8 @@ Ordinary eDoc previews, edits, deletes, refile, split/combine, attachment select
 and synchronization listings protect archive artifacts and linked attachment eDocs,
 including duplicate-filename aliases. Direct requests fail explicitly; listings omit
 protected entries. Existing consultation/eForm links are retained when a replacement
-submission omits a protected attachment. Document metadata updates and inbox unlink
+submission omits a protected attachment. Unchanged ordinary attachments remain active;
+only omitted ordinary attachments are marked deleted. Document metadata updates and inbox unlink
 requests require POST.
 
 A linked attachment becomes protected too. Pass a dedicated persisted copy of the

@@ -55,7 +55,7 @@ class OutboundEmailArchiveReadAuditIntegrationTest extends CarlosTestBase {
         when(caller.getLoggedInProviderNo()).thenReturn("999998");
         when(caller.getIp()).thenReturn("127.0.0.1");
         String contentId = "archiveId=93484 documentNo=93485";
-        auditService.record(caller, 93484, 93485, 123,
+        auditService.recordAccess(caller, 93484, 93485, 123,
                 OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
         TestTransaction.flagForRollback();
         TestTransaction.end();

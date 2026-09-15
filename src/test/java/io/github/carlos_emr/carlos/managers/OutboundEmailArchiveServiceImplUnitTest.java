@@ -1240,7 +1240,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     private void verifyIntegrityFailureAudit() {
-        verify(readAuditService).record(loggedInInfo, 888, 321, 123,
+        verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123,
                 OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
     }
 
@@ -1258,9 +1258,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 assertThatThrownBy(() -> boundedService.readArchivedArtifact(loggedInInfo, 888))
                         .isInstanceOf(IOException.class)
                         .hasMessageContaining("exceeds maximum read size"));
-        verify(readAuditService).record(loggedInInfo, 888, 321, 123,
+        verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123,
                 OutboundEmailArchiveReadAuditService.Event.READ_FAILURE);
-        verify(readAuditService, never()).record(loggedInInfo, 888, 321, 123,
+        verify(readAuditService, never()).recordAccess(loggedInInfo, 888, 321, 123,
                 OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
     }
 
@@ -1284,9 +1284,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         withDocumentDir(documentDir, () ->
                 assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
                         .isInstanceOf(IOException.class));
-        verify(readAuditService).record(loggedInInfo, 888, 321, 123,
+        verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123,
                 OutboundEmailArchiveReadAuditService.Event.READ_FAILURE);
-        verify(readAuditService, never()).record(loggedInInfo, 888, 321, 123,
+        verify(readAuditService, never()).recordAccess(loggedInInfo, 888, 321, 123,
                 OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
     }
 
@@ -1295,7 +1295,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         OutboundEmailArchive archive = archiveUnderLegalHold();
         stubArchiveArtifactRead(archive);
         Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), RFC822_BYTES);
-        doThrow(new IllegalStateException("audit unavailable")).when(readAuditService).record(
+        doThrow(new IllegalStateException("audit unavailable")).when(readAuditService).recordAccess(
                 loggedInInfo, 888, 321, 123, OutboundEmailArchiveReadAuditService.Event.ARTIFACT_READ);
         withDocumentDir(documentDir, () -> assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
                 .isInstanceOf(IllegalStateException.class).hasMessage("audit unavailable"));
@@ -1307,7 +1307,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         stubArchiveArtifactRead(archive);
         Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), new byte[] {1});
         IllegalStateException auditFailure = new IllegalStateException("audit unavailable");
-        doThrow(auditFailure).when(readAuditService).record(
+        doThrow(auditFailure).when(readAuditService).recordAccess(
                 loggedInInfo, 888, 321, 123, OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
         withDocumentDir(documentDir, () -> assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
                 .isInstanceOf(IOException.class).satisfies(error ->
@@ -1318,7 +1318,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldAuditMetadata_beforeReturningArchive() {
         stubArchiveRead(archiveUnderLegalHold());
         service.getActiveArchive(loggedInInfo, 888);
-        verify(readAuditService).record(loggedInInfo, 888, 321, 123,
+        verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123,
                 OutboundEmailArchiveReadAuditService.Event.METADATA_READ);
     }
 
@@ -1358,7 +1358,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                     .isInstanceOf(IOException.class).hasMessage("Archived artifact size changed while reading"));
         }
         verifyIntegrityFailureAudit();
-        verify(readAuditService, never()).record(loggedInInfo, 888, 321, 123,
+        verify(readAuditService, never()).recordAccess(loggedInInfo, 888, 321, 123,
                 OutboundEmailArchiveReadAuditService.Event.ARTIFACT_READ);
     }
 

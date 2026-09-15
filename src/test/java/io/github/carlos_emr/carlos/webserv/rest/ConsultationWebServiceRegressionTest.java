@@ -106,6 +106,41 @@ class ConsultationWebServiceRegressionTest {
     }
 
     @Test
+    void shouldKeepOrdinaryAttachmentActive_whenResubmittedWithRequest() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setAttachments(List.of(new ConsultationAttachmentTo1(
+                701, ConsultationAttachmentTo1.TYPE_DOC, true, "Document", null)));
+        ConsultDocs existing = new ConsultDocs(456, 701, ConsultDocs.DOCTYPE_DOC, PROVIDER_NO);
+        ReflectionTestUtils.setField(existing, "id", 321);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456))
+                .thenReturn(new ArrayList<>(List.of(existing)));
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        assertThat(existing.getDeleted()).isNull();
+        verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
+    }
+
+    @Test
+    void shouldKeepOrdinaryAttachmentActive_whenResubmittedWithResponse() {
+        ConsultationResponseTo1 response = new ConsultationResponseTo1();
+        response.setId(456);
+        response.setAttachments(List.of(new ConsultationAttachmentTo1(
+                701, ConsultationAttachmentTo1.TYPE_DOC, true, "Document", null)));
+        ConsultResponseDoc existing = new ConsultResponseDoc(456, 701, ConsultResponseDoc.DOCTYPE_DOC, PROVIDER_NO);
+        ReflectionTestUtils.setField(existing, "id", 322);
+        when(consultationManager.getConsultResponseDocs(loggedInInfo, 456))
+                .thenReturn(new ArrayList<>(List.of(existing)));
+
+        ReflectionTestUtils.invokeMethod(service, "saveResponseAttachments", response);
+
+        assertThat(existing.getDeleted()).isNull();
+        verify(consultationManager, never()).saveConsultResponseDoc(any(), any());
+    }
+
+    @Test
     @DisplayName("should return invalid filename attachment with validation error without propagating exception")
     void shouldReturnInvalidFilenameAttachment_withValidationErrorWithoutPropagatingException() throws Exception {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();

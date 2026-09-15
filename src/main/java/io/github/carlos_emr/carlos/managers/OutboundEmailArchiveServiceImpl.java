@@ -265,13 +265,13 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     public OutboundEmailArchive getActiveArchive(LoggedInInfo loggedInInfo, Integer archiveId) {
         OutboundEmailArchive archive = loadArchiveForAuthorizedRead(loggedInInfo, archiveId, false);
 
-        readAuditService.record(loggedInInfo, archive.getId(), archive.getDocument() != null ? archive.getDocument().getId() : null,
+        readAuditService.recordAccess(loggedInInfo, archive.getId(), archive.getDocument() != null ? archive.getDocument().getId() : null,
                 requireArchiveDemographicNo(archive), OutboundEmailArchiveReadAuditService.Event.METADATA_READ);
         return archive;
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = IOException.class)
     public byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException {
         // Locked, unlike getActiveArchive: this serializes the authorized read with the logical
         // deletion transition. Controlled deletion retains the bytes, but a read that started
@@ -287,18 +287,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             if (expectedByteSize == null) {
                 throw new IOException("Archived artifact byte size is missing");
             }
-            String expectedSha256Hash;
-            try {
-                expectedSha256Hash = normalizeSha256Hex(archive.getSha256Hash());
-            } catch (IllegalArgumentException e) {
-                throw new IOException("Archived artifact SHA-256 hash is invalid", e);
-            }
-            Path archivePath;
-            try {
-                archivePath = resolveArchivedArtifactPath(document.getDocfilename());
-            } catch (RuntimeException e) {
-                throw new IOException("Archived artifact path is invalid", e);
-            }
+            String expectedSha256Hash = requireArchivedArtifactHash(archive.getSha256Hash());
+            Path archivePath = requireArchivedArtifactPath(document.getDocfilename());
             artifactBytes = readArchivedArtifactBytes(archivePath, expectedByteSize);
             validateArchivedArtifactHash(expectedSha256Hash, artifactBytes);
         } catch (IOException e) {
@@ -306,7 +296,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             throw e;
         }
 
-        readAuditService.record(loggedInInfo, archive.getId(), document.getId(),
+        readAuditService.recordAccess(loggedInInfo, archive.getId(), document.getId(),
                 requireArchiveDemographicNo(archive), OutboundEmailArchiveReadAuditService.Event.ARTIFACT_READ);
         return artifactBytes;
     }
@@ -905,6 +895,22 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return archiveFile.toPath();
     }
 
+    private String requireArchivedArtifactHash(String hash) throws IOException {
+        try {
+            return normalizeSha256Hex(hash);
+        } catch (IllegalArgumentException e) {
+            throw new IOException("Archived artifact SHA-256 hash is invalid", e);
+        }
+    }
+
+    private Path requireArchivedArtifactPath(String filename) throws IOException {
+        try {
+            return resolveArchivedArtifactPath(filename);
+        } catch (RuntimeException e) {
+            throw new IOException("Archived artifact path is invalid", e);
+        }
+    }
+
     private byte[] readArchivedArtifactBytes(Path archivePath, long expectedByteSize) throws IOException {
         requireReadableArtifactSize(expectedByteSize);
 
@@ -967,7 +973,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                 archive.getId(),
                 failure.getClass().getSimpleName());
         try {
-            readAuditService.record(loggedInInfo, archive.getId(), document != null ? document.getId() : null,
+            readAuditService.recordAccess(loggedInInfo, archive.getId(), document != null ? document.getId() : null,
                     requireArchiveDemographicNo(archive), failure instanceof ArtifactIntegrityException
                             ? OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE
                             : OutboundEmailArchiveReadAuditService.Event.READ_FAILURE);

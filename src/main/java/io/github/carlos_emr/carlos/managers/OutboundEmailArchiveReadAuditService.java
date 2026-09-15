@@ -44,7 +44,7 @@ public class OutboundEmailArchiveReadAuditService {
      * @param event fixed access outcome
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(LoggedInInfo loggedInInfo, Integer archiveId, Integer documentNo,
+    public void recordAccess(LoggedInInfo loggedInInfo, Integer archiveId, Integer documentNo,
             Integer demographicNo, Event event) {
         OscarLog entry = new OscarLog();
         entry.setProviderNo(loggedInInfo.getLoggedInProviderNo());

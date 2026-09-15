@@ -65,6 +65,31 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectNullDocument_beforeAddingMetadata() {
+        assertThatThrownBy(() -> EDocUtil.addDocumentSQL(null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Document is required");
+    }
+
+    @Test
+    void shouldRejectNullDocument_beforeEditingMetadata() {
+        assertThatThrownBy(() -> EDocUtil.editDocumentSQL(null, false))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Document is required");
+    }
+
+    @Test
+    void shouldPreserveMalformedEntries_whenFilteringLegacyLists() {
+        EDoc blank = new EDoc();
+        blank.setDocId(" ");
+        EDoc invalid = new EDoc();
+        invalid.setDocId("legacy-id");
+        EDoc archive = new EDoc();
+        archive.setDocId(ARCHIVE_DOC_NO);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of(321));
+        assertThat(EDocUtil.withoutOutboundEmailArchiveDocuments(
+                java.util.Arrays.asList(null, blank, invalid, archive))).containsExactly(null, blank, invalid);
+    }
+
+    @Test
     @DisplayName("should refuse to attach an archive artifact to a consultation")
     void shouldRefuseToAttachArchiveArtifact_toConsultation() {
         assertThatThrownBy(() -> EDocUtil.attachDocConsult("999998", ARCHIVE_DOC_NO, "77"))
@@ -121,13 +146,14 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should suppress direct legacy EDoc lookups for an archive artifact")
-    void shouldSuppressDirectLegacyEdocLookups_forArchiveArtifact() {
+    @DisplayName("should refuse direct legacy EDoc lookups for an archive artifact")
+    void shouldRefuseDirectLegacyEdocLookups_forArchiveArtifact() {
         assertThatThrownBy(() -> EDocUtil.getEDocFromDocId(ARCHIVE_DOC_NO))
                 .isInstanceOf(SecurityException.class).hasMessage(ARCHIVE_MESSAGE);
         assertThatThrownBy(() -> EDocUtil.getDoc(ARCHIVE_DOC_NO))
                 .isInstanceOf(SecurityException.class).hasMessage(ARCHIVE_MESSAGE);
-        assertThatThrownBy(() -> new EDocUtil().getDocumentName(ARCHIVE_DOC_NO))
+        EDocUtil util = new EDocUtil();
+        assertThatThrownBy(() -> util.getDocumentName(ARCHIVE_DOC_NO))
                 .isInstanceOf(SecurityException.class).hasMessage(ARCHIVE_MESSAGE);
     }
 

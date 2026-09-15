@@ -946,14 +946,6 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         newAttachments = request.getAttachments();
 
-        //first assume all current docs detached (set delete)
-        for (ConsultDocs doc : currentDocs) {
-            if (!ConsultDocs.DOCTYPE_DOC.equals(doc.getDocType())
-                    || !preservedArchiveDocumentNos.contains(doc.getDocumentNo())) {
-                doc.setDeleted(ConsultDocs.DELETED);
-            }
-        }
-
         List<String> uniqueAttachments = new ArrayList<>();
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
@@ -980,8 +972,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultDocs doc : currentDocs) {
-            if (!ConsultDocs.DOCTYPE_DOC.equals(doc.getDocType())
-                    || !preservedArchiveDocumentNos.contains(doc.getDocumentNo())) {
+            if (!isPreservedArchiveDocument(doc.getDocType(), doc.getDocumentNo(), preservedArchiveDocumentNos)) {
+                // Only omitted attachments are dirty: unchanged managed entities must stay active.
+                doc.setDeleted(ConsultDocs.DELETED);
                 consultationManager.saveConsultRequestDoc(getLoggedInInfo(), doc);
             }
         }
@@ -998,14 +991,6 @@ public class ConsultationWebService extends AbstractServiceImpl {
                         .filter(doc -> ConsultResponseDoc.DOCTYPE_DOC.equals(doc.getDocType()))
                         .map(ConsultResponseDoc::getDocumentNo)
                         .toList());
-
-        //first assume all current docs detached (set delete)
-        for (ConsultResponseDoc doc : currentDocs) {
-            if (!ConsultResponseDoc.DOCTYPE_DOC.equals(doc.getDocType())
-                    || !preservedArchiveDocumentNos.contains(doc.getDocumentNo())) {
-                doc.setDeleted(ConsultResponseDoc.DELETED);
-            }
-        }
 
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
@@ -1024,11 +1009,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
-            if (!ConsultResponseDoc.DOCTYPE_DOC.equals(doc.getDocType())
-                    || !preservedArchiveDocumentNos.contains(doc.getDocumentNo())) {
+            if (!isPreservedArchiveDocument(doc.getDocType(), doc.getDocumentNo(), preservedArchiveDocumentNos)) {
+                // Only omitted attachments are dirty: unchanged managed entities must stay active.
+                doc.setDeleted(ConsultResponseDoc.DELETED);
                 consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
             }
         }
+    }
+
+    private static boolean isPreservedArchiveDocument(String documentType, Integer documentNo,
+            Set<Integer> preservedDocumentNos) {
+        return ConsultDocs.DOCTYPE_DOC.equals(documentType) && preservedDocumentNos.contains(documentNo);
     }
 
     private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,

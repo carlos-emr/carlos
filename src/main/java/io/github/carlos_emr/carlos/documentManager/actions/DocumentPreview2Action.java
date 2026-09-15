@@ -394,8 +394,7 @@ public class DocumentPreview2Action extends ActionSupport {
             return;
         }
         if (isOutboundEmailArchiveDocumentPath(pdfPath)) {
-            logger.warn("Blocked direct preview of outbound email archive eDoc: {}",
-                    LogSafe.sanitizeObject(pdfPath.getFileName()));
+            logger.warn("Blocked direct preview of outbound email archive eDoc");
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
         }

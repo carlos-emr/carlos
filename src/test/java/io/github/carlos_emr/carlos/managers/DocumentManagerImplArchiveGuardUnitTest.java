@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -90,6 +91,20 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectNullDocument_beforeSaving() {
+        assertThatThrownBy(() -> manager.saveDocument(loggedInInfo, null, null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Document is required");
+        verifyNoInteractions(documentDao);
+    }
+
+    @Test
+    void shouldRejectNullDocument_beforeMoving() {
+        assertThatThrownBy(() -> manager.moveDocument(loggedInInfo, null, "/from", "/to"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Document is required");
+        verifyNoInteractions(documentDao);
+    }
+
+    @Test
     @DisplayName("should refuse to return an archive artifact from getDocument")
     void shouldRefuseToReturnArchiveArtifact_fromGetDocument() {
         when(documentDao.find(ARCHIVE_DOCUMENT_NO)).thenReturn(archiveDocument());
@@ -114,7 +129,8 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refuse to save over an archive artifact")
     void shouldRefuseToSaveOverArchiveArtifact_whenRequested() {
-        assertThatThrownBy(() -> manager.saveDocument(loggedInInfo, archiveDocument(), null))
+        Document archive = archiveDocument();
+        assertThatThrownBy(() -> manager.saveDocument(loggedInInfo, archive, null))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
 
@@ -141,7 +157,8 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refuse to move an archive artifact")
     void shouldRefuseToMoveArchiveArtifact_whenRequested() {
-        assertThatThrownBy(() -> manager.moveDocument(loggedInInfo, archiveDocument(), "/from", "/to"))
+        Document archive = archiveDocument();
+        assertThatThrownBy(() -> manager.moveDocument(loggedInInfo, archive, "/from", "/to"))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
     }

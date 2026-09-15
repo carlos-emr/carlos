@@ -142,7 +142,8 @@ class OutboundEmailArchiveDocumentGuardUnitTest {
         assertThatThrownBy(() -> OutboundEmailArchiveDocumentGuard.isArchiveDocument(null, "321"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Outbound email archive DAO is required");
-        assertThatThrownBy(() -> OutboundEmailArchiveDocumentGuard.isArchiveDocument(null, Integer.valueOf(321)))
+        Integer documentNo = 321;
+        assertThatThrownBy(() -> OutboundEmailArchiveDocumentGuard.isArchiveDocument(null, documentNo))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Outbound email archive DAO is required");
         assertThatThrownBy(() -> OutboundEmailArchiveDocumentGuard.isArchiveFileName(null, "archive.eml"))

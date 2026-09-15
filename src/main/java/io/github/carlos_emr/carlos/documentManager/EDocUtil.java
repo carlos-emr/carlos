@@ -305,7 +305,10 @@ public final class EDocUtil {
      * @return the new documentId
      */
     public static String addDocumentSQL(EDoc newDocument) {
-        assertNotOutboundEmailArchiveFileName(newDocument != null ? newDocument.getFileName() : null);
+        if (newDocument == null) {
+            throw new IllegalArgumentException("Document is required");
+        }
+        assertNotOutboundEmailArchiveFileName(newDocument.getFileName());
         Document doc = new Document();
         doc.setDoctype(newDocument.getType());
         doc.setDocClass(newDocument.getDocClass());
@@ -411,8 +414,11 @@ public final class EDocUtil {
     }
 
     public static void editDocumentSQL(EDoc newDocument, boolean doReview) {
-        assertNotOutboundEmailArchiveDocument(newDocument != null ? newDocument.getDocId() : null);
-        assertNotOutboundEmailArchiveFileName(newDocument != null ? newDocument.getFileName() : null);
+        if (newDocument == null) {
+            throw new IllegalArgumentException("Document is required");
+        }
+        assertNotOutboundEmailArchiveDocument(newDocument.getDocId());
+        assertNotOutboundEmailArchiveFileName(newDocument.getFileName());
 
         Document doc = getDocumentDao().find(ConversionUtils.fromIntString(newDocument.getDocId()));
         if (doc != null) {
@@ -1643,14 +1649,9 @@ public final class EDocUtil {
 
         List<Integer> documentNos = new ArrayList<>();
         for (EDoc document : documents) {
-            if (document == null || document.getDocId() == null || document.getDocId().isBlank()) {
-                continue;
-            }
-            try {
-                documentNos.add(Integer.valueOf(document.getDocId().trim()));
-            } catch (NumberFormatException e) {
-                // Internal list results should carry numeric ids. Preserve an invalid legacy row
-                // rather than changing its behaviour as a side effect of archive filtering.
+            Integer documentNo = archiveListingDocumentNo(document);
+            if (documentNo != null) {
+                documentNos.add(documentNo);
             }
         }
 
@@ -1661,18 +1662,23 @@ public final class EDocUtil {
 
         ArrayList<EDoc> filtered = new ArrayList<>();
         for (EDoc document : documents) {
-            if (document == null || document.getDocId() == null) {
-                filtered.add(document);
-                continue;
-            }
-            try {
-                if (!archiveDocumentNos.contains(Integer.valueOf(document.getDocId().trim()))) {
-                    filtered.add(document);
-                }
-            } catch (NumberFormatException e) {
+            Integer documentNo = archiveListingDocumentNo(document);
+            if (documentNo == null || !archiveDocumentNos.contains(documentNo)) {
                 filtered.add(document);
             }
         }
         return filtered;
     }
+    /** Malformed legacy listing IDs remain visible for their normal caller validation. */
+    private static Integer archiveListingDocumentNo(EDoc document) {
+        if (document == null || document.getDocId() == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(document.getDocId().trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
 }

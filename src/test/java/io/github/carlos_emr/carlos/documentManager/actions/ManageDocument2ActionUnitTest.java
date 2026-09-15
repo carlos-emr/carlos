@@ -58,6 +58,8 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import static org.mockito.Mockito.mock;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -227,7 +229,7 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSendServerErrorAndKeepAjaxFailed_whenRefileCopyFails() throws Exception {
+    void shouldSendServerErrorAndKeepAjaxFailed_whenRefileCopyFails() {
         authorizeEdocWrite();
         request.setMethod("POST");
         request.setParameter("method", "refileDocumentAjax");

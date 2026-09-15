@@ -118,6 +118,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2008-09-10
  */
 public class ManageDocument2Action extends ActionSupport {
+    private static final String ALLOW_METHOD_HEADER = "Allow";
+    private static final String POST_REQUIRED_MESSAGE = "POST required";
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -268,8 +270,8 @@ public class ManageDocument2Action extends ActionSupport {
 
         if (!"POST".equals(request.getMethod())) {
             try {
-                response.setHeader("Allow", "POST");
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
             } catch (IOException e) {
                 log.error("Unable to send invalid documentUpdateAjax method response", e);
             }
@@ -436,8 +438,8 @@ public class ManageDocument2Action extends ActionSupport {
 
         if (!"POST".equals(request.getMethod())) {
             try {
-                response.setHeader("Allow", "POST");
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
             } catch (IOException e) {
                 log.error("Unable to send invalid removeLinkFromDocument method response", e);
             }
@@ -479,8 +481,8 @@ public class ManageDocument2Action extends ActionSupport {
 
         if (!"POST".equals(request.getMethod())) {
             try {
-                response.setHeader("Allow", "POST");
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
             } catch (IOException e) {
                 log.error("Unable to send invalid refile method response", e);
             }
@@ -569,8 +571,8 @@ public class ManageDocument2Action extends ActionSupport {
 
         if (!"POST".equals(request.getMethod())) {
             try {
-                response.setHeader("Allow", "POST");
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
             } catch (IOException e) {
                 log.error("Unable to send invalid documentUpdate method response", e);
             }
@@ -1224,8 +1226,8 @@ public class ManageDocument2Action extends ActionSupport {
     public String addIncomingDocument() throws Exception {
 
         if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            response.setHeader(ALLOW_METHOD_HEADER, "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
             return NONE;
         }
 
