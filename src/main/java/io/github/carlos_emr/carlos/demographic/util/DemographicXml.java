@@ -174,6 +174,28 @@ public final class DemographicXml {
         return StringEscapeUtils.unescapeXml(value);
     }
 
+    /**
+     * Reverses {@link #escapeXmlText(String)} for a value that is already known to be present.
+     *
+     * <p>This is the exact inverse of {@link #escapeXmlText(String)}: null decodes to empty,
+     * never to null. Use it wherever the decoded value is dereferenced straight away — a
+     * regex group, a substring, a column read that has already been null-checked — so the
+     * call site does not have to carry a defensive null ternary. Use
+     * {@link #unescapeXmlText(String)} instead only where a null must be propagated, which
+     * is what the element accessors above do to mirror
+     * {@link SxmlMisc#getXmlContent(String, String)}.</p>
+     *
+     * @param value the stored text node content; null becomes empty text
+     * @return the decoded text, never null
+     * @since 2026-09-15
+     */
+    public static String unescapeXmlTextOrEmpty(String value) {
+        if (value == null) {
+            return "";
+        }
+        return StringEscapeUtils.unescapeXml(value);
+    }
+
     private static String elementText(String xml, String tag) {
         return unescapeXmlText(SxmlMisc.getXmlContent(xml, tag));
     }

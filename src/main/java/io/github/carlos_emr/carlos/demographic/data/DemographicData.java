@@ -194,7 +194,7 @@ public class DemographicData {
 
         // The note text is XML-escaped on write (DemographicXml.userNotes), so decode it
         // exactly once here; exporters and printers consume this as plain text.
-        return DemographicXml.unescapeXmlText(retval);
+        return DemographicXml.unescapeXmlTextOrEmpty(retval);
     }
 
     public Demographic getDemographic(LoggedInInfo loggedInInfo, String DemographicNo) {

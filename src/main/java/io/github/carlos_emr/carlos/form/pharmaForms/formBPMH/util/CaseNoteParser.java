@@ -105,7 +105,7 @@ public class CaseNoteParser {
             if (matcher.find()) {
                 // Note text is XML-escaped on write (DemographicXml.userNotes); decode it
                 // before splitting so an escaped "&" does not break key/value parsing.
-                note = DemographicXml.unescapeXmlText(matcher.group(1));
+                note = DemographicXml.unescapeXmlTextOrEmpty(matcher.group(1));
             }
 
             if (note.contains(COMMA)) {

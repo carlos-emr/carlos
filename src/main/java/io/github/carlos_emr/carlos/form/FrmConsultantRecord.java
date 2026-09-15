@@ -175,7 +175,7 @@ public class FrmConsultantRecord extends FrmRecord {
 
         // Stored fragments are XML-escaped on write (DemographicXml.familyDoctor),
         // so the extracted text node has to be decoded exactly once on the way out.
-        return DemographicXml.unescapeXmlText(familyDoctor.substring(valueStart, end));
+        return DemographicXml.unescapeXmlTextOrEmpty(familyDoctor.substring(valueStart, end));
     }
 
 

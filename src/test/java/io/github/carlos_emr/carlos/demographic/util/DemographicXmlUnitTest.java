@@ -157,6 +157,18 @@ class DemographicXmlUnitTest {
             assertThat(DemographicXml.referralDoctorOhip(legacy)).isEqualTo("1234");
         }
 
+        /**
+         * The element accessors propagate null to mirror `SxmlMisc.getXmlContent`, but
+         * call sites that dereference the decoded value immediately use the
+         * or-empty variant instead of carrying a defensive null ternary.
+         */
+        @Test
+        @DisplayName("should decode to empty rather than null when using the or-empty variant")
+        void shouldDecodeToEmptyRatherThanNull_whenUsingTheOrEmptyVariant() {
+            assertThat(DemographicXml.unescapeXmlTextOrEmpty(null)).isEmpty();
+            assertThat(DemographicXml.unescapeXmlTextOrEmpty("A &amp; B")).isEqualTo("A & B");
+        }
+
         @Test
         @DisplayName("should preserve null and missing element semantics for callers")
         void shouldPreserveNullAndMissingElementSemantics_forCallers() {
