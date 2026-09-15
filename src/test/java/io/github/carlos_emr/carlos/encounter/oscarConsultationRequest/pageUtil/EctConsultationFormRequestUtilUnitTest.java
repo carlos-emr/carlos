@@ -129,7 +129,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         DemographicExt demographicExt = new DemographicExt();
         demographicExt.setValue("416-555-6666");
 
-        when(mockDemographicManager.getDemographic(eq(mockLoggedInInfo), eq(123))).thenReturn(demographic);
+        when(mockDemographicManager.getDemographic(mockLoggedInInfo, 123)).thenReturn(demographic);
         when(mockDemographicManager.getDemographicExt(eq(mockLoggedInInfo), eq(123), eq(DemographicProperty.demo_cell)))
                 .thenReturn(demographicExt);
 
@@ -153,7 +153,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         demographic.setLastName("Doe");
 
         when(mockConsultRequestDao.findWithAssociations(456)).thenReturn(request);
-        when(mockDemographicManager.getDemographic(eq(mockLoggedInInfo), eq(123))).thenReturn(demographic);
+        when(mockDemographicManager.getDemographic(mockLoggedInInfo, 123)).thenReturn(demographic);
         when(mockFaxClientLogDao.findClientLogbyRequestId(456)).thenReturn(Collections.emptyList());
 
         boolean requestFound = consultationFormRequestUtil.estRequestFromId(mockLoggedInInfo, "456");

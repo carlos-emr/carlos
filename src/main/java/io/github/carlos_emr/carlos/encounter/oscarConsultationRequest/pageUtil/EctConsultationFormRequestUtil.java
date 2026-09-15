@@ -239,6 +239,15 @@ public class EctConsultationFormRequestUtil {
         return verdict;
     }
 
+    /**
+     * Populates this form from an existing request, including patient, specialist,
+     * appointment and fax details. Optional contact associations may be absent.
+     *
+     * @param loggedInInfo current authenticated session information
+     * @param id positive decimal request identifier
+     * @return {@code true} when loaded; {@code false} for null, malformed,
+     *         out-of-range or nonpositive identifiers, or a missing request
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean estRequestFromId(LoggedInInfo loggedInInfo, String id) {
@@ -473,7 +482,7 @@ public class EctConsultationFormRequestUtil {
     if (specAddr == null || specAddr.equals("null")) {
         specAddr = "";
     }
-    if (specEmail == null || org.apache.commons.lang3.StringUtils.equalsIgnoreCase(specEmail, "null")) {
+    if (specEmail == null || org.apache.commons.lang3.Strings.CI.equals(specEmail, "null")) {
         specEmail = "";
     }
     }

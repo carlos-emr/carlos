@@ -74,6 +74,9 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         return query.getResultList();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public ConsultationRequest findWithAssociations(Integer id) {
         var query = entityManager.createQuery("""

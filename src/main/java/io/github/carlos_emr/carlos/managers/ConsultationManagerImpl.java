@@ -235,6 +235,15 @@ public class ConsultationManagerImpl implements ConsultationManager {
         return outstanding;
     }
 
+    /**
+     * Loads a request with associations initialized for detached detail rendering.
+     * Audits the read only when the request exists.
+     *
+     * @param loggedInInfo authenticated caller whose consultation read privilege is checked
+     * @param id consultation request identifier
+     * @return the populated request, or {@code null} when absent
+     * @throws SecurityException if the caller lacks consultation read privilege
+     */
     @Override
     public ConsultationRequest getRequest(LoggedInInfo loggedInInfo, Integer id) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);

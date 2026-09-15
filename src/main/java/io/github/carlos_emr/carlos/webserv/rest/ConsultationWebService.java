@@ -188,6 +188,16 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return rp;
     }
 
+    /**
+     * Loads a stored request for a positive ID, or initializes a new request for
+     * the supplied demographic for a nonpositive ID. Includes form choice lists.
+     *
+     * @param requestId existing request ID, or a nonpositive ID for a new request
+     * @param demographicId patient identifier used when initializing a new request
+     * @param datesAsTimestamp whether date values should serialize as timestamps
+     * @return the request details and form choices
+     * @throws WebApplicationException with HTTP 404 if a positive ID is not found
+     */
     @GET
     @Path("/getRequest")
     @Produces(MediaType.APPLICATION_JSON)
@@ -195,11 +205,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
 
         if (requestId > 0) {
-            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
-            if (stored == null) {
-                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
-                        .entity("Consultation request not found").build());
-            }
+            ConsultationRequest stored = getRequiredRequest(requestId);
             request = requestConverter.getAsTransferObject(getLoggedInInfo(), stored);
             request.setAttachments(getRequestAttachments(requestId, request.getDemographicId(), ConsultationAttachmentTo1.ATTACHED));
         } else {
@@ -235,6 +241,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
 
         return request;
+    }
+
+    private ConsultationRequest getRequiredRequest(Integer requestId) {
+        ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+        if (stored == null) {
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
+                    .entity("Consultation request not found").build());
+        }
+        return stored;
     }
 
     @GET

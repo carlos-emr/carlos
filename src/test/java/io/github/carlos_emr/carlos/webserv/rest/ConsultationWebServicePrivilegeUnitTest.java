@@ -161,7 +161,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(99));
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 99);
     }
 
     @Test
@@ -177,7 +177,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
                         .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
         verify(consultationManager, never()).getResponse(any(), any());
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(99));
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 99);
     }
 
     @Test
@@ -196,7 +196,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(50));
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 50);
     }
 
     @Test
@@ -215,7 +215,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(50));
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 50);
     }
 
     @Test
@@ -264,7 +264,8 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         when(specialistConverter.getAsTransferObject(loggedInInfo, specialist)).thenReturn(convertedSpecialist);
         when(demographicManager.getDemographicWithExt(loggedInInfo, 50)).thenReturn(demographic);
         when(demographicConverter.getAsTransferObject(loggedInInfo, demographic)).thenReturn(convertedDemographic);
-        when(clinicDAO.getClinic()).thenReturn(mock(Clinic.class));
+        Clinic clinic = mock(Clinic.class);
+        when(clinicDAO.getClinic()).thenReturn(clinic);
 
         try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
              MockedStatic<EFormUtil> eFormUtilMock = mockStatic(EFormUtil.class);
@@ -339,15 +340,15 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     @DisplayName("should deny getEReferAttachments when caller lacks consultation read privilege")
     void shouldDenyGetEReferAttachments_whenCallerLacksReadPrivilege() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(99))).thenReturn(false);
-        HttpServletRequest request = org.mockito.Mockito.mock(HttpServletRequest.class);
-        HttpServletResponse httpResponse = org.mockito.Mockito.mock(HttpServletResponse.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse httpResponse = mock(HttpServletResponse.class);
 
         assertThatThrownBy(() -> service.getEReferAttachments(99, request, httpResponse))
                 .isInstanceOf(WebApplicationException.class)
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(99));
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 99);
         verify(consultationManager, never()).getEReferAttachments(any(), any(), any(), any());
         logActionMock.verify(() -> LogAction.addLogSynchronous(
                 loggedInInfo, "ConsultationWebService.consultationReadDenied", "demographicNo=99"));
@@ -360,13 +361,13 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(7))).thenReturn(true);
         when(consultationManager.getEReferAttachments(any(), any(), any(), eq(7)))
                 .thenReturn(Collections.emptyList());
-        HttpServletRequest request = org.mockito.Mockito.mock(HttpServletRequest.class);
-        HttpServletResponse httpResponse = org.mockito.Mockito.mock(HttpServletResponse.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse httpResponse = mock(HttpServletResponse.class);
 
         Response response = service.getEReferAttachments(7, request, httpResponse);
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(7));
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 7);
         verify(consultationManager).getEReferAttachments(any(), any(), any(), eq(7));
     }
 
@@ -374,8 +375,8 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     @DisplayName("should deny getEReferAttachments when global consultation read privilege is denied")
     void shouldDenyGetEReferAttachments_whenGlobalReadPrivilegeDenied() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(7))).thenReturn(true);
-        HttpServletRequest request = org.mockito.Mockito.mock(HttpServletRequest.class);
-        HttpServletResponse httpResponse = org.mockito.Mockito.mock(HttpServletResponse.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse httpResponse = mock(HttpServletResponse.class);
 
         assertThatThrownBy(() -> service.getEReferAttachments(7, request, httpResponse))
                 .isInstanceOf(WebApplicationException.class)
@@ -440,8 +441,8 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return bad request when demographicNo is missing for eReferral attachments")
     void shouldReturnBadRequest_whenDemographicNoMissingForEReferAttachments() throws Exception {
-        HttpServletRequest request = org.mockito.Mockito.mock(HttpServletRequest.class);
-        HttpServletResponse httpResponse = org.mockito.Mockito.mock(HttpServletResponse.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse httpResponse = mock(HttpServletResponse.class);
 
         assertThatThrownBy(() -> service.getEReferAttachments(null, request, httpResponse))
                 .isInstanceOf(WebApplicationException.class)

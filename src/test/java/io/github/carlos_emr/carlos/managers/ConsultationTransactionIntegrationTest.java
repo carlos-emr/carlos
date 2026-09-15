@@ -122,7 +122,8 @@ class ConsultationTransactionIntegrationTest extends CarlosTestBase {
             throw new IllegalStateException("synthetic failure after archive child write");
         }).when(failingArchiveExtDao).persist(any());
         target.consultationRequestExtArchiveDao = failingArchiveExtDao;
-        assertThatThrownBy(() -> service.archiveConsultationRequest(request.getId()))
+        Integer requestId = request.getId();
+        assertThatThrownBy(() -> service.archiveConsultationRequest(requestId))
                 .isInstanceOf(IllegalStateException.class);
         transactions.executeWithoutResult(status -> {
             assertThat(entityManager.createQuery("select count(a) from ConsultationRequestArchive a "
