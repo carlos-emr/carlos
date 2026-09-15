@@ -249,6 +249,14 @@ public class ManageEmails2Action extends ActionSupport {
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        var portalState = emailLog.getPortalDeliveryState();
+        if (portalState != null && portalState != EmailLog.PortalDeliveryState.PUBLISHED
+                && portalState != EmailLog.PortalDeliveryState.REVOKED) {
+            var delivery = SpringUtils.getBean(io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery.class);
+            request.setAttribute("emailLog", delivery.findForRecovery(loggedInInfo, emailLog.getId()));
+            return "portalRecovery";
+        }
+
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog);

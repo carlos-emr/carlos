@@ -103,6 +103,8 @@ public class EmailManager {
     private ProviderManager2 providerManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    @Autowired
+    private io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery portalEmailDelivery;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
 
@@ -147,6 +149,12 @@ public class EmailManager {
         }
 
         sanitizeEmailFields(emailData);
+        boolean portalPassword = emailData.getIsEncrypted()
+                && io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery.isEnabled();
+        if (portalPassword) {
+            emailData.setPassword("");
+            emailData.setPasswordClue("");
+        }
         EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
         applyConsentSnapshot(emailLog, consentResult, emailData);
@@ -157,6 +165,17 @@ public class EmailManager {
             LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.blocked", "Email",
                     "emailLogId=" + emailLog.getId() + "&consentStatus=" + consentResult.getStatus(),
                     String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
+            return emailLog;
+        }
+
+        if (portalPassword) {
+            portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
+                    () -> encryptEmail(emailData),
+                    () -> emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData).send());
+            if (emailLog.getStatus() == EmailStatus.SUCCESS
+                    && emailLog.getChartDisplayOption() == ChartDisplayOption.WITH_FULL_NOTE) {
+                addEmailNote(loggedInInfo, emailLog);
+            }
             return emailLog;
         }
 
