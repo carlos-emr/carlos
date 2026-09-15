@@ -13,13 +13,18 @@ const path = require("node:path");
     assert.ok(url && storageState && /^[1-9][0-9]*$/.test(id),
         "URL, authenticated storage state and one seeded NHS test demographic are required");
     assert.ok(["success", "error"].includes(expected));
-    const output = fs.mkdtempSync(path.join(os.tmpdir(), "ai-summary-generation-"));
+    const output = process.env.AI_SUMMARY_OUTPUT_DIR
+        || fs.mkdtempSync(path.join(os.tmpdir(), "ai-summary-generation-"));
+    fs.mkdirSync(output, {recursive: true, mode: 0o700});
     const browser = await chromium.launch({headless: true, args: ["--no-sandbox"]});
     try {
         const context = await browser.newContext({storageState, viewport: {width: 1440, height: 1000}});
         const page = await context.newPage();
         const errors = [];
         page.on("pageerror", error => errors.push(error.message));
+        // Establish program context through the same eChart route used by clinicians.
+        await page.goto(new URL("../encounter/IncomingEncounter?demographicNo=" + id, url).href,
+            {waitUntil: "domcontentloaded"});
         assert.equal((await page.goto(url + "?demographicNo=" + id)).status(), 200);
         const button = page.locator("#generate-summary button");
         assert.equal(await button.isEnabled(), true, "Only complete, authorized NHS fixtures are eligible");
@@ -40,6 +45,7 @@ const path = require("node:path");
                     && event.currentTarget.querySelector("button").disabled));
             });
         });
+        const started = Date.now();
         const navigation = page.waitForNavigation({waitUntil: "domcontentloaded", timeout: 1860000});
         await button.click({noWaitAfter: true});
         console.log("Submitted synthetic fixture; waiting for the configured agent.");
@@ -47,6 +53,12 @@ const path = require("node:path");
         assert.equal(pendingChecked, true);
         assert.equal(response.status(), 200);
         await page.locator("#workspace").waitFor();
+        const result = {seconds: (Date.now() - started) / 1000, httpStatus: response.status(),
+            errors: await page.locator(".generation-error").allTextContents(),
+            claims: await page.locator(".claim").count(), sources: await page.locator(".source").count(),
+            agent: await page.locator(".artifact-footer").innerText()};
+        fs.writeFileSync(path.join(output, "result.json"), JSON.stringify(result, null, 2), {mode: 0o600});
+        console.log("Full-record browser result:", JSON.stringify(result));
         await page.screenshot({path: path.join(output, "returned-view.png")});
         assert.deepEqual(await page.locator(".source").allTextContents(), sourcesBefore);
         if (expected === "error") {
