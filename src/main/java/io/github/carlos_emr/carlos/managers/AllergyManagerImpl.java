@@ -60,6 +60,7 @@ public class AllergyManagerImpl implements AllergyManager {
 
     @Override
     public Allergy getAllergy(LoggedInInfo loggedInInfo, Integer id) {
+        requireAllergyReadPrivilege(loggedInInfo);
         Allergy result = allergyDao.find(id);
 
         // --- log action ---
@@ -72,13 +73,20 @@ public class AllergyManagerImpl implements AllergyManager {
 
     @Override
     public List<Allergy> getActiveAllergies(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        // Patient-scoped authorization: this REST-reachable read previously had NO privilege check at
+        // all, so any authenticated caller could enumerate any patient's active allergies by supplying
+        // an arbitrary demographicNo. Require _allergy read for the requested demographic, mirroring the
+        // gate on getAllergyDTOs (scoped to the patient here rather than role-level).
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r",
+                demographicNo == null ? null : String.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
+
         List<Allergy> results = allergyDao.findActiveAllergiesOrderByDescription(demographicNo);
 
-        // --- log action ---
-        if (results != null && results.size() > 0) {
-            LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getActiveAllergies",
-                    "demographicNo=" + demographicNo);
-        }
+        // Audit every authorized attempt, including empty results, so cross-patient probing is visible.
+        LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getActiveAllergies",
+                "demographicNo=" + demographicNo);
 
         return (results);
     }
@@ -86,6 +94,7 @@ public class AllergyManagerImpl implements AllergyManager {
     @Override
     public List<Allergy> getUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateInclusive,
                                              int itemsToReturn) {
+        requireAllergyReadPrivilege(loggedInInfo);
         List<Allergy> results = allergyDao.findByUpdateDate(updatedAfterThisDateInclusive, itemsToReturn);
         patientConsentManager.filterProviderSpecificConsent(loggedInInfo, results);
         LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getUpdatedAfterDate",
@@ -97,6 +106,7 @@ public class AllergyManagerImpl implements AllergyManager {
     @Override
     public List<Allergy> getByDemographicIdUpdatedAfterDate(LoggedInInfo loggedInInfo, Integer demographicId,
                                                             Date updatedAfterThisDate) {
+        requireAllergyReadPrivilege(loggedInInfo);
         List<Allergy> results = new ArrayList<Allergy>();
         ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
         if (patientConsentManager.hasPatientConsented(demographicId, consentType)) {
@@ -115,6 +125,7 @@ public class AllergyManagerImpl implements AllergyManager {
     @Override
     public List<Allergy> getAllergiesByProgramProviderDemographicDate(LoggedInInfo loggedInInfo, Integer programId,
                                                                       String providerNo, Integer demographicId, Calendar updatedAfterThisDateInclusive, int itemsToReturn) {
+        requireAllergyReadPrivilege(loggedInInfo);
         List<Allergy> results = allergyDao.findByProviderDemographicLastUpdateDate(providerNo, demographicId,
                 updatedAfterThisDateInclusive.getTime(), itemsToReturn);
 
@@ -130,14 +141,18 @@ public class AllergyManagerImpl implements AllergyManager {
      */
     @Override
     public List<AllergyListItemDTO> getAllergyDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new SecurityException("missing required sec object (_allergy)");
-        }
+        requireAllergyReadPrivilege(loggedInInfo);
         List<AllergyListItemDTO> results = allergyDao.findAllergyDTOsByDemographicNo(demographicNo);
 
         LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getAllergyDTOs",
                 "demographicNo=" + demographicNo);
 
         return results;
+    }
+
+    private void requireAllergyReadPrivilege(LoggedInInfo loggedInInfo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
     }
 }

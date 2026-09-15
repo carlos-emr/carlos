@@ -53,8 +53,37 @@ class SignatureStampJspRegressionTest {
                 .contains("signatureProviderNo = consultUtil.providerNo.trim();")
                 .contains("signatureProviderNo = referringProviderDefault.trim();")
                 .contains("consultSigFile.isFile()")
+                .contains("name=\"signatureProviderNo\" id=\"signatureProviderNo\"")
+                .contains("updateSignatureProvider(this.value)")
+                .contains("function isStoredSignatureId(value)")
+                .contains("function hasPendingManualSignature()")
+                .contains("boolean canWriteConsult = securityInfoManager.hasPrivilege(loggedInInfo, \"_con\", SecurityInfoManager.WRITE, consultSecurityTarget);")
+                .contains("signatureImgTag.onerror = function()")
+                .contains("if (data.signatureImg && isStoredSignatureId(data.signatureImg))")
                 .contains("/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>")
                 .doesNotContain("UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);");
+    }
+
+    @Test
+    @DisplayName("Read-only consultation signature view should not render write-only signature controls")
+    void shouldNotRenderSignaturePadControls_inReadOnlyConsultationSignatureView() throws Exception {
+        String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
+        String normalizedJsp = normalizeWhitespace(jsp);
+        int readOnlySignatureBranch = normalizedJsp.indexOf("<% } else if (SignatureReference.isStoredId(consultUtil.signatureImg)) { %>");
+        int unsignedSignatureBranch = normalizedJsp.indexOf("<% } else { %> <div id=\"signatureUnsignedReadOnly\"", readOnlySignatureBranch);
+
+        assertThat(readOnlySignatureBranch).isGreaterThan(0);
+        assertThat(unsignedSignatureBranch).isGreaterThan(readOnlySignatureBranch);
+        assertThat(normalizedJsp)
+                .contains("<% if (canWriteConsult) { %> <input type=\"hidden\" name=\"newSignature\"")
+                .contains("id=\"signatureReadOnlyShow\"")
+                .contains("id=\"signatureReadOnlyImgTag\"")
+                .contains("src=\"<%=storedImgUrl %><%=SafeEncode.forUriComponent(consultUtil.signatureImg)%>\"")
+                .contains("encounter.oscarConsultationRequest.ConsultationFormRequest.signatureUnsignedReadOnly");
+        assertThat(normalizedJsp.substring(readOnlySignatureBranch, unsignedSignatureBranch))
+                .doesNotContain("signature_pad/tabletSignature")
+                .doesNotContain("linkResignManually")
+                .doesNotContain("onerror=");
     }
 
     @Test
@@ -66,10 +95,23 @@ class SignatureStampJspRegressionTest {
         assertThat(normalizedJsp)
                 .contains("var OSCAR_PROVIDER_SIGNATURE_IMG_SRC = \"../provider/providerSignatureImage\";")
                 .contains("var src = getSignatureStampPreviewSrc();")
-                .contains("$img.on(\"error\", function() {")
                 .contains("function getSignatureStampPreviewSrc(){")
+                // Palette template: the stamp stays hidden until its image loads (so it can't
+                // be dragged mid-load); on load failure the endpoint status is probed and the
+                // warning is only shown for a 404 (missing signature), not 401/403/500.
+                .contains("$stampImg.on(\"load\", showSignatureStamp);")
+                .contains("$stampImg.on(\"error\", warnIfMissingSignature);")
+                .contains("if (resp.status === 404)")
+                .contains("EFORM_I18N.textNoSignatureStamp")
+                .contains("role: \"alert\"")
+                // The wet-signature sign hint is wired through the same i18n path.
+                .contains("EFORM_I18N.textWetSignatureSignHint")
+                // Stamps already placed on a saved eForm keep the blank-stamp fallback so they
+                // still resolve to the signing provider's signature at render time.
                 .contains("this.src = getBlankSignatureStampSrc();")
                 .contains("if (this.src.indexOf(\"BNK.png\") === -1)")
+                // The removed inline template fallback must not be reintroduced.
+                .doesNotContain("$img.on(\"error\", function() {")
                 .doesNotContain("error: function() {");
     }
 

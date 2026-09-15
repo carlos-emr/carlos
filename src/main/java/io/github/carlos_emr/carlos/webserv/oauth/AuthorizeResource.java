@@ -139,7 +139,7 @@ public class AuthorizeResource {
         String verifier = provider.finalizeAuthorization(rt, providerNo);
 
         if (callbackUri != null) {
-            return redirectToCallback(rt.getCallback(), tokenId, verifier);
+            return redirectToCallback(callbackUri, tokenId, verifier);
         }
 
         // OOB: show verifier
@@ -167,12 +167,14 @@ public class AuthorizeResource {
         return callbackUri;
     }
 
-    private static Response redirectToCallback(String callback, String tokenId, String verifier) {
-        String sep = callback.contains("?") ? "&" : "?";
-        String loc = callback + sep + "oauth_token=" + enc(tokenId) + "&oauth_verifier=" + enc(verifier);
+    private static Response redirectToCallback(URI callbackUri, String tokenId, String verifier) {
+        URI loc = UriBuilder.fromUri(callbackUri)
+                .queryParam("oauth_token", tokenId)
+                .queryParam("oauth_verifier", verifier)
+                .build();
         // nosemgrep: open-redirect -- callback comes from the server-persisted request token
         // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
-        return Response.seeOther(URI.create(loc)).build(); // 303 redirect
+        return Response.seeOther(loc).build(); // 303 redirect
     }
 
     private static Response textResponse(int status, String entity) {

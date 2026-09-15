@@ -34,27 +34,35 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.eform.EFormExportZip;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
+import org.apache.logging.log4j.Logger;
 
 import jakarta.servlet.ServletContext;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String ADMIN_SECURITY_OBJECT = "_admin";
     private static final String ADMIN_EFORM_SECURITY_OBJECT = "_admin.eform";
     private static final String WRITE_PRIVILEGE = "w";
+    private static final String EFORM_IMPORT_FAILURE_KEY = "form.xmlUpload.failure";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -62,8 +70,27 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Processes a POSTed form/eForm XML archive upload.
+     *
+     * <p>Rejects non-POST requests with {@link #NONE} and a 405 response. Requires
+     * {@code _admin.eform} or {@code _admin} write privilege; unauthorized callers get a
+     * {@link SecurityException}, which the surrounding struts-form.xml mapping routes to
+     * the security error view. A rejected upload (e.g. an invalid filename caught by
+     * {@link #withUploadedFiles}) or a failed import returns {@link #ERROR} with the
+     * failure reasons published as request attribute {@code actionErrors} for
+     * {@code formXmlUpload.jsp} to render. On success the archive has been fully imported
+     * and {@link #SUCCESS} is returned.</p>
+     *
+     * @return {@link #NONE} for a rejected HTTP method, {@link #ERROR} for a validation or
+     *         import failure, or {@link #SUCCESS} once the archive is imported
+     * @throws SecurityException if the caller lacks the required administrative privilege
+     * @throws IllegalStateException if the servlet container's temp directory is unavailable
+     * @throws IllegalArgumentException if the uploaded file path fails validation
+     * @throws Exception if the legacy entry-by-entry import path fails
+     */
     public String execute()
-            throws ServletException, IOException {
+            throws Exception {
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
@@ -77,55 +104,136 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         }
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
-            return ERROR;
+            return forwardActionErrors();
         }
 
-        int BUFFER = 2048;
+        File tmpFile = stageUploadedArchive();
 
-        // Temporary file handling
+        try (ZipFile zf = new ZipFile(tmpFile)) {
+            String importResult = isEFormArchive(zf) ? importEFormArchive(tmpFile) : importLegacyArchive(zf);
+            if (importResult != null) {
+                return importResult;
+            }
+        }
+
+        return SUCCESS;
+    }
+
+    /**
+     * Copies the validated upload into a fresh temp file for zip processing.
+     *
+     * @return the staged temp file, ready to be opened as a {@link ZipFile}
+     * @throws IllegalStateException if the servlet container's temp directory is unavailable
+     * @throws IllegalArgumentException if the uploaded file path fails validation
+     * @throws IOException if the upload cannot be copied to the temp file
+     */
+    private File stageUploadedArchive() throws IOException {
         File tmpFile = File.createTempFile("tmp", ".zip");
         tmpFile.deleteOnExit();
 
-        // Get context of the temp directory, get the file path to the the temp directory
         ServletContext servletContext = ServletActionContext.getServletContext();
-
-        // Validate the paths
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
-        
         if (safeDir == null) {
             throw new IllegalStateException("Temporary directory attribute is not set.");
         }
-        
-        File normalizedFile = file1.toPath().normalize().toFile();
 
-        // Validate file path using PathValidationUtils
+        File normalizedFile = file1.toPath().normalize().toFile();
         try {
             normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
         } catch (SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
         }
 
-       try (InputStream is = new FileInputStream(normalizedFile);
-            OutputStream fos = new FileOutputStream(tmpFile)) {
-            byte[] data = new byte[BUFFER];
-            int count;
-            while ((count = is.read(data)) != -1) {
-                fos.write(data, 0, count);
+        try (InputStream is = new FileInputStream(normalizedFile);
+             OutputStream fos = new FileOutputStream(tmpFile)) {
+            is.transferTo(fos);
+        }
+        return tmpFile;
+    }
+
+    /**
+     * Imports an eForm export ZIP through the eForm service so the template is
+     * persisted to the Manage eForms library.
+     *
+     * @return the result to return from {@link #execute()} on failure, or {@code null}
+     *         to continue on to {@link #SUCCESS}
+     * @throws SecurityException propagated unchanged so struts-form.xml routes it to
+     *         the security error view instead of the retryable upload form
+     */
+    private String importEFormArchive(File tmpFile) throws IOException {
+        List<String> errors;
+        try (InputStream is = new FileInputStream(tmpFile)) {
+            errors = new EFormExportZip().importForm(is);
+        } catch (SecurityException e) {
+            throw e;
+        } catch (Exception e) {
+            LOGGER.error("Unable to import eForm archive.", e);
+            addActionError(getEformImportFailureMessage());
+            return forwardActionErrors();
+        }
+        if (!errors.isEmpty()) {
+            errors.forEach(this::addActionError);
+            return forwardActionErrors();
+        }
+        return null;
+    }
+
+    /**
+     * Imports a legacy clinical form data ZIP using the established entry-by-entry importer.
+     *
+     * @return {@code null} to continue on to {@link #SUCCESS}
+     */
+    private String importLegacyArchive(ZipFile zf) throws IOException {
+        Enumeration<? extends ZipEntry> entries = zf.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry entry = entries.nextElement();
+            try (InputStream zis = zf.getInputStream(entry)) {
+                JDBCUtil.toDataBase(zis, entry.getName());
             }
         }
+        return null;
+    }
 
-        // Unzip and process entries
-        try (ZipFile zf = new ZipFile(tmpFile)) {
-            Enumeration<? extends ZipEntry> entries = zf.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                try (InputStream zis = zf.getInputStream(entry)) {
-                    JDBCUtil.toDataBase(zis, entry.getName());
-                }
+    /**
+     * Publishes the current Struts action errors onto the request so the plain-JSP
+     * error view ({@code formXmlUpload.jsp}, which has no Struts tag library) can
+     * render them; {@code addActionError()} alone only populates the value stack.
+     *
+     * @return {@link #ERROR}
+     */
+    private String forwardActionErrors() {
+        request.setAttribute("actionErrors", getActionErrors());
+        return ERROR;
+    }
+
+    /**
+     * Looks up the localized generic eForm import failure message from the
+     * {@code oscarResources} bundle, matching the {@code fmt:message} lookups the
+     * success page uses. Falls back to the English default if the key or bundle is
+     * unavailable so a resource-loading gap never blocks the retry flow.
+     */
+    private String getEformImportFailureMessage() {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(EFORM_IMPORT_FAILURE_KEY);
+        } catch (MissingResourceException e) {
+            return "Unable to import eForm archive.";
+        }
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match against the fixed ASCII eForm
+    // export marker filename, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match against the fixed ASCII eForm export marker filename; not a security or authorization decision")
+    private static boolean isEFormArchive(ZipFile zipFile) {
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        while (entries.hasMoreElements()) {
+            String entryName = entries.nextElement().getName().replace('\\', '/');
+            if (entryName.equalsIgnoreCase("eform.properties")
+                    || entryName.toLowerCase(Locale.ROOT).endsWith("/eform.properties")) {
+                return true;
             }
         }
-
-        return SUCCESS;
+        return false;
     }
 
     private File file1; // Uploaded file

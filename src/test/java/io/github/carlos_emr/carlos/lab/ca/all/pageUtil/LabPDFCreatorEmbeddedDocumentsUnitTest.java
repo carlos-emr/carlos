@@ -1,0 +1,124 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mockStatic;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+
+/**
+ * {@link LabPDFCreator#addEmbeddedDocuments(File, java.io.OutputStream)} admits its source only
+ * from an allowed temp directory. The chart print used to hand it a lab rendered under
+ * DOCUMENT_DIR, which it refused: nothing was written, every lab was silently missing from the
+ * printed chart, and the refusal was logged with the lab's file name, which is built from the
+ * patient's name. These tests pin both halves of the contract without a database: the default
+ * constructor renders nothing and touches no DAO.
+ */
+@DisplayName("LabPDFCreator.addEmbeddedDocuments")
+@Tag("unit")
+@Tag("lab")
+class LabPDFCreatorEmbeddedDocumentsUnitTest {
+
+    private static final String PATIENT_NAME_FRAGMENT = "PATIENT_FAKE_SURNAME";
+
+    private File tempSource;
+
+    @AfterEach
+    void tearDown() throws IOException {
+        if (tempSource != null) {
+            Files.deleteIfExists(tempSource.toPath());
+        }
+    }
+
+    @Test
+    @DisplayName("writes the source PDF through when it lives in an allowed temp directory")
+    void shouldWriteSourcePdf_whenSourceIsInAllowedTempDirectory() throws IOException {
+        tempSource = PathValidationUtils.createSecureTempFile("lab-embed-test-", ".pdf");
+        writeOnePagePdf(tempSource);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        new LabPDFCreator().addEmbeddedDocuments(tempSource, out);
+
+        assertThat(new String(out.toByteArray(), 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+    }
+
+    @Test
+    @DisplayName("refuses a rejected upload, writes nothing, and keeps the file name out of the log")
+    void shouldRefuseSource_whenUploadValidationRejectsIt() throws IOException {
+        tempSource = PathValidationUtils.createSecureTempFile(PATIENT_NAME_FRAGMENT + "_", ".pdf");
+        writeOnePagePdf(tempSource);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        // Test this caller's refusal/diagnostics contract independently of where the checkout
+        // lives. PathValidationUtilsUnitTest covers the actual upload-directory boundary.
+        try (LogCapture logCapture = LogCapture.forLogger(LabPDFCreator.class);
+             MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
+            paths.when(() -> PathValidationUtils.validateUpload(tempSource))
+                    .thenThrow(new SecurityException("Rejected upload " + tempSource.getName()));
+            assertThatThrownBy(() -> new LabPDFCreator().addEmbeddedDocuments(tempSource, out))
+                    .isInstanceOf(IOException.class).hasMessage("Lab PDF could not be assembled completely")
+                    .hasNoCause();
+
+            assertThat(logCapture.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+            assertThat(out.size()).as("a refused source must not be copied to the output").isZero();
+            assertThat(logCapture.messages()).anySatisfy(message -> assertThat(message).contains("rejected"));
+            assertThat(logCapture.messages())
+                    .as("the lab file name is built from the patient's name and must stay out of the log")
+                    .noneSatisfy(message -> assertThat(message).contains(PATIENT_NAME_FRAGMENT));
+        }
+    }
+
+    @Test
+    @DisplayName("rejects a corrupt lab PDF rather than returning empty or partial clinical output")
+    void shouldFail_whenRequiredLabPdfIsCorrupt() throws IOException {
+        tempSource = PathValidationUtils.createSecureTempFile("lab-embed-test-", ".pdf");
+        Files.writeString(tempSource.toPath(), "corrupt synthetic lab");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        assertThatThrownBy(() -> new LabPDFCreator().addEmbeddedDocuments(tempSource, out))
+                .isInstanceOf(IOException.class).hasNoCause();
+        assertThat(out.size()).isZero();
+    }
+
+    private static void writeOnePagePdf(File file) throws IOException {
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.save(file);
+        }
+    }
+}

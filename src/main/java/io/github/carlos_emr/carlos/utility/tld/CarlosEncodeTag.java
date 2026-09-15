@@ -24,8 +24,6 @@ import jakarta.servlet.jsp.JspWriter;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.Locale;
 
 /**
  * Null-safe OWASP-backed encoder tag. Registered as {@code <carlos:encode>} via
@@ -48,7 +46,9 @@ import java.util.Locale;
  *
  * <h2>Supported contexts</h2>
  * Case-insensitive. Missing / blank {@code context} defaults to {@code html}
- * (i.e. {@code forHtmlContent}).
+ * (i.e. {@code forHtmlContent}). The dispatch table lives in
+ * {@link SafeEncode#forContext(java.io.Writer, String, String)} so that every
+ * context-selecting CARLOS tag accepts exactly the same context names.
  *
  * <ul>
  *   <li>{@code html} / {@code htmlContent} → {@link SafeEncode#forHtmlContent(String)}</li>
@@ -93,10 +93,12 @@ public class CarlosEncodeTag extends TagSupport {
     public int doStartTag() throws JspException {
         JspWriter out = pageContext.getOut();
         try {
-            String ctx = (context == null || context.isEmpty()) ? "html" : context;
-            encode(out, ctx, value);
+            SafeEncode.forContext(out, context, value);
         } catch (IOException e) {
             throw new JspException("carlos:encode failed to write output", e);
+        } catch (IllegalArgumentException e) {
+            // SafeEncode reports an unknown context name; surface it as a JSP render failure.
+            throw new JspException("carlos:encode: " + e.getMessage(), e);
         }
         return SKIP_BODY;
     }
@@ -106,81 +108,5 @@ public class CarlosEncodeTag extends TagSupport {
         value = null;
         context = null;
         super.release();
-    }
-
-    /**
-     * Dispatch to the appropriate {@link SafeEncode} method. Case-insensitive
-     * match on the context name.
-     */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static void encode(JspWriter out, String ctx, String val) throws IOException, JspException {
-        // Lowercase compare makes "html", "Html", "HTML", "hTML" equivalent.
-        switch (ctx.toLowerCase(Locale.ROOT)) {
-            case "html":
-            case "htmlcontent":
-                SafeEncode.forHtmlContent(out, val);
-                return;
-            case "forhtml":
-                SafeEncode.forHtml(out, val);
-                return;
-            case "htmlattribute":
-                SafeEncode.forHtmlAttribute(out, val);
-                return;
-            case "htmlunquotedattribute":
-                SafeEncode.forHtmlUnquotedAttribute(out, val);
-                return;
-            case "javascript":
-            case "js":
-                SafeEncode.forJavaScript(out, val);
-                return;
-            case "javascriptattribute":
-                SafeEncode.forJavaScriptAttribute(out, val);
-                return;
-            case "javascriptblock":
-                SafeEncode.forJavaScriptBlock(out, val);
-                return;
-            case "javascriptsource":
-                SafeEncode.forJavaScriptSource(out, val);
-                return;
-            case "uri":
-                SafeEncode.forUri(out, val);
-                return;
-            case "uricomponent":
-                SafeEncode.forUriComponent(out, val);
-                return;
-            case "cssstring":
-            case "css":
-                SafeEncode.forCssString(out, val);
-                return;
-            case "cssurl":
-                SafeEncode.forCssUrl(out, val);
-                return;
-            case "xml":
-                SafeEncode.forXml(out, val);
-                return;
-            case "xmlattribute":
-                SafeEncode.forXmlAttribute(out, val);
-                return;
-            case "xmlcontent":
-                SafeEncode.forXmlContent(out, val);
-                return;
-            case "xmlcomment":
-                SafeEncode.forXmlComment(out, val);
-                return;
-            case "cdata":
-                SafeEncode.forCDATA(out, val);
-                return;
-            case "java":
-                SafeEncode.forJava(out, val);
-                return;
-            default:
-                throw new JspException(
-                        "carlos:encode: unknown context '" + ctx + "'. "
-                                + "Valid contexts: html, htmlAttribute, htmlUnquotedAttribute, "
-                                + "javaScript, javaScriptAttribute, javaScriptBlock, javaScriptSource, "
-                                + "uri, uriComponent, cssString, cssUrl, "
-                                + "xml, xmlAttribute, xmlContent, xmlComment, cdata, java.");
-        }
     }
 }
