@@ -192,7 +192,9 @@ public class DemographicData {
         if (retval.startsWith("<unotes>")) retval = retval.substring(8);
         if (retval.endsWith("</unotes>")) retval = retval.substring(0, retval.length() - 9);
 
-        return retval;
+        // The note text is XML-escaped on write (DemographicXml.userNotes), so decode it
+        // exactly once here; exporters and printers consume this as plain text.
+        return DemographicXml.unescapeXmlText(retval);
     }
 
     public Demographic getDemographic(LoggedInInfo loggedInInfo, String DemographicNo) {
