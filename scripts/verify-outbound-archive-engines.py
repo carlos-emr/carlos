@@ -21,14 +21,14 @@ TABLES = ('document', 'emailConfig', 'emailLog')
 class DatabaseChecks:
     """Run SQL and fixtures using the actual baseline table definitions."""
 
-    def __init__(self, args):
+    def __init__(self, args) -> None:
         self.client = ['mariadb', '--no-defaults', '--host=' + args.host,
                        '--port=' + str(args.port), '--user=' + args.user,
                        '--batch', '--skip-column-names', '--binary-as-hex']
         baseline = (MIGRATIONS / 'V1__baseline_schema.sql').read_text()
         self.definitions = {}
         for table in TABLES:
-            match = re.search(r'CREATE TABLE `' + table + r'` \([\s\S]+?;', baseline)
+            match = re.search(r'CREATE TABLE `' + re.escape(table) + r'` \([\s\S]+?;', baseline)
             if match is None:
                 raise AssertionError('Baseline definition missing: ' + table)
             self.definitions[table] = match.group()
@@ -42,7 +42,7 @@ class DatabaseChecks:
     def sql(self, statement, database=None, error=None):
         """Fail on any unexpected SQL error, including an expected error not occurring."""
         result = subprocess.run(self.client + ([database] if database else []),
-                                input=statement, text=True, capture_output=True, timeout=120)
+                                input=statement, text=True, capture_output=True, timeout=120, check=False)
         if error is not None:
             if result.returncode == 0 or error not in result.stderr:
                 raise AssertionError((result.returncode, result.stdout, result.stderr))
@@ -56,7 +56,7 @@ class DatabaseChecks:
         database = 'archive_engine_test_' + uuid.uuid4().hex
         self.sql('CREATE DATABASE `' + database + '` CHARACTER SET utf8mb4')
         try:
-            for table, engine in zip(TABLES, engines):
+            for table, engine in zip(TABLES, engines, strict=True):
                 if table == missing:
                     continue
                 if table == view:
@@ -79,17 +79,18 @@ class DatabaseChecks:
         return self.sql('SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES '
                         'WHERE BINARY TABLE_SCHEMA=BINARY DATABASE() ORDER BY BINARY TABLE_NAME', database)
 
-    def success_case(self, engines):
+    def success_case(self, engines, wrong_case=None):
         """Verify conversion, row/index preservation, FK eligibility, and repeat safety."""
-        with self.fixture(engines) as database:
+        with self.fixture(engines, wrong_case=wrong_case) as database:
             self.sql("INSERT INTO document(document_no,docdesc,restrictToProgram) VALUES (7,'sentinel',0);"
                      "INSERT INTO emailConfig(id,configDetails) VALUES (8,'synthetic-config');"
                      "INSERT INTO emailLog(id,configId,body) VALUES (9,8,UNHEX('0001FEFF'));", database)
             rows = [self.sql('SELECT * FROM `' + t + '`', database) for t in TABLES]
             indexes = [self.sql('SHOW INDEX FROM `' + t + '`', database) for t in TABLES]
             # Cardinality and index implementation may legitimately change with the engine.
-            index_columns = lambda values: [tuple(row.split('\t')[i] for i in (1, 2, 3, 4))
-                                             for row in values.splitlines()]
+            def index_columns(values):
+                return [tuple(row.split('\t')[i] for i in (1, 2, 3, 4))
+                        for row in values.splitlines()]
             table_ids = self.sql("SELECT NAME, TABLE_ID FROM information_schema.INNODB_SYS_TABLES "
                                  "WHERE NAME LIKE CONCAT(DATABASE(), '/%') ORDER BY NAME", database)
             self.sql(self.migration, database)
@@ -100,7 +101,7 @@ class DatabaseChecks:
             if self.sql("SELECT COUNT(*) FROM information_schema.TABLES WHERE "
                         "BINARY TABLE_SCHEMA=BINARY DATABASE() AND ENGINE='InnoDB'", database) != '3':
                 raise AssertionError('Not all references converted')
-            for table, before, before_indexes in zip(TABLES, rows, indexes):
+            for table, before, before_indexes in zip(TABLES, rows, indexes, strict=True):
                 if self.sql('SELECT * FROM `' + table + '`', database) != before:
                     raise AssertionError('Data changed: ' + table)
                 if index_columns(self.sql('SHOW INDEX FROM `' + table + '`', database)) != index_columns(before_indexes):
@@ -159,6 +160,9 @@ class DatabaseChecks:
                 self.failure_case('wrong_case', table)
         if self.case_sensitive:
             self.neighboring_schema_case()
+        else:
+            for table in TABLES:
+                self.success_case(('MyISAM',) * 3, wrong_case=table)
         print(f'Passed {self.passed} live archive-engine scenarios; case_sensitive={self.case_sensitive}')
 
 
