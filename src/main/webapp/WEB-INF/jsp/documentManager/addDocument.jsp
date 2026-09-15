@@ -281,10 +281,6 @@
                 aria-expanded="false" aria-controls="addLinkDiv">
             <fmt:message key="dms.addDocument.AddLink"/>
         </button>
-        <button type="button" class="btn btn-secondary"
-                onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&mode=addHtml', 'addhtml')">
-            <fmt:message key="dms.addDocument.AddHTML"/>
-        </button>
     </div>
 
     <div id="addDocDiv" class="collapse card card-body bg-body-tertiary mb-1" data-bs-parent="#addDocAccordion">
