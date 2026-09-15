@@ -2,9 +2,9 @@
 
 This service stores a finalized outbound email artifact as a patient eDoc, with its
 SHA-256 hash and byte count. It provides archive creation, legal-hold transitions,
-and logical retirement with a retained tombstone. This PR does **not** connect the
-SMTP or SendGrid sending flows or add an archive user interface. Installing it does
-not start archiving outgoing email automatically.
+and logical retirement with a retained tombstone. SMTP sends through `EmailManager`
+(including the LOCAL provider) now archive the finalized RFC 822 message before
+transport. SendGrid/API delivery is unchanged. There is no new archive user interface.
 
 ## Installation and upgrade
 
@@ -122,4 +122,36 @@ installed, ask the application administrator rather than altering records direct
 For integrity failures, stop using the artifact and reconcile the archive ID, recorded
 size/hash, stored file, and backups. Do not replace the recorded hash to silence an
 error. Preserve both the integrity error and any suppressed audit failure when reporting
-an incident. This PR does not wire archive creation into SMTP or SendGrid delivery.
+an incident. SMTP capture is described below; SendGrid/API capture is not implemented.
+
+
+## SMTP capture and delivery outcomes
+
+Use the normal email compose/send workflow. SMTP now requires the sender's existing
+`_email w` permission plus `_edoc w` and access to the patient's record. Missing archive
+authority or archive storage failure prevents transport. Keep the document directory
+writable and include archive files and database rows in the same backup procedure.
+
+The sender validates configuration, prepares the MIME message and private attachment
+snapshots, and commits the archive before opening SMTP transport. It suspends a caller's
+database transaction while sending, so a later caller rollback cannot erase the archive
+of a message already handed to SMTP. Always call the Spring-managed `EmailManager`.
+The total finalized MIME message is limited to 50 MiB; attachment encoding adds overhead.
+Oversized preparation fails before archive creation or transport. SMTP snapshots require
+a filesystem supporting POSIX owner-only permissions; unsupported filesystems fail
+before sensitive snapshot contents are written.
+
+The archived `.eml` contains the attachment bytes actually prepared for sending, even
+if their source files subsequently change. Attachment metadata records provenance and
+hash/size; it does not link or lock the working source eDoc. Private temporary snapshots
+are cleaned up after preparation failure, archive failure, and transport completion.
+A cleanup failure is logged without replacing the delivery result.
+
+An archive means capture succeeded, not that the recipient received the email. A failure
+known to occur before acceptance keeps its archive and records FAILED. Ambiguous transport
+failures, including a lost SMTP acknowledgement or possible partial delivery, leave PENDING
+and return an unconfirmed outcome: check the mail server and outbox before retrying.
+An accepted send stays accepted even if its status or chart-note update fails; the
+response flags the bookkeeping problem for follow-up. Never resend merely to repair a
+status or chart note. Archive failures and SMTP failures use distinct safe diagnostic
+categories, without storing or logging raw server error text or credentials.

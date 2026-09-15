@@ -136,6 +136,12 @@ public interface NioFileManager {
      */
     public boolean isOscarDocument(String fileName);
 
+    /**
+     * Creates an owner-only file directly under the application-managed temporary root.
+     * Orphans are recovered by {@link ApplicationTempPurgeJob}.
+     */
+    Path createManagedTempFile(String prefix, String suffix) throws IOException;
+
     public Path createTempFile(final String fileName, ByteArrayOutputStream os) throws IOException;
 
 }
