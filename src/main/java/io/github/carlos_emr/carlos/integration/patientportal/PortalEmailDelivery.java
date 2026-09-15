@@ -65,7 +65,7 @@ public class PortalEmailDelivery {
     /**
      * Runs only after the existing consent gate accepts the send. The outbox row is already
      * committed; no generated password is ever persisted in CARLOS or passed to the mail sender.
-     * A transport exception is ambiguous (the provider may have accepted the email), so its
+     * An uncertain transport outcome may mean the provider accepted the email, so its
      * password remains pending until staff reconcile the provider's record.
      */
     public EmailSendResult send(LoggedInInfo user, EmailLog log, EmailData data, SendStep encrypt, SendStep send) {
