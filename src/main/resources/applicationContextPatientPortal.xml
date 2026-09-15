@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!--
+      Patient portal integration (issue #3475).
+
+      This file is NOT picked up by the classpath:applicationContext*.xml pattern in web.xml.
+      OscarSpringContextLoader overrides createWebApplicationContext and never reads
+      contextConfigLocation: it builds its own list from applicationContext.xml plus one file per
+      ModuleNames entry. It is imported explicitly from applicationContext.xml, and deleting that
+      import silently unwires the portal rather than failing.
+
+      EVERY BEAN HERE IS lazy-init. This is the load-bearing detail, not a tuning choice.
+
+      PatientPortalSettings.fromCarlosProperties() throws when the portal is unconfigured, which is
+      correct at a call site — a portal call must never silently become a no-op a clinic would
+      misread as "the invitation was sent". But an eager bean whose factory throws fails the whole
+      Spring context refresh, so that same fail-closed rule would stop CARLOS starting at all for
+      every clinic that does not use the portal. Most will not. Lazy initialisation keeps the
+      failure where it belongs: at the moment someone tries to use a portal that is not there.
+
+      EVERY BEAN IS ALSO autowire-candidate="false", as defence in depth: an injection point
+      elsewhere that matches one of these types by type would resolve it during refresh and so
+      defeat lazy-init. There is no such injection point today, and this attribute is cheap
+      insurance against one being added.
+
+      Be careful with the history here. A deployed CARLOS did fail to start with these beans
+      present, and the fix commit blamed the byType beans in spring_ws.xml. That explanation does
+      not hold up: those two beans are the only autowire="byType" declarations in the file, XML
+      byType autowiring is setter-based, and neither class has a writable property of any type in
+      this package. The commit bundled three changes — the missing import above, a constructor-arg
+      naming a bean that does not exist (SecurityInfoManager is an interface; the @Service
+      implementation registers as securityInfoManagerImpl), and this attribute — and the trigger
+      was never isolated to one of them. The first two are independently proven defects. Treat
+      this attribute as unproven-but-harmless, not as a fix with a known mechanism.
+
+      Lookup by type through SpringUtils still works: autowire-candidate governs autowiring, not
+      getBean.
+
+      PatientPortalService holds a pooled HTTP client, hence destroy-method="close".
+    -->
+
+    <bean id="patientPortalSettings"
+          class="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings"
+          factory-method="fromCarlosProperties"
+          lazy-init="true"
+          autowire-candidate="false"/>
+
+    <bean id="patientPortalService"
+          class="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService"
+          destroy-method="close"
+          lazy-init="true"
+          autowire-candidate="false">
+        <constructor-arg ref="patientPortalSettings"/>
+    </bean>
+
+    <!--
+      The resolver reads SecurityInfoManager only, so it constructs whether or not a portal is
+      configured. Still lazy for symmetry: nothing should touch this package on a deployment that
+      does not use it.
+    -->
+    <bean id="portalStaffContextResolver"
+          class="io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver"
+          lazy-init="true"
+          autowire-candidate="false">
+        <!-- SecurityInfoManager is an interface; the @Service implementation registers under the
+             default name derived from its class, so the reference is to the implementation. -->
+        <constructor-arg ref="securityInfoManagerImpl"/>
+    </bean>
+
+</beans>
