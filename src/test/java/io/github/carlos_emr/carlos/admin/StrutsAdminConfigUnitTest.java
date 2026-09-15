@@ -50,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("fast")
 @Tag("admin")
-class StrutsAdminConfigTest {
+class StrutsAdminConfigUnitTest {
 
     private static final Path ADMIN_CONFIG = Path.of(
             "src", "main", "webapp", "WEB-INF", "classes", "struts-admin.xml");
