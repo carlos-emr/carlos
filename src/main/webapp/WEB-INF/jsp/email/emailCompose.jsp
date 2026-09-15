@@ -884,7 +884,7 @@
 
         validateField(subjectEmail, emailComposeSubjectRequiredMsg, errors, 'subjectError');
         validateField(message, emailComposeMessageRequiredMsg, errors, 'messageError');
-        const needsPdfPassword = isEncrypted || (hasAttachments && isAttachmentEncrypted);
+        const needsPdfPassword = !${portalEmailEnabled} && (isEncrypted || (hasAttachments && isAttachmentEncrypted));
         if (needsPdfPassword) {
             validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
             validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
