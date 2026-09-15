@@ -45,6 +45,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private EmailStatus status;
     private String errorMessage;
     private Date created;
+    private boolean resolvable;
     private EmailConsentStatus consentStatus;
     private Integer consentId;
     private Date consentLastUpdateDate;
@@ -487,6 +488,18 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      */
     public void setCreated(Date created) {
         this.created = created;
+    }
+
+    /**
+     * Indicates whether the current status may be manually resolved. Fresh PENDING records are
+     * intentionally not actionable while their transport request may still be running.
+     */
+    public boolean isResolvable() {
+        return resolvable;
+    }
+
+    public void setResolvable(boolean resolvable) {
+        this.resolvable = resolvable;
     }
 
     /**

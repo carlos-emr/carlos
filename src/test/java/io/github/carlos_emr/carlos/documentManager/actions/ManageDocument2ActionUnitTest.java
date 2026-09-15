@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
@@ -57,6 +58,8 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import static org.mockito.Mockito.mock;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -67,13 +70,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @Tag("action")
-class ManageDocument2ActionTest extends CarlosUnitTestBase {
+class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private DocumentDao documentDao;
@@ -83,6 +87,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     @Mock
     private CtlDocumentDao ctlDocumentDao;
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Mock
     private ProviderInboxRoutingDao providerInboxRoutingDao;
@@ -136,9 +141,14 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         mocks = MockitoAnnotations.openMocks(this);
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        outboundEmailArchiveDao = Mockito.mock(OutboundEmailArchiveDao.class);
         registerMock(DocumentDao.class, documentDao);
         registerMock(QueueDao.class, queueDao);
         registerMock(CtlDocumentDao.class, ctlDocumentDao);
+        // Default false: these tests are about path validation, not archive recognition, and an
+        // unstubbed mock would answer false anyway. Registered explicitly so the reason is on the
+        // record rather than relying on Mockito's default.
+        registerMock(OutboundEmailArchiveDao.class, outboundEmailArchiveDao);
         registerMock(ProviderInboxRoutingDao.class, providerInboxRoutingDao);
         registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
         registerMock(ProgramManager2.class, programManager);
@@ -219,7 +229,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSendServerErrorAndKeepAjaxFailed_whenRefileCopyFails() throws Exception {
+    void shouldSendServerErrorAndKeepAjaxFailed_whenRefileCopyFails() {
         authorizeEdocWrite();
         request.setMethod("POST");
         request.setParameter("method", "refileDocumentAjax");
@@ -297,6 +307,24 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
             edocUtil.verifyNoInteractions();
         }
+    }
+
+    @Test
+    void shouldRefuseArchiveDocument_beforeDocumentUpdateMutation() {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "documentUpdate");
+        request.setParameter("documentId", "42");
+        when(outboundEmailArchiveDao.existsByDocumentNo(42)).thenReturn(true);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        verify(providerInboxRoutingDao, never()).addToProviderInbox(anyString(), anyInt(), anyString());
+        verify(documentDao, never()).getDocument(anyString());
+        verify(documentDao, never()).merge(any(Document.class));
+        verify(ctlDocumentDao, never()).getCtrlDocument(anyInt());
     }
 
     @Test

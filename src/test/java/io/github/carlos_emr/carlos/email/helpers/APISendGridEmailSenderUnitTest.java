@@ -26,9 +26,16 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.util.Collections;
+
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -188,7 +195,7 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should require a validated HTTPS endpoint")
-    void shouldRequireValidatedHttpsEndpoint() throws Exception {
+    void shouldRequireValidatedHttpsEndpoint_forSendGridTransport() throws Exception {
         assertThat(APISendGridEmailSender.validateEndpoint(
                 "https://203.0.113.10/v3/mail/send").uri().getScheme()).isEqualTo("https");
 
@@ -199,7 +206,8 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> APISendGridEmailSender.validateEndpoint(
                 "https://127.0.0.1/v3/mail/send"))
                 .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("rejected");
+                .hasMessageContaining("rejected")
+                .hasMessageNotContaining("127.0.0.1");
     }
 
     @Test
@@ -242,4 +250,57 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining(String.valueOf(errorStatus));
     }
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreserveAcceptance_whenResponseOrClientCleanupFails(boolean unchecked) throws Exception {
+        CloseableHttpClient client = mock(CloseableHttpClient.class);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        HttpPost request = new HttpPost("https://api.sendgrid.com/v3/mail/send");
+        when(client.execute(request)).thenReturn(response);
+        when(response.getCode()).thenReturn(202);
+        Exception failure = unchecked ? new IllegalStateException("cleanup failure")
+                : new IOException("cleanup failure");
+        doThrow(failure).when(response).close();
+        doThrow(failure).when(client).close();
+
+        assertThatCode(() -> APISendGridEmailSender.dispatchRequest(client, request)).doesNotThrowAnyException();
+        verify(response).close();
+        verify(client).close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepDispatchFailureUnconfirmed_evenWhenCleanupFails(boolean unchecked) throws Exception {
+        CloseableHttpClient client = mock(CloseableHttpClient.class);
+        HttpPost request = new HttpPost("https://api.sendgrid.com/v3/mail/send");
+        Exception failure = unchecked ? new IllegalStateException("dispatch failure")
+                : new IOException("dispatch failure");
+        when(client.execute(request)).thenThrow(failure);
+        doThrow(new IOException("cleanup failure")).when(client).close();
+
+        assertThatThrownBy(() -> APISendGridEmailSender.dispatchRequest(client, request))
+                .isInstanceOfSatisfying(EmailSendingException.class,
+                        e -> assertThat(e.isDeliveryOutcomeUncertain()).isTrue())
+                .hasMessage("SendGrid did not confirm whether the message was accepted.");
+        verify(client).close();
+    }
+
+    @Test
+    void shouldPreserveDefiniteRejection_whenCleanupFails() throws Exception {
+        CloseableHttpClient client = mock(CloseableHttpClient.class);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        HttpPost request = new HttpPost("https://api.sendgrid.com/v3/mail/send");
+        when(client.execute(request)).thenReturn(response);
+        when(response.getCode()).thenReturn(401);
+        doThrow(new IOException("cleanup failure")).when(response).close();
+        doThrow(new IOException("cleanup failure")).when(client).close();
+
+        assertThatThrownBy(() -> APISendGridEmailSender.dispatchRequest(client, request))
+                .isInstanceOfSatisfying(EmailSendingException.class,
+                        e -> assertThat(e.isDeliveryOutcomeUncertain()).isFalse())
+                .hasMessageContaining("got 401");
+        verify(response).close();
+        verify(client).close();
+    }
+
 }

@@ -42,6 +42,7 @@
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+    <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
     var ctx;        //url context
@@ -1803,8 +1804,9 @@ function updateCPPNote() {
         });
     }
 
+    <fmt:message key="email.compose.msg.copyFailed" var="emailCopyFailed"/>
     function viewEmailByLogId(width, height, url) {
-        window.open(url, "_blank", "width=1100,height=1000");
+        openEmailCompose(url, width, height, "${carlos:forJavaScript(emailCopyFailed)}");
     }
 
 //this func fires only if maximize button is clicked
