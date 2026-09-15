@@ -4,7 +4,8 @@ This service stores a finalized outbound email artifact as a patient eDoc, with 
 SHA-256 hash and byte count. It provides archive creation, legal-hold transitions,
 and logical retirement with a retained tombstone. SMTP sends through `EmailManager`
 (including the LOCAL provider) now archive the finalized RFC 822 message before
-transport. SendGrid/API delivery is unchanged. There is no new archive user interface.
+transport. SendGrid/API sends archive the finalized JSON request body before transport.
+There is no new archive user interface.
 
 ## Installation and upgrade
 
@@ -122,7 +123,7 @@ installed, ask the application administrator rather than altering records direct
 For integrity failures, stop using the artifact and reconcile the archive ID, recorded
 size/hash, stored file, and backups. Do not replace the recorded hash to silence an
 error. Preserve both the integrity error and any suppressed audit failure when reporting
-an incident. SMTP capture is described below; SendGrid/API capture is not implemented.
+an incident. SMTP and SendGrid capture are described below.
 
 
 ## SMTP capture and delivery outcomes
@@ -155,3 +156,29 @@ An accepted send stays accepted even if its status or chart-note update fails; t
 response flags the bookkeeping problem for follow-up. Never resend merely to repair a
 status or chart note. Archive failures and SMTP failures use distinct safe diagnostic
 categories, without storing or logging raw server error text or credentials.
+
+
+## SendGrid capture and delivery outcomes
+
+SendGrid uses the same archive-before-send workflow and permissions as SMTP. The JSON artifact, labeled
+`outbound-email-<log-id>-sendgrid.json`, is the exact UTF-8 request body submitted to the provider,
+including encoded attachment snapshots. API credentials are sent only in the authorization
+header and are excluded from the artifact. Source documents remain editable.
+
+Preparation limits the serialized JSON to 50 MiB, including base64 and JSON escaping.
+Attachment reads are bounded before encoding. A provider can impose a smaller limit;
+archive preparation alone does not guarantee provider acceptance. Oversized requests fail
+before archive creation or transmission. Endpoint validation requires HTTPS, pins DNS,
+rejects redirects and keeps the existing connection/response timeouts.
+
+Only HTTP 202 counts as provider acceptance. Other HTTP responses are reported as rejection;
+the safe diagnostic includes the status code. HTTP 401/403 calls for checking credentials
+and provider permissions; HTTP 429 calls for checking provider rate limits. Do not retry
+immediately. The HTTP client performs no automatic retries. A lost response is unconfirmed:
+check provider activity and the outbox before deciding whether another send is needed.
+Acceptance means the provider queued the request, not that the recipient received it.
+
+Application callers must use the Spring-managed `EmailManager`. Direct `EmailSender.send()`
+is refused because it cannot create the required archive. New transports must implement
+`OutboundEmailTransport`, including artifact preparation, attachment metadata and cleanup;
+there is no unarchived fallback for unsupported configurations.

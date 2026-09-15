@@ -233,20 +233,12 @@ public class EmailManager {
 
     private void sendWithArchive(LoggedInInfo loggedInInfo, EmailSender sender, EmailLog log)
             throws EmailSendingException {
-        boolean archiveSupported = sender.supportsOutboundArchive();
         try {
-            if (archiveSupported) {
-                archiveOutboundEmail(loggedInInfo, sender, log);
-                sender.sendPrepared();
-            } else {
-                sender.send();
-            }
+            archiveOutboundEmail(loggedInInfo, sender, log);
+            sender.sendPrepared();
         } catch (EmailSendingException e) {
-            if (archiveSupported) {
-                throw new EmailSendingException(safePersistedFailureMessage(e), e,
-                        e.isDeliveryOutcomeUncertain());
-            }
-            throw e;
+            throw new EmailSendingException(safePersistedFailureMessage(e), e,
+                    e.isDeliveryOutcomeUncertain());
         } catch (SecurityException e) {
             // Record the refused attempt, but propagate authorization failure to the caller.
             recordAuthorizationFailure(log, e);
@@ -333,6 +325,9 @@ public class EmailManager {
     }
 
     private String safeDiagnosticCategoryFor(Throwable failure) {
+        if (failure instanceof org.apache.hc.client5.http.HttpResponseException rejection) {
+            return "HTTP " + rejection.getStatusCode() + " rejection";
+        }
         if (failure instanceof SecurityException) {
             return "authorization failure";
         }
