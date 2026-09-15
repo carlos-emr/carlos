@@ -38,8 +38,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.encounter.data.EctProgram;
-
 import java.text.SimpleDateFormat;
 
 import jakarta.servlet.ServletException;
@@ -93,8 +91,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
             return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
         }
         String demographicNo = String.valueOf(rxSessionBean.getDemographicNo());
-        // Bind the append to the originating prescription window. Another tab may
-        // have changed RxSessionBean since this window rendered or queued its fax.
+        // Bind the append to the originating prescription window as well as its workspace.
         if (rxSessionBean.getDemographicNo() <= 0
                 || !demographicNo.equals(request.getParameter("expectedDemographicNo"))) {
             return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
@@ -102,12 +99,17 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, demographicNo)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
-        String programNo = new EctProgram(session).getProgram(session.getAttribute("user").toString());
+        Object workspaceProgram = request.getAttribute(RxSessionFilter.PROGRAM_REQUEST_ATTRIBUTE);
+        if (workspaceProgram == null || workspaceProgram.toString().isBlank()) {
+            return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+        }
+        String programNo = workspaceProgram.toString();
 
 
         CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
         CaseManagementTmpSaveDao caseManagementTmpSaveDao = SpringUtils.getBean(CaseManagementTmpSaveDao.class);
-        CaseManagementNote note = getLastSaved(request, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
+        CaseManagementNote note = getLastSaved(
+                programNo, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
         CaseManagementTmpSave tmpSave = caseManagementMgr.getTmpSave(loggedInInfo.getLoggedInProviderNo(), demographicNo, programNo);
         Date today = new Date();
         if (tmpSave != null) {
@@ -166,9 +168,11 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         }
     }
 
-    public CaseManagementNote getLastSaved(HttpServletRequest request, String demono, String providerNo, CaseManagementManager caseManagementMgr) {
-        HttpSession session = request.getSession();
-        String programId = (String) session.getAttribute("case_program_id");
+    public CaseManagementNote getLastSaved(
+            String programId,
+            String demono,
+            String providerNo,
+            CaseManagementManager caseManagementMgr) {
         return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 

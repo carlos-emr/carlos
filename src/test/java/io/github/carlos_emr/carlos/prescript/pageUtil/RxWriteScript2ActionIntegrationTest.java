@@ -152,4 +152,38 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
                 eq(demographicNo),
                 eq(Drug.ARCHIVED_REASON_LT_ENABLED));
     }
+
+    @Test
+    @DisplayName("should reject an invalid staged prescription identifier")
+    void shouldRejectStagedPrescriptionIdentifier_whenIdentifierIsNonNumeric() throws Exception {
+        RxSessionBean bean = new RxSessionBean();
+        getMockSession().setAttribute("RxSessionBean", bean);
+        addRequestParameter("action", "updateQty");
+        addRequestParameter("randomId", "not-a-number");
+        addRequestParameter("quantity", "30");
+
+        String result = executeActionMethod(action, "updateDrug");
+
+        assertThat(result).isNull();
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(OBJECT_MAPPER.readTree(getMockResponse().getContentAsString()).get("error").asText())
+                .isEqualTo("Invalid prescription identifier.");
+    }
+
+    @Test
+    @DisplayName("should reject a staged prescription identifier that is not in the workspace")
+    void shouldRejectStagedPrescriptionIdentifier_whenIdentifierIsAbsentFromWorkspace() throws Exception {
+        RxSessionBean bean = new RxSessionBean();
+        getMockSession().setAttribute("RxSessionBean", bean);
+        addRequestParameter("action", "updateQty");
+        addRequestParameter("randomId", "12345");
+        addRequestParameter("quantity", "30");
+
+        String result = executeActionMethod(action, "updateDrug");
+
+        assertThat(result).isNull();
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(OBJECT_MAPPER.readTree(getMockResponse().getContentAsString()).get("error").asText())
+                .isEqualTo("Prescription not found. Please refresh and try again.");
+    }
 }

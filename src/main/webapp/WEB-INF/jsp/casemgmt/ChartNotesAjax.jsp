@@ -511,7 +511,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 }
 
                 if (rx != null) {
-                    String url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/rx/ViewStaticScript2?demographicNo=" + SafeEncode.forUriComponent(String.valueOf(rx.getDemographicNo())) + "&regionalIdentifier=" + SafeEncode.forUriComponent(StringUtils.noNull(rx.getRegionalIdentifier())) + "&cn=" + SafeEncode.forUriComponent(StringUtils.noNull(rx.getCustomName())) + "');";
+                    String url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/rx/ViewStaticScript2?demographicNo=" + SafeEncode.forUriComponent(String.valueOf(rx.getDemographicNo())) + "&programId=" + SafeEncode.forUriComponent(pId) + "&regionalIdentifier=" + SafeEncode.forUriComponent(StringUtils.noNull(rx.getRegionalIdentifier())) + "&cn=" + SafeEncode.forUriComponent(StringUtils.noNull(rx.getCustomName())) + "');";
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">

@@ -51,7 +51,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -59,6 +58,7 @@
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionFilter" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
@@ -90,6 +90,7 @@
 <html>
 
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="ViewScript.title"/></title>
@@ -156,7 +157,7 @@
             String createAnewRx;
             if (reprint.equalsIgnoreCase("true")) {
                 bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
-                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug'";
+                createAnewRx = "window.location.href = RxContext.addToUrl('" + request.getContextPath() + "/rx/searchDrug')";
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
@@ -176,14 +177,13 @@
             Vector vecAddressFax = null;
             CarlosProperties props = CarlosProperties.getInstance();
             if (bMultisites) {
-                String appt_no = (String) session.getAttribute("cur_appointment_no");
+                Integer workspaceAppointmentNo =
+                        (Integer) request.getAttribute(RxSessionFilter.APPOINTMENT_REQUEST_ATTRIBUTE);
                 String location = null;
-                if (appt_no != null) {
-                    try {
-                        Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
-                        if (result != null) location = result.getLocation();
-                    } catch (NumberFormatException e) {
-                        // Malformed appointment number in session — skip location lookup
+                if (workspaceAppointmentNo != null) {
+                    Appointment result = appointmentDao.find(workspaceAppointmentNo.intValue());
+                    if (result != null && result.getDemographicNo() == bean.getDemographicNo()) {
+                        location = result.getLocation();
                     }
                 }
 
@@ -304,11 +304,16 @@
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
-                <fmt:message key="ViewScript.js.msieNotPermitted"  var="msg_msieNotPermitted"/>
+        <fmt:message key="ViewScript.js.msieNotPermitted"  var="msg_msieNotPermitted"/>
         <fmt:message key="ViewScript.js.signatureSent"     var="msg_signatureSent"/>
         <fmt:message key="ViewScript.js.signatureDirty"    var="msg_signatureDirty"/>
         <fmt:message key="ViewScript.msgRemovePharmacyInfo" var="msg_removePharmacyInfo"/>
         <fmt:message key="tickler.ticklerMain.errorNoteSaveFailed" var="msg_noteSaveFailed"/>
+
+        <%-- RxSessionInterceptor: Enables multi-patient tab support by adding demographicNo to AJAX calls --%>
+        <script type="text/javascript">
+            var currentDemographicNo = '<%= SafeEncode.forJavaScript(Integer.toString(bean.getDemographicNo())) %>';
+        </script>
 
         <script type="text/javascript">
             /*
@@ -329,8 +334,10 @@
 
             function resetStash() {
                 cancelPendingFax();
-                var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearStash";
-                fetch(url, {
+                var url = "${carlos:forJavaScript(ctx)}" +
+                    "/rx/deleteRx?parameterValue=clearStash&demographicNo=" +
+                    encodeURIComponent(currentDemographicNo);
+                return fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
@@ -342,8 +349,10 @@
             }
 
             function resetReRxDrugList() {
-                var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
-                fetch(url, {
+                var url = "${carlos:forJavaScript(ctx)}" +
+                    "/rx/deleteRx?parameterValue=clearReRxDrugList&demographicNo=" +
+                    encodeURIComponent(currentDemographicNo);
+                return fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
@@ -351,6 +360,32 @@
                 });
             }
 
+            function resetStashAndClose() {
+                function closeViewScript() {
+                    try {
+                        var modalElement = parent.document.getElementById('carlosModal');
+                        if (modalElement && parent.bootstrap) {
+                            var modal = parent.bootstrap.Modal.getInstance(modalElement);
+                            if (modal) {
+                                // The parent prescribing page still owns and uses this workspace.
+                                modal.hide();
+                                return;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('Unable to close the parent Rx modal', error);
+                    }
+                    clearPending('close');
+                    parent.window.close();
+                }
+
+                Promise.all([resetStash(), resetReRxDrugList()])
+                    .then(closeViewScript)
+                    .catch(function(error) {
+                        console.error('Unable to reset Rx session state', error);
+                        closeViewScript();
+                    });
+            }
 
             /*
              * The most recent Additional Notes save, so a fax can wait for it. A fax renders
@@ -1382,7 +1417,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
+								src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>&demographicNo=<%=SafeEncode.forUriComponent(Integer.toString(bean.getDemographicNo()))%>&rxContextId=<%=SafeEncode.forUriComponent(String.valueOf(request.getAttribute("rxContextId")))%>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
@@ -1390,6 +1425,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                 <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
+                                    <input type="hidden" name="demographicNo" value="<%=SafeEncode.forHtmlAttribute(Integer.toString(bean.getDemographicNo()))%>"/>
                                     <div class="warning-note" id="faxWarningNote">
                                         <strong><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
                                     </div>
@@ -1634,7 +1670,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             <td><span><input type=button
                                                              value="<fmt:message key="ViewScript.msgBackToOscar"/>"
                                                              class="btn btn-outline-secondary" style="width: 210px"
-                                                             onClick="javascript:clearPending('close');parent.window.close();"/></span>
+                                                             onClick="resetStashAndClose();"/></span>
                                             </td>
                                         </tr>
                                         <%

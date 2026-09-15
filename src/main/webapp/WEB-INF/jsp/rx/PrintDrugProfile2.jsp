@@ -105,6 +105,7 @@
 %>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
         <title>Print Drug Profile</title>
@@ -124,7 +125,7 @@
                 showall = true;
             }
         }
-        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+        RxPatientData.Patient patient = (RxPatientData.Patient) request.getAttribute("patient");
         if (patient != null) {
             surname = patient.getSurname();
             firstName = patient.getFirstName();

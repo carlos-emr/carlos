@@ -60,6 +60,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="SelectPharmacy.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -419,7 +420,7 @@
 
             function openPharmacyModal(url) {
                 var iframe = document.getElementById('pharmacyModalIframe');
-                iframe.src = url;
+                iframe.src = RxContext.addToUrl(url);
                 var modal = new bootstrap.Modal(document.getElementById('pharmacyModal'));
                 modal.show();
             }

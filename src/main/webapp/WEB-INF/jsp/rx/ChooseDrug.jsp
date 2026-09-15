@@ -73,6 +73,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="ChooseDrug.title.DrugSearchResults"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -349,7 +350,7 @@
                             <script language="javascript">
                                 function customWarning() {
                                     if (confirm("<fmt:message key="ChooseDrug.msgCustomWarning"/>") == true) {
-                                        window.location.href = '<%= request.getContextPath() %>/rx/chooseDrug?demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>';
+                                        window.location.href = RxContext.addToUrl('<%= request.getContextPath() %>/rx/chooseDrug?demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>');
                                     }
                                 }
                             </script>

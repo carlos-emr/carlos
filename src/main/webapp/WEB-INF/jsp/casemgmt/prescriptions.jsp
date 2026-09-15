@@ -81,7 +81,7 @@ Prescriptions
                                           demoNo="${carlos:forHtmlAttribute(param.demographicNo)}"
                                           programId="${carlos:forHtmlAttribute(sessionScope.case_program_id)}">
                     <a <%= styleColor%> target="_blank"
-                                        href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=${carlos:forUriComponent(prescription.regionalIdentifier)}&cn=${carlos:forUriComponent(prescription.customName)}">
+                                        href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=${carlos:forUriComponent(param.demographicNo)}&amp;programId=${carlos:forUriComponent(sessionScope.case_program_id)}&amp;regionalIdentifier=${carlos:forUriComponent(prescription.regionalIdentifier)}&amp;cn=${carlos:forUriComponent(prescription.customName)}">
                         ${carlos:forHtml(prescription.special)}
                     </a>
                 </caisirole:SecurityAccess>
