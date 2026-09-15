@@ -13,10 +13,8 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
-import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -34,7 +32,6 @@ import org.mockito.MockitoAnnotations;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
@@ -54,17 +52,12 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<RxPatientData> patientDataMock;
     private AutoCloseable mocks;
     private final Map<String, Object> requestAttributes = new HashMap<>();
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
-    @Mock
-    private DemographicManager mockDemographicManager;
-    @Mock
-    private AllergyDao mockAllergyDao;
-    @Mock
-    private PartialDateDao mockPartialDateDao;
     @Mock
     private LoggedInInfo mockLoggedInInfo;
     @Mock
@@ -76,9 +69,12 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        registerMock(DemographicManager.class, mockDemographicManager);
-        registerMock(AllergyDao.class, mockAllergyDao);
-        registerMock(PartialDateDao.class, mockPartialDateDao);
+        // Static class initialization still needs these beans when this suite runs first.
+        registerMock(DemographicManager.class, mock(DemographicManager.class));
+        registerMock(AllergyDao.class, mock(AllergyDao.class));
+        // Isolate the action from RxPatientData's application-lifetime static bean cache.
+        // Other action suites may initialize that cache with their own mock manager.
+        patientDataMock = mockStatic(RxPatientData.class);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -99,6 +95,9 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
+        if (patientDataMock != null) {
+            patientDataMock.close();
+        }
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }
@@ -120,22 +119,16 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED)).isEqualTo(Boolean.TRUE);
         assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_SURNAME)).isEqualTo("");
         assertThat((RxPatientData.Patient[]) requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_RESULTS)).isEmpty();
+        patientDataMock.verifyNoInteractions();
     }
 
     @Test
     void shouldPopulateSearchResultsForMatchingSurname() {
-        Demographic first = new Demographic();
-        first.setDemographicNo(101);
-        first.setFirstName("Alice");
-        first.setLastName("Smith");
-        Demographic second = new Demographic();
-        second.setDemographicNo(202);
-        second.setFirstName("Bob");
-        second.setLastName("Smith");
-
+        RxPatientData.Patient first = mock(RxPatientData.Patient.class);
+        RxPatientData.Patient second = mock(RxPatientData.Patient.class);
         when(mockRequest.getParameter("surname")).thenReturn(" Smith ");
-        when(mockDemographicManager.searchDemographic(mockLoggedInInfo, "Smith,"))
-                .thenReturn(List.of(first, second));
+        patientDataMock.when(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "Smith", ""))
+                .thenReturn(new RxPatientData.Patient[] {first, second});
 
         String result = action.execute();
         RxPatientData.Patient[] results =
@@ -144,18 +137,15 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED)).isEqualTo(Boolean.TRUE);
         assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_SURNAME)).isEqualTo("Smith");
-        assertThat(results).hasSize(2);
-        assertThat(results[0].getDemographicNo()).isEqualTo(101);
-        assertThat(results[0].getFirstName()).isEqualTo("Alice");
-        assertThat(results[1].getDemographicNo()).isEqualTo(202);
-        assertThat(results[1].getFirstName()).isEqualTo("Bob");
+        assertThat(results).containsExactly(first, second);
+        patientDataMock.verify(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "Smith", ""));
     }
 
     @Test
     void shouldExposeEmptyResultsForNoMatches() {
         when(mockRequest.getParameter("surname")).thenReturn("NoMatches");
-        when(mockDemographicManager.searchDemographic(mockLoggedInInfo, "NoMatches,"))
-                .thenReturn(List.of());
+        patientDataMock.when(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "NoMatches", ""))
+                .thenReturn(new RxPatientData.Patient[0]);
 
         String result = action.execute();
         RxPatientData.Patient[] results =
@@ -175,5 +165,6 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("_demographic");
+        patientDataMock.verifyNoInteractions();
     }
 }
