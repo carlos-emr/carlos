@@ -35,6 +35,14 @@ import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
+import jakarta.ws.rs.core.Response;
+import java.util.Date;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -89,6 +97,12 @@ class ConsultationWebServiceRegressionTest {
     @Mock
     private LoggedInInfo loggedInInfo;
 
+    @Mock
+    private DemographicManager demographicManager;
+
+    @Mock
+    private ConsultationRequestConverter requestConverter;
+
     private ConsultationWebService service;
 
     @BeforeEach
@@ -103,6 +117,52 @@ class ConsultationWebServiceRegressionTest {
         ReflectionTestUtils.setField(service, "consultationManager", consultationManager);
         ReflectionTestUtils.setField(service, "outboundEmailArchiveDao", outboundEmailArchiveDao);
         ReflectionTestUtils.setField(service, "securityInfoManager", securityInfoManager);
+        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+        ReflectionTestUtils.setField(service, "requestConverter", requestConverter);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    void shouldReconcileAttachments_whenRequestUpdateHasNullOrEmptyList(
+            List<ConsultationAttachmentTo1> attachments) {
+        ConsultationRequestTo1 data = new ConsultationRequestTo1();
+        data.setId(456);
+        data.setDemographicId(DEMOGRAPHIC_NO);
+        data.setReferralDate(new Date());
+        data.setServiceId(1);
+        data.setUrgency("1");
+        data.setStatus("1");
+        data.setAttachments(attachments);
+        ConsultationRequest request = new ConsultationRequest();
+        ConsultDocs ordinary = new ConsultDocs(456, 701, ConsultDocs.DOCTYPE_DOC, PROVIDER_NO);
+        ConsultDocs archived = new ConsultDocs(456, 702, ConsultDocs.DOCTYPE_DOC, PROVIDER_NO);
+        ReflectionTestUtils.setField(ordinary, "id", 321);
+        ReflectionTestUtils.setField(archived, "id", 322);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.UPDATE, null))
+                .thenReturn(true);
+        when(demographicManager.getDemographic(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(new Demographic());
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(request);
+        when(requestConverter.getAsDomainObject(loggedInInfo, data, request)).thenReturn(request);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456))
+                .thenReturn(new ArrayList<>(List.of(ordinary, archived)));
+        if (attachments != null) {
+            when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(701, 702)))
+                    .thenReturn(Set.of(702));
+        }
+
+        try (Response response = service.updateConsultation(data)) {
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        assertThat(archived.getDeleted()).isNull();
+        verify(consultationManager, never()).saveConsultRequestDoc(loggedInInfo, archived);
+        if (attachments == null) {
+            assertThat(ordinary.getDeleted()).isNull();
+            verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
+        } else {
+            assertThat(ordinary.getDeleted()).isEqualTo(ConsultDocs.DELETED);
+            verify(consultationManager).saveConsultRequestDoc(loggedInInfo, ordinary);
+        }
     }
 
     @Test

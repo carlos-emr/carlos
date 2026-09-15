@@ -323,10 +323,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
         request.setProfessionalSpecialist(data.getProfessionalSpecialist() == null ? null : consultationManager.getProfessionalSpecialist(data.getProfessionalSpecialist().getId()));
         consultationManager.saveConsultationRequest(loggedInInfo, request);
 
-        //save attachments
-        if (!data.getAttachments().isEmpty()) {
-            saveRequestAttachments(data);
-        }
+        // An empty submitted set detaches ordinary documents; null leaves attachments unchanged.
+        saveRequestAttachments(data);
 
         // Sets the extras, if any exist, to the data being returned so the user gets all up to date info
         if (!request.getExtras().isEmpty()) {
