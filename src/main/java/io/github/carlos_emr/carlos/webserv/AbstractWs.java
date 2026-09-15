@@ -97,6 +97,28 @@ public abstract class AbstractWs {
         return securityInfoManager != null ? securityInfoManager : SpringUtils.getBean(SecurityInfoManager.class);
     }
 
+    /**
+     * Non-throwing counterpart of {@link #requirePrivilege} for per-record filtering.
+     *
+     * <p>Bulk endpoints cannot fail the whole call on the first unreadable record: throwing would
+     * both deny the caller the records they may see and confirm that a restricted record matched,
+     * which is what a {@code <object>$<demographicNo>} override exists to hide. They gate on the
+     * unscoped object first, then drop records this returns false for.</p>
+     *
+     * <p>Unauthenticated callers get false rather than a dereference inside the manager, matching
+     * {@link #requirePrivilege}.</p>
+     */
+    protected boolean hasPrivilege(String objectName, String privilege, String demographicNo) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        return loggedInInfo != null
+                && getSecurityInfoManager().hasPrivilege(loggedInInfo, objectName, privilege, demographicNo);
+    }
+
+    /** Convenience for the common case where the scope is a numeric demographic id. */
+    protected boolean hasPrivilege(String objectName, String privilege, Integer demographicNo) {
+        return hasPrivilege(objectName, privilege, demographicNo != null ? String.valueOf(demographicNo) : null);
+    }
+
     protected void requirePrivilege(String objectName, String privilege) {
         requirePrivilege(getLoggedInInfo(), objectName, privilege, null);
     }

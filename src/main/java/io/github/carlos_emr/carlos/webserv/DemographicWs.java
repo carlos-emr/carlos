@@ -118,10 +118,19 @@ public class DemographicWs extends AbstractWs {
         return (DemographicTransfer.toTransfers(demographics));
     }
 
+    /**
+     * Bulk export, filtered per patient like the search endpoints.
+     *
+     * <p>The unscoped check alone was not enough: {@code getActiveDemographicAfter} returns every
+     * matching patient, and a {@code _demographic$<id>} NORIGHTS override takes precedence over the
+     * general privilege only when the scoped check is actually made. Without the filter a caller
+     * holding general read plus a per-patient denial still received that patient's full record.</p>
+     */
     public DemographicTransfer[] getActiveDemographicsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "fields") String fields) {
         requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         Date afterDateExclusive = lastUpdate != null ? lastUpdate.getTime() : null;
-        List<Demographic> demographics = demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive);
+        List<Demographic> demographics = filterReadableDemographics(
+                demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive));
 
         List<DemographicTransfer> result = new ArrayList<DemographicTransfer>();
         if (demographics != null) {
@@ -140,10 +149,12 @@ public class DemographicWs extends AbstractWs {
         return result.toArray(new DemographicTransfer[0]);
     }
 
+    /** Version-2 shape of {@link #getActiveDemographicsAfter}, filtered per patient identically. */
     public DemographicTransfer2[] getActiveDemographicsAfter2(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "fields") String fields) {
         requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         Date afterDateExclusive = lastUpdate != null ? lastUpdate.getTime() : null;
-        List<Demographic> demographics = demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive);
+        List<Demographic> demographics = filterReadableDemographics(
+                demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive));
 
         List<DemographicTransfer2> result = new ArrayList<DemographicTransfer2>();
         if (demographics != null) {
@@ -203,8 +214,7 @@ public class DemographicWs extends AbstractWs {
     }
 
     private boolean hasReadPrivilege(Integer demographicId) {
-        return getSecurityInfoManager().hasPrivilege(getLoggedInInfo(), DEMOGRAPHIC_OBJECT, "r",
-                demographicId != null ? String.valueOf(demographicId) : null);
+        return hasPrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId);
     }
 
     public Integer[] getConsentedDemographicIdsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate) {

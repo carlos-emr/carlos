@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -54,16 +55,27 @@ public class MeasurementWs extends AbstractWs {
     @Autowired
     private MeasurementManager measurementManager;
 
+    /**
+     * Unscoped gate first, then the loaded record's own patient scope.
+     *
+     * <p>The patient is not knowable before the load, and the manager performs no privilege check
+     * of its own, so a caller holding general {@code _measurement r} plus a per-patient denial could
+     * otherwise read any measurement by id.</p>
+     */
     public MeasurementTransfer getMeasurement(Integer measurementId) {
         requirePrivilege(MEASUREMENT_OBJECT, "r");
         Measurement measurement = measurementManager.getMeasurement(getLoggedInInfo(), measurementId);
+        if (measurement != null) {
+            requirePrivilege(MEASUREMENT_OBJECT, "r",
+                    measurement.getDemographicId() != null ? String.valueOf(measurement.getDemographicId()) : null);
+        }
         return (MeasurementTransfer.toTransfer(measurement));
     }
 
     public MeasurementTransfer[] getMeasurementsCreatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
         requirePrivilege(MEASUREMENT_OBJECT, "r");
         List<Measurement> results = measurementManager.getCreatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
-        return (MeasurementTransfer.toTransfers(results));
+        return (MeasurementTransfer.toTransfers(filterReadableMeasurements(results)));
     }
 
     public MeasurementMapTransfer[] getMeasurementMaps() {
@@ -84,15 +96,32 @@ public class MeasurementWs extends AbstractWs {
     }
 
     public MeasurementTransfer[] getMeasurementsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
-        requirePrivilege(MEASUREMENT_OBJECT, "r");
+        requirePrivilege(MEASUREMENT_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         List<Measurement> measurements = measurementManager.getMeasurementsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         return (MeasurementTransfer.toTransfers(measurements));
     }
 
     public MeasurementTransfer[] getMeasurementsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
-        requirePrivilege(MEASUREMENT_OBJECT, "r");
+        requirePrivilege(MEASUREMENT_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         List<Measurement> measurements = measurementManager.getMeasurementByDemographicIdAfter(getLoggedInInfo(), demographicId, lastUpdate.getTime());
         return (MeasurementTransfer.toTransfers(measurements));
     }
 
+    /**
+     * Drops measurements whose patient the caller may not read. Used by the bulk sync endpoint,
+     * where failing the whole call on one restricted patient would both deny the caller the records
+     * they may see and confirm that the restricted patient has measurements in the window.
+     */
+    private List<Measurement> filterReadableMeasurements(List<Measurement> measurements) {
+        List<Measurement> readable = new ArrayList<Measurement>();
+        if (measurements == null) {
+            return readable;
+        }
+        for (Measurement measurement : measurements) {
+            if (measurement != null && hasPrivilege(MEASUREMENT_OBJECT, "r", measurement.getDemographicId())) {
+                readable.add(measurement);
+            }
+        }
+        return readable;
+    }
 }

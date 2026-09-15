@@ -14,14 +14,26 @@ Related: issue #2814.
 `SecurityException("missing required sec object (<object>)")` on denial. Call it before any manager
 or DAO invocation, so a denial can never be preceded by a PHI-bearing load.
 
-Two behaviours are worth knowing:
+Three behaviours are worth knowing:
 
 - **Privilege tiers.** A grant of `x` satisfies any requested privilege; `w` satisfies `r`/`u`/`w`;
   `u` satisfies `r`/`u`. Most seeded grants are `x`, so a role granted an object at all usually
   passes an `r` check.
 - **Patient scope.** Passing a `demographicNo` makes `hasPrivilege` consult
   `<object>$<demographicNo>` first, falling back to the unscoped object when no per-patient override
-  row matches the caller's roles. Endpoints that know the patient pass it; the rest pass null.
+  row matches the caller's roles. **The scoped check is the only thing that consults the override**,
+  so an endpoint that passes null gives a caller holding the general privilege access to patients a
+  `$<id>` NORIGHTS row was meant to hide. Endpoints therefore pass the patient whenever one is
+  knowable: from the request parameter where there is one, from the loaded record where the patient
+  is only knowable after the load, and per record for bulk endpoints.
+- **Throw vs. filter.** An endpoint the caller named a patient for throws, because a short answer
+  would misrepresent the record. Search and bulk-sync endpoints filter instead: throwing on the
+  first restricted match would confirm that the restricted patient matched, which is exactly what
+  the override exists to hide.
+
+Per-record filtering costs one `hasPrivilege` call per record, and `hasPrivilege` is uncached. On
+the bulk sync endpoints that is the price of honouring per-patient overrides at all; if it becomes a
+problem, the fix is a cheaper override lookup in `SecurityInfoManager`, not dropping the filter.
 
 Denied calls are recorded in the audit log as `ws.accessDenied` with the object, privilege and
 patient scope — identifiers only, never clinical content.
@@ -33,11 +45,18 @@ patient scope — identifiers only, never clinical content.
 | `DemographicWs` | `getDemographic`, `getDemographic2` | `_demographic r`, scoped to the requested patient |
 | `DemographicWs` | `getDemographics` | `_demographic r` for **each** requested patient |
 | `DemographicWs` | `searchDemographicByName`, `searchDemographicsByAttributes` | `_demographic r`; results additionally filtered per patient |
-| `DemographicWs` | `getAdmittedDemographicIdsByProgramProvider`, `getActiveDemographicsAfter`, `getActiveDemographicsAfter2`, `getConsentedDemographicIdsAfter` | `_demographic r` |
-| `DocumentWs` | all | `_edoc r` |
+| `DemographicWs` | `getActiveDemographicsAfter`, `getActiveDemographicsAfter2` | `_demographic r`; results additionally filtered per patient |
+| `DemographicWs` | `getAdmittedDemographicIdsByProgramProvider`, `getConsentedDemographicIdsAfter` | `_demographic r` |
+| `DocumentWs` | `getDocument` | `_edoc r`, then `_edoc r` scoped to the document's patient |
+| `DocumentWs` | `getDocumentsByDemographicIdAfter`, `getDocumentsByProgramProviderDemographicDate` | `_edoc r`, scoped to the requested patient |
+| `DocumentWs` | `getDocumentsUpdateAfterDate` | `_edoc r`; results additionally filtered per patient |
 | `PrescriptionWs` | `getPrescription` | `_rx r` at entry, then `_rx r` scoped to the prescription's patient |
-| `PrescriptionWs` | remaining reads | `_rx r`, scoped to the patient where the method takes one |
-| `MeasurementWs` | reads | `_measurement r` |
+| `PrescriptionWs` | `getPrescriptionUpdatedAfterDate` | `_rx r`; results additionally filtered per patient |
+| `PrescriptionWs` | remaining reads | `_rx r`, scoped to the requested patient |
+| `MeasurementWs` | `getMeasurement` | `_measurement r`, then `_measurement r` scoped to the measurement's patient |
+| `MeasurementWs` | `getMeasurementsCreatedAfterDate` | `_measurement r`; results additionally filtered per patient |
+| `MeasurementWs` | demographic-scoped reads | `_measurement r`, scoped to the requested patient |
+| `MeasurementWs` | `getMeasurementMaps` | `_measurement r` (reference data, no patient scope) |
 | `MeasurementWs` | `addMeasurement` | `_measurement w`, scoped to the measurement's patient |
 | `ScheduleWs` / `BookingWs` | reads | `_appointment r` |
 | `ScheduleWs` | `addAppointment`, `updateAppointment` | `_appointment w` |

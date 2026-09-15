@@ -23,12 +23,14 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Property;
@@ -550,6 +552,184 @@ class AbstractWsPrivilegeUnitTest extends CarlosUnitTestBase {
                 .hasMessage("missing required sec object (_appointment)");
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_appointment", "r", (String) null);
+    }
+
+
+    /**
+     * Bulk exports were the residual gap after the first RBAC pass: the unscoped check passed, so a
+     * caller holding general read plus a {@code _demographic$<id>} denial still received the
+     * restricted patient's full record. Both bulk variants now filter per patient.
+     */
+    @Test
+    @DisplayName("active demographic export filters patients the caller may not read")
+    void shouldFilterUnreadablePatients_fromActiveDemographicExport() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        DemographicManager demographicManager = mock(DemographicManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        io.github.carlos_emr.carlos.commn.model.Demographic readable = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        readable.setDemographicNo(11);
+        io.github.carlos_emr.carlos.commn.model.Demographic restricted = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        restricted.setDemographicNo(22);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", (String) null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", "11")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", "22")).thenReturn(false);
+        when(demographicManager.getActiveDemographicAfter(eq(loggedInInfo), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(readable, restricted));
+
+        TestDemographicWs service = new TestDemographicWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+
+        var result = service.getActiveDemographicsAfter(null, null);
+
+        org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
+        org.assertj.core.api.Assertions.assertThat(result[0].getDemographicNo()).isEqualTo(11);
+    }
+
+    @Test
+    @DisplayName("active demographic export version 2 filters patients the caller may not read")
+    void shouldFilterUnreadablePatients_fromActiveDemographicExportVersion2() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        DemographicManager demographicManager = mock(DemographicManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        io.github.carlos_emr.carlos.commn.model.Demographic readable = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        readable.setDemographicNo(11);
+        io.github.carlos_emr.carlos.commn.model.Demographic restricted = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        restricted.setDemographicNo(22);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", (String) null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", "11")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", "22")).thenReturn(false);
+        when(demographicManager.getActiveDemographicAfter(eq(loggedInInfo), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(readable, restricted));
+
+        TestDemographicWs service = new TestDemographicWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+
+        var result = service.getActiveDemographicsAfter2(null, null);
+
+        org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
+        org.assertj.core.api.Assertions.assertThat(result[0].getDemographicNo()).isEqualTo(11);
+    }
+
+    @Test
+    @DisplayName("measurement reads enforce the loaded record's patient scope")
+    void shouldEnforceLoadedRecordScope_whenReadingMeasurement() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        MeasurementManager measurementManager = mock(MeasurementManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        Measurement measurement = new Measurement();
+        measurement.setDemographicId(77);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", (String) null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "77")).thenReturn(false);
+        when(measurementManager.getMeasurement(loggedInInfo, 5)).thenReturn(measurement);
+
+        TestMeasurementWs service = new TestMeasurementWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "measurementManager", measurementManager);
+
+        // The patient is unknowable before the load, so the scoped check necessarily runs after it;
+        // what matters is that the transfer is never built for a patient the caller cannot read.
+        assertThatThrownBy(() -> service.getMeasurement(5))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_measurement)");
+    }
+
+    @Test
+    @DisplayName("measurement sync filters patients the caller may not read")
+    void shouldFilterUnreadablePatients_fromMeasurementSync() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        MeasurementManager measurementManager = mock(MeasurementManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        Measurement readable = new Measurement();
+        readable.setDemographicId(11);
+        Measurement restricted = new Measurement();
+        restricted.setDemographicId(22);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", (String) null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "11")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "22")).thenReturn(false);
+        when(measurementManager.getCreatedAfterDate(eq(loggedInInfo), org.mockito.ArgumentMatchers.any(), eq(50)))
+                .thenReturn(List.of(readable, restricted));
+
+        TestMeasurementWs service = new TestMeasurementWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "measurementManager", measurementManager);
+
+        var result = service.getMeasurementsCreatedAfterDate(null, 50);
+
+        org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
+        org.assertj.core.api.Assertions.assertThat(result[0].getDemographicId()).isEqualTo(11);
+    }
+
+    @Test
+    @DisplayName("demographic-scoped measurement reads pass the patient to the privilege check")
+    void shouldPassPatientScope_whenReadingMeasurementsForDemographic() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        MeasurementManager measurementManager = mock(MeasurementManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "33")).thenReturn(false);
+
+        TestMeasurementWs service = new TestMeasurementWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "measurementManager", measurementManager);
+
+        assertThatThrownBy(() -> service.getMeasurementsByDemographicIdAfter(
+                        new java.util.GregorianCalendar(2026, 0, 1), 33))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_measurement)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_measurement", "r", "33");
+        verifyNoInteractions(measurementManager);
+    }
+
+    @Test
+    @DisplayName("demographic-scoped document reads pass the patient to the privilege check")
+    void shouldPassPatientScope_whenReadingDocumentsForDemographic() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        DocumentManager documentManager = mock(DocumentManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", "44")).thenReturn(false);
+
+        TestDocumentWs service = new TestDocumentWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "documentManager", documentManager);
+
+        assertThatThrownBy(() -> service.getDocumentsByDemographicIdAfter(
+                        new java.util.GregorianCalendar(2026, 0, 1), 44))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_edoc)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_edoc", "r", "44");
+        verifyNoInteractions(documentManager);
+    }
+
+    @Test
+    @DisplayName("prescription sync filters patients the caller may not read")
+    void shouldFilterUnreadablePatients_fromPrescriptionSync() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        PrescriptionManager prescriptionManager = mock(PrescriptionManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        Prescription readable = new Prescription();
+        // script_no is DB-generated, so there is no setter; the fixture needs distinct ids for the
+        // per-prescription assertions below.
+        ReflectionTestUtils.setField(readable, "id", 1);
+        readable.setDemographicId(11);
+        Prescription restricted = new Prescription();
+        ReflectionTestUtils.setField(restricted, "id", 2);
+        restricted.setDemographicId(22);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", (String) null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", "11")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", "22")).thenReturn(false);
+        when(prescriptionManager.getPrescriptionUpdatedAfterDate(eq(loggedInInfo), org.mockito.ArgumentMatchers.any(), eq(50)))
+                .thenReturn(List.of(readable, restricted));
+
+        // PrescriptionTransfer.getTransfers resolves its own manager through SpringUtils.
+        registerMock(PrescriptionManager.class, prescriptionManager);
+
+        TestPrescriptionWs service = new TestPrescriptionWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "prescriptionManager", prescriptionManager);
+
+        service.getPrescriptionUpdatedAfterDate(null, 50);
+
+        // The restricted patient's prescription must never reach getTransfers, which loads drug
+        // detail; the readable one must still get there, or the filter would be over-broad.
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_rx", "r", "22");
+        verify(prescriptionManager).getDrugsByScriptNo(loggedInInfo, 1, false);
+        verify(prescriptionManager, org.mockito.Mockito.never()).getDrugsByScriptNo(loggedInInfo, 2, false);
     }
 
     private static LoggedInInfo loggedInInfo(String providerNo) {
