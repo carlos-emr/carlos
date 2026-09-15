@@ -22,7 +22,6 @@
  */
 package io.github.carlos_emr.carlos.test.base;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -103,12 +102,6 @@ public abstract class CarlosTestBase {
     @Autowired
     protected HibernateTemplate hibernateTemplate;
 
-    /** Static context reference for SpringUtils initialization */
-    private static ApplicationContext staticContext;
-
-    /** Flag to track SpringUtils initialization status */
-    private static boolean springUtilsInitialized = false;
-
     /** JUnit 5 test information for the current test */
     protected TestInfo testInfo;
 
@@ -126,16 +119,13 @@ public abstract class CarlosTestBase {
      *
      * @throws RuntimeException if SpringUtils cannot be initialized
      */
-    @BeforeAll
-    public static void initializeSpringUtils() {
-        if (!springUtilsInitialized && staticContext != null) {
+    public void initializeSpringUtils() {
+        if (applicationContext != null && SpringUtils.getBeanFactory() != applicationContext) {
             try {
                 // Use reflection to set the private static beanFactory in SpringUtils
                 Field contextField = SpringUtils.class.getDeclaredField("beanFactory");
                 contextField.setAccessible(true);
-                contextField.set(null, staticContext);
-
-                springUtilsInitialized = true;
+                contextField.set(null, applicationContext);
                 logger.info("SpringUtils initialized with test application context");
             } catch (Exception e) {
                 logger.error("Failed to initialize SpringUtils", e);
@@ -148,22 +138,16 @@ public abstract class CarlosTestBase {
      * Captures the application context injected by Spring's {@code @Autowired}
      * setter injection and initialises the static {@code SpringUtils} bean factory.
      *
-     * <p>Called by Spring's dependency-injection mechanism during test context
-     * initialization. The {@code @BeforeAll} guard in {@link #initializeSpringUtils()}
-     * is a safety net: if {@code setApplicationContext} has already fired on a prior
-     * test-class instance in the same JVM run, {@code staticContext} will already be
-     * non-null and {@code @BeforeAll} can complete initialization without waiting for
-     * setter injection on the new instance.</p>
+     * <p>Each test context must replace the previous static lookup. Spring caches
+     * distinct contexts for web and DAO tests in the same JVM, so retaining the
+     * first context bypasses the mocks installed in subsequent contexts.</p>
      *
      * @param context the Spring application context injected by Spring
      */
     @Autowired
     public void setApplicationContext(ApplicationContext context) {
         this.applicationContext = context;
-        if (staticContext == null) {
-            staticContext = context;
-            initializeSpringUtils();
-        }
+        initializeSpringUtils();
     }
 
     /**
@@ -180,6 +164,8 @@ public abstract class CarlosTestBase {
     @BeforeEach
     public void setUpBase(TestInfo testInfo) {
         this.testInfo = testInfo;
+        // Also rebind reused test instances after another test context ran.
+        initializeSpringUtils();
         MockitoAnnotations.openMocks(this);
 
         logger.info("Running test: {} in class: {}",

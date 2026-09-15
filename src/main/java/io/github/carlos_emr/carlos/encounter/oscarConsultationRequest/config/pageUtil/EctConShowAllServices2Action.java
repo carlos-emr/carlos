@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil;
 
 import java.io.IOException;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,7 +60,18 @@ public class EctConShowAllServices2Action extends ActionSupport {
         }
 
         String serviceId = this.getServiceId();
+        if (serviceId.isBlank()) {
+            return "list";
+        }
+        if (!serviceId.matches("[0-9]{1,9}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid consultation service");
+            return NONE;
+        }
 
+        if (SpringUtils.getBean(ConsultationServiceDao.class).find(Integer.parseInt(serviceId)) == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Consultation service not found");
+            return NONE;
+        }
         request.setAttribute("serviceId", serviceId);
         request.setAttribute("serviceDesc", serviceDesc);
         return SUCCESS;

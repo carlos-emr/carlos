@@ -95,10 +95,23 @@ class SignatureStampJspRegressionTest {
         assertThat(normalizedJsp)
                 .contains("var OSCAR_PROVIDER_SIGNATURE_IMG_SRC = \"../provider/providerSignatureImage\";")
                 .contains("var src = getSignatureStampPreviewSrc();")
-                .contains("$img.on(\"error\", function() {")
                 .contains("function getSignatureStampPreviewSrc(){")
+                // Palette template: the stamp stays hidden until its image loads (so it can't
+                // be dragged mid-load); on load failure the endpoint status is probed and the
+                // warning is only shown for a 404 (missing signature), not 401/403/500.
+                .contains("$stampImg.on(\"load\", showSignatureStamp);")
+                .contains("$stampImg.on(\"error\", warnIfMissingSignature);")
+                .contains("if (resp.status === 404)")
+                .contains("EFORM_I18N.textNoSignatureStamp")
+                .contains("role: \"alert\"")
+                // The wet-signature sign hint is wired through the same i18n path.
+                .contains("EFORM_I18N.textWetSignatureSignHint")
+                // Stamps already placed on a saved eForm keep the blank-stamp fallback so they
+                // still resolve to the signing provider's signature at render time.
                 .contains("this.src = getBlankSignatureStampSrc();")
                 .contains("if (this.src.indexOf(\"BNK.png\") === -1)")
+                // The removed inline template fallback must not be reintroduced.
+                .doesNotContain("$img.on(\"error\", function() {")
                 .doesNotContain("error: function() {");
     }
 
