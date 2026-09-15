@@ -93,6 +93,28 @@ class EFormBrowserRendererStartupValidatorUnitTest {
     }
 
     @Test
+    @DisplayName("should validate the configured service URL before probing the renderer")
+    void shouldValidateServiceUrl_beforeProbingRenderer() throws PDFGenerationException {
+        // Pins the one-line wiring of verifyConfiguredServiceUrl into the startup check: were it
+        // dropped in a merge, a malformed service URL would surface only at first render as a
+        // per-request failure instead of one clear startup WARN. The probe must NOT run after a
+        // config error — its failure message would bury the actionable one.
+        properties.remove(STARTUP_CHECK_PROPERTY);
+        EFormBrowserPdfService service = mock(EFormBrowserPdfService.class);
+        doThrow(new PDFGenerationException("eform_pdf_browser_service_url is not a valid URL"))
+                .when(service).verifyConfiguredServiceUrl();
+
+        EFormBrowserRendererStartupValidator validator = new EFormBrowserRendererStartupValidator(service);
+
+        try (LogCapture logs = LogCapture.forLogger(EFormBrowserRendererStartupValidator.class)) {
+            assertThatCode(validator::verifyRendererReadyAtStartup).doesNotThrowAnyException();
+            assertStartupWarning(logs);
+        }
+        verify(service).verifyConfiguredServiceUrl();
+        verify(service, org.mockito.Mockito.never()).verifyRendererReady();
+    }
+
+    @Test
     @DisplayName("should log and continue when the renderer probe fails in warn mode")
     void shouldContinue_whenProbeFailsWarnMode() throws PDFGenerationException {
         properties.setProperty(STARTUP_CHECK_PROPERTY, "warn");

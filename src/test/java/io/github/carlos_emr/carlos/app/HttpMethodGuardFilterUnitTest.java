@@ -390,6 +390,22 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should block GET cancel on the email action before Struts dispatch")
+        void shouldBlockGetCancel_forEmailActionBeforeStrutsDispatch() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/email/emailSendAction");
+            when(request.getParameter("method")).thenReturn("cancel");
+
+            filter.doFilter(request, response, chain);
+
+            verify(response)
+                    .sendError(
+                            HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                            "GET requests are not allowed on this endpoint. Use POST.");
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
         @DisplayName("should pass through GET with method=list (read operation)")
         void shouldPassThrough_forGetWithListMethodParam() throws Exception {
             when(request.getMethod()).thenReturn("GET");
@@ -461,7 +477,7 @@ class HttpMethodGuardFilterUnitTest {
         // (ViewAppointment2Action gate). The public JSP path returns 404 at the
         // servlet layer before this filter ever sees it, so the prior test was
         // exercising a dead URL. End-to-end coverage of the gated action path lives in
-        // ViewAppointment2ActionTest.
+        // ViewAppointment2ActionUnitTest.
 
         @Test
         @DisplayName("should block GET to PreventionManager.jsp with formAction=update")

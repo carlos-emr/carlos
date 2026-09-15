@@ -64,9 +64,13 @@ public class PrintClientLabLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    public PrintClientLabLabel2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     public PrintClientLabLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -74,7 +78,9 @@ public class PrintClientLabLabel2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String execute() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -83,7 +89,6 @@ public class PrintClientLabLabel2Action extends ActionSupport {
         if (classpath == null)
             classpath = (String) request.getSession().getServletContext().getAttribute("com.ibm.websphere.servlet.application.classpath");
         System.setProperty("jasper.reports.compile.class.path", classpath);
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
         String defaultPrinterName = "";

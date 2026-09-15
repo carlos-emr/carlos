@@ -293,7 +293,10 @@
         PharmacyInfo pharmacy;
         String pharmacyId = request.getParameter("pharmacyId");
 
-        if (pharmacyId != null && !"null".equalsIgnoreCase(pharmacyId)) {
+        // viewScript builds this iframe URL with pharmacyId= EMPTY when the patient
+        // has no preferred pharmacy, so a blank value must mean "no pharmacy" here -
+        // it used to fall through to Integer.parseInt("") and 500 the whole preview.
+        if (pharmacyId != null && !pharmacyId.isBlank() && !"null".equalsIgnoreCase(pharmacyId)) {
             pharmacy = pharmacyData.getPharmacy(pharmacyId);
             if (pharmacy != null) {
                 pharmaFax = pharmacy.getFax();
@@ -313,7 +316,8 @@
             showPatientDOB = true;
         }
     %>
-    <form action="${pageContext.request.contextPath}/form/formname" method="post" id="preview2Form">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post" id="preview2Form"
+          data-script-id="<carlos:encode value='<%= bean.getStashSize() > 0 ? bean.getStashItem(0).getScript_no() : "" %>' context="htmlAttribute"/>">
         <input type="hidden" name="demographic_no" value="<%=bean.getDemographicNo()%>"/>
         <table>
             <tr>
@@ -370,8 +374,15 @@
 
                                             request.setAttribute("phone", finalPhone);
                                         %>
+                                        <%-- clinicTitle joins its lines with <br>; the PDF wants real line breaks. This is a
+                                             tag ATTRIBUTE, and the JSP spec unescapes "\\" to "\" inside attribute values, so the
+                                             former replaceAll("(<br>)", "\\\n") reached Java as "\\n": a replacement string of
+                                             backslash + n, which regex replacement reads as an escaped literal 'n'. Every <br>
+                                             became the letter n and the faxed clinic header rendered as one glued line
+                                             ("ClinicnAddressnCity"). A literal replace with a plain "\n" has no escaping layer
+                                             to fall through. --%>
                                         <input type="hidden" name="clinicName"
-                                               value="<carlos:encode value='<%= clinicTitle.replaceAll("(<br>)","\\\n") %>' context="htmlAttribute"/>"/>
+                                               value="<carlos:encode value='<%= clinicTitle.replace("<br>", "\n") %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="clinicPhone"
                                                value="<carlos:encode value='<%= finalPhone %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
@@ -403,8 +414,8 @@
                                        value="<%= SafeEncode.forHtmlAttribute(patient.getFirstName())+ " " +SafeEncode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
                                        value="<carlos:encode value='<%= patientDOBStr %>' context="htmlAttribute"/>"/>
-                                <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
-                                <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
+                                <input type="hidden" name="pharmaFax" value="<carlos:encode value='<%= pharmaFax %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="pharmaName" value="<carlos:encode value='<%= pharmaName %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="pracNo" value="<carlos:encode value='<%= pracNo %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>
@@ -683,13 +694,23 @@
                                 strRx += rx.getFullOutLine() + ";;";
                                 strRxNoNewLines.append(rx.getFullOutLine().replaceAll(";", " ") + "\n");
                             }
+                            /*
+                             * ";" is the stash's internal line separator; FrmCustomedPDFServlet splits the
+                             * posted rx parameter on the platform line separator (";;" -> blank line between
+                             * scripts). This must be computed here in the scriptlet: writing the replaceAll
+                             * with a "\\\n" literal inline in the <carlos:encode> value attribute goes through
+                             * JSP tag-attribute unquoting, which turns the intended newline into a literal
+                             * "n" — the servlet then finds no line breaks and renders the prescription body
+                             * empty (drug/instructions/quantity silently missing from printed and faxed PDFs).
+                             */
+                            String strRxForPdf = strRx.replace(";", System.getProperty("line.separator"));
                         %>
                         <tr valign="bottom">
                             <td colspan="2" id="additNotes"></td>
                         </tr>
 
                         <input type="hidden" name="rx"
-                               value="<carlos:encode value='<%= strRx.replaceAll(";","\\\n") %>' context="htmlAttribute"/>"/>
+                               value="<carlos:encode value='<%= strRxForPdf %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>
