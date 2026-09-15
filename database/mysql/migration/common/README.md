@@ -47,7 +47,9 @@ and legal-hold event tables, plus the admin eDoc deletion grant. Existing custom
 grants are preserved. Retirement retains the eDoc and its bytes; SMTP/SendGrid wiring
 and archive UI are separate follow-up work. Earlier development copies of this schema
 must be rebuilt or explicitly reconciled before adopting this migration: Flyway
-`repair` alone does not apply changed table definitions.
+`repair` alone does not apply changed table definitions. See the
+[archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
+retirement semantics, and failure investigation.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
