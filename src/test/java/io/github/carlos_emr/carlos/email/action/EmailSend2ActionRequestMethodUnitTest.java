@@ -9,7 +9,7 @@ import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.email.core.EmailWorkflowUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 @Tag("email")
 @Tag("security")
 @DisplayName("Email send HTTP method guard")
-class EmailSend2ActionRequestMethodUnitTest extends CarlosUnitTestBase {
+class EmailSend2ActionRequestMethodUnitTest extends EmailWorkflowUnitTestBase {
 
     @ParameterizedTest(name = "{0} is rejected")
     @ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE"})

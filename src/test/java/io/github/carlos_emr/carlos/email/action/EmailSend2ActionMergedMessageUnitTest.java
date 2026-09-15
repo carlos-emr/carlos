@@ -43,16 +43,16 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.email.core.EmailWorkflowUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -70,7 +70,7 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("email")
 @DisplayName("EmailSend2Action merged-message behavior")
-class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
+class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
 
     private static final String ENCRYPTED_BODY_NOTICE_KEY = "email.compose.msg.encryptedBodyNotice";
 
@@ -218,7 +218,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should preserve the complete retry model and original attachments when delivery fails")
-    void shouldPreserveCompleteRetryModelAndOriginalAttachments_whenDeliveryFails() {
+    void shouldPreserveCompleteRetryModelAndOriginalAttachments_whenDeliveryFails() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("message", "Draft to retry.");
         request.setParameter("isEmailEncrypted", "true");
@@ -238,7 +238,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         EmailAttachment originalAttachment = new EmailAttachment(
-                "result.pdf", "/tmp/original-result.pdf", DocumentType.DOC, 7, 123L);
+                "result.pdf", java.nio.file.Files.writeString(emailTempDir.resolve("original.pdf"), "original").toString(), DocumentType.DOC, 7, 123L);
         originalAttachment.setPreviewToken("preview-token");
         List<EmailAttachment> originalAttachments = List.of(originalAttachment);
         request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, originalAttachments);
@@ -253,10 +253,10 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         when(emailComposeManager.getAllSenderAccounts())
                 .thenReturn(List.of(emailConfig, alternateEmailConfig));
         ArgumentCaptor<EmailData> sentEmail = ArgumentCaptor.forClass(EmailData.class);
-        when(emailManager.sendEmail(any(LoggedInInfo.class), sentEmail.capture())).thenAnswer(invocation -> {
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), sentEmail.capture())).thenAnswer(invocation -> {
             EmailData emailData = invocation.getArgument(1);
             emailData.getAttachments().get(0).setFilePath("/tmp/encrypted-result.pdf");
-            return emailLog;
+            return sendResult(emailLog);
         });
 
         EmailSend2Action action = spy(new EmailSend2Action());
@@ -264,6 +264,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         action.request = request;
         action.response = new MockHttpServletResponse();
 
+        prepareSubmission(request, originalAttachments);
         action.sendDirectEmail();
 
         assertThat(request.getAttribute("message")).isEqualTo("Draft to retry.");
@@ -282,7 +283,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
                 .isEqualTo(List.of(emailConfig, alternateEmailConfig));
         assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
                 .isSameAs(originalAttachments);
-        assertThat(originalAttachment.getFilePath()).isEqualTo("/tmp/original-result.pdf");
+        assertThat(originalAttachment.getFilePath()).isEqualTo(emailTempDir.resolve("original.pdf").toString());
         assertThat(sentEmail.getValue().getAttachments().get(0)).isNotSameAs(originalAttachment);
     }
 
@@ -301,14 +302,15 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         when(emailLog.getConsentOverride()).thenReturn(true);
         when(emailLog.getConsentOverrideReason())
                 .thenReturn("Provider confirmed verbal consent");
-        when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class)))
-                .thenReturn(emailLog);
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
 
         EmailSend2Action action = spy(new EmailSend2Action());
         doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
         action.request = request;
         action.response = new MockHttpServletResponse();
 
+        prepareSubmission(request);
         action.sendDirectEmail();
 
         assertThat(request.getAttribute("consentOverride")).isEqualTo(true);
@@ -327,7 +329,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = mock(EmailLog.class);
         when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
         when(emailLog.getEmailConfig()).thenReturn(failedSender);
-        when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class))).thenReturn(emailLog);
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class))).thenAnswer(invocation -> sendResult(emailLog));
         when(emailComposeManager.getAllSenderAccounts())
                 .thenThrow(new IllegalStateException("sender lookup unavailable"));
 
@@ -336,6 +338,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         action.request = request;
         action.response = new MockHttpServletResponse();
 
+        prepareSubmission(request);
         action.sendDirectEmail();
 
         assertThat(request.getAttribute("senderAccounts")).isEqualTo(List.of(failedSender));
@@ -357,13 +360,14 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
 
         EmailLog emailLog = mock(EmailLog.class);
         when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
-        when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class))).thenReturn(emailLog);
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class))).thenAnswer(invocation -> sendResult(emailLog));
 
         EmailSend2Action action = spy(new EmailSend2Action());
         doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
         action.request = request;
         action.response = new MockHttpServletResponse();
 
+        prepareSubmission(request);
         action.sendDirectEmail();
 
         // Fail closed: a missing toggle must re-render ON so a retry stays encrypted, matching the
@@ -383,16 +387,17 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
 
         EmailLog emailLog = mock(EmailLog.class);
         when(emailLog.getStatus()).thenReturn(EmailStatus.SUCCESS);
-        when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class))).thenReturn(emailLog);
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class))).thenAnswer(invocation -> sendResult(emailLog));
 
         EmailSend2Action action = spy(new EmailSend2Action());
         doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
         action.request = request;
         action.response = new MockHttpServletResponse();
 
+        prepareSubmission(request);
         action.sendDirectEmail();
 
-        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST)).isNull();
+        assertThat(submissionStates.consume(request)).isNull();
     }
 
     @Test
@@ -440,8 +445,8 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject an invalid encrypted POST without consuming attachments")
-    void shouldRejectEncryptedPostWithoutConsumingAttachments_whenPasswordMissing() {
+    @DisplayName("should reject an encrypted POST without a token without consuming attachments")
+    void shouldRejectEncryptedPostWithoutConsumingAttachments_whenTokenMissing() {
         MockHttpServletRequest request = encryptedSendRequest();
         request.setMethod("POST");
         request.setParameter("method", "sendDirectEmail");
@@ -455,27 +460,18 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         MockHttpServletResponse response = new MockHttpServletResponse();
         action.response = response;
 
-        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST)).isSameAs(attachments);
         verifyNoInteractions(emailManager);
     }
 
     @Test
-    @DisplayName("should reject encrypted sends without a PDF password clue")
-    void shouldRejectEncryptedSend_whenPasswordClueMissing() {
-        MockHttpServletRequest request = encryptedSendRequest();
-        request.setParameter("emailPDFPassword", "valid-password");
-
-        EmailSend2Action action = spy(new EmailSend2Action());
-        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
-        action.request = request;
-        action.response = new MockHttpServletResponse();
-
-        assertThatThrownBy(action::sendDirectEmail)
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("A PDF password clue is required for encrypted email");
-        verifyNoInteractions(emailManager);
+    @DisplayName("should accept server-owned passphrase without submitted password or clue")
+    void shouldAcceptServerOwnedPassphrase_withoutSubmittedSecrets() {
+        EmailData sent = captureSentEmail("Confidential note.", "true", "true");
+        assertThat(sent.getPassword()).isEqualTo("original-server-passphrase");
+        assertThat(sent.getPasswordClue()).isEqualTo("Deliver separately");
     }
 
     private MockHttpServletRequest encryptedSendRequest() {
@@ -511,10 +507,6 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         if (isEmailAttachmentEncrypted != null) {
             request.setParameter("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
         }
-        if (!"false".equals(isEmailEncrypted)) {
-            request.setParameter("emailPDFPassword", "valid-password");
-            request.setParameter("emailPDFPasswordClue", "Known to the patient");
-        }
         request.setParameter("senderConfigId", "1");
         request.setParameter("demographicId", "42");
         request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, List.of(
@@ -524,7 +516,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = mock(EmailLog.class);
         when(emailLog.getStatus()).thenReturn(EmailStatus.SUCCESS);
         ArgumentCaptor<EmailData> captor = ArgumentCaptor.forClass(EmailData.class);
-        when(emailManager.sendEmail(any(LoggedInInfo.class), captor.capture())).thenReturn(emailLog);
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), captor.capture())).thenAnswer(invocation -> sendResult(emailLog));
 
         EmailSend2Action action = spy(new EmailSend2Action());
         // getText() has no live Struts container in a unit test, so stub the notice lookup.
@@ -532,8 +524,14 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         action.request = request;
         action.response = new MockHttpServletResponse();
 
+        prepareSubmission(request, List.of(
+                new EmailAttachment("result.pdf", "/tmp/result.pdf", DocumentType.DOC, 7)));
         action.sendDirectEmail();
 
         return captor.getValue();
+    }
+    private EmailSendResult sendResult(EmailLog log) {
+        return log.getStatus() == EmailLog.EmailStatus.SUCCESS
+                ? EmailSendResult.accepted(log, true) : EmailSendResult.failed(log, true);
     }
 }

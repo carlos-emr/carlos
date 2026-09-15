@@ -9,7 +9,7 @@ import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.email.core.EmailWorkflowUnitTestBase;
 
 import java.util.List;
 
@@ -38,7 +38,7 @@ import static org.mockito.Mockito.when;
 @Tag("email")
 @Tag("security")
 @DisplayName("Email compose encryption default")
-class EmailComposeEncryptionDefaultUnitTest extends CarlosUnitTestBase {
+class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
 
     @Test
     @DisplayName("should default encryption on when the session flag is missing")

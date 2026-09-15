@@ -95,6 +95,7 @@
         <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
         <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/prototype-compat.js" type="text/javascript"></script>
         <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/email-compose-popup.js"></script>
         <!-- CSRFGuard must load AFTER prototype-compat.js so its XHR.send() interception
              takes final precedence for automatic CSRF token injection -->
         <script src="${carlos:forHtmlAttribute(ctx)}/csrfguard"></script>

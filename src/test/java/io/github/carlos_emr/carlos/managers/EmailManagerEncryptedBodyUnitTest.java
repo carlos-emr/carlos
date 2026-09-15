@@ -67,7 +67,7 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
 
         EmailData emailData = new EmailData();
         emailData.setBody("SECURE_NOTICE");
-        emailData.setPassword("valid-password");
+        emailData.setPassword(new io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService().generatePassphrase());
         emailData.setPasswordClue("Sensitive clue");
         emailData.setEncryptedMessage("Confidential clinical message");
         emailData.setAttachments(List.of());
@@ -86,7 +86,8 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
 
             assertThat(emailData.getAttachments()).hasSize(1);
             Path encryptedAttachment = Path.of(emailData.getAttachments().get(0).getFilePath());
-            assertThat(encryptedAttachment).isEqualTo(encryptedMessage);
+            assertThat(encryptedAttachment).exists();
+            assertThat(encryptedAttachment).isNotEqualTo(renderedMessage);
             assertThat(emailData.getAttachments()).singleElement().satisfies(attachment -> {
                 assertThat(attachment.getFileName()).isEqualTo("message.pdf");
                 assertThat(Path.of(attachment.getFilePath())).exists();
@@ -100,7 +101,9 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
             }
 
             assertThat(emailData.getBody()).isEqualTo("SECURE_NOTICE");
-            assertThat(emailData.getBody()).doesNotContain(emailData.getPasswordClue());
+            assertThat(emailData.getBody()).doesNotContain(emailData.getPasswordClue(), emailData.getPassword());
+        } finally {
+            if (emailData.getWorkingDirectory() != null) emailData.getWorkingDirectory().close();
         }
     }
 
@@ -119,11 +122,13 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> createEmailManager().encryptEmail(emailData))
                     .isInstanceOf(EmailSendingException.class)
                     .hasMessage("Failed to render encrypted message attachment");
+        } finally {
+            if (emailData.getWorkingDirectory() != null) emailData.getWorkingDirectory().close();
         }
     }
 
     private EmailManager createEmailManager() {
         return new EmailManager(
-                mock(EmailConsentResolver.class), mock(EmailSenderFactory.class));
+                mock(EmailConsentResolver.class), mock(EmailSenderFactory.class), mock(SecurityInfoManager.class));
     }
 }

@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.email.helpers;
 
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,6 +18,7 @@ import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
@@ -28,6 +30,7 @@ import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -129,44 +132,66 @@ public class APISendGridEmailSender {
         }
 
         try {
-            String endPoint = getEndPoint();
-            ValidatedHttpEndpoint validatedEndpoint = validateEndpoint(endPoint);
-            SSLContext sslContext = SSLContexts.custom().build();
-
-            HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
-                    .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
-                            .setSslContext(sslContext)
-                            .build())
-                    .setDnsResolver(validatedEndpoint.pinnedDnsResolver())
-                    .setDefaultConnectionConfig(ConnectionConfig.custom()
-                            .setConnectTimeout(Timeout.ofSeconds(30))
-                            .setSocketTimeout(Timeout.ofSeconds(60))
-                            .build())
-                    .build();
-            RequestConfig requestConfig = RequestConfig.custom()
-                    .setConnectionRequestTimeout(Timeout.ofSeconds(30))
-                    .setResponseTimeout(Timeout.ofSeconds(60))
-                    .build();
-
-            try (CloseableHttpClient httpClient = HttpClients.custom()
-                    .setConnectionManager(connectionManager)
-                    .setDefaultRequestConfig(requestConfig)
-                    .disableRedirectHandling()
-                    .build()) {
-                HttpPost httpPost = new HttpPost(validatedEndpoint.uri());
-                httpPost.setHeader("Content-Type", "application/json");
-                httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
-
-                StringEntity entity = new StringEntity(createEmailJSON(), ContentType.APPLICATION_JSON);
-                httpPost.setEntity(entity);
-                try (var response = httpClient.execute(httpPost)) {
-                    assertAccepted(response.getCode());
-                }
-            }
+            ValidatedHttpEndpoint endpoint = validateEndpoint(getEndPoint());
+            HttpPost request = new HttpPost(endpoint.uri());
+            request.setHeader("Content-Type", "application/json");
+            request.setHeader("Authorization", "Bearer " + getAPIKey());
+            request.setEntity(new StringEntity(createEmailJSON(), ContentType.APPLICATION_JSON));
+            dispatchRequest(createHttpClient(endpoint), request);
         } catch (EmailSendingException e) {
             throw e;
-        } catch (IOException | GeneralSecurityException e) {
-            throw new EmailSendingException(e.getMessage(), e);
+        } catch (RuntimeException | GeneralSecurityException e) {
+            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
+        }
+    }
+
+    private static CloseableHttpClient createHttpClient(ValidatedHttpEndpoint endpoint)
+            throws GeneralSecurityException {
+        SSLContext sslContext = SSLContexts.custom().build();
+        HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
+                        .setSslContext(sslContext).build())
+                .setDnsResolver(endpoint.pinnedDnsResolver())
+                .setDefaultConnectionConfig(ConnectionConfig.custom()
+                        .setConnectTimeout(Timeout.ofSeconds(30))
+                        .setSocketTimeout(Timeout.ofSeconds(60)).build())
+                .build();
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                .setResponseTimeout(Timeout.ofSeconds(60)).build();
+        return HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .setDefaultRequestConfig(requestConfig)
+                .disableRedirectHandling().build();
+    }
+
+    /** Owns the client and response; cleanup cannot change a conclusive transport outcome. */
+    static void dispatchRequest(CloseableHttpClient client, HttpPost request) throws EmailSendingException {
+        CloseableHttpResponse response = null;
+        try {
+            response = client.execute(request);
+            assertAccepted(response.getCode());
+        } catch (EmailSendingException e) {
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            throw new EmailSendingException(
+                    "SendGrid did not confirm whether the message was accepted.", e, true);
+        } finally {
+            closeTransportResource(response);
+            closeTransportResource(client);
+        }
+    }
+
+    private static void closeTransportResource(Closeable resource) {
+        if (resource == null) {
+            return;
+        }
+        try {
+            resource.close();
+        } catch (IOException | RuntimeException cleanupFailure) {
+            // Do not expose remote response content or credentials in a cleanup diagnostic.
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                    "SendGrid transport resource cleanup failed; the send outcome is unchanged");
         }
     }
 
@@ -199,7 +224,7 @@ public class APISendGridEmailSender {
             validatedEndpoint = ValidatedHttpEndpoint.resolve(
                     endpoint, "carlos.email.sendgrid.allowedHosts");
         } catch (ValidatedHttpEndpoint.ValidationException e) {
-            throw new EmailSendingException("Configured email endpoint was rejected: " + e.getMessage());
+            throw new EmailSendingException("Configured email endpoint was rejected.", e);
         }
         if (!validatedEndpoint.isHttps()) {
             throw new EmailSendingException("Configured email endpoint must use HTTPS.");
@@ -207,7 +232,8 @@ public class APISendGridEmailSender {
         return validatedEndpoint;
     }
 
-    private String createEmailJSON() throws EmailSendingException {
+    // Package-private for unit testing that the serialized payload no longer carries the API key.
+    String createEmailJSON() throws EmailSendingException {
         ObjectNode emailJson = objectMapper.createObjectNode();
         addTo(emailJson);
         addFrom(emailJson);
@@ -215,8 +241,10 @@ public class APISendGridEmailSender {
         addBody(emailJson);
         addAttachments(emailJson);
         addAdditionalParams(emailJson);
-        // The API key is sent only via the Authorization: Bearer header (see the HTTP client setup).
-        // It is deliberately NOT duplicated into the JSON request body.
+        // The API key is sent only in the Authorization: Bearer header (see send()). It is
+        // deliberately NOT embedded in the request body: SendGrid ignores a body "apiKey", but any
+        // request-logging intermediary or debug capture would record it, creating a second leak
+        // channel for the credential.
         return emailJson.toString();
     }
 
@@ -286,28 +314,56 @@ public class APISendGridEmailSender {
         emailJson.put("additionalParams", additionalParams);
     }
 
-    private String getAPIKey() throws EmailSendingException {
+    // Package-private for unit testing the credential-validation branches without a live send.
+    String getAPIKey() throws EmailSendingException {
+        JsonNode jsonNode = getConfigDetails();
         String apiKey;
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            apiKey = jsonNode.get("api_key").asText();
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        JsonNode apiKeyNode = jsonNode.path("api_key");
+        if (apiKeyNode.isMissingNode() || apiKeyNode.isNull()
+                || !apiKeyNode.isValueNode() || apiKeyNode.asText().isBlank()) {
+            // Missing/blank api_key must surface as a clean credential error, not an NPE.
+            throw invalidCredentialsException();
+        }
+        // Decrypt the at-rest credential only here, at send time. Legacy plaintext keys pass
+        // through unchanged during the migration window.
+        apiKey = EmailConfigSecrets.decryptSecret(apiKeyNode.asText());
+        if (apiKey == null || apiKey.isBlank()) {
+            // A stored value that decrypts to blank must not travel as an empty Authorization: Bearer.
+            throw invalidCredentialsException();
         }
         return apiKey;
     }
 
-
     private String getEndPoint() throws EmailSendingException {
-        StringBuilder endPointBuilder = new StringBuilder();
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            endPointBuilder.append(jsonNode.get("end_point") != null ? jsonNode.get("end_point").asText() : DEFAULT_END_POINT);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        JsonNode jsonNode = getConfigDetails();
+        JsonNode endPointNode = jsonNode.get("end_point");
+        return endPointNode != null ? endPointNode.asText() : DEFAULT_END_POINT;
+    }
+
+    /**
+     * Parses and validates the shared provider configuration before either endpoint or credential
+     * access. Keeping this in one place prevents the real send path from throwing an unchecked
+     * exception before {@link #getAPIKey()} can report a sanitized credential failure.
+     */
+    private JsonNode getConfigDetails() throws EmailSendingException {
+        String configJson = emailConfig.getConfigDetailsJson();
+        if (configJson == null || configJson.isBlank()) {
+            throw invalidCredentialsException();
         }
-        return endPointBuilder.toString();
+        try {
+            JsonNode jsonNode = objectMapper.readTree(configJson);
+            if (jsonNode == null || !jsonNode.isObject()) {
+                throw invalidCredentialsException();
+            }
+            return jsonNode;
+        } catch (IOException e) {
+            // Intentionally no cause: a Jackson parse exception can echo a fragment of the source
+            // JSON (which holds the secret), so keep the exception safe for logs and the EmailLog.
+            throw invalidCredentialsException();
+        }
+    }
+
+    private EmailSendingException invalidCredentialsException() {
+        return new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
     }
 }
