@@ -407,8 +407,9 @@ class AbstractWsPrivilegeUnitTest extends CarlosUnitTestBase {
 
         TestPrescriptionWs service = new TestPrescriptionWs(loggedInInfo, securityInfoManager);
         ReflectionTestUtils.setField(service, "prescriptionManager", prescriptionManager);
-        when(prescriptionManager.getPrescription(loggedInInfo, 999)).thenReturn(null);
 
+        // Same fault, same message as the existing-prescription case above, and the manager is
+        // never reached either way - so the response cannot distinguish a real ID from a bogus one.
         assertThatThrownBy(() -> service.getPrescription(999))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
