@@ -21,6 +21,12 @@
  */
 package io.github.carlos_emr.carlos.email.core;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
+
+import static org.mockito.Mockito.mockConstruction;
+
+import static org.mockito.Mockito.doThrow;
+
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
@@ -88,14 +94,14 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         EmailLog log = new EmailLog(config, "provider@example.test", data.getRecipients(),
                 data.getSubject(), data.getBody(), EmailLog.EmailStatus.PENDING);
         injectDependency(log, "id", 44);
-        try (var helpers = org.mockito.Mockito.mockConstruction(SMTPEmailSender.class, (helper, context) -> {
+        try (var helpers = mockConstruction(SMTPEmailSender.class, (helper, context) -> {
             when(helper.prepareMessageBytes()).thenReturn("message".getBytes(StandardCharsets.UTF_8));
-            org.mockito.Mockito.doThrow(new IllegalStateException("cleanup failure"))
+            doThrow(new IllegalStateException("cleanup failure"))
                     .when(helper).discardPreparedMessage();
         })) {
             EmailSender sender = new EmailSender(loggedInInfo, config, data);
             sender.prepareOutboundArchive(log);
-            org.assertj.core.api.Assertions.assertThatCode(sender::sendPrepared).doesNotThrowAnyException();
+            assertThatCode(sender::sendPrepared).doesNotThrowAnyException();
             verify(helpers.constructed().get(0)).sendPreparedMessage();
             assertThatThrownBy(sender::sendPrepared).isInstanceOf(EmailSendingException.class)
                     .hasMessageContaining("must be prepared");

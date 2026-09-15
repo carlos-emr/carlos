@@ -129,6 +129,6 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
 
     private EmailManager createEmailManager() {
         return new EmailManager(
-                mock(EmailConsentResolver.class), mock(EmailSenderFactory.class), mock(SecurityInfoManager.class), org.mockito.Mockito.mock(OutboundEmailArchiveService.class));
+                mock(EmailConsentResolver.class), mock(EmailSenderFactory.class), mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class));
     }
 }

@@ -499,6 +499,7 @@ public class SMTPEmailSender {
             try {
                 contentType = Files.probeContentType(attachmentPath);
             } catch (IOException ignored) {
+                // MIME probing is optional; filename detection and octet-stream remain available.
             }
         }
 

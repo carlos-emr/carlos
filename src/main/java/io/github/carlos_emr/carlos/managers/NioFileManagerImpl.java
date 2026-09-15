@@ -807,20 +807,24 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     @Override
+    // FindSecBugs PATH_TRAVERSAL_IN: validated single-component names under the verified application temp root.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Fixed verified parent, validated filename components, and JDK-generated unique basename")
     public Path createManagedTempFile(String prefix, String suffix) throws IOException {
-        String validatedPrefix = PathValidationUtils.validateGeneratedFileName(prefix);
+        String validatedPrefix = PathValidationUtils.validateStrictFileName(prefix);
+        String validatedSuffix = suffix == null ? ".tmp" : suffix;
+        PathValidationUtils.validatePathComponent("temp" + validatedSuffix, "temporary file suffix");
         Path tempRoot = applicationTempParent();
         try {
             return Files.createTempFile(
                     tempRoot,
                     validatedPrefix,
-                    suffix,
+                    validatedSuffix,
                     PosixFilePermissions.asFileAttribute(EnumSet.of(
                             PosixFilePermission.OWNER_READ,
                             PosixFilePermission.OWNER_WRITE)));
         } catch (UnsupportedOperationException e) {
             log.debug("POSIX permissions unsupported for managed temp file; using platform defaults");
-            return Files.createTempFile(tempRoot, validatedPrefix, suffix);
+            return Files.createTempFile(tempRoot, validatedPrefix, validatedSuffix);
         }
     }
 

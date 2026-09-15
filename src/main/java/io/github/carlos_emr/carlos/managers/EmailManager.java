@@ -166,7 +166,7 @@ public class EmailManager {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
-        return sendEmailWithResult(loggedInInfo, emailData).getEmailLog();
+        return sendEmailInternal(loggedInInfo, emailData).getEmailLog();
     }
 
     /**
@@ -179,6 +179,12 @@ public class EmailManager {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailSendResult sendEmailWithResult(LoggedInInfo loggedInInfo, EmailData emailData) {
+        return sendEmailInternal(loggedInInfo, emailData);
+    }
+
+    // FindSecBugs HARD_CODE_PASSWORD: empty values erase request credentials when the send attempt finishes.
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD", justification = "Empty strings clear secrets; they are not authentication credentials")
+    private EmailSendResult sendEmailInternal(LoggedInInfo loggedInInfo, EmailData emailData) {
         boolean ownsWorkingDirectory = emailData.getWorkingDirectory() == null;
         try {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
@@ -246,7 +252,7 @@ public class EmailManager {
             recordAuthorizationFailure(log, e);
             throw e;
         } catch (RuntimeException e) {
-            throw new EmailSendingException("SMTP transport did not confirm whether the message was accepted.",
+            throw new EmailSendingException("Email transport did not confirm whether the message was accepted.",
                     e, true);
         } finally {
             discardPreparedQuietly(sender, null);
@@ -300,12 +306,10 @@ public class EmailManager {
         // Descend before settling for a wrapper's own generic label.
         if (failure instanceof org.springframework.mail.MailSendException mailSendFailure) {
             Exception[] messageExceptions = mailSendFailure.getMessageExceptions();
-            if (messageExceptions != null) {
-                for (Exception messageException : messageExceptions) {
-                    String nested = searchDiagnosticCategory(messageException, depth + 1);
-                    if (nested != null) {
-                        return nested;
-                    }
+            for (Exception messageException : messageExceptions) {
+                String nested = searchDiagnosticCategory(messageException, depth + 1);
+                if (nested != null) {
+                    return nested;
                 }
             }
         }
@@ -384,16 +388,8 @@ public class EmailManager {
             // send-configuration problem. Reporting it as an archive fault would send an
             // operator to inspect the archive subsystem over a mistyped SMTP password.
             archiveRequest = emailSender.prepareOutboundArchive(emailLog);
-        } catch (EmailSendingException e) {
-            discardAfterPreparationFailure(emailSender, e);
-            throw e;
-        } catch (SecurityException e) {
-            // Authorization is the caller's to see. Converting this would route it to
-            // sendEmail's non-rethrow catch, which returns an EmailLog and reports a routine
-            // failed send -- turning a revoked _email privilege into something that looks
-            // like a bad SMTP host. Transport already rethrows SecurityException; preparation
-            // must match, or the same revocation behaves differently depending on which side
-            // of the archive call it happens on.
+        } catch (EmailSendingException | SecurityException e) {
+            // Preserve authorization refusals; they must not become routine archive failures.
             discardAfterPreparationFailure(emailSender, e);
             throw e;
         } catch (RuntimeException e) {

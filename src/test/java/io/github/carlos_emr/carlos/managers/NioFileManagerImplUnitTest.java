@@ -728,8 +728,8 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     void shouldCreateManagedTempFile_underApplicationPurgeRoot() throws Exception {
         Path managedFile = nioFileManager.createManagedTempFile("smtp-snapshot-", ".tmp");
         try {
-            assertThat(managedFile.getParent().getFileName().toString())
-                    .isEqualTo(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+            assertThat(managedFile.getParent().getFileName())
+                    .hasToString(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
             if (managedFile.getFileSystem().supportedFileAttributeViews().contains("posix")) {
                 assertThat(Files.getPosixFilePermissions(managedFile))
                         .containsExactlyInAnyOrder(
@@ -739,6 +739,20 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         } finally {
             Files.deleteIfExists(managedFile);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"../escape-", "sub/file-", "sub\\file-", "/absolute-"})
+    void shouldRejectManagedTempFile_whenPrefixContainsPathComponents(String prefix) {
+        assertThatThrownBy(() -> nioFileManager.createManagedTempFile(prefix, ".tmp"))
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.FileValidationException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/../escape", "/file", "\\file"})
+    void shouldRejectManagedTempFile_whenSuffixContainsPathComponents(String suffix) {
+        assertThatThrownBy(() -> nioFileManager.createManagedTempFile("smtp-", suffix))
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.FileValidationException.class);
     }
 
     private static Path createApplicationTempDirectory(String prefix) throws IOException {

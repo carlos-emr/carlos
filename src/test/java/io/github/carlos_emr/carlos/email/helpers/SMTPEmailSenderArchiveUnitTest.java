@@ -38,6 +38,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSendException;
@@ -109,12 +111,14 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    void shouldRejectOversizedAttachment_andRemoveItsSnapshot() throws Exception {
+    @ParameterizedTest
+    @ValueSource(longs = {40L * 1024 * 1024, SMTPEmailSender.MAX_PREPARED_MESSAGE_BYTES + 1})
+    void shouldRejectOversizedMessage_andRemoveItsSnapshot(long attachmentBytes) throws Exception {
         Path source = tempDir.resolve("large.bin");
         try (var channel = java.nio.channels.FileChannel.open(source,
                 java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE)) {
-            channel.position(SMTPEmailSender.MAX_PREPARED_MESSAGE_BYTES);
+            // 40 MiB fits the snapshot budget but exceeds the MIME budget after base64 encoding.
+            channel.position(attachmentBytes - 1);
             channel.write(java.nio.ByteBuffer.wrap(new byte[]{1}));
         }
         CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
@@ -125,6 +129,7 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(sender::prepareMessageBytes).isInstanceOf(EmailSendingException.class)
                 .hasRootCauseMessage("Prepared SMTP message exceeds the 50 MiB archive limit");
 
+        assertThat(mailSender.getSentMessageBytes()).isNull();
         assertThat(sender.getPreparedAttachments()).isEmpty();
         try (var paths = Files.list(tempDir)) {
             assertThat(paths.filter(path -> path.toString().endsWith(".snapshot"))).isEmpty();

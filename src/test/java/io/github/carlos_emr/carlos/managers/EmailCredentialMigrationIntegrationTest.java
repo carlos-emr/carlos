@@ -5,6 +5,8 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import static org.mockito.Mockito.mock;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
@@ -44,7 +46,7 @@ class EmailCredentialMigrationIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void setUpMigration() throws Exception {
         originalKey = EncryptionKeyTestSupport.seedFreshKey();
-        manager = new EmailManager(null, null, null, org.mockito.Mockito.mock(OutboundEmailArchiveService.class));
+        manager = new EmailManager(null, null, null, mock(OutboundEmailArchiveService.class));
         ReflectionTestUtils.setField(manager, "emailConfigDao", emailConfigDao);
     }
 
