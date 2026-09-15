@@ -339,6 +339,25 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should preserve successful retirement when audit logging fails after commit")
+    void shouldPreserveSuccessfulRetirement_whenAfterCommitAuditFails() {
+        TransactionSynchronizationManager.initSynchronization();
+        OutboundEmailArchive archive = archiveForDeletion();
+        stubArchiveLookup(archive);
+        logActionMock.when(() -> LogAction.addLog(eq(loggedInInfo), any(String.class),
+                any(String.class), any(String.class), any(String.class), any(String.class)))
+                .thenThrow(new IllegalStateException("audit sink unavailable"));
+
+        OutboundEmailArchiveDeletion deletion = service.recordControlledDeletion(
+                loggedInInfo, 888, "Patient requested cleanup");
+
+        org.assertj.core.api.Assertions.assertThatCode(this::runAfterCommitSynchronizations)
+                .doesNotThrowAnyException();
+        assertThat(archive.isDeleted()).isTrue();
+        verify(outboundEmailArchiveDeletionDao).persist(deletion);
+    }
+
+    @Test
     @DisplayName("should defer archive audit until transaction commit")
     void shouldDeferArchiveAudit_untilTransactionCommit() throws Exception {
         TransactionSynchronizationManager.initSynchronization();

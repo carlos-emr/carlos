@@ -288,6 +288,15 @@ public final class LoginCheckLogin {
     }
 
     /**
+     * Performs any deferred PIN hash upgrade for the current successful authentication.
+     */
+    public void upgradeValidatedPinIfNeeded() {
+        if (lb != null) {
+            lb.upgradeValidatedPinIfNeeded();
+        }
+    }
+
+    /**
      * Records a failed login attempt for IP or username-based blocking.
      *
      * <p>This method delegates to either {@link #updateLoginList(String)} for IP-based

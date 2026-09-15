@@ -58,4 +58,44 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
 
         assertThat(demographicFiltered).extracting(EmailLog::getId).doesNotContain(log.getId());
     }
+
+    @Test
+    @DisplayName("should compare and set status using the persisted enum mapping")
+    void shouldTransitionStatus_onlyFromExpectedPersistedStatus() {
+        Date originalTimestamp = new Date(1_700_000_000_000L);
+        EmailLog log = new EmailLog();
+        log.setFromEmail("transition.sender@example.org");
+        log.setToEmail(new String[] {"transition.recipient@example.org"});
+        log.setSubject("Status transition regression");
+        log.setBody("Body");
+        log.setStatus(EmailLog.EmailStatus.PENDING);
+        log.setTimestamp(originalTimestamp);
+
+        entityManager.persist(log);
+        entityManager.flush();
+
+        assertThat(emailLogDao.transitionEmailStatus(
+                log.getId(), EmailLog.EmailStatus.FAILED, EmailLog.EmailStatus.SUCCESS,
+                "wrong predecessor", new Date())).isZero();
+
+        Date completedAt = new Date(1_700_000_060_000L);
+        assertThat(emailLogDao.transitionEmailStatus(
+                log.getId(), EmailLog.EmailStatus.PENDING, EmailLog.EmailStatus.SUCCESS,
+                "", completedAt)).isOne();
+
+        assertThat(log.getStatus()).as("bulk update refreshes the cached entity")
+                .isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        // Simulate a competing request's update while this persistence context retains SUCCESS.
+        entityManager.createNativeQuery("UPDATE emailLog SET status = 'RESOLVED' WHERE id = ?1")
+                .setParameter(1, log.getId()).executeUpdate();
+        assertThat(emailLogDao.transitionEmailStatus(log.getId(), EmailLog.EmailStatus.PENDING,
+                EmailLog.EmailStatus.FAILED, "stale failure", new Date())).isZero();
+        assertThat(log.getStatus()).as("lost compare-and-set exposes the winning status")
+                .isEqualTo(EmailLog.EmailStatus.RESOLVED);
+        entityManager.clear();
+        EmailLog updated = entityManager.find(EmailLog.class, log.getId());
+        assertThat(updated.getStatus()).isEqualTo(EmailLog.EmailStatus.RESOLVED);
+        assertThat(updated.getErrorMessage()).isEmpty();
+        assertThat(updated.getTimestamp().getTime()).isEqualTo(completedAt.getTime());
+    }
 }

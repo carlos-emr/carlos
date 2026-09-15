@@ -206,7 +206,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         OutboundEmailArchive archive = buildArchive(request, emailLog, buildContext);
         outboundEmailArchiveDao.persist(archive);
 
-        registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
+        registerAfterCommitLog(archive.getId(), () -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.archive",
                 "Outbound email archive",
                 "archiveId=" + archive.getId() + " emailLogId=" + emailLog.getId() + " documentNo=" + savedDocument.getId(),
@@ -256,7 +256,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         String auditContentId = "archiveId=" + archive.getId() + " documentNo=" + documentId(archive);
         String auditDemographicNo = demographicNo(archive);
 
-        registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
+        registerAfterCommitLog(archive.getId(), () -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.recordControlledDeletion",
                 "Outbound email archive tombstone",
                 auditContentId,
@@ -322,7 +322,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         String auditContentId = "archiveId=" + archive.getId() + " documentNo=" + documentId(archive);
         String auditDemographicNo = demographicNo(archive);
 
-        registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
+        registerAfterCommitLog(archive.getId(), () -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.changeLegalHold",
                 "Outbound email archive legal hold " + action,
                 auditContentId,
@@ -690,13 +690,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
      * {@code _admin.edocdelete} but no access to this patient must not be able to take a
      * lock on that patient's row.</p>
      *
-     * <p><b>The pre-lock read must stay a scalar projection.</b> A JPA query does not
-     * refresh an already-managed entity, so loading the archive here would make
-     * {@code findForUpdate} hand back this transaction's pre-lock copy: the lock would be
-     * held, but {@code legalHold} and {@code deleted} would be read from before it. Two
-     * concurrent releases would then both see {@code legalHold = true} and both succeed,
-     * which is exactly what the lock exists to prevent.
-     * {@code findDemographicNoById} reads the FK column without hydrating the entity.</p>
+     * <p>The scalar pre-lock lookup exposes only the patient identifier needed for
+     * authorization. The subsequent locked read refreshes any cached archive state.</p>
      *
      * @param loggedInInfo current user context
      * @param archiveId persisted archive identifier
@@ -761,7 +756,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         });
     }
 
-    private void registerAfterCommitLog(Runnable logAction) {
+    private void registerAfterCommitLog(Integer archiveId, Runnable logAction) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             logAction.run();
             return;
@@ -769,7 +764,15 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                logAction.run();
+                try {
+                    logAction.run();
+                } catch (RuntimeException e) {
+                    // The archive/event/tombstone has committed. Reporting failure here
+                    // would invite retries of an operation that already succeeded.
+                    MiscUtils.getLogger().error(
+                            "Outbound email archive committed but audit logging failed: archiveId={}",
+                            archiveId, e);
+                }
             }
         });
     }

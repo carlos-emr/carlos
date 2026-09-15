@@ -457,7 +457,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - All 458 *2Action files migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
   - Requires Caffeine 3.2.3 cache dependency for internal caching
-- **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
+- **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
@@ -856,8 +856,10 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
 
 ### Branch Protection
-- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **Protected Branches**: `develop`, `main`, `experimental`, and `release/*` - direct commits prohibited
 - **All changes** must go through pull requests with review
+- **Release policy**: `docs/release-process.md` is authoritative for target branches, CalVer, snapshots, tags, maintenance fixes, and forward merges
+- **Release flow**: Start normal work from and target `develop`. Start a supported fix from and target the oldest affected `release/YYYY.MM`; maintainers then forward-merge it into newer lines while preserving target version/SCM metadata. Target `main` only for current-train release preparation or a necessary, narrowly scoped release-infrastructure correction. Never tag a snapshot, move, delete, or reuse a release tag, or edit a Flyway migration present in a published tag
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
@@ -868,7 +870,8 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - [ ] No PHI in logs or error messages
 
 ### PR Requirements
-- ✅ Target `develop` branch (not `main`)
+- ✅ Target `develop` for normal work; target `release/YYYY.MM` only for an approved supported-release fix; use `main` only for current-train release preparation or a necessary release-infrastructure correction
+- ✅ Preserve the target branch snapshot/SCM metadata during forward merges; use merge ancestry rather than routine cherry-picks
 - ✅ Include tests for new functionality
 - ✅ Reference related issues (`fixes #123`)
 - ✅ Add "Generated with Claude Code" signature

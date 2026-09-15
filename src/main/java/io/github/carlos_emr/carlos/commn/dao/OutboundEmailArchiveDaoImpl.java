@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
@@ -60,7 +61,14 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
                 OutboundEmailArchive.class);
         query.setParameter(1, archiveId);
         List<OutboundEmailArchive> rows = query.getResultList();
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        OutboundEmailArchive archive = rows.get(0);
+        // Native entity queries reuse an already-managed instance. Refresh with a
+        // locking read so an earlier snapshot cannot bypass a newly placed hold.
+        entityManager.refresh(archive, LockModeType.PESSIMISTIC_WRITE);
+        return archive;
     }
 
     @Override
@@ -69,8 +77,7 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
             return null;
         }
         // Scalar projection on purpose. Dereferencing only the identifier of a @ManyToOne
-        // reads the FK column without a join, and selecting a scalar leaves the
-        // persistence context empty so findForUpdate still hydrates under its lock.
+        // reads the FK column without hydrating patient data before authorization.
         TypedQuery<Integer> query = entityManager.createQuery(
                 "SELECT archive.demographic.demographicNo FROM OutboundEmailArchive archive WHERE archive.id = :archiveId",
                 Integer.class);

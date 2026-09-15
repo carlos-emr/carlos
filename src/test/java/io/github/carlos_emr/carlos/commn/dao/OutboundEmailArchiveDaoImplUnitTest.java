@@ -25,6 +25,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -69,6 +70,7 @@ class OutboundEmailArchiveDaoImplUnitTest {
         OutboundEmailArchive result = dao.findForUpdate(888);
 
         assertThat(result).isSameAs(archive);
+        verify(entityManager).refresh(archive, LockModeType.PESSIMISTIC_WRITE);
         verify(entityManager).createNativeQuery(FIND_FOR_UPDATE_SQL, OutboundEmailArchive.class);
         verify(query).setParameter(1, 888);
     }

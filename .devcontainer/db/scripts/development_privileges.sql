@@ -48,9 +48,13 @@ ON DUPLICATE KEY UPDATE
     `priority` = VALUES(`priority`),
     `provider_no` = VALUES(`provider_no`);
 
+-- carlosdoc is the local test administrator and should inherit the admin role
+-- grant rather than a higher-priority provider-specific denial.
 DELETE FROM `secObjPrivilege`
 WHERE `roleUserGroup` = '999998'
-  AND `objectName` = '_admin.schedule.groupCreate';
+  AND `objectName` = '_admin.schedule.groupCreate'
+  AND `privilege` = 'o'
+  AND `provider_no` = '999998';
 
 -- Keep the development snapshot aligned with the current baseline cleanup.
 DELETE FROM `secObjPrivilege`

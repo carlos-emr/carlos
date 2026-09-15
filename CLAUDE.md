@@ -43,7 +43,15 @@
 ## Fax Provider Feature Context (AI + Dev)
 
 - Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+  SRFax is the supported provider and the default; the admin UI shows and uses SRFax only.
+  `MIDDLEWARE` is hidden from the UI but its transport code/enum are retained and remain
+  selectable only via direct configuration/DB for legacy relay deployments.
 - Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+  `FaxConfig.faxUser` is the numeric SRFax **account number** (`access_id`; UI label "SRFax
+  Account Number", never the login email); `senderEmail` is the notification address only. The
+  page's **Test SRFax connection** button posts `method=testConnection` (POST-only, read-only
+  `Get_Fax_Inbox` probe via `FaxProviderClient.verifyConnection`) so bad credentials are
+  reported before saving. Browser check: `scripts/fax-configure-playwright-checks.js`.
 - Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
@@ -605,7 +613,7 @@ public Example2Action(SomeManager someManager) {
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - `*2Action` classes migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
   - Requires Caffeine 3.2.3 cache dependency for internal caching
-- **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
+- **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
@@ -847,7 +855,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 - **Struts Configuration** (modular split):
   - `struts.xml` - Parent config with global constants and `<include>` directives for 17 module files
   - `struts-{admin,billing,clinical,demographic,document,eform,encounter,form,integration,lab,login,messenger,pmmodule,prescription,provider,report,scheduling}.xml` - Domain-specific action mappings
-  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="struts-default"`
+  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="carlos-default"` (the abstract parent in `struts.xml`: `struts-default` plus exception logging; name `carlosDefaultStack` / `carlosBasicStack`, never `defaultStack` / `basicStack`, in an action-level `<interceptor-ref>`)
   - New actions should be added to the appropriate domain-specific module file, not to `struts.xml`
   - Canonical action routes are extensionless (`struts.action.extension=""`)
   - Static assets are excluded from Struts by `struts.action.excludePattern`
@@ -920,6 +928,11 @@ SnomedCore/             # SNOMED CT clinical terminology (licensed, loaded separ
 build-demo.sh           # filters the dev demo dataset to the live (pruned) schema; its output
                         #   development.sql lives at .devcontainer/db/scripts/, not under database/mysql/
 ```
+
+**Demo/dev data companions** (all outside `database/`):
+- `.devcontainer/db/scripts/demo-name-sanitization.sql` (+ `-on.sql`) — FAKE- name sanitization v2 across all person-name tables; idempotent, exempts functional accounts (`-1`, `999998` carlosdoc)
+- `.devcontainer/db/scripts/demo-specialists.sql` — 60 clearly-fake referral specialists (specIds 9001–9060) for both ON and BC demo sets; never load a real provincial specialist directory into demo/dev. Also owns the `serviceSpecialists` consultation links, including a trailing block that gives each of the dev snapshot's six fictional consultation services a distinct slice of the roster (a no-op against either province's Flyway service catalog); pinned by `ConsultationSpecialistDemoSeedRegressionTest`
+- `scripts/build-demo-additive.sh` + `demo-additive-exclude.txt` + `check-demo-additive.sh` — build-time transform of development.sql into the ADDITIVE per-province artifact the deb's optional `carlos-ctl demo-data` load uses (INSERT IGNORE only; Flyway data always wins)
 
 **Development Database**:
 - Container: `db-connect` alias → MariaDB as root user
@@ -1030,8 +1043,10 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
 
 ### Branch Protection
-- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **Protected Branches**: `develop`, `main`, `experimental`, and `release/*` - direct commits prohibited
 - **All changes** must go through pull requests with review
+- **Release policy**: `docs/release-process.md` is authoritative for target branches, CalVer, snapshots, tags, maintenance fixes, and forward merges
+- **Release flow**: Start normal work from and target `develop`. Start a supported fix from and target the oldest affected `release/YYYY.MM`; maintainers then forward-merge it into newer lines while preserving target version/SCM metadata. Target `main` only for current-train release preparation or a necessary, narrowly scoped release-infrastructure correction. Never tag a snapshot, move, delete, or reuse a release tag, or edit a Flyway migration present in a published tag
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
@@ -1042,7 +1057,8 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - [ ] No PHI in logs or error messages
 
 ### PR Requirements
-- ✅ Target `develop` branch (not `main`)
+- ✅ Target `develop` for normal work; target `release/YYYY.MM` only for an approved supported-release fix; use `main` only for current-train release preparation or a necessary release-infrastructure correction
+- ✅ Preserve the target branch snapshot/SCM metadata during forward merges; use merge ancestry rather than routine cherry-picks
 - ✅ Include tests for new functionality
 - ✅ Reference related issues (`fixes #123`)
 - ✅ Add "Generated with Claude Code" signature
@@ -1106,7 +1122,7 @@ Commands in the ASK tier include:
 
 **Safety Guardrails:**
 - **Repository scoped** - Operations run within the checked-out `carlos-emr/carlos` repository context
-- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
+- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`, and `release/*`
 - All PRs require human review before merge
 - Destructive operations are blocked:
   - File deletion: `rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`
@@ -1346,6 +1362,7 @@ make install --run-unit-tests     # Only unit tests (fast, no database)
 docs/Password_System.md                           # Security architecture details
 docs/struts-actions-detailed.md                   # Action mapping documentation
 docs/struts-web-endpoints.md                      # Current Struts route + WEB-INF JSP guidance
+docs/build-identity.md                            # Build stamp (About page, REST headers, HL7 SFT; never the login page): carlos-build.properties + BuildInfo, not carlos.properties
 pom.xml                                            # Complete dependency list with versions
 README.md                                          # Project setup and overview
 ```
