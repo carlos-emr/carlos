@@ -48,6 +48,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 
 /**
  * Spring-managed background sweeper that removes orphaned PHI-bearing temporary artifacts left
@@ -281,7 +282,11 @@ public class ApplicationTempPurgeJob {
      * {@code cutoff}, regardless of name. This covers both {@code NioFileManagerImpl.saveTempFile}'s
      * {@code tempPDF*} output and {@code createTempFile}'s {@code tempDirectory*} output, plus any
      * stray file, without gating on a name prefix: since the root is exclusively application-owned,
-     * any direct child old enough to be expired is a purgeable orphan.
+     * any direct child old enough to be expired is a purgeable orphan. Email-compose directories
+     * are the exception while they have a live in-process owner or their short-lived on-disk lease
+     * is valid; this prevents an unusually aggressive configured cutoff from deleting files still
+     * owned by a live compose or send operation. A crashed process cannot leave a permanent
+     * exemption because the process-local registry disappears and the on-disk lease expires.
      *
      * <p>Symlinked children are never followed or deleted &mdash; they are counted as
      * {@link PurgeOutcome#skipped()} and logged at WARN, regardless of age, since a symlink under an
@@ -298,7 +303,16 @@ public class ApplicationTempPurgeJob {
      * @return counts of entries removed, skipped (symlinks), and failed (validation/deletion errors)
      */
     static PurgeOutcome purgeExpiredEntries(Path root, Instant cutoff) {
-        return sweep(root, cutoff, ApplicationTempPurgeJob::isTempRootCandidate);
+        return purgeExpiredEntries(root, cutoff, EmailComposeWorkingDirectory::isActivelyOwned);
+    }
+
+    /** Package-private seam for verifying active-owner behavior without widening temp-root creation. */
+    static PurgeOutcome purgeExpiredEntries(
+            Path root,
+            Instant cutoff,
+            Predicate<Path> activeEmailComposeDirectory
+    ) {
+        return sweep(root, cutoff, entry -> isTempRootCandidate(entry, activeEmailComposeDirectory));
     }
 
     /**
@@ -314,14 +328,42 @@ public class ApplicationTempPurgeJob {
         return sweep(cacheDir, cutoff, ApplicationTempPurgeJob::isCacheImageCandidate);
     }
 
-    private static boolean isTempRootCandidate(Path entry) {
+    private static boolean isTempRootCandidate(
+            Path entry,
+            Predicate<Path> activeEmailComposeDirectory
+    ) {
         // carlos-temp is exclusively application-owned (see PathValidationUtils.APPLICATION_TEMP_ROOT_NAME):
         // NioFileManagerImpl.saveTempFile writes tempPDF* subdirectories and createTempFile writes
         // tempDirectory* subdirectories, both directly under this root, with no other legitimate writer.
         // Gating directories on a name prefix therefore only creates purge blind spots for other
         // CARLOS-owned output shapes; every direct child (file or directory) older than the cutoff is a
         // purgeable orphan regardless of name.
-        return Files.isRegularFile(entry) || Files.isDirectory(entry);
+        return (Files.isRegularFile(entry) || Files.isDirectory(entry))
+                && !activeEmailComposeDirectory.test(entry)
+                && !hasUnexpiredEmailComposeLease(entry);
+    }
+
+    private static boolean hasUnexpiredEmailComposeLease(Path entry) {
+        if (!Files.isDirectory(entry)
+                || !entry.getFileName().toString().startsWith(EmailComposeWorkingDirectory.DIRECTORY_PREFIX)) {
+            return false;
+        }
+        Path lease = entry.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME);
+        if (Files.isSymbolicLink(lease)
+                || !Files.isRegularFile(lease, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return false;
+        }
+        try {
+            if (Files.size(lease) > 32) {
+                return false;
+            }
+            long expiresAtMillis = Long.parseLong(Files.readString(lease).trim());
+            long now = System.currentTimeMillis();
+            long maximumValidExpiry = now + EmailComposeWorkingDirectory.ACTIVE_LEASE_MILLIS;
+            return now < expiresAtMillis && expiresAtMillis <= maximumValidExpiry;
+        } catch (IOException | NumberFormatException e) {
+            return false;
+        }
     }
 
     private static boolean isCacheImageCandidate(Path entry) {

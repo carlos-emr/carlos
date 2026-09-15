@@ -30,12 +30,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -135,16 +134,17 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
     @Test
     @Tag("update")
     @DisplayName("should deny completion when the caller lacks tickler update privilege")
-    void shouldDenyCompletion_whenCallerLacksTicklerUpdatePrivilege() {
+    void shouldDenyCompletion_whenCallerLacksTicklerUpdatePrivilege() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), eq("u"), any()))
                 .thenReturn(false);
 
+        JsonNode request = payload("{\"ticklers\":[1]}");
         assertThatExceptionOfType(WebApplicationException.class)
-                .isThrownBy(() -> service.completeTicklers(payload("{\"ticklers\":[1]}")))
-                .satisfies(exception -> {
-                    assertThat(exception.getResponse().getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
-                    assertThat(exception.getResponse().getMediaType()).isEqualTo(MediaType.TEXT_PLAIN_TYPE);
-                    assertThat(exception.getResponse().getEntity()).isEqualTo("Access Denied");
+                .isThrownBy(() -> service.completeTicklers(request))
+                .satisfies(failure -> {
+                    assertThat(failure.getResponse().getStatus()).isEqualTo(403);
+                    assertThat(failure.getResponse().getEntity()).isEqualTo("Access Denied");
+                    assertThat(failure.getResponse().getMediaType()).isEqualTo(MediaType.TEXT_PLAIN_TYPE);
                 });
         verify(ticklerManager, never()).completeTickler(any(), any(), any());
     }
@@ -152,16 +152,17 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
     @Test
     @Tag("delete")
     @DisplayName("should deny deletion when the caller lacks tickler update privilege")
-    void shouldDenyDeletion_whenCallerLacksTicklerUpdatePrivilege() {
+    void shouldDenyDeletion_whenCallerLacksTicklerUpdatePrivilege() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), eq("u"), any()))
                 .thenReturn(false);
 
+        JsonNode request = payload("{\"ticklers\":[1]}");
         assertThatExceptionOfType(WebApplicationException.class)
-                .isThrownBy(() -> service.deleteTicklers(payload("{\"ticklers\":[1]}")))
-                .satisfies(exception -> {
-                    assertThat(exception.getResponse().getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
-                    assertThat(exception.getResponse().getMediaType()).isEqualTo(MediaType.TEXT_PLAIN_TYPE);
-                    assertThat(exception.getResponse().getEntity()).isEqualTo("Access Denied");
+                .isThrownBy(() -> service.deleteTicklers(request))
+                .satisfies(failure -> {
+                    assertThat(failure.getResponse().getStatus()).isEqualTo(403);
+                    assertThat(failure.getResponse().getEntity()).isEqualTo("Access Denied");
+                    assertThat(failure.getResponse().getMediaType()).isEqualTo(MediaType.TEXT_PLAIN_TYPE);
                 });
         verify(ticklerManager, never()).deleteTickler(any(), any(), any());
     }
