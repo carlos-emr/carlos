@@ -110,7 +110,7 @@ USER_AGENT="Mozilla\/5.0 (Windows NT 6.2; CARLOS; 1.0.6) Gecko\/20100101 Firefox
 
 DOWNLOAD_DIR="$SCRIPT_DIR/excelleris_download"
 if [ ! -d "$DOWNLOAD_DIR" ]; then
-	mkdir -p $DOWNLOAD_DIR
+	mkdir -p "$DOWNLOAD_DIR"
 fi
 HL7_OUTPUTDIR="$DOWNLOAD_DIR/hl7"
 if [ ! -d "$HL7_OUTPUTDIR" ]; then
