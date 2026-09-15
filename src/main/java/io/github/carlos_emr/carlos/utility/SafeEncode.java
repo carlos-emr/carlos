@@ -19,6 +19,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Locale;
 
 import org.owasp.encoder.Encode;
 
@@ -327,7 +328,7 @@ public final class SafeEncode {
     public static void forContext(Writer out, String context, String value) throws IOException {
         String ctx = (context == null || context.isBlank()) ? DEFAULT_CONTEXT : context;
         // Lowercase compare makes "html", "Html", "HTML", "hTML" equivalent.
-        switch (ctx.toLowerCase()) {
+        switch (ctx.toLowerCase(Locale.ROOT)) {
             case "html", "htmlcontent":
                 forHtmlContent(out, value);
                 return;
