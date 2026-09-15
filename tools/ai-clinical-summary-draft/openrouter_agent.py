@@ -3,11 +3,14 @@
 """OpenRouter gateway for the checksum-verified NHS development fixtures only."""
 import argparse
 from collections import OrderedDict
+import copy
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import getpass
 import hashlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -22,12 +25,13 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 from example_agent import MAX_REQUEST_BYTES, PATH, unique_object, validate_request
 import pipeline
 from run import build_artifact
-from validate_artifact import require
+from validate_artifact import index, references, require, validate_generated
 
 ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parents[1]
 API = "https://openrouter.ai/api/v1/"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+MAX_RATE_LIMIT_WAIT_SECONDS = 120
 DEFAULTS = {"model": "qwen/qwen3.5-9b", "provider": "venice",
             "port": 11437, "timeout_seconds": 180, "max_tokens": 16384, "cache_seconds": 900}
 BOUNDARY = "Source text below is preserved verbatim, including encoding and clinical inconsistencies.\n\n"
@@ -91,6 +95,24 @@ class RateLimitError(UpstreamError):
         self.retry_after = retry_after
 
 
+def retry_after_seconds(value, now=None):
+    if not isinstance(value, str) or not value.strip():
+        return None
+    value = value.strip()
+    if len(value) > 128:
+        return None
+    if re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", value):
+        return math.ceil(min(float(value), MAX_RATE_LIMIT_WAIT_SECONDS + 1))
+    try:
+        when = parsedate_to_datetime(value)
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        seconds = math.ceil((when - (now or datetime.now(timezone.utc))).total_seconds())
+        return max(0, min(seconds, MAX_RATE_LIMIT_WAIT_SECONDS + 1))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def api_error(error):
     """Classify HTTP-200 error envelopes without exposing provider-supplied text."""
     if isinstance(error, dict):
@@ -124,6 +146,36 @@ def openrouter_schema(schema, sources):
                 compatible(value)
     compatible(result)
     return result
+
+
+def normalize_section_placement(output, sources):
+    """Place each unchanged claim once; unassigned claims use the generic overview."""
+    if isinstance(output, dict) and output.get("sections") == [] and output.get("claims"):
+        claims = index(output, "claims")
+        output = copy.deepcopy(output)
+        output["sections"] = [{"id": "clinical_overview", "title": "Clinical overview",
+                               "claim_ids": list(claims)}]
+    validate_generated(output, sources, allow_empty=True)
+    claims = index(output, "claims")
+    owners = {}
+    for section in output["sections"]:
+        # Unknown references and duplicates within a heading are still errors.
+        references(section, "claim_ids", claims)
+        for claim_id in section["claim_ids"]:
+            if claim_id not in owners or owners[claim_id] == "clinical_overview":
+                owners[claim_id] = section["id"]
+    for claim_id in claims:
+        owners.setdefault(claim_id, "clinical_overview")
+    normalized = copy.deepcopy(output)
+    normalized["sections"] = []
+    headings = list(output["sections"])
+    if "clinical_overview" in owners.values() and not any(s["id"] == "clinical_overview" for s in headings):
+        headings.append({"id": "clinical_overview", "title": "Clinical overview", "claim_ids": []})
+    for section in headings:
+        claim_ids = [claim_id for claim_id in claims if owners[claim_id] == section["id"]]
+        if claim_ids:
+            normalized["sections"].append(dict(section, claim_ids=claim_ids))
+    return normalized
 
 
 def read_response(response, deadline):
@@ -167,11 +219,8 @@ def api_request(config, endpoint, payload=None):
         retry_after = error.headers.get("Retry-After") if error.headers else None
         error.close()
         if error.code == 429:
-            # Honor numeric delays up to 10 seconds. Longer/date-form delays fail
-            # without an automatic retry rather than hammering a limited endpoint.
-            delay = None if retry_after is None else (
-                int(retry_after) if len(retry_after) <= 3 and retry_after.isdecimal() else 11)
-            raise RateLimitError("Rate limited; wait before retrying (HTTP 429)", delay) from None
+            raise RateLimitError("Rate limited; wait before retrying (HTTP 429)",
+                                 retry_after_seconds(retry_after)) from None
         messages = {400: "Model/provider request parameters rejected", 401: "API key rejected",
                     402: "Credits or key spending limit exhausted",
                     403: "Account policy denied request", 404: "No permitted model/provider endpoint",
@@ -272,7 +321,7 @@ class Gateway:
             except RateLimitError as error:
                 delay = max(2 ** (attempt + 1), error.retry_after or 0)
                 remaining = 540 if self.deadline is None else self.deadline - self.clock()
-                if attempt == 2 or delay > 10 or delay >= remaining:
+                if attempt == 2 or delay > MAX_RATE_LIMIT_WAIT_SECONDS or delay >= remaining:
                     raise
                 print(f"Provider rate limited; retry {attempt + 1}/2 in {delay}s", flush=True)
                 time.sleep(delay)
@@ -290,7 +339,7 @@ class Gateway:
         message = choice.get("message")
         require(isinstance(message, dict) and not message.get("refusal") and not message.get("tool_calls")
                 and isinstance(message.get("content"), str), "Missing assistant JSON")
-        output = loads(message["content"])
+        output = normalize_section_placement(loads(message["content"]), sources)
         self.validate_output(sources, output)
         raw = json.dumps(output).encode("utf-8")
         if self.config["cache_seconds"] and len(raw) <= MAX_RESPONSE_BYTES:

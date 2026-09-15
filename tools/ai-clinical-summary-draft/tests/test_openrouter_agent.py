@@ -1,5 +1,6 @@
 # Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later.
 import copy
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import io
 import json
@@ -265,6 +266,40 @@ class OpenRouterTest(unittest.TestCase):
                 self.gateway.run(self.request)
             self.assertFalse(self.gateway.cache)
 
+    def test_overlapping_headings_place_each_unchanged_claim_once(self):
+        baseline = self.gateway.run(self.request)['output']
+        self.gateway.cache.clear()
+        self.gateway.cache_bytes = 0
+        output = copy.deepcopy(baseline)
+        claim_ids = output['sections'][0]['claim_ids'][:]
+        output['sections'] += [
+            {'id': 'active_problems', 'title': 'Active problems', 'claim_ids': claim_ids},
+            {'id': 'plan_follow_up', 'title': 'Plan and follow-up', 'claim_ids': claim_ids}]
+        original = copy.deepcopy(output)
+        self.gateway.transport = lambda *_args: {'model': self.config['model'], 'choices': [
+            {'finish_reason': 'stop', 'message': {'content': json.dumps(output)}}]}
+        result = self.gateway.run(self.request)['output']
+        self.assertEqual(baseline['claims'], result['claims'])
+        self.assertEqual(baseline['coverage'], result['coverage'])
+        self.assertEqual([{'id': 'active_problems', 'title': 'Active problems', 'claim_ids': claim_ids}],
+                         result['sections'])
+        self.assertEqual(original, output)
+        self.assertTrue(self.gateway.cache)
+
+    def test_unassigned_claims_are_preserved_in_the_generic_overview(self):
+        output = self.gateway.run(self.request)['output']
+        output['claims'].append({'id': 'orphan', 'text': output['claims'][0]['text'] + ' Also noted.',
+                                 'source_ids': output['claims'][0]['source_ids'][:]})
+        for sections in (output['sections'], [], [{'id': 'active_problems', 'title': 'Active problems',
+                                                   'claim_ids': [output['claims'][0]['id']]}]):
+            original = dict(output, sections=sections)
+            normalized = agent.normalize_section_placement(original, self.request['sources'])
+            self.gateway.validate_output(self.request['sources'], normalized)
+            self.assertEqual(original['claims'], normalized['claims'])
+            self.assertEqual(original['coverage'], normalized['coverage'])
+            overview = next(s for s in normalized['sections'] if s['id'] == 'clinical_overview')
+            self.assertIn('orphan', overview['claim_ids'])
+
     def test_http_200_schema_error_has_safe_actionable_diagnostic(self):
         value = {'error': {'message': 'Upstream error: Grammar error: Unimplemented keys: '
                                      '["uniqueItems"] private-key-or-source', 'code': 502}}
@@ -332,7 +367,7 @@ class OpenRouterTest(unittest.TestCase):
         self.assertEqual(1, self.gateway.cache_hits)
 
     def test_rate_limit_retries_are_bounded_and_never_cached(self):
-        for retry_after, expected_calls in ((None, 3), (20, 1)):
+        for retry_after, expected_calls in ((None, 3), (121, 1)):
             with self.subTest(retry_after=retry_after), patch.object(agent.time, 'sleep') as sleep:
                 with patch.object(self.gateway, 'transport', side_effect=agent.RateLimitError(
                         'Rate limited', retry_after)) as transport:
@@ -350,6 +385,28 @@ class OpenRouterTest(unittest.TestCase):
                 agent.api_request(self.config, 'key')
         self.assertEqual(5, raised.exception.retry_after)
         self.assertEqual('Rate limited; wait before retrying (HTTP 429)', str(raised.exception))
+
+    def test_retry_after_handles_dates_seconds_and_fractional_provider_values(self):
+        now = datetime(2026, 9, 15, 12, 0, tzinfo=timezone.utc)
+        for value, expected in ((None, None), ('60', 60), (' 1.25 ', 2),
+                                ('Tue, 15 Sep 2026 12:01:00 GMT', 60),
+                                ('Tue, 15 Sep 2026 11:59:00 GMT', 0),
+                                ('99999999999999999', 121), ('not a retry date', None)):
+            with self.subTest(value=value):
+                self.assertEqual(expected, agent.retry_after_seconds(value, now))
+
+    def test_longer_provider_wait_is_honored_within_request_deadline(self):
+        calls = []
+        def limited(config, endpoint, payload):
+            calls.append(payload)
+            if len(calls) == 1:
+                raise agent.RateLimitError('Rate limited', 60)
+            return completion(config, endpoint, payload)
+        self.gateway.transport = limited
+        with patch.object(agent.time, 'sleep') as sleep:
+            self.gateway.run(self.request)
+            sleep.assert_called_once_with(60)
+        self.assertEqual(2, len(calls))
 
     def test_total_time_budget_rejects_late_results_before_cache(self):
         def late(config, endpoint, payload):

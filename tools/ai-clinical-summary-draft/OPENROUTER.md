@@ -107,8 +107,15 @@ clinical.ai_summary_generation.http.timeoutSeconds=600
 The gateway uses OpenRouter's [structured-output format](https://openrouter.ai/docs/guides/features/structured-outputs)
 and [provider routing](https://openrouter.ai/docs/guides/routing/provider-selection).
 The provider-facing schema omits `uniqueItems`, which DeepInfra rejects with a
-grammar error. Duplicate citations and section references are still rejected by
+grammar error. Duplicate citations and repeated references within a heading are still rejected by
 the gateway validator and independently by CARLOS; the host schema is unchanged.
+When Qwen places the same claim under several headings, the gateway keeps that claim
+once under a model-proposed specific heading in preference to the general overview.
+Ties between specific headings keep the first proposed heading. Claim text, source
+citations and coverage remain identical. Unassigned claims are retained in Clinical
+overview, including when the model leaves its heading list empty. Unknown references
+and repeated IDs within a heading still fail validation. Empty headings created by
+this layout adjustment are omitted.
 It requires parameter support, restricts the provider, disables provider fallback,
 and requests `data_collection: deny` and `zdr: true`. A rejected route fails rather
 than silently relaxing these settings. These routing settings do not establish
@@ -124,8 +131,9 @@ responses are discarded and smaller source portions are retried without dropping
 text. Each gateway request has a 540-second budget; each upstream call has a
 180-second response deadline, including when OpenRouter sends keepalive whitespace.
 Only temporary rate limits (429) get up to two automatic retries, waiting 2 then
-4 seconds, or a longer numeric `Retry-After` up to 10 seconds per wait. Longer or
-date-form delays fail without an automatic retry. Retries stay within the gateway
+4 seconds, or the provider's `Retry-After` up to 120 seconds per wait. Integer or
+fractional seconds and HTTP-date values are supported; malformed hints use the
+bounded backoff. Longer waits fail without an automatic retry. Retries stay within the gateway
 time budget and keep the same model/provider. Other API errors and malformed
 content are not retried.
 
@@ -163,6 +171,43 @@ clinical completeness still needs review. The private-key preflight checks authe
 without requesting inference. Use the existing evidence panel and full-record evaluation tooling to compare
 outputs; larger models are not a guarantee of accuracy.
 
+## Full-record browser verification
+
+On 2026-09-15, Playwright reproduced the user-visible failure on NHSSYN001 through
+login, eChart and the actual Generate button. Full-record outputs exposed both
+repeated heading assignments and clinical claims omitted from all heading lists.
+The gateway now resolves this presentation metadata while retaining every claim,
+citation and coverage entry and applying the remaining validation checks.
+
+After restarting the real gateway to clear its memory cache, the full browser run
+completed in **65.684 seconds**, displaying **98 claims and all 20 source entries**
+(19 signed notes plus host identity). Each of the five gateway passes reported
+zero cache hits. The subsequent fully cached browser repeat completed in
+**1.028 seconds** with the same 98 claims and 20 source entries. The test checked the unverified AI banner and Qwen provenance,
+unchanged source evidence, citation selection, pending-button behavior, CSRF
+rejection, return to recorded facts, and 1440/390/320-pixel layouts. There were no
+browser JavaScript errors. This verifies the tested workflow, not medical accuracy
+or every synthetic patient's latency.
+
+The reproducible test is `tests/generation-browser-checks.cjs`. It opens the eChart
+to establish program context and writes timing/count/error results plus screenshots.
+Supply an authenticated Playwright storage-state file outside the repository:
+
+```bash
+AI_SUMMARY_URL=http://127.0.0.1:8080/carlos/clinical/AiSummaryPrototype \
+AI_SUMMARY_STORAGE_STATE=/private/path/authenticated-state.json \
+AI_SUMMARY_DEMOGRAPHIC=3001 \
+AI_SUMMARY_AGENT_LABEL='OpenRouter / qwen/qwen3.5-9b' \
+AI_SUMMARY_OUTPUT_DIR=/private/path/summary-browser-results \
+node tools/ai-clinical-summary-draft/tests/generation-browser-checks.cjs
+```
+
+The node environment must have Playwright and Chromium installed. The local
+verification artifacts are under the shared Git directory's
+`ai-summary-runtime/playwright/cold-full-record-verification/`. Authentication
+state is private and is not committed. Tests call the configured live model;
+there is no mocked summary response.
+
 ## Troubleshooting
 
 - **Key rejected (401):** rerun configure and paste the intended API key.
@@ -181,6 +226,8 @@ outputs; larger models are not a guarantee of accuracy.
   gateway. The provider can return this error inside HTTP 200; the gateway now
   classifies that envelope without logging its raw body. Host validation stays on.
 - **Request or generated draft failed validation:** the chart remains unchanged.
+  Full-record Qwen output can repeat a claim across headings; use the gateway
+  version that resolves section placement before the unchanged host validation.
   Check that the app uses the matching branch build and original synthetic fixture.
   A generated answer can also fail citation/coverage checks; do not bypass validation.
 - **Gateway unavailable:** keep its terminal open; restart `serve` after a container
