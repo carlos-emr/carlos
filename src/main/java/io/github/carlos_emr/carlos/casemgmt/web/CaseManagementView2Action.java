@@ -68,7 +68,6 @@ import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDi
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
-import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
@@ -466,12 +465,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
             request.setAttribute("Prescriptions", prescriptions);
 
-            // Setup RX bean start
-            RxSessionBean bean = new RxSessionBean();
-            bean.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-            bean.setDemographicNo(Integer.parseInt(demoNo));
-            request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-            // Setup RX end
+            // Prescription state is initialized only when an Rx window is opened.
         }
 
         /* tickler */

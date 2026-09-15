@@ -1,4 +1,5 @@
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %><%--
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -51,6 +52,7 @@
 
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Print Preview</title>

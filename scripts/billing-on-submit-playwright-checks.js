@@ -146,7 +146,7 @@ function cleanupRows() {
     + ` OR (demographic_no=${Number(demographicNo)} AND billing_date='${escapeSql(billingDate)}' AND comment1 LIKE '${escapeSql(`${stamp}%`)}')`).map((row) => row[0]);
   // Bonus headers carry no appointment number, so also sweep by the item date
   // + provider + our fixture window; anything we created is deleted by id.
-  for (const id of [...new Set([...headerIds, ...createdHeaderIds])]) {
+  for (const id of new Set([...headerIds, ...createdHeaderIds])) {
     sql(`DELETE FROM billing_on_transaction WHERE ch1_id=${Number(id)}`);
     sql(`DELETE FROM billing_on_ext WHERE billing_no=${Number(id)}`);
     sql(`DELETE FROM billing_on_item WHERE ch1_id=${Number(id)}`);

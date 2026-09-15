@@ -69,6 +69,7 @@
 
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <title><fmt:message key="StaticScript.title"/></title>
@@ -79,16 +80,7 @@
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             RxSessionBean rxBean = null;
         %>
-        <%
-            if (request.getParameter("demographicNo") != null) {
-                rxBean = new RxSessionBean();
 
-                rxBean.setProviderNo((String) session.getAttribute("user"));
-                rxBean.setDemographicNo(Integer.parseInt(request.getParameter("demographicNo")));
-
-                request.getSession().setAttribute("RxSessionBean", rxBean);
-            }
-        %>
 
         <c:if test="${sessionScope.RxSessionBean == null}">
             <c:redirect url="error.html"/>
@@ -155,7 +147,7 @@
                     }).then(function() {
                         <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
-                        window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>';
+                        window.location.href = RxContext.addToUrl("${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>');
                     });
                 }
             }
@@ -179,7 +171,7 @@
                     credentials: 'same-origin',
                     body: data
                 });
-                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?";
+                location.href = RxContext.addToUrl("${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?");
             }
 
         </script>
@@ -355,7 +347,7 @@
             <td><br/>
                 <br/>
                 <input type="button" value="Back To Search Drug" class="ControlPushButton"
-                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/></td>
+                       onclick="window.location.href=RxContext.addToUrl('<%= request.getContextPath() %>/rx/searchDrug');"/></td>
         </tr>
         <!----End new rows here-->
         <tr height="100%">

@@ -65,6 +65,7 @@
 
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
         <title><fmt:message key="SearchDrug.title.CopyFavorites"/></title>
@@ -122,7 +123,7 @@
                             <tr>
                                 <td>
                                     <div class="DivContentPadding">
-                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="window.location.href=RxContext.addToUrl('<%= request.getContextPath() %>/rx/searchDrug');"/>
                                     </div>
                                 </td>
                             </tr>

@@ -57,6 +57,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/rx/styles.css">
         <script type="text/javascript"

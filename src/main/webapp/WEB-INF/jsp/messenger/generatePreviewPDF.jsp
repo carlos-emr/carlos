@@ -48,7 +48,6 @@
   Session dependencies:
   - msgSessionBean: Message session state management
   - EctSessionBean: Encounter session for patient context
-  - RxSessionBean: Prescription session for medication data
   - Patient object for prescription profile generation
 
   @since 2003
@@ -66,8 +65,6 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -169,22 +166,6 @@
                 + "&demographic_no=" + encDemoNo;
         pageContext.setAttribute("ecUri", ecUri);
     }
-
-    // Setup prescription session bean and patient data for drug profile generation
-    RxSessionBean Rxbean;
-    if (request.getSession().getAttribute("RxSessionBean") != null) {
-        Rxbean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-    } else {
-        Rxbean = new RxSessionBean();
-    }
-    request.getSession().setAttribute("RxSessionBean", Rxbean);
-
-    RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demographic_no);
-    if (patient != null) {
-        request.getSession().setAttribute("Patient", patient);
-    }
-    Rxbean.setProviderNo((String) request.getSession().getAttribute("user"));
-    Rxbean.setDemographicNo(demographicNoInt);
 
     String rxUri = request.getContextPath() + "/rx/ViewPrintDrugProfile2?demographic_no=" + encDemoNo;
     pageContext.setAttribute("rxUri", rxUri);

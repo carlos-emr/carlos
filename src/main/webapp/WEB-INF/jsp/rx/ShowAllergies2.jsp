@@ -94,6 +94,7 @@
 %>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="EditAllergies.title"/></title>
 

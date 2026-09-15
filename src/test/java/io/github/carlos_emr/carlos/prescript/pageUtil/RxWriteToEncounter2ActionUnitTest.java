@@ -5,7 +5,6 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDao;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
-import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -14,7 +13,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -39,7 +37,6 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     private CaseManagementNote note;
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> loggedIn;
-    private MockedConstruction<EctProgram> program;
 
     @BeforeEach
     void setUp() {
@@ -47,6 +44,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse();
         request.addParameter("expectedDemographicNo", "42");
         request.addParameter("body", "exact prescription text");
+        request.setAttribute(RxSessionFilter.PROGRAM_REQUEST_ATTRIBUTE, "0");
         request.getSession().setAttribute("user", "999998");
         request.getSession().setAttribute("case_program_id", "0");
         sessionBean = new RxSessionBean();
@@ -69,13 +67,10 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
         loggedIn = mockStatic(LoggedInInfo.class);
         loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
-        program = mockConstruction(EctProgram.class, (mock, context) ->
-                when(mock.getProgram(anyString())).thenReturn("0"));
     }
 
     @AfterEach
     void tearDown() {
-        program.close();
         loggedIn.close();
         servlet.close();
     }
@@ -136,6 +131,29 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(login, "_rx", "w", "42")).thenReturn(false);
         assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
         verifyNoInteractions(notes, tmpDao);
+    }
+
+    @Test
+    void shouldRejectBeforeNoteAccess_whenWorkspaceProgramIsMissing() throws Exception {
+        request.removeAttribute(RxSessionFilter.PROGRAM_REQUEST_ATTRIBUTE);
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        verifyNoInteractions(notes, tmpDao);
+    }
+
+    @Test
+    void shouldUseWorkspaceProgram_whenAnotherChartChangesSharedProgram() throws Exception {
+        request.setAttribute(RxSessionFilter.PROGRAM_REQUEST_ATTRIBUTE, "7");
+        request.getSession().setAttribute("case_program_id", "99");
+        when(notes.getLastSaved("7", "42", "999998")).thenReturn(note);
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        verify(notes).getLastSaved("7", "42", "999998");
+        verify(notes).getTmpSave("999998", "42", "7");
+        verify(notes).saveNoteSimple(note);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
     }
 
     @Test

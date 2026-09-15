@@ -59,7 +59,7 @@ for k in rows.demographic rows.appointment rows.prescription rows.drugs rows.all
 # fixture files); what must not happen is a stored document losing its file.
 missing=$(mariadb -u root carlos -Nse "SELECT docfilename FROM document" | while read -r f; do [ -e "/var/lib/carlos-emr/CarlosDocument/carlos/document/$f" ] || echo "$f"; done | wc -l)
 [ "$missing" = 0 ] && ok "no stored document lost its file (store $(g $PRE docs.files) -> $(g $POST docs.files) files)" || bad "$missing document file(s) missing after upgrade"
-echo "$(g $POST war.buildtag)" | grep -qF "$EXPECT_TAG" && ok "build tag carries the new version and deb stamp" || bad "build tag: $(g $POST war.buildtag)"
+g "$POST" war.buildtag | grep -qF "$EXPECT_TAG" && ok "build tag carries the new version and deb stamp" || bad "build tag: $(g $POST war.buildtag)"
 [ "$(g $POST http.front)" = 200 ] && ok "front door 200" || bad "front door $(g $POST http.front)"
 echo "NOTE consultServices.active $(g $PRE consultServices.active) -> $(g $POST consultServices.active); prescription sig ids $(g $PRE prescription.sigIds) -> $(g $POST prescription.sigIds) (demo-data is skipped on an already-loaded install, so data-seed fixes reach fresh installs only)"
 echo "== $pass passed, $fail failed =="
