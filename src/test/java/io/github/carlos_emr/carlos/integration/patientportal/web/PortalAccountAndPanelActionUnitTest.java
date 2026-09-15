@@ -228,6 +228,32 @@ class PortalAccountAndPanelActionUnitTest {
         }
 
         @Test
+        @DisplayName("should reject a disable reason longer than the portal accepts")
+        void shouldRefuseDisable_whenReasonIsTooLong() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "x".repeat(65));
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verifyNoInteractions(patientPortalService);
+        }
+
+        @Test
+        @DisplayName("should reject formatting controls in a disable reason")
+        void shouldRefuseDisable_whenReasonContainsFormattingControl() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "patient request\u202Eapproved");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verifyNoInteractions(patientPortalService);
+        }
+
+        @Test
         @DisplayName("should disable with the supplied reason")
         void shouldDisableAccount_whenReasonIsGiven() throws Exception {
             request.setParameter("method", "access");
