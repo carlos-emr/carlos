@@ -37,6 +37,8 @@
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
+    <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/email-compose-popup.js"></script>
+    <fmt:message key="email.compose.msg.copyFailed" var="emailCopyFailed"/>
 
     <style type="text/css">
         .search-email-menu {
@@ -272,7 +274,7 @@
         function resend(emailLogId) {
             const url = $("#emailSearchForm").attr("action");
             const data = "method=resendEmail&logId=" + emailLogId;
-            window.open(url + "?" + data, "_blank", "width=1100,height=1000");
+            openEmailCompose(url + "?" + data, 1100, 1000, "${carlos:forJavaScript(emailCopyFailed)}");
         }
 
         function resetForm() {
@@ -283,6 +285,7 @@
     </script>
 
 <body>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 
 <div id="bodyrow" class="container-fluid">

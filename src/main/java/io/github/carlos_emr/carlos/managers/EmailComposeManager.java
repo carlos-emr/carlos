@@ -120,6 +120,19 @@ public class EmailComposeManager {
         return prepareEFormAttachments(loggedInInfo, fdid, attachedEForms, null);
     }
 
+    /**
+     * Renders selected eForm attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param loggedInInfo current provider and security context
+     * @param fdid optional source eForm data identifier
+     * @param attachedEForms additional selected eForm identifiers
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
     public List<EmailAttachment> prepareEFormAttachments(
             LoggedInInfo loggedInInfo,
             String fdid,
@@ -161,6 +174,18 @@ public class EmailComposeManager {
         return prepareEDocAttachments(loggedInInfo, attachedDocuments, null);
     }
 
+    /**
+     * Renders selected document attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param loggedInInfo current provider and security context
+     * @param attachedDocuments selected document identifiers
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
     public List<EmailAttachment> prepareEDocAttachments(
             LoggedInInfo loggedInInfo,
             String[] attachedDocuments,
@@ -198,6 +223,18 @@ public class EmailComposeManager {
         return prepareLabAttachments(loggedInInfo, attachedLabs, null);
     }
 
+    /**
+     * Renders selected lab attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param loggedInInfo current provider and security context
+     * @param attachedLabs selected lab identifiers
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
     public List<EmailAttachment> prepareLabAttachments(
             LoggedInInfo loggedInInfo,
             String[] attachedLabs,
@@ -235,6 +272,18 @@ public class EmailComposeManager {
         return prepareHRMAttachments(loggedInInfo, attachedHRMDocuments, null);
     }
 
+    /**
+     * Renders selected HRM report attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param loggedInInfo current provider and security context
+     * @param attachedHRMDocuments selected hospital-report identifiers
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
     public List<EmailAttachment> prepareHRMAttachments(
             LoggedInInfo loggedInInfo,
             String[] attachedHRMDocuments,
@@ -280,6 +329,20 @@ public class EmailComposeManager {
         return prepareFormAttachments(request, response, attachedForms, demographicId, null);
     }
 
+    /**
+     * Renders selected form attachments and optionally transfers their files to a compose directory.
+     * The caller retains ownership of the directory and must close it after use or transfer it to
+     * submission state. This method does not close it on failure, allowing the caller to clean the
+     * entire attempt, including attachments prepared by earlier calls.
+     *
+     * @param request current authenticated request
+     * @param response current servlet response
+     * @param attachedForms selected form identifiers
+     * @param demographicId patient whose forms are rendered
+     * @param workingDirectory caller-owned directory, or null to retain legacy renderer paths
+     * @return prepared attachment metadata; empty when no attachments are selected
+     * @throws PDFGenerationException if a selected attachment cannot be rendered or safely adopted
+     */
     public List<EmailAttachment> prepareFormAttachments(
             HttpServletRequest request,
             HttpServletResponse response,

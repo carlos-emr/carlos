@@ -317,6 +317,11 @@ public class ManageEmails2Action extends ActionSupport {
      * @see TransactionType#DIRECT
      */
     public String resendEmail() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // This endpoint is also used by the patient-chart email-note viewer, not only by the
         // administration screen. Require the same email-read privilege enforced by

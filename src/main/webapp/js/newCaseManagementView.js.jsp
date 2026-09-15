@@ -1803,8 +1803,9 @@ function updateCPPNote() {
         });
     }
 
+    <fmt:message key="email.compose.msg.copyFailed" var="emailCopyFailed"/>
     function viewEmailByLogId(width, height, url) {
-        window.open(url, "_blank", "width=1100,height=1000");
+        openEmailCompose(url, width, height, "${carlos:forJavaScript(emailCopyFailed)}");
     }
 
 //this func fires only if maximize button is clicked

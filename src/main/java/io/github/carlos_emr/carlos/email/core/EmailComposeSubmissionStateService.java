@@ -137,7 +137,18 @@ public class EmailComposeSubmissionStateService {
 
     /**
      * Stores compose state together with the server-owned directory containing its generated PDFs.
-     * Ownership transfers to this service only after the state has been accepted.
+     * Ownership transfers to this service only after the state has been accepted. The caller must
+     * close the directory if storing fails; after success the service or consumed state closes it.
+     *
+     * @param session session that owns the token
+     * @param emailPDFPassword generated passphrase kept only in memory
+     * @param emailPDFPasswordClue non-secret instruction for separate delivery
+     * @param emailAttachmentList original attachment metadata to snapshot
+     * @param context trusted patient and transaction context
+     * @param workingDirectory directory transferred on successful storage, or null
+     * @return opaque single-use submission token
+     * @throws IllegalStateException if the cache is closed or its global capacity is exhausted
+     * @since 2026-08-14
      */
     public String store(
             HttpSession session,
@@ -157,7 +168,16 @@ public class EmailComposeSubmissionStateService {
                 false);
     }
 
-    /** Stores a context-only token that is accepted by Cancel but cannot be used to send. */
+    /**
+     * Stores trusted routing context for cancellation after a failed compose attempt.
+     * The resulting token cannot send email and transfers no working directory.
+     *
+     * @param request request whose session will own the token
+     * @param context trusted patient and transaction context to retain
+     * @return opaque single-use cancellation token
+     * @throws IllegalStateException if the cache is closed or its global capacity is exhausted
+     * @since 2026-08-14
+     */
     public String storeCancelContext(HttpServletRequest request, EmailComposeSubmissionContext context) {
         return store(request.getSession(), "", "", List.of(), context, null, true);
     }
@@ -242,7 +262,19 @@ public class EmailComposeSubmissionStateService {
                 request, emailPdfPasswordService, emailAttachmentList, context, null);
     }
 
-    /** Prepares tokenized compose state that owns its generated-PDF working directory. */
+    /**
+     * Generates a fresh passphrase and stores tokenized compose state with its PDF directory.
+     * Directory ownership transfers only on success; the caller must close it on failure.
+     *
+     * @param request request whose session owns the state and locale selects the delivery instruction
+     * @param emailPdfPasswordService generator for the fresh random passphrase
+     * @param emailAttachmentList original attachment metadata to snapshot
+     * @param context trusted patient and transaction context
+     * @param workingDirectory caller-owned directory to transfer, or null
+     * @return display-only passphrase/instruction and the token to submit
+     * @throws IllegalStateException if generation fails or the state cannot be stored
+     * @since 2026-08-14
+     */
     public EmailPdfPasswordSubmissionState preparePdfPasswordSubmissionState(
             HttpServletRequest request,
             EmailPdfPasswordService emailPdfPasswordService,
@@ -259,7 +291,11 @@ public class EmailComposeSubmissionStateService {
                 emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken);
     }
 
-    /** Creates a private generated-PDF directory whose ownership can be transferred to a state. */
+    /**
+     * Creates an isolated directory for generated PDFs.
+     * @return caller-owned directory that must be closed or transferred to stored submission state
+     * @throws IllegalStateException if a secure working directory cannot be created
+     */
     public EmailComposeWorkingDirectory createWorkingDirectory() {
         try {
             return EmailComposeWorkingDirectory.create();

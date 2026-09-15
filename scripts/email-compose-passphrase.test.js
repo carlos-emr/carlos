@@ -80,3 +80,18 @@ test('eForm cancellation posts normally so the server can redirect to its truste
   assert.deepEqual(f.events, ['submit']);
   assert.ok(f.form.action.endsWith('/email/emailSendAction?method=cancel'));
 });
+
+test('an unavailable cleartext compose state does not open a disabled confirmation modal', () => {
+  const first = source.indexOf('    document.addEventListener("DOMContentLoaded"');
+  const ready = source.slice(first, source.indexOf('    document.addEventListener("keydown"', first));
+  const events = [];
+  vm.runInNewContext(ready, {
+    document: { addEventListener: (name, fn) => fn(), querySelectorAll: () => [],
+      getElementById: id => id === 'disableEncryptionModal' ? null : { value: 'true' } },
+    applyEncryptionState: () => events.push('state'), convertAttachmentSize() {},
+    showEncryptionOptions: () => assert.fail('state errors must not open the confirmation dialog'),
+    selectPatientChartOption() {}, toggleInternalTextArea() {},
+    disableForm: () => events.push('disabled')
+  });
+  assert.deepEqual(events, ['state', 'disabled']);
+});

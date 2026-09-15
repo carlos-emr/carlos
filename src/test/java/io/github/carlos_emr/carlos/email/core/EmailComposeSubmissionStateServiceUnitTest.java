@@ -34,7 +34,7 @@ class EmailComposeSubmissionStateServiceUnitTest {
 
     @Test
     @DisplayName("should retain owned files until consumed state is closed")
-    void shouldTransferWorkingDirectoryOwnershipToConsumedState() throws Exception {
+    void shouldRetainOwnedFiles_untilConsumedStateIsClosed() throws Exception {
         EmailComposeSubmissionStateService service = new EmailComposeSubmissionStateService();
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         EmailComposeWorkingDirectory workingDirectory = createWorkingDirectory();
@@ -58,7 +58,7 @@ class EmailComposeSubmissionStateServiceUnitTest {
 
     @Test
     @DisplayName("should clean owned files on expiry and session destruction")
-    void shouldCleanWorkingDirectoriesOnExpiryAndSessionClear() throws Exception {
+    void shouldCleanWorkingDirectories_onExpiryAndSessionClear() throws Exception {
         MutableClock clock = new MutableClock(Instant.parse("2026-07-23T12:00:00Z"));
         EmailComposeSubmissionStateService service = new EmailComposeSubmissionStateService(clock);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
@@ -85,7 +85,7 @@ class EmailComposeSubmissionStateServiceUnitTest {
 
     @Test
     @DisplayName("should clean owned files on per-session eviction and shutdown")
-    void shouldCleanWorkingDirectoriesOnEvictionAndShutdown() throws Exception {
+    void shouldCleanWorkingDirectories_onEvictionAndShutdown() throws Exception {
         EmailComposeSubmissionStateService service = new EmailComposeSubmissionStateService();
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         List<Path> paths = new ArrayList<>();
@@ -231,7 +231,7 @@ class EmailComposeSubmissionStateServiceUnitTest {
 
     @Test
     @DisplayName("concurrent submissions transfer token ownership exactly once")
-    void shouldAllowOnlyOneConcurrentConsumer() throws Exception {
+    void shouldAllowOnlyOneConsumer_duringConcurrentConsumption() throws Exception {
         var service = new EmailComposeSubmissionStateService();
         var owner = new MockHttpServletRequest();
         var directory = createWorkingDirectory();

@@ -48,6 +48,19 @@ class HttpMethodGuardSetResolvedUnitTest {
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    void shouldBlockEmailCopy_withoutPost(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        when(request.getRequestURI()).thenReturn("/carlos/admin/ManageEmails");
+        when(request.getParameter("method")).thenReturn("resendEmail");
+        filter.doFilter(request, response, chain);
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                "GET requests are not allowed on this endpoint. Use POST.");
+        verify(response).setHeader("Allow", "POST");
+        verify(chain, never()).doFilter(request, response);
+    }
+
     @Test
     @DisplayName("should block GET with method=setResolved")
     void shouldBlockGet_whenMethodIsSetResolved() throws Exception {

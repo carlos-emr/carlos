@@ -56,7 +56,7 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        request = new MockHttpServletRequest();
+        request = new MockHttpServletRequest("POST", "/admin/ManageEmails");
         response = new MockHttpServletResponse();
         demographicManager = mock(DemographicManager.class);
         emailComposeManager = mock(EmailComposeManager.class);
@@ -86,6 +86,19 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    void shouldRejectCopy_withoutPost(String method) {
+        request.setMethod(method);
+        request.setParameter("method", "resendEmail");
+        request.setParameter("logId", "42");
+        assertThat(new ManageEmails2Action().execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(emailComposeManager, demographicManager, documentAttachmentManager,
+                emailManager, formsManager, securityInfoManager);
     }
 
     @Test

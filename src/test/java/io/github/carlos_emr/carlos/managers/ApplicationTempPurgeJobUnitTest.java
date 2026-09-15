@@ -181,7 +181,7 @@ class ApplicationTempPurgeJobUnitTest {
 
     @Test
     @DisplayName("Removes an orphaned email compose directory but retains an active one")
-    void shouldSweepOnlyExpiredEmailComposeWorkingDirectories() throws IOException {
+    void shouldRemoveOnlyExpiredEmailComposeWorkingDirectories_whenSweeping() throws IOException {
         Instant now = Instant.now();
         Instant cutoff = now.minus(24, ChronoUnit.HOURS);
         Path orphan = Files.createDirectory(tempRoot.resolve("email-compose-orphan"));
@@ -207,7 +207,7 @@ class ApplicationTempPurgeJobUnitTest {
 
     @Test
     @DisplayName("Retains an actively owned compose directory after its on-disk lease expires")
-    void shouldRetainActivelyOwnedEmailComposeWorkingDirectory() throws IOException {
+    void shouldRetainEmailComposeWorkingDirectory_whenActivelyOwned() throws IOException {
         Path activeDirectory = Files.createDirectory(tempRoot.resolve("email-compose-active-owner"));
         Files.createFile(activeDirectory.resolve("artifact.pdf"));
         Files.writeString(
@@ -227,7 +227,7 @@ class ApplicationTempPurgeJobUnitTest {
 
     @Test
     @DisplayName("Rejects a far-future email compose lease so orphan cleanup remains bounded")
-    void shouldRejectUnboundedEmailComposeLease() throws IOException {
+    void shouldRemoveEmailComposeWorkingDirectory_whenLeaseIsUnbounded() throws IOException {
         Path orphan = Files.createDirectory(tempRoot.resolve("email-compose-unbounded-lease"));
         Files.createFile(orphan.resolve("artifact.pdf"));
         Files.writeString(

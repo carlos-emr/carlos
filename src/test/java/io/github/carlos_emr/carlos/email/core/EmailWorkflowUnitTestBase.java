@@ -16,7 +16,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-/** Real token storage and isolated filesystem for email action contract tests. */
+/**
+ * Base fixture for email action contract tests using real single-use token storage.
+ * Each test receives a temporary root for owned PDF directories and mocked passphrase/preview
+ * dependencies. Submission creation is explicit, so invalid-request tests do not gain valid state
+ * automatically. After each test the state service shuts down and removes its retained files;
+ * JUnit removes the isolated temporary root.
+ */
 public abstract class EmailWorkflowUnitTestBase extends CarlosUnitTestBase {
     @TempDir protected Path emailTempDir;
     protected EmailComposeSubmissionStateService submissionStates;

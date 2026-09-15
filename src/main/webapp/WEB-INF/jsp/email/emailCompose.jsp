@@ -771,7 +771,6 @@
         if (document.getElementById('isEmailError').value === 'true') {
             if (document.getElementById('isEmailComposeStateError').value === 'true') {
                 convertAttachmentSize();
-                showEncryptionOptions();
                 selectPatientChartOption();
                 toggleInternalTextArea();
                 disableForm();

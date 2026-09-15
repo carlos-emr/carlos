@@ -23,7 +23,7 @@ class EmailComposeWorkingDirectoryUnitTest {
 
     @Test
     @DisplayName("owns generated PDFs and removes them idempotently")
-    void shouldOwnAndRemoveGeneratedPdf() throws IOException {
+    void shouldOwnAndRemovePdf_whenGenerated() throws IOException {
         Path applicationRoot = tempDirectory.resolve("carlos-temp");
         Path generatedPdf = Files.writeString(tempDirectory.resolve("generated.pdf"), "patient data");
         EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create(applicationRoot);
@@ -46,7 +46,7 @@ class EmailComposeWorkingDirectoryUnitTest {
 
     @Test
     @DisplayName("recognizes an active owner when the application temp root is symlinked")
-    void shouldRecognizeActiveOwnerThroughSymlinkedRoot() throws IOException {
+    void shouldRecognizeActiveOwner_throughSymlinkedRoot() throws IOException {
         Path applicationRoot = tempDirectory.resolve("carlos-temp");
         EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create(applicationRoot);
         Path rootAlias = tempDirectory.resolve("carlos-temp-alias");
@@ -66,7 +66,7 @@ class EmailComposeWorkingDirectoryUnitTest {
 
     @Test
     @DisplayName("copies a durable source document without deleting it")
-    void shouldNotDeleteDurableSourceDocument() throws IOException {
+    void shouldRetainDurableSource_whenClosingOwnedDirectory() throws IOException {
         Path applicationRoot = tempDirectory.resolve("carlos-temp");
         Path durableRoot = Files.createTempDirectory(
                 Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize(),
@@ -92,7 +92,7 @@ class EmailComposeWorkingDirectoryUnitTest {
 
     @Test
     @DisplayName("deletes an internal symlink without following it")
-    void shouldNotFollowSymlinkDuringCleanup() throws IOException {
+    void shouldNotFollowSymlink_duringCleanup() throws IOException {
         Path applicationRoot = tempDirectory.resolve("carlos-temp");
         Path externalFile = Files.writeString(tempDirectory.resolve("external.pdf"), "must remain");
         EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create(applicationRoot);
@@ -116,7 +116,7 @@ class EmailComposeWorkingDirectoryUnitTest {
 
     @Test
     @DisplayName("rejects symbolic-link input and unexpected file types")
-    void shouldRejectUnsafeGeneratedArtifacts() throws IOException {
+    void shouldRejectArtifacts_whenUnsafe() throws IOException {
         Path applicationRoot = tempDirectory.resolve("carlos-temp");
         Path target = Files.writeString(tempDirectory.resolve("target.pdf"), "patient data");
         Path symlink = tempDirectory.resolve("link.pdf");
@@ -141,7 +141,7 @@ class EmailComposeWorkingDirectoryUnitTest {
 
     @Test
     @DisplayName("rejects a symbolic-link application temp root")
-    void shouldRejectSymbolicLinkApplicationTempRoot() throws IOException {
+    void shouldRejectApplicationTempRoot_whenSymbolicLink() throws IOException {
         Path externalDirectory = Files.createDirectory(tempDirectory.resolve("external-temp-root"));
         Path applicationRoot = tempDirectory.resolve("carlos-temp");
         try {

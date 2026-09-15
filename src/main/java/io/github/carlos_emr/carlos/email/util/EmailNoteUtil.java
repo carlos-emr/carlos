@@ -203,8 +203,8 @@ public class EmailNoteUtil {
             }
         }
 
-        // Attachment PDF passwords are deliberately never written into the chart note (issue #3112);
-        // the password clue added by addEncryptionInformation is the safe hint shown to staff.
+        // Attachment PDF passwords and clues are never written into the chart note (issue #3112);
+        // addEncryptionInformation records encryption and separate password delivery.
         addEFormAttachments(eFormDataList, noteBuilder);
         addDocumentAttachments(eDocList, noteBuilder);
         addLabAttachments(labResultDataList, noteBuilder);
