@@ -2,7 +2,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
-<html lang="en"><head><title>Email password delivery</title></head><body>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}"><head><title>Email password delivery</title></head><body>
 <h1>Email password delivery</h1>
 <c:choose>
     <c:when test="${portalRecoveryError}">
