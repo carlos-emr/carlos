@@ -88,9 +88,9 @@ includes a comment explaining its category.
 
 ### How it runs
 
-PMD does not need compiled code. The workflow uses the official `pmd/pmd-github-action@v2`
-action, which downloads PMD and runs it directly against `src/main/java` — no dev container
-or Maven build required.
+PMD does not need compiled code. The workflow downloads the pinned PMD CLI release (cached
+between runs) and runs it directly against `src/main/java` and `src/test/java` — no third-party
+action, dev container, or Maven build required.
 
 ---
 
@@ -172,13 +172,17 @@ Suppresses known false positives:
 SpotBugs needs compiled `.class` files, so the workflow uses the dev container (same as
 `maven-project.yml`):
 
-1. Pull or build the `carlos-tomcat-dev` container
-2. Restore Maven dependency cache
-3. Run `mvn -DskipTests -Pspotbugs,skip-dependency-lock compile spotbugs:spotbugs`
-4. Convert the SpotBugs XML report (`target/spotbugs-result.xml`) to SARIF format
-5. Upload SARIF to GitHub Security tab
+1. Start the `carlos-tomcat-dev` container through the `.github/actions/dev-container`
+   composite action (pulled from ghcr.io, or built locally when it is not in the registry),
+   which also restores the shared Maven dependency cache
+2. Run `mvn -DskipTests -Pspotbugs,skip-dependency-lock compile spotbugs:spotbugs`
+3. Convert the SpotBugs XML report (`target/spotbugs-result.xml`) to SARIF with
+   `scripts/ci/spotbugs-xml-to-sarif.py`
+4. Upload SARIF to GitHub Security tab
 
-The XML-to-SARIF conversion uses an inline Python script (no third-party action dependency).
+The XML-to-SARIF conversion is a plain Python script (no third-party action dependency); run it
+locally with `REPORT=target/spotbugs-result.xml python3 scripts/ci/spotbugs-xml-to-sarif.py`
+(it needs `defusedxml`: `python3 -m pip install -r scripts/ci/requirements.txt`).
 
 ---
 
@@ -191,9 +195,8 @@ uploads to a separate SARIF category (`pmd` and `spotbugs`) so alerts can be fil
 
 ### Pull Request Annotations
 
-PMD findings appear as inline annotations on the PR diff via `pmd-github-action`.
-SpotBugs findings appear via the SARIF upload (GitHub renders them as code scanning alerts on
-the PR).
+PMD and SpotBugs findings appear via their SARIF uploads (GitHub renders them as code scanning
+alerts on the PR).
 
 ### Job Summary
 
