@@ -592,10 +592,6 @@ class JspEncodingRegressionTest {
                     .containsPattern(carlosEncodePattern("allergies\\[j\\]\\.getReaction\\(\\)", "htmlAttribute"))
                     .containsPattern(carlosEncodePattern(
                             "allergies\\[j\\]\\.getShortDesc\\(13, 8, \"\\.\\.\\.\"\\)", "html"))
-                    .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "htmlAttribute"))
-                    .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "html"))
-                    .containsPattern(carlosEncodePattern(
-                            "favorites\\[j\\]\\.getFavoriteName\\(\\)\\.substring\\(0, 10\\) \\+ \"\\.\\.\\.\"", "html"))
                     .doesNotContainPattern(
                             "title\\s*=\\s*\"<%=\\s*allergies\\[j\\]\\.getDescription\\(\\)\\s*%>")
                     // The negative lookbehind keeps these from matching the scriptlet inside a
@@ -603,6 +599,34 @@ class JspEncodingRegressionTest {
                     .doesNotContainPattern("(?<!value=')<%=\\s*allergies\\[j\\]\\.getShortDesc\\(")
                     .doesNotContainPattern("title\\s*=\\s*\"<%=\\s*favorites\\[j\\]\\.getFavoriteName\\(\\)\\s*%>\"")
                     .doesNotContainPattern("(?<!value=')<%=\\s*favorites\\[j\\]\\.getFavoriteName\\(\\)");
+        }
+
+        // #2379 moved the prescribing sidebar to precomputed SafeEncode values while the two
+        // read-only sidebars kept the inline <carlos:encode> form. Both are safe, but they are not
+        // interchangeable to a regex, so favorite-name rendering is pinned per file from here on.
+        // The prescribing sidebar normalises the name once, then renders the encoded values: an
+        // unencoded favoriteTitle/favoriteDisplayName would put stored provider input straight into
+        // the title attribute and the link text.
+        assertThat(readJsp("rx/SideLinksEditFavorites2.jsp"))
+                .as("rx/SideLinksEditFavorites2.jsp")
+                .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
+                .contains("String favoriteName = StringUtils.noNull(favorites[j].getFavoriteName());")
+                .contains("String favoriteTitle = SafeEncode.forHtmlAttribute(favoriteName);")
+                .containsPattern("title\\s*=\\s*\"<%=\\s*favoriteTitle\\s*%>\"")
+                .containsPattern("<%=\\s*SafeEncode\\.forHtmlContent\\(favoriteDisplayName\\)\\s*%>")
+                // Only the already-encoded values may reach the markup.
+                .doesNotContainPattern("title\\s*=\\s*\"<%=\\s*(?:favoriteName|favoriteDisplayName)\\s*%>\"")
+                .doesNotContainPattern(">\\s*<%=\\s*(?:favoriteName|favoriteDisplayName)\\s*%>");
+
+        for (String readOnlySidebar : List.of(
+                "rx/SideLinksNoEditFavorites.jsp",
+                "rx/SideLinksNoEditFavorites2.jsp")) {
+            assertThat(readJsp(readOnlySidebar))
+                    .as(readOnlySidebar)
+                    .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "htmlAttribute"))
+                    .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "html"))
+                    .containsPattern(carlosEncodePattern(
+                            "favorites\\[j\\]\\.getFavoriteName\\(\\)\\.substring\\(0, 10\\) \\+ \"\\.\\.\\.\"", "html"));
         }
     }
 
