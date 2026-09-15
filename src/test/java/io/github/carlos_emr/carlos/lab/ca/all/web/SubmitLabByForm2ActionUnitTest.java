@@ -20,9 +20,14 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.web;
 
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+
 import io.github.carlos_emr.carlos.lab.ca.all.util.CMLLabHL7Generator;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +37,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
 
 /**
@@ -114,28 +121,23 @@ class SubmitLabByForm2ActionUnitTest extends CarlosWebTestBase {
         cmlGeneratorMock = mockStatic(CMLLabHL7Generator.class);
         cmlGeneratorMock.when(() -> CMLLabHL7Generator.generate(any())).thenReturn(hl7WithLf);
 
-        // When — saveManage proceeds past HL7 generation to file save (which will fail,
-        // but the MSH extraction happens before that). We just need to verify no PHI is logged.
-        // The action will throw during file save since Utilities.saveFile() isn't mocked,
-        // but the log statement at line 184 already executed by then.
-        try {
-            executeActionMethod(action, "saveManage");
-        } catch (Exception e) {
-            // Expected — file save infrastructure not mocked
-        }
+        // Stop immediately after the log statement so this test never writes to the configured
+        // DOCUMENT_DIR or invokes the downstream lab import infrastructure.
+        try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class);
+                LogCapture logCapture = LogCapture.forLogger(SubmitLabByForm2Action.class)) {
+            utilitiesMock.when(() -> Utilities.saveFile(any(InputStream.class), anyString()))
+                    .thenThrow(new IllegalStateException("stop after HL7 metadata logging"));
 
-        // Then — verify the MSH extraction logic didn't fall through to full HL7.
-        // We can't easily inspect the log output, but we can verify the extraction logic
-        // directly by checking the same algorithm the action uses:
-        int firstSep = hl7WithLf.indexOf('\r');
-        if (firstSep <= 0) {
-            firstSep = hl7WithLf.indexOf('\n');
-        }
-        String extractedSegment = firstSep > 0 ? hl7WithLf.substring(0, firstSep) : "[MSH extraction failed]";
+            assertThatThrownBy(() -> executeActionMethod(action, "saveManage"))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .hasCauseInstanceOf(IllegalStateException.class);
 
-        assertThat(extractedSegment).isEqualTo(msh);
-        assertThat(extractedSegment).doesNotContain("PID");
-        assertThat(extractedSegment).doesNotContain("Test^Patient");
-        assertThat(extractedSegment).doesNotContain("1234567890");
+            assertThat(logCapture.messages()).anySatisfy(message -> {
+                assertThat(message).contains("HL7 generated", "MSH=", "CML|CML|OSCAR|OSCAR");
+                assertThat(message).doesNotContain("PID");
+                assertThat(message).doesNotContain("Test^Patient");
+                assertThat(message).doesNotContain("1234567890");
+            });
+        }
     }
 }

@@ -203,6 +203,15 @@
     <div id="error-code">
         <h2><fmt:message key="error.msgException"/>:</h2>
         <p>CARLOS Error: ${carlos:forHtml(_responseStatus)}</p>
+        <%-- Set by CarlosExceptionMappingInterceptor when an action's uncaught exception was
+             mapped here. The same id is on the log line that carries the trace, so this is the
+             one thing worth asking a clinician to read back. Nothing else about the failure is
+             rendered outside the developer block below. --%>
+        <c:if test="${not empty carlosIncidentId}">
+            <p id="incident-reference"><fmt:message key="error.incidentReference"/>:
+                <code>${carlos:forHtml(carlosIncidentId)}</code><br/>
+                <small><fmt:message key="error.incidentReferenceHint"/></small></p>
+        </c:if>
 
         <div id="navigation">
             <a class="btn btn-secondary float-start" title="${carlos:forHtmlAttribute(btnBackTitle)}"

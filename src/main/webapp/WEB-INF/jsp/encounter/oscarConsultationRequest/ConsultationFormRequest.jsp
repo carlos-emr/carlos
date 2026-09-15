@@ -204,6 +204,24 @@
             return;
         }
         boolean canWriteConsult = securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, consultSecurityTarget);
+        Integer consultPatientId = null;
+        if (consultSecurityTarget != null) {
+            try {
+                consultPatientId = Integer.valueOf(consultSecurityTarget);
+                if (consultPatientId <= 0) consultPatientId = null;
+            } catch (NumberFormatException invalidPatientId) {
+                // Reject malformed/overflowing IDs before patient loading or any fax controls.
+            }
+            if (consultPatientId == null) {
+                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
+        }
+        boolean canFaxConsult = canWriteConsult && CarlosProperties.getInstance().isConsultationFaxEnabled()
+                && consultPatientId != null
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, consultPatientId)
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null);
 
         // Check if the selected providers is currently active. If it is not active, add it to the prList, as the list only contains active providers.
         Boolean isProviderActive = false;
@@ -245,7 +263,16 @@
         if (request.getParameter("error") != null) {
             String errorMessage = (String) request.getAttribute("errorMessage");
             if (StringUtils.isNullOrEmpty(errorMessage)) {
-                errorMessage = "The form could not be printed due to an error. Please refer to the server logs for more details.";
+                // The "error" result is shared by the save, print and fax actions on this form, so the
+                // fallback must not name printing: a failed Submit landed here too and told the clinician
+                // the form "could not be printed" when it had not been saved.
+                errorMessage = "The consultation request could not be saved or printed due to an error. Please refer to the server logs for more details.";
+            }
+            // When the "error" result was reached through an uncaught exception, the interceptor
+            // left the incident id that names the log entry; give the clinician that to quote.
+            Object incidentId = request.getAttribute("carlosIncidentId");
+            if (incidentId != null) {
+                errorMessage = errorMessage + " Reference: " + incidentId + ".";
             }
     %>
     <SCRIPT LANGUAGE="JavaScript">
@@ -1084,7 +1111,7 @@
             form.address.value = '';
             document.getElementById('annotation').value = '';
             document.getElementById('eFormButton').style.display = 'none';
-            <%if (props.isConsultationFaxEnabled()) {%>
+            <%if (canFaxConsult) {%>
             specialistFaxNumber = '';
             updateFaxButton();
             <%}%>
@@ -1106,7 +1133,7 @@
 
             document.getElementById('consult-disclaimer').style.display = 'none';
 
-            <%if (props.isConsultationFaxEnabled()) {%>
+            <%if (canFaxConsult) {%>
             specialistFaxNumber = specData.fax ? specData.fax.trim() : '';
             updateFaxButton();
             <%}%>
@@ -1509,7 +1536,7 @@
                 if (savedFax) form.fax.value = savedFax;
                 if (savedAddress) form.address.value = savedAddress;
 
-                <%if (props.isConsultationFaxEnabled()) {%>
+                <%if (canFaxConsult) {%>
                 if (savedFax) { specialistFaxNumber = savedFax.trim(); updateFaxButton(); }
                 <%}%>
 
@@ -1540,7 +1567,7 @@
                 document.getElementById("annotation").value = "";
 
                 <%
-		if (props.isConsultationFaxEnabled()) {//
+		if (canFaxConsult) {//
 		%>
                 specialistFaxNumber = "";
                 updateFaxButton();
@@ -1573,7 +1600,7 @@
                     document.getElementById("consult-disclaimer").style.display = 'none';
 
                     <%
-        		if (props.isConsultationFaxEnabled()) {//
+                if (canFaxConsult) {//
 				%>
                     specialistFaxNumber = aSpeci.specFax.trim();
                     updateFaxButton();
@@ -1622,7 +1649,7 @@
                     document.EctConsultationFormRequest2Form.fax.value = (aSpeci.specFax);					// load the text fields with phone fax and address
                     document.EctConsultationFormRequest2Form.address.value = (aSpeci.specAddress);
                     <%
-        		if (props.isConsultationFaxEnabled()) {//
+                if (canFaxConsult) {//
 				%>
                     specialistFaxNumber = aSpeci.specFax.trim();
                     updateFaxButton();
@@ -2101,7 +2128,7 @@ if (userAgent != null) {
             isSignatureDirty = e.isDirty;
             isSignatureSaved = e.isSave;
             <%
-	if (props.isConsultationFaxEnabled()) { //
+	if (canFaxConsult) { //
 	%>
             updateFaxButton();
             <% } %>
@@ -2350,7 +2377,7 @@ if (userAgent != null) {
             }
         %>
 
-        <% if (!props.isConsultationFaxEnabled() || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+        <% if (!canFaxConsult || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demo %>' context="htmlAttribute"/>">
@@ -2602,11 +2629,12 @@ if (userAgent != null) {
                                        value="<fmt:message key="global.btnPrint"/>"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
+                                <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
+                                <% if (canFaxConsult) { %>
                                     <input id="fax_button" name="updateAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndFax"/>"
                                            onclick="return checkForm('Update And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
+                                <% } %>
 
                                 <% } else { %>
                                 <input name="submitSaveOnly" type="button" class="btn btn-primary btn-sm"
@@ -2616,11 +2644,12 @@ if (userAgent != null) {
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndPrint"/>"
                                        onclick="return checkForm('Submit Consultation Request And Print Preview','EctConsultationFormRequest2Form'); "/>
 
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
+                                <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
+                                <% if (canFaxConsult) { %>
                                     <input id="fax_button" name="submitAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
                                            onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
+                                <% } %>
 
                                 <% } %>
                                 </div>
@@ -2667,7 +2696,7 @@ if (userAgent != null) {
                                 %>
 
                                 <table>
-                                    <% if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+                                    <% if (canFaxConsult && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
                                     <tr>
                                         <td class="consult-form-label" style="width:30%"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
                                         <td class="consult-form-value" style="width:70%">
@@ -3036,7 +3065,7 @@ if (userAgent != null) {
                                                 <% }
                                                 }%>
                                             </select>
-                                            <%if (props.isConsultationFaxEnabled()) {%>
+                                            <%if (canFaxConsult) {%>
                                             <div>
                                                 <input type="checkbox" id="ext_letterheadTitle"
                                                        name="ext_letterheadTitle"
@@ -3108,7 +3137,7 @@ if (userAgent != null) {
 							</td>
 						</tr>
 					</table>
-				<% if (props.isConsultationFaxEnabled()) { %>
+				<% if (canFaxConsult) { %>
                         <div class="consult-section-heading">Fax Account</div>
                                 <table class="w-100">
 								<tr>
@@ -3123,6 +3152,7 @@ if (userAgent != null) {
 										<select name="faxAccount" id="faxAccount" class="form-select form-select-sm">
 								<%
                                     for (FaxConfig faxConfig : faxConfigs) {
+                                        if (!faxConfig.isActive() || faxConfig.getFaxNumber() == null) continue;
                                 %>
 										<option value="<carlos:encode value='<%= faxConfig.getFaxNumber() %>' context="htmlAttribute"/>" <%=faxConfig.getFaxNumber().equalsIgnoreCase(consultUtil.letterheadFax) ? "selected" : ""%>><carlos:encode value='<%= faxConfig.getAccountName() %>' context="html"/></option>
 								<%
@@ -3267,7 +3297,7 @@ if (userAgent != null) {
                         <%
                             if (props.isConsultationSignatureEnabled()) {
                                 String signatureProviderNo = providerNo;
-                                if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
+                                if (canFaxConsult && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
                                     if (consultUtil.providerNo != null && !consultUtil.providerNo.trim().isEmpty()) {
                                         signatureProviderNo = consultUtil.providerNo.trim();
                                     } else if (referringProviderDefault != null && !referringProviderDefault.trim().isEmpty()) {

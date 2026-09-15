@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
  * <p>These tests focus on the poll() method's control flow: skipping inactive/download-disabled
  * configs, continuing after provider errors, and handling empty config lists. The deeper
  * import pipeline (saveAndInsertIntoQueue, PDF validation, etc.) is tested separately in
- * {@link FaxImporterCriticalGapsTest}.</p>
+ * {@link FaxImporterCriticalGapsUnitTest}.</p>
  *
  * <p><strong>Note:</strong> FaxImporter has static fields (DOCUMENT_DIR, FAX_TEMP_DIR) that
  * are initialized at class load time via CarlosProperties. This class loads successfully in
@@ -103,6 +103,35 @@ class FaxImporterPollUnitTest extends CarlosUnitTestBase {
                 .describedAs("poll() is a no-op unless the importer initialized; without this every "
                         + "assertion below would hold vacuously")
                 .isTrue();
+    }
+
+    @Test
+    @DisplayName("should persist a fixed download failure without exposing provider text or acknowledging the fax")
+    void shouldKeepDownloadFailurePrivate_whenProviderDownloadThrows() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        FaxJob received = new FaxJob();
+        received.setJobId(123L);
+        received.setStatus(FaxJob.STATUS.RECEIVED);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(config)).thenReturn(List.of(received));
+        when(faxProviderClient.downloadFax(config, received)).thenThrow(
+                new FaxProviderException("PRIVATE_DOWNLOAD_FILENAME.pdf",
+                        new java.io.IOException("PRIVATE_DOWNLOAD_CAUSE"), 503));
+
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            var saved = org.mockito.ArgumentCaptor.forClass(FaxJob.class);
+            verify(faxJobDao).persist(saved.capture());
+            assertThat(saved.getValue().getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+            assertThat(saved.getValue().getStatusString()).isEqualTo(
+                    "Incoming fax download failed. Check the fax service configuration and retry.");
+            assertThat(logs.messages()).anyMatch(message -> message.contains("HTTP 503"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_DOWNLOAD");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            verify(faxProviderClient, never()).markFaxAsRead(any(), any());
+            verify(faxProviderClient, never()).deleteFax(any(), any());
+        }
     }
 
     @org.junit.jupiter.api.AfterEach
