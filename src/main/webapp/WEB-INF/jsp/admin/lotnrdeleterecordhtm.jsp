@@ -116,7 +116,7 @@
                     <td width="50%" align="right"><fmt:message key="admin.admin.add_lot_nr.prevention"/><font color="red">:</font></td>
                     <td>
                         <input type="text" name="prevention" size=30 maxlength="30"
-                               value="<%=request.getParameter("prevention")==null?"":SafeEncode.forHtmlAttribute(request.getParameter("prevention"))%>">
+                               value="<%=request.getParameter("prevention")==null?"":SafeEncode.forHtmlAttribute(request.getParameter("prevention"))%>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     </td>
                 </tr>
 
@@ -125,7 +125,7 @@
                     </td>
                     <td><input type="text" name="lotnr" size="20"
                                maxlength="20"
-                               value="<%=request.getParameter("lotnr")==null?"":SafeEncode.forHtmlAttribute(request.getParameter("lotnr"))%>"></td>
+                               value="<%=request.getParameter("lotnr")==null?"":SafeEncode.forHtmlAttribute(request.getParameter("lotnr"))%>"></td><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 </tr>
 
                 <tr>

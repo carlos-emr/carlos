@@ -41,12 +41,17 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import java.util.Set;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 import org.openpdf.text.DocumentException;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
@@ -94,8 +99,19 @@ public class DocumentManagerImpl implements DocumentManager {
     private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
     private final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Process-wide counter that makes server-generated document filenames unique even when two
+     * uploads land in the same clock-second with the same original name. See
+     * {@link #createUniqueDocumentFile}.
+     */
+    private static final AtomicLong DOCUMENT_FILE_SEQUENCE = new AtomicLong();
+    private static final int UNIQUE_FILENAME_MAX_ATTEMPTS = 5;
+
     @Autowired
     private DocumentDao documentDao;
+
+    @Autowired
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Autowired
     private CtlDocumentDao ctlDocumentDao;
@@ -127,6 +143,7 @@ public class DocumentManagerImpl implements DocumentManager {
         }
 
         Document result = documentDao.find(id);
+        assertNotOutboundEmailArchiveDocument(result);
 
         //--- log action ---
         if (result != null) {
@@ -137,7 +154,8 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     public List<Document> getDocumentsByDemographicNo(LoggedInInfo loggedInInfo, Integer demographicNo) {
-        List<Document> result = documentDao.findByDemographicId(demographicNo + "");
+        List<Document> result = withoutOutboundEmailArchiveEntries(
+                documentDao.findByDemographicId(demographicNo + ""), Document::getDocumentNo);
 
         //--- log action ---
         if (result != null) {
@@ -180,23 +198,24 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        Date today = new Date();
         // Generates filename and path data and saves the document data to the file system
         String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        String fileName = document.getDocfilename();
+        String rawFileName = document.getDocfilename();
         File file;
+        String fileName;
         try {
-            String normalizedFileName = PathValidationUtils.validateFileName(fileName);
-            fileName = dateTimeFormat.format(today) + "_" + normalizedFileName;
-            file = PathValidationUtils.validateUserFilePath(fileName, new File(documentPath));
+            String normalizedFileName = PathValidationUtils.validateFileName(rawFileName);
+            file = createUniqueDocumentFile(normalizedFileName, new File(documentPath), documentData);
             fileName = file.getName();
+            // Assigned here rather than after the page-count/persist steps below: a caller that
+            // cleans up an orphaned file when a later step fails can only find it by the
+            // server-generated name, and its own pre-normalization name matches nothing on disk.
+            // OutboundEmailArchiveServiceImpl depends on this ordering.
+            document.setDocfilename(fileName);
         } catch (SecurityException e) {
-            logger.error("Document filename failed path validation: {}", Encode.forJava(fileName));
+            logger.error("Document filename failed path validation: {}", Encode.forJava(rawFileName));
             throw new IOException("Document filename failed path validation", e);
         }
-        FileUtils.writeByteArrayToFile(file, documentData);
 
         // Gets the number of pages for the document
         int numberOfPages = 1;
@@ -211,7 +230,6 @@ public class DocumentManagerImpl implements DocumentManager {
         }
         document.setNumberofpages(numberOfPages);
         document.setDoccreator(loggedInInfo.getLoggedInProviderNo());
-        document.setDocfilename(fileName);
 		if (document.getDocdesc() == null || document.getDocdesc().isEmpty()) { document.setDocdesc(fileName); }
 
         // Creates and saves the document
@@ -222,13 +240,76 @@ public class DocumentManagerImpl implements DocumentManager {
         return document;
     }
 
+    /**
+     * Writes {@code documentData} to a freshly created, collision-resistant file under
+     * {@code destinationDir} and returns the file that was written.
+     *
+     * <p>Security rationale: the previous scheme prefixed a one-second timestamp to the caller's
+     * original filename, so two uploads in the same clock-second with the same name resolved to a
+     * single path and the second silently overwrote the first. Because the {@code document} table
+     * has no unique constraint on {@code docfilename}, both DB rows survived — one of them then
+     * pointing at the other patient's bytes (cross-patient PHI exposure). The name is now
+     * server-generated as {@code yyyyMMddHHmmss_NNNNN_<name>} with an atomic sequence, and the
+     * write uses {@link StandardOpenOption#CREATE_NEW} so an existing file is never truncated; on
+     * the rare residual collision the name is regenerated and the write retried.
+     *
+     * <p>A write that fails part-way removes its own partial file before rethrowing, because the
+     * server-generated name never reaches the caller in that window.</p>
+     */
+    private File createUniqueDocumentFile(String normalizedFileName, File destinationDir, byte[] documentData) throws IOException {
+        IOException lastFailure = null;
+        for (int attempt = 0; attempt < UNIQUE_FILENAME_MAX_ATTEMPTS; attempt++) {
+            String candidateName = buildUniqueDocumentFilename(normalizedFileName);
+            assertNotOutboundEmailArchiveFileName(candidateName);
+            File candidate = PathValidationUtils.validateUserFilePath(candidateName, destinationDir);
+            try {
+                Files.write(candidate.toPath(), documentData, StandardOpenOption.CREATE_NEW);
+                return candidate;
+            } catch (FileAlreadyExistsException e) {
+                lastFailure = e;
+                // Name collided (wrapped sequence within the same second, or a stale file already
+                // occupies the path). Regenerate with the next sequence value and retry.
+            } catch (IOException e) {
+                // CREATE_NEW creates the file before the write completes, so a mid-write failure
+                // (disk full, quota, IO error) leaves a partial document behind. No caller can clean
+                // it up: docfilename is not assigned until this method returns, so the caller's
+                // Document still names the pre-normalization file and any cleanup it attempts is a
+                // silent no-op. Remove it here or it survives as unreferenced PHI that no database
+                // row names.
+                try {
+                    Files.deleteIfExists(candidate.toPath());
+                } catch (IOException cleanupFailure) {
+                    logger.error("Orphaned partial document file left in place: {}",
+                            Encode.forJava(candidate.getName()), cleanupFailure);
+                }
+                throw e;
+            }
+        }
+        throw new IOException("Unable to create a unique document file after " + UNIQUE_FILENAME_MAX_ATTEMPTS + " attempts", lastFailure);
+    }
+
+    /**
+     * Builds a collision-resistant document filename {@code yyyyMMddHHmmss_NNNNN_<validatedName>}.
+     * The atomic counter defeats same-second, same-original-name collisions across concurrent uploads.
+     * The leading 14-digit timestamp is preserved from the historical scheme; underscores are used as
+     * separators because {@link PathValidationUtils#validateUserFilePath} normalizes away other
+     * punctuation (dashes), and the counter is inserted between the timestamp and the original name.
+     */
+    private String buildUniqueDocumentFilename(String validatedFileName) {
+        String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        long sequence = DOCUMENT_FILE_SEQUENCE.incrementAndGet();
+        return String.format("%s_%05d_%s", timestamp, sequence, validatedFileName);
+    }
+
     public List<Document> getDocumentsUpdateAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", "")) {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        List<Document> results = documentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn);
+        List<Document> results = withoutOutboundEmailArchiveEntries(
+                documentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn),
+                Document::getDocumentNo);
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getUpdateAfterDate", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive, "", "", "Number items " + itemsToReturn);
 
@@ -240,7 +321,10 @@ public class DocumentManagerImpl implements DocumentManager {
         //If the consent type does not exist in the table assume this consent type is not being managed by the clinic, otherwise ensure patient has consented
         boolean hasConsent = patientConsentManager.hasProviderSpecificConsent(loggedInInfo) || patientConsentManager.getConsentType(ConsentType.PROVIDER_CONSENT_FILTER) == null;
         if (hasConsent) {
-            results = documentDao.findByDemographicUpdateAfterDate(demographicId, updatedAfterThisDateExclusive);
+            results = withoutOutboundEmailArchiveEntries(
+                    documentDao.findByDemographicUpdateAfterDate(
+                            demographicId, updatedAfterThisDateExclusive),
+                    Document::getDocumentNo);
             LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentsByDemographicIdUpdateAfterDate", "demographicId=" + demographicId + " updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive);
         }
         return (results);
@@ -252,7 +336,10 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        List<Document> results = documentDao.findByProgramProviderDemographicUpdateDate(programId, providerNo, demographicId, updatedAfterThisDateExclusive.getTime(), itemsToReturn);
+        List<Document> results = withoutOutboundEmailArchiveEntries(
+                documentDao.findByProgramProviderDemographicUpdateDate(
+                        programId, providerNo, demographicId, updatedAfterThisDateExclusive.getTime(), itemsToReturn),
+                Document::getDocumentNo);
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getDocumentsByProgramProviderDemographicDate", "programId=" + programId, "providerNo=" + providerNo, demographicId + "", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive.getTime());
 
@@ -268,6 +355,10 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
+        if (document == null) {
+            throw new IllegalArgumentException("Document is required");
+        }
+        assertNotOutboundEmailArchiveDocument(document);
 
         Integer savedId = null;
 
@@ -359,6 +450,10 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "x", "")) {
             throw new RuntimeException("Read and Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
+        if (document == null) {
+            throw new IllegalArgumentException("Document is required");
+        }
+        assertNotOutboundEmailArchiveDocument(document);
 
         // move the PDF from the temp location to CARLOS document directory.
         try {
@@ -391,6 +486,7 @@ public class DocumentManagerImpl implements DocumentManager {
      */
     public String getPathToDocument(LoggedInInfo loggedInInfo, int documentId) {
         Document document = this.getDocument(loggedInInfo, documentId);
+        assertNotOutboundEmailArchiveDocument(documentId);
         String path = null;
 
         if (document != null) {
@@ -419,6 +515,7 @@ public class DocumentManagerImpl implements DocumentManager {
             logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
             return null;
         }
+        assertNotOutboundEmailArchiveFileName(filename);
 
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
@@ -448,7 +545,9 @@ public class DocumentManagerImpl implements DocumentManager {
 
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDemographicDocumentsByDocumentType", "fetching documents of type " + documentType.getName() + " for demographic " + demographicNo);
 
-        return documentDao.findByDemographicAndDoctype(demographicNo, documentType);
+        return withoutOutboundEmailArchiveEntries(
+                documentDao.findByDemographicAndDoctype(demographicNo, documentType),
+                Document::getDocumentNo);
     }
 
     public Document getDocumentByDemographicAndFilename(LoggedInInfo loggedInInfo, int demographicNo, String fileName) {
@@ -458,7 +557,9 @@ public class DocumentManagerImpl implements DocumentManager {
 
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentByDemographicAndFilename", "fetching document with filename " + fileName + " for demographic " + demographicNo);
 
-        return documentDao.findByDemographicAndFilename(demographicNo, fileName);
+        Document document = documentDao.findByDemographicAndFilename(demographicNo, fileName);
+        assertNotOutboundEmailArchiveDocument(document);
+        return document;
     }
 
     /**
@@ -528,6 +629,7 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     public List<String> getProvidersThatHaveAcknowledgedDocument(LoggedInInfo loggedInInfo, Integer documentId) {
+        assertNotOutboundEmailArchiveDocument(documentId);
         List<ProviderInboxItem> inboxList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", documentId);
         List<String> providerList = new ArrayList<String>();
         for (ProviderInboxItem item : inboxList) {
@@ -544,6 +646,7 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Access Denied");
         }
 
+        assertNotOutboundEmailArchiveDocument(eDoc);
         return renderDocument(eDoc);
     }
 
@@ -552,10 +655,13 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Access Denied");
         }
 
+        assertNotOutboundEmailArchiveDocument(documentId);
         EDoc eDoc = EDocUtil.getEDocFromDocId(String.valueOf(documentId));
         return renderDocument(eDoc);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Path renderDocument(EDoc eDoc) throws PDFGenerationException {
         Path eDocPDFPath = null;
         String eDocPath = getFullPathToDocument(eDoc.getFileName());
@@ -583,6 +689,7 @@ public class DocumentManagerImpl implements DocumentManager {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
 			throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
 		}
+		assertNotOutboundEmailArchiveDocument(documentId);
 
 		if (queueId != null && queueId > 0) {
 			queueDocumentLinkDAO.addActiveQueueDocumentLink(queueId, documentId);
@@ -599,9 +706,90 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
-        List<DocumentListItemDTO> results = documentDao.findDocumentDTOsByDemographicNo(demographicNo);
+        List<DocumentListItemDTO> results = withoutOutboundEmailArchiveEntries(
+                documentDao.findDocumentDTOsByDemographicNo(demographicNo),
+                DocumentListItemDTO::getDocumentNo);
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentDTOs",
                 "demographicNo=" + demographicNo);
         return results;
+    }
+    // --- outbound email archive guard -----------------------------------------------------------
+    // Archived patient email is stored as an ordinary eDoc, so every route in this manager can
+    // reach one. Individual operations refuse them; list queries filter them out so the eDoc
+    // browser does not surface a legal record as if it were a clinical document.
+
+    private static final String OUTBOUND_ARCHIVE_MESSAGE =
+            OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE;
+
+    private void assertNotOutboundEmailArchiveDocument(EDoc eDoc) {
+        if (eDoc != null) {
+            assertNotOutboundEmailArchiveDocument(eDoc.getDocId());
+            assertNotOutboundEmailArchiveFileName(eDoc.getFileName());
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(Document document) {
+        if (document != null) {
+            assertNotOutboundEmailArchiveDocument(document.getDocumentNo());
+            // Document filenames are not unique in the legacy schema. An ordinary (or newly
+            // constructed) row can therefore alias an archive file even though its id is safe;
+            // object-based operations must protect both identities before reading or replacing it.
+            assertNotOutboundEmailArchiveFileName(document.getDocfilename());
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(String documentId) {
+        if (documentId == null || documentId.isBlank()) {
+            return;
+        }
+        try {
+            assertNotOutboundEmailArchiveDocument(Integer.valueOf(documentId.trim()));
+        } catch (NumberFormatException e) {
+            // Left to the caller, so invalid-id behaviour is unchanged by adding this guard.
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(Integer documentId) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentId)) {
+            throw new SecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveFileName(String fileName) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, fileName)) {
+            throw new SecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    /**
+     * Drops archive artifacts from a document listing.
+     *
+     * <p>Filtering rather than refusing, because a list is a legitimate request that happens to
+     * span an archive: failing the whole call would make a patient's document list unusable for
+     * anyone who has ever been emailed. The per-document operations above are the backstop for
+     * anyone who names an archive id directly.</p>
+     */
+    private <T> List<T> withoutOutboundEmailArchiveEntries(
+            List<T> documents, Function<T, Integer> documentNoAccessor) {
+        if (documents == null || documents.isEmpty()) {
+            return documents;
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(
+                documents.stream()
+                        .filter(Objects::nonNull)
+                        .map(documentNoAccessor)
+                        .filter(Objects::nonNull)
+                        .toList());
+        if (archiveDocumentNos == null || archiveDocumentNos.isEmpty()) {
+            return documents;
+        }
+        List<T> filtered = new ArrayList<>();
+        for (T document : documents) {
+            Integer documentNo = document != null ? documentNoAccessor.apply(document) : null;
+            if (documentNo == null || !archiveDocumentNos.contains(documentNo)) {
+                filtered.add(document);
+            }
+        }
+        return filtered;
     }
 }

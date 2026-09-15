@@ -131,7 +131,7 @@ public class EctConsultationFormRequestUtil {
 
 	public boolean isEReferral = false;
 
-	private final ConsultationRequestDao consultationRequestDao = SpringUtils.getBean(ConsultationRequestDao.class);
+	private final ConsultRequestDao consultationRequestDao = SpringUtils.getBean(ConsultRequestDao.class);
 	private final ConsultationRequestExtDao consultationRequestExtDao = SpringUtils.getBean(ConsultationRequestExtDao.class);
 	private final ConsultationServiceDao consultationServiceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);
 	private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -243,11 +243,17 @@ public class EctConsultationFormRequestUtil {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean estRequestFromId(LoggedInInfo loggedInInfo, String id) {
 
+        final int requestId;
+        try {
+            requestId = Integer.parseInt(id);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        if (requestId <= 0) {
+            return false;
+        }
         boolean verdict = true;
-        getSpecailistsName(id);
-
-
-		ConsultationRequest cr = consultationRequestDao.findWithAssociations(Integer.parseInt(id));
+        ConsultationRequest cr = consultationRequestDao.findWithAssociations(requestId);
 		
 		if (cr != null) {
 			fdid = cr.getFdid();
@@ -291,7 +297,7 @@ public class EctConsultationFormRequestUtil {
                     contactId = Integer.parseInt(demographicContact.getContactId());
                 }
 
-                if (contactType == DemographicContact.TYPE_CONTACT
+                if (contactType != null && contactType == DemographicContact.TYPE_CONTACT
                         && DemographicContact.CATEGORY_PROFESSIONAL.equalsIgnoreCase(contactCategory)) {
                     professionalContact = (ProfessionalContact) contactDao.find(contactId);
                 }
@@ -309,6 +315,7 @@ public class EctConsultationFormRequestUtil {
             // ProfessionalSpecialist joined to the ConsultationRequest will always
             // be available. This model is used in the Fax and PDF printing methods.
             professionalSpecialist = cr.getProfessionalSpecialist();
+            populateSpecialistContactDetails(professionalSpecialist);
 
 
 			Date appointmentTime = cr.getAppointmentTime();
@@ -322,7 +329,7 @@ public class EctConsultationFormRequestUtil {
 			setAppointmentInstructions( cr.getAppointmentInstructions() );
 			setAppointmentInstructionsLabel( cr.getAppointmentInstructionsLabel() );
 			letterheadName = cr.getLetterheadName();
-			letterheadTitle = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), "letterheadTitle");
+			letterheadTitle = consultationRequestExtDao.getConsultationRequestExtsByKey(requestId, "letterheadTitle");
 			letterheadAddress = cr.getLetterheadAddress();
 			letterheadPhone = cr.getLetterheadPhone();
 			letterheadFax = cr.getLetterheadFax();
@@ -376,17 +383,19 @@ public class EctConsultationFormRequestUtil {
                 }
             }
 
-			isEReferral = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
+			isEReferral = consultationRequestExtDao.getConsultationRequestExtsByKey(requestId, ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
+        } else {
+            return false;
         }
 
-        getFaxLogs(id);
+        getFaxLogs(requestId);
 
         return verdict;
     }
 
-    private void getFaxLogs(String requestId) {
+    private void getFaxLogs(int requestId) {
 
-        List<FaxClientLog> faxClientLogs = faxClientLogDao.findClientLogbyRequestId(Integer.parseInt(requestId));
+        List<FaxClientLog> faxClientLogs = faxClientLogDao.findClientLogbyRequestId(requestId);
         for (FaxClientLog faxClientLog : faxClientLogs) {
             FaxJob faxJob = faxJobDao.find(faxClientLog.getFaxId());
             FaxRecipient faxRecipient = null;
@@ -442,27 +451,31 @@ public class EctConsultationFormRequestUtil {
         ProfessionalSpecialist ps = dao.find(ConversionUtils.fromIntString(id));
         if (ps != null) {
             retval = ps.getFormattedTitle();
-            specPhone = ps.getPhoneNumber();
-            specFax = ps.getFaxNumber();
-            specAddr = ps.getStreetAddress();
-            specEmail = ps.getEmailAddress();
-            MiscUtils.getLogger().debug("getting Null" + specEmail + "<");
-            if (specPhone == null || specPhone.equals("null")) {
-                specPhone = "";
-            }
-            if (specFax == null || specFax.equals("null")) {
-                specFax = "";
-            }
-            if (specAddr == null || specAddr.equals("null")) {
-                specAddr = "";
-            }
-            if (specEmail == null || specEmail.equalsIgnoreCase("null")) {
-                specEmail = "";
-            }
+            populateSpecialistContactDetails(ps);
         }
 
         return retval;
 
+    }
+
+    /** Uses the specialist attached to the request, including converted health-care-team contacts. */
+    private void populateSpecialistContactDetails(ProfessionalSpecialist ps) {
+        specPhone = ps != null ? ps.getPhoneNumber() : null;
+        specFax = ps != null ? ps.getFaxNumber() : null;
+        specAddr = ps != null ? ps.getStreetAddress() : null;
+        specEmail = ps != null ? ps.getEmailAddress() : null;
+        if (specPhone == null || specPhone.equals("null")) {
+            specPhone = "";
+    }
+    if (specFax == null || specFax.equals("null")) {
+        specFax = "";
+    }
+    if (specAddr == null || specAddr.equals("null")) {
+        specAddr = "";
+    }
+    if (specEmail == null || org.apache.commons.lang3.StringUtils.equalsIgnoreCase(specEmail, "null")) {
+        specEmail = "";
+    }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

@@ -42,5 +42,11 @@ public interface ConsultRequestDao extends AbstractDao<ConsultationRequest> {
 
     public List<Object[]> search(ConsultationRequestSearchFilter filter);
 
-    public ConsultationRequest findWithAssociations(Integer id);
+    /**
+     * Loads a detail request with specialist, demographic contact and instruction label initialized.
+     *
+     * @param id consultation request identifier
+     * @return the request suitable for detached detail rendering, or null when absent
+     */
+    ConsultationRequest findWithAssociations(Integer id);
 }

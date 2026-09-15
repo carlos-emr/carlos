@@ -36,7 +36,6 @@ import java.util.List;
 
 import jakarta.persistence.Query;
 
-import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
@@ -64,8 +63,23 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     }
 
     public List<ConsultationRequest> getConsults(Integer demoNo) {
-        StringBuilder sql = new StringBuilder("select cr from ConsultationRequest cr left join fetch cr.professionalSpecialist join Demographic d on d.demographicNo = cr.demographicId join Provider p on p.providerNo = cr.providerNo where cr.demographicId = ?1");
-        Query query = entityManager.createQuery(sql.toString());
+        // A consultation request belongs to the PATIENT and must appear in the
+        // patient's chart regardless of the state of the ordering provider's record.
+        // The previous query cross-joined Demographic AND Provider purely as existence
+        // filters (neither table is projected), so a consult whose providerNo was null
+        // or referenced a provider row that no longer exists was silently dropped from
+        // the Consultations tab. The demographic constraint (cr.demographicId = ?1)
+        // already scopes the result to this patient, and the caller
+        // (EctViewConsultationRequestsUtil) null-tolerantly re-resolves the provider
+        // and demographic per row, so select on the demographic alone.
+        //
+        // That null-tolerance is a CONTRACT this query depends on, not an incidental
+        // detail: dropping the joins is what lets rows with a dangling demographic or
+        // provider reach the caller, and the caller shares one try/catch across its
+        // whole loop, so a single unguarded dereference there blanks the entire
+        // Consultations tab rather than degrading one row.
+        Query query = entityManager.createQuery(
+                "select cr from ConsultationRequest cr left join fetch cr.professionalSpecialist where cr.demographicId = ?1");
         query.setParameter(1, demoNo);
 
         List<ConsultationRequest> results = query.getResultList();
@@ -87,24 +101,22 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
             sql.append("and cr.status != '4' ");
         }
 
-        if (!team.isEmpty()) {
-            sql.append("and cr.sendTo = '" + team + "' ");
+        if (team != null && !team.isEmpty()) {
+            sql.append("and cr.sendTo = :team ");
         }
 
+        boolean searchByAppt = searchDate != null && searchDate.equals("1");
+
         if (startDate != null) {
-            if (searchDate != null && searchDate.equals("1")) {
-                sql.append("and cr.appointmentDate >= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(startDate) + "' ");
-            } else {
-                sql.append("and cr.referralDate >= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(startDate) + "' ");
-            }
+            sql.append(searchByAppt
+                    ? "and cr.appointmentDate >= :startDate "
+                    : "and cr.referralDate >= :startDate ");
         }
 
         if (endDate != null) {
-            if (searchDate != null && searchDate.equals("1")) {
-                sql.append("and cr.appointmentDate <= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(endDate) + "' ");
-            } else {
-                sql.append("and cr.referralDate <= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(endDate) + "' ");
-            }
+            sql.append(searchByAppt
+                    ? "and cr.appointmentDate <= :endDate "
+                    : "and cr.referralDate <= :endDate ");
         }
 
         String orderDesc = desc != null && desc.equals("1") ? "DESC" : "";
@@ -135,6 +147,15 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
 
         Query query = entityManager.createQuery(sql.toString());
+        if (team != null && !team.isEmpty()) {
+            query.setParameter("team", team);
+        }
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
         query.setFirstResult(offset != null ? offset : 0);
 
         //need to never send more than MAX_LIST_RETURN_SIZE

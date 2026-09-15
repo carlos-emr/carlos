@@ -1,0 +1,558 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ */
+package io.github.carlos_emr.carlos.appt.web;
+
+import io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.commn.model.AppointmentType;
+import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.struts2.ActionSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@DisplayName("AppointmentType2Action")
+@Tag("unit")
+@Tag("appointment")
+class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
+
+    private AppointmentTypeDao appointmentTypeDao;
+    private TestAppointmentType2Action action;
+
+    @BeforeEach
+    void setUpAction() {
+        appointmentTypeDao = mock(AppointmentTypeDao.class);
+        action = new TestAppointmentType2Action(appointmentTypeDao);
+    }
+
+    @Test
+    void shouldCreateAppointmentType_withValidatedValues() throws Exception {
+        configureSave(" 30 ");
+        action.setName("  Follow Up  ");
+        action.setReason("  Follow-up reason  ");
+        action.setNotes("  Bring results  ");
+        action.setLocation("  Main  ");
+        action.setResources("  Room 1  ");
+
+        assertThat(executeAction(action)).isEqualTo("redirect");
+
+        ArgumentCaptor<AppointmentType> captor = ArgumentCaptor.forClass(AppointmentType.class);
+        verify(appointmentTypeDao).persist(captor.capture());
+        AppointmentType saved = captor.getValue();
+        assertThat(saved.getName()).isEqualTo("Follow Up");
+        assertThat(saved.getDuration()).isEqualTo(30);
+        assertThat(saved.getReason()).isEqualTo("Follow-up reason");
+        assertThat(saved.getNotes()).isEqualTo("Bring results");
+        assertThat(saved.getLocation()).isEqualTo("Main");
+        assertThat(saved.getResources()).isEqualTo("Room 1");
+    }
+
+    @Test
+    void shouldSurfaceSavedMessage_onTheRedirectedRender() throws Exception {
+        configureSave("30");
+        action.setName("Follow Up");
+        assertThat(executeAction(action)).isEqualTo("redirect");
+        assertThat(action.getActionMessages())
+                .withFailMessage("the notice belongs on the redirected GET, not the POST")
+                .isEmpty();
+
+        mockRequest.removeAllParameters();
+        mockRequest.setMethod("GET");
+        TestAppointmentType2Action listAction = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(listAction)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(listAction.getActionMessages()).containsExactly("appointment.type.saved.message");
+
+        // Single-shot: a refresh of the list must not repeat it.
+        TestAppointmentType2Action refreshed = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(refreshed)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(refreshed.getActionMessages()).isEmpty();
+    }
+
+    @Test
+    void shouldUpdateAppointmentType_thenRedirect() throws Exception {
+        AppointmentType existing = mock(AppointmentType.class);
+        when(appointmentTypeDao.find(42)).thenReturn(existing);
+        configureSave("45");
+        addRequestParameter("id", "42");
+        action.setId(42);
+        action.setName("Updated Type");
+
+        String result = executeAction(action);
+        assertThat(result)
+                .withFailMessage("result=%s errors=%s", result, action.getActionErrors())
+                .isEqualTo("redirect");
+
+        verify(existing).setName("Updated Type");
+        verify(existing).setDuration(45);
+        verify(appointmentTypeDao).find(42);
+        verify(appointmentTypeDao).merge(existing);
+        verify(appointmentTypeDao, never()).persist(existing);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "0", "30:00", "abc", "-1", "1441", "2147483647", "2147483648"})
+    void shouldRejectSave_withoutMutationWhenDurationInvalid(String duration) throws Exception {
+        configureSave(duration);
+        action.setName("Invalid Duration");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).isNotEmpty();
+        verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
+        verify(appointmentTypeDao, never()).merge(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldAcceptDuration_atTheFullDayCeiling() throws Exception {
+        configureSave("1440");
+        action.setName("All Day Type");
+
+        assertThat(executeAction(action)).isEqualTo("redirect");
+        ArgumentCaptor<AppointmentType> captor = ArgumentCaptor.forClass(AppointmentType.class);
+        verify(appointmentTypeDao).persist(captor.capture());
+        assertThat(captor.getValue().getDuration()).isEqualTo(1440);
+    }
+
+    @Test
+    void shouldRejectSave_whenValuesExceedDatabaseColumns() throws Exception {
+        configureSave("15");
+        action.setName("Length Test");
+        action.setReason("r".repeat(81));
+        action.setNotes("n".repeat(81));
+        action.setLocation("l".repeat(256));
+        action.setResources("x".repeat(11));
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).containsExactlyInAnyOrder(
+                "appointment.type.reason.length.error",
+                "appointment.type.notes.length.error",
+                "appointment.type.location.length.error",
+                "appointment.type.resources.length.error");
+        verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0})
+    void shouldAcceptValues_atAndImmediatelyBelowColumnLimits(int offset) throws Exception {
+        configureSave("15");
+        action.setName("n".repeat(50 + offset));
+        action.setReason("r".repeat(80 + offset));
+        action.setNotes("o".repeat(80 + offset));
+        action.setLocation("l".repeat(255 + offset));
+        action.setResources("x".repeat(10 + offset));
+
+        assertThat(executeAction(action)).isEqualTo("redirect");
+        ArgumentCaptor<AppointmentType> captor = ArgumentCaptor.forClass(AppointmentType.class);
+        verify(appointmentTypeDao).persist(captor.capture());
+        AppointmentType saved = captor.getValue();
+        assertThat(saved.getName()).isEqualTo("n".repeat(50 + offset));
+        assertThat(saved.getDuration()).isEqualTo(15);
+        assertThat(saved.getReason()).isEqualTo("r".repeat(80 + offset));
+        assertThat(saved.getNotes()).isEqualTo("o".repeat(80 + offset));
+        assertThat(saved.getLocation()).isEqualTo("l".repeat(255 + offset));
+        assertThat(saved.getResources()).isEqualTo("x".repeat(10 + offset));
+    }
+
+    @Test
+    void shouldAcceptLocation_whenMultisiteNameAtFullLength() throws Exception {
+        SiteDao siteDao = mock(SiteDao.class);
+        Site site = mock(Site.class);
+        String siteName = "s".repeat(255);
+        when(site.getName()).thenReturn(siteName);
+        when(site.getSiteId()).thenReturn(7);
+        when(siteDao.getAllActiveSites()).thenReturn(List.of(site));
+        action.enableMultisites(siteDao);
+        configureSave("15");
+        action.setName("Multisite Type");
+        action.setLocation(siteName);
+
+        assertThat(executeAction(action)).isEqualTo("redirect");
+
+        ArgumentCaptor<AppointmentType> captor = ArgumentCaptor.forClass(AppointmentType.class);
+        verify(appointmentTypeDao).persist(captor.capture());
+        assertThat(captor.getValue().getLocation()).isEqualTo(siteName);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "Unknown Site"})
+    void shouldRejectLocation_whenUnknownAndMultisitesEnabled(String location) throws Exception {
+        SiteDao siteDao = mock(SiteDao.class);
+        Site site = mock(Site.class);
+        when(site.getName()).thenReturn("Main Site");
+        when(siteDao.getAllActiveSites()).thenReturn(List.of(site));
+        action.enableMultisites(siteDao);
+        configureSave("15");
+        action.setName("Multisite Type");
+        action.setLocation(location);
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).contains("appointment.type.location.error");
+        verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "   "})
+    void shouldAcceptBlankLocation_whenMultisitesEnabled(String blankLocation) throws Exception {
+        SiteDao siteDao = mock(SiteDao.class);
+        Site site = mock(Site.class);
+        when(site.getName()).thenReturn("Main Site");
+        when(siteDao.getAllActiveSites()).thenReturn(List.of(site));
+        action.enableMultisites(siteDao);
+        configureSave("15");
+        action.setName("Unassigned Type");
+        action.setLocation(blankLocation);
+
+        String result = executeAction(action);
+        assertThat(result)
+                .withFailMessage("result=%s errors=%s", result, action.getActionErrors())
+                .isEqualTo("redirect");
+        verify(appointmentTypeDao).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldRetainStoredLocation_whenSiteNoLongerActive() throws Exception {
+        AppointmentType existing = mock(AppointmentType.class);
+        when(existing.getLocation()).thenReturn("Retired Site");
+        when(appointmentTypeDao.find(42)).thenReturn(existing);
+        SiteDao siteDao = mock(SiteDao.class);
+        Site site = mock(Site.class);
+        when(site.getName()).thenReturn("Main Site");
+        when(siteDao.getAllActiveSites()).thenReturn(List.of(site));
+        action.enableMultisites(siteDao);
+        configureSave("15");
+        addRequestParameter("id", "42");
+        action.setId(42);
+        action.setName("Legacy Type");
+        action.setLocation("Retired Site");
+
+        String result = executeAction(action);
+        assertThat(result)
+                .withFailMessage("result=%s errors=%s", result, action.getActionErrors())
+                .isEqualTo("redirect");
+        verify(existing).setLocation("Retired Site");
+        verify(appointmentTypeDao).merge(existing);
+    }
+
+    @Test
+    void shouldAllowFreeTextLocation_whenMultisiteHasNoActiveSites() throws Exception {
+        SiteDao siteDao = mock(SiteDao.class);
+        when(siteDao.getAllActiveSites()).thenReturn(List.of());
+        action.enableMultisites(siteDao);
+        configureSave("15");
+        action.setName("Remote Type");
+        action.setLocation("Remote");
+
+        assertThat(executeAction(action)).isEqualTo("redirect");
+        verify(appointmentTypeDao).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", " ", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"})
+    void shouldRejectSave_withoutMutationWhenNameInvalid(String name) throws Exception {
+        configureSave("15");
+        action.setName(name);
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).containsExactly("appointment.type.name.error");
+        verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
+        verify(appointmentTypeDao, never()).merge(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldCanonicaliseDuration_whenAnotherFieldFails() throws Exception {
+        // The re-rendered value must satisfy the input's canonical-only pattern, or the browser
+        // would block resubmission of a duration the server had already accepted.
+        configureSave("  0030  ");
+        action.setName("");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).containsExactly("appointment.type.name.error");
+        assertThat(action.getDuration()).isEqualTo("30");
+    }
+
+    @Test
+    void shouldPreserveSubmittedValues_whenValidationFails() throws Exception {
+        configureSave("30:00");
+        action.setName("Preserved Type");
+        action.setReason("Preserved reason");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getName()).isEqualTo("Preserved Type");
+        assertThat(action.getDuration()).isEqualTo("30:00");
+        assertThat(action.getReason()).isEqualTo("Preserved reason");
+    }
+
+    @Test
+    void shouldLoadExistingType_forEdit() throws Exception {
+        AppointmentType existing = mock(AppointmentType.class);
+        when(existing.getId()).thenReturn(42);
+        when(existing.getName()).thenReturn("Consult");
+        when(existing.getDuration()).thenReturn(60);
+        when(existing.getReason()).thenReturn("Consult reason");
+        when(appointmentTypeDao.find(42)).thenReturn(existing);
+        addRequestParameter("oper", "edit");
+        addRequestParameter("no", "42");
+
+        String result = executeAction(action);
+        assertThat(result)
+                .withFailMessage("result=%s errors=%s", result, action.getActionErrors())
+                .isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentTypeDao).find(42);
+        assertThat(action.getId()).isEqualTo(42);
+        assertThat(action.getName()).isEqualTo("Consult");
+        assertThat(action.getDuration()).isEqualTo("60");
+        assertThat(action.getReason()).isEqualTo("Consult reason");
+    }
+
+    @Test
+    void shouldTrimStoredLocation_whenLoadingForEdit() throws Exception {
+        // The view matches this against the site options with a plain comparison, so legacy
+        // padding must not survive into the form or an active site looks retired.
+        AppointmentType existing = mock(AppointmentType.class);
+        when(existing.getId()).thenReturn(42);
+        when(existing.getDuration()).thenReturn(60);
+        when(existing.getLocation()).thenReturn("  MHI Beaches  ");
+        when(appointmentTypeDao.find(42)).thenReturn(existing);
+        addRequestParameter("oper", "edit");
+        addRequestParameter("no", "42");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getLocation()).isEqualTo("MHI Beaches");
+    }
+
+    @Test
+    void shouldTrimSiteNames_whenBuildingLocationOptions() throws Exception {
+        SiteDao siteDao = mock(SiteDao.class);
+        Site site = mock(Site.class);
+        when(site.getName()).thenReturn("  MHI Beaches  ");
+        when(siteDao.getAllActiveSites()).thenReturn(List.of(site));
+        action.enableMultisites(siteDao);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        @SuppressWarnings("unchecked")
+        List<io.github.carlos_emr.carlos.util.LabelValueBean> options =
+                (List<io.github.carlos_emr.carlos.util.LabelValueBean>) mockRequest.getAttribute("locationsList");
+        assertThat(options).hasSize(1);
+        assertThat(options.get(0).getLabel()).isEqualTo("MHI Beaches");
+    }
+
+    @Test
+    void shouldIgnoreInvalidIdentifier_onPlainListView() throws Exception {
+        mockRequest.setMethod("GET");
+        addRequestParameter("id", "invalid");
+        addRequestParameter("no", "also-invalid");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getActionErrors()).isEmpty();
+        verify(appointmentTypeDao, never()).find(org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void shouldRejectSave_insteadOfCreatingWhenIdentifierInvalid() throws Exception {
+        configureSave("30");
+        addRequestParameter("id", "invalid");
+        action.setName("Must Not Save");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldRejectUpdate_whenTypeNoLongerExists() throws Exception {
+        configureSave("30");
+        addRequestParameter("id", "42");
+        action.setId(42);
+        action.setName("Missing Type");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).isNotEmpty();
+        verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
+        verify(appointmentTypeDao, never()).merge(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldDeleteExistingType_whenRequestIsPost() throws Exception {
+        when(appointmentTypeDao.remove(42)).thenReturn(true);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "del");
+        addRequestParameter("no", "42");
+
+        assertThat(executeAction(action)).isEqualTo("redirect");
+        verify(appointmentTypeDao).remove(42);
+
+        mockRequest.removeAllParameters();
+        mockRequest.setMethod("GET");
+        TestAppointmentType2Action redirectedAction = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(redirectedAction)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(redirectedAction.getActionMessages())
+                .containsExactly("appointment.type.deleted.message");
+
+        TestAppointmentType2Action refreshedAction = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(refreshedAction)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(refreshedAction.getActionMessages()).isEmpty();
+    }
+
+    @Test
+    void shouldHoldDeleteFlash_whenInterveningOperIsRejected() throws Exception {
+        pendingDeleteFlash();
+
+        // An unrecognised oper is not a mutation, but it is not a read render either: it must not
+        // swallow the notice on its way to being rejected.
+        mockRequest.removeAllParameters();
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "bogus");
+        TestAppointmentType2Action rejected = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(rejected)).isEqualTo("failure");
+        assertThat(rejected.getActionErrors()).containsExactly("appointment.type.oper.error");
+        assertThat(rejected.getActionMessages()).isEmpty();
+
+        mockRequest.removeAllParameters();
+        mockRequest.setMethod("GET");
+        TestAppointmentType2Action listAction = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(listAction)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(listAction.getActionMessages()).containsExactly("appointment.type.deleted.message");
+    }
+
+    @Test
+    void shouldReplaceDeleteFlash_whenInterveningSaveSucceeds() throws Exception {
+        pendingDeleteFlash();
+
+        // A stale page's save must not render the previous notice on its own response; its own
+        // newer outcome supersedes the pending one for the render that follows.
+        mockRequest.removeAllParameters();
+        TestAppointmentType2Action saveAction = new TestAppointmentType2Action(appointmentTypeDao);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "save");
+        saveAction.setName("Intervening Save");
+        saveAction.setDuration("15");
+        assertThat(executeAction(saveAction)).isEqualTo("redirect");
+        assertThat(saveAction.getActionMessages()).isEmpty();
+
+        mockRequest.removeAllParameters();
+        mockRequest.setMethod("GET");
+        TestAppointmentType2Action listAction = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(listAction)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(listAction.getActionMessages()).containsExactly("appointment.type.saved.message");
+    }
+
+    private void pendingDeleteFlash() throws Exception {
+        when(appointmentTypeDao.remove(42)).thenReturn(true);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "del");
+        addRequestParameter("no", "42");
+        assertThat(executeAction(action)).isEqualTo("redirect");
+    }
+
+    @Test
+    void shouldReportFailure_whenDeleteTargetAlreadyGone() throws Exception {
+        when(appointmentTypeDao.remove(42)).thenReturn(false);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "del");
+        addRequestParameter("no", "42");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).containsExactly("appointment.type.notfound.error");
+        assertThat(action.getActionMessages()).isEmpty();
+    }
+
+    @Test
+    void shouldReportFailure_whenDeleteThrows() throws Exception {
+        doThrow(new RuntimeException("database failure")).when(appointmentTypeDao).remove(42);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "del");
+        addRequestParameter("no", "42");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).containsExactly("appointment.type.delete.error");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"save", "del"})
+    void shouldRejectMutations_whenRequestIsGet(String operation) throws Exception {
+        mockRequest.setMethod("GET");
+        addRequestParameter("oper", operation);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
+        verify(appointmentTypeDao, never()).remove(org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    private void configureSave(String duration) {
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "save");
+        action.setDuration(duration);
+    }
+
+    private static final class TestAppointmentType2Action extends AppointmentType2Action {
+        private final AppointmentTypeDao appointmentTypeDao;
+        private SiteDao siteDao;
+        private boolean multisitesEnabled;
+
+        private TestAppointmentType2Action(AppointmentTypeDao appointmentTypeDao) {
+            this.appointmentTypeDao = appointmentTypeDao;
+        }
+
+        @Override
+        protected AppointmentTypeDao getAppointmentTypeDao() {
+            return appointmentTypeDao;
+        }
+
+        @Override
+        protected SiteDao getSiteDao() {
+            if (siteDao == null) {
+                throw new AssertionError("Site DAO should not be accessed when multisite mode is disabled");
+            }
+            return siteDao;
+        }
+
+        @Override
+        protected boolean isMultisitesEnabled() {
+            return multisitesEnabled;
+        }
+
+        private void enableMultisites(SiteDao siteDao) {
+            this.siteDao = siteDao;
+            this.multisitesEnabled = true;
+        }
+
+        /**
+         * Returns the resource key itself rather than localized text, so assertions can name the
+         * key they expect without depending on bundle wording. Every {@code getActionErrors()} and
+         * {@code getActionMessages()} assertion in this class reads keys for that reason. It also
+         * means these tests do not prove a key resolves — that parity is covered by the i18n CI job.
+         *
+         * @param key resource bundle key the action asked to resolve
+         * @return the key, verbatim
+         * @since 2026-08-07
+         */
+        @Override
+        public String getText(String key) {
+            return key;
+        }
+    }
+}

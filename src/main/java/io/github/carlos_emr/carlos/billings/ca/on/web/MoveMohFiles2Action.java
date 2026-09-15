@@ -31,11 +31,13 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -56,7 +58,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -156,71 +158,110 @@ public class MoveMohFiles2Action extends ActionSupport {
             return NONE;
         }
 
-        StringBuilder messages = new StringBuilder();
-        StringBuilder errors = new StringBuilder();
-
-        boolean isValid = true;
         String folderParam = request.getParameter("folder");
-        if (folderParam == null || folderParam.isEmpty()) {
-            errors.append("A folder must be selected.<br/>");
-            isValid = false;
-            // return "Unable to get folderParam";
-        }
+        EDTFolder resolvedFolder = resolveEdtFolder(folderParam);
+        boolean shouldValidateSubmission = hasMutationIntent || "POST".equalsIgnoreCase(request.getMethod());
+        boolean allowUnzip = false;
+        if (shouldValidateSubmission) {
+            List<String> messages = new ArrayList<>();
+            List<String> errors = new ArrayList<>();
+            boolean isValid = true;
 
-        // Reuse the array fetched above for the mutation-intent gate so the
-        // request parameter is read once instead of twice.
-        String[] fileNames = selectedMutationFiles;
-        if ((fileNames == null || fileNames.length == 0)
-                && (unzipFile == null || unzipFile.isBlank())) {
-            errors.append("Please select file(s) to archive.<br/>");
-            isValid = false;
-            // return "Unable to get file names";
-        }
+            if (folderParam == null || folderParam.isBlank()) {
+                errors.add(localizedMessage("billing.moveMohFiles.error.folderRequired"));
+                isValid = false;
+            } else if (resolvedFolder == null) {
+                errors.add(localizedMessage("billing.moveMohFiles.error.invalidFolder"));
+                isValid = false;
+            }
 
-        if (isValid && hasMohFileMutationIntent) {
-            String folderPath = getFolderPath(folderParam);
-            if (folderPath == null || folderPath.isEmpty()) {
-                errors.append("Invalid folder selection.<br/>");
-            } else {
-                for (String fileName : fileNames) {
-                    File file = getFile(folderPath, fileName);
-                    if (file == null) {
-                        logger.warn("Unable to get file {}{}{}", LogSafe.sanitize(folderPath), File.separator, LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            // Reuse the array fetched above for the mutation-intent gate so the
+            // request parameter is read once instead of twice.
+            String[] fileNames = selectedMutationFiles == null ? new String[0] : selectedMutationFiles;
+            if ((fileNames.length == 0)
+                    && (unzipFile == null || unzipFile.isBlank())) {
+                errors.add(localizedMessage("billing.moveMohFiles.error.fileRequired"));
+                isValid = false;
+            }
 
-                        errors.append("Unable to find file ").append(SafeEncode.forHtml(fileName)).append(".<br/>");
-                        continue;
-                    }
+            if (isValid && hasMohFileMutationIntent) {
+                String folderPath = getFolderPath(resolvedFolder);
+                if (folderPath == null || folderPath.isEmpty()) {
+                    errors.add(localizedMessage("billing.moveMohFiles.error.invalidFolder"));
+                } else {
+                    for (String fileName : fileNames) {
+                        File file = getFile(folderPath, fileName);
+                        if (file == null) {
+                            logger.warn("Unable to get file {}{}{}", LogSafe.sanitize(folderPath), File.separator, LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
-                    boolean isValidFileLocation = validateFileLocation(file);
-                    if (!isValidFileLocation) {
-                        logger.warn("Invalid file location {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                            errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
+                            continue;
+                        }
 
-                        errors.append("File is not in a valid location: ").append(SafeEncode.forHtml(fileName)).append(".<br/>");
-                        continue;
-                    }
+                        boolean isValidFileLocation = validateFileLocation(file);
+                        if (!isValidFileLocation) {
+                            logger.warn("Invalid file location {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
-                    if (file.exists()) {
-                        boolean isMoved = moveFile(file);
-                        if (isMoved) {
-                            messages.append("Archived file ").append(SafeEncode.forHtml(file.getName())).append(" successfully.<br/>");
+                            errors.add(localizedMessage("billing.moveMohFiles.error.invalidFileLocation", fileName));
+                            continue;
+                        }
+
+                        if (file.exists()) {
+                            boolean isMoved = moveFile(file);
+                            if (isMoved) {
+                                messages.add(localizedMessage("billing.moveMohFiles.info.archived", file.getName()));
+                            } else {
+                                errors.add(localizedMessage("billing.moveMohFiles.error.archiveFailed", file.getName()));
+                            }
                         } else {
-                            errors.append("Unable to archive ").append(SafeEncode.forHtml(file.getName())).append(".<br/>");
+                            logger.warn("Selected MOH file disappeared before archive {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                            errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
                         }
                     }
                 }
             }
+            allowUnzip = isValid && unzipFile != null && !unzipFile.isBlank();
+
+            HttpSession session = request.getSession();
+            for (String error : errors) {
+                WebUtils.addErrorMessage(session, error);
+            }
+            for (String message : messages) {
+                WebUtils.addInfoMessage(session, message);
+            }
+        } else if (folderParam != null && !folderParam.isBlank() && resolvedFolder == null) {
+            WebUtils.addErrorMessage(request.getSession(), localizedMessage("billing.moveMohFiles.error.invalidFolder"));
         }
-        
-        WebUtils.addErrorMessage(request.getSession(), errors.toString());
-        WebUtils.addInfoMessage(request.getSession(), messages.toString());
 
         // Build the view model for the rendering JSP. The page is rendered both
         // on direct GET (folder listing) and after the POST that archives files,
         // so the assembler runs unconditionally before we forward.
-        request.setAttribute("mohModel", buildViewModel(request, folderParam));
+        request.setAttribute("mohModel", buildViewModel(request, resolvedFolder, allowUnzip));
         request.setAttribute("__roleName", buildRoleName(request));
 
         return SUCCESS;
+    }
+
+    private String localizedMessage(String key, Object... args) {
+        Locale locale = request == null || request.getLocale() == null ? Locale.getDefault() : request.getLocale();
+        String pattern = escapeMessageFormatApostrophes(LocaleUtils.getMessage(locale, key));
+        return new MessageFormat(pattern, locale).format(args);
+    }
+
+    private static String escapeMessageFormatApostrophes(String pattern) {
+        StringBuilder escaped = new StringBuilder(pattern.length());
+        for (int i = 0; i < pattern.length(); i++) {
+            char current = pattern.charAt(i);
+            if (current == '\'') {
+                escaped.append("''");
+                if (i + 1 < pattern.length() && pattern.charAt(i + 1) == '\'') {
+                    i++;
+                }
+            } else {
+                escaped.append(current);
+            }
+        }
+        return escaped.toString();
     }
 
     /** Builds the {@code roleName} string the {@code <security:oscarSec>} tag wants. */
@@ -249,7 +290,7 @@ public class MoveMohFiles2Action extends ActionSupport {
      */
     public ViewMohFilesViewModel assembleViewModelForFallback(HttpServletRequest req) {
         String folderParam = req.getParameter("folder");
-        return buildViewModel(req, folderParam);
+        return buildViewModel(req, resolveEdtFolder(folderParam), false);
     }
 
     /**
@@ -258,14 +299,14 @@ public class MoveMohFiles2Action extends ActionSupport {
      * (folder resolution, optional unzip, file enumeration, date sorting,
      * URL-encoded link composition) so the JSP body becomes pure EL/JSTL.
      *
-     * @param folderParam folder name from the request ({@code "inbox"}, {@code "outbox"}, etc.)
+     * @param resolvedFolder validated folder from the request, or {@code null} to render the safe default
+     * @param allowUnzip whether the request passed mutation validation and may unzip the selected file
      * @return populated view model (never null)
      */
-    private ViewMohFilesViewModel buildViewModel(HttpServletRequest req, String folderParam) {
-        // EDTFolder.getFolder never returns null — invalid input falls back
-        // to INBOX. Keeps the previous "if (folder == null)" branch out of
-        // scope; that branch was always dead.
-        EDTFolder folder = EDTFolder.getFolder(folderParam);
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    private ViewMohFilesViewModel buildViewModel(HttpServletRequest req, EDTFolder resolvedFolder, boolean allowUnzip) {
+        EDTFolder folder = resolvedFolder == null ? EDTFolder.INBOX : resolvedFolder;
         String folderPath = folder.getPath();
 
         if (folderPath == null || folderPath.isEmpty()) {
@@ -290,12 +331,15 @@ public class MoveMohFiles2Action extends ActionSupport {
         String unzipMSG = "";
         String zname = req.getParameter("unzipfile");
         try {
-            if (zname != null && !zname.isEmpty()) {
+            if (allowUnzip && zname != null && !zname.isEmpty()) {
                 String safeZipName = FilenameUtils.getName(zname);
                 File safeZipFile = PathValidationUtils.validatePath(safeZipName, new File(folderPath));
                 Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
                 if (!unzipDone) {
                     unzipMSG = "(Cannot unzip)";
+                } else {
+                    WebUtils.addInfoMessage(req.getSession(),
+                            localizedMessage("billing.moveMohFiles.info.unzipped", safeZipFile.getName()));
                 }
             }
         } catch (SecurityException e) {
@@ -355,6 +399,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param file File object representing the file to validate (must not be null)
      * @return boolean true if the file is within an authorized EDT folder, false otherwise
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private boolean validateFileLocation(File file) {
         boolean result = false;
         for (EDTFolder folder : EDTFolder.values()) {
@@ -372,7 +418,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                 // and surfaces as a pattern in audit triage; legitimate
                 // calls that hit the right folder break out before more
                 // than one DEBUG fires.
-                logger.debug("EDT folder {} rejected file path during validation: {}",
+                logger.debug("EDT folder {} rejected file path during validation: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         io.github.carlos_emr.carlos.utility.LogSafe.sanitize(folder.name()),
                         io.github.carlos_emr.carlos.utility.LogSafe.sanitize(
                                 file == null ? "null" : file.getPath()));
@@ -397,15 +443,17 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param fileName String representing the URL-encoded filename to retrieve
      * @return File object representing the file at the specified path, or null if filename decoding fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File getFile(String folderPath, String fileName) {
         try {
             fileName = URLDecoder.decode(fileName, "UTF-8");
         } catch (UnsupportedEncodingException e) {
-            logger.error("Unable to decode {}", LogSafe.sanitize(fileName), e);
+            logger.error("Unable to decode {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return null;
         }
         if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
-            logger.warn("Rejected decoded file path: {}", LogSafe.sanitize(fileName));
+            logger.warn("Rejected decoded file path: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return null;
         }
         String safeFileName = FilenameUtils.getName(fileName);
@@ -419,7 +467,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         try {
             return PathValidationUtils.validatePath(safeFileName, new File(folderPath));
         } catch (SecurityException e) {
-            logger.warn("Rejected file path: {} in {}",
+            logger.warn("Rejected file path: {} in {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(fileName), LogSafe.sanitize(folderPath), e);
             return null;
         }
@@ -443,15 +491,17 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param file File object representing the MOH billing file to move to archive
      * @return boolean true if the file was successfully moved to the archive directory, false if the move failed
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: trusted configured archive directory is canonicalized before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "trusted configured archive directory is canonicalized before use")
     private boolean moveFile(File file) {
-    File archiveDir = new File(EDTFolder.ARCHIVE.getPath());
-    try {
-        FileUtils.moveToDirectory(file, archiveDir, true);
-    } catch (IOException e) {
-        logger.error("Unable to move", e);
-        return false;
-    }
-    return true;
+        try {
+            File archiveDir = PathValidationUtils.resolveConfiguredDirectory(EDTFolder.ARCHIVE.getPath(), "ONEDT_ARCHIVE");
+            FileUtils.moveToDirectory(file, archiveDir, true);
+        } catch (IOException | SecurityException e) {
+            logger.error("Unable to move", e);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -464,15 +514,28 @@ public class MoveMohFiles2Action extends ActionSupport {
      * <p>The folder name parameter typically comes from a web form selection and identifies
      * which EDT folder category (e.g., inbox, outbox, error) the user is working with.</p>
      *
-     * @param folderName String identifier for the EDT folder (e.g., "INBOX", "OUTBOX", "ERROR")
+     * @param folder resolved EDT folder selected for the request
      * @return String representing the absolute filesystem path for the specified EDT folder
      */
-    private String getFolderPath(String folderName) {
-    EDTFolder folder = EDTFolder.getFolder(folderName);
-    if (folder == null) {
-        logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSafe.sanitize(folderName));
-        return null;
+    private String getFolderPath(EDTFolder folder) {
+        if (folder == null) {
+            return null;
+        }
+        return folder.getPath();
     }
-    return folder.getPath();
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of closed EDT folder enum names; invalid values are rejected before mutation.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of closed EDT folder enum names; invalid values are rejected before mutation")
+    private static EDTFolder resolveEdtFolder(String folderName) {
+        if (folderName == null || folderName.isBlank()) {
+            return null;
+        }
+        String normalizedFolderName = folderName.trim();
+        for (EDTFolder folder : EDTFolder.values()) {
+            if (folder.name().equalsIgnoreCase(normalizedFolderName)) {
+                return folder;
+            }
+        }
+        return null;
     }
 }

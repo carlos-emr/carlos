@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
@@ -64,7 +64,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     private DemographicManager mockDemographicManager;
 
     @Mock
-    private ConsultationRequestDao mockConsultationRequestDao;
+    private ConsultRequestDao mockConsultRequestDao;
 
     @Mock
     private ConsultationRequestExtDao mockConsultationRequestExtDao;
@@ -94,7 +94,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         // EctConsultationFormRequestUtil's field initializers call SpringUtils.getBean(...)
         // for every collaborator — register them all before constructing it.
         registerMock(DemographicManager.class, mockDemographicManager);
-        registerMock(ConsultationRequestDao.class, mockConsultationRequestDao);
+        registerMock(ConsultRequestDao.class, mockConsultRequestDao);
         registerMock(ConsultationRequestExtDao.class, mockConsultationRequestExtDao);
         registerMock(ConsultationServiceDao.class, mockConsultationServiceDao);
         registerMock(ContactDao.class, mockContactDao);
@@ -152,13 +152,72 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         demographic.setFirstName("John");
         demographic.setLastName("Doe");
 
-        when(mockConsultationRequestDao.findWithAssociations(456)).thenReturn(request);
+        when(mockConsultRequestDao.findWithAssociations(456)).thenReturn(request);
         when(mockDemographicManager.getDemographic(eq(mockLoggedInInfo), eq(123))).thenReturn(demographic);
         when(mockFaxClientLogDao.findClientLogbyRequestId(456)).thenReturn(Collections.emptyList());
 
         boolean requestFound = consultationFormRequestUtil.estRequestFromId(mockLoggedInInfo, "456");
 
         assertThat(requestFound).isTrue();
-        verify(mockConsultationRequestDao).findWithAssociations(456);
+        verify(mockConsultRequestDao).findWithAssociations(456);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"invalid", "2147483648", "0", "-1"})
+    void shouldRefuseInvalidRequestId_beforeQueryingCollaborators(String id) {
+        assertThat(consultationFormRequestUtil.estRequestFromId(mockLoggedInInfo, id)).isFalse();
+        org.mockito.Mockito.verifyNoInteractions(mockConsultRequestDao, mockProfessionalSpecialistDao);
+    }
+
+    @Test
+    void shouldLoadWithoutContact_whenHealthCareTeamEnabled() {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String key = "ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS";
+        String previous = properties.getProperty(key);
+        properties.setProperty(key, "true");
+        try {
+            stubRequestForForm();
+            assertThat(consultationFormRequestUtil.estRequestFromId(mockLoggedInInfo, "456")).isTrue();
+        } finally {
+            if (previous == null) properties.remove(key); else properties.setProperty(key, previous);
+        }
+    }
+
+    @Test
+    void shouldUseRequestSpecialistContactDetails_whenRequestAndSpecialistIdsDiffer() {
+        ConsultationRequest request = stubRequestForForm();
+        var specialist = new io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist();
+        org.springframework.test.util.ReflectionTestUtils.setField(specialist, "id", 37);
+        specialist.setPhoneNumber("555-0101");
+        specialist.setFaxNumber("555-0102");
+        specialist.setStreetAddress("Synthetic address");
+        specialist.setEmailAddress("specialist@example.test");
+        request.setProfessionalSpecialist(specialist);
+        assertThat(consultationFormRequestUtil.estRequestFromId(mockLoggedInInfo, "456")).isTrue();
+        assertThat(consultationFormRequestUtil.getSpecPhone()).isEqualTo("555-0101");
+        assertThat(consultationFormRequestUtil.getSpecFax()).isEqualTo("555-0102");
+        assertThat(consultationFormRequestUtil.getSpecAddr()).isEqualTo("Synthetic address");
+        assertThat(consultationFormRequestUtil.getSpecEmail()).isEqualTo("specialist@example.test");
+        org.mockito.Mockito.verifyNoInteractions(mockProfessionalSpecialistDao);
+    }
+
+    @Test
+    void shouldReportMissingRequest_withoutReadingSpecialist() {
+        assertThat(consultationFormRequestUtil.estRequestFromId(mockLoggedInInfo, "789")).isFalse();
+        org.mockito.Mockito.verifyNoInteractions(mockProfessionalSpecialistDao);
+    }
+
+    private ConsultationRequest stubRequestForForm() {
+        ConsultationRequest request = new ConsultationRequest();
+        request.setDemographicId(123);
+        request.setServiceId(10);
+        Demographic demographic = new Demographic();
+        demographic.setFirstName("Synthetic");
+        demographic.setLastName("Patient");
+        when(mockConsultRequestDao.findWithAssociations(456)).thenReturn(request);
+        org.mockito.Mockito.lenient().when(mockDemographicManager.getDemographic(mockLoggedInInfo, 123)).thenReturn(demographic);
+        org.mockito.Mockito.lenient().when(mockFaxClientLogDao.findClientLogbyRequestId(456)).thenReturn(Collections.emptyList());
+        return request;
     }
 }

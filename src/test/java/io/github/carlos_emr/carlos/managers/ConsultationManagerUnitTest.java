@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
@@ -49,6 +50,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClassDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMSubClassDao;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestSearchResult;
@@ -398,6 +400,11 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
     class GetRequest {
 
         @Test
+        void shouldReturnNull_whenRequestDoesNotExist() {
+            assertThat(consultationManager.getRequest(mockLoggedInInfo, TEST_REQUEST_ID)).isNull();
+        }
+
+        @Test
         @DisplayName("should return consultation request when valid ID provided")
         void shouldReturnConsultationRequest_whenValidIdProvided() {
             // Given
@@ -466,6 +473,17 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return null when response does not exist")
+        void shouldReturnNull_whenResponseDoesNotExist() {
+            when(mockConsultResponseDao.find(TEST_RESPONSE_ID)).thenReturn(null);
+
+            ConsultationResponse result = consultationManager.getResponse(mockLoggedInInfo, TEST_RESPONSE_ID);
+
+            assertThat(result).isNull();
+            verify(mockConsultResponseDao).find(TEST_RESPONSE_ID);
+        }
+
+        @Test
         @DisplayName("should throw RuntimeException when read privilege denied for response")
         void shouldThrowRuntimeException_whenReadPrivilegeDeniedForResponse() {
             // Given
@@ -476,6 +494,33 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> consultationManager.getResponse(mockLoggedInInfo, TEST_RESPONSE_ID))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Access Denied");
+        }
+    }
+
+    /**
+     * Tests for getEReferAttachments() audit behavior.
+     */
+    @Nested
+    @DisplayName("Get eReferral Attachments")
+    @Tag("read")
+    class GetEReferAttachments {
+
+        @Test
+        @DisplayName("should audit an authorized attachment read when no prepared attachments exist")
+        void shouldAuditAttachmentRead_whenNoPreparedAttachmentsExist() throws Exception {
+            EReferAttachmentDao eReferAttachmentDao = Mockito.mock(EReferAttachmentDao.class);
+            ConsultationManagerImpl manager = new ConsultationManagerImpl();
+            injectDependency(manager, "eReferAttachmentDao", eReferAttachmentDao);
+            injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
+            when(eReferAttachmentDao.getRecentByDemographic(eq(TEST_DEMOGRAPHIC_NO), any(Date.class)))
+                    .thenReturn(null);
+
+            assertThat(manager.getEReferAttachments(
+                    mockLoggedInInfo, null, null, TEST_DEMOGRAPHIC_NO)).isEmpty();
+
+            logActionMock.verify(() -> LogAction.addLogSynchronous(
+                    mockLoggedInInfo, "ConsultationManager.getEReferAttachments",
+                    "demographicNo=" + TEST_DEMOGRAPHIC_NO));
         }
     }
 
@@ -591,7 +636,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             consultationManager.saveConsultationRequest(mockLoggedInInfo, existingRequest);
 
             // Then - extras should be batch persisted since they are new
-            verify(mockConsultationRequestExtDao).batchPersist(any());
+            verify(mockConsultationRequestExtDao).batchPersistAtomically(any());
         }
 
         @Test
@@ -1454,7 +1499,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             consultationManager.saveOrUpdateExts(TEST_REQUEST_ID, newExtras);
 
             // Then
-            verify(mockConsultationRequestExtDao).batchPersist(any());
+            verify(mockConsultationRequestExtDao).batchPersistAtomically(any());
         }
 
         @Test
@@ -1492,12 +1537,12 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
             // Then - no merge needed since value unchanged
             verify(mockConsultationRequestExtDao, never()).merge(any());
-            verify(mockConsultationRequestExtDao, never()).batchPersist(any());
+            verify(mockConsultationRequestExtDao, never()).batchPersistAtomically(any());
         }
 
         @Test
         @DisplayName("should handle mix of new and existing extras")
-        void shouldHandleMixOfNewAndExistingExtras() {
+        void shouldHandleMixedExtras_whenNewAndExistingKeysProvided() {
             // Given
             ConsultationRequestExt existing = createExt(1, TEST_REQUEST_ID, "appointmentYear", "2025");
             when(mockConsultationRequestExtDao.getConsultationRequestExts(TEST_REQUEST_ID))
@@ -1512,7 +1557,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
             // Then - existing updated via merge, new persisted via batch
             verify(mockConsultationRequestExtDao).merge(existing);
-            verify(mockConsultationRequestExtDao).batchPersist(any());
+            verify(mockConsultationRequestExtDao).batchPersistAtomically(any());
         }
     }
 

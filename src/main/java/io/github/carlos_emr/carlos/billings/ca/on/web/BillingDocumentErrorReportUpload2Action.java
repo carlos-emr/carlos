@@ -192,6 +192,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         return saveFileDetailed(file, fileName).success();
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static SaveReportFileResult saveFileDetailed(File file, String fileName) {
         try {
             CarlosProperties props = CarlosProperties.getInstance();
@@ -199,7 +201,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             // Get target directory
             String place = props.getProperty("DOCUMENT_DIR");
             if (place == null || place.trim().isEmpty()) {
-                MiscUtils.getLogger().error("DOCUMENT_DIR property is not configured for MOH report upload file {}",
+                MiscUtils.getLogger().error("DOCUMENT_DIR property is not configured for MOH report upload file {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(fileName));
                 return SaveReportFileResult.failure(CONFIG_ERROR_MESSAGE);
             }
@@ -207,7 +209,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             // Use PathValidationUtils to validate and get safe destination path
             File placeDir = new File(place).getCanonicalFile();
             if (!placeDir.exists() || !placeDir.isDirectory()) {
-                MiscUtils.getLogger().error("DOCUMENT_DIR does not exist or is not a directory for MOH report upload file {}: {}",
+                MiscUtils.getLogger().error("DOCUMENT_DIR does not exist or is not a directory for MOH report upload file {}: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(fileName), LogSafe.sanitize(place));
                 return SaveReportFileResult.failure(CONFIG_ERROR_MESSAGE);
             }
@@ -216,7 +218,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             try {
                 destFile = PathValidationUtils.validatePath(fileName, placeDir);
             } catch (SecurityException e) {
-                MiscUtils.getLogger().error("Invalid MOH report upload filename provided: {}",
+                MiscUtils.getLogger().error("Invalid MOH report upload filename provided: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(fileName), e);
                 return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
             }
@@ -234,7 +236,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
             String inboxDir = props.getProperty("ONEDT_INBOX");
             if (inboxDir == null || inboxDir.trim().isEmpty()) {
-                MiscUtils.getLogger().error("ONEDT_INBOX property is not configured for MOH report upload file {}",
+                MiscUtils.getLogger().error("ONEDT_INBOX property is not configured for MOH report upload file {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(fileName));
                 return SaveReportFileResult.failure(CONFIG_ERROR_MESSAGE);
             }
@@ -242,7 +244,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             // Use PathValidationUtils to validate and get safe inbox path
             File inboxDirFile = new File(inboxDir).getCanonicalFile();
             if (!inboxDirFile.exists() || !inboxDirFile.isDirectory()) {
-                MiscUtils.getLogger().error("ONEDT_INBOX does not exist or is not a directory for MOH report upload file {}: {}",
+                MiscUtils.getLogger().error("ONEDT_INBOX does not exist or is not a directory for MOH report upload file {}: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(fileName), LogSafe.sanitize(String.valueOf(inboxDir)));
                 return SaveReportFileResult.failure(CONFIG_ERROR_MESSAGE);
             }
@@ -251,18 +253,18 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             try {
                 inboxFile = PathValidationUtils.validatePath(destFile.getName(), inboxDirFile);
             } catch (SecurityException e) {
-                MiscUtils.getLogger().error("Invalid filename for inbox: {}", LogSafe.sanitize(destFile.getName()));
+                MiscUtils.getLogger().error("Invalid filename for inbox: {}", LogSafe.sanitize(destFile.getName())); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
             }
 
             org.apache.commons.io.FileUtils.copyFile(destFile, inboxFile);
         } catch (FileNotFoundException e) {
-            MiscUtils.getLogger().error("MOH report upload source file not found: {}",
+            MiscUtils.getLogger().error("MOH report upload source file not found: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(fileName), e);
             return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
 
         } catch (IOException ioe) {
-            MiscUtils.getLogger().error("MOH report upload IO error for {}",
+            MiscUtils.getLogger().error("MOH report upload IO error for {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(fileName), ioe);
             return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
         }
@@ -285,6 +287,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      * @throws ServletException unused (kept for back-compat with caller signature)
      * @throws IOException unused (kept for back-compat with caller signature)
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private MohReportReadResult getData(LoggedInInfo loggedInInfo, String fileName, String pathDir, HttpServletRequest request)
             throws ServletException, IOException {
         boolean isGot = false;
@@ -295,7 +299,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             boolean bNewBilling = "true".equals(props.getProperty("isNewONbilling", ""));
 
             if (filepath == null || filepath.isBlank()) {
-                MiscUtils.getLogger().error("{} property is not configured for MOH report file {}",
+                MiscUtils.getLogger().error("{} property is not configured for MOH report file {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(pathDir), LogSafe.sanitize(fileName));
                 return MohReportReadResult.failure(ReadFailureCategory.CONFIGURATION, CONFIG_ERROR_MESSAGE);
             }
@@ -303,7 +307,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             // Use PathValidationUtils to validate and get safe file path
             File safeDir = new File(filepath).getCanonicalFile();
             if (!safeDir.exists() || !safeDir.isDirectory()) {
-                MiscUtils.getLogger().error("{} does not exist or is not a directory for MOH report file {}: {}",
+                MiscUtils.getLogger().error("{} does not exist or is not a directory for MOH report file {}: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(pathDir), LogSafe.sanitize(fileName),
                         LogSafe.sanitize(filepath));
                 return MohReportReadResult.failure(ReadFailureCategory.CONFIGURATION, CONFIG_ERROR_MESSAGE);
@@ -312,7 +316,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             try {
                 inputFile = PathValidationUtils.validatePath(fileName, safeDir);
             } catch (SecurityException e) {
-                MiscUtils.getLogger().error("Invalid MOH report filename provided for {}: {}",
+                MiscUtils.getLogger().error("Invalid MOH report filename provided for {}: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(pathDir), LogSafe.sanitize(fileName), e);
                 return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);
             }
@@ -320,7 +324,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             // Get the sanitized filename from the validated path
             String sanitizedFileName = inputFile.getName();
             if (sanitizedFileName.isEmpty()) {
-                MiscUtils.getLogger().warn("MOH report filename empty after sanitization for {}", LogSafe.sanitize(fileName));
+                MiscUtils.getLogger().warn("MOH report filename empty after sanitization for {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);
             }
 
@@ -330,7 +334,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
             // try-with-resources to close the FileInputStream on every exit path.
             try (FileInputStream file = new FileInputStream(inputFile)) {
-                MiscUtils.getLogger().debug("File path: {}",
+                MiscUtils.getLogger().debug("File path: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(inputFile.getAbsolutePath()));
 
                 if (prefix.compareTo("E") == 0 || prefix.compareTo("F") == 0) {
@@ -362,7 +366,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                     // Unrecognized prefix — supported set is E/F/B/X/R/L. The
                     // caller renders errors.incorrectFileFormat; without this
                     // log the operator can't see what prefix actually arrived.
-                    MiscUtils.getLogger().warn(
+                    MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                             "Unrecognized MOH report prefix [{}] for file {} — supported prefixes are E/F/B/X/R/L",
                             LogSafe.sanitize(prefix),
                             LogSafe.sanitize(sanitizedFileName));
@@ -372,20 +376,20 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
             request.setAttribute("ReportName", ReportName);
             if (!isGot) {
-                MiscUtils.getLogger().warn("MOH report parser returned unsuccessful verdict for file {} from {}",
+                MiscUtils.getLogger().warn("MOH report parser returned unsuccessful verdict for file {} from {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(sanitizedFileName), LogSafe.sanitize(pathDir));
                 return MohReportReadResult.failure(ReadFailureCategory.FORMAT, getText("errors.incorrectFileFormat"));
             }
         } catch (FileNotFoundException fnfe) {
-            MiscUtils.getLogger().error("MOH report upload - file not found at validated path for {}: {}",
+            MiscUtils.getLogger().error("MOH report upload - file not found at validated path for {}: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(pathDir), LogSafe.sanitize(fileName), fnfe);
             return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);
         } catch (BillingFileImportException importFailure) {
-            MiscUtils.getLogger().error("MOH report import failed for {} from {}",
+            MiscUtils.getLogger().error("MOH report import failed for {} from {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(fileName), LogSafe.sanitize(pathDir), importFailure);
             return MohReportReadResult.failure(ReadFailureCategory.IMPORT, IMPORT_ERROR_MESSAGE);
         } catch (IOException ioe) {
-            MiscUtils.getLogger().error("MOH report upload - IO error reading {} from {}",
+            MiscUtils.getLogger().error("MOH report upload - IO error reading {} from {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(fileName), LogSafe.sanitize(pathDir), ioe);
             return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);
         }
@@ -582,6 +586,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
     private String filename; // Filename parameter from request
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {

@@ -105,7 +105,9 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
     private Integer fdid = null;
     private String source;
 
-    @ManyToOne(fetch = FetchType.LAZY, targetEntity = LookupListItem.class)
+    // This joins a non-primary-key value. Hibernate resolves it during entity loading even
+    // with LAZY; retain explicit eager loading for detached appointment-instruction labels.
+    @ManyToOne(fetch = FetchType.EAGER, targetEntity = LookupListItem.class)
     @JoinColumn(name = "appointmentInstructions", referencedColumnName = "value", insertable = false, updatable = false)
     private LookupListItem lookupListItem;
 

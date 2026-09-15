@@ -40,11 +40,11 @@ import org.junit.jupiter.api.Test;
 class ConsultationRequestUnitTest {
 
     @Test
-    @DisplayName("should use lazy fetch for optional detail relationships")
+    @DisplayName("should use lazy fetch for primary-key detail relationships")
     void shouldUseLazyFetch_whenRelationshipMappingsInspected() throws Exception {
         assertThat(fetchType("professionalSpecialist")).isEqualTo(FetchType.LAZY);
         assertThat(fetchType("demographicContact")).isEqualTo(FetchType.LAZY);
-        assertThat(fetchType("lookupListItem")).isEqualTo(FetchType.LAZY);
+        assertThat(fetchType("lookupListItem")).isEqualTo(FetchType.EAGER);
     }
 
     private static FetchType fetchType(String fieldName) throws NoSuchFieldException {

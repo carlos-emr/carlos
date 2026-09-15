@@ -208,6 +208,34 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
+        @DisplayName("should filter provider name searches by status")
+        void shouldFilterProviderNameSearch_byStatus() {
+            ProviderData active = newProvider("30006");
+            active.setFirstName("Alex");
+            active.setLastName("StatusSearch");
+            active.setStatus("1");
+            dao.persist(active);
+
+            ProviderData inactive = newProvider("30007");
+            inactive.setFirstName("Blair");
+            inactive.setLastName("StatusSearch");
+            inactive.setStatus("0");
+            dao.persist(inactive);
+            hibernateTemplate.flush();
+
+            List<ProviderData> activeResults = dao.findByProviderName("StatusSearch", "1", 10, 0);
+            List<ProviderData> inactiveResults = dao.findByProviderName("StatusSearch", "0", 10, 0);
+
+            assertThat(activeResults).extracting(ProviderData::getId)
+                    .contains("30006")
+                    .doesNotContain("30007");
+            assertThat(inactiveResults).extracting(ProviderData::getId)
+                    .contains("30007")
+                    .doesNotContain("30006");
+        }
+
+        @Test
+        @Tag("query")
         @DisplayName("should find all providers with active flag filtering")
         void shouldFindAllProviders_withActiveFlag() throws Exception {
             ProviderData active = newProvider("40001");
