@@ -127,6 +127,8 @@ public class EmailManager {
     @Autowired
     private ProviderManager2 providerManager;
     private final SecurityInfoManager securityInfoManager;
+    @Autowired
+    private io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery portalEmailDelivery;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
 
@@ -175,6 +177,12 @@ public class EmailManager {
             }
 
             sanitizeEmailFields(emailData);
+            boolean portalPassword = emailData.getIsEncrypted()
+                    && io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery.isEnabled();
+            if (portalPassword) {
+                emailData.setPassword("");
+                emailData.setPasswordClue("");
+            }
             EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
             if (emailConfig == null) {
                 logger.warn("Email send failed before transport: sender configuration is missing or inactive; senderConfigId={}",
@@ -193,6 +201,19 @@ public class EmailManager {
                         "emailLogId=" + emailLog.getId() + "&consentStatus=" + consentResult.getStatus(),
                         String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
                 return EmailSendResult.failed(emailLog, true);
+            }
+
+            if (portalPassword) {
+                var portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
+                        () -> encryptEmail(emailData),
+                        () -> emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData).send());
+                if (portalResult.isTransportAccepted()) {
+                    var completed = completeAcceptedSend(loggedInInfo, emailLog);
+                    return EmailSendResult.accepted(completed.getEmailLog(), completed.isTransportOutcomeRecorded(),
+                            completed.isFollowUpRequired() || portalResult.isFollowUpRequired());
+                }
+                return completeFailedSend(loggedInInfo, emailLog,
+                        new EmailSendingException(emailLog.getErrorMessage(), null, portalResult.isDeliveryUnconfirmed()));
             }
 
             try {

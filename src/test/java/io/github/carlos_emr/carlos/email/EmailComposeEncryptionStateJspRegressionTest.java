@@ -65,7 +65,7 @@ class EmailComposeEncryptionStateJspRegressionTest {
 
         int slideUp = jsp.indexOf("$(\"#page-body\").slideUp");
         int successOnlyGuard = jsp.lastIndexOf(
-                "<c:if test=\"${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true }\">", slideUp);
+                "<c:if test=\"${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true or portalDeliveryNeedsRecovery }\">", slideUp);
 
         assertThat(slideUp).isGreaterThanOrEqualTo(0);
         assertThat(successOnlyGuard).isGreaterThanOrEqualTo(0);

@@ -754,7 +754,7 @@ public class EmailSend2Action extends ActionSupport {
             EmailComposeSubmissionState composeState,
             boolean needsPdfPassword
     ) {
-        if (!needsPdfPassword) {
+        if (!needsPdfPassword || io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery.isEnabled()) {
             return "";
         }
 

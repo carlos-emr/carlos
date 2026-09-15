@@ -19,6 +19,10 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery" %>
+<% request.setAttribute("portalEmailEnabled", PortalEmailDelivery.isEnabled()); %>
+<c:set var="portalDeliveryNeedsRecovery" value="${not empty emailLog.portalDeliveryState and (emailLog.status eq 'PENDING' or (emailLog.portalDeliveryState ne 'PUBLISHED' and emailLog.portalDeliveryState ne 'REVOKED'))}"/>
+
 
 <html>
 <head>
@@ -98,7 +102,7 @@
         Action return flashy confirmation messages.
     --%>
     <%-- Keep failed sends editable for retry; only a successful send collapses the composer. --%>
-    <c:if test="${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true }">
+    <c:if test="${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true or portalDeliveryNeedsRecovery }">
         <script type="text/javascript">
             $(document).ready(function () {
                 $("#page-body").slideUp("slow");
@@ -516,24 +520,28 @@
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
                     <div class="card-body" id="encryptionOptions">
+                        <c:if test="${portalEmailEnabled}">
+                            <p>The patient will find the password in their Portal after signing in with MFA.
+                                Select one email address recorded for this patient. Their Portal account must be ready to use.</p>
+                        </c:if>
                         <div class="container">
                             <%-- The message content itself now lives in the single "Message" field above;
                                  this card only carries the password / clue / encrypt-attachments controls
                                  that govern how that message (and any attachments) are protected. --%>
-                            <div class="row mt-3 mb-3 align-items-center">
+                            <div class="row mt-3 mb-3 align-items-center ${portalEmailEnabled ? 'd-none' : ''}">
                                 <div class="col-sm-3">
                                     <label class="col-form-label" for="emailPDFPassword">${emailComposePasswordLabel}</label>
                                 </div>
                                 <div class="col-sm-9">
                                     <input class="form-control" type="text"
                                            id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
-                                           value="${carlos:forHtmlAttribute(emailPDFPassword)}"
+                                           value="${carlos:forHtmlAttribute(portalEmailEnabled ? '' : emailPDFPassword)}"
                                            autocomplete="off" spellcheck="false" autocapitalize="none"
                                            autocorrect="off" readonly/>
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 mb-3 align-items-center">
+                            <div class="row mt-3 mb-3 align-items-center ${portalEmailEnabled ? 'd-none' : ''}">
                                 <div class="col-sm-3">
                                     <label class="col-form-label" for="emailPDFPasswordClue">${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
                                                       data-bs-placement="right"
@@ -541,7 +549,7 @@
                                 </div>
                                 <div class="col-sm-9">
                                     <textarea class="form-control" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtmlContent(emailPDFPasswordClue)}</textarea>
+                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtmlContent(portalEmailEnabled ? '' : emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
@@ -687,7 +695,7 @@
                 <div class="container mt-4" id="form-control-buttons">
                     <div class="row">
                         <div class="col-sm-12">
-                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
+                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
                                 <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 ${emailComposeSend}
                             </button>
@@ -706,6 +714,12 @@
         <%-- the confirmation tags. --%>
         <c:if test="${ not empty isEmailSuccessful }">
             <c:choose>
+                <c:when test="${portalDeliveryNeedsRecovery}">
+                    <div class="alert alert-warning" role="alert">
+                        <p>The email's Portal password update needs attention. Check its delivery state before sending another email.</p>
+                        <a href="${ctx}/email/portalDelivery?emailLogId=${carlos:forUriComponent(emailLog.id)}">Check email delivery and Portal password</a>
+                    </div>
+                </c:when>
                 <c:when test="${ isEmailSuccessful }">
 					<div class="alert alert-success" role="alert" id="successMessage">
 						<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
@@ -783,6 +797,9 @@
 
         // A successful send is terminal for this composer. A failed send deliberately continues
         // through normal initialization below so the fully restored form remains usable for retry.
+        if (${portalDeliveryNeedsRecovery}) {
+            return; // Recovery never resends the email.
+        }
         if (document.getElementById('isEmailSuccessful').value === 'true') {
             openEFormAfterSend();
 
@@ -867,7 +884,7 @@
 
         validateField(subjectEmail, emailComposeSubjectRequiredMsg, errors, 'subjectError');
         validateField(message, emailComposeMessageRequiredMsg, errors, 'messageError');
-        const needsPdfPassword = isEncrypted || (hasAttachments && isAttachmentEncrypted);
+        const needsPdfPassword = !${portalEmailEnabled} && (isEncrypted || (hasAttachments && isAttachmentEncrypted));
         if (needsPdfPassword) {
             validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
             validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
