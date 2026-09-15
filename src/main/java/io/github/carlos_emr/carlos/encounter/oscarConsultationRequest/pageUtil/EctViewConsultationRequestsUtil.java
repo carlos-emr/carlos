@@ -49,7 +49,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-public class EctViewConsultationRequestsUtil {  
+public class EctViewConsultationRequestsUtil {
+
+   /**
+    * Determines whether a list row has a usable patient identifier for bulk ticklers.
+    * Missing patients remain visible in consultation lists but cannot receive a tickler.
+    * @param demographicNo patient identifier from the consultation list
+    * @return true only for a positive decimal patient identifier
+    */
+   public static boolean isTicklerDemographic(String demographicNo) {
+      return demographicNo != null && demographicNo.matches("[1-9][0-9]*");
+   }
    public List<String> ids;
    public List<String> status;
    public List<String> patient;
@@ -123,25 +133,30 @@ public class EctViewConsultationRequestsUtil {
 
           for ( int idx = 0; idx < consultList.size(); ++idx ) {
               consult = (ConsultationRequest) consultList.get(idx);
-              demo = demographicManager.getDemographic(loggedInInfo, consult.getDemographicId());
+              demo = consult.getDemographicId() == null ? null
+                      : demographicManager.getDemographic(loggedInInfo, consult.getDemographicId());
 
               List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(consult.getId());
               Map<String, String> extraMap = consultationManager.getExtValuesAsMap(extras);
               
               String serviceDescription = "";
               // If service id is 0, check the extensions table
-              if (consult.getServiceId() == 0) {
+              if (Integer.valueOf(0).equals(consult.getServiceId())) {
                  serviceDescription = extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey(), "");
-              } else {
+              } else if (consult.getServiceId() != null) {
                  services = serviceDao.find(consult.getServiceId());
                  if (services != null) {
                     serviceDescription = services.getServiceDesc();
                  }
               }
 
-              providerId = demo.getProviderNo();
-              if ( providerId != null && !providerId.equals("")) {
-                  prov = providerDao.getProvider(demo.getProviderNo());
+              // Same contract as estConsultationVecByDemographic below: the whole loop
+              // shares one catch, so a consult whose demographic or most-responsible
+              // provider row is gone must degrade to "N/A" rather than NPE and blank the
+              // entire inbox list.
+              providerId = (demo != null) ? demo.getProviderNo() : null;
+              prov = (providerId != null && !providerId.isEmpty()) ? providerDao.getProvider(providerId) : null;
+              if ( prov != null ) {
                   providerName = prov.getFormattedName();
                   providerNo.add(prov.getProviderNo());
               }
@@ -152,7 +167,7 @@ public class EctViewConsultationRequestsUtil {
 
               if ( consult.getProfessionalSpecialist() == null ) {
                   specialistName = "N/A";
-                  if (consult.getServiceId() == 0) {
+                  if (Integer.valueOf(0).equals(consult.getServiceId())) {
                      specialistName = extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey(), "N/A");
                   }
               }
@@ -163,15 +178,16 @@ public class EctViewConsultationRequestsUtil {
 
               boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
 
-              demographicNo.add(consult.getDemographicId().toString());
-              date.add(DateFormatUtils.ISO_DATE_FORMAT.format(consult.getReferralDate()));
+              demographicNo.add(consult.getDemographicId() != null ? consult.getDemographicId().toString() : "");
+              Date referralDate = consult.getReferralDate();
+              date.add(referralDate != null ? DateFormatUtils.ISO_DATE_FORMAT.format(referralDate) : "");
               ids.add(consult.getId().toString());
               status.add(consult.getStatus());
-              patient.add(demo.getFormattedName());
+              patient.add(demo != null ? demo.getFormattedName() : "");
               provider.add(providerName);
               service.add(serviceDescription);
               vSpecialist.add(specialistName);
-              urgency.add(consult.getUrgency());
+              urgency.add(consult.getUrgency() != null ? consult.getUrgency() : "");
               siteName.add(consult.getSiteName());
               teams.add(consult.getSendTo());
               eReferral.add(isEReferral);
@@ -199,11 +215,12 @@ public class EctViewConsultationRequestsUtil {
                 followUpDate.add(DateFormatUtils.ISO_DATE_FORMAT.format(date1));
               }
               
-              Provider cProv = providerDao.getProvider(consult.getProviderNo());
+              String cProvNo = consult.getProviderNo();
+              Provider cProv = (cProvNo != null && !cProvNo.isEmpty()) ? providerDao.getProvider(cProvNo) : null;
               consultProvider.add(cProv);
           }
       } catch (Exception e) {            
-         MiscUtils.getLogger().error("Error", e);            
+         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
          verdict = false;            
       }                     
       return verdict;      
@@ -239,9 +256,9 @@ public class EctViewConsultationRequestsUtil {
           for ( ConsultationRequest consult : consultList ) {
               String serviceDescription = "unknown";
               // If service id is 0, check the extensions table
-              if (consult.getServiceId() == 0) {
+              if (Integer.valueOf(0).equals(consult.getServiceId())) {
                  serviceDescription = consultationRequestExtDao.getConsultationRequestExtsByKey(consult.getId(), ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey());
-              } else {
+              } else if (consult.getServiceId() != null) {
                  ConsultationServices services = serviceDao.find(consult.getServiceId());
                  if (services != null) {
                     serviceDescription = services.getServiceDesc();
@@ -250,7 +267,7 @@ public class EctViewConsultationRequestsUtil {
 
                if (consult.getProfessionalSpecialist() == null) {
                   specialistName = "N/A";
-                  if (consult.getServiceId() == 0) {
+                  if (Integer.valueOf(0).equals(consult.getServiceId())) {
                      specialistName = consultationRequestExtDao.getConsultationRequestExtsByKey(consult.getId(), ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey());
                   }
                }
@@ -259,25 +276,42 @@ public class EctViewConsultationRequestsUtil {
                   specialistName = specialist.getLastName() + ", " + specialist.getFirstName();
                }
 
-              Demographic demo = demoManager.getDemographic(loggedInInfo, consult.getDemographicId());
-              String providerId = demo.getProviderNo();
-              String providerName = (providerId != null && !providerId.isEmpty()) ? providerDao.getProvider(providerId).getFormattedName() : "N/A";
+              // A consult row can outlive the records it points at. ConsultationRequestDaoImpl.getConsults
+              // deliberately no longer joins Demographic and Provider as existence filters, so a legacy
+              // row whose demographic or most-responsible provider was removed now reaches this loop
+              // instead of being silently dropped. The whole loop shares one catch, so any unguarded
+              // dereference here NPEs and blanks EVERY consult on the tab -- the precise failure the
+              // widened query exists to fix.
+              Demographic demo = consult.getDemographicId() == null ? null
+                      : demoManager.getDemographic(loggedInInfo, consult.getDemographicId());
+              String providerId = (demo != null) ? demo.getProviderNo() : null;
+              // Guard the LOOKUP RESULT, not just the id: a non-empty providerNo can still reference a
+              // provider row that no longer exists, and getProvider() returns null rather than throwing.
+              // This mirrors the null-tolerant handling of the consult's own provider below.
+              Provider mrp = (providerId != null && !providerId.isEmpty()) ? providerDao.getProvider(providerId) : null;
+              String providerName = (mrp != null) ? mrp.getFormattedName() : "N/A";
 
               ids.add(consult.getId().toString());
               status.add(consult.getStatus());
-              patient.add(demo.getFormattedName());
+              patient.add(demo != null ? demo.getFormattedName() : "");
               provider.add(providerName);
               service.add(serviceDescription);
               vSpecialist.add(specialistName);
-              urgency.add(consult.getUrgency());
+              urgency.add(consult.getUrgency() != null ? consult.getUrgency() : "");
               patientWillBook.add(""+consult.isPatientWillBook());
-              date.add(DateFormatUtils.ISO_DATE_FORMAT.format(consult.getReferralDate()));
-              
-              Provider cProv = providerDao.getProvider(consult.getProviderNo());
+              // The whole loop shares one catch, so a single null here (legacy/imported
+              // consults can carry a null referralDate or providerNo) would NPE and hide
+              // EVERY consult from the patient's Consultations tab. Guard both so one
+              // imperfect row cannot blank the list.
+              Date referralDate = consult.getReferralDate();
+              date.add(referralDate != null ? DateFormatUtils.ISO_DATE_FORMAT.format(referralDate) : "");
+
+              String cProvNo = consult.getProviderNo();
+              Provider cProv = (cProvNo != null && !cProvNo.isEmpty()) ? providerDao.getProvider(cProvNo) : null;
               consultProvider.add(cProv);
           }
       } catch (Exception e) {         
-         MiscUtils.getLogger().error("Error", e);         
+         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
          verdict = false;         
       }      
       return verdict;      

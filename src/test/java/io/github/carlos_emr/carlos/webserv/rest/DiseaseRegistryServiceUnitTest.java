@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DiagnosisTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,6 +54,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -64,6 +66,12 @@ import static org.mockito.Mockito.when;
  *
  * <p>Verifies that every endpoint enforces the {@code _newCasemgmt.DxRegistry}
  * security object before reading or writing disease-registry data.</p>
+ *
+ * <p>The two demographic-scoped endpoints are additionally checked <em>per patient</em>
+ * (issue #2280): the privilege call must carry the requested {@code demographicNo}, not
+ * {@code null}, so a patient-specific restriction can deny a caller who holds the module
+ * privilege generally. A missing {@code demographicNo} must be rejected as a 400 before
+ * the unboxing privilege call rather than surfacing as a 500.</p>
  *
  * @see DiseaseRegistryService
  */
@@ -177,7 +185,7 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should persist new entry when caller has DxRegistry write privilege")
     @Tag("create")
     void shouldPersistNewEntry_whenCallerHasWritePrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), any())).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123))).thenReturn(true);
         when(mockDxresearchDao.activeEntryExists(123, "icd9", "250")).thenReturn(false);
 
         IssueTo1 issue = new IssueTo1();
@@ -187,13 +195,14 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
         verify(mockDxresearchDao).persist(any(Dxresearch.class));
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123));
     }
 
     @Test
     @DisplayName("should not persist duplicate entry when an active entry already exists")
     @Tag("create")
     void shouldNotPersistDuplicate_whenActiveEntryAlreadyExists() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), any())).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123))).thenReturn(true);
         when(mockDxresearchDao.activeEntryExists(123, "icd9", "250")).thenReturn(true);
 
         IssueTo1 issue = new IssueTo1();
@@ -223,13 +232,14 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should return disease registry when caller has DxRegistry read privilege")
     @Tag("read")
     void shouldReturnDiseaseRegistry_whenCallerHasReadPrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), any())).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq(123))).thenReturn(true);
         when(mockDxresearchDao.getByDemographicNo(123)).thenReturn(Collections.<Dxresearch>emptyList());
 
         Response response = service.getDiseaseRegistry(123);
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
         verify(mockDxresearchDao).getByDemographicNo(123);
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq(123));
     }
 
     @Test
@@ -242,6 +252,64 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
             .isInstanceOf(SecurityException.class)
             .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
 
+        verify(mockDxresearchDao, never()).getByDemographicNo(anyInt());
+    }
+
+    @Test
+    @DisplayName("should scope the add privilege check to the requested patient")
+    @Tag("create")
+    void shouldScopeAddPrivilegeCheck_toRequestedPatient() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123))).thenReturn(false);
+
+        IssueTo1 issue = new IssueTo1();
+        issue.setType("icd9");
+        issue.setCode("250");
+
+        assertThatThrownBy(() -> service.addToDiseaseRegistry(123, issue))
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+
+        // A module-wide (demographicNo == null) check would have let this through.
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
+        verify(mockDxresearchDao, never()).activeEntryExists(anyInt(), anyString(), anyString());
+        verify(mockDxresearchDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should scope the disease registry read privilege check to the requested patient")
+    @Tag("read")
+    void shouldScopeDiseaseRegistryPrivilegeCheck_toRequestedPatient() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq(123))).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getDiseaseRegistry(123))
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
+        verify(mockDxresearchDao, never()).getByDemographicNo(anyInt());
+    }
+
+    @Test
+    @DisplayName("should reject add when demographicNo is missing")
+    @Tag("create")
+    void shouldRejectAdd_whenDemographicNoMissing() {
+        IssueTo1 issue = new IssueTo1();
+
+        assertThatThrownBy(() -> service.addToDiseaseRegistry(null, issue))
+            .isInstanceOf(BadRequestException.class);
+
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), anyInt());
+        verify(mockDxresearchDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should reject disease registry read when demographicNo is missing")
+    @Tag("read")
+    void shouldRejectDiseaseRegistry_whenDemographicNoMissing() {
+        assertThatThrownBy(() -> service.getDiseaseRegistry(null))
+            .isInstanceOf(BadRequestException.class);
+
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), anyInt());
         verify(mockDxresearchDao, never()).getByDemographicNo(anyInt());
     }
 }

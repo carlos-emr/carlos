@@ -82,6 +82,27 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepDeliveryAccepted_whenSnapshotCleanupThrows() throws Exception {
+        EmailConfig config = smtpEmailConfig();
+        EmailData data = emailData(List.of());
+        EmailLog log = new EmailLog(config, "provider@example.test", data.getRecipients(),
+                data.getSubject(), data.getBody(), EmailLog.EmailStatus.PENDING);
+        injectDependency(log, "id", 44);
+        try (var helpers = org.mockito.Mockito.mockConstruction(SMTPEmailSender.class, (helper, context) -> {
+            when(helper.prepareMessageBytes()).thenReturn("message".getBytes(StandardCharsets.UTF_8));
+            org.mockito.Mockito.doThrow(new IllegalStateException("cleanup failure"))
+                    .when(helper).discardPreparedMessage();
+        })) {
+            EmailSender sender = new EmailSender(loggedInInfo, config, data);
+            sender.prepareOutboundArchive(log);
+            org.assertj.core.api.Assertions.assertThatCode(sender::sendPrepared).doesNotThrowAnyException();
+            verify(helpers.constructed().get(0)).sendPreparedMessage();
+            assertThatThrownBy(sender::sendPrepared).isInstanceOf(EmailSendingException.class)
+                    .hasMessageContaining("must be prepared");
+        }
+    }
+
+    @Test
     @DisplayName("should prepare SMTP archive request from finalized MIME message")
     void shouldPrepareSmtpArchiveRequest_fromFinalizedMimeMessage() throws Exception {
         Path attachmentPath = tempDir.resolve("attachment.pdf");

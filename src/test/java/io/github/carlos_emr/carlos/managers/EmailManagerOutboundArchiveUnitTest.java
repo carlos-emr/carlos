@@ -91,7 +91,15 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
 
-        emailManager = new EmailManager(outboundEmailArchiveService);
+        var consentResolver = mock(io.github.carlos_emr.carlos.email.core.EmailConsentResolver.class);
+        when(consentResolver.resolve(any(), any())).thenReturn(
+                new io.github.carlos_emr.carlos.email.core.EmailConsentResult("Email",
+                        EmailLog.EmailConsentStatus.OPT_IN, null, null));
+        emailManager = new EmailManager(consentResolver,
+                new io.github.carlos_emr.carlos.email.core.EmailSenderFactory(), securityInfoManager,
+                outboundEmailArchiveService);
+        injectDependency(emailManager, "oscarLogDao", mock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class));
+        when(emailLogDao.transitionEmailStatus(any(), any(), any(), any(), any())).thenReturn(1);
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "caseManagementManager", mock(CaseManagementManager.class));
@@ -100,6 +108,62 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         injectDependency(emailManager, "programManager", mock(ProgramManager.class));
         injectDependency(emailManager, "providerManager", mockProviderManager());
         injectDependency(emailManager, "securityInfoManager", securityInfoManager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @Tag("integration")
+    void shouldCommitArchiveBeforeTransport_whenCallerTransactionRollsBack(boolean compatibilityApi) throws Exception {
+        var dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                "jdbc:h2:mem:smtp_archive_" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        jdbc.execute("CREATE TABLE archive_capture (id INT PRIMARY KEY)");
+        var manager = new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource);
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(manager);
+        var factory = new org.springframework.aop.framework.ProxyFactory(emailManager);
+        factory.setProxyTargetClass(true);
+        factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(manager,
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        EmailManager proxiedManager = (EmailManager) factory.getProxy();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", 71);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        doAnswer(invocation -> transaction.execute(status -> {
+            jdbc.update("INSERT INTO archive_capture(id) VALUES (?)", 71);
+            return null;
+        })).when(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(SMTPEmailSender.class,
+                (sender, context) -> {
+                    when(sender.prepareMessageBytes()).thenReturn("message".getBytes(StandardCharsets.UTF_8));
+                    doAnswer(invocation -> {
+                        assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                                .isActualTransactionActive()).isFalse();
+                        // A separate connection can see the row only after the archive transaction commits.
+                        try (var connection = dataSource.getConnection();
+                                var statement = connection.createStatement();
+                                var rows = statement.executeQuery("SELECT COUNT(*) FROM archive_capture")) {
+                            assertThat(rows.next()).isTrue();
+                            assertThat(rows.getInt(1)).isEqualTo(1);
+                        }
+                        return null;
+                    }).when(sender).sendPreparedMessage();
+                })) {
+            transaction.executeWithoutResult(status -> {
+                if (compatibilityApi) {
+                    proxiedManager.sendEmail(loggedInInfo, emailData());
+                } else {
+                    proxiedManager.sendEmailWithResult(loggedInInfo, emailData());
+                }
+                status.setRollbackOnly();
+            });
+            verify(smtpSenders.constructed().get(0)).sendPreparedMessage();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM archive_capture", Integer.class)).isEqualTo(1);
+        } finally {
+            jdbc.execute("SHUTDOWN");
+        }
     }
 
     @Test
@@ -132,8 +196,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             verify(outboundEmailArchiveService).archive(eq(loggedInInfo), archiveCaptor.capture());
             assertThat(archiveCaptor.getValue().getContentType()).isEqualTo("message/rfc822");
             verifyNoInteractions(javaMailSender);
-            verify(emailLogDao).updateEmailStatus(
-                    44, EmailLog.EmailStatus.FAILED, "Failed to archive outbound email (I/O failure)", emailLog.getTimestamp());
+            verify(emailLogDao).transitionEmailStatus(44, EmailLog.EmailStatus.PENDING, EmailLog.EmailStatus.FAILED, "Failed to archive outbound email (I/O failure)", emailLog.getTimestamp());
         }
     }
 
@@ -163,7 +226,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             archiveBeforeSend.verify(outboundEmailArchiveService)
                     .archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
             archiveBeforeSend.verify(smtpSender).sendPreparedMessage();
-            verify(emailLogDao).updateEmailStatus(45, EmailLog.EmailStatus.SUCCESS, "", emailLog.getTimestamp());
+            verify(emailLogDao).transitionEmailStatus(45, EmailLog.EmailStatus.PENDING, EmailLog.EmailStatus.SUCCESS, "", emailLog.getTimestamp());
         }
     }
 
@@ -190,8 +253,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
 
             assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
             assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (uncategorized delivery failure)");
-            verify(emailLogDao).updateEmailStatus(
-                    eq(46), eq(EmailLog.EmailStatus.FAILED),
+            verify(emailLogDao).transitionEmailStatus(eq(46), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.FAILED),
                     eq("Failed to send email (uncategorized delivery failure)"), any());
             verify(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
         }
@@ -221,8 +283,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
 
             assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (SMTP authentication failure)");
             assertThat(emailLog.getErrorMessage()).doesNotContain(untrustedProviderText);
-            verify(emailLogDao).updateEmailStatus(
-                    eq(47), eq(EmailLog.EmailStatus.FAILED),
+            verify(emailLogDao).transitionEmailStatus(eq(47), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.FAILED),
                     eq("Failed to send email (SMTP authentication failure)"), any());
         }
     }
@@ -381,8 +442,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
 
             assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
             assertThat(emailLog.getErrorMessage()).startsWith("Failed to send email");
-            verify(emailLogDao).updateEmailStatus(
-                    eq(54), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+            verify(emailLogDao).transitionEmailStatus(eq(54), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
             verify(outboundEmailArchiveService, never()).archive(any(), any());
             verifyNoInteractions(javaMailSender);
         }
@@ -445,8 +505,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
                     .isInstanceOf(SecurityException.class);
 
-            verify(emailLogDao).updateEmailStatus(
-                    eq(56), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
+            verify(emailLogDao).transitionEmailStatus(eq(56), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
         }
     }
 
@@ -474,8 +533,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
                     .isInstanceOf(SecurityException.class);
 
-            verify(emailLogDao).updateEmailStatus(
-                    eq(60), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
+            verify(emailLogDao).transitionEmailStatus(eq(60), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
             verifyNoInteractions(javaMailSender);
         }
     }
@@ -515,16 +573,15 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                     .isInstanceOf(SecurityException.class);
 
             // The category survives via the DAO fallback despite the refused manager write.
-            verify(emailLogDao).updateEmailStatus(
-                    eq(59), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
+            verify(emailLogDao).transitionEmailStatus(eq(59), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
             verify(outboundEmailArchiveService, never()).archive(any(), any());
             verifyNoInteractions(javaMailSender);
         }
     }
 
     @Test
-    @DisplayName("should keep a delivered email SUCCESS when chart note creation fails afterwards")
-    void shouldKeepStatusSuccess_whenChartNoteCreationFailsAfterDelivery() throws Exception {
+    @DisplayName("should report accepted delivery when SUCCESS status persistence fails")
+    void shouldReportAcceptedDelivery_whenSuccessStatusPersistenceFails() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
         when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
         doAnswer(invocation -> {
@@ -536,27 +593,25 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         // Stand in for any post-delivery bookkeeping fault (status write, chart note). The
         // message is already on the wire by the time this throws.
         doThrow(new IllegalStateException("bookkeeping failed after delivery"))
-                .when(emailLogDao).updateEmailStatus(eq(57), eq(EmailLog.EmailStatus.SUCCESS), eq(""), any());
+                .when(emailLogDao).transitionEmailStatus(eq(57), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.SUCCESS), eq(""), any());
 
         try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
                 SMTPEmailSender.class,
                 (smtpSender, context) -> when(smtpSender.prepareMessageBytes())
                         .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
 
-            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
-                    .isInstanceOf(IllegalStateException.class);
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+            assertThat(result.getEmailLog().getStatus()).isEqualTo(EmailLog.EmailStatus.PENDING);
+            assertThat(result.getTransportOutcome()).isEqualTo(
+                    io.github.carlos_emr.carlos.email.core.EmailSendResult.TransportOutcome.ACCEPTED);
+            assertThat(result.isTransportOutcomeRecorded()).isFalse();
 
             // The message was transmitted. Bookkeeping breaking afterwards must not rewrite
             // that verdict to FAILED -- doing so invites a retry that sends a second copy.
             //
-            // Asserting the absence of a FAILED write is NOT sufficient on its own: every
-            // EmailLog is created FAILED by prepareEmailForOutbox, so "no FAILED write" is
-            // trivially true and would pass even if the record were left stale. The SUCCESS
-            // attempt is asserted too, so this fails if the flip is ever skipped rather than
-            // merely not overwritten.
-            verify(emailLogDao).updateEmailStatus(eq(57), eq(EmailLog.EmailStatus.SUCCESS), eq(""), any());
-            verify(emailLogDao, never()).updateEmailStatus(
-                    eq(57), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+            // Verify the PENDING-to-SUCCESS transition as well as absence of a FAILED write.
+            verify(emailLogDao).transitionEmailStatus(eq(57), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.SUCCESS), eq(""), any());
+            verify(emailLogDao, never()).transitionEmailStatus(eq(57), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
         }
     }
 
@@ -573,7 +628,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         // Status persistence is a database call and can fail. Unguarded in a catch block it
         // would propagate in place of the real fault, hiding why the send failed.
         doThrow(new IllegalStateException("status write failed"))
-                .when(emailLogDao).updateEmailStatus(eq(58), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+                .when(emailLogDao).transitionEmailStatus(eq(58), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
 
         try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
                 SMTPEmailSender.class,
@@ -586,9 +641,8 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
                     .isInstanceOf(SecurityException.class)
                     .satisfies(thrown -> assertThat(thrown.getSuppressed())
-                            .as("both the refused manager write and the failed DAO fallback are "
-                                    + "attached, not substituted for the original failure")
-                            .hasSize(2));
+                            .as("the failed status write is attached, not substituted for the authorization failure")
+                            .hasSize(1));
         }
     }
 

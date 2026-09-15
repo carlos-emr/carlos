@@ -166,6 +166,9 @@ public class EmailSender {
     public void send() throws EmailSendingException {
         assertEmailWritePrivilege();
 
+        if (emailConfig.getEmailType() == null) {
+            throw new EmailSendingException("Active email configuration has no delivery type.");
+        }
         switch (emailConfig.getEmailType()) {
             case SMTP:
                 createSmtpSender().send();
@@ -224,8 +227,7 @@ public class EmailSender {
             archiveRequest.setAttachments(buildAttachmentArchiveMetadata(preparedSmtpSendHelper.getPreparedAttachments()));
             return archiveRequest;
         } catch (EmailSendingException | RuntimeException e) {
-            preparedSmtpSendHelper.discardPreparedMessage();
-            preparedSmtpSendHelper = null;
+            discardPrepared();
             throw e;
         }
     }
@@ -253,9 +255,16 @@ public class EmailSender {
      * Releases a prepared SMTP message when archiving or another pre-send step fails.
      */
     public void discardPrepared() {
-        if (preparedSmtpSendHelper != null) {
-            preparedSmtpSendHelper.discardPreparedMessage();
-            preparedSmtpSendHelper = null;
+        SMTPEmailSender helper = preparedSmtpSendHelper;
+        preparedSmtpSendHelper = null;
+        if (helper != null) {
+            try {
+                helper.discardPreparedMessage();
+            } catch (RuntimeException cleanupFailure) {
+                // Cleanup cannot rewrite an already accepted delivery or hide its primary failure.
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                        "Prepared SMTP cleanup failed; causeType={}", cleanupFailure.getClass().getSimpleName());
+            }
         }
     }
 
@@ -279,6 +288,9 @@ public class EmailSender {
      *         is an error during API-based email transmission
      */
     private void sendAPIMail() throws EmailSendingException {
+        if (emailConfig.getEmailProvider() == null) {
+            throw new EmailSendingException("Active email configuration has no provider.");
+        }
         switch (emailConfig.getEmailProvider()) {
             case SENDGRID:
                 APISendGridEmailSender apiSendGridSendHelper = new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);

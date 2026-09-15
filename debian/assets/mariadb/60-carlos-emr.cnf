@@ -1,0 +1,175 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+#
+# MariaDB settings required by CARLOS EMR, installed as a drop-in so the
+# distribution's own /etc/mysql/mariadb.conf.d/50-server.cnf stays untouched
+# and upgradable. The 60- prefix puts this after the distribution files;
+# MariaDB option files are last-occurrence-wins.
+#
+# NOTHING HERE MAY BE CHANGED ON A DATADIR THAT ALREADY HOLDS DATA without
+# reading the note attached to the setting. The two that bite are the
+# character set (changing it does not convert existing tables) and
+# innodb_page_size (fixed at datadir initialisation; a mismatch means the
+# server will not start).
+
+[client]
+default-character-set = utf8mb4
+
+[mysqld]
+# --- character set ----------------------------------------------------------
+# utf8mb4 end to end. Real patient names and clinical free text contain
+# astral-plane code points — emoji in a note, CJK extension characters in a
+# name — and utf8mb3 stores them as a mangled placeholder or rejects the
+# insert. utf8mb4_general_ci is the 4-byte equivalent of the collation the
+# OSCAR-lineage schema has always used, so no comparison semantics change.
+#
+# init-connect matters as much as the server default: without it a client that
+# negotiates utf8mb3 stays there. It is skipped for SUPER users (root), which
+# is fine — the application connects as the non-super `carlos` account.
+character-set-server = utf8mb4
+collation-server     = utf8mb4_general_ci
+init-connect          = 'SET NAMES utf8mb4'
+
+# --- SQL mode ---------------------------------------------------------------
+# STRICT is OFF. The OSCAR-lineage application relies on the permissive
+# behaviour: out-of-range and over-length values are coerced rather than
+# rejected, and zero dates are accepted. Turning STRICT on is a real data
+# integrity improvement and an equally real application-compatibility risk;
+# it is a per-site decision to validate on a staging copy, not a package
+# default. See README.Debian, "MariaDB strictness".
+sql_mode = ""
+innodb_strict_mode = 0
+
+# innodb_page_size is deliberately ABSENT. It is fixed when the datadir is
+# initialised, which on this host happened when mariadb-server was installed,
+# before this file existed. Setting it here (the container deployment uses
+# 32K because its images were built that way) would stop the server from
+# starting against the existing 16K datadir. 16K is fine for this schema:
+# innodb_default_row_format=dynamic below gives a 3072-byte index key prefix,
+# which every CARLOS index fits inside.
+innodb_default_row_format = dynamic
+innodb_file_per_table = 1
+default_storage_engine = InnoDB
+
+# --- network ----------------------------------------------------------------
+# Loopback only. Every consumer — the application, DrugRef, the backup job,
+# the administrator's client — is on this host. A database that holds PHI
+# should not be one firewall rule away from the network, and this is the one
+# setting that makes that structural rather than administrative.
+bind-address = 127.0.0.1
+skip-name-resolve
+
+# --- file I/O hardening -----------------------------------------------------
+# The threat is an account holding FILE: it can read and write arbitrary paths
+# the server process can reach, through SQL alone — a PHI-exfiltration and
+# file-planting primitive that needs no shell.
+#
+# secure_file_priv is deliberately NOT set here, and that is a considered
+# decision rather than an omission:
+#
+#   * Ubuntu confines mariadbd with an ENFORCING AppArmor profile
+#     (/etc/apparmor.d/mariadbd) whose file rules are essentially the datadir
+#     and a short allow-list. LOAD_FILE('/etc/shadow') is refused by the
+#     kernel, which is a stronger control than a server-side setting the
+#     server itself could be talked out of. `carlos-ctl check` asserts the
+#     profile is loaded and enforcing.
+#   * The profile allows no path outside the datadir that a
+#     secure_file_priv directory could live in, so setting it would either
+#     stop the server from starting (the argument fails to normalise) or force
+#     a directory inside the datadir, where MariaDB would then list it as a
+#     database.
+#   * None of the accounts this package provisions — carlos, drugref, backup —
+#     holds FILE. The only account that does is root@localhost, which
+#     authenticates by uid over the unix socket and therefore already belongs
+#     to someone who is root on this host.
+#
+# If you disable AppArmor, restore the control: create a directory the profile
+# (or its absence) permits and set secure_file_priv to it.
+#
+# local-infile closes the client-side companion, LOAD DATA LOCAL INFILE, which
+# a compromised application account could otherwise use to make the CLIENT
+# read files. That one is pure server-side policy, so it is set.
+local-infile = 0
+symbolic-links = 0
+
+# --- durability and point-in-time recovery ----------------------------------
+# The binary log is what turns "last night's dump" into "the state at 14:32".
+# carlos-emr-backup ships closed binlogs alongside the nightly dump and
+# records the dump's coordinates as the replay anchor. sync_binlog=1 with
+# innodb_flush_log_at_trx_commit=1 makes every committed transaction durable
+# before the client is told it committed — the correct posture for a clinical
+# record, and the reason this is not tuned for benchmark throughput.
+#
+# Binlogs live in the datadir rather than a dedicated directory: MariaDB on
+# Ubuntu runs under an AppArmor profile that permits the datadir and would deny
+# a fresh path until the profile was extended, which is a surprising way for a
+# database to fail to start after a package upgrade.
+#
+# The value is RELATIVE on purpose — MariaDB resolves it against the datadir.
+# Do not "clarify" it to an absolute path: Ubuntu 26.04 moved the default
+# datadir from /var/lib/mysql to /var/lib/mariadb (for MySQL
+# co-installability), and a hardcoded /var/lib/mysql/binlog makes the server
+# abort at startup with "binlog.index not found" on exactly the release this
+# package targets.
+server_id = 1
+log_bin = binlog
+# The weekly restore drill loads a FULL copy of the clinical database into
+# the scratch schema as an unprivileged account (which cannot suppress
+# binary logging for its session), so without this filter every drill
+# appended ~1x the dataset to the binlogs — steady-state datadir growth of
+# 3-4x the live database. Row events for this schema are excluded here
+# instead. If you change CARLOS_BACKUP_VERIFY_DB in backup.env, change this
+# line to match.
+binlog_ignore_db = carlos_restore_drill
+binlog_format = ROW
+sync_binlog = 1
+innodb_flush_log_at_trx_commit = 1
+# Ten days of local binlog retention. This must stay comfortably longer than
+# the interval at which backups ship them, or a gap opens in the recovery
+# chain that nothing reports until a restore is attempted.
+binlog_expire_logs_seconds = 864000
+max_binlog_size = 100M
+
+# --- sizing -----------------------------------------------------------------
+# Conservative defaults for a small clinic VM sharing the host with a JVM.
+# Raise innodb_buffer_pool_size first on a larger machine — it is the only
+# large knob worth trading; as a rule of thumb give it half of what is left
+# after the JVM heap (CARLOS_JAVA_XMX in /etc/carlos-emr/carlos-emr.env) and
+# 1 GB for the operating system.
+innodb_buffer_pool_size = 1G
+innodb_log_file_size = 512M
+innodb_log_buffer_size = 32M
+innodb_flush_method = O_DIRECT
+innodb_io_capacity = 1000
+innodb_flush_neighbors = 0
+innodb_open_files = 400
+
+max_connections = 100
+connect_timeout = 5
+wait_timeout = 600
+thread_cache_size = 64
+table_open_cache = 400
+sort_buffer_size = 4M
+read_buffer_size = 2M
+read_rnd_buffer_size = 1M
+tmp_table_size = 32M
+max_heap_table_size = 32M
+key_buffer_size = 32M
+myisam_recover_options = BACKUP
+
+# 1 GB, matching the [mariadb-dump] ceiling below. mariadb-dump --hex-blob
+# doubles every BLOB's byte count, so a blob the server accepted at write time
+# must still fit at RELOAD time after doubling. Set too low, large scanned
+# documents produce a backup that exists but cannot be restored — the worst
+# possible failure mode, because it is invisible until it matters.
+max_allowed_packet = 1G
+
+# Off to save several hundred megabytes of instrumentation memory on a small
+# host. Turn it on together with a buffer-pool reduction if you need the
+# performance_schema views.
+performance_schema = OFF
+
+[mariadb-dump]
+quick
+quote-names
+max_allowed_packet = 1G

@@ -53,8 +53,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * it appeared nowhere in the Flyway migration set. Because
  * {@code hasPrivilege} resolves through {@code SecObjPrivilegeDao} and never reads
  * {@code secObjectName}, the missing <em>grant</em> is what shut the gate — so it
- * returned false for every user forever on fresh installs <em>and</em> on legacy
- * databases that had run the 2008 patch. In {@code DocumentUndelete2Action} that
+ * returned false on fresh installs and on legacy databases without a customized
+ * grant, including those that only ran the 2008 patch. In {@code DocumentUndelete2Action} that
  * silently demoted administrators to the creator-only undelete branch, and it
  * would have made outbound email archives permanently unretirable.</p>
  *

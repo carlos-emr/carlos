@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Data access contract for durable outbound email archive records.
@@ -48,11 +50,8 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     /**
      * Finds an archive row with a write lock for short controlled-deletion critical sections.
      *
-     * <p><b>Must be the first read of the row in its transaction.</b> A JPA query does not
-     * refresh an entity that is already managed, so if the archive was loaded earlier in
-     * the same transaction this returns that instance with its pre-lock state -- the row
-     * lock is taken, but the state guarded by it is stale. See
-     * {@code findDemographicNoById} for the read to use ahead of the lock.</p>
+     * <p>Refreshes any already-managed instance using a locking read, so legal-hold
+     * and deletion decisions use current database state. Requires an active transaction.</p>
      *
      * @param archiveId persisted archive identifier
      * @return locked archive row, or {@code null} when no row exists
@@ -60,11 +59,59 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     OutboundEmailArchive findForUpdate(Integer archiveId);
 
     /**
+     * Finds an archive row for reading, with its demographic and document hydrated.
+     *
+     * <p>Takes no lock. Use this for reads that only report archive metadata. Artifact reads
+     * take {@link #findForUpdate(Integer)} instead, so the archive cannot transition to its
+     * logically deleted state while an authorized read is in progress.</p>
+     *
+     * @param archiveId persisted archive identifier
+     * @return the archive with demographic and document fetched, or {@code null} when no row exists
+     */
+    OutboundEmailArchive findForRead(Integer archiveId);
+
+    /**
+     * Reports whether a document backs an outbound email archive, as the artifact or an attachment.
+     *
+     * <p>Archived email is stored as an ordinary patient eDoc, so it is reachable through the
+     * normal document surface — preview, split, re-file, attach, delete. Those paths call this to
+     * refuse it, because editing an archive corrupts the record of what was sent to a patient and
+     * deleting one bypasses the controlled-deletion and legal-hold path entirely.</p>
+     *
+     * <p>Deliberately covers deleted archives too. A tombstoned archive's eDoc must stay just as
+     * untouchable as a live one, or the guard would open exactly when the audit trail matters
+     * most.</p>
+     *
+     * @param documentNo candidate document number
+     * @return {@code true} when any archive or archive attachment references it
+     */
+    boolean existsByDocumentNo(Integer documentNo);
+
+    /**
+     * Batch form of {@link #existsByDocumentNo(Integer)} for call sites holding several documents.
+     *
+     * @param documentNos candidate document numbers; nulls and duplicates are ignored
+     * @return the subset that backs an archive or archive attachment, empty when none do
+     */
+    Set<Integer> findExistingDocumentNos(Collection<Integer> documentNos);
+
+    /**
+     * Reports whether a stored filename belongs to an archive artifact or one of its attachments.
+     *
+     * <p>The filename check exists because parts of the eDoc surface identify a document by its
+     * file rather than its id — a path handed to a preview renderer, say. Guarding only on
+     * document number would leave those paths open.</p>
+     *
+     * @param fileName stored eDoc filename
+     * @return {@code true} when an archive or archive attachment carries that filename
+     */
+    boolean existsByFileName(String fileName);
+
+    /**
      * Reads just the demographic number for an archive, without loading the archive.
      *
-     * <p>Exists so an authorization check can run before {@link #findForUpdate} without
-     * putting the entity in the persistence context, which would make the subsequent
-     * locked read return stale state.</p>
+     * <p>Allows patient authorization before taking a write lock or hydrating the
+     * archive's patient data.</p>
      *
      * @param archiveId persisted archive identifier
      * @return demographic number, or {@code null} when no row exists

@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.FilterOutputStream;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +31,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailPreparationException;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -37,7 +42,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * SMTP email sender for OpenO EMR healthcare system.
+ * SMTP email sender for CARLOS EMR healthcare system.
  *
  * <p>Provides secure email transmission functionality with TLS encryption for
  * healthcare communications. This class handles the construction and delivery
@@ -64,6 +69,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @since 2026-01-24
  */
 public class SMTPEmailSender {
+    static final long MAX_PREPARED_MESSAGE_BYTES = 50L * 1024L * 1024L;
+    static final int SMTP_CONNECTION_TIMEOUT_MILLIS = 30_000;
+    static final int SMTP_IO_TIMEOUT_MILLIS = 60_000;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
 
@@ -182,10 +191,10 @@ public class SMTPEmailSender {
         assertEmailWritePrivilege();
 
         discardPreparedMessage();
-        javaMailSender = createTLSMailSender(emailConfig);
-        MimeMessage message = javaMailSender.createMimeMessage();
         List<Path> attachmentSnapshotPaths = new ArrayList<>();
         try {
+            javaMailSender = createTLSMailSender(emailConfig);
+            MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(emailConfig.getSenderEmail(), emailConfig.getSenderFullName());
             helper.setTo(recipients);
@@ -194,14 +203,17 @@ public class SMTPEmailSender {
             List<PreparedAttachment> attachmentSnapshots = addAttachments(helper, attachments, attachmentSnapshotPaths);
             message.saveChanges();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            message.writeTo(outputStream);
+            message.writeTo(new LimitedOutputStream(outputStream, MAX_PREPARED_MESSAGE_BYTES));
             preparedAttachments = attachmentSnapshots;
             preparedAttachmentSnapshots = List.copyOf(attachmentSnapshotPaths);
             preparedMessage = message;
             return outputStream.toByteArray();
+        } catch (SecurityException | EmailSendingException e) {
+            deleteAttachmentSnapshots(attachmentSnapshotPaths);
+            throw e;
         } catch (Exception e) {
             deleteAttachmentSnapshots(attachmentSnapshotPaths);
-            throw new EmailSendingException(e.getMessage(), e);
+            throw new EmailSendingException("The SMTP message could not be prepared.", e);
         }
     }
 
@@ -221,8 +233,12 @@ public class SMTPEmailSender {
             javaMailSender.send(preparedMessage);
         } catch (SecurityException | EmailSendingException e) {
             throw e;
+        } catch (MailAuthenticationException | MailPreparationException e) {
+            throw new EmailSendingException("SMTP failed before accepting the message.", e);
         } catch (Exception e) {
-            throw new EmailSendingException(e.getMessage(), e);
+            // A lost SMTP acknowledgement cannot prove non-delivery; do not invite a duplicate.
+            throw new EmailSendingException(
+                    "SMTP transport did not confirm whether the message was accepted.", e, true);
         } finally {
             discardPreparedMessage();
         }
@@ -282,26 +298,26 @@ public class SMTPEmailSender {
      */
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        ObjectMapper objectMapper = new ObjectMapper();
-        String invalidCredentialsMessage = "Invalid credentials configured for "
-                + (emailConfig != null ? emailConfig.getSenderEmail() : "");
-        if (emailConfig == null) {
-            throw new EmailSendingException(invalidCredentialsMessage);
+        JsonNode jsonNode = parseConfig(emailConfig);
+        String host = requiredText(jsonNode, "host", emailConfig).trim();
+        String port = requiredText(jsonNode, "port", emailConfig).trim();
+        String username = requiredText(jsonNode, "username", emailConfig).trim();
+        // Decrypt the at-rest credential only here, at send time. Legacy plaintext passwords
+        // pass through unchanged during the migration window. Missing or blank passwords fail
+        // before an archive is created for this authenticated transport.
+        JsonNode passwordNode = jsonNode.get("password");
+        if (passwordNode != null && !passwordNode.isNull() && !passwordNode.isValueNode()) {
+            throw invalidConfiguration(emailConfig);
         }
-        JsonNode jsonNode;
-        try {
-            jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-        } catch (IOException | IllegalArgumentException e) {
-            throw new EmailSendingException(invalidCredentialsMessage, e);
+        String password = (passwordNode != null && !passwordNode.isNull())
+                ? EmailConfigSecrets.decryptSecret(passwordNode.asText())
+                : null;
+
+        if (password == null || password.isBlank()) {
+            throw invalidConfiguration(emailConfig);
         }
-
-        String host = requiredConfigValue(jsonNode, "host", invalidCredentialsMessage);
-        String port = requiredConfigValue(jsonNode, "port", invalidCredentialsMessage);
-        String username = requiredConfigValue(jsonNode, "username", invalidCredentialsMessage);
-        String password = requiredConfigValue(jsonNode, "password", invalidCredentialsMessage);
-
         mailSender.setHost(host);
-        mailSender.setPort(parsePort(port, invalidCredentialsMessage));
+        mailSender.setPort(parsePort(port, invalidConfiguration(emailConfig).getMessage()));
         mailSender.setUsername(username);
         mailSender.setPassword(password);
 
@@ -313,30 +329,49 @@ public class SMTPEmailSender {
         properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
         properties.put("mail.debug", "false");
 
+        applySmtpTimeouts(properties);
         mailSender.setJavaMailProperties(properties);
         return mailSender;
     }
 
-    /**
-     * Reads a required SMTP configuration value, failing closed when it is absent or blank.
-     *
-     * <p>{@link JsonNode#get(String)} returns {@code null} for an absent key, so calling
-     * {@code asText()} directly on the result raises a {@link NullPointerException} that escapes
-     * this class's declared {@link EmailSendingException} contract and bypasses the caller's
-     * failure handling.</p>
-     *
-     * @param configNode parsed SMTP configuration document
-     * @param fieldName required field to read
-     * @param invalidCredentialsMessage PHI-free failure message reused across all validation paths
-     * @return the non-blank configured value; surrounding whitespace is preserved for passwords
-     * @throws EmailSendingException if the field is absent, null, or blank
-     */
-    private String requiredConfigValue(JsonNode configNode, String fieldName, String invalidCredentialsMessage) throws EmailSendingException {
-        JsonNode fieldNode = configNode != null ? configNode.get(fieldName) : null;
-        if (fieldNode == null || fieldNode.isNull() || fieldNode.asText().isBlank()) {
-            throw new EmailSendingException(invalidCredentialsMessage);
+    /** Parses active SMTP configuration without retaining credential-bearing parser errors. */
+    protected JsonNode parseConfig(EmailConfig emailConfig) throws EmailSendingException {
+        String configJson = emailConfig != null ? emailConfig.getConfigDetailsJson() : null;
+        if (configJson == null || configJson.isBlank()) {
+            throw invalidConfiguration(emailConfig);
         }
-        return "password".equals(fieldName) ? fieldNode.asText() : fieldNode.asText().trim();
+        try {
+            JsonNode config = OBJECT_MAPPER.readTree(configJson);
+            if (config == null || !config.isObject()) {
+                throw invalidConfiguration(emailConfig);
+            }
+            return config;
+        } catch (IOException e) {
+            // Do not retain a Jackson cause: parse exceptions may include fragments of the config
+            // JSON, which contains the credential this change is intended to protect.
+            throw invalidConfiguration(emailConfig);
+        }
+    }
+
+    protected String requiredText(JsonNode config, String field, EmailConfig emailConfig)
+            throws EmailSendingException {
+        JsonNode value = config.get(field);
+        if (value == null || value.isNull() || value.asText().isBlank()) {
+            throw invalidConfiguration(emailConfig);
+        }
+        return value.asText();
+    }
+
+    protected EmailSendingException invalidConfiguration(EmailConfig emailConfig) {
+        String senderEmail = emailConfig != null ? emailConfig.getSenderEmail() : "unknown";
+        return new EmailSendingException("Invalid credentials configured for " + senderEmail);
+    }
+
+    static void applySmtpTimeouts(Properties properties) {
+        properties.put("mail.smtp.connectiontimeout",
+                String.valueOf(SMTP_CONNECTION_TIMEOUT_MILLIS));
+        properties.put("mail.smtp.timeout", String.valueOf(SMTP_IO_TIMEOUT_MILLIS));
+        properties.put("mail.smtp.writetimeout", String.valueOf(SMTP_IO_TIMEOUT_MILLIS));
     }
 
     /**
@@ -347,7 +382,7 @@ public class SMTPEmailSender {
      * @return the parsed port
      * @throws EmailSendingException if the port is not a valid TCP port number
      */
-    private int parsePort(String port, String invalidCredentialsMessage) throws EmailSendingException {
+    protected int parsePort(String port, String invalidCredentialsMessage) throws EmailSendingException {
         try {
             int parsedPort = Integer.parseInt(port);
             if (parsedPort < 1 || parsedPort > 65535) {
@@ -381,6 +416,7 @@ public class SMTPEmailSender {
         }
 
         List<PreparedAttachment> attachmentSnapshots = new ArrayList<>();
+        long remainingAttachmentBytes = MAX_PREPARED_MESSAGE_BYTES;
         for (EmailAttachment attachment : attachments) {
             if (attachment == null || attachment.getFilePath() == null) {
                 throw new MessagingException("Email attachment path is required");
@@ -393,31 +429,61 @@ public class SMTPEmailSender {
             String contentType = resolveAttachmentContentType(helper, attachment, attachmentPath);
             Path attachmentSnapshot = nioFileManager.createManagedTempFile(
                     "carlos-smtp-attachment-", ".snapshot");
-            try {
-                Files.copy(attachmentPath, attachmentSnapshot, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                long byteSize = Files.size(attachmentSnapshot);
-                String sha256Hash = sha256Hex(attachmentSnapshot);
-                helper.addAttachment(attachment.getFileName(), new FileSystemResource(attachmentSnapshot), contentType);
-                attachmentSnapshotPaths.add(attachmentSnapshot);
-                attachmentSnapshots.add(new PreparedAttachment(attachment, contentType, sha256Hash, byteSize));
-            } catch (IOException | MessagingException e) {
-                try {
-                    Files.deleteIfExists(attachmentSnapshot);
-                } catch (IOException cleanupFailure) {
-                    e.addSuppressed(cleanupFailure);
-                }
-                throw e;
+            // Register before copying so any checked or unchecked preparation failure cleans up.
+            attachmentSnapshotPaths.add(attachmentSnapshot);
+            try (InputStream source = Files.newInputStream(attachmentPath);
+                    OutputStream target = new LimitedOutputStream(Files.newOutputStream(attachmentSnapshot),
+                            remainingAttachmentBytes)) {
+                // Preserve the managed file's owner-only permissions: replacing it copies source permissions.
+                source.transferTo(target);
             }
+            long byteSize = Files.size(attachmentSnapshot);
+            remainingAttachmentBytes -= byteSize;
+            String sha256Hash = sha256Hex(attachmentSnapshot);
+            helper.addAttachment(attachment.getFileName(), new FileSystemResource(attachmentSnapshot), contentType);
+            attachmentSnapshots.add(new PreparedAttachment(attachment, contentType, sha256Hash, byteSize));
         }
         return List.copyOf(attachmentSnapshots);
+    }
+
+    /** Bounds both attachment snapshots and the final MIME serialization before transport. */
+    private static final class LimitedOutputStream extends FilterOutputStream {
+        private long remaining;
+
+        private LimitedOutputStream(OutputStream output, long limit) {
+            super(output);
+            remaining = limit;
+        }
+
+        @Override
+        public void write(int value) throws IOException {
+            requireCapacity(1);
+            out.write(value);
+            remaining--;
+        }
+
+        @Override
+        public void write(byte[] bytes, int offset, int length) throws IOException {
+            java.util.Objects.checkFromIndexSize(offset, length, bytes.length);
+            requireCapacity(length);
+            out.write(bytes, offset, length);
+            remaining -= length;
+        }
+
+        private void requireCapacity(int length) throws IOException {
+            if (length > remaining) {
+                throw new IOException("Prepared SMTP message exceeds the 50 MiB archive limit");
+            }
+        }
     }
 
     private void deleteAttachmentSnapshots(List<Path> snapshotPaths) {
         for (Path snapshotPath : snapshotPaths) {
             try {
                 Files.deleteIfExists(snapshotPath);
-            } catch (IOException e) {
-                logger.warn("Unable to delete prepared SMTP attachment snapshot");
+            } catch (IOException | RuntimeException e) {
+                logger.warn("Unable to delete prepared SMTP attachment snapshot; causeType={}",
+                        e.getClass().getSimpleName());
             }
         }
     }
