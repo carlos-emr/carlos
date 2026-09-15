@@ -16,7 +16,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { randomUUID } = require('node:crypto');
-const { login, createRecorder, wirePage, validateBaseUrl, appUrl,
+const { login, createRecorder, wirePage, validateBaseUrl, appUrl, gotoApp,
     buildArtifactPath } = require('./eform-local-playwright-utils');
 
 async function main() {
@@ -52,7 +52,7 @@ async function main() {
             else if (message.includes('new, independent draft')) await dialog.accept();
             else { recorder.pageErrors.push({text: 'Unexpected prescription dialog'}); await dialog.dismiss(); }
         });
-        await page.goto(url(route));
+        await gotoApp(page, baseUrl, route, 'load');
         await page.waitForFunction(() => window.RxContext && !document.documentElement.hasAttribute('data-rx-owner-check'));
         return page;
     }
