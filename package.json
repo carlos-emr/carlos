@@ -63,6 +63,7 @@
     "test:flu-billing-report-playwright": "node scripts/flu-billing-report-playwright-checks.js",
     "test:billing-on-third-party-playwright": "node scripts/billing-on-third-party-playwright-checks.js",
     "test:rx-med-history-playwright": "node scripts/rx-med-history-playwright-checks.js",
+    "test:rx-workspace-playwright": "node scripts/rx-workspace-playwright-checks.js",
     "test:consultation-request-create-playwright": "node scripts/consultation-request-create-playwright-checks.js",
     "test:billing-on-submit-playwright": "node scripts/billing-on-submit-playwright-checks.js",
     "test:messenger-playwright": "node scripts/messenger-playwright-checks.js",
