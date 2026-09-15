@@ -64,7 +64,7 @@ public interface OutboundEmailArchiveService {
      * bytes against the recorded size and hash.</p>
      *
      * <p>Access is audited: a successful read records who looked at which archive, because the
-     * archive holds retained patient email.</p>
+     * archive holds retained patient email. Audit persistence must succeed before data returns.</p>
      *
      * @param loggedInInfo current user context
      * @param archiveId persisted archive identifier

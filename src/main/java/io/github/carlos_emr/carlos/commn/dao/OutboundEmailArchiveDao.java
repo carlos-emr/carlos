@@ -50,11 +50,8 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     /**
      * Finds an archive row with a write lock for short controlled-deletion critical sections.
      *
-     * <p><b>Must be the first read of the row in its transaction.</b> A JPA query does not
-     * refresh an entity that is already managed, so if the archive was loaded earlier in
-     * the same transaction this returns that instance with its pre-lock state -- the row
-     * lock is taken, but the state guarded by it is stale. See
-     * {@code findDemographicNoById} for the read to use ahead of the lock.</p>
+     * <p>Refreshes any already-managed instance using a locking read, so legal-hold
+     * and deletion decisions use current database state. Requires an active transaction.</p>
      *
      * @param archiveId persisted archive identifier
      * @return locked archive row, or {@code null} when no row exists
@@ -113,9 +110,8 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     /**
      * Reads just the demographic number for an archive, without loading the archive.
      *
-     * <p>Exists so an authorization check can run before {@link #findForUpdate} without
-     * putting the entity in the persistence context, which would make the subsequent
-     * locked read return stale state.</p>
+     * <p>Allows patient authorization before taking a write lock or hydrating the
+     * archive's patient data.</p>
      *
      * @param archiveId persisted archive identifier
      * @return demographic number, or {@code null} when no row exists

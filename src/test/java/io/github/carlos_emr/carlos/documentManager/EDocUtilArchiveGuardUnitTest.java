@@ -122,9 +122,12 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should suppress direct legacy EDoc lookups for an archive artifact")
     void shouldSuppressDirectLegacyEdocLookups_forArchiveArtifact() {
-        assertThat(EDocUtil.getEDocFromDocId(ARCHIVE_DOC_NO).getDocId()).isNull();
-        assertThat(EDocUtil.getDoc(ARCHIVE_DOC_NO).getDocId()).isNull();
-        assertThat(new EDocUtil().getDocumentName(ARCHIVE_DOC_NO)).isNull();
+        assertThatThrownBy(() -> EDocUtil.getEDocFromDocId(ARCHIVE_DOC_NO))
+                .isInstanceOf(SecurityException.class).hasMessage(ARCHIVE_MESSAGE);
+        assertThatThrownBy(() -> EDocUtil.getDoc(ARCHIVE_DOC_NO))
+                .isInstanceOf(SecurityException.class).hasMessage(ARCHIVE_MESSAGE);
+        assertThatThrownBy(() -> new EDocUtil().getDocumentName(ARCHIVE_DOC_NO))
+                .isInstanceOf(SecurityException.class).hasMessage(ARCHIVE_MESSAGE);
     }
 
     @Test

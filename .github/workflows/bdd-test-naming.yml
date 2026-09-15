@@ -18,6 +18,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
       - community/*/develop
       - community/*/staging/*
     paths:
@@ -30,6 +31,7 @@ on:
   push:
     branches:
       - develop
+      - release/*
     paths:
       - 'src/test/java/**/*.java'
       - 'scripts/lint/check-bdd-test-naming.py'

@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
@@ -83,7 +84,14 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
                 OutboundEmailArchive.class);
         query.setParameter(1, archiveId);
         List<OutboundEmailArchive> rows = query.getResultList();
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        OutboundEmailArchive archive = rows.get(0);
+        // Native entity queries reuse an already-managed instance. Refresh with a
+        // locking read so an earlier snapshot cannot bypass a newly placed hold.
+        entityManager.refresh(archive, LockModeType.PESSIMISTIC_WRITE);
+        return archive;
     }
 
     @Override
@@ -91,18 +99,7 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         if (documentNo == null) {
             return false;
         }
-        // Matches the archive's own artifact document OR any attachment's document: both are
-        // eDocs on the patient file, and both are equally part of the record of what was sent.
-        TypedQuery<Long> query = entityManager.createQuery("""
-                SELECT COUNT(archive) FROM OutboundEmailArchive archive
-                WHERE archive.document.documentNo = :documentNo
-                   OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
-                              WHERE attachment.archive = archive
-                                AND attachment.document.documentNo = :documentNo)
-                """,
-                Long.class);
-        query.setParameter("documentNo", documentNo);
-        return query.getSingleResult() > 0L;
+        return !findExistingDocumentNos(Set.of(documentNo)).isEmpty();
     }
 
     @Override
@@ -121,9 +118,12 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
                 SELECT DISTINCT document.documentNo FROM Document document
                 WHERE document.documentNo IN :documentNos
                   AND (EXISTS (SELECT archive.id FROM OutboundEmailArchive archive
-                               WHERE archive.document = document)
+                               WHERE archive.document = document
+                                  OR archive.fileName = document.docfilename
+                                  OR archive.document.docfilename = document.docfilename)
                     OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
-                               WHERE attachment.document = document))
+                               WHERE attachment.document = document
+                                  OR attachment.document.docfilename = document.docfilename))
                 """,
                 Integer.class);
         query.setParameter("documentNos", candidates);
@@ -158,8 +158,7 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
             return null;
         }
         // Scalar projection on purpose. Dereferencing only the identifier of a @ManyToOne
-        // reads the FK column without a join, and selecting a scalar leaves the
-        // persistence context empty so findForUpdate still hydrates under its lock.
+        // reads the FK column without hydrating patient data before authorization.
         TypedQuery<Integer> query = entityManager.createQuery(
                 "SELECT archive.demographic.demographicNo FROM OutboundEmailArchive archive WHERE archive.id = :archiveId",
                 Integer.class);

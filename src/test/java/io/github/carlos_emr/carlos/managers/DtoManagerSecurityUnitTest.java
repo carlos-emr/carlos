@@ -165,6 +165,7 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
     void documentManager_shouldThrow_whenEdocReadDenied() {
         DocumentDao dao = Mockito.mock(DocumentDao.class);
         DocumentManagerImpl manager = new DocumentManagerImpl();
+        injectDependency(manager, "outboundEmailArchiveDao", org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao.class));
         injectDependency(manager, "documentDao", dao);
         injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
 
@@ -327,6 +328,7 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
         List<DocumentListItemDTO> expected = Collections.singletonList(new DocumentListItemDTO());
         when(dao.findDocumentDTOsByDemographicNo(DEMO_NO)).thenReturn(expected);
         DocumentManagerImpl manager = new DocumentManagerImpl();
+        injectDependency(manager, "outboundEmailArchiveDao", org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao.class));
         injectDependency(manager, "documentDao", dao);
         injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
         grantPrivilege("_edoc");

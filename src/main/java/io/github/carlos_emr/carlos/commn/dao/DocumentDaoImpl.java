@@ -344,9 +344,12 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
                 SELECT document FROM Document document
                 WHERE document.updatedatetime > ?1
                   AND NOT EXISTS (SELECT archive.id FROM OutboundEmailArchive archive
-                                  WHERE archive.document = document)
+                                  WHERE archive.document = document
+                                     OR archive.fileName = document.docfilename
+                                     OR archive.document.docfilename = document.docfilename)
                   AND NOT EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
-                                  WHERE attachment.document = document)
+                                  WHERE attachment.document = document
+                                     OR attachment.document.docfilename = document.docfilename)
                 ORDER BY document.updatedatetime
                 """);
         query.setParameter(1, updatedAfterThisDateExclusive);
@@ -416,9 +419,12 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
                   AND document.doccreator = ?3
                   AND document.updatedatetime > ?4
                   AND NOT EXISTS (SELECT archive.id FROM OutboundEmailArchive archive
-                                  WHERE archive.document = document)
+                                  WHERE archive.document = document
+                                     OR archive.fileName = document.docfilename
+                                     OR archive.document.docfilename = document.docfilename)
                   AND NOT EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
-                                  WHERE attachment.document = document)
+                                  WHERE attachment.document = document
+                                     OR attachment.document.docfilename = document.docfilename)
                 ORDER BY document.updatedatetime
                 """);
         query.setParameter(1, demographicId);

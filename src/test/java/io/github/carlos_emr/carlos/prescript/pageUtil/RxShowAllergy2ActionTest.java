@@ -16,8 +16,23 @@ import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
+import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
+import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import org.mockito.MockedConstruction;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.ArgumentMatchers.anyList;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -80,6 +95,7 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(AllergyDao.class, mockAllergyDao);
+        registerMock(DemographicManager.class, mock(DemographicManager.class));
         registerMock(SystemPreferencesDao.class, mockSystemPreferencesDao);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -122,8 +138,120 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
-        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("r"), isNull());
+        verify(mockSecurityInfoManager, atLeastOnce()).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("r"), isNull());
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
         verify(mockAllergyDao, never()).merge(any(AbstractModel.class));
     }
+    private Allergy allergy(String name, String severity) {
+        Allergy allergy = new Allergy();
+        allergy.setId(name.hashCode());
+        allergy.setDescription(name);
+        allergy.setReaction("test reaction");
+        allergy.setSeverityOfReaction(severity);
+        return allergy;
+    }
+
+    @Test
+    @DisplayName("should expose unresolved allergies alongside confirmed matches")
+    void shouldExposeUnresolvedAllergies_whenDrugRefCannotResolveAName() throws Exception {
+        Allergy matched = allergy("PENICILLINS", "3");
+        Allergy unresolved = allergy("MACROLIDES", "1");
+        JsonNode json = check(new Allergy[]{matched, unresolved}, new Allergy[]{matched}, List.of(unresolved), false, false);
+        assertThat(json.path("results").get(0).path("DESCRIPTION").asText()).isEqualTo("PENICILLINS");
+        assertThat(json.path("unchecked").get(0).path("DESCRIPTION").asText()).isEqualTo("MACROLIDES");
+        assertThat(json.path("checkComplete").asBoolean()).isFalse();
+        assertThat(mockResponse.getHeader("Cache-Control")).isEqualTo("no-store");
+    }
+
+    @Test
+    @DisplayName("should preserve unresolved allergies when only the highest severity match is requested")
+    void shouldPreserveUnresolvedAllergies_whenHighestSeverityOnlyIsEnabled() throws Exception {
+        Allergy mild = allergy("mild", "1");
+        Allergy severe = allergy("severe", "3");
+        Allergy unresolved = allergy("unresolved", null);
+        Allergy noReaction = allergy("none", "5");
+        JsonNode json = check(new Allergy[]{mild, severe, noReaction, unresolved}, new Allergy[]{mild, severe, noReaction}, List.of(unresolved), true, false);
+        assertThat(json.path("results")).hasSize(1);
+        assertThat(json.path("results").get(0).path("DESCRIPTION").asText()).isEqualTo("severe");
+        assertThat(json.path("unchecked")).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should report failed checks rather than an empty all-clear result")
+    void shouldReportFailedChecks_whenDrugRefThrows() throws Exception {
+        JsonNode json = check(new Allergy[]{allergy("PENICILLINS", "3")}, new Allergy[0], List.of(), false, true);
+        assertThat(json.path("checkFailed").asBoolean()).isTrue();
+        assertThat(json.path("checkComplete").asBoolean()).isFalse();
+        assertThat(json.path("unchecked")).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should identify a complete negative check when every allergy was compared")
+    void shouldIdentifyCompleteNegativeCheck_whenNoAllergiesMatch() throws Exception {
+        JsonNode json = check(new Allergy[]{allergy("unrelated", "1")}, new Allergy[0], List.of(), false, false);
+        assertThat(json.path("checkComplete").asBoolean()).isTrue();
+        assertThat(json.path("results")).isEmpty();
+        assertThat(json.path("unchecked")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should check the requested patient when another tab changes the prescribing session")
+    void shouldCheckRequestedPatient_whenAnotherTabChangesPrescribingSession() throws Exception {
+        Allergy target = allergy("target patient allergy", "3");
+        JsonNode json = check(new Allergy[]{target}, new Allergy[]{target}, List.of(), false, false, "2", 99);
+        assertThat(json.path("checkComplete").asBoolean()).isTrue();
+        assertThat(json.path("results").get(0).path("DESCRIPTION").asText()).isEqualTo("target patient allergy");
+    }
+
+    @Test
+    @DisplayName("should reject an allergy check with no patient instead of using shared session state")
+    void shouldRejectAllergyCheck_whenRequestedPatientIsMissing() throws Exception {
+        JsonNode json = check(new Allergy[0], new Allergy[0], List.of(), false, false, null, 2);
+        assertThat(json.path("checkFailed").asBoolean()).isTrue();
+        assertThat(json.path("checkComplete").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should reject an allergy check with a malformed patient identifier")
+    void shouldRejectAllergyCheck_whenRequestedPatientIsMalformed() throws Exception {
+        JsonNode json = check(new Allergy[0], new Allergy[0], List.of(), false, false, "2invalid", 2);
+        assertThat(json.path("checkFailed").asBoolean()).isTrue();
+        assertThat(json.path("checkComplete").asBoolean()).isFalse();
+    }
+
+    private JsonNode check(Allergy[] allergies, Allergy[] matches, List<Allergy> unresolved,
+                           boolean highestOnly, boolean failed) throws Exception {
+        return check(allergies, matches, unresolved, highestOnly, failed, "2", 2);
+    }
+
+    private JsonNode check(Allergy[] allergies, Allergy[] matches, List<Allergy> unresolved,
+                           boolean highestOnly, boolean failed, String requestedPatient, int sessionPatient) throws Exception {
+        mockRequest.setParameter("method", "allergyData");
+        mockRequest.setParameter("atcCode", "J01FA09");
+        mockRequest.setParameter("id", "7");
+        if (requestedPatient != null) mockRequest.setParameter("demographicNo", requestedPatient);
+        RxSessionBean session = mock(RxSessionBean.class);
+        when(session.getDemographicNo()).thenReturn(sessionPatient);
+        mockRequest.getSession().setAttribute("RxSessionBean", session);
+        RxPatientData.Patient patient = mock(RxPatientData.Patient.class);
+        when(patient.getActiveAllergies()).thenReturn(allergies);
+        when(mockSystemPreferencesDao.isReadBooleanPreference(any())).thenReturn(highestOnly);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty("rx.disable_allergy_warnings", "false")).thenReturn("false");
+        try (MockedStatic<CarlosProperties> propertyMock = mockStatic(CarlosProperties.class);
+             MockedStatic<RxPatientData> patients = mockStatic(RxPatientData.class);
+             MockedConstruction<RxDrugData> drugs = mockConstruction(RxDrugData.class, (mock, context) -> {
+                 when(mock.getAllergyWarnings(eq("J01FA09"), eq(allergies), anyList())).thenAnswer(invocation -> {
+                     if (failed) throw new IllegalStateException("reference unavailable");
+                     invocation.<List<Allergy>>getArgument(2).addAll(unresolved);
+                     return matches;
+                 });
+             })) {
+            propertyMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            patients.when(() -> RxPatientData.getPatient(mockLoggedInInfo, 2)).thenReturn(patient);
+            action.execute();
+            return new ObjectMapper().readTree(mockResponse.getContentAsByteArray());
+        }
+    }
+
 }
