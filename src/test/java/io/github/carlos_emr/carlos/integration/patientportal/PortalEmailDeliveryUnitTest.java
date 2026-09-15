@@ -35,12 +35,13 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
     private final EmailData data = new EmailData();
     private final List<String> operations = new ArrayList<>();
     private PortalEmailDelivery delivery;
+    private io.github.carlos_emr.carlos.email.core.EmailSendResult outcome;
 
     @BeforeEach
     void setUp() {
         var provider = new Provider(); provider.setProviderNo("999998"); user.setLoggedInProvider(provider);
         var demographic = new Demographic(); demographic.setDemographicNo(123); demographic.setEmail("patient@example.org");
-        org.springframework.test.util.ReflectionTestUtils.setField(log, "id", 45); log.setDemographic(demographic); log.setPassword(""); log.setPasswordClue("");
+        org.springframework.test.util.ReflectionTestUtils.setField(log, "id", 45); log.setDemographic(demographic); log.setPassword(""); log.setPasswordClue(""); log.setStatus(EmailStatus.PENDING);
         data.setDemographicNo(123); data.setRecipients(new String[]{"patient@example.org"}); data.setIsEncrypted(true);
         when(security.hasPrivilege(eq(user), anyString(), anyString(), eq("123"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(user, 123)).thenReturn(true);
@@ -48,6 +49,7 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
         when(logs.initializePortalDelivery(log)).thenReturn(true);
         when(logs.transitionPortalDelivery(eq(log), any(), any(), nullable(Long.class))).thenReturn(true);
         when(logs.find(45)).thenReturn(log);
+        when(logs.transitionEmailStatus(eq(45), any(), any(), anyString(), any())).thenReturn(1);
         when(portal.findAccount(eq(123), any())).thenReturn(account("active", false, false));
         when(portal.createUnlockSecret(eq(123), anyString(), eq("Email 45"), any())).thenAnswer(call -> {
             operations.add("create");
@@ -74,15 +76,15 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
         operations.add("send");
     }
     private void stored(PortalDeliveryState state) {
-        log.setPortalDeliveryState(state); log.setPortalSecretId(77L); log.setPortalSourceReference("email-fixed-reference");
+        log.setPortalDeliveryState(state); log.setTimestamp(new java.util.Date(System.currentTimeMillis()-16L*60L*1000L)); log.setPortalSecretId(77L); log.setPortalSourceReference("email-fixed-reference");
         log.setPortalOrigin(settings.baseUrl()); log.setPortalClinicId(settings.clinicId());
     }
 
     @Test void shouldPublishOnlyAfterEncryptionAndTransportAcceptance() {
-        delivery.send(user, log, data, this::encrypt, this::send);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
         assertThat(operations).containsExactly("create", "encrypt", "send", "publish");
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.PUBLISHED);
-        assertThat(log.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        assertThat(outcome == null ? log.getStatus() == EmailStatus.SUCCESS : outcome.isTransportAccepted()).isTrue();
         assertThat(data.getPassword()).isEmpty();
         var order = inOrder(logs, portal);
         order.verify(logs).initializePortalDelivery(log);
@@ -94,16 +96,16 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldRevokeBeforeSendFailureWithoutPublishingOrSending() {
-        delivery.send(user, log, data, () -> { throw new EmailSendingException("sensitive failure"); }, this::send);
+        outcome = delivery.send(user, log, data, () -> { throw new EmailSendingException("sensitive failure"); }, this::send);
         assertThat(operations).containsExactly("create", "revoke");
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKED);
-        assertThat(log.getStatus()).isEqualTo(EmailStatus.FAILED);
+        assertThat(outcome.getTransportOutcome()).isEqualTo(io.github.carlos_emr.carlos.email.core.EmailSendResult.TransportOutcome.FAILED);
         assertThat(log.getErrorMessage()).doesNotContain("sensitive");
         assertThat(data.getPassword()).isEmpty();
     }
 
     @Test void shouldKeepPendingPasswordWhenTransportAcceptanceIsUnknown() {
-        delivery.send(user, log, data, this::encrypt, () -> { throw new EmailSendingException("connection lost"); });
+        outcome = delivery.send(user, log, data, this::encrypt, () -> { throw new EmailSendingException("connection lost", null, true); });
         assertThat(operations).containsExactly("create", "encrypt");
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.SENDING);
         assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDelivery.UNCERTAIN);
@@ -112,8 +114,8 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
 
     @Test void shouldRetryOnlyPublicationAfterSentEmail() {
         when(portal.publishUnlockSecret(eq(77L), any())).thenThrow(new IllegalStateException("portal outage"));
-        delivery.send(user, log, data, this::encrypt, this::send);
-        assertThat(log.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
+        assertThat(outcome == null ? log.getStatus() == EmailStatus.SUCCESS : outcome.isTransportAccepted()).isTrue();
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.SENT);
         assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDelivery.PUBLISH_PENDING);
         when(portal.publishUnlockSecret(eq(77L), any())).thenReturn(null);
@@ -125,7 +127,7 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
 
     @Test void shouldRetainRecoverableRevokeIntentIfPortalIsDown() {
         when(portal.revokeUnlockSecret(anyLong(), anyString(), any())).thenThrow(new IllegalStateException("outage"));
-        delivery.send(user, log, data, () -> { throw new EmailSendingException("render failed"); }, this::send);
+        outcome = delivery.send(user, log, data, () -> { throw new EmailSendingException("render failed"); }, this::send);
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKE_PENDING);
         doReturn(null).when(portal).revokeUnlockSecret(anyLong(), anyString(), any());
         delivery.recover(user, 45, "retry", false);
@@ -136,7 +138,7 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
     @Test void shouldRecoverLostCreateResponseUsingSameStoredReference() {
         when(portal.createUnlockSecret(eq(123), anyString(), anyString(), any()))
                 .thenThrow(new IllegalStateException("timeout"));
-        delivery.send(user, log, data, this::encrypt, this::send);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
         String reference = log.getPortalSourceReference();
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKE_PENDING);
         assertThat(log.getPortalSecretId()).isNull();
@@ -150,47 +152,47 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest @ValueSource(strings={"wrong@example.org", "patient@example.org,other@example.org", "Patient <patient@example.org>"})
     void shouldRejectRecipientOutsideRecordedPatientAddress(String recipient) {
         data.setRecipients(new String[]{recipient});
-        delivery.send(user, log, data, this::encrypt, this::send);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
         verifyNoInteractions(portal);
         assertThat(operations).isEmpty();
-        assertThat(log.getStatus()).isEqualTo(EmailStatus.FAILED);
+        assertThat(outcome.getTransportOutcome()).isEqualTo(io.github.carlos_emr.carlos.email.core.EmailSendResult.TransportOutcome.FAILED);
     }
 
     @Test void shouldRejectMultipleRecipients() {
         data.setRecipients(new String[]{"patient@example.org", "patient@example.org"});
-        delivery.send(user, log, data, this::encrypt, this::send);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
         verifyNoInteractions(portal);
     }
 
     @Test void shouldRejectChangedPatientNumber() {
         data.setDemographicNo(456);
-        delivery.send(user, log, data, this::encrypt, this::send);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
         verifyNoInteractions(portal);
     }
 
     @Test void shouldRequirePatientScopedSecretWritePermission() {
         when(security.hasPrivilege(user, "_portal.secret", SecurityInfoManager.WRITE, "123")).thenReturn(false);
-        assertThatThrownBy(() -> delivery.send(user, log, data, this::encrypt, this::send)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> outcome = delivery.send(user, log, data, this::encrypt, this::send)).isInstanceOf(SecurityException.class);
         verifyNoInteractions(portal);
     }
 
     @ParameterizedTest @ValueSource(strings={"disabled", "pending"})
     void shouldBlockUnavailableAccount(String status) {
         when(portal.findAccount(eq(123), any())).thenReturn(account(status, false, false));
-        delivery.send(user, log, data, this::encrypt, this::send);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
         verify(portal, never()).createUnlockSecret(anyInt(), anyString(), anyString(), any());
         assertThat(operations).isEmpty();
     }
 
     @Test void shouldBlockLockedAccount() {
         when(portal.findAccount(eq(123), any())).thenReturn(account("active", true, false));
-        delivery.send(user, log, data, this::encrypt, this::send);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
         assertThat(operations).isEmpty();
     }
 
     @Test void shouldBlockAccountRequiringPasswordReset() {
         when(portal.findAccount(eq(123), any())).thenReturn(account("active", false, true));
-        delivery.send(user, log, data, this::encrypt, this::send);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
         assertThat(operations).isEmpty();
     }
 
@@ -206,7 +208,7 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
         stored(PortalDeliveryState.SENDING);
         delivery.recover(user, 45, "confirmSent", true);
         assertThat(operations).containsExactly("publish");
-        assertThat(log.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        assertThat(outcome == null ? log.getStatus() == EmailStatus.SUCCESS : outcome.isTransportAccepted()).isTrue();
     }
 
     @Test void shouldRevokeExplicitlyConfirmedNonAcceptance() {
@@ -224,13 +226,13 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
 
     @Test void shouldNotSendIfRecoveryCancelledPreparedEmail() {
         when(logs.transitionPortalDelivery(log, PortalDeliveryState.READY, PortalDeliveryState.SENDING, 77L)).thenReturn(false);
-        delivery.send(user, log, data, this::encrypt, this::send);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
         assertThat(operations).doesNotContain("send", "publish");
     }
 
     @Test void shouldRejectRestrictedPatientRecordBeforeCallingPortal() {
         when(security.isAllowedAccessToPatientRecord(user, 123)).thenReturn(false);
-        assertThatThrownBy(() -> delivery.send(user, log, data, this::encrypt, this::send))
+        assertThatThrownBy(() -> outcome = delivery.send(user, log, data, this::encrypt, this::send))
                 .isInstanceOf(SecurityException.class);
         verifyNoInteractions(portal);
         stored(PortalDeliveryState.SENT);
