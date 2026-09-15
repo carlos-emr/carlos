@@ -35,9 +35,9 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         var sender = mock(EmailSender.class);
         var portal = mock(PatientPortalService.class);
         var settings = mock(PatientPortalSettings.class);
-        var manager = spy(new EmailManager(consent, factory));
+        var manager = spy(new EmailManager(consent, factory, security));
         var delivery = new PortalEmailDelivery(security, logs);
-        injectDependency(manager, "securityInfoManager", security);
+        injectDependency(manager, "oscarLogDao", mock(OscarLogDao.class));
         injectDependency(manager, "emailLogDao", logs);
         injectDependency(manager, "emailConfigDao", configs);
         injectDependency(manager, "demographicManager", demographics);
@@ -57,6 +57,7 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         when(portal.findAccount(eq(123), any())).thenReturn(new PatientPortalAccountDto(1,"clinic",123,"active",false,false,null,null));
         when(portal.createUnlockSecret(eq(123), anyString(), anyString(), any())).thenAnswer(call ->
                 new PatientPortalUnlockSecretDto(77,true,PortalSecret.of("strong-portal-password"),call.getArgument(1),"pending"));
+        when(logs.transitionEmailStatus(any(), any(), any(), anyString(), any())).thenReturn(1);
         when(logs.initializePortalDelivery(any())).thenReturn(true);
         when(logs.transitionPortalDelivery(any(), any(), any(), nullable(Long.class))).thenReturn(true);
         doAnswer(call -> {
