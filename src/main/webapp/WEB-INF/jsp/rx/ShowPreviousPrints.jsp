@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
@@ -133,10 +134,10 @@
                                             %>
                                             <tr>
                                                 <td width="50%" valign="top"
-                                                    nowrap="nowrap"><%=DateUtils.formatDate(originalPrintDate, request.getLocale()) %>
+                                                    nowrap="nowrap"><carlos:encode value='<%= DateUtils.formatDate(originalPrintDate, request.getLocale()) %>' context="html"/>
                                                 </td>
                                                 <td width="50%" valign="top"
-                                                    nowrap="nowrap"><%=providerDao.getProvider(originalProviderNo).getFormattedName() %>
+                                                    nowrap="nowrap"><carlos:encode value='<%= providerDao.getProvider(originalProviderNo).getFormattedName() %>' context="html"/>
                                                 </td>
                                             </tr>
 
@@ -158,9 +159,9 @@
                                                     }
                                             %>
                                             <tr>
-                                                <td width="50%" valign="top" nowrap="nowrap"><%=drp%>
+                                                <td width="50%" valign="top" nowrap="nowrap"><carlos:encode value='<%= drp %>' context="html"/>
                                                 </td>
-                                                <td width="50%" valign="top" nowrap="nowrap"><%=providerName %>
+                                                <td width="50%" valign="top" nowrap="nowrap"><carlos:encode value='<%= providerName %>' context="html"/>
                                                 </td>
                                             </tr>
                                             <%

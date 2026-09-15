@@ -110,10 +110,10 @@ See `docs/ui-tests/UI-TEST-PROCESS.md` for complete setup requirements.
 curl -sI http://localhost:8080/oscar/index.jsp | head -1
 
 # Database accessible
-mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword carlos -e "SELECT 1;"
 
 # Test user exists
-mariadb -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc';"
+mariadb -h db -uroot -ppassword carlos -e "SELECT user_name FROM security WHERE user_name='carlosdoc';"
 ```
 
 ## Quick Troubleshooting

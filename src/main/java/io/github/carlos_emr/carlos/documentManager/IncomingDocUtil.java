@@ -49,6 +49,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -83,6 +84,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public final class IncomingDocUtil {
     private static final String INCOMING_DOCUMENT_DIR_PROPERTY = "INCOMINGDOCUMENT_DIR";
+    private static final String ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY = "ALLOWED_INCOMING_DOC_FOLDERS";
+
+    /** Queue subdirectories every CARLOS install ships with; the shipped UI is built around these four. */
+    private static final List<String> DEFAULT_INCOMING_DOC_FOLDERS = List.of("Fax", "Mail", "File", "Refile");
+
+    /** Shipped folder labels, by folder name. Configured folders show their configured name. */
+    private static final Map<String, String> INCOMING_DOC_FOLDER_LABEL_KEYS = Map.of(
+            "Fax", "dms.incomingDocs.fax",
+            "Mail", "dms.incomingDocs.mail",
+            "File", "dms.incomingDocs.file",
+            "Refile", "dms.incomingDocs.refile");
+
     private static final Logger logger = MiscUtils.getLogger();
     
     /**
@@ -94,15 +107,110 @@ public final class IncomingDocUtil {
         return PathValidationUtils.validatePathComponent(pathComponent, label);
     }
 
+    /**
+     * The incoming-document queue subdirectories a request is allowed to name, in the order
+     * the UI should offer them.
+     *
+     * <p>This is the single source of truth for the folder allowlist: the path builders below,
+     * {@code ManageDocument2Action}'s move guard, and the incoming-docs / uploader screens all
+     * read it, so a deployment that customizes the list does not end up with a UI offering
+     * folders the write path rejects.
+     *
+     * <p>Deployments may override the list with the {@code ALLOWED_INCOMING_DOC_FOLDERS}
+     * property (comma separated). Each entry has to survive the same single-path-component
+     * check a request-supplied folder does — configuration must not be able to widen one path
+     * segment into a subtree — and an override that leaves nothing usable falls back to the
+     * shipped folders rather than locking intake staff out of every queue. So everything this
+     * returns is a name the write paths will accept, which is what lets callers take the first
+     * entry as a default.
+     *
+     * @return an immutable, de-duplicated list of allowed folder names, never empty
+     * @since 2026-05-28
+     */
+    public static List<String> getAllowedIncomingDocFolders() {
+        String configuredFolders = CarlosProperties.getInstance()
+                .getProperty(ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY);
+        if (configuredFolders == null || configuredFolders.trim().isEmpty()) {
+            return DEFAULT_INCOMING_DOC_FOLDERS;
+        }
+
+        List<String> allowedFolders = Arrays.stream(configuredFolders.split(","))
+                .map(String::trim)
+                .filter(IncomingDocUtil::isUsableFolderName)
+                .distinct()
+                .toList();
+
+        if (allowedFolders.isEmpty()) {
+            logger.warn("{} is configured but contains no usable folder names; using the built-in folders",
+                    ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY);
+            return DEFAULT_INCOMING_DOC_FOLDERS;
+        }
+        return allowedFolders;
+    }
+
+    /** Whether a configured name is one path component, i.e. usable as a queue subdirectory. */
+    private static boolean isUsableFolderName(String folder) {
+        if (folder.isEmpty()) {
+            return false;
+        }
+        try {
+            validatePathComponent(folder, "configured incoming document folder");
+            return true;
+        } catch (FileValidationException e) {
+            logger.warn("Ignoring unusable {} entry", ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY);
+            return false;
+        }
+    }
+
+    /**
+     * The {@code oscarResources} key that labels a built-in folder in the UI, or null for a
+     * folder this install added through configuration.
+     *
+     * <p>The label lives here rather than in each screen so the incoming-docs viewer and the
+     * uploader cannot drift apart on how a folder is named. A configured folder has no
+     * translation to look up, so callers fall back to showing its configured name.
+     *
+     * @param folder the folder name, as returned by {@link #getAllowedIncomingDocFolders()}
+     * @return the resource bundle key, or null when the folder has no shipped translation
+     * @since 2026-05-28
+     */
+    public static String getIncomingDocFolderLabelKey(String folder) {
+        return INCOMING_DOC_FOLDER_LABEL_KEYS.get(folder);
+    }
+
+    /**
+     * The folder a screen should show when the request names no folder, or names one this
+     * install does not allow.
+     *
+     * @return the first configured (or built-in) folder name
+     * @since 2026-05-28
+     */
+    public static String getDefaultIncomingDocFolder() {
+        return getAllowedIncomingDocFolders().get(0);
+    }
+
+    /**
+     * Whether a request-supplied folder name may be used as an incoming-document queue
+     * subdirectory. Callers that only need a yes/no answer (UI default selection, move guards)
+     * use this instead of catching the exception the path builders throw.
+     *
+     * @param pdfDir the request-supplied folder name; may be null
+     * @return true when the name is exactly one path component and is on the allowlist
+     * @since 2026-05-28
+     */
+    public static boolean isAllowedIncomingDocFolder(String pdfDir) {
+        // Membership is enough: every name on the list already passed validatePathComponent.
+        return pdfDir != null && !pdfDir.isEmpty() && getAllowedIncomingDocFolders().contains(pdfDir);
+    }
+
     private static String validateIncomingDocumentDir(String pdfDir) {
         String validatedPdfDir = validatePathComponent(pdfDir, "pdfDir");
-        if (validatedPdfDir.equals("Fax")
-                || validatedPdfDir.equals("Mail")
-                || validatedPdfDir.equals("File")
-                || validatedPdfDir.equals("Refile")) {
+        if (getAllowedIncomingDocFolders().contains(validatedPdfDir)) {
             return validatedPdfDir;
         }
-        throw new IllegalArgumentException("Invalid pdfDir: must be one of Fax, Mail, File, or Refile");
+        // The name is deliberately not echoed: it is request-controlled and this message
+        // reaches the incoming-docs screen.
+        throw new IllegalArgumentException("Invalid pdfDir: folder is not in the incoming document folder allowlist");
     }
 
     private static String addPdfNameSuffix(String pdfName, String suffix) {

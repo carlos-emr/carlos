@@ -33,6 +33,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 
 /*
  * Author: Dennis Warren
@@ -102,7 +103,9 @@ public class CaseNoteParser {
 
             matcher = DEMO_NOTES_PATTERN.matcher(note);
             if (matcher.find()) {
-                note = matcher.group(1);
+                // Note text is XML-escaped on write (DemographicXml.userNotes); decode it
+                // before splitting so an escaped "&" does not break key/value parsing.
+                note = DemographicXml.unescapeXmlTextOrEmpty(matcher.group(1));
             }
 
             if (note.contains(COMMA)) {
