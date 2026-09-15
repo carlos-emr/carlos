@@ -57,11 +57,11 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <html>
 <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <link rel="stylesheet" type="text/css" href="styles.css">
 </head>

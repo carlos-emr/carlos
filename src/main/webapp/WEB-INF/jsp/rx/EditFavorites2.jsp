@@ -1,4 +1,3 @@
-<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
@@ -44,6 +43,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>

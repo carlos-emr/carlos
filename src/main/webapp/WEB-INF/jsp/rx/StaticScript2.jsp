@@ -49,7 +49,6 @@
 
 <%@page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
-<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -70,6 +69,7 @@
 
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <title><fmt:message key="StaticScript.title"/></title>
@@ -80,16 +80,7 @@
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             RxSessionBean rxBean = null;
         %>
-        <%
-            if (request.getParameter("demographicNo") != null) {
-                rxBean = new RxSessionBean();
 
-                rxBean.setProviderNo((String) session.getAttribute("user"));
-                rxBean.setDemographicNo(Integer.parseInt(request.getParameter("demographicNo")));
-
-                request.getSession().setAttribute("RxSessionBean", rxBean);
-            }
-        %>
 
         <c:if test="${sessionScope.RxSessionBean == null}">
             <c:redirect url="error.html"/>

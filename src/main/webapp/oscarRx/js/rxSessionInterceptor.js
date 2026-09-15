@@ -367,4 +367,11 @@
     }
 
     startWorkspaceLease();
+    window.addEventListener('pageshow', function (event) {
+        if (!event.persisted) return;
+        // A back/forward-cache restore does not rerun this script. pagehide
+        // released ownership and stopped the heartbeat, so acquire both again.
+        claimWorkspaceOwnership();
+        startWorkspaceLease();
+    });
 })();

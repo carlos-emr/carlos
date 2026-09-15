@@ -1,4 +1,3 @@
-<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
@@ -56,6 +55,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+        <%@ include file="rxContext.jspf" %>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="AddReaction.title"/></title>
@@ -130,7 +130,7 @@
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="<%= request.getContextPath() %>/rx/showAllergy"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
+                                    href="<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<%=bean.getDemographicNo()%>"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -331,7 +331,7 @@
                     <tr>
                         <td>
                             <%
-                                String sBack = request.getContextPath() + "/rx/showAllergy";
+                                String sBack = request.getContextPath() + "/rx/showAllergy?demographicNo=" + bean.getDemographicNo();
                             %> <input type=button class="ControlPushButton"
                                       onclick="window.location.href=RxContext.addToUrl('<%=sBack%>');"
                                       value="Back to View Allergies"/></td>

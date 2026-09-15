@@ -36,6 +36,7 @@ const document = {
 
 const window = {
     location: {origin: 'https://example.test'},
+    addEventListener() {},
     fetch(input, init) {
         fetchCalls.push({input, init});
         return Promise.resolve();
@@ -109,8 +110,11 @@ class FakeBroadcastChannel {
     }
 }
 
-function ownerBrowser(loadTwice = false) {
+const ownerStorage = new Map();
+
+function ownerBrowser(loadTwice = false, useStorage = false) {
     const replacements = [];
+    const events = {};
     const attributes = new Map();
     const documentElement = {
         tagName: 'HTML',
@@ -148,14 +152,21 @@ function ownerBrowser(loadTwice = false) {
         history: {state: null, replaceState() {}},
         alert() {},
         crypto: {randomUUID: () => `id-${Math.random()}`},
-        BroadcastChannel: FakeBroadcastChannel,
+        BroadcastChannel: useStorage ? undefined : FakeBroadcastChannel,
+        localStorage: {
+            getItem(key) { return ownerStorage.get(key) || null; },
+            setItem(key, value) { ownerStorage.set(key, value); },
+            removeItem(key) { ownerStorage.delete(key); }
+        },
         fetch() { return Promise.resolve(); },
         XMLHttpRequest: FakeXhr,
         open() { return {}; },
         setTimeout,
         setInterval() { return 1; },
         clearInterval() {},
-        addEventListener() {}
+        addEventListener(name, callback, options) {
+            (events[name] ||= []).push({callback, once: options?.once});
+        }
     };
     ownerWindow.top = ownerWindow;
     const ownerContext = {
@@ -179,7 +190,14 @@ function ownerBrowser(loadTwice = false) {
     if (loadTwice) {
         vm.runInNewContext(interceptor, ownerContext, {filename: 'rxSessionInterceptor.js'});
     }
-    return replacements;
+    return {
+        replacements,
+        dispatch(name, event = {}) {
+            const callbacks = events[name] || [];
+            events[name] = callbacks.filter((entry) => !entry.once);
+            callbacks.forEach((entry) => entry.callback(event));
+        }
+    };
 }
 
 function leaseBrowser() {
@@ -286,20 +304,40 @@ async function verifyPreviewClose(inModal) {
 (async () => {
     await verifyPreviewClose(true);
     await verifyPreviewClose(false);
-    const firstReplacements = ownerBrowser(true);
+    const firstOwner = ownerBrowser(true);
     await new Promise((resolve) => setTimeout(resolve, 250));
-    const duplicateReplacements = ownerBrowser();
+    const duplicateOwner = ownerBrowser();
     await new Promise((resolve) => setTimeout(resolve, 250));
 
-    assert.equal(firstReplacements.length, 0);
-    assert.equal(duplicateReplacements.length, 1);
-    const reopened = new URL(duplicateReplacements[0]);
+    assert.equal(firstOwner.replacements.length, 0);
+    assert.equal(duplicateOwner.replacements.length, 1);
+    const reopened = new URL(duplicateOwner.replacements[0]);
     assert.equal(reopened.pathname, '/carlos/rx/choosePatient');
     assert.equal(reopened.searchParams.get('demographicNo'), '101');
     assert.equal(reopened.searchParams.get('appointmentNo'), '88');
     assert.equal(reopened.searchParams.get('programId'), '12');
     assert.equal(reopened.searchParams.get('rxContextId'), null);
     assert.equal(reopened.searchParams.get('rxDuplicate'), '1');
+
+    firstOwner.dispatch('pagehide');
+    assert.equal(ownerChannels.length, 0);
+    firstOwner.dispatch('pageshow', {persisted: true});
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const restoredDuplicate = ownerBrowser();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    assert.equal(firstOwner.replacements.length, 0);
+    assert.equal(restoredDuplicate.replacements.length, 1,
+            'A restored owner must still isolate a subsequently duplicated tab');
+
+    const storageOwner = ownerBrowser(false, true);
+    const storageDuplicate = ownerBrowser(false, true);
+    assert.equal(storageOwner.replacements.length, 0);
+    assert.equal(storageDuplicate.replacements.length, 1);
+    storageOwner.dispatch('pagehide');
+    assert.equal(ownerStorage.size, 0);
+    storageOwner.dispatch('pageshow', {persisted: true});
+    assert.equal(ownerBrowser(false, true).replacements.length, 1,
+            'The storage fallback must also reacquire ownership after a cache restore');
 
     const lease = leaseBrowser();
     assert.equal(lease.fetches.length, 1);
@@ -312,6 +350,11 @@ async function verifyPreviewClose(inModal) {
     assert.equal(lease.beacons.length, 1);
     assert.match(lease.beacons[0].url, /\/rx\/workspaceClose\?rxContextId=lease-context/);
     assert.equal(await lease.beacons[0].body.text(), 'CSRF-TOKEN=csrf-token');
+    lease.windowListeners.pageshow.forEach((listener) => listener({persisted: false}));
+    assert.equal(lease.fetches.length, 1, 'An ordinary load must not start a second heartbeat');
+    lease.windowListeners.pageshow.forEach((listener) => listener({persisted: true}));
+    assert.equal(lease.fetches.length, 2, 'Restoring a cached page must renew its workspace');
+    assert.equal(lease.intervals.length, 2, 'Restoring a cached page must restart the heartbeat');
     console.log('Rx context interceptor contract: PASS');
 })().catch((error) => {
     console.error(error);
