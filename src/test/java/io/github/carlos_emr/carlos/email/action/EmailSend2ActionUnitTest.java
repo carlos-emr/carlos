@@ -36,12 +36,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.email.core.EmailWorkflowUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +69,7 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("email")
 @DisplayName("EmailSend2Action")
-class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
+class EmailSend2ActionUnitTest extends EmailWorkflowUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
 
@@ -126,6 +127,42 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should preserve the compose draft when sender configuration fails without an outbox id")
+    void shouldPreserveComposeDraft_whenSenderConfigurationFailsDuringSend() {
+        grantEmailWritePrivilege();
+        prepareValidUnencryptedMessage();
+        request.setMethod("POST");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("receiverEmailAddress", "patient@example.invalid");
+        request.setParameter("subjectEmail", "Synthetic appointment reminder");
+        request.setParameter("patientChartOption", "doNotAddAsNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        LoggedInInfo.getLoggedInInfoFromSession(request).setLoggedInProvider(
+                new io.github.carlos_emr.carlos.commn.model.Provider("999998"));
+        EmailLog failure = new EmailLog();
+        failure.setStatus(EmailStatus.FAILED);
+        failure.setErrorMessage("Email sender account is not configured or is inactive.");
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class))).thenAnswer(invocation -> sendResult(failure));
+
+        prepareSubmission(request);
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(failure.getId()).isNull();
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
+        assertThat(request.getAttribute("emailLog")).isSameAs(failure);
+        assertThat(request.getAttribute("message")).isEqualTo("Appointment reminder");
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(false);
+        assertThat(request.getAttribute("subjectEmail")).isEqualTo("Synthetic appointment reminder");
+        assertThat(request.getAttribute("demographicId")).isEqualTo("123");
+        org.mockito.ArgumentCaptor<EmailData> sent = org.mockito.ArgumentCaptor.forClass(EmailData.class);
+        verify(emailManager).sendEmailWithResult(any(LoggedInInfo.class), sent.capture());
+        assertThat(sent.getValue().getSenderConfigId()).isEqualTo(1);
+        verifyNoInteractions(eformDataManager);
+    }
+
+    @Test
     @DisplayName("should reject GET cancel without consuming session attachments")
     void shouldRejectGetCancel_withoutConsumingSessionAttachments() {
         grantEmailWritePrivilege();
@@ -147,18 +184,19 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should clear session attachments when cancel arrives via POST")
-    void shouldClearSessionAttachments_whenCancelArrivesViaPost() {
+    void shouldConsumeSubmission_whenCancelArrivesViaPost() {
         grantEmailWritePrivilege();
         request.setMethod("POST");
         request.setParameter("method", "cancel");
         request.setParameter("transactionType", "DIRECT");
-        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, List.of());
+        String token = submissionStates.store(request.getSession(), "secret", "separate", List.of());
+        request.setParameter(io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
 
         String result = newAction().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NO_CONTENT);
-        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST)).isNull();
+        assertThat(submissionStates.consume(request)).isNull();
         verifyNoInteractions(emailManager, eformDataManager);
     }
 
@@ -330,13 +368,15 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
             request.setMethod("POST");
             EmailLog emailLog = new EmailLog();
             emailLog.setStatus(EmailStatus.SUCCESS);
-            when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class)))
-                .thenReturn(emailLog);
+            when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
 
+            request.setParameter("transactionType", "EFORM");
+            prepareSubmission(request);
             String result = newAction().execute();
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-            verify(emailManager).sendEmail(any(LoggedInInfo.class), any(EmailData.class));
+            verify(emailManager).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
             assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
         }
 
@@ -349,13 +389,15 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
             request.setParameter("method", "sendEFormEmail");
             EmailLog emailLog = new EmailLog();
             emailLog.setStatus(EmailStatus.SUCCESS);
-            when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class)))
-                .thenReturn(emailLog);
+            when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
 
+            request.setParameter("transactionType", "EFORM");
+            prepareSubmission(request);
             String result = newAction().execute();
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-            verify(emailManager).sendEmail(any(LoggedInInfo.class), any(EmailData.class));
+            verify(emailManager).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
             assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
         }
 
@@ -368,14 +410,20 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
             request.setParameter("method", "sendDirectEmail");
             EmailLog emailLog = new EmailLog();
             emailLog.setStatus(EmailStatus.SUCCESS);
-            when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class)))
-                .thenReturn(emailLog);
+            when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
 
+            request.setParameter("transactionType", "DIRECT");
+            prepareSubmission(request);
             String result = newAction().execute();
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-            verify(emailManager).sendEmail(any(LoggedInInfo.class), any(EmailData.class));
+            verify(emailManager).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
             assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
         }
+    }
+    private EmailSendResult sendResult(EmailLog log) {
+        return log.getStatus() == EmailLog.EmailStatus.SUCCESS
+                ? EmailSendResult.accepted(log, true) : EmailSendResult.failed(log, true);
     }
 }

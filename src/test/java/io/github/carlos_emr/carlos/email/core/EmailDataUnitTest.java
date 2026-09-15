@@ -20,6 +20,8 @@ package io.github.carlos_emr.carlos.email.core;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -92,5 +94,37 @@ class EmailDataUnitTest {
         assertThatThrownBy(() -> emailData.setConsentOverrideReason("a".repeat(256)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Consent override reason must not exceed 255 characters");
+    }
+    @Test
+    @DisplayName("should allow adding attachments to default list")
+    void shouldAllowAddingAttachments_whenUsingDefaultList() {
+        EmailData emailData = new EmailData();
+
+        emailData.getAttachments().add(new EmailAttachment());
+
+        assertThat(emailData.getAttachments()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should allow adding attachments after setting null list")
+    void shouldAllowAddingAttachments_whenAttachmentsAreSetToNull() {
+        EmailData emailData = new EmailData();
+        emailData.setAttachments(null);
+
+        emailData.getAttachments().add(new EmailAttachment());
+
+        assertThat(emailData.getAttachments()).hasSize(1);
+    }
+    @Test
+    void shouldDefaultToWithoutNote_whenChartOptionIsAbsentOrNull() {
+        EmailData data = new EmailData();
+        assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITHOUT_NOTE);
+        data.setChartDisplayOption(ChartDisplayOption.WITH_FULL_NOTE);
+        data.setChartDisplayOption((ChartDisplayOption) null);
+        assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITHOUT_NOTE);
+        data.setChartDisplayOption("addFullNote");
+        assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITH_FULL_NOTE);
+        data.setChartDisplayOption((String) null);
+        assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITHOUT_NOTE);
     }
 }

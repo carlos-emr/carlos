@@ -10,13 +10,13 @@ The sender needs patient-specific `_email` write, `_demographic` read, `_portal.
 
 ## Durable lifecycle and recovery
 
-The `V1.0.26` migration adds lifecycle metadata to `emailLog`. It stores an opaque source reference, secret ID, original Portal origin/clinic and state, never the generated password. The generated password exists in the encryption step and is cleared before constructing the mail sender. It is not put in the email body, password clue, outbox password column or chart note.
+The `V1.0.30` migration adds lifecycle metadata to `emailLog`. It stores an opaque source reference, secret ID, original Portal origin/clinic and state, never the generated password. The generated password exists in the encryption step and is cleared before constructing the mail sender. It is not put in the email body, password clue, outbox password column or chart note.
 
 | State | Meaning | Recovery |
 | --- | --- | --- |
 | PREPARING | Intent was saved before requesting a pending password | Cancel the unsent operation using its stored, idempotent reference |
 | READY | Password exists; email sending has not started | Revoke the unsent password |
-| SENDING | Sending started; acceptance is not durably confirmed | Check the provider's delivery record; explicitly confirm accepted or not accepted |
+| SENDING | Sending started; acceptance is not durably confirmed | After the existing 15-minute reconciliation delay, check the provider's delivery record and explicitly confirm accepted or not accepted |
 | SENT | Provider accepted; Portal publication may still be pending | Retry publication only |
 | PUBLISHED | Provider accepted and password publication succeeded | Complete |
 | REVOKE_PENDING | Unsent password still needs revocation | Retry revocation only |
