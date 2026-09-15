@@ -89,3 +89,23 @@ test('pending Portal publication keeps accepted mail open without sending again'
   assert.equal(calls.closed, 0);
   assert.equal(calls.submitted, 0);
 });
+
+test('Portal mode permits encrypted submission without exposing password fields', () => {
+  for (const portalEnabled of [true, false]) {
+    const fields = {
+      subjectEmail: { value: 'Test subject' }, message: { value: 'Test message' },
+      encryptionSwitch: { checked: true }, encryptAttachmentSwitch: { checked: true },
+      emailPDFPassword: { value: '' }, emailPDFPasswordClue: { value: '' },
+      totalSenderEmails: { value: 1 }, totalRecipintEmails: { value: 1 },
+    };
+    const context = vm.createContext({
+      document: { getElementById: id => fields[id] || null, querySelectorAll: () => [] },
+      emailComposeSubjectRequiredMsg: '', emailComposeMessageRequiredMsg: '',
+      emailComposePasswordRequiredMsg: '', emailComposeClueRequiredMsg: '',
+      validateField: (field, _message, errors, key) => { if (!field.value) errors[key] = true; },
+      clearError() {},
+    });
+    vm.runInContext(handler('validateForm').replace('${portalEmailEnabled}', String(portalEnabled)), context);
+    assert.equal(context.validateForm(), portalEnabled);
+  }
+});
