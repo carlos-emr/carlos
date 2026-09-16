@@ -38,10 +38,10 @@ async function workflow(s) {
   });
   await s.step('episode cannot be reassigned by posting another patient identifier', async () => {
     const response = await context.request.post(endpoint.href, {headers: {'CSRF-TOKEN': token}, form: {
-      method: 'save', 'episode.id': episode, 'episode.demographicNo': patient,
+      'CSRF-TOKEN': token, method: 'save', 'episode.id': episode, 'episode.demographicNo': patient,
       'episode.description': marker + '-CHANGED', 'episode.startDateStr': '2026-01-02', 'episode.status': 'Current',
     }});
-    assert(response.status() === 404, 'Cross-patient episode update was not rejected');
+    assert(response.status() === 404, `Cross-patient episode update returned HTTP ${response.status()}, expected 404`);
     assert(sql.value(`SELECT CONCAT(demographicNo,'|',description) FROM Episode WHERE id=${episode}`) === `${otherPatient}|${marker}`,
       'Rejected episode update changed its owner or description');
   });
@@ -64,7 +64,7 @@ async function workflow(s) {
     const response = await context.request.get(url.href);
     assert(response.status() === 404 && !(await response.text()).includes(marker), 'Foreign scratch version was exposed');
     const deleted = await context.request.post(scratchEndpoint, {headers: {'CSRF-TOKEN': scratchToken},
-      form: {method: 'delete', id: scratchIds[1], providerNo: otherProvider}});
+      form: {'CSRF-TOKEN': scratchToken, method: 'delete', id: scratchIds[1], providerNo: otherProvider}});
     assert(deleted.status() === 404 && (await deleted.json()).success === false, 'Foreign scratch deletion was not rejected');
     assert(sql.value(`SELECT status FROM scratch_pad WHERE id=${scratchIds[1]}`) === '1', 'Foreign scratch version changed');
   });
@@ -74,7 +74,7 @@ async function workflow(s) {
     const response = await context.request.get(url.href);
     assert(response.status() === 200 && (await response.text()).includes(marker), 'Owned scratch version did not open');
     const deleted = await context.request.post(scratchEndpoint, {headers: {'CSRF-TOKEN': scratchToken},
-      form: {method: 'delete', id: scratchIds[0]}});
+      form: {'CSRF-TOKEN': scratchToken, method: 'delete', id: scratchIds[0]}});
     assert(deleted.status() === 200 && (await deleted.json()).success === true, 'Owned scratch deletion failed');
     assert(sql.value(`SELECT status FROM scratch_pad WHERE id=${scratchIds[0]}`) === '0', 'Owned scratch deletion did not persist');
   });

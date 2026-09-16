@@ -118,7 +118,8 @@
     "test:consultation-directory-crud-playwright": "node scripts/consultation-directory-crud-playwright-checks.js",
     "test:measurement-history-playwright": "node scripts/measurement-history-playwright-checks.js",
     "test:provider-preferences-playwright": "node scripts/provider-preferences-playwright-checks.js",
-    "test:inactive-drug-status-playwright": "node scripts/inactive-drug-status-playwright-checks.js"
+    "test:inactive-drug-status-playwright": "node scripts/inactive-drug-status-playwright-checks.js",
+    "test:lot-number-search-playwright": "node scripts/lot-number-search-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
