@@ -59,6 +59,9 @@ class AuthenticationInterceptorWiringUnitTest {
         try (GenericApplicationContext context = new GenericApplicationContext()) {
             AnnotationConfigUtils.registerAnnotationConfigProcessors(context);
             context.getBeanFactory().registerSingleton("oscarUsernameTokenValidator", validator);
+            // By-type Map<String, Object> injection collects Object-valued beans;
+            // it does not require each candidate to implement Map. Restoring the
+            // old XML autowire="byType" invokes this supplier and fails refresh.
             RootBeanDefinition action = new RootBeanDefinition(Object.class, () -> {
                 requestActionCreations.incrementAndGet();
                 throw new IllegalStateException("Request action cannot be created outside an HTTP request");

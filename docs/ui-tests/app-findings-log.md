@@ -162,6 +162,8 @@ application defects from test defects and missing fixtures, and records retests.
 | 34 | Internal patient contact search is unavailable | Live UI probe: Manage Contacts → Add Contact → Internal → Search displays “Demographic search is currently unavailable” instead of opening search; fixture cleanup passes. Source `ManageContacts.jsp` confirms the unconditional return. Open; #3682. | `issue-filed` |
 | 35 | Reciprocal lookup can confuse different contact ID namespaces | `DemographicContactDaoImpl.find(int,int)` filters numeric IDs and deletion, but not category/type; a coincident directory/provider ID can look like a reverse patient relationship. Source confirmed; collision not VM-reproduced; #3682. | `needs-live-check` |
 
+| 36 | Malformed contact-save numbers are parsed before authorization | `Contact2Action.saveManage()` parses `demographic_no` and `contact_num` before its privilege check; malformed values throw `NumberFormatException`. Present in the release base; no mutation precedes authorization. Source confirmed; deployed response not VM-reproduced; #3682. | `needs-live-check` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is

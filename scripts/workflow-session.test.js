@@ -52,6 +52,22 @@ test('failed child cleanup retains the patient, tries remaining cleanup, and fai
   assert.deepEqual(f.events, ['close browser', 'remaining child', 'dispose credentials']);
 });
 
+test('browser teardown failure still removes owned rows and reports the original error', async () => {
+  const f = fixture();
+  f.browser.close = async () => { throw new Error('browser teardown failed'); };
+  f.cleanups.push(() => f.events.push('delete child'));
+  await assert.rejects(cleanupOwnedWorkflow(f), /browser teardown failed/);
+  assert.deepEqual(f.events, ['delete child', 'delete chart support rows', 'delete patient', 'dispose credentials']);
+});
+
+test('browser and child cleanup failures retain the parent and report both errors', async () => {
+  const f = fixture();
+  f.browser.close = async () => { throw new Error('browser teardown failed'); };
+  f.cleanups.push(() => { throw new Error('child delete failed'); });
+  await assert.rejects(cleanupOwnedWorkflow(f), /browser teardown failed; child delete failed/);
+  assert.deepEqual(f.events, ['dispose credentials']);
+});
+
 test('a delete which silently changes no rows cannot report successful cleanup', async () => {
   const f = fixture({ removed: false });
   await assert.rejects(cleanupOwnedWorkflow(f), /owned patient was not removed/);

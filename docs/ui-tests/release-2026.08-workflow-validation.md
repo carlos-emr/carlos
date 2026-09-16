@@ -25,7 +25,7 @@ with newer develop migrations were not reused or modified.
   Surefire. Renamed it `Contact2ActionUnitTest`; its **25 cases** pass in both the
   focused run and the default full suite, verified in the Surefire XML. Earlier
   successful CI did not execute that legacy filename.
-- Revised script regressions: **624 passed** (baseline 593).
+- Revised script regressions: **626 passed** (baseline 593).
 - Revised package-management Python tests: **1,519 passed**. Generated O19
   primitive-column metadata was regenerated from pinned upstream commit
   `a7900d569d3faf741993e5e1da8c14021bbefede` after the nullable model fix; the
@@ -154,6 +154,20 @@ zero swap use, zero full memory PSI and no guard intervention.
   both success and failure paths have regressions. The live five-field edit and
   audit-row assertions pass using an exact patient fixture.
 
+The final suppressed-comment review also reproduced a harness cleanup defect:
+if `browser.close()` threw, successful child cleanup still left the owned patient
+behind. Cleanup now separates browser errors from child-delete success; it removes
+the verified parent and still reports the browser error. The new regression fails
+before the fix and passes afterward; a second regression verifies that child-delete
+failure still retains the parent. All 626 Node tests pass.
+
+Two other suggested test changes were not needed. The SOAP regression already
+fails with the old by-type XML: Spring's `resolveMultipleBeanMap` instantiates the
+Object-valued prototype while populating `Map<String,Object>`. Replacing it with a
+Map bean would change the scenario. Popup saves synchronously call `isClosed()`
+and install the close listener without an intervening await; an already processed
+close is detected, and an event cannot interleave those synchronous operations.
+
 ## Remaining findings and coverage limits
 
 The aggregate issue contains the full reproduction/status list, including the
@@ -175,7 +189,10 @@ Source review also found candidate episode validation/authorization and
 scratchpad version-ownership gaps; low-privilege live exploitation was not tested.
 A reciprocal-contact lookup also lacks category/type predicates: a coincident
 directory/provider numeric ID could suppress a reverse relationship. This is a
-source-review candidate in #3682, not a reproduced VM failure.
+source-review candidate in #3682, not a reproduced VM failure. The existing
+`saveManage()` numeric parsing also precedes authorization and may turn malformed
+input into an uncontrolled error; no write occurs before permission checks.
+That inherited error-handling candidate is recorded separately, not VM-reproduced.
 The existing upstream [DrugRef issue #13](https://github.com/carlos-emr/drugref2026/issues/13)
 remains open. Unit-test success does not make these application findings green.
 

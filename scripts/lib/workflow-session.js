@@ -88,11 +88,16 @@ async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups })
     }
   } catch (error) { failures.push(error); }
   if (owned) {
+    let childrenRemoved = true;
     for (const cleanup of [...cleanups].reverse()) {
-      try { await cleanup(); } catch (error) { failures.push(error); }
+      try { await cleanup(); } catch (error) {
+        childrenRemoved = false;
+        failures.push(error);
+      }
     }
-    // Keep the parent available for recovery if any child cleanup failed.
-    if (patient && failures.length === 0) {
+    // Retain the parent when children need recovery. A browser teardown error
+    // still fails the check, but must not prevent verified database cleanup.
+    if (patient && childrenRemoved) {
       try {
         const supportRows = [
           ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
