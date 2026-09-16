@@ -82,18 +82,27 @@ public class Episode2Action extends ActionSupport {
     }
 
     public String edit() throws IOException {
-        Integer demographicNo = positiveInteger(request.getParameter("demographicNo"));
-        if (demographicNo == null) return reject(400, "Invalid patient identifier");
-        requirePatientAccess(demographicNo, "r");
+        String requestedPatient = request.getParameter("demographicNo");
+        Integer demographicNo = positiveInteger(requestedPatient);
+        if (requestedPatient != null && demographicNo == null) return reject(400, "Invalid patient identifier");
+        if (demographicNo != null) requirePatientAccess(demographicNo, "r");
         String rawId = request.getParameter("episode.id");
         if (rawId != null && !rawId.isBlank()) {
             Integer id = positiveInteger(rawId);
             if (id == null) return reject(400, "Invalid episode identifier");
             Episode stored = episodeDao.find(id);
-            if (stored == null || stored.getDemographicNo() != demographicNo) {
+            if (stored == null || (demographicNo != null && stored.getDemographicNo() != demographicNo)) {
                 return reject(404, "Episode not found");
             }
+            // Existing list/navbar links carry only episode.id. Authorize the
+            // stored patient before exposing the record through those links.
+            if (demographicNo == null) {
+                demographicNo = stored.getDemographicNo();
+                requirePatientAccess(demographicNo, "r");
+            }
             request.setAttribute("episode", stored);
+        } else if (demographicNo == null) {
+            return reject(400, "Invalid patient identifier");
         }
         String[] codingSystems = CarlosProperties.getInstance().getProperty("dxResearch_coding_sys", "").split(",");
         request.setAttribute("codingSystems", Arrays.asList(codingSystems));

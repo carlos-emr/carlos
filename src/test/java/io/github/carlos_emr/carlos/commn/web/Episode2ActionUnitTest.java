@@ -69,6 +69,27 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         assertThat(mockRequest.getAttribute("episode")).isSameAs(existing);
     }
 
+    @Test void existingEpisodeLinkWithoutPatientParameterAuthorizesStoredPatient() throws Exception {
+        Episode existing = stored(10);
+        assertThat(action.edit()).isEqualTo("form");
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_demographic"), eq("r"), eq(10));
+        assertThat(mockRequest.getAttribute("episode")).isSameAs(existing);
+        assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("10");
+    }
+
+    @Test void existingEpisodeLinkCannotExposeDeniedStoredPatient() {
+        stored(20);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), eq(20))).thenReturn(false);
+        assertThatThrownBy(action::edit).isInstanceOf(SecurityException.class);
+        assertThat(mockRequest.getAttribute("episode")).isNull();
+    }
+
+    @Test void missingPatientAndEpisodeCannotOpenBlankEditor() throws Exception {
+        assertThat(action.edit()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verifyNoInteractions(dao);
+    }
+
     @Test void cannotMoveAnotherPatientsEpisodeOrMutateManagedEntity() throws Exception {
         Episode existing = stored(20);
         assertThat(action.save()).isEqualTo("none");
