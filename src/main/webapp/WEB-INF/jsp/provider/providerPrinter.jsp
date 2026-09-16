@@ -29,6 +29,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
@@ -57,29 +58,7 @@
 
         <title><fmt:message key="provider.setDefaultPrinter.title"/></title>
 
-        <script language="javascript">
-            function createMessageHandler() {
-                var PDFObject = document.getElementById("myPdf");
-                if (!PDFObject) return;
-                PDFObject.messageHandler = {
-                    onMessage: function (msg) {
-                        var select = document.getElementById("printerList");
-                        select.options[select.options.length] = new Option("", 0);
-                        for (var index in msg) {
-                            select.options[select.options.length] = new Option(msg[index], index);
-                        }
-                    },
-                    onError: function (error, msg) {
-                        alert(error.message);
-                    }
-                }
-            }
 
-            function setPrinter() {
-                var select = document.getElementById("printerList");
-                document.getElementById("defaultPrinterName" + $('input[name=labelTypeRadioName]:checked').val()).value = select.options[select.selectedIndex].text;
-            }
-        </script>
 
         <style>
             .alert-box {
@@ -104,7 +83,7 @@
         </style>
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF" onLoad="createMessageHandler();">
+    <body class="BodyStyle" vlink="#0000FF">
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn"><fmt:message key="provider.setDefaultPrinter.msgPrefs"/></td>
@@ -202,60 +181,60 @@
                     <table>
                         <tr>
                             <td>
-                                <input type=radio name="labelTypeRadioName" value="0" checked><fmt:message key="provider.setDefaultPrinter.appointmentReceipt"/></td>
+                                <label for="defaultPrinterName0"><fmt:message key="provider.setDefaultPrinter.appointmentReceipt"/></label></td>
                             <td><input type="text" id="defaultPrinterName0" name="defaultPrinterNameAppointmentReceipt"
                                        value="<carlos:encode value='<%=defaultPrinterNameAppointmentReceipt%>' context="htmlAttribute"/>" size="40">
-                                <input type="checkbox"
-                                       name="silentPrintAppointmentReceipt" <%=silentPrintAppointmentReceipt == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/>
+                                <label><input type="checkbox"
+                                       name="silentPrintAppointmentReceipt" <%=silentPrintAppointmentReceipt == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/></label>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                <input type=radio name="labelTypeRadioName" value="1"><fmt:message key="provider.setDefaultPrinter.PDFEnvelope"/></td>
+                                <label for="defaultPrinterName1"><fmt:message key="provider.setDefaultPrinter.PDFEnvelope"/></label></td>
                             <td><input type="text" id="defaultPrinterName1" name="defaultPrinterNamePDFEnvelope"
                                        value="<carlos:encode value='<%=defaultPrinterNamePDFEnvelope%>' context="htmlAttribute"/>" size="40">
-                                <input type="checkbox"
-                                       name="silentPrintPDFEnvelope" <%=silentPrintPDFEnvelope == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/>
+                                <label><input type="checkbox"
+                                       name="silentPrintPDFEnvelope" <%=silentPrintPDFEnvelope == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/></label>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                <input type=radio name="labelTypeRadioName" value="2"><fmt:message key="provider.setDefaultPrinter.PDFLabel"/></td>
+                                <label for="defaultPrinterName2"><fmt:message key="provider.setDefaultPrinter.PDFLabel"/></label></td>
                             <td><input type="text" id="defaultPrinterName2" name="defaultPrinterNamePDFLabel"
                                        value="<carlos:encode value='<%=defaultPrinterNamePDFLabel%>' context="htmlAttribute"/>" size="40">
-                                <input type="checkbox"
-                                       name="silentPrintPDFLabel" <%=silentPrintPDFLabel == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/>
+                                <label><input type="checkbox"
+                                       name="silentPrintPDFLabel" <%=silentPrintPDFLabel == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/></label>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                <input type=radio name="labelTypeRadioName" value="3"><fmt:message key="provider.setDefaultPrinter.PDFAddressLabel"/></td>
+                                <label for="defaultPrinterName3"><fmt:message key="provider.setDefaultPrinter.PDFAddressLabel"/></label></td>
                             <td><input type="text" id="defaultPrinterName3" name="defaultPrinterNamePDFAddressLabel"
                                        value="<carlos:encode value='<%=defaultPrinterNamePDFAddressLabel%>' context="htmlAttribute"/>" size="40">
-                                <input type="checkbox"
-                                       name="silentPrintPDFAddressLabel" <%=silentPrintPDFAddressLabel == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/>
+                                <label><input type="checkbox"
+                                       name="silentPrintPDFAddressLabel" <%=silentPrintPDFAddressLabel == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/></label>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                <input type=radio name="labelTypeRadioName" value="4"><fmt:message key="provider.setDefaultPrinter.PDFChartLabel"/></td>
+                                <label for="defaultPrinterName4"><fmt:message key="provider.setDefaultPrinter.PDFChartLabel"/></label></td>
                             <td><input type="text" id="defaultPrinterName4" name="defaultPrinterNamePDFChartLabel"
                                        value="<carlos:encode value='<%=defaultPrinterNamePDFChartLabel%>' context="htmlAttribute"/>" size="40">
-                                <input type="checkbox"
-                                       name="silentPrintPDFChartLabel" <%=silentPrintPDFChartLabel == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/>
+                                <label><input type="checkbox"
+                                       name="silentPrintPDFChartLabel" <%=silentPrintPDFChartLabel == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/></label>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                <input type=radio name="labelTypeRadioName" value="5"><fmt:message key="provider.setDefaultPrinter.ClientLabLabel"/></td>
+                                <label for="defaultPrinterName5"><fmt:message key="provider.setDefaultPrinter.ClientLabLabel"/></label></td>
                             <td><input type="text" id="defaultPrinterName5" name="defaultPrinterNameClientLabLabel"
                                        value="<carlos:encode value='<%=defaultPrinterNameClientLabLabel%>' context="htmlAttribute"/>" size="40">
-                                <input type="checkbox"
-                                       name="silentPrintClientLabLabel" <%=silentPrintClientLabLabel == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/>
+                                <label><input type="checkbox"
+                                       name="silentPrintClientLabLabel" <%=silentPrintClientLabLabel == true ? "checked" : ""%> ><fmt:message key="provider.setDefaultPrinter.silentPrint"/></label>
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="2"><p><fmt:message key="provider.setDefaultPrinter.manualEntryHelp"/></p><label for="printerList"><fmt:message key="provider.setDefaultPrinter.msgdefaulPrinter"/></label><select id="printerList" size="5" onclick="setPrinter();"></select></td>
+                            <td colspan="2"><p><fmt:message key="provider.setDefaultPrinter.manualEntryHelp"/></p></td>
                         </tr>
                         <tr>
                             <td colspan="2">
@@ -266,11 +245,6 @@
                                 <%}%>
                                 <fmt:message key="provider.setDefaultPrinter.requirement"/> <br>
                                 <fmt:message key="provider.setDefaultPrinter.requirementSilentPrint"/>
-                                <div style="visibility: hidden; display:inline;">
-                                    <object id="myPdf" type="application/pdf"
-                                            data="<%=request.getContextPath()%>/PrinterList?method=generatePrinterListInPDF"
-                                            height="100%" width="100%"></object>
-                                </div>
                             </td>
                         </tr>
                     </table>
