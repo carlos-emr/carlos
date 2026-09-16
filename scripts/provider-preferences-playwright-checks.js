@@ -3,6 +3,7 @@
 // Disposable VM only: preserves and restores the test provider's affected settings.
 const {assert, sqlString} = require('./lib/playwright-harness');
 const {clickAndAwaitReload} = require('./lib/playwright-ui');
+const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 async function workflow(s) {
   const {sql, provider, marker} = s;
@@ -12,7 +13,8 @@ async function workflow(s) {
   const predicate = `provider_no=${sqlString(provider)} AND name IN (${keys.map(sqlString).join(',')})`;
   const snapshotQuery = `SELECT id,name,COALESCE(HEX(value),''),value IS NULL FROM property WHERE ${predicate} ORDER BY id`;
   const originalProperties = sql.rows(snapshotQuery);
-  const originalSignature = sql.rows(`SELECT COALESCE(HEX(signature),''),signature IS NULL FROM providerExt WHERE provider_no=${sqlString(provider)}`);
+  const signatureQuery = `SELECT COALESCE(HEX(signature),''),signature IS NULL FROM providerExt WHERE provider_no=${sqlString(provider)} ORDER BY signature IS NULL, HEX(signature)`;
+  const originalSignature = sql.rows(signatureQuery);
   s.cleanup(() => {
     sql.execute(`DELETE FROM documentDescriptionTemplate WHERE provider_no=${sqlString(provider)} AND description LIKE ${sqlString(marker + '%')}`);
     assert(sql.value(`SELECT COUNT(*) FROM documentDescriptionTemplate WHERE provider_no=${sqlString(provider)} AND description LIKE ${sqlString(marker + '%')}`) === '0', 'Owned document templates were not removed');
@@ -21,24 +23,29 @@ async function workflow(s) {
       assert(/^\d+$/.test(id) && /^[0-9a-f]*$/i.test(hex), 'Invalid preference restore snapshot');
       statements.push(`INSERT INTO property(id,provider_no,name,value) VALUES (${id},${sqlString(provider)},${sqlString(name)},${isNull === '1' ? 'NULL' : `UNHEX('${hex}')`})`);
     }
-    if (originalSignature.length) {
-      const [hex, isNull] = originalSignature[0];
+    statements.push(`DELETE FROM providerExt WHERE provider_no=${sqlString(provider)}`);
+    for (const [hex, isNull] of originalSignature) {
       assert(/^[0-9a-f]*$/i.test(hex), 'Invalid signature restore snapshot');
-      statements.push(`UPDATE providerExt SET signature=${isNull === '1' ? 'NULL' : `UNHEX('${hex}')`} WHERE provider_no=${sqlString(provider)}`);
-    } else statements.push(`DELETE FROM providerExt WHERE provider_no=${sqlString(provider)} AND (signature=${sqlString(marker)} OR signature IS NULL)`);
+      statements.push(`INSERT INTO providerExt(provider_no,signature) VALUES (${sqlString(provider)},${isNull === '1' ? 'NULL' : `UNHEX('${hex}')`})`);
+    }
     sql.execute(`START TRANSACTION;${statements.join(';')};COMMIT`);
     assert(JSON.stringify(sql.rows(snapshotQuery)) === JSON.stringify(originalProperties), 'Printer/preferences restore did not match its snapshot');
-    assert(JSON.stringify(sql.rows(`SELECT COALESCE(HEX(signature),''),signature IS NULL FROM providerExt WHERE provider_no=${sqlString(provider)}`)) === JSON.stringify(originalSignature), 'Signature restore did not match its snapshot');
+    assert(JSON.stringify(sql.rows(signatureQuery)) === JSON.stringify(originalSignature), 'Signature restore did not match its snapshot');
   });
   const printerName = `${marker} O'Neil "A&B"`;
-  sql.execute(`INSERT INTO providerExt(provider_no,signature) VALUES (${sqlString(provider)},NULL) ON DUPLICATE KEY UPDATE signature=NULL`);
+  sql.execute(`START TRANSACTION; DELETE FROM providerExt WHERE provider_no=${sqlString(provider)}; INSERT INTO providerExt(provider_no,signature) VALUES (${sqlString(provider)},NULL); COMMIT`);
   const existingLabel = sql.value(`SELECT id FROM property WHERE provider_no=${sqlString(provider)} AND name='default_printer_pdf_label'`);
   if (existingLabel) sql.execute(`UPDATE property SET value=${sqlString(printerName)} WHERE id=${existingLabel}`);
   else sql.execute(`INSERT INTO property(provider_no,name,value) VALUES (${sqlString(provider)},'default_printer_pdf_label',${sqlString(printerName)})`);
   const beforeOpening = JSON.stringify(sql.rows(snapshotQuery));
   const prefs = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'preferences');
+  const openPreference = async (selector, label) => {
+    const link = prefs.locator(selector);
+    await revealAuditLink(prefs, link, 20000);
+    return s.popup(prefs, link, label);
+  };
   await s.step('opening printer settings preserves all saved values', async () => {
-    const printer = await s.popup(prefs, prefs.locator('a[href$="/EditPrinter"]'), 'printer-preferences');
+    const printer = await openPreference('a[href$="/EditPrinter"]', 'printer-preferences');
     assert(await printer.locator('[name="defaultPrinterNamePDFLabel"]').inputValue() === printerName,
       'Printer name did not round-trip or was overwritten on GET');
     assert(JSON.stringify(sql.rows(snapshotQuery)) === beforeOpening, 'Opening printer settings changed stored values');
@@ -56,14 +63,14 @@ async function workflow(s) {
     await printer.close();
   });
   await s.step('existing null text signature can be edited without duplicate keys or GET writes', async () => {
-    let editor = await s.popup(prefs, prefs.locator('a[href$="/provider/ViewEditSignature"]'), 'text-signature');
+    let editor = await openPreference('a[href$="/provider/ViewEditSignature"]', 'text-signature');
     assert(await editor.locator('#signature').inputValue() === '', 'Null signature editor did not open');
     await editor.locator('#signature').fill(marker);
     await clickAndAwaitReload(editor, editor.locator('input[type="submit"]'));
     assert(sql.value(`SELECT COUNT(*) FROM providerExt WHERE provider_no=${sqlString(provider)} AND signature=${sqlString(marker)}`) === '1',
       'Signature save failed or created duplicates');
     await editor.close();
-    editor = await s.popup(prefs, prefs.locator('a[href$="/provider/ViewEditSignature"]'), 'text-signature-reopen');
+    editor = await openPreference('a[href$="/provider/ViewEditSignature"]', 'text-signature-reopen');
     assert(await editor.locator('#signature').inputValue() === marker, 'Opening the signature editor cleared the saved value');
     const action = await editor.locator('form').evaluate(form => form.action);
     const rejected = await s.context.request.get(action);
@@ -78,7 +85,7 @@ async function workflow(s) {
     const listener = req => { if (req.method() === 'POST' && /saveDocumentDescriptionTemplatePreference/.test(req.postData() || '')) writes++; };
     s.context.on('request', listener);
     try {
-      const editor = await s.popup(prefs, prefs.locator('a[href$="/admin/DisplayDocumentDescriptionTemplate"]'), 'document-description');
+      const editor = await openPreference('a[href$="/admin/DisplayDocumentDescriptionTemplate"]', 'document-description');
       await editor.waitForLoadState('networkidle');
       assert(writes === 0 && JSON.stringify(sql.rows(snapshotQuery)) === before, 'Opening document description settings wrote a preference');
       templateEditor = editor;
