@@ -17,8 +17,18 @@ The two checks added since, `echart-print-playwright-checks.js` and
 `clinical-freetext-playwright-checks.js`, were run on 2026-09-12 against a
 2026.09.0~snapshot22 package built from the #3623 branch (DrugRef and the eForm
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
-through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
-has not been re-run on a later snapshot.
+through the packaged front door, with `EXPECT_FRONT_DOOR=true`. On 2026-09-16, PR #2545 validation ran against an installed snapshot22 package
+in an Ubuntu 26.04 VM through nginx/WAF: 76 distinct browser scripts passed
+across the broad run and targeted retests, including the isolated login phase.
+The first eChart print attempt exposed an initialization race in the harness;
+waiting for chart lock initialization to complete fixed it, and two reruns
+passed all 15 PDF cases. The external eForm corpus was unavailable; the stored
+"Signature trick" template and one unbilled-report link were absent from the
+dataset, and the DrugRef database rebuild was deliberately disabled.
+Logs also exposed an outstanding DrugRef dependency defect: XML-RPC serialization
+of `java.sql.Date` throws from `Date.toInstant()`, so inactive-drug dates can be
+silently omitted despite a passing drug-search check. These results are not an
+all-clear for that separate dependency.
 
 That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
@@ -471,7 +481,10 @@ REST response. It also checks missing-request HTTP 404 and a request with no
 specialist. Run it with health-care-team mode both enabled and disabled when
 validating changes to consultation associations; restart the application after
 changing that property. The script restores the request and removes its owned
-specialist, including on cancellation.
+specialist and any unreferenced health-care-team contact it created, including on
+cancellation. A referenced contact is retained and causes cleanup to fail visibly.
+The health-care-team run also covers installations without an `other` specialty
+entry; the form must render with an unspecified role instead of failing.
 
 `email-recovery-playwright-checks.js` creates two synthetic email logs for demo
 patient 1 (`EMAIL_RECOVERY_DEMO_NO` overrides this). It checks the in-flight-send

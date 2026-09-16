@@ -25,6 +25,9 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
+import io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao;
+import io.github.carlos_emr.carlos.commn.model.ContactSpecialty;
+import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
 import io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
@@ -40,6 +43,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -47,6 +53,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -87,6 +95,9 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    @Mock
+    private ContactSpecialtyDao mockContactSpecialtyDao;
+
     private EctConsultationFormRequestUtil consultationFormRequestUtil;
 
     @BeforeEach
@@ -98,10 +109,65 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         registerMock(ConsultationRequestExtDao.class, mockConsultationRequestExtDao);
         registerMock(ConsultationServiceDao.class, mockConsultationServiceDao);
         registerMock(ContactDao.class, mockContactDao);
+        registerMock(ContactSpecialtyDao.class, mockContactSpecialtyDao);
         registerMock(FaxJobDao.class, mockFaxJobDao);
         registerMock(FaxClientLogDao.class, mockFaxClientLogDao);
         registerMock(ProfessionalSpecialistDao.class, mockProfessionalSpecialistDao);
         consultationFormRequestUtil = new EctConsultationFormRequestUtil();
+    }
+
+    @Test
+    void shouldMapHealthCareTeamRoleByDescriptionInsteadOfUnrelatedServiceId() {
+        consultationFormRequestUtil.setService("7");
+        ConsultationServices service = new ConsultationServices();
+        service.setServiceDesc("Cardiology");
+        ContactSpecialty specialty = new ContactSpecialty();
+        specialty.setId(42);
+        when(mockConsultationServiceDao.find(7)).thenReturn(service);
+        when(mockContactSpecialtyDao.findBySpecialty("Cardiology")).thenReturn(specialty);
+
+        assertThat(consultationFormRequestUtil.getHealthCareTeamRole()).isEqualTo("42");
+        verify(mockContactSpecialtyDao, never()).findBySpecialty("7");
+        verify(mockContactSpecialtyDao, never()).findBySpecialty("other");
+    }
+
+    @Test
+    void shouldUseOtherSpecialtyWhenConsultationServiceHasNoCatalogueMatch() {
+        consultationFormRequestUtil.setService("7");
+        ConsultationServices service = new ConsultationServices();
+        service.setServiceDesc("Unmapped specialty");
+        ContactSpecialty fallback = new ContactSpecialty();
+        fallback.setId(81);
+        when(mockConsultationServiceDao.find(7)).thenReturn(service);
+        when(mockContactSpecialtyDao.findBySpecialty("Unmapped specialty")).thenReturn(null);
+        when(mockContactSpecialtyDao.findBySpecialty("other")).thenReturn(fallback);
+
+        assertThat(consultationFormRequestUtil.getHealthCareTeamRole()).isEqualTo("81");
+    }
+
+    @Test
+    void shouldUseUnspecifiedRoleWhenServiceAndOtherSpecialtyAreMissing() {
+        consultationFormRequestUtil.setService("7");
+        assertThat(consultationFormRequestUtil.getHealthCareTeamRole()).isEqualTo("0");
+    }
+
+    @Test
+    void shouldUseUnspecifiedRoleWhenNeitherSpecialtyNorFallbackExists() {
+        consultationFormRequestUtil.setService("7");
+        ConsultationServices service = new ConsultationServices();
+        service.setServiceDesc("Unmapped specialty");
+        when(mockConsultationServiceDao.find(7)).thenReturn(service);
+
+        assertThat(consultationFormRequestUtil.getHealthCareTeamRole()).isEqualTo("0");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"0", "-1", "invalid", "2147483648"})
+    void shouldTolerateAbsentOrInvalidServiceWhenResolvingHealthCareTeamRole(String service) {
+        consultationFormRequestUtil.setService(service);
+        assertThat(consultationFormRequestUtil.getHealthCareTeamRole()).isEqualTo("0");
+        verifyNoInteractions(mockConsultationServiceDao);
     }
 
     @Test

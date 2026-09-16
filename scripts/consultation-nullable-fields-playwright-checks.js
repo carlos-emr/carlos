@@ -123,9 +123,9 @@ function sqlValue(value) {
       const [origProvider, origUrgency, origSpecialist, origContact] = row.split('\t');
       original = { providerNo: origProvider, urgency: origUrgency, specId: origSpecialist, contactId: origContact };
       specialistId = sql(`INSERT INTO professionalSpecialists
-        (fName,lName,address,phone,fax,email,lastUpdated,institutionId,departmentId,hideFromView,deleted)
+        (fName,lName,address,phone,fax,referralNo,email,lastUpdated,institutionId,departmentId,hideFromView,deleted)
         VALUES ('Synthetic','${specialistMarker}','2545 Synthetic Street','${specialistPhone}',
-          '${specialistFax}','consult@example.invalid',NOW(),0,0,0,0); SELECT LAST_INSERT_ID()`);
+          '${specialistFax}','9992545','consult@example.invalid',NOW(),0,0,0,0); SELECT LAST_INSERT_ID()`);
       assert(/^[1-9]\d*$/.test(specialistId), 'Specialist fixture did not return a positive identifier');
       assert(Number(specialistId) !== Number(requestId), 'Fixture needs distinct request and specialist identifiers');
       sql(`UPDATE consultationRequests SET providerNo=NULL, urgency=NULL, specId=${specialistId}, demographicContactId=NULL WHERE requestId=${requestId}`);
@@ -287,6 +287,7 @@ function sqlValue(value) {
       const optional = await withoutSpecialist.json();
       assert(optional.id === Number(requestId) && optional.professionalSpecialist == null,
         'REST detail retained the absent specialist');
+      assert(recorder.pageErrors.length === 0, 'Consultation workflow produced an uncaught browser error');
       assert(recorder.badResponses.filter(response => response.status >= 500).length === 0,
         'Consultation workflow produced a 5xx response');
 
@@ -315,6 +316,14 @@ function sqlValue(value) {
       }
       try {
         if (specialistId && /^[1-9]\d*$/.test(specialistId)) {
+          // Health-care-team mode can create a contact while opening the form.
+          // This specialist is owned by this run; keep any referenced contact and fail cleanup.
+          sql(`DELETE dc FROM DemographicContact dc JOIN professionalSpecialists ps
+            ON ps.specId=${specialistId} AND ps.lName='${specialistMarker}'
+            WHERE dc.type=3 AND dc.category='professional' AND dc.contactId='${specialistId}'
+            AND NOT EXISTS (SELECT 1 FROM consultationRequests cr WHERE cr.demographicContactId=dc.id)`);
+          assert(sql(`SELECT COUNT(*) FROM DemographicContact WHERE type=3 AND category='professional'
+            AND contactId='${specialistId}'`) === '0', 'Owned health-care-team contact is still referenced');
           sql(`DELETE FROM professionalSpecialists WHERE specId=${specialistId} AND lName='${specialistMarker}'
             AND NOT EXISTS (SELECT 1 FROM consultationRequests WHERE specId=${specialistId})`);
           assert(sql(`SELECT COUNT(*) FROM professionalSpecialists WHERE specId=${specialistId} AND lName='${specialistMarker}'`) === '0',

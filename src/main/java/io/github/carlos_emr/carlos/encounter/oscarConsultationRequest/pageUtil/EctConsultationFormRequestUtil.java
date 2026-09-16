@@ -546,6 +546,23 @@ public class EctConsultationFormRequestUtil {
         return retval;
     }
 
+    /**
+     * Maps the consultation service description to the health-care-team catalogue.
+     * The catalogues have independent identifiers; role "0" means unspecified when
+     * neither the service nor an optional "other" specialty exists.
+     */
+    public String getHealthCareTeamRole() {
+        ContactSpecialtyDao specialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
+        int serviceId = ConversionUtils.fromIntString(service);
+        ConsultationServices consultationService = serviceId > 0 ? consultationServiceDao.find(serviceId) : null;
+        ContactSpecialty specialty = consultationService == null ? null
+                : specialtyDao.findBySpecialty(consultationService.getServiceDesc());
+        if (specialty == null) {
+            specialty = specialtyDao.findBySpecialty("other");
+        }
+        return specialty == null ? "0" : specialty.getId().toString();
+    }
+
     public String getClinicName() {
         ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
 
