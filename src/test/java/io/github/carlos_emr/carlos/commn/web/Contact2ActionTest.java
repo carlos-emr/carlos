@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalContactDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.PharmacyManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -40,10 +41,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -102,5 +105,63 @@ class Contact2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(ContactSpecialtyDao.class, mockContactSpecialtyDao);
         replaceSpringUtilsBean(CtlRelationshipsDao.class, mockCtlRelationshipsDao);
         replaceSpringUtilsBean(PharmacyManager.class, mockPharmacyManager);
+    }
+
+    @Test
+    void shouldIgnoreUnsavedRows_whenBothContactCategoriesAreRemoved() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        addRequestParameter("contact.delete", "0");
+        addRequestParameter("procontact.delete", "0");
+        withContactDao(() -> {
+            new Contact2Action().removeContact();
+            verifyNoInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldDeletePersistedRows_whenBothContactCategoriesAreSubmitted() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        addRequestParameter("contact.delete", "41");
+        addRequestParameter("procontact.delete", "42");
+        DemographicContact personal = new DemographicContact();
+        DemographicContact professional = new DemographicContact();
+        when(mockDemographicContactDao.find(41)).thenReturn(personal);
+        when(mockDemographicContactDao.find(42)).thenReturn(professional);
+        withContactDao(() -> {
+            new Contact2Action().removeContact();
+            assertThat(personal.isDeleted()).isTrue();
+            assertThat(professional.isDeleted()).isTrue();
+            verify(mockDemographicContactDao).find(41);
+            verify(mockDemographicContactDao).find(42);
+            verify(mockDemographicContactDao).merge(personal);
+            verify(mockDemographicContactDao).merge(professional);
+            verifyNoMoreInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldPreserveAjaxResponse_whenRemovingAnUnsavedRow() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        addRequestParameter("postMethod", "ajax");
+        addRequestParameter("contactId", "0");
+        withContactDao(() -> {
+            assertThat(new Contact2Action().removeContact()).isEqualTo("ajax");
+            verifyNoInteractions(mockDemographicContactDao);
+        });
+    }
+
+    private void withContactDao(Runnable scenario) {
+        // The legacy action caches this bean statically. Isolate each scenario
+        // without leaving a different DAO behind for other tests.
+        DemographicContactDao previous = Contact2Action.demographicContactDao;
+        Contact2Action.demographicContactDao = mockDemographicContactDao;
+        try {
+            scenario.run();
+        } finally {
+            Contact2Action.demographicContactDao = previous;
+        }
     }
 }

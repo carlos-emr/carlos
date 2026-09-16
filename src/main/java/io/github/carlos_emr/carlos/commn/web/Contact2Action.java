@@ -421,7 +421,7 @@ public class Contact2Action extends ActionSupport {
             }
 
             if (arrayListIds != null && !arrayListIds.isEmpty()) {
-                ids = (String[]) arrayListIds.toArray();
+                ids = arrayListIds.toArray(new String[0]);
             }
         }
 
@@ -429,6 +429,11 @@ public class Contact2Action extends ActionSupport {
             int contactId;
             for (String id : ids) {
                 contactId = Integer.parseInt(id);
+                // New association rows use zero until first save. Removing one
+                // in the editor must not look up a nonexistent persisted row.
+                if (contactId == 0) {
+                    continue;
+                }
                 DemographicContact dc = demographicContactDao.find(contactId);
                 dc.setDeleted(true);
                 demographicContactDao.merge(dc);

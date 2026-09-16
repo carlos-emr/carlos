@@ -21,6 +21,8 @@ with newer develop migrations were not reused or modified.
 
 - Baseline Java package build: 12,103 tests, zero failures/errors, 51 skips.
 - Revised full Java package build: **12,109 tests**, zero failures/errors, 51 skips.
+  Three later contact-deletion regressions await CI/local execution; they are not
+  included in that completed-build count.
 - Revised script regressions: **614 passed** (baseline 593).
 - Revised package-management Python tests: **1,519 passed**. Generated O19
   primitive-column metadata was regenerated from pinned upstream commit
@@ -62,7 +64,7 @@ audit logs are intentionally retained.
 | SOAP interceptor by-type injection instantiates request actions during startup | Use annotated injection; executable Spring regression fails on the release definition and passes after the change; packaged app starts. |
 | Legacy NULL clinic location breaks Messenger hydration | Nullable `GroupMembers` field with existing zero-valued getter contract; unit regressions and live compose/inbox actions pass. Regenerated import metadata matches the model. |
 | Contact search handler/JSON breaks with punctuation | Encode the complete handler for its HTML attribute and serialize with `JSON.stringify`; executable original serializer fails, corrected serializer and live quoted-name selection pass. |
-| New contact association sends a blank integer ID | Initialize the two association templates to ID zero; final package retest pending. |
+| New contact association sends a blank integer ID; removal also fails | Initialize both templates to zero, ignore unsaved zero IDs during deletion, and use typed `toArray` for persisted deletion IDs. Three Java regressions and unsaved personal/professional UI steps added; execution/final package retest pending. |
 | Numeric measurement history has no Plot control | Test the first row's `canPlot` inside a nonempty collection; real graph response has PNG bytes. |
 | Missing optional clinic vaccine catalogue emits 404 | Fall back only for exact `vaccine-brands.json`, after existing access/path checks. Clinic override wins; unrelated missing files remain 404. Java and live prevention tests pass. |
 | Native-document/calendar requests to host `/favicon.ico` return 404 | Exact nginx redirect to the existing application icon; final package routing retest pending. |
@@ -103,8 +105,8 @@ in the current chart; Row Display's absent CSRF input; provider-preference error
 and an Inbox HRM row present under All but absent from New/Acknowledged/Filed.
 The anonymous empty responses do not establish patient-data disclosure.
 
-Source review also found candidate episode validation/authorization and
-scratchpad version-ownership gaps; low-privilege live exploitation was not tested.
+Source review also found candidate episode validation/authorization, contact
+removal privilege/ownership, and scratchpad version-ownership gaps; low-privilege live exploitation was not tested.
 The existing upstream [DrugRef issue #13](https://github.com/carlos-emr/drugref2026/issues/13)
 remains open. Unit-test success does not make these application findings green.
 

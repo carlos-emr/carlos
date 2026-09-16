@@ -27,6 +27,18 @@ async function workflow(s) {
     await editor.locator('input[type="submit"]').click();
     if (!editor.isClosed()) await editor.waitForEvent('close');
   };
+  await s.step('discard unsaved personal and professional rows without deleting persisted contacts', async () => {
+    await open();
+    await editor.locator('a[onclick="addContact();"]').click();
+    await editor.locator('a[onclick="addProContact();"]').click();
+    await editor.locator('#contact_1 a[onclick*="deleteContact("]').click();
+    await editor.locator('#procontact_1 a[onclick*="deleteProContact("]').click();
+    await save();
+    assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${patient}`) === '0',
+      'Discarding unsaved rows created an association');
+    assert(sql.value(`SELECT COUNT(*) FROM Contact WHERE id=${contact}`) === '1',
+      'Discarding unsaved associations deleted the directory fixture');
+  });
   await s.step('select contact through search and save its clinical contact flags', async () => {
     await open();
     await editor.locator('a[onclick="addContact();"]').click();
