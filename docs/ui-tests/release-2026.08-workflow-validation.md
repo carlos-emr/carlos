@@ -25,7 +25,7 @@ with newer develop migrations were not reused or modified.
   Surefire. Renamed it `Contact2ActionUnitTest`; its **25 cases** pass in both the
   focused run and the default full suite, verified in the Surefire XML. Earlier
   successful CI did not execute that legacy filename.
-- Revised script regressions: **626 passed** (baseline 593).
+- Revised script regressions: **635 passed** (baseline 593).
 - Revised package-management Python tests: **1,519 passed**. Generated O19
   primitive-column metadata was regenerated from pinned upstream commit
   `a7900d569d3faf741993e5e1da8c14021bbefede` after the nullable model fix; the
@@ -159,7 +159,15 @@ if `browser.close()` threw, successful child cleanup still left the owned patien
 behind. Cleanup now separates browser errors from child-delete success; it removes
 the verified parent and still reports the browser error. The new regression fails
 before the fix and passes afterward; a second regression verifies that child-delete
-failure still retains the parent. All 626 Node tests pass.
+failure still retains the parent. All 635 Node tests pass after the final audit-assertion follow-up.
+
+The next review identified two additional false-pass gaps. A missing required
+administration panel now fails instead of reading shell text, while a full
+navigation to another document still validates that destination. Hash-only changes
+cannot bypass the panel requirement. Prevention creation and replacement now read
+all matching active rows and require exactly one; the scalar SQL helper otherwise
+returns only the first row. New cases cover missing/duplicate/invalid prevention
+rows and missing-panel, hash-navigation, full-navigation and error-page behavior.
 
 Two other suggested test changes were not needed. The SOAP regression already
 fails with the old by-type XML: Spring's `resolveMultipleBeanMap` instantiates the

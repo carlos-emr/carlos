@@ -472,7 +472,18 @@ async function destinationText(target, inPlaceTarget, timeout) {
   }
   const container = target.page.locator(inPlaceTarget).first();
   if (await container.count().catch(() => 0) === 0) {
-    return read(target.page.locator('body'));
+    // A full navigation can leave the shell. An in-place update (including a
+    // hash change) still requires its panel; shell text is not a destination.
+    if (target.cameFrom) {
+      const before = new URL(target.cameFrom);
+      const after = new URL(target.page.url());
+      before.hash = '';
+      after.hash = '';
+      if (before.href !== after.href) {
+        return assertNotErrorPage(target.page, 'audit destination', { allowPdf: true });
+      }
+    }
+    throw new Error(`Missing required destination container: ${inPlaceTarget}`);
   }
   // An .xlink item renders into an iframe: the container's own innerText is
   // empty because the content lives in another document.
@@ -536,6 +547,7 @@ async function auditCatalogue(options) {
     let target = null;
     try {
       target = await openItem(context, hostPage, item, recorder, label, timeout);
+      target.cameFrom = target.cameFrom || hostUrl;
       const body = await destinationText(target, inPlaceTarget, timeout);
       if (ERROR_PAGE_RE.test(body)) {
         failures.push(`${item.text}: rendered an error page`);

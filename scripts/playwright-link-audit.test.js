@@ -1090,6 +1090,35 @@ test('iframe destination uses the synchronous FrameLocator and preserves blank/e
   }
 });
 
+test('a missing required in-place container cannot pass using shell text', async () => {
+  const { destinationText } = require('./lib/playwright-link-audit');
+  const url = 'http://localhost/carlos/administration';
+  const page = {
+    url: () => url,
+    locator: () => ({ first: () => ({ count: async () => 0 }),
+      innerText: async () => 'Administration navigation and header' }),
+  };
+  await assert.rejects(destinationText({ page, isPopup: false, cameFrom: url },
+    '#dynamic-content', 100), /required destination container/);
+});
+
+for (const [url, text, error] of [
+  ['http://localhost/carlos/administration#panel', 'Administration shell', /required destination container/],
+  ['http://localhost/carlos/report', 'Report destination', null],
+  ['http://localhost/carlos/report', 'HTTP Status 500', /rendered an error page/],
+]) {
+  test(`missing shell panel handles navigation to ${url} with ${text}`, async () => {
+    const { destinationText } = require('./lib/playwright-link-audit');
+    const page = { url: () => url, locator: () => ({
+      first: () => ({ count: async () => 0 }), innerText: async () => text,
+    }) };
+    const result = destinationText({ page, isPopup: false,
+      cameFrom: 'http://localhost/carlos/administration' }, '#dynamic-content', 100);
+    if (error) await assert.rejects(result, error);
+    else assert.equal(await result, text);
+  });
+}
+
 test('plain current-document links are skipped without inflating destination coverage', async () => {
   const f = fakeAuditPage({ textFor: () => 'Current page', onClick: () => { throw new Error('self-link was clicked'); } });
   const result = await auditCatalogue({ context: {}, hostPage: f.page,

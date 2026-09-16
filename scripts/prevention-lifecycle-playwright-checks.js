@@ -4,6 +4,14 @@
 const { assert, sqlString } = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
+function activePrevention(sql, patient) {
+  const rows = sql.rows(`SELECT id FROM preventions WHERE demographic_no=${patient}
+    AND prevention_type='Inf' AND deleted=0`);
+  assert(rows.length === 1 && /^[1-9]\d*$/.test(rows[0][0]),
+    'Expected exactly one active prevention for the owned patient');
+  return rows[0][0];
+}
+
 async function workflow(s) {
   const { sql, patient, marker } = s;
   s.cleanup(() => sql.execute(`DELETE x FROM preventionsExt x JOIN preventions p ON p.id=x.prevention_id
@@ -21,7 +29,7 @@ async function workflow(s) {
   async function replacement(previous, previousStatus) {
     await expectValue(sql, `SELECT CONCAT(refused,'|',deleted) FROM preventions WHERE id=${previous} AND demographic_no=${patient}`,
       `${previousStatus}|1`, 'Amendment did not archive its original prevention');
-    id = sql.value(`SELECT id FROM preventions WHERE demographic_no=${patient} AND prevention_type='Inf' AND deleted=0`);
+    id = activePrevention(sql, patient);
     assert(/^[1-9]\d*$/.test(id) && id !== previous, 'Amendment did not create exactly one replacement');
     await link().waitFor({ state: 'visible' });
   }
@@ -34,7 +42,7 @@ async function workflow(s) {
     await editor.locator('#prevDate').fill('2026-01-02');
     await editor.locator('[name="comments"]').fill(marker);
     await save();
-    id = sql.value(`SELECT id FROM preventions WHERE demographic_no=${patient} AND prevention_type='Inf'`);
+    id = activePrevention(sql, patient);
     assert(/^[1-9]\d*$/.test(id), 'Refused prevention was not recorded');
     await expectValue(sql, status(), '1|0|2026-01-02', 'Refusal status/date did not persist');
     await link().waitFor({ state: 'visible' });
@@ -67,4 +75,4 @@ async function workflow(s) {
   });
 }
 if (require.main === module) runWorkflow('prevention-lifecycle', workflow);
-module.exports = { workflow };
+module.exports = { workflow, activePrevention };
