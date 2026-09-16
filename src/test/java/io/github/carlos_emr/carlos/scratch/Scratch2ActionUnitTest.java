@@ -163,6 +163,69 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void anotherProvidersVersionIsNotExposed() throws Exception {
+        HttpServletRequest request = mockRequest("GET", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter("id")).thenReturn("7");
+        ScratchPad stored = new ScratchPad();
+        stored.setProviderNo("123456");
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        assertThat(createAction(request, response).showVersion()).isEqualTo("none");
+        verify(response).setStatus(404);
+        org.mockito.Mockito.verify(request, org.mockito.Mockito.never()).setAttribute(any(), any());
+    }
+
+    @Test
+    void anotherProvidersVersionCannotBeDeleted() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("providerNo")).thenReturn("123456");
+        ScratchPad stored = new ScratchPad();
+        stored.setProviderNo("123456");
+        stored.setStatus(true);
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        createAction(request, response).delete();
+        verify(response).setStatus(404);
+        assertThat(stored.isStatus()).isTrue();
+        org.mockito.Mockito.verify(scratchPadDao, org.mockito.Mockito.never()).merge(any());
+        assertThat(json.toString()).contains("\"success\":false");
+    }
+
+    @Test
+    void ownerCanViewVersion() throws Exception {
+        HttpServletRequest request = mockRequest("GET", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter("id")).thenReturn("7");
+        ScratchPad stored = new ScratchPad();
+        stored.setProviderNo("999998");
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        assertThat(createAction(request, response).showVersion()).isEqualTo("scratchPadVersion");
+        verify(request).setAttribute("ScratchPad", stored);
+    }
+
+    @Test
+    void anonymousVersionRequestDoesNotReachDatabase() throws Exception {
+        HttpServletRequest request = mockRequest("GET", null);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        assertThat(createAction(request, response).showVersion()).isEqualTo("none");
+        verify(response).setStatus(401);
+        verifyNoInteractions(scratchPadDao);
+    }
+
+    @Test
+    void deleteRequiresPostEvenWhenCalledDirectly() throws Exception {
+        HttpServletRequest request = mockRequest("GET", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(response.getWriter()).thenReturn(new PrintWriter(new StringWriter()));
+        createAction(request, response).delete();
+        verify(response).setStatus(405);
+        verifyNoInteractions(scratchPadDao);
+    }
+
     /**
      * Creates a mocked request with the supplied HTTP method and session provider number.
      *
@@ -186,6 +249,53 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
      * @param response HttpServletResponse mocked response to inject
      * @return Scratch2Action configured action instance for unit testing
      */
+    @Test
+    void ownerCanDeleteAndReceivesSuccessOnlyAfterPersistence() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(request.getParameter("id")).thenReturn("7");
+        ScratchPad stored = new ScratchPad();
+        stored.setId(7);
+        stored.setProviderNo("999998");
+        stored.setStatus(true);
+        stored.setDateTime(java.sql.Date.valueOf("2026-08-01"));
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        createAction(request, response).delete();
+        verify(scratchPadDao).merge(stored);
+        assertThat(stored.isStatus()).isFalse();
+        assertThat(json.toString()).contains("\"success\":true", "\"id\":\"7\"");
+    }
+
+    @Test
+    void failedDeleteNeverReportsSuccess() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(request.getParameter("id")).thenReturn("7");
+        ScratchPad stored = new ScratchPad();
+        stored.setId(7);
+        stored.setProviderNo("999998");
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        org.mockito.Mockito.doThrow(new IllegalStateException("database unavailable"))
+                .when(scratchPadDao).merge(stored);
+        createAction(request, response).delete();
+        verify(response).setStatus(500);
+        assertThat(json.toString()).contains("\"success\":false").doesNotContain("database unavailable");
+    }
+
+    @Test
+    void malformedVersionIdIsRejectedBeforeDatabaseLookup() throws Exception {
+        HttpServletRequest request = mockRequest("GET", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter("id")).thenReturn("not-an-id");
+        assertThat(createAction(request, response).showVersion()).isEqualTo("none");
+        verify(response).setStatus(400);
+        verifyNoInteractions(scratchPadDao);
+    }
+
     private Scratch2Action createAction(HttpServletRequest request, HttpServletResponse response) {
         Scratch2Action action = new Scratch2Action();
         injectDependency(action, "request", request);

@@ -39,6 +39,15 @@ async function workflow(s) {
     await expectValue(sql, state(), `${marker}|Current|2026-01-02|`, 'Episode fields did not persist');
     await row().waitFor({ state: 'visible' });
   });
+  await s.step('completing without an end date is refused without changing the stored episode', async () => {
+    await edit();
+    await editor.locator('select[name="episode.status"]').selectOption('Complete');
+    const dialogs = await withExpectedDialogs(editor, () => editor.locator('input[type="submit"]').click());
+    assert(dialogs.length === 1 && dialogs[0].type === 'alert' && /end date/i.test(dialogs[0].text),
+      'Completed episode without an end date did not show validation');
+    await expectValue(sql, state(), `${marker}|Current|2026-01-02|`, 'Invalid completion changed the episode');
+    await editor.close();
+  });
   await s.step('reopen, edit and complete round-trip', async () => {
     await edit();
     assert(await editor.locator('#description').inputValue() === marker, 'Reopened episode lost its description');

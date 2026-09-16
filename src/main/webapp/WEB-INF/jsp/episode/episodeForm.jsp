@@ -120,7 +120,7 @@
                     return false;
                 }
 
-                if ($("#endDate").val().length == 0 && $('select[name="episode.status"]').val() == 'Completed') {
+                if ($("#endDate").val().length == 0 && $('select[name="episode.status"]').val() == 'Complete') {
                     alert("End Date Required");
                     return false;
                 }

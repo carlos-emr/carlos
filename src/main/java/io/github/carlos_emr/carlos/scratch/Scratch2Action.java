@@ -53,24 +53,35 @@ public class Scratch2Action extends JSONAction {
     private final ScratchPadDao scratchPadDao = SpringUtils.getBean(ScratchPadDao.class);
 
     public String showVersion() throws Exception {
-    	String id = request.getParameter("id");
-
-    	if (id == null || id.trim().isEmpty()) {
-    		throw new IllegalArgumentException("Missing required parameter: id");
-    	}
-
-		try {
-    		ScratchPad scratchPad = scratchPadDao.find(Integer.parseInt(id));
-    		if (scratchPad == null) {
-    			throw new IllegalArgumentException("ScratchPad not found for id: " + id);
-    		}
-    		request.setAttribute("ScratchPad", scratchPad);
-    		return "scratchPadVersion";
-    	} catch (NumberFormatException e) {
-    		throw new IllegalArgumentException("Invalid id parameter: must be a valid integer", e);
-    	}
+        ScratchPad scratch = findOwnedVersion();
+        if (scratch == null) return NONE;
+        request.setAttribute("ScratchPad", scratch);
+        return "scratchPadVersion";
     }
-    
+
+    private ScratchPad findOwnedVersion() {
+        String providerNo = (String) request.getSession().getAttribute("user");
+        if (providerNo == null || providerNo.isBlank()) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return null;
+        }
+        int id;
+        try {
+            id = Integer.parseInt(request.getParameter("id"));
+            if (id <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException ex) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        ScratchPad scratch = scratchPadDao.find(id);
+        // Use the stored owner, never the caller's providerNo parameter.
+        if (scratch == null || !providerNo.equals(scratch.getProviderNo())) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return null;
+        }
+        return scratch;
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
@@ -192,36 +203,31 @@ public class Scratch2Action extends JSONAction {
     }
     
     public String delete() {
-    	String id = request.getParameter("id");
-	    ObjectNode jsonObject = objectMapper.createObjectNode();
-
-        try {
-            if (id != null && !id.isEmpty()) {
-                ScratchPad scratch = scratchPadDao.find(Integer.parseInt(id));
-                if (scratch != null) {
-                    scratch.setStatus(false);
-                    scratchPadDao.merge(scratch);
-                    jsonObject.put("id", Encode.forHtmlContent(id));
-                    jsonObject.put("version", scratch.getDateTime() != null
-                        ? scratch.getDateTime().toInstant().toString()
-                        : null);
-                    jsonObject.put("success", true);
-                } else {
-                    MiscUtils.getLogger().warn("ScratchPad not found for id: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    jsonObject.put("success", false);
-                }
-            } else {
-                jsonObject.put("success", false);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to delete ScratchPad entry with id: {}", LogSafe.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            // Ensure callers can detect the failure via HTTP status and JSON payload
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
+        ObjectNode result = objectMapper.createObjectNode();
+        result.put("success", false);
+        if (!"POST".equals(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            jsonResponse(result);
+            return null;
         }
-	    jsonResponse(jsonObject);
-    	return null;
+        ScratchPad scratch = findOwnedVersion();
+        if (scratch == null) {
+            jsonResponse(result);
+            return null;
+        }
+        try {
+            scratch.setStatus(false);
+            scratchPadDao.merge(scratch);
+            result.put("id", scratch.getId().toString());
+            result.put("version", scratch.getDateTime() != null
+                    ? java.time.Instant.ofEpochMilli(scratch.getDateTime().getTime()).toString() : null);
+            result.put("success", true);
+        } catch (RuntimeException ex) {
+            MiscUtils.getLogger().error("Unable to delete scratchpad version ({})", ex.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+        jsonResponse(result);
+        return null;
     }
 
 	private boolean isTextDifferent(String scratchPad, String returnText) {
