@@ -444,16 +444,17 @@ public class Contact2Action extends ActionSupport {
             if (existing != null) requireContactCategory(existing, category);
             String contactIdValue = request.getParameter(field + CONTACT_ID_SUFFIX);
             if (StringUtils.isNotBlank(contactIdValue) && !"0".equals(contactIdValue)) {
-                positiveContactId(contactIdValue);
+                int effectiveType = existing == null ? DemographicContact.TYPE_PROVIDER : existing.getType();
                 if (existing == null) {
                     String type = request.getParameter(field + CONTACT_TYPE_SUFFIX);
-                    if (type != null) {
-                        int parsedType = Integer.parseInt(type);
-                        if (parsedType < 0 || parsedType > DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
-                            throw new NumberFormatException("Invalid contact type");
-                        }
+                    if (type != null) effectiveType = Integer.parseInt(type);
+                    if (effectiveType < 0 || effectiveType > DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
+                        throw new NumberFormatException("Invalid contact type");
                     }
                 }
+                // provider_no is a string namespace (for example T099); the
+                // patient, directory and specialist namespaces use numeric IDs.
+                if (effectiveType != DemographicContact.TYPE_PROVIDER) positiveContactId(contactIdValue);
             }
             if (PERSONAL_CONTACT_PREFIX.equals(prefix)) {
                 String reverseRole = findNewReciprocalRole(field, existing, demographicNo);

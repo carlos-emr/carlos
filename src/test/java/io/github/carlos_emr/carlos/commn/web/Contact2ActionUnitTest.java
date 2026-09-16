@@ -599,4 +599,22 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         verify(mockDemographicContactDao, never()).persist(any());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void alphanumericProviderContactCanBeCreatedAndResaved(boolean existing) {
+        prepareSave("0", "1");
+        prepareFacility();
+        DemographicContact row = existingAssociation(DemographicContact.TYPE_PROVIDER);
+        row.setCategory(DemographicContact.CATEGORY_PROFESSIONAL);
+        addSaveRow("procontact_1", existing ? "41" : "0", "T099", "0");
+        withContactDao(() -> {
+            assertThat(new Contact2Action().saveManage()).isEqualTo("windowClose");
+            ArgumentCaptor<DemographicContact> saved = ArgumentCaptor.forClass(DemographicContact.class);
+            if (existing) verify(mockDemographicContactDao).merge(saved.capture());
+            else verify(mockDemographicContactDao).persist(saved.capture());
+            assertThat(saved.getValue().getContactId()).isEqualTo("T099");
+            assertThat(saved.getValue().getType()).isEqualTo(DemographicContact.TYPE_PROVIDER);
+        });
+    }
+
 }
