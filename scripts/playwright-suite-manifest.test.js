@@ -195,3 +195,22 @@ test('the coverage plan states the manifest\'s real size', () => {
     `the plan must say the smoke tier's ${words[smoke.length]} checks come to ${budgetSeconds}s`,
   );
 });
+
+
+test('a partially valid selection cannot silently omit an unknown check', () => {
+  for (const flag of ['--only', '--skip']) {
+    assert.throws(() => selectChecks(checks, parseArguments([
+      '--only', 'tickler-crud', flag, 'surface-scratch',
+    ])), /Unknown check name: surface-scratch/);
+  }
+});
+
+
+test('unknown selection exits before starting any browser check', () => {
+  const { main } = require('./run-playwright-suite');
+  const messages = [];
+  const output = { log: line => messages.push(line), error: line => messages.push(line) };
+  assert.equal(main(['--only', 'tickler-crud', '--only', 'surface-scratch'], {}, output), 1);
+  assert.match(messages.join(' '), /Unknown check name/);
+  assert.doesNotMatch(messages.join(' '), /--- tickler-crud/);
+});

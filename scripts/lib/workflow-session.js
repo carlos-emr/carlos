@@ -94,7 +94,8 @@ async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups })
     // Keep the parent available for recovery if any child cleanup failed.
     if (patient && failures.length === 0) {
       try {
-        sql.execute(`DELETE FROM demographicExt WHERE demographic_no=${patient};
+        sql.execute(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${patient};
+          DELETE FROM demographicExt WHERE demographic_no=${patient};
           DELETE FROM demographicArchive WHERE demographic_no=${patient};
           DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
         h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) === '0',

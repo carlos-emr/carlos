@@ -64,6 +64,7 @@ const {
   readConfig, runCheck,
 } = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
 
 /*
  * The toolbar's type filters, as InboxhubListMode.jsp renders them. The id is
@@ -151,13 +152,16 @@ async function shownRows(page) {
   const rows = await page.$$eval('#inboxhubListModeTableBody tr', (elements) => elements.map((row) => ({
     segment: row.getAttribute('data-segment-id'),
     type: row.getAttribute('data-lab-type') || '?',
+    emptyPlaceholder: row.children.length === 1
+      && row.firstElementChild.matches('td.dataTables_empty')
+      && !row.querySelector('input, a, button'),
     // Only for the diagnostic below; a row with no identity has to be
     // describable without one.
     text: (row.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60),
   })));
-  // A spacer or "no results" row legitimately has no cells to identify; a row
-  // with content and no segment id is the regression.
-  const unidentified = rows.filter((row) => !row.segment && row.text);
+  // DataTables renders an explicit empty-state cell. Exclude only that
+  // non-interactive placeholder; a result without its identity still fails.
+  const unidentified = rows.filter((row) => !row.segment && row.text && !row.emptyPlaceholder);
   assert(unidentified.length === 0,
     `${unidentified.length} Inbox row(s) render content but carry no data-segment-id, so this check cannot tell `
     + 'which results are on screen and every partition assertion below would be comparing incomplete sets');
@@ -209,12 +213,22 @@ async function applyTypeFilter(page, filter, timeout) {
 
 /** Narrow by review status through the form, which submits for real. */
 async function applyStatusFilter(page, filter, timeout) {
+  await revealStatusFilter(page, filter.id, timeout);
   await page.locator(filter.id).check({ timeout });
   await clickAndAwaitReload(page, page.locator('#inboxhubFormSearchBtn'), {
     timeout, label: `the ${filter.title} filter`,
   });
   await settle(page, timeout);
   return shownRows(page);
+}
+
+async function revealStatusFilter(page, selector, timeout) {
+  // The search sidebar is independently collapsed by default, outside the
+  // Bootstrap accordion. Use its visible toggle before opening the accordion.
+  if (!await page.locator('#inbox-sidebar').isVisible()) {
+    await page.locator('#inbox-sidebar-toggle').click({ timeout });
+  }
+  await revealAuditLink(page, page.locator(selector), timeout);
 }
 
 /**
@@ -317,6 +331,7 @@ async function checkTypeFilters(page, timeout) {
 async function checkStatusFilters(page, timeout) {
   // "All" first, so the whole set is measured under the same form submission
   // path as the parts -- not against the AJAX-loaded initial list.
+  await revealStatusFilter(page, '#statusAll', timeout);
   await page.locator('#statusAll').check({ timeout });
   await clickAndAwaitReload(page, page.locator('#inboxhubFormSearchBtn'), {
     timeout, label: 'the unfiltered (All) submission',

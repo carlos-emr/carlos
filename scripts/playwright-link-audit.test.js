@@ -730,7 +730,7 @@ test('a broken popup from an unclassified opener is a failure, not a clean host 
     timeout: 1000,
   });
   assert.deepEqual(result.opened, []);
-  assert.deepEqual(result.failures, ['Hidden Opener: rendered an error page']);
+  assert.deepEqual(result.failures, ['Hidden Opener: audit destination rendered an error page']);
   assert.equal(popup.closed, true);
 });
 
@@ -752,7 +752,7 @@ test('a blank popup from an unclassified opener is a failure too', async () => {
     labelPrefix: 'admin',
     timeout: 1000,
   });
-  assert.deepEqual(result.failures, ['Hidden Opener: rendered a blank page']);
+  assert.deepEqual(result.failures, ['Hidden Opener: audit destination rendered a blank page']);
 });
 
 test('the administration shell keeps its route in rel, and that is catalogued', async () => {
@@ -817,7 +817,7 @@ test('an in-place destination is read from the container, not from the shell aro
             locator: () => ({
               first: () => ({
                 count: async () => panel.frames,
-                contentFrame: async () => null,
+                contentFrame: () => ({ locator: () => ({ innerText: async () => panel.text }) }),
               }),
             }),
           }),
@@ -1067,4 +1067,25 @@ test('menu reveal refuses to click a different control after the page changes', 
     evaluate: async () => [{ index: 3, hover: false, markup: '<button>Expand</button>' }],
   }, 100), /refusing to click a different control/);
   assert.equal(clicked, false);
+});
+
+
+test('iframe destination uses the synchronous FrameLocator and preserves blank/error results', async () => {
+  const { destinationText } = require('./lib/playwright-link-audit');
+  for (const text of ['Actual iframe destination', '', 'HTTP Status 500']) {
+    const iframe = {
+      count: async () => 1,
+      contentFrame: () => ({ locator: selector => {
+        assert.equal(selector, 'body');
+        return { innerText: async () => text };
+      } }),
+    };
+    const panel = {
+      count: async () => 1,
+      innerText: async () => 'Shell text must never hide the iframe',
+      locator: selector => { assert.equal(selector, 'iframe'); return { first: () => iframe }; },
+    };
+    const page = { locator: selector => { assert.equal(selector, '#dynamic-content'); return { first: () => panel }; } };
+    assert.equal(await destinationText({ page, isPopup: false }, '#dynamic-content', 100), text);
+  }
 });

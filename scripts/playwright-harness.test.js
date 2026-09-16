@@ -569,3 +569,30 @@ test('entries that are not objects pass through rather than throwing', () => {
   });
   assert.deepEqual(details.badResponses, ['a bare string', null]);
 });
+
+
+test('native PDF audit requires status, MIME and complete PDF bytes and disposes the response', async () => {
+  const pdf = Buffer.from('%PDF-1.7\n' + 'x'.repeat(150) + '\n%%EOF\n');
+  for (const [status, mime, bytes, valid] of [
+    [200, 'application/pdf', pdf, true],
+    [403, 'application/pdf', pdf, false],
+    [200, 'text/html', pdf, false],
+    [200, 'application/pdf', Buffer.from('<html>Login</html>'), false],
+    [200, 'application/pdf', pdf.subarray(0, 120), false],
+  ]) {
+    let disposed = false;
+    const page = {
+      locator: selector => ({ innerText: async () => '', count: async () => selector.includes('embed[type="application/pdf"]') ? 1 : 0 }),
+      url: () => 'https://127.0.0.1/carlos/document/observed',
+      context: () => ({ request: { get: async url => {
+        assert.equal(url, page.url());
+        return { status: () => status, headers: () => ({ 'content-type': mime }), body: async () => bytes,
+          dispose: async () => { disposed = true; } };
+      } } }),
+    };
+    if (valid) assert.equal(await harness.assertNotErrorPage(page, 'document', {allowPdf: true}), 'Validated PDF document');
+    else await assert.rejects(harness.assertNotErrorPage(page, 'document', {allowPdf: true}), /PDF/);
+    assert.equal(disposed, true);
+    await assert.rejects(harness.assertNotErrorPage(page, 'ordinary HTML'), /blank page/);
+  }
+});

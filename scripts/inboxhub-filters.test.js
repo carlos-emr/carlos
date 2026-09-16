@@ -139,3 +139,18 @@ test('the check never acknowledges, files or forwards anything', () => {
   }
   assert.ok(!/createSqlRunner/.test(SOURCE), 'it needs no database access to prove a partition');
 });
+
+
+test('only a non-interactive DataTables empty placeholder may lack a result identity', async () => {
+  const { shownRows } = require('./inboxhub-filters-playwright-checks');
+  for (const [placeholder, interactive, shouldFail] of [[true, false, false], [false, false, true], [true, true, true]]) {
+    const row = {
+      getAttribute: () => null, children: [{}], textContent: 'No data available in table',
+      firstElementChild: { matches: selector => { assert.equal(selector, 'td.dataTables_empty'); return placeholder; } },
+      querySelector: () => interactive ? {} : null,
+    };
+    const page = { $$eval: async (_selector, read) => read([row]) };
+    if (shouldFail) await assert.rejects(shownRows(page), /no data-segment-id/);
+    else assert.deepEqual(await shownRows(page), []);
+  }
+});

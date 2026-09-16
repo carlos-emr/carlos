@@ -11,7 +11,12 @@ function fixture({ owned = true, removed = true } = {}) {
     browser: { async close() { events.push('close browser'); } },
     sql: {
       value() { return ++reads === 1 ? (owned ? '1' : '0') : (removed ? '0' : '1'); },
-      execute() { events.push('delete patient'); },
+      execute(query) {
+        assert.ok(query.includes('DELETE FROM casemgmt_note_lock WHERE demographic_no=42;')
+          && query.indexOf('DELETE FROM casemgmt_note_lock') < query.indexOf('DELETE FROM demographic WHERE'),
+          'owned chart locks must be removed before their patient');
+        events.push('delete patient');
+      },
       dispose() { events.push('dispose credentials'); },
     },
     patient: '42', marker: 'FAKE-PW-owned', cleanups: [],

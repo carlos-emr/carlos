@@ -89,6 +89,12 @@ function parseArguments(argv) {
 }
 
 function selectChecks(checks, options) {
+  // A typo in one --only used to silently omit that check when another name
+  // matched. The resulting green report did not cover the requested selection.
+  const names = new Set(checks.map(check => check.name));
+  for (const name of [...options.only, ...options.skip]) {
+    if (!names.has(name)) throw new Error(`Unknown check name: ${name}; use --list for exact names`);
+  }
   let selected = checks;
   if (options.tiers.length) {
     selected = selected.filter((check) => check.tiers.some((tier) => options.tiers.includes(tier)));
@@ -317,8 +323,13 @@ function main(argv = process.argv.slice(2), env = process.env, out = console) {
     return EXIT_PASS;
   }
 
-  const checks = loadManifest();
-  const selected = selectChecks(checks, options);
+  let selected;
+  try {
+    selected = selectChecks(loadManifest(), options);
+  } catch (error) {
+    out.error(error.message);
+    return EXIT_FAIL;
+  }
   if (!selected.length) {
     out.error('No checks matched the selection');
     return EXIT_FAIL;

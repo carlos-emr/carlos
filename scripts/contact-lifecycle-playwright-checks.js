@@ -50,6 +50,8 @@ async function workflow(s) {
     await open();
     assert(await field('sdm').isChecked() && await field('ec').isChecked(), 'Contact flags did not reopen');
     assert(await field('note').inputValue() === marker, 'Contact note did not reopen');
+    assert(await field('role').inputValue() === 'Guardian' && await field('consentToContact').inputValue() === '1',
+      'Contact role or consent did not reopen');
     await field('note').fill(`${marker}-CANCEL`);
     await editor.locator('[name="cancel"]').click();
     assert(sql.value(row()) === `Guardian|true|true|1|1|${marker}`, 'Cancelled contact edit changed stored values');

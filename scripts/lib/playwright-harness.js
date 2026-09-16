@@ -823,10 +823,28 @@ async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
   return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
 }
 
-async function assertNotErrorPage(page, label) {
+async function assertNotErrorPage(page, label, options = {}) {
   const text = await page.locator('body').innerText({ timeout: 10000 }).catch(() => '');
   assert(!/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
+  if (!text.trim() && options.allowPdf && await page.locator('embed[type="application/pdf"], link[href^="chrome-extension://"][href$="/pdf_embedder.css"]').count() > 0) {
+    // Chromium's native PDF viewer (embed or extension-backed) has no body
+    // text. Accept it only after the
+    // UI's actual destination returns a successful PDF with complete file bytes;
+    // an HTML login/error response or a truncated PDF must still fail.
+    const response = await page.context().request.get(page.url(), { timeout: 20000 });
+    try {
+      assert(response.status() === 200 && /^application\/pdf(?:;|$)/i.test(response.headers()['content-type'] || ''),
+        `${label} did not return a successful PDF response`);
+      const bytes = await response.body();
+      assert(bytes.length > 100 && bytes.subarray(0, 5).toString() === '%PDF-'
+        && /%%EOF\s*$/.test(bytes.subarray(-1024).toString()), `${label} returned an incomplete PDF`);
+      return 'Validated PDF document';
+    } finally {
+      await response.dispose();
+    }
+  }
   assert(text.trim().length > 0, `${label} rendered a blank page`);
+  return text;
 }
 
 /**

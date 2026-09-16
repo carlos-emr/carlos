@@ -587,3 +587,20 @@ for (const helper of [clickOpensPopupOrNavigates, clickDownloadsOrOpens]) {
     assert.throws(() => assertStrictPage(recorder), /startup handler failed/);
   });
 }
+
+
+test('a failed destination closes its popup but preserves a same-tab host', async () => {
+  for (const isPopup of [true, false]) {
+    let closed = false;
+    const destination = {
+      waitForLoadState: async () => {},
+      waitForEvent: async () => null,
+      locator: () => ({ innerText: async () => 'HTTP Status 500' }),
+      close: async () => { closed = true; },
+    };
+    const page = isPopup ? pageDouble([]) : destination;
+    const context = isPopup ? contextDouble(destination) : { waitForEvent: () => new Promise(() => {}) };
+    await assert.rejects(clickOpensPopupOrNavigates(page, locatorDouble([]), {context, timeout: 100}), /rendered an error page/);
+    assert.equal(closed, isPopup);
+  }
+});

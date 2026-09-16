@@ -35,6 +35,8 @@ async function workflow(s) {
     original = sql.value(`SELECT allergyid FROM allergies WHERE demographic_no=${patient}`);
     assert(sql.value(`SELECT CONCAT(nonDrug,'|',severity_of_reaction,'|',reaction) FROM allergies WHERE allergyid=${original}`)
       === `1|3|${marker}`, 'Non-drug flag, severity or reaction was silently lost');
+    assert(sql.value(`SELECT CONCAT(DATE(start_date),'|',onset_of_reaction,'|',life_stage) FROM allergies WHERE allergyid=${original}`)
+      === '2026-01-02|1|A', 'Allergy onset date, timing or life stage was silently lost');
     await page.locator(`#allergy_${original}`).waitFor({ state: 'visible' });
   });
   await s.step('amend creates a replacement and archives the original', async () => {

@@ -35,7 +35,7 @@
  */
 
 const {
-  assert, relabelStrictPage, screenshot, withoutQueryStrings, wireStrictPage,
+  assert, assertNotErrorPage, relabelStrictPage, screenshot, withoutQueryStrings, wireStrictPage,
 } = require('./playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./playwright-ui');
 
@@ -341,7 +341,7 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
   await link.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
   if (item.opensPopup) {
     return clickOpensPopupOrNavigates(hostPage, link, {
-      context, label, recorder, timeout,
+      context, label, recorder, timeout, allowPdf: true,
     });
   }
   const before = hostPage.url();
@@ -467,7 +467,7 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
 async function destinationText(target, inPlaceTarget, timeout) {
   const read = (locator) => locator.innerText({ timeout }).catch(() => '');
   if (target.isPopup || !inPlaceTarget) {
-    return read(target.page.locator('body'));
+    return assertNotErrorPage(target.page, 'audit destination', { allowPdf: true });
   }
   const container = target.page.locator(inPlaceTarget).first();
   if (await container.count().catch(() => 0) === 0) {
@@ -477,10 +477,10 @@ async function destinationText(target, inPlaceTarget, timeout) {
   // empty because the content lives in another document.
   const frame = container.locator('iframe').first();
   if (await frame.count().catch(() => 0) > 0) {
-    const frameBody = await frame.contentFrame().catch(() => null);
-    if (frameBody) {
-      return read(frameBody.locator('body'));
-    }
+    // Locator.contentFrame() returns a FrameLocator synchronously. The
+    // ElementHandle method is the asynchronous API; calling .catch() here
+    // prevented every iframe-backed administration page from being inspected.
+    return read(frame.contentFrame().locator('body'));
   }
   return read(container);
 }
@@ -582,7 +582,7 @@ function assertAuditClean(result, options = {}) {
 }
 
 module.exports = {
-  bodyFingerprint,
+  bodyFingerprint, destinationText,
   revealAuditLink, ERROR_PAGE_RE,
   assertAuditClean,
   auditCatalogue,

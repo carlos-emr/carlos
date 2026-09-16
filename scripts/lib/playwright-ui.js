@@ -172,10 +172,17 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
       relabelStrictPage(outcome.page, label);
     }
   }
-  await outcome.page.waitForLoadState('domcontentloaded', { timeout });
-  await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
-  await assertNotErrorPage(outcome.page, label);
-  return outcome;
+  try {
+    await outcome.page.waitForLoadState('domcontentloaded', { timeout });
+    await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
+    await assertNotErrorPage(outcome.page, label, options);
+    return outcome;
+  } catch (error) {
+    // The caller never receives a rejected popup. Close it here so the next
+    // named-window opener cannot reuse an untracked failed page.
+    if (outcome.isPopup) await outcome.page.close().catch(() => {});
+    throw error;
+  }
 }
 
 /**

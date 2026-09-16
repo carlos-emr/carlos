@@ -8,8 +8,9 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   s.cleanup(() => sql.execute(`DELETE FROM measurements WHERE demographicNo=${patient}`));
+  const observations = [['2026-01-02', '61.2'], ['2026-02-03', '62.4']];
   const ids = [];
-  for (const [date, value] of [['2026-01-02','61.2'],['2026-02-03','62.4']]) {
+  for (const [date, value] of observations) {
     ids.push(sql.value(`INSERT INTO measurements(type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
       VALUES('WT',${patient},${sqlString(provider)},${sqlString(value)},'in kg',${sqlString(marker)},${sqlString(date)},NOW()); SELECT LAST_INSERT_ID()`));
   }
@@ -18,9 +19,12 @@ async function workflow(s) {
   let history;
   await s.step('history displays both dated values', async () => {
     history = await s.popup(index, index.locator('a[onclick*="SetupDisplayHistory?type=WT"]').first(), 'measurement-history');
-    for (const [id, value] of ids.map((id,i)=>[id,['61.2','62.4'][i]])) {
+    for (const [index, id] of ids.entries()) {
+      const [date, value] = observations[index];
       const row = history.locator('tr.data').filter({ has: history.locator(`input[name="deleteCheckbox"][value="${id}"]`) });
-      assert((await row.innerText()).includes(value), 'Measurement history lost a recorded value');
+      assert((await row.locator('td[title="data"]').innerText()).trim() === value, 'Measurement history lost a recorded value');
+      assert((await row.locator('td[title="observed date"]').innerText()).trim() === date,
+        'Measurement history displayed the wrong observation date');
     }
   });
   await s.step('delete removes only the selected measurement and refreshes history', async () => {
