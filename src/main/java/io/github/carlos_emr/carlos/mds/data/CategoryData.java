@@ -138,7 +138,6 @@ public class CategoryData {
     private String labAbnormalSql = "";
     private String hrmDateSql = "";
     private String hrmProviderSql = "";
-	private String hrmViewed = "";
 	private String hrmSignedOff = "";
 
     private final List<String> labDateParams = new ArrayList<>();
@@ -227,16 +226,14 @@ public class CategoryData {
             }
         }
 
-		hrmViewed = " AND hp.viewed = 1 ";
-		hrmSignedOff = " AND hp.signedOff = 0 ";
-		if (matchesAnyStatus()) {
-			hrmViewed = "";
-			hrmSignedOff = "";
-		} else if (status.equalsIgnoreCase("N")) {
-			hrmViewed = "";
-		} else if (status.equalsIgnoreCase("A") || status.equalsIgnoreCase("F")) {
-			hrmSignedOff = " AND hp.signedOff = 1 ";
-		}
+        // Match HRMResultsData: viewing is independent of review sign-off.
+        if (matchesAnyStatus()) {
+            hrmSignedOff = "";
+        } else if (status.equalsIgnoreCase("A") || status.equalsIgnoreCase("F")) {
+            hrmSignedOff = " AND hp.signedOff = 1 ";
+        } else {
+            hrmSignedOff = " AND hp.signedOff = 0 ";
+        }
 
         totalDocs = 0;
         totalLabs = 0;
@@ -559,7 +556,7 @@ public class CategoryData {
            .append(" AND d.last_name ").append(StringUtils.isNotEmpty(patientLastName) ? "LIKE :patientLastName " : SQL_IS_NOT_NULL_NO_PREFIX)
            .append(" AND d.hin ").append(StringUtils.isNotEmpty(patientHealthNumber) ? "LIKE :patientHealthNumber " : SQL_IS_NOT_NULL_NO_PREFIX)
            .append(" AND d.first_name ").append(StringUtils.isNotEmpty(patientFirstName) ? "LIKE :patientFirstName " : SQL_IS_NOT_NULL_NO_PREFIX)
-           .append(hrmViewed).append(hrmSignedOff).append(hrmDateSql).append(hrmProviderSql)
+           .append(hrmSignedOff).append(hrmDateSql).append(hrmProviderSql)
            .append(" GROUP BY d.demographic_no ");
 
         Query query = entityManager.createNativeQuery(sql.toString(), Tuple.class);
@@ -611,7 +608,6 @@ public class CategoryData {
 			.append(" LEFT JOIN HRMDocument h ON h.id = hp.hrmDocumentId ")
 			.append(" LEFT JOIN HRMDocumentToDemographic hd ON hd.hrmDocumentId = hp.hrmDocumentId ")
 			.append(" WHERE hd.hrmDocumentId IS NULL ")
-			.append(hrmViewed)
 			.append(hrmSignedOff)
 			.append(hrmDateSql)
 			.append(hrmProviderSql);
