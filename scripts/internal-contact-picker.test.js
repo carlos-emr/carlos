@@ -25,3 +25,16 @@ for (const [last, first, expected] of [
     assert.equal(closed, true);
   });
 }
+
+test('clicking a patient row works without a demographic field on the search form', () => {
+  const line = jsp.split('\n').find(value => value.includes('onClick=') && value.includes('__enc_1'));
+  const handler = line.trim().slice('onClick="'.length, -2)
+    .replace(/<% if\(caisi\)[\s\S]*?%>/g, 'addNameCaisi')
+    .replace(/<%=demo.getDemographicNo\(\)%>/g, '123')
+    .replace(/<carlos:encode [\s\S]*?\/>/g, tag => tag.includes('__enc_1') ? 'O%27Neil' : 'Anne');
+  assert(!handler.includes('<%') && !handler.includes('<carlos:'), 'JSP fixture contains an unresolved expression');
+  let selected;
+  vm.runInNewContext(handler, {document: {forms: [{}]}, addNameCaisi: (...args) => {selected = args;}});
+  assert.equal(selected[0], '123');
+  assert.equal(selected[1], 'O%27Neil');
+});

@@ -511,7 +511,7 @@
                 <tr style="background-color: <%=bgColor%>"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="javaScriptAttribute"/>')">
+                    onClick="<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="javaScriptAttribute"/>')">
 
                     <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(demo.getLastName()) %>' context="uriComponent"/></c:set>
                     <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(demo.getFirstName()) %>' context="uriComponent"/></c:set>
