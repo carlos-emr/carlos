@@ -56,6 +56,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 /**
  * Security regression coverage for {@link Contact2Action}.
@@ -337,27 +338,30 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         prepareSave("2", "0");
         addSaveRow("contact_1", "0", "45", "2");
         addSaveRow("contact_2", "0", "67890", "1");
+        prepareReverseRole();
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
                 .thenReturn(false);
         withContactDao(() -> {
             Contact2Action action = new Contact2Action();
             assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
-            verifyNoInteractions(mockDemographicContactDao);
+            verify(mockDemographicContactDao, never()).persist(any(DemographicContact.class));
+            verify(mockDemographicContactDao, never()).merge(any(DemographicContact.class));
         });
     }
 
-    @Test
-    void shouldCreateSeparateReciprocalRow_whenEditingAnInternalContactWithoutAReverseLink() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldCreateSeparateReciprocalRow_whenEditingAnInternalContactWithoutAReverseLink(boolean omitType) {
         prepareSave("1", "0");
         prepareFacility();
         addSaveRow("contact_1", "41", "67890", "1");
         DemographicContact own = new DemographicContact();
         ReflectionTestUtils.setField(own, "id", 41);
         own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
+        own.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        if (omitType) mockRequest.removeParameter("contact_1.type");
         when(mockDemographicContactDao.find(41)).thenReturn(own);
-        Demographic patient = new Demographic();
-        patient.setSex("M");
-        when(mockDemographicDao.getDemographicById(Integer.parseInt(DEMOGRAPHIC_NO))).thenReturn(patient);
+        prepareReverseRole();
         withContactDao(() -> {
             new Contact2Action().saveManage();
             assertThat(own.getDemographicNo()).isEqualTo(Integer.parseInt(DEMOGRAPHIC_NO));
@@ -367,6 +371,87 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
             assertThat(reverse.getValue().getDemographicNo()).isEqualTo(67890);
             assertThat(reverse.getValue().getContactId()).isEqualTo(DEMOGRAPHIC_NO);
             assertThat(reverse.getValue().getRole()).isEqualTo("Son");
+            assertThat(reverse.getValue().getType()).isEqualTo(DemographicContact.TYPE_DEMOGRAPHIC);
+            assertThat(reverse.getValue().getSdm()).isEmpty();
+            assertThat(reverse.getValue().getEc()).isEmpty();
+        });
+    }
+
+    private void prepareReverseRole() {
+        Demographic patient = new Demographic();
+        patient.setSex("M");
+        when(mockDemographicDao.getDemographicById(Integer.parseInt(DEMOGRAPHIC_NO))).thenReturn(patient);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRejectBeforeAnyWrite_whenExistingInternalTypeIsOmittedOrPadded(boolean omitType) {
+        prepareSave("2", "0");
+        prepareFacility();
+        prepareReverseRole();
+        addSaveRow("contact_1", "0", "45", "2");
+        addSaveRow("contact_2", "41", "67890", "01");
+        if (omitType) mockRequest.removeParameter("contact_2.type");
+        DemographicContact own = new DemographicContact();
+        ReflectionTestUtils.setField(own, "id", 41);
+        own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
+        own.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        own.setContactId("45678");
+        when(mockDemographicContactDao.find(41)).thenReturn(own);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
+                .thenReturn(false);
+        withContactDao(() -> {
+            assertThatThrownBy(() -> new Contact2Action().saveManage()).isInstanceOf(SecurityException.class);
+            assertThat(own.getContactId()).isEqualTo("45678");
+            verify(mockDemographicContactDao, never()).persist(any(DemographicContact.class));
+            verify(mockDemographicContactDao, never()).merge(any(DemographicContact.class));
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldSaveWithoutTargetWriteAccess_whenReverseAssociationAlreadyExists(boolean omitType) {
+        prepareSave("1", "1");
+        prepareFacility();
+        addSaveRow("contact_1", "41", "67890", "1");
+        if (omitType) mockRequest.removeParameter("contact_1.type");
+        addRequestParameter("contact_1.note", "Updated note");
+        addSaveRow("procontact_1", "0", "999998", "3");
+        DemographicContact own = new DemographicContact();
+        ReflectionTestUtils.setField(own, "id", 41);
+        own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
+        own.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        when(mockDemographicContactDao.find(41)).thenReturn(own);
+        when(mockDemographicContactDao.find(67890, Integer.parseInt(DEMOGRAPHIC_NO)))
+                .thenReturn(java.util.List.of(new DemographicContact()));
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
+                .thenReturn(false);
+        withContactDao(() -> {
+            assertThat(new Contact2Action().saveManage()).isEqualTo("windowClose");
+            assertThat(own.getNote()).isEqualTo("Updated note");
+            verify(mockDemographicContactDao).merge(same(own));
+            ArgumentCaptor<DemographicContact> saved = ArgumentCaptor.forClass(DemographicContact.class);
+            verify(mockDemographicContactDao).persist(saved.capture());
+            assertThat(saved.getValue().getCategory()).isEqualTo(DemographicContact.CATEGORY_PROFESSIONAL);
+            verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890"));
+        });
+    }
+
+    @Test
+    void shouldSaveWithoutTargetWriteAccess_whenRoleHasNoReverseMapping() {
+        prepareSave("1", "0");
+        prepareFacility();
+        prepareReverseRole();
+        addSaveRow("contact_1", "0", "67890", "1");
+        mockRequest.setParameter("contact_1.role", "Friend");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
+                .thenReturn(false);
+        withContactDao(() -> {
+            assertThat(new Contact2Action().saveManage()).isEqualTo("windowClose");
+            ArgumentCaptor<DemographicContact> saved = ArgumentCaptor.forClass(DemographicContact.class);
+            verify(mockDemographicContactDao).persist(saved.capture());
+            assertThat(saved.getValue().getDemographicNo()).isEqualTo(Integer.parseInt(DEMOGRAPHIC_NO));
+            verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890"));
         });
     }
 

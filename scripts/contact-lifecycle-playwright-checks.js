@@ -111,6 +111,54 @@ async function workflow(s) {
       WHERE demographicNo=${patient} AND contactId=${sqlString(s.provider)} AND deleted=0`, '1|1',
       'Professional consent/status update did not persist');
   });
+  await s.step('editing an existing internal contact creates a correctly typed reciprocal association', async () => {
+    // Internal search is disabled in the release UI. Seed only the pre-existing
+    // relationship; changing its role and creating the reverse row use the form.
+    let related;
+    const relatedName = `${marker}-RELATED`;
+    s.cleanup(() => {
+      if (!related) return;
+      assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${related}
+        AND last_name=${sqlString(relatedName)}`) === '1', 'Related patient fixture ownership changed');
+      sql.execute(`DELETE FROM DemographicContact WHERE demographicNo IN (${patient},${related})`);
+      assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo IN (${patient},${related})`) === '0',
+        'Owned reciprocal associations were not removed');
+      sql.execute(`DELETE FROM demographic WHERE demographic_no=${related} AND last_name=${sqlString(relatedName)}`);
+      assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${related}`) === '0',
+        'The owned related patient was not removed');
+    });
+    related = sql.value(`INSERT INTO demographic
+      (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
+       provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES (${sqlString(relatedName)},'Related','1960','01','02','M','AC',
+        ${sqlString(s.provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+    assert(/^[1-9]\d*$/.test(related), 'Related patient fixture was not created');
+    const facility = sql.value(`SELECT facilityId FROM DemographicContact
+      WHERE demographicNo=${patient} AND category='professional' AND deleted=0 LIMIT 1`);
+    assert(/^\d+$/.test(facility), 'The saved professional contact has no facility');
+    const association = sql.value(`INSERT INTO DemographicContact
+      (facilityId,creator,updateDate,demographicNo,contactId,type,role,category,deleted,consentToContact,active)
+      VALUES (${facility},${sqlString(s.provider)},NOW(),${patient},${sqlString(related)},1,'Other','personal',0,1,1);
+      SELECT LAST_INSERT_ID()`);
+    assert(/^[1-9]\d*$/.test(association), 'Internal association fixture was not created');
+    await open();
+    assert(await field('type').isDisabled(), 'Existing contact type should be omitted from form submission');
+    assert(await field('contactId').inputValue() === related, 'Editor opened the wrong internal contact');
+    await field('role').selectOption('Parent');
+    await save();
+    await expectValue(sql, `SELECT CONCAT(type,'|',role,'|',contactId) FROM DemographicContact
+      WHERE id=${association} AND demographicNo=${patient}`, `1|Parent|${related}`,
+      'Editing the relationship moved or changed the original association');
+    await expectValue(sql, `SELECT CONCAT(type,'|',role,'|',contactId,'|',sdm,'|',ec) FROM DemographicContact
+      WHERE demographicNo=${related} AND deleted=0`, `1|Daughter|${patient}||`,
+      'The reciprocal relationship has the wrong type or unrequested SDM/emergency flags');
+    await open();
+    assert(await field('role').inputValue() === 'Parent', 'Internal contact role did not reopen');
+    await field('note').fill(`${marker}-INTERNAL`);
+    await save();
+    assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${related}`) === '1',
+      'Saving an existing relationship duplicated its reciprocal association');
+  });
 }
 if (require.main === module) runWorkflow('contact-lifecycle', workflow);
 module.exports = { workflow };
