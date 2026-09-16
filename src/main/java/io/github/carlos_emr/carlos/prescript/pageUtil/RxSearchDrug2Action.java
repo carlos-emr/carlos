@@ -184,28 +184,38 @@ public final class RxSearchDrug2Action extends ActionSupport {
     }
 
 
-    private String getInactiveDate () {
-        String din = request.getParameter("din");
-        String id = request.getParameter("id");
-
+    private String getInactiveDate() throws IOException {
+        response.setContentType("application/json");
+        response.setHeader("Cache-Control", "no-store");
+        ObjectNode result = OBJECT_MAPPER.createObjectNode();
         try {
-            RxDrugRef drugData = new RxDrugRef();
-            Vector vec = drugData.getInactiveDate(din);
-            vec.add(id);
-            jsonify(vec, response);
-
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            try {
-                if (!response.isCommitted()) {
-                    response.resetBuffer();
-                    response.setContentType("application/json");
-                    response.getWriter().write("{}");
-                }
-            } catch (java.io.IOException ioe) {
-                MiscUtils.getLogger().error("Error writing empty inactive date JSON response", ioe);
+            Vector<?> dates = drugref.getInactiveDate(request.getParameter("din"));
+            if (dates == null || dates.stream().anyMatch(value -> !(value instanceof java.util.Date))) {
+                throw new IllegalStateException("Invalid inactive-date response");
             }
+            result.put("checked", true);
+            if (dates.isEmpty()) {
+                result.putNull("inactiveDate");
+            } else {
+                java.util.Date date = (java.util.Date) dates.firstElement();
+                java.time.LocalDate calendarDate = date instanceof java.sql.Date sqlDate
+                        ? sqlDate.toLocalDate()
+                        : java.time.Instant.ofEpochMilli(date.getTime())
+                                .atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                result.put("inactiveDate", calendarDate.toString());
+            }
+            // Retain the previous results payload for existing consumers.
+            Vector<Object> legacyResults = new Vector<>(dates);
+            legacyResults.add(request.getParameter("id"));
+            result.set("results", OBJECT_MAPPER.valueToTree(legacyResults));
+        } catch (Exception e) {
+            logger.error("Inactive drug date lookup failed ({})", e.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            result.removeAll();
+            result.put("checked", false);
+            result.put("error", "Drug status could not be checked");
         }
+        response.getWriter().write(result.toString());
         return null;
     }
 

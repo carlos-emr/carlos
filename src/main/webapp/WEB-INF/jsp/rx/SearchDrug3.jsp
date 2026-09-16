@@ -1636,21 +1636,28 @@ function renderRxStage() {
      });
    }
    function checkIfInactive(id,dinNumber){
-        var url=ctx + "/rx/searchDrug";
-         var data="method=inactiveDate&din="+dinNumber+"&id="+id +"&rand=" +  Math.floor(Math.random()*10001);
-         CarlosAjax.request(url,{method: 'post',postBody:data,
-           onSuccess:function(transport){
-                 if (!transport.responseText) return;
-                 var json = null;
-                 try { json = JSON.parse(transport.responseText); } catch(e) { return; }
-
-                if(json!=null && json.results && json.results.length > 0 && json.results[0].time != null){
-                    document.getElementById('inactive_'+id).textContent = "Inactive Drug Since: "+new Date(json.results[0].time).toDateString();
-                } else {
-                    document.getElementById('inactive_'+id).textContent = '';
+        var target = document.getElementById('inactive_' + id);
+        if (!target) return;
+        target.setAttribute('role', 'status');
+        target.textContent = 'Checking drug status…';
+        var unavailable = function() { target.textContent = 'Drug status could not be checked. Please verify before prescribing.'; };
+        var data = 'method=inactiveDate&din=' + encodeURIComponent(dinNumber) + '&id=' + encodeURIComponent(id);
+        CarlosAjax.request(ctx + '/rx/searchDrug', {method: 'post', postBody: data,
+            onSuccess: function(transport) {
+                var result;
+                try { result = JSON.parse(transport.responseText); } catch (error) { unavailable(); return; }
+                if (!result || result.checked !== true) { unavailable(); return; }
+                if (result.inactiveDate === null) { target.textContent = ''; return; }
+                // A database DATE is a calendar date, not a browser-local instant.
+                if (typeof result.inactiveDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(result.inactiveDate)) {
+                    unavailable(); return;
                 }
-            }});
+                target.textContent = 'Inactive Drug Since: ' + result.inactiveDate;
+            },
+            onFailure: unavailable
+        });
    }
+
 
 
     function Discontinue(event,element){
