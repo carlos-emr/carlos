@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class GroupMembersUnitTest {
     @Test
-    void shouldHydrateLegacyNullLocationAsLocal() throws Exception {
+    void shouldReturnLocalLocation_whenHydratingLegacyNull() throws Exception {
         GroupMembers member = new GroupMembers();
         // Hibernate uses field access, bypassing the primitive public setter.
         // This throws IllegalArgumentException with the old primitive field,
@@ -24,7 +24,7 @@ class GroupMembersUnitTest {
     }
 
     @Test
-    void shouldPreserveExplicitRemoteLocationAndZeroForNewMembers() {
+    void shouldPreserveRemoteLocation_whenSetOnNewMember() {
         GroupMembers member = new GroupMembers();
         assertThat(member.getClinicLocationNo()).isZero();
         member.setClinicLocationNo(27);

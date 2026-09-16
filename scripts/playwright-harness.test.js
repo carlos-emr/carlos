@@ -231,7 +231,9 @@ test('legacy wirePage records exactly what it recorded before the harness landed
   await page.emit('requestfailed', {
     url: () => 'https://host/y.js', resourceType: () => 'script', failure: () => ({ errorText: 'boom' }),
   });
-  await page.emit('dialog', { type: () => 'confirm', message: () => 'Delete?', dismiss: async () => {} });
+  let dismissed = false;
+  await page.emit('dialog', { type: () => 'confirm', message: () => 'Delete?', dismiss: async () => { dismissed = true; } });
+  assert.equal(dismissed, true, 'the shared fallback must dismiss an unhandled legacy dialog');
   assert.deepEqual(recorder.badResponses, []);
   assert.deepEqual(recorder.requestFailures, []);
   assert.deepEqual(recorder.unexpectedDialogs, []);

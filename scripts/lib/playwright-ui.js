@@ -45,6 +45,34 @@ const {
 
 const DEFAULT_TIMEOUT = 30000;
 
+// Own the listeners, so the losing outcome cannot observe a later action.
+// Transform in the event callback: popup startup errors can precede click resolution.
+function watchOutcomes(sources, timeout, message) {
+  const listeners = [];
+  let expire;
+  let settled = false;
+  const cancel = () => {
+    settled = true;
+    clearTimeout(expire);
+    for (const [emitter, event, listener] of listeners) emitter.off(event, listener);
+  };
+  const promise = new Promise((resolve, reject) => {
+    for (const { emitter, event, accepts = () => true, result } of sources) {
+      const listener = value => {
+        if (settled || !accepts(value)) return;
+        cancel();
+        try { resolve(result(value)); } catch (error) { reject(error); }
+      };
+      listeners.push([emitter, event, listener]);
+      emitter.on(event, listener);
+    }
+    expire = setTimeout(() => { cancel(); reject(new Error(message)); }, timeout);
+  });
+  // A failed click may prevent awaiting the event promise.
+  promise.catch(() => {});
+  return { promise, cancel };
+}
+
 /**
  * Click an opener and take the popup window it opens.
  *
@@ -116,49 +144,23 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   const label = options.label || 'target';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
-  // A loser must never settle: Promise.race takes the FIRST settlement, so a
-  // rejected loser (both share one deadline) would otherwise win the race and
-  // hide the outcome that actually occurred.
-  const never = () => new Promise(() => {});
-  const popupArrived = context.waitForEvent('page', { timeout })
-    .then((popup) => {
-      // The first document can execute before the opener's click resolves.
+  const pending = watchOutcomes([
+    { emitter: context, event: 'page', result(popup) {
       if (options.recorder) wireStrictPage(popup, label, options.recorder, options);
       return { page: popup, isPopup: true };
-    }, never);
-  // A MAIN-FRAME NAVIGATION, not merely a different address. waitForURL's
-  // predicate stays false for a navigation that lands on the SAME url -- a form
-  // that posts and redirects back to its own route, a control that reloads the
-  // page it is on -- so the helper waited out the whole timeout and reported
-  // that the click opened neither a popup nor a navigation, when it had
-  // navigated perfectly well. framenavigated fires for both.
-  const navigated = page.waitForEvent('framenavigated', {
-    predicate: (frame) => frame === page.mainFrame(),
-    timeout,
-  }).then(() => ({ page, isPopup: false }), never);
-
-  let expire;
-  const deadline = new Promise((resolve, reject) => {
-    expire = setTimeout(
-      () => reject(new Error(`${label}: clicking opened neither a popup nor a navigation within ${timeout}ms`)),
-      timeout,
-    );
-  });
-  // Marks the deadline handled without consuming it: Promise.race still sees
-  // the rejection. Without this, a click that throws (a detached or covered
-  // control) leaves the timer armed and the rejection unobserved, and Node 22
-  // kills the run on the unhandled rejection -- so a plain locator failure is
-  // reported as a crash with no stack pointing at the click.
-  deadline.catch(() => {});
+    } },
+    { emitter: page, event: 'framenavigated', accepts: frame => frame === page.mainFrame(),
+      result: () => ({ page, isPopup: false }) },
+  ], timeout, `${label}: clicking opened neither a popup nor a navigation within ${timeout}ms`);
 
   const target = typeof locator === 'string' ? page.locator(locator) : locator;
   let outcome;
   try {
     await target.scrollIntoViewIfNeeded().catch(() => {});
     await target.click({ timeout });
-    outcome = await Promise.race([popupArrived, navigated, deadline]);
+    outcome = await pending.promise;
   } finally {
-    clearTimeout(expire);
+    pending.cancel();
   }
 
   if (options.recorder) {
@@ -206,36 +208,23 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
   const label = options.label || 'download';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
-  // A loser must never settle: Promise.race takes the first settlement, so a
-  // rejected loser (both share one deadline) would win and hide the real one.
-  const never = () => new Promise(() => {});
-  const downloaded = page.waitForEvent('download', { timeout })
-    .then((download) => ({ kind: 'download', url: download.url(), download, page: null }), never);
-  const popped = context.waitForEvent('page', { timeout })
-    .then((popup) => {
+  const pending = watchOutcomes([
+    { emitter: page, event: 'download', result: download =>
+      ({ kind: 'download', url: download.url(), download, page: null }) },
+    { emitter: context, event: 'page', result(popup) {
       if (options.recorder) wireStrictPage(popup, label, options.recorder, options);
       return { kind: 'popup', url: '', download: null, page: popup };
-    }, never);
-
-  let expire;
-  const deadline = new Promise((resolve, reject) => {
-    expire = setTimeout(
-      () => reject(new Error(`${label}: clicking produced neither a download nor a popup within ${timeout}ms`)),
-      timeout,
-    );
-  });
-  // See clickOpensPopupOrNavigates: marks the deadline handled so a click that
-  // throws cannot take the whole run down with an unhandled rejection.
-  deadline.catch(() => {});
+    } },
+  ], timeout, `${label}: clicking produced neither a download nor a popup within ${timeout}ms`);
 
   const target = typeof locator === 'string' ? page.locator(locator) : locator;
   let outcome;
   try {
     await target.scrollIntoViewIfNeeded().catch(() => {});
     await target.click({ timeout });
-    outcome = await Promise.race([downloaded, popped, deadline]);
+    outcome = await pending.promise;
   } finally {
-    clearTimeout(expire);
+    pending.cancel();
   }
   if (outcome.kind === 'popup') {
     if (options.recorder) {

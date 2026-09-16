@@ -138,6 +138,15 @@ application defects from test defects and missing fixtures, and records retests.
 | 16 | Fresh-install prevention pages request an absent optional catalogue and log HTTP 404 | Live `prevention-lifecycle` captures `eform/displayImage?imagefile=vaccine-brands.json` returning 404 before the bundled fallback. A Java regression requires a bundled response when no clinic override exists and preserves override precedence. | `issue-filed` |
 | 17 | Episode editor has validation/authorization gaps requiring a focused follow-up | Source review: `episodeForm.jsp` compares status with `Completed`, but the option is `Complete`; `Episode2Action.edit()` loads an episode without the privilege check present in `list()`. No low-privilege live exploit is claimed by this validation pass. | `needs-live-check` |
 
+
+| 18 | New contact associations submit a blank integer ID and fail Save | Live `contact-lifecycle` selects a result but Save returns 500; `Contact2Action.saveManage()` parses the blank ID. Both contact fragments now initialize new IDs to zero; tracked in #3682. | `issue-filed` |
+| 19 | Native-document and calendar popups request a missing host favicon | Captured browser request to `/favicon.ico` returns 404 while `/carlos/images/favicon.ico` exists. Exact nginx redirect added; tracked in #3682. | `issue-filed` |
+| 20 | Inbox review-status filters lose an HRM result | Live `inboxhub-filters`: `HRM:17` appears under All but none of New/Acknowledged/Filed after real UI form submissions; tracked in #3682. | `issue-filed` |
+| 21 | Chart Row Display has no CSRF input for its AJAX POST | Live `echart-navbar-modules` DOM/source audit: Row Display reads a missing `input[name="CSRF-TOKEN"]`; 14 entries open, 13 are deliberately skipped by read-only policy; tracked in #3682. | `issue-filed` |
+| 22 | Provider preferences contain broken destinations | Live preferences surface: Edit Text Signature returns 500; Set Default Printer throws a null `messageHandler` assignment. An additional Document Description Template aborted request needs further classification; tracked in #3682. | `issue-filed` |
+| 23 | Three anonymous routes return success status with no content | Live `anonymous-access`: DisplayMessages, IncomingConsultation and ViewDocumentReport return HTTP 200 and zero bytes. No data disclosure is established; tracked in #3682. | `issue-filed` |
+| 24 | Scratchpad version operations lack the owner comparison used by save | Source review of `Scratch2Action.showVersion()` and `delete()` versus ordinary save; cross-provider behavior has not been live-validated. Tracked in #3682. | `needs-live-check` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is

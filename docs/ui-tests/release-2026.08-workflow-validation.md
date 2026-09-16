@@ -1,77 +1,135 @@
 # Release 2026.08 workflow validation
 
-This pass starts from origin/release/2026.08 at
-`fcb14db3c0bf568d10481dce144af526f80e4f4b`. It uses the existing
-[coverage plan](playwright-coverage-plan-2026.08.md), manifest and strict browser
-harness. A page opening is not evidence that its save, cancellation, archive or
-opener refresh works.
+PR [#3683](https://github.com/carlos-emr/carlos/pull/3683) starts from
+`origin/release/2026.08` at `fcb14db3c0bf568d10481dce144af526f80e4f4b` and targets
+that release branch. All findings are tracked in
+[issue #3682](https://github.com/carlos-emr/carlos/issues/3682). No develop merge,
+Flyway migration, or clinical schema change is included.
 
-## Baseline
+This pass follows the existing [coverage plan](playwright-coverage-plan-2026.08.md),
+manifest and strict browser harness. A page opening does not prove its save,
+cancellation, archive or opener refresh works. The manifest now registers 108
+checks across 99 scripts; registration does not mean every fixture is available.
 
-- Java: 12,103 tests, zero failures/errors, 51 skips (`mvn package`, one test fork).
-- Script regressions: 593 tests passed. The first sandboxed attempt could not
-  spawn subprocesses; the unrestricted rerun passed without source changes.
-- Package management Python: 1,519 tests passed.
-- Live browser validation and new workflow results: in progress.
+## Environment and baseline
 
-## Confirmed findings
+Ubuntu 26.04 VM; 6 GiB RAM, two CPUs, 2 GiB Java heap; packaged Chromium
+154.0.8025.0. An isolated fresh `release_ui_202608` database uses the release's 23
+successful Flyway migrations. Demo import completed without duplicate keys.
+Reinstall applied zero migrations and preserved the database. Existing databases
+with newer develop migrations were not reused or modified.
 
-| ID | Defect | Reproduction / evidence | Disposition |
-|---|---|---|---|
-| RUI-01 | SOAP interceptor by-type wiring initializes unrelated request actions during startup | `AuthenticationInterceptorWiringUnitTest` fails on the release definition with `UnsatisfiedDependencyException` on inherited `properties`; the request-only bean is instantiated outside an HTTP request | Apply the small annotated-injection fix already on develop, with its executable Spring regression test. Required to start release validation. |
-| RUI-02 | Existing administration/anonymous audits assume every schedule link opens a popup | Live baseline times out awaiting `page`; `openScheduleSection()` navigates the current page in focused mode | Use the shared popup-or-navigation helper and return through browser history before the next surface. Live retest pending. |
-| RUI-03 | Shared popup-or-navigation helper silently misses first-document JavaScript errors | A deterministic event-order regression test emits `pageerror` before the opener click resolves; the old helper reports no error | Wire the popup in the page-event continuation. Regression test fails before and passes after the change. |
+- Baseline Java package build: 12,103 tests, zero failures/errors, 51 skips.
+- Revised full Java package build: **12,109 tests**, zero failures/errors, 51 skips.
+- Revised script regressions: **612 passed** (baseline 593).
+- Revised package-management Python tests: **1,519 passed**. Generated O19
+  primitive-column metadata was regenerated from pinned upstream commit
+  `a7900d569d3faf741993e5e1da8c14021bbefede` after the nullable model fix; the
+  generator's drift check passes for both profiles.
+- Initial broad live sweep: **100 checks: 75 passed, 21 failed, 4 skipped**.
+  Harness fixes were made during this sweep; this is not an immutable baseline
+  comparison. Focused retests below supersede individual initial failures.
 
-| RUI-04 | Legacy dialog adapter records expected custom confirmations as failures | `allergy-rx-alert` finishes its clinical assertions but fails on two deliberately handled custom-allergy confirmations | Restore the legacy custom handler's ownership of recording. Strict wiring still retains every dialog. Isolated mutation fails the executable regression; 55 harness/helper tests pass after the fix. |
-| RUI-05 | Calculator check expects a title attribute absent from the chart's text link | `clinical-calculators` fails before opening a calculator although `ViewCalculators` is offered | Select the actual UI control. Live retest pending. |
-| RUI-06 | Demographic label printing fails | PDF Label and PDF Address Label return HTTP 500; server reports Jasper `queryString` deserialization failure. PDF Envelope returns 404. | Application defect; does not block unrelated workflows. |
-| RUI-07 | Chart save/sign/bill check receives a blank save result | Existing `echart-note-sign-bill` fails at `echart-save rendered a blank page` | Further triage required; retain failure. |
-| RUI-08 | eForm fax preview lacks an active sender fixture | Existing saved-render check times out clicking a disabled `remoteFaxButton` titled `No active fax senders` | Fixture limitation; do not count fax preview as validated. |
+JaCoCo reports `MethodTooLargeException` for third-party Drools lexers; Java tests
+still pass. This is an instrumentation limitation, not a passed clinical test.
+No browser or console failure was added to an allowlist to make this PR pass.
 
-The baseline also prints JaCoCo `MethodTooLargeException` for third-party Drools
-lexers. Tests continue and pass; this is instrumentation noise, not evidence of
-an application workflow failure.
+## New workflow coverage
 
-## New coverage
-
-Each patient workflow creates an owned `FAKE-PW` patient, navigates from Schedule →
-Search → Master Record → Chart, uses visible controls for mutations, checks both
+Each patient workflow creates an owned `FAKE-PW` patient, navigates Schedule →
+Search → Master Record → Chart, uses visible controls for mutations, checks
 persisted rows and visible results, and removes its owned clinical rows and
-patient in cleanup. Unexpected browser errors fail the check. No clinical action
-is invoked by calling a JavaScript handler or posting around the UI. The consultation
-directory check owns marked institution/department rows instead of a patient.
-If child cleanup fails, the patient is retained for recovery and the check fails.
+patient. Unexpected browser errors fail the check. SQL seeds fixtures, verifies
+persistence and performs cleanup; it does not substitute for the UI action under
+test. The directory workflow owns marked institution/department rows instead.
+Cleanup failures fail the check and retain the patient for recovery. Clinical
+audit logs are intentionally retained.
 
-| Check | Planned assertions | Live result |
+| Check | Assertions | Latest live result |
 |---|---|---|
-| `episode-lifecycle` | Empty-description refusal; create; opener refresh; reopen/edit; completion; reactivation; soft delete retaining history | Pending |
-| `diagnosis-flowsheet` | Code search/selection; add; diagnosis-triggered flowsheet; measurement save and refresh; resolve; cancelled and accepted delete | Pending |
-| `prevention-lifecycle` | Refusal; date/comments; completed correction; ineligible status; reopen; soft delete | Pending |
-| `allergy-custom-lifecycle` | Custom confirmation cancellation/acceptance; non-drug details; amendment archives original; cancelled/accepted archive | Pending |
-| `contact-lifecycle` | Search and associate external contact; SDM/emergency/consent/note round-trip; cancelled edits; update; remove association without deleting directory contact | Pending |
-| `consultation-directory-crud` | Institution and department create/read/update/delete; cancelled deletion; unselected control row survives | Pending |
-| `measurement-history` | Dated values; plot's PNG bytes; selected-row deletion; unselected value survives | Pending |
+| `episode-lifecycle` | Empty-description refusal; create; automatic chart refresh; reopen/edit; complete; reactivate; soft delete retaining history | Pass; final package rerun pending |
+| `diagnosis-flowsheet` | ICD9 250 search/selection; diagnosis; enabled `diab2` flowsheet; A1C save/refresh; resolve; cancel/accept deletion | Pass; final package rerun pending |
+| `prevention-lifecycle` | Fluzone/Inf refusal with date/comments; completed amendment replaces and archives original; ineligible; reopen; soft delete | Pass; final package rerun pending |
+| `allergy-custom-lifecycle` | Custom confirmation cancel/accept; non-drug details; onset/date/life-stage; amendment archives original; cancel/accept archive | Pass before additional field assertions; final rerun pending |
+| `contact-lifecycle` | Punctuated name search; association; SDM/emergency/consent/note round-trip; cancel; update; remove association while preserving directory contact | Selection passes; corrected new-association ID awaits final package |
+| `consultation-directory-crud` | Institution and department create/read/update/delete; cancel deletion; unselected control row survives | Pass; final package rerun pending |
+| `measurement-history` | Dated values; real plot PNG bytes; selected-row deletion; unselected value survives | Pass before stronger date assertions; final rerun pending |
 
-## Environment discipline
+## Application blockers fixed here
 
-Use an isolated release database, never the VM's develop database with newer
-Flyway migrations. Compile only while the VM is stopped. Host builds use a 5 GiB
-memory cap and one Surefire fork. VM validation uses 6 GiB guest RAM and a 2 GiB
-Java heap, with host/guest memory monitors and sequential browser checks.
+| Problem | Fix and verification |
+|---|---|
+| SOAP interceptor by-type injection instantiates request actions during startup | Use annotated injection; executable Spring regression fails on the release definition and passes after the change; packaged app starts. |
+| Legacy NULL clinic location breaks Messenger hydration | Nullable `GroupMembers` field with existing zero-valued getter contract; unit regressions and live compose/inbox actions pass. Regenerated import metadata matches the model. |
+| Contact search handler/JSON breaks with punctuation | Encode the complete handler for its HTML attribute and serialize with `JSON.stringify`; executable original serializer fails, corrected serializer and live quoted-name selection pass. |
+| New contact association sends a blank integer ID | Initialize the two association templates to ID zero; final package retest pending. |
+| Numeric measurement history has no Plot control | Test the first row's `canPlot` inside a nonempty collection; real graph response has PNG bytes. |
+| Missing optional clinic vaccine catalogue emits 404 | Fall back only for exact `vaccine-brands.json`, after existing access/path checks. Clinic override wins; unrelated missing files remain 404. Java and live prevention tests pass. |
+| Native-document/calendar requests to host `/favicon.ico` return 404 | Exact nginx redirect to the existing application icon; final package routing retest pending. |
 
-External fax/email sends and paid integrations require dedicated test credentials;
-missing fixtures must be reported as skips, not counted as passing coverage.
+## Tests tested
 
-## Running the new workflows
+- Executable event-order regressions fail when popup wiring is moved back after
+  the click, proving that first-document JavaScript errors cannot disappear.
+- A legacy-dialog mutation fails its regression; deliberately handled legacy
+  confirmations retain their existing contract while strict wiring records all.
+- Three live episode mutations each fail as intended: a success-looking response
+  without a database write, a successful save without opener refresh, and an
+  unexpected startup JavaScript exception. The unmodified positive control passes.
+- Cleanup tests prove fixture ownership, child-before-parent ordering, recovery
+  on failure, and detection of a silently ineffective patient delete. A live
+  cleanup audit found chart note locks; cleanup now removes only locks belonging
+  to its owned patient. Final post-run cleanup audit pending.
+- Shared audit tests reject blank/error HTML and invalid PDFs (status, MIME,
+  signature and EOF). Real Chromium probes cover nested menus, hover entries and
+  iframe destinations. Native PDFs are validated as PDFs, not accepted as blank
+  HTML. Failed popup validation closes the popup without closing its host tab.
+- The runner rejects unknown `--only` and `--skip` names, including mixed
+  valid/misspelled selections, before launching a browser.
+- Demographic audit waits for its asynchronous read before closing the window;
+  both success and failure paths have regressions. The live five-field edit and
+  audit-row assertions pass using an exact patient fixture.
 
-Use a disposable, seeded Ontario deployment and the credentials/environment in
-[the package validation runbook](deb-install-validation.md). Complete the first
-login/password reset before testing. The configured provider needs access to the
-chart and consultation directory administration. `BASE_URL` must identify that
-same deployment, and `MYSQL_DATABASE` must identify its database.
+## Remaining findings and coverage limits
+
+The aggregate issue contains the full reproduction/status list. Confirmed open
+findings include demographic PDF label/address/chart failures and envelope 404;
+three anonymous routes returning HTTP 200 with an empty body; no calculator entry
+in the current chart; Row Display's absent CSRF input; provider-preference errors;
+and an Inbox HRM row present under All but absent from New/Acknowledged/Filed.
+The anonymous empty responses do not establish patient-data disclosure.
+
+Source review also found candidate episode validation/authorization and
+scratchpad version-ownership gaps; low-privilege live exploitation was not tested.
+The existing upstream [DrugRef issue #13](https://github.com/carlos-emr/drugref2026/issues/13)
+remains open. Unit-test success does not make these application findings green.
+
+Retests pass for Messenger/inbox actions, allergy/Rx alerts, encounter timer and
+save/sign/billing handoff, demographic edits/audits, patient-list exports,
+consultation links, Messenger links, scratchpad form presence, and protected
+eForm fax preview/cancel. The first encounter blank-page failure did not recur;
+its original cause remains unproven. Scratchpad form presence is not CRUD coverage.
+
+Unavailable coverage is explicit: O19 migrated smoke requires a separate imported
+fixture and break-glass login; the fresh demo is not such a fixture. eForm corpus,
+referral/workflow menu properties and next-appointment fixtures were unavailable.
+Some optional paths also lack chart-number/phone, unbilled appointment or eForm
+signature fixtures. No success is claimed for those paths or external sends.
+
+## Running and reproducing
+
+Use a disposable seeded Ontario deployment and
+[the package validation runbook](deb-install-validation.md). Complete first-login
+password reset. `BASE_URL` and `MYSQL_DATABASE` must identify the same deployment.
+The provider needs chart/admin access plus `_episode` and `_newCasemgmt.episode`;
+the demo doctor's episode grants are disabled by default. Record fixture-only
+permission changes. Use a narrow demographic search matching its configured ID.
+Patient-list export uses `local-seed-obec-report-v1`; fax preview uses a local fake
+sender with polling disabled, and sends nothing.
 
 ```sh
 npm run test:scripts
+PYTHONPATH=debian/assets python3 -m unittest discover -s debian/assets/carlos_ctl/tests
 node scripts/run-playwright-suite.js --province ON \
   --only episode-lifecycle --only diagnosis-flowsheet \
   --only prevention-lifecycle --only allergy-custom-lifecycle \
@@ -79,14 +137,14 @@ node scripts/run-playwright-suite.js --province ON \
   --only measurement-history --junit workflow-results.xml
 ```
 
-Run one browser check at a time on a small VM. The runner reports each check and
-writes JUnit; exit 1 means a failure, and missing required fixtures must not be
-reported as success. These seven checks do not send email or fax, rebuild
-DrugRef, or require a paid integration.
+Run checks sequentially. The runner reports failures and writes JUnit; exit 1
+means failure. Run the account-mutating login check last and verify restoration.
+Preserve a failing marker and log for diagnosis; never delete all `FAKE-` demo
+records to clean up one run. Private captures and credentials must not be posted
+to the PR or issue.
 
-The patient checks use synthetic names beginning `FAKE-PW`, assert that the
-opened chart belongs to their own fixture, and remove their owned records even
-when an assertion fails. Directory rows have the same per-run prefix. A cleanup
-failure is itself a failed check. Preserve the failing log and inspect the
-specific marker before retrying; never delete every `FAKE-` demo record to clean
-up a single run.
+Host compilation occurs only with the VM stopped, with a 5 GiB memory cap and one
+Surefire fork. Host/guest memory guards protect the sequential browser runs.
+Default package compression exceeded the temporary-file quota; sequential zstd
+compression succeeded, and no partial package was installed. The final package
+and live retest evidence will be recorded before this PR leaves draft.

@@ -394,7 +394,7 @@ class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldServeBundledJsonWhenClinicOverrideIsAbsent() throws Exception {
+        void shouldServeBundledJson_whenClinicOverrideIsAbsent() throws Exception {
             withBundledCatalogue();
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(200);
@@ -404,7 +404,7 @@ class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldPreserveClinicOverrideWhenBothCopiesExist() throws Exception {
+        void shouldPreserveClinicOverride_whenBothCopiesExist() throws Exception {
             withBundledCatalogue();
             Files.writeString(tempDir.resolve("vaccine-brands.json"), "[{\"name\":\"CLINIC\"}]");
             action.execute();
@@ -413,7 +413,7 @@ class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldFailWhenNeitherCatalogueExists() throws Exception {
+        void shouldReturnNotFound_whenNeitherCatalogueExists() throws Exception {
             withBundledCatalogue();
             Files.delete(tempDir.resolve("test-war/prevention/vaccine-brands.json"));
             action.execute();
