@@ -465,6 +465,35 @@ it does not approve omitted content to obtain a PDF.
 
 ## 6. Run the suite
 
+The nullable-consultation check stages a specialist whose ID differs from the
+request ID, then verifies contact details in the form, extracted PDF text, and
+REST response. It also checks missing-request HTTP 404 and a request with no
+specialist. Run it with health-care-team mode both enabled and disabled when
+validating changes to consultation associations; restart the application after
+changing that property. The script restores the request and removes its owned
+specialist, including on cancellation.
+
+`email-recovery-playwright-checks.js` creates two synthetic email logs for demo
+patient 1 (`EMAIL_RECOVERY_DEMO_NO` overrides this). It checks the in-flight-send
+recovery guard, stale-delivery warning and resolution, fresh compose passphrases,
+and server-acknowledged cancellation. It does not send email and removes only its
+owned logs. With no sender configured, it also requires an explicit warning and
+disabled Send button. Both checks require a disposable local database and reject
+non-loopback `MYSQL_HOST` values.
+
+For a 6 GiB validation guest, set `CARLOS_JAVA_XMS="2g"` and
+`CARLOS_JAVA_XMX="2g"` in the VM environment file before starting the browser
+suite, then restart the application. Monitor guest available memory as well as
+host memory; a 4 GiB fixed heap leaves too little room for MariaDB and Chromium
+in that guest. Stop the VM before compiling on the host.
+
+Before staging fixtures, verify that `MYSQL_DATABASE` matches `CARLOS_DB_NAME`
+in `/etc/carlos-emr/carlos-emr.env` and the generated application's `db_name`
+property. A browser session against one database cannot validate fixtures staged
+in another. Install all three matching package versions together; upgrading only
+the main package can remove older DrugRef and renderer packages because their
+dependencies require an exact version match.
+
 Environment contract (one block, exported before every script):
 
 ```bash

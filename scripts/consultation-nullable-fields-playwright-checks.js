@@ -267,9 +267,10 @@ function sqlValue(value) {
       assert(stored.professionalSpecialist?.phoneNumber === specialistPhone,
         'REST detail lost the detached specialist phone');
 
-      assert(sql('SELECT COUNT(*) FROM consultationRequests WHERE requestId=2147483647') === '0',
+      // Avoid attack-signature sentinel integers at the WAF; use a verified absent ID.
+      assert(sql('SELECT COUNT(*) FROM consultationRequests WHERE requestId=999999') === '0',
         'Missing-request fixture identifier is already in use');
-      const missing = await context.request.get(appUrl(config.baseUrl, '/ws/rs/consults/getRequest?requestId=2147483647'));
+      const missing = await context.request.get(appUrl(config.baseUrl, '/ws/rs/consults/getRequest?requestId=999999'));
       assert(missing.status() === 404, `Missing REST request must return 404, got ${missing.status()}`);
 
       // A refresh is an operator-visible detached read; optional associations must
