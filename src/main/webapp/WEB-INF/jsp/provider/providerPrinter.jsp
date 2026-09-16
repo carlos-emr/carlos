@@ -134,40 +134,40 @@
 
                     prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_APPOINTMENT_RECEIPT_SILENT_PRINT);
                     if (prop != null) {
-                        if (prop.getValue().equalsIgnoreCase("yes")) {
+                        if ("yes".equalsIgnoreCase(prop.getValue())) {
                             silentPrintAppointmentReceipt = true;
                         }
                     }
 
                     prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_ENVELOPE_SILENT_PRINT);
                     if (prop != null) {
-                        if (prop.getValue().equalsIgnoreCase("yes")) {
+                        if ("yes".equalsIgnoreCase(prop.getValue())) {
                             silentPrintPDFEnvelope = true;
                         }
                     }
 
                     prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_LABEL_SILENT_PRINT);
                     if (prop != null) {
-                        if (prop.getValue().equalsIgnoreCase("yes")) {
+                        if ("yes".equalsIgnoreCase(prop.getValue())) {
                             silentPrintPDFLabel = true;
                         }
                     }
 
                     prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_ADDRESS_LABEL_SILENT_PRINT);
                     if (prop != null) {
-                        if (prop.getValue().equalsIgnoreCase("yes")) {
+                        if ("yes".equalsIgnoreCase(prop.getValue())) {
                             silentPrintPDFAddressLabel = true;
                         }
                     }
                     prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_CHART_LABEL_SILENT_PRINT);
                     if (prop != null) {
-                        if (prop.getValue().equalsIgnoreCase("yes")) {
+                        if ("yes".equalsIgnoreCase(prop.getValue())) {
                             silentPrintPDFChartLabel = true;
                         }
                     }
                     prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_CLIENT_LAB_LABEL_SILENT_PRINT);
                     if (prop != null) {
-                        if (prop.getValue().equalsIgnoreCase("yes")) {
+                        if ("yes".equalsIgnoreCase(prop.getValue())) {
                             silentPrintClientLabLabel = true;
                         }
                     }
