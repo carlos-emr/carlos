@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -360,7 +361,12 @@ public class DemographicContactCreator {
             String lastname2 = contact2.getLastName();
             if (lastname1 == null) return (lastname2 == null) ? 0 : -1;
             if (lastname2 == null) return 1;
-            return lastname1.compareToIgnoreCase(lastname2);
+            // Deliberately toUpperCase(...).compareTo(...) rather than compareToIgnoreCase():
+            // String.toUpperCase applies full case mapping ("\u00DF" -> "SS"), whereas
+            // compareToIgnoreCase folds one char at a time and leaves "\u00DF" as-is, which
+            // would move German names such as "Wei\u00DF" from sorting as "WEISS" to sorting
+            // after every Latin letter. Locale.ROOT keeps the fold locale-independent.
+            return lastname1.toUpperCase(Locale.ROOT).compareTo(lastname2.toUpperCase(Locale.ROOT));
         }
     };
 
