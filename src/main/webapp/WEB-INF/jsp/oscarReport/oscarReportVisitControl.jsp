@@ -233,7 +233,7 @@
     flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
     $(document).ready(function () {
-        $('#visitform').validate({
+        $('#visitForm').validate({
             rules: {
                 xml_vdate: {
                     required: false,

@@ -91,6 +91,7 @@
 </form>
 
 <script>
+(function () {
     flatpickr("#date_from", {dateFormat: "Y-m-d", allowInput: true});
     flatpickr("#date_to", {dateFormat: "Y-m-d", allowInput: true});
 
@@ -130,6 +131,7 @@
             reportForm.reportValidity();
         }
     });
+})();
 </script>
 </body>
 </html>

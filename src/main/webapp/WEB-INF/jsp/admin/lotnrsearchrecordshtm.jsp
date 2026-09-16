@@ -77,9 +77,9 @@
             function onsub() {
 
                 // make keyword lower case
-                var keyword = document.searchprovider.keyword.value;
+                var keyword = document.searchlotnr.keyword.value;
                 var keywordLowerCase = keyword.toLowerCase();
-                document.searchprovider.keyword.value = keywordLowerCase;
+                document.searchlotnr.keyword.value = keywordLowerCase;
             }
 
             function upCaseCtrl(ctrl) {
@@ -91,6 +91,7 @@
     </head>
 
     <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">

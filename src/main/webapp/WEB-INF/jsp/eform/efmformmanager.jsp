@@ -49,8 +49,11 @@
     <title>E-Form Manager</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
+<%-- AJAX fragments reuse the administration shell's jQuery and its registered plugins. --%>
+<% if (!"XMLHttpRequest".equals(request.getHeader("X-Requested-With"))) { %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<% } %>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>

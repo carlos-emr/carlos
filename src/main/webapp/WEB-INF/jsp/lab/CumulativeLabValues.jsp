@@ -142,7 +142,15 @@
             }
 
 
-            function addLabToProfile2(labType, testName, identCode) {
+            async function addLabToProfile2(labType, testName, identCode) {
+                try {
+                    if (window.csrfTokenReady) await window.csrfTokenReady;
+                    var token = document.querySelector('input[name="CSRF-TOKEN"]');
+                    if (!token || !token.value) throw new Error('Missing request token');
+                } catch (error) {
+                    alert('Unable to load the lab values. Reload this window and try again.');
+                    return;
+                }
 
                 var newNode = document.createElement('div');
                 var img = document.createElement('img');
@@ -185,6 +193,7 @@
     </head>
 
     <body class="BodyStyle">
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <!--  -->
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">

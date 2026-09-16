@@ -113,6 +113,10 @@ function fallbackCopy(text) {
 </div>
 
 <div id="header-bottom-row">
+    <div>
+        <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewCalculators?sex=${carlos:forUriComponent(popupPatientSex)}&amp;age=${carlos:forUriComponent(popupPatientAge)}"
+           onclick="window.open('${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?sex=${carlos:forUriComponent(popupPatientSex)}&amp;age=${carlos:forUriComponent(popupPatientAge)}', 'ClinicalCalculators', 'width=800,height=650,scrollbars=yes,resizable=yes'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
+    </div>
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
         <div>
         <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScript(ctx)}/commons/omdDiseaseList.jsp?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
