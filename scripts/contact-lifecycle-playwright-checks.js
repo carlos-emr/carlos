@@ -93,7 +93,7 @@ async function workflow(s) {
     await editor.locator('a[onclick="addProContact();"]').click();
     const pro = name => editor.locator(`[name="procontact_1.${name}"]`);
     const search = await s.popup(editor, editor.locator('a[onclick*="doProfessionalSearch"]'), 'provider-contact-search');
-    await search.locator('a[onclick*="selectProviderCustom"]').filter({ hasText: new RegExp(`^\\s*${s.provider}\\s*$`) }).click();
+    await search.getByRole('link', { name: s.provider, exact: true }).click();
     assert(await pro('contactId').inputValue() === s.provider, 'Professional search selected the wrong provider');
     await pro('consentToContact').selectOption('0');
     await pro('active').selectOption('0');
