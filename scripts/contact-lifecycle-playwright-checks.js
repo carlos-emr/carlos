@@ -115,7 +115,9 @@ async function workflow(s) {
     // Internal search is disabled in the release UI. Seed only the pre-existing
     // relationship; changing its role and creating the reverse row use the form.
     let related;
-    const relatedName = `${marker}-RELATED`;
+    // demographic.last_name is VARCHAR(30); the 23-character marker plus this
+    // suffix must round-trip unchanged for the cleanup ownership check.
+    const relatedName = `${marker}-REL`;
     s.cleanup(() => {
       if (!related) return;
       assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${related}
