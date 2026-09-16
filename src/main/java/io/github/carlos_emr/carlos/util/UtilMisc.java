@@ -35,7 +35,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Locale;
 
 import io.github.carlos_emr.Misc;
 import org.apache.commons.codec.binary.Base64;
@@ -157,7 +156,11 @@ public class UtilMisc {
         if (S == null) {
             return S;
         }
-        S = S.trim().toLowerCase(Locale.ROOT);
+        // Deliberately default-locale, NOT Locale.ROOT: every caller formats patient names for
+        // display (appointment sheets, group records), so the casing must follow the deployment's
+        // locale. Under a Turkish default locale ROOT turns "I\u015EIK" into "I\u015Fik" instead of the
+        // correct "I\u015F\u0131k". The IMPROPER_UNICODE suppression on this method covers this fold.
+        S = S.trim().toLowerCase();
         int N = S.length();
         boolean bUpper = false;
         StringBuilder sb = new StringBuilder(N);
