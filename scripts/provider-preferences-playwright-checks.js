@@ -37,6 +37,8 @@ async function workflow(s) {
   const existingLabel = sql.value(`SELECT id FROM property WHERE provider_no=${sqlString(provider)} AND name='default_printer_pdf_label'`);
   if (existingLabel) sql.execute(`UPDATE property SET value=${sqlString(printerName)} WHERE id=${existingLabel}`);
   else sql.execute(`INSERT INTO property(provider_no,name,value) VALUES (${sqlString(provider)},'default_printer_pdf_label',${sqlString(printerName)})`);
+  sql.execute(`DELETE FROM property WHERE provider_no=${sqlString(provider)} AND name='default_printer_pdf_label_silent_print';
+    INSERT INTO property(provider_no,name,value) VALUES (${sqlString(provider)},'default_printer_pdf_label_silent_print',NULL)`);
   const beforeOpening = JSON.stringify(sql.rows(snapshotQuery));
   const prefs = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'preferences');
   const openPreference = async (selector, label) => {
@@ -49,13 +51,17 @@ async function workflow(s) {
     assert(await printer.locator('[name="defaultPrinterNamePDFLabel"]').inputValue() === printerName,
       'Printer name did not round-trip or was overwritten on GET');
     assert(JSON.stringify(sql.rows(snapshotQuery)) === beforeOpening, 'Opening printer settings changed stored values');
+    assert(!(await printer.locator('[name="silentPrintPDFLabel"]').isChecked()), 'A NULL silent-print setting was treated as enabled');
     const save = printer.locator('input[type="submit"]');
     if (await save.count()) {
       await printer.locator('[name="defaultPrinterNamePDFLabel"]').fill(`${printerName}-EDIT`);
+      await printer.locator('[name="silentPrintPDFLabel"]').check();
       await clickAndAwaitReload(printer, save);
       assert(sql.value(`SELECT value FROM property WHERE provider_no=${sqlString(provider)} AND name='default_printer_pdf_label'`) === `${printerName}-EDIT`,
         'Explicit printer save did not persist');
-      console.log('  Printer editing enabled: explicit save passed');
+      assert(sql.value(`SELECT value FROM property WHERE provider_no=${sqlString(provider)} AND name='default_printer_pdf_label_silent_print'`) === 'yes',
+        'Explicit silent-print choice did not persist');
+      console.log('  Printer editing enabled: explicit name and silent-print save passed');
     } else {
       assert(await printer.locator('[name="defaultPrinterNamePDFLabel"]').isDisabled(), 'Disabled printer feature offers unsaveable edits');
       console.log('  Printer feature disabled: read-only settings checked; explicit save requires new_label_print=true');
