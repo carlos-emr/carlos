@@ -89,6 +89,28 @@ async function workflow(s) {
     await open();
     assert(await editor.locator('#contact_container [name$=".contactId"]').count() === 0, 'Deleted contact still appears after reopening');
   });
+  await s.step('professional no-consent and inactive selections persist independently and reopen', async () => {
+    await editor.locator('a[onclick="addProContact();"]').click();
+    const pro = name => editor.locator(`[name="procontact_1.${name}"]`);
+    const search = await s.popup(editor, editor.locator('a[onclick*="doProfessionalSearch"]'), 'provider-contact-search');
+    await search.locator('a[onclick*="selectProviderCustom"]').filter({ hasText: new RegExp(`^\\s*${s.provider}\\s*$`) }).click();
+    assert(await pro('contactId').inputValue() === s.provider, 'Professional search selected the wrong provider');
+    await pro('consentToContact').selectOption('0');
+    await pro('active').selectOption('0');
+    await save();
+    await expectValue(sql, `SELECT CONCAT(consentToContact,'|',active) FROM DemographicContact
+      WHERE demographicNo=${patient} AND contactId=${sqlString(s.provider)} AND deleted=0`, '0|0',
+      'Professional no-consent or inactive selection was silently lost');
+    await open();
+    assert(await pro('consentToContact').inputValue() === '0' && await pro('active').inputValue() === '0',
+      'Professional consent/status did not reopen');
+    await pro('consentToContact').selectOption('1');
+    await pro('active').selectOption('1');
+    await save();
+    await expectValue(sql, `SELECT CONCAT(consentToContact,'|',active) FROM DemographicContact
+      WHERE demographicNo=${patient} AND contactId=${sqlString(s.provider)} AND deleted=0`, '1|1',
+      'Professional consent/status update did not persist');
+  });
 }
 if (require.main === module) runWorkflow('contact-lifecycle', workflow);
 module.exports = { workflow };

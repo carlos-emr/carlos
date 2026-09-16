@@ -150,6 +150,11 @@ application defects from test defects and missing fixtures, and records retests.
 | 25 | Contact deletion fails for both new and persisted associations | Follow-up review of `Contact2Action.removeContact()`: zero-valued unsaved IDs reach `find(0)`, and casting `ArrayList.toArray()` to `String[]` throws before persisted deletions. Both corrected; added Java regressions and unsaved personal/professional UI steps. Final live retest pending; #3682. | `issue-filed` |
 | 26 | Contact removal lacked write permission and association ownership checks | Review confirmed `removeContact()` checked read access and lacked association ownership validation. Added write permission, required patient context, POST-only save/removal, and validation of every selected owner before any deletion. Added negative Java regressions; packaged live validation pending; #3682. | `needs-live-check` |
 
+| 27 | Contact saves can reassign another patient's association or move a reciprocal row | Review of `saveManage`: existing IDs were loaded without ownership validation and reused for reverse links. Both categories/removals now prevalidate ownership; reciprocal writes require both patients' permission and a distinct reverse row. 19 focused Java cases pass; #3682. | `issue-filed` |
+| 28 | Professional contact consent and active status silently ignore selections | `saveManage` read `contact_` parameters for professional rows. Now uses `procontact_`; regression with opposing personal values passes and UI round-trip is added; #3682. | `issue-filed` |
+| 29 | Contact control IDs collide between personal and professional rows | Personal consent/active fields used the professional ID prefix. Corrected prefixes and accessible labels; live workflow checks uniqueness; #3682. | `issue-filed` |
+| 30 | Measurement Plot handler did not encode the type query parameter | Review found request-derived type embedded directly in the Plot JavaScript string. Now uses URI-component then JavaScript-attribute encoding; #3682. | `issue-filed` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is

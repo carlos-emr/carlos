@@ -279,7 +279,7 @@
                                 <td>
                                     <input type="button" name="Button" class="btn DoNotPrint"
                                         value="<fmt:message key="encounter.oscarMeasurements.displayHistory.plot"/>"
-                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements?demographic_no=<%=demo%>&type=${type}')">
+                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements?demographic_no=<%=demo%>&type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(type))}')">
                                 </td>
                             </c:if>
                         </tr>

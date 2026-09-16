@@ -21,9 +21,10 @@ with newer develop migrations were not reused or modified.
 
 - Baseline Java package build: 12,103 tests, zero failures/errors, 51 skips.
 - Revised full Java package build: **12,109 tests**, zero failures/errors, 51 skips.
-  Later contact-deletion regressions passed remote Java/JSP CI. Additional
-  authorization/HTTP-method regressions await the next run; neither addition is
-  included in that earlier local-build count.
+  A discovery audit found that the legacy `Contact2ActionTest` filename was
+  excluded by Surefire. Successful CI had therefore not executed its contact
+  regressions. Renamed it `Contact2ActionUnitTest` to match the normal suite;
+  all 19 focused cases now pass. Full-suite discovery verification is pending.
 - Revised script regressions: **614 passed** (baseline 593).
 - Revised package-management Python tests: **1,519 passed**. Generated O19
   primitive-column metadata was regenerated from pinned upstream commit
@@ -65,7 +66,11 @@ audit logs are intentionally retained.
 | SOAP interceptor by-type injection instantiates request actions during startup | Use annotated injection; executable Spring regression fails on the release definition and passes after the change; packaged app starts. |
 | Legacy NULL clinic location breaks Messenger hydration | Nullable `GroupMembers` field with existing zero-valued getter contract; unit regressions and live compose/inbox actions pass. Regenerated import metadata matches the model. |
 | Contact search handler/JSON breaks with punctuation | Encode the complete handler for its HTML attribute and serialize with `JSON.stringify`; executable original serializer fails, corrected serializer and live quoted-name selection pass. |
-| New contact association sends a blank integer ID; removal also fails | Initialize both templates to zero, ignore unsaved zero IDs during deletion, and use typed `toArray` for persisted deletion IDs. Three Java regressions and unsaved personal/professional UI steps added; execution/final package retest pending. |
+| New contact association sends a blank integer ID; removal also fails | Initialize both templates to zero, ignore unsaved zero IDs during deletion, and collect typed association rows before deletion. The 19-case contact suite passes; final package retest pending. |
+| Contact saves can reassign another patient's association; reciprocal edits can move the original row | Prevalidate both categories and removals before writes, check both patients for reciprocal writes, and create a distinct reverse row. Negative and successful reciprocal Java regressions pass. |
+| Professional consent/status silently defaults to true | Read the professional field prefix. Regression submits opposing personal values; professional false values persist. Live round-trip added, pending. |
+| Personal/professional row controls have duplicate IDs | Give personal fields their own prefix and label SDM/emergency/note controls; live uniqueness assertion added. |
+| Measurement Plot query embeds unencoded type in JavaScript | Encode the type as a URI component and then for its JavaScript attribute. |
 | Numeric measurement history has no Plot control | Test the first row's `canPlot` inside a nonempty collection; real graph response has PNG bytes. |
 | Missing optional clinic vaccine catalogue emits 404 | Fall back only for exact `vaccine-brands.json`, after existing access/path checks. Clinic override wins; unrelated missing files remain 404. Java and live prevention tests pass. |
 | Native-document/calendar requests to host `/favicon.ico` return 404 | Exact nginx redirect to the existing application icon; final package routing retest pending. |
@@ -158,7 +163,5 @@ Surefire fork. Host/guest memory guards protect the sequential browser runs.
 Default package compression exceeded the temporary-file quota; sequential zstd
 compression succeeded, and no partial package was installed. The final package
 and live retest evidence will be recorded before this PR leaves draft. Final
-validation is currently paused: LXD stalled during VM shutdown (including forced
-stop/cancellation), with the guest agent offline. No compilation was started
-while the VM process remained running. Host administrator intervention is needed
-to stop that process before rebuilding and resuming validation.
+validation resumed after host recovery; the VM remains stopped until the
+contact test discovery correction and final package build are verified.

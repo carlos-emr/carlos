@@ -211,6 +211,11 @@ public class Contact2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        int maxProContact = Integer.parseInt(request.getParameter("procontact_num"));
+        // Validate both categories and reciprocal writes before changing any row.
+        validateContactSaves("contact_", maxContact, demographicNo, loggedInInfo);
+        validateContactSaves("procontact_", maxProContact, demographicNo, loggedInInfo);
+        findContactRemovals(demographicNo);
         DemographicContact demographicContact = null;
 
         if ("ajax".equalsIgnoreCase(postMethod)) {
@@ -262,18 +267,12 @@ public class Contact2Action extends ActionSupport {
                     //check if it exists
                     if ((demographicContactDao.find(Integer.parseInt(contactId), demographicNo)).size() == 0) {
 
-                        if (demographicContactIdInt > 0) {
-                            demographicContact = demographicContactDao.find(demographicContactIdInt);
-                        } else {
-                            demographicContact = new DemographicContact();
-                        }
-
                         //c.setDemographicNo( contactIdInt );
                         String role = getReverseRole(request.getParameter("contact_" + x + ".role"), demographicNo);
                         if (role != null) {
 
                             linkContactToDemographic(demographicNo + "",  // yes this is intentional
-                                    demographicContactIdInt,
+                                    0, // A reciprocal association is a distinct row.
                                     Integer.parseInt(contactId), // yes this is intentional
                                     role,
                                     request.getParameter("contact_" + x + ".type"),
@@ -292,8 +291,6 @@ public class Contact2Action extends ActionSupport {
             }
         }
 
-        int maxProContact = Integer.parseInt(request.getParameter("procontact_num"));
-
         for (int x = 1; x <= maxProContact; x++) {
 
             String demographicContactId = request.getParameter("procontact_" + x + ".id");
@@ -304,8 +301,8 @@ public class Contact2Action extends ActionSupport {
                     continue;
                 }
 
-                String consentToContact = request.getParameter("contact_" + x + ".consentToContact");
-                String activeStatus = request.getParameter("contact_" + x + ".active");
+                String consentToContact = request.getParameter("procontact_" + x + ".consentToContact");
+                String activeStatus = request.getParameter("procontact_" + x + ".active");
 
                 boolean activeStatusOn = Boolean.TRUE;
                 boolean consentToContactOn = Boolean.TRUE;
@@ -386,78 +383,63 @@ public class Contact2Action extends ActionSupport {
             return NONE;
         }
 
-        ArrayList<String> arrayListIds = null;
-        String[] ids = null;
-        String[] proContactIds = request.getParameterValues("procontact.delete");
-        String[] contactIds = request.getParameterValues("contact.delete");
-        String postMethod = request.getParameter("postMethod");
-        String removeSingleId = request.getParameter("contactId");
         String demographicNo = StringUtils.trimToNull(request.getParameter("demographic_no"));
-        String actionForward = null;
-
         if (demographicNo == null || !securityInfoManager.hasPrivilege(
                 LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
-        int demographicId = Integer.parseInt(demographicNo);
-
-        if ("ajax".equalsIgnoreCase(postMethod)) {
-            actionForward = postMethod;
+        for (DemographicContact contact : findContactRemovals(Integer.parseInt(demographicNo))) {
+            contact.setDeleted(true);
+            demographicContactDao.merge(contact);
         }
+        String postMethod = request.getParameter("postMethod");
+        return "ajax".equalsIgnoreCase(postMethod) ? postMethod : null;
+    }
 
-        if (removeSingleId != null) {
-            ids = new String[]{removeSingleId};
-        }
-
-        if (proContactIds != null || contactIds != null) {
-            arrayListIds = new ArrayList<String>();
-
-            if (proContactIds != null) {
-                for (String x : Arrays.asList(proContactIds)) {
-                    if (x != null && !x.isEmpty()) {
-                        arrayListIds.add(x);
-                    }
+    private List<DemographicContact> findContactRemovals(int demographicNo) {
+        List<String> ids = new ArrayList<>();
+        for (String parameter : Arrays.asList("procontact.delete", "contact.delete")) {
+            String[] values = request.getParameterValues(parameter);
+            if (values != null) {
+                for (String value : values) {
+                    if (StringUtils.isNotBlank(value)) ids.add(value);
                 }
             }
+        }
+        if (ids.isEmpty() && request.getParameter("contactId") != null) {
+            ids.add(request.getParameter("contactId"));
+        }
+        List<DemographicContact> removals = new ArrayList<>();
+        for (String id : ids) {
+            int associationId = Integer.parseInt(id);
+            // An unsaved editor row has no persisted association to remove.
+            if (associationId != 0) removals.add(requireOwnedContact(associationId, demographicNo));
+        }
+        return removals;
+    }
 
-            if (contactIds != null) {
-                for (String x : Arrays.asList(contactIds)) {
-                    if (x != null && !x.isEmpty()) {
-                        arrayListIds.add(x);
-                    }
-                }
-            }
-
-            if (arrayListIds != null && !arrayListIds.isEmpty()) {
-                ids = arrayListIds.toArray(new String[0]);
+    private void validateContactSaves(String prefix, int count, int demographicNo, LoggedInInfo loggedInInfo) {
+        for (int row = 1; row <= count; row++) {
+            String field = prefix + row;
+            String id = request.getParameter(field + ".id");
+            if (id == null) continue;
+            int associationId = Integer.parseInt(id);
+            if (associationId != 0) requireOwnedContact(associationId, demographicNo);
+            String contactId = request.getParameter(field + ".contactId");
+            if ("contact_".equals(prefix) && "1".equals(request.getParameter(field + ".type"))
+                    && StringUtils.isNotBlank(contactId) && !"0".equals(contactId)
+                    && !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", contactId)) {
+                throw new SecurityException("missing write permission for reciprocal contact patient");
             }
         }
+    }
 
-        if (ids != null && ids.length > 0) {
-            List<DemographicContact> removals = new ArrayList<>();
-            int contactId;
-            for (String id : ids) {
-                contactId = Integer.parseInt(id);
-                // New association rows use zero until first save. Removing one
-                // in the editor must not look up a nonexistent persisted row.
-                if (contactId == 0) {
-                    continue;
-                }
-                DemographicContact dc = demographicContactDao.find(contactId);
-                if (dc == null || dc.getDemographicNo() != demographicId) {
-                    throw new SecurityException("Contact association does not belong to the requested patient");
-                }
-                removals.add(dc);
-            }
-            // Validate the whole selection before changing any association.
-            for (DemographicContact dc : removals) {
-                dc.setDeleted(true);
-                demographicContactDao.merge(dc);
-            }
+    private static DemographicContact requireOwnedContact(int associationId, int demographicNo) {
+        DemographicContact contact = demographicContactDao.find(associationId);
+        if (contact == null || contact.getDemographicNo() != demographicNo) {
+            throw new SecurityException("Contact association does not belong to the requested patient");
         }
-
-        return actionForward;
-
+        return contact;
     }
 
     private boolean requireContactPost() {
@@ -1058,7 +1040,7 @@ public class Contact2Action extends ActionSupport {
         DemographicContact demographicContact;
 
         if (demographicContactId > 0) {
-            demographicContact = demographicContactDao.find(demographicContactId);
+            demographicContact = requireOwnedContact(demographicContactId, demographic_no);
         } else {
             demographicContact = new DemographicContact();
         }

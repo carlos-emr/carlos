@@ -42,6 +42,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.apache.struts2.ActionSupport;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
+import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import org.springframework.test.util.ReflectionTestUtils;
+import static org.mockito.ArgumentMatchers.same;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,7 +66,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("web")
 @Tag("demographic")
-class Contact2ActionTest extends CarlosWebTestBase {
+class Contact2ActionUnitTest extends CarlosWebTestBase {
 
     private static final String DEMOGRAPHIC_NO = "12345";
 
@@ -141,8 +146,8 @@ class Contact2ActionTest extends CarlosWebTestBase {
             assertThat(professional.isDeleted()).isTrue();
             verify(mockDemographicContactDao).find(41);
             verify(mockDemographicContactDao).find(42);
-            verify(mockDemographicContactDao).merge(personal);
-            verify(mockDemographicContactDao).merge(professional);
+            verify(mockDemographicContactDao).merge(same(personal));
+            verify(mockDemographicContactDao).merge(same(professional));
             verifyNoMoreInteractions(mockDemographicContactDao);
         });
     }
@@ -241,15 +246,142 @@ class Contact2ActionTest extends CarlosWebTestBase {
         });
     }
 
+    private void prepareSave(String personalCount, String professionalCount) {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        addRequestParameter("contact_num", personalCount);
+        addRequestParameter("procontact_num", professionalCount);
+    }
+
+    private void prepareFacility() {
+        Facility facility = new Facility();
+        facility.setId(1);
+        when(mockLoggedInInfo.getCurrentFacility()).thenReturn(facility);
+    }
+
+    private void addSaveRow(String prefix, String id, String contactId, String type) {
+        addRequestParameter(prefix + ".id", id);
+        addRequestParameter(prefix + ".contactId", contactId);
+        addRequestParameter(prefix + ".type", type);
+        addRequestParameter(prefix + ".role", "Parent");
+    }
+
+    @Test
+    void shouldPersistProfessionalFlags_whenPersonalFieldsHaveOppositeValues() {
+        prepareSave("0", "1");
+        prepareFacility();
+        addSaveRow("procontact_1", "0", "999998", "3");
+        addRequestParameter("contact_1.consentToContact", "1");
+        addRequestParameter("contact_1.active", "1");
+        addRequestParameter("procontact_1.consentToContact", "0");
+        addRequestParameter("procontact_1.active", "0");
+        withContactDao(() -> {
+            assertThat(new Contact2Action().saveManage()).isEqualTo("windowClose");
+            ArgumentCaptor<DemographicContact> saved = ArgumentCaptor.forClass(DemographicContact.class);
+            verify(mockDemographicContactDao).persist(saved.capture());
+            assertThat(saved.getValue().isConsentToContact()).isFalse();
+            assertThat(saved.getValue().isActive()).isFalse();
+            assertThat(saved.getValue().getCategory()).isEqualTo(DemographicContact.CATEGORY_PROFESSIONAL);
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"contact_1", "procontact_1"})
+    void shouldRejectForeignSaveBeforeAnyWrite_whenEitherCategoryContainsAnotherPatientsAssociation(String prefix) {
+        prepareSave("1", "1");
+        addSaveRow("contact_1", "0", "45", "2");
+        addSaveRow(prefix, "41", "46", "2");
+        DemographicContact foreign = new DemographicContact();
+        foreign.setDemographicNo(67890);
+        when(mockDemographicContactDao.find(41)).thenReturn(foreign);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+            assertThat(foreign.getDemographicNo()).isEqualTo(67890);
+            verify(mockDemographicContactDao).find(41);
+            verifyNoMoreInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldRejectMissingAssociation_whenSavingAnExistingRow() {
+        prepareSave("1", "0");
+        addSaveRow("contact_1", "41", "45", "2");
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+            verify(mockDemographicContactDao).find(41);
+            verifyNoMoreInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldRejectWholeSave_whenRemovalContainsAnotherPatientsAssociation() {
+        prepareSave("1", "0");
+        addSaveRow("contact_1", "0", "45", "2");
+        addRequestParameter("procontact.delete", "41");
+        DemographicContact foreign = new DemographicContact();
+        foreign.setDemographicNo(67890);
+        when(mockDemographicContactDao.find(41)).thenReturn(foreign);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+            assertThat(foreign.isDeleted()).isFalse();
+            verify(mockDemographicContactDao).find(41);
+            verifyNoMoreInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldRejectWholeSave_whenReciprocalPatientWriteIsDenied() {
+        prepareSave("2", "0");
+        addSaveRow("contact_1", "0", "45", "2");
+        addSaveRow("contact_2", "0", "67890", "1");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
+                .thenReturn(false);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldCreateSeparateReciprocalRow_whenEditingAnInternalContactWithoutAReverseLink() {
+        prepareSave("1", "0");
+        prepareFacility();
+        addSaveRow("contact_1", "41", "67890", "1");
+        DemographicContact own = new DemographicContact();
+        ReflectionTestUtils.setField(own, "id", 41);
+        own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
+        when(mockDemographicContactDao.find(41)).thenReturn(own);
+        Demographic patient = new Demographic();
+        patient.setSex("M");
+        when(mockDemographicDao.getDemographicById(Integer.parseInt(DEMOGRAPHIC_NO))).thenReturn(patient);
+        withContactDao(() -> {
+            new Contact2Action().saveManage();
+            assertThat(own.getDemographicNo()).isEqualTo(Integer.parseInt(DEMOGRAPHIC_NO));
+            verify(mockDemographicContactDao).merge(same(own));
+            ArgumentCaptor<DemographicContact> reverse = ArgumentCaptor.forClass(DemographicContact.class);
+            verify(mockDemographicContactDao).persist(reverse.capture());
+            assertThat(reverse.getValue().getDemographicNo()).isEqualTo(67890);
+            assertThat(reverse.getValue().getContactId()).isEqualTo(DEMOGRAPHIC_NO);
+            assertThat(reverse.getValue().getRole()).isEqualTo("Son");
+        });
+    }
+
     private void withContactDao(Runnable scenario) {
         // The legacy action caches this bean statically. Isolate each scenario
         // without leaving a different DAO behind for other tests.
         DemographicContactDao previous = Contact2Action.demographicContactDao;
+        DemographicDao previousDemographicDao = Contact2Action.demographicDao;
+        Contact2Action.demographicDao = mockDemographicDao;
         Contact2Action.demographicContactDao = mockDemographicContactDao;
         try {
             scenario.run();
         } finally {
             Contact2Action.demographicContactDao = previous;
+            Contact2Action.demographicDao = previousDemographicDao;
         }
     }
 }
