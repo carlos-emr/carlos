@@ -18,22 +18,43 @@ migration/
            V1.0.9__remove_carlosdoc_schedule_group_denial.sql
            V1.0.10__seed_default_measurement_groups.sql
            V1.0.13__fix_phcp_diagnosis_group_backfill_collation.sql
+           V1.0.14__widen_faxes_jobid_to_bigint.sql
+           V1.0.15__add_faxes_direction.sql
+           V1.0.16__add_faxes_jobid_index.sql
+           V1.0.17__enable_digital_signatures_by_default.sql
+           V1.0.18__performance_indexes_2.sql  # forward delta: second DAO-justified index pass
+           V1.0.20__widen_fax_destination_for_international_numbers.sql
+           V1.0.21__serialize_missing_lab_routing_creation.sql
+           V1.0.22__add_lab_routing_lock_audit_columns.sql
+           V1.0.24__add_email_consent_audit.sql
+           V1.0.25__add_sms_system_of_record.sql
+           V1.0.26__widen_email_config_for_encrypted_credentials.sql
+           V1.0.27__prepare_outbound_email_archive_reference_engines.sql
+           V1.0.28__outbound_email_archive.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
            V1.0.6__restore_reporting_privilege.sql
            V1.0.11__billing_filename_unique_indexes.sql
            V1.0.12__portable_billing_filename_unique_indexes.sql
+           V1.0.23__activate_legacy_consultation_services.sql
   bc/      V1.0.1__bc_schema.sql            # British Columbia-only tables (structure)
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
+           V1.0.19__bc_billingmaster_indexes.sql
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.13`. The next
-Ontario or shared migration is `V1.0.14`; the next BC-only migration is `V1.0.11` because Ontario
-and BC locations are mutually exclusive (the version line is global only across `common` + the
-selected province — see below).
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.28`
+(`common/V1.0.28`, shared by both provinces), and the next free number for ANY
+location — shared or province — is `V1.0.29`. The version line is global:
+the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
+Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
+run — `common/V1.0.28` today on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.28`) but would silently
+never run on existing BC databases and would fail `flyway validate` there — so never number a new
+migration at or below the global high-water mark, even if that number was only ever used under the
+other province.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 
@@ -63,6 +84,34 @@ Demo/patient data is **not** in this baseline — it belongs in a dev-only `demo
   Flyway cutover; the legacy `createdatabase_*.sh` / `oscarinit*` / `oscardata*` build it replaced has
   been retired (recoverable from git history). Do not regenerate it — evolve the schema forward.
 - **drugref2 is a separate database** — not managed here (keeps `../development-drugref.sql` + `../drugref/*.sql`).
+
+## MariaDB CLI recovery for V1.0.7
+
+Flyway/JDBC runs negotiate a compatible connection collation, and the development bootstrap pins
+one before applying forward migrations. A manual `mysql`/`mariadb` run through `carlos-ctl db`,
+however, may use `utf8mb4_uca1400_ai_ci` on MariaDB 11.4 or newer. In that session V1.0.7 can stop
+with `ERROR 1267 (Illegal mix of collations)` after its DDL and before its guarded backfill inserts.
+
+If that happens, rerun V1.0.7 with the compatible collation established in the **same client
+session**:
+
+```bash
+{
+  printf '%s\n' 'SET NAMES utf8mb4 COLLATE utf8mb4_general_ci;'
+  cat common/V1.0.7__restore_phcp_diagnosis_groups.sql
+} | sudo EMR_HOME=/usr/local/emr carlos-ctl db oscar
+```
+
+Run this from `database/mysql/migration/`, then continue with V1.0.8 through V1.0.13 in global
+version order. V1.0.7 is safe to rerun: its DDL is repeatable and both inserts exclude rows already
+present. A separate `SET NAMES` invocation does **not** work because the setting ends with that
+client process. Do not add `--force`; continuing after an unrelated SQL error could leave the
+schema in an unknown state.
+
+V1.0.13 is an idempotent no-op after the pinned V1.0.7 rerun. It also fills the missing rows when
+an operator previously bypassed the V1.0.7 error and continued directly to later migrations.
+Automatic protection in the deployment CLI is tracked in
+[carlos-podman #17](https://github.com/carlos-emr/carlos-podman/issues/17).
 
 ## Evolving the schema
 

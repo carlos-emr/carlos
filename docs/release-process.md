@@ -96,11 +96,14 @@ snapshot. Keep `develop` on its newer snapshot during every forward merge.
 Merge commits must carry a DCO sign-off. If a true forward or back merge connects
 older commits that the automated DCO job cannot verify individually, an
 authorized maintainer may post the exact repository fallback phrase only after
-reviewing the connected history:
+reviewing the connected history. The phrase must include the current full
+40-character PR head SHA so that it approves only that exact revision:
 
 ```text
-Confirming DCO sign off for all commits
+Confirming DCO sign off for all commits at <full-pr-head-sha>
 ```
+
+Any subsequent push changes the PR head SHA and requires a new confirmation.
 
 ## Supported-release fix cycle
 
@@ -186,6 +189,16 @@ security checks as applicable. Trusted same-repository PRs also run SonarCloud.
 The publication workflow is separate: it runs only for a protected CalVer tag or
 an explicit retry of an existing tag, rebuilds from the tagged commit, and never
 publishes a snapshot.
+
+## Build identity (About page)
+
+The build stamp CARLOS shows on the authenticated About page is the Maven
+project version of the deployed WAR (plus an optional CI job / build number),
+read from `carlos-build.properties` inside the WAR. It is not a configuration
+property and cannot be pinned by an operator override, and it is not shown to
+unauthenticated visitors on the login page; see `docs/build-identity.md`.
+A published release therefore shows its exact tag (for example
+`2026.08.0-alpha11`), and a maintenance snapshot shows the `-SNAPSHOT` version.
 
 ## Release assets and verification
 

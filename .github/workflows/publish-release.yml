@@ -11,8 +11,14 @@ on:
         required: true
         type: string
 
+# One GLOBAL group (not per-tag): the release-notes "previous tag" lookup and
+# the draft bookkeeping read the set of existing releases, so serializing all
+# release runs keeps that state consistent. Releases are rare and deliberate —
+# strict serialization costs nothing; same-tag re-runs still queue as before.
+# (The final publish + latest-pointer decision now happens in deb-packages.yml,
+# after the .debs are attached.)
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: publish-release
   cancel-in-progress: false
 
 permissions:
@@ -191,7 +197,7 @@ jobs:
       ref: refs/tags/${{ needs.validate.outputs.tag }}
 
   package-and-publish:
-    name: Package and publish immutable release
+    name: Package release draft and dispatch deb build
     needs: [validate, full-check]
     if: always() && needs.validate.outputs.skip != 'true' && needs.full-check.result == 'success'
     runs-on: ubuntu-latest
@@ -199,6 +205,13 @@ jobs:
       contents: write
       attestations: write
       id-token: write
+      # actions:write lets the final step dispatch the Debian-packages
+      # workflow, which attaches the .debs to the draft and publishes it.
+      # An explicit dispatch is REQUIRED: this job leaves the release as a
+      # draft (no release event to trigger on), and even once deb-packages
+      # publishes it, GitHub suppresses workflow triggers for events created
+      # with the workflow-scoped GITHUB_TOKEN. workflow_dispatch is exempt.
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ needs.validate.outputs.tag }}
@@ -253,8 +266,18 @@ jobs:
             printf '%s\n' "$build_properties"
             exit 1
           fi
-          if grep -qi SNAPSHOT pom.xml || [[ "$war" == *SNAPSHOT* ]] || [[ "$sbom" == *SNAPSHOT* ]]; then
-            echo "::error::Release artifacts must not contain snapshot version metadata."
+          # Check the RESOLVED project version, not the raw pom text: a
+          # future comment, property name, or pinned dependency containing
+          # the word "snapshot" must not block every release. The artifact
+          # filenames are checked too — they embed the version the WAR/SBOM
+          # were actually built as.
+          project_version=$(python3 -c '
+          import xml.etree.ElementTree as ET
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          v = ET.parse("pom.xml").getroot().find("m:version", ns)
+          print("" if v is None else (v.text or ""))')
+          if [[ "${project_version^^}" == *SNAPSHOT* ]] || [[ "$war" == *SNAPSHOT* ]] || [[ "$sbom" == *SNAPSHOT* ]]; then
+            echo "::error::Release artifacts must not contain snapshot version metadata (project.version='$project_version')."
             exit 1
           fi
 
@@ -276,9 +299,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          previous_tag=$(gh release list --repo "$REPO" --limit 100 \
-            --json tagName,isDraft,publishedAt \
-            --jq ".[] | select(.isDraft == false) | .tagName" |
+          # Paginated: a fixed --limit would silently miss the same-line
+          # predecessor once the repo accumulates more releases than the cap.
+          previous_tag=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+            --jq '.[] | select(.draft | not) | .tag_name' |
             grep -E "^$RELEASE_LINE\." |
             grep -Fxv "$RELEASE_TAG" |
             head -n 1 || true)
@@ -325,12 +349,27 @@ jobs:
             fi
           done
 
-      - name: Publish the immutable release
+      - name: Dispatch the Debian package build that finalizes the release
         run: |
           set -euo pipefail
-
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease --latest=false
-          else
-            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease=false --latest
+          # The release is still a DRAFT at this point: the WAR + SBOM are
+          # attached but it is NOT published. deb-packages.yml downloads the
+          # WAR from the draft, builds and attaches the .deb assets, and then
+          # publishes the release as its final step — so the immutable release,
+          # once locked, already carries every asset (the repo enables
+          # immutable releases, which forbid attaching assets after publish).
+          # It is dispatched by hand rather than relying on a trigger: this job
+          # has not published anything yet, so there is no release event to
+          # react to, and workflow_dispatch is also exempt from the
+          # GITHUB_TOKEN event suppression noted above.
+          # Dispatched on the TAG's own ref: workflow_dispatch requires the
+          # workflow file to exist on the dispatched ref, and deb-packages.yml
+          # lives on the release lines (and their tags), not necessarily on
+          # the default branch — a default-branch dispatch 404'd on every
+          # release. The tag is also exactly the tree the build checks out.
+          if ! gh workflow run deb-packages.yml --repo "$REPO" \
+                 --ref "refs/tags/$RELEASE_TAG" \
+                 -f "tag=$RELEASE_TAG"; then
+            echo "::error::Draft release $RELEASE_TAG is ready but the Debian package build could not be dispatched, so the release was NOT published. Run it manually to finalize: gh workflow run deb-packages.yml --ref refs/tags/$RELEASE_TAG -f tag=$RELEASE_TAG"
+            exit 1
           fi

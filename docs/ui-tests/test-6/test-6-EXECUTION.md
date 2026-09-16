@@ -12,12 +12,12 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/oscar/index.jsp
 
 ### 2. Database Connectivity
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword carlos -e "SELECT 1;"
 ```
 
 ### 3. Test Patient Exists
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT demographic_no, last_name, first_name
 FROM demographic WHERE demographic_no = 1;"
 ```
@@ -237,7 +237,7 @@ restores the unsaved text instead of losing it.
 
 **Pre-requisite**: a clean `casemgmt_tmpsave` state for the test patient+provider. Run:
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 DELETE FROM casemgmt_tmpsave
 WHERE demographic_no = '1'
   AND provider_no = (SELECT provider_no FROM provider WHERE user_name = 'carlosdoc' LIMIT 1);"
@@ -259,7 +259,7 @@ timestamp.
 
 **Optional DB assertion** (skip if `mysql` unavailable in runner):
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT note FROM casemgmt_tmpsave
 WHERE demographic_no='1'
 ORDER BY update_date DESC LIMIT 1;" | grep -q "$PROBE" \
@@ -284,7 +284,7 @@ body contains `method=cancel`).
 
 **DB assertion** (required for this step — the behavioral contract of #1873):
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT note FROM casemgmt_tmpsave
 WHERE demographic_no='1'
 ORDER BY update_date DESC LIMIT 1;" | grep -q "$PROBE" \
@@ -317,7 +317,7 @@ breaking intentional cancel behavior.
 **Screenshot**: `test-6-26-cancel-button-clears.png`
 **Expected**: DB assertion passes:
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT COUNT(*) AS remaining_drafts
 FROM casemgmt_tmpsave
 WHERE demographic_no='1' AND note LIKE '%$PROBE%';"
@@ -340,14 +340,14 @@ ls -1 ui-test-runs/$TIMESTAMP/test-6/screenshots/test-6-*.png | wc -l
 ### 2. Database Verification
 ```bash
 # Verify encounter was created
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT id, observation_date, provider_no
 FROM casemgmt_note
 WHERE demographic_no = 1
 ORDER BY id DESC LIMIT 1;"
 
 # Verify measurements were recorded
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT id, type, dataField, dateObserved
 FROM measurements
 WHERE demographicNo = 1
@@ -357,7 +357,7 @@ ORDER BY id DESC LIMIT 5;"
 ### 2b. Autosave Draft Survival Check (Phase 9)
 ```bash
 # After Phase 9 Step 24, before Step 26, this must hold:
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT COUNT(*) AS draft_rows FROM casemgmt_tmpsave
 WHERE demographic_no='1' AND note LIKE '%AUTOSAVE-PROBE-%';"
 # draft_rows must be >= 1 between steps 24 and 26.

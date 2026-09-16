@@ -44,6 +44,10 @@ class ManageEmailsJspEncodingRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path EMAIL_STATUS_RESULTS_JSP_PATH =
             Path.of("src/main/webapp/WEB-INF/jsp/admin/emailStatusResults.jspf");
+    private static final Path MANAGE_EMAILS_JSP_PATH =
+            Path.of("src/main/webapp/WEB-INF/jsp/admin/manageEmails.jsp");
+    private static final Path EMAIL_COMPOSE_JSP_PATH =
+            Path.of("src/main/webapp/WEB-INF/jsp/email/emailCompose.jsp");
 
     @Test
     void shouldEncodeEmailStatusErrorPopoverContent_inHtmlAttributeContext() throws Exception {
@@ -55,13 +59,44 @@ class ManageEmailsJspEncodingRegressionTest {
         assertThat(jsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
                 .doesNotContain("<%@ taglib uri=\"owasp.encoder.jakarta.advanced\" prefix=\"e\" %>")
-                .contains("data-bs-content=\"${carlos:forHtmlAttribute(emailStatusResult.errorMessage)}\"")
+                .contains("data-bs-content=\"${carlos:forHtmlAttribute(emailStatusDetail)}\"")
                 .doesNotContain("data-bs-content=\"${emailStatusResult.errorMessage}\"");
         assertThat(encodedErrorMessage)
                 .contains("onmouseover")
                 .doesNotContain("\"");
         assertThat(renderedAttribute)
                 .doesNotContain("\" onmouseover=\"");
+    }
+
+    @Test
+    void shouldKeepPendingEmailRecoveryVisible_whenRenderingManagementViews() throws Exception {
+        String resultsJsp = Files.readString(resolveProjectPath(EMAIL_STATUS_RESULTS_JSP_PATH));
+        String manageJsp = Files.readString(resolveProjectPath(MANAGE_EMAILS_JSP_PATH));
+        String composeJsp = Files.readString(resolveProjectPath(EMAIL_COMPOSE_JSP_PATH));
+
+        assertThat(resultsJsp)
+                .contains("emailStatusResult.resolvable")
+                .contains("emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable")
+                .contains("admin.manageEmails.pendingDetail")
+                .contains("emailStatusResult.status eq 'PENDING' and empty emailStatusDetail")
+                .contains("<i class=\"fa-solid fa-lock\"></i> Encrypted")
+                .doesNotContain("emailStatusResult.password");
+        assertThat(manageJsp)
+                .contains(".status-tag-pending")
+                .contains(".vertical-status-divider-pending")
+                .contains("method=setResolved")
+                .contains("bootstrap.Popover.getInstance(statusElement)")
+                .contains("statusElement.removeAttribute('data-bs-content')");
+        assertThat(composeJsp)
+                .contains("email.compose.msg.pendingResendWarning")
+                .contains("class=\"alert alert-warning\" id=\"emailResendWarning\"")
+                .contains("window.confirm(resendWarning.value)")
+                .contains("email.compose.msg.statusTrackingFailed")
+                .contains("email.compose.msg.deliveryUnconfirmed")
+                .contains("<c:when test=\"${ isEmailSuccessful }\">")
+                .contains("<c:when test=\"${ isEmailDeliveryUnconfirmed }\">")
+                .contains("document.getElementById('isEmailStatusRecorded').value === 'true'")
+                .doesNotContain("alert(resendWarning.value)");
     }
 
     /**

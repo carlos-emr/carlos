@@ -73,6 +73,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -237,10 +238,10 @@
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
                     <td>
-                        <div align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
+                        <div align="right"><label for="user_name"><fmt:message key="admin.securityrecord.formUserName"/></label>:
                         </div>
                     </td>
-                    <td><input type="text" name="user_name" size="20" maxlength="10">
+                    <td><input type="text" name="user_name" id="user_name" size="30" maxlength="30">
                     </td>
                 </tr>
                 <tr>
@@ -265,11 +266,20 @@
                     <td><select name="provider_no" id="provider_no">
                         <option value="">-- select one --</option>
                         <%
-                            List<Map<String, Object>> resultList;
-                            if (isSiteAccessPrivacy) {
+                            // One query for every existing login record instead of a per-provider
+                            // lookup while rendering (avoids N+1 on installs with many providers).
+                            Set<String> providerNosWithLogin = new HashSet<String>();
+                            for (Security existingLogin : securityDao.findAllOrderBy("userName")) {
+                                providerNosWithLogin.add(existingLogin.getProviderNo());
+                            }
+
+                            // Site-scoped filtering relies on providersite rows, which only exist when
+                            // multisites is enabled (Add Provider writes them solely in that mode and no
+                            // Flyway seed populates the table). Without the multisites gate, a standalone
+                            // install where the admin holds _site_access_privacy renders an empty dropdown.
+                            if (isSiteAccessPrivacy && IsPropertiesOn.isMultisitesEnable()) {
                                 for (Provider p : providerSiteDao.findActiveProvidersBySharedSites(curProvider_no)) {
-                                    List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
-                                    if (s.isEmpty()) {
+                                    if (!providerNosWithLogin.contains(p.getProviderNo())) {
                         %>
                         <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>
@@ -280,10 +290,12 @@
 
                         } else {
                             for (Provider p : providerDao.getActiveProviders()) {
+                                if (!providerNosWithLogin.contains(p.getProviderNo())) {
                         %>
                         <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>
                         <%
+                                    }
                                 }
                             }
                         %>
@@ -291,9 +303,9 @@
                 </tr>
                 <!-- new sec -->
                 <tr>
-                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formExpiryDate"/>:
+                    <td align="right" nowrap><label for="b_ExpireSet"><fmt:message key="admin.securityrecord.formExpiryDate"/></label>:
                     </td>
-                    <td><input type="checkbox" name="b_ExpireSet" value="1" <%="checked" %>" /> <fmt:message key="admin.securityrecord.formDate"/>: <input type="text" name="date_ExpireDate"
+                    <td><input type="checkbox" name="b_ExpireSet" id="b_ExpireSet" value="1" <%="checked" %> /> <label for="date_ExpireDate"><fmt:message key="admin.securityrecord.formDate"/></label>: <input type="text" name="date_ExpireDate"
                                                                           id="date_ExpireDate"
                                                                           value="" size="10" readonly/> <img
                             src="<%= request.getContextPath() %>/images/cal.gif"

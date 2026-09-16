@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
@@ -40,5 +41,16 @@ public interface CtlDocumentDao extends AbstractDao<CtlDocument> {
     public CtlDocument getCtrlDocument(Integer docId);
 
     public List<CtlDocument> findByDocumentNoAndModule(Integer ctlDocNo, String module);
+
+    /**
+     * Finds every module link for the supplied document numbers.
+     * Null document numbers and duplicate values are ignored. A null, empty, or
+     * all-null collection returns an empty list. The returned list is never null
+     * and has no defined ordering.
+     *
+     * @param documentNos document numbers whose module links should be returned
+     * @return all matching module links, or an empty list when none match
+     */
+    public List<CtlDocument> findByDocumentNos(Collection<Integer> documentNos);
 
 }
