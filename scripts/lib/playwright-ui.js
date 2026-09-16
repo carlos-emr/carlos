@@ -51,16 +51,18 @@ function watchOutcomes(sources, timeout, message) {
   const listeners = [];
   let expire;
   let settled = false;
+  let abandonObserved;
   const cancel = () => {
     settled = true;
     clearTimeout(expire);
     for (const [emitter, event, listener] of listeners) emitter.off(event, listener);
   };
   const promise = new Promise((resolve, reject) => {
-    for (const { emitter, event, accepts = () => true, result } of sources) {
+    for (const { emitter, event, accepts = () => true, result, abandon } of sources) {
       const listener = value => {
         if (settled || !accepts(value)) return;
         cancel();
+        if (abandon) abandonObserved = () => abandon(value);
         try { resolve(result(value)); } catch (error) { reject(error); }
       };
       listeners.push([emitter, event, listener]);
@@ -70,7 +72,15 @@ function watchOutcomes(sources, timeout, message) {
   });
   // A failed click may prevent awaiting the event promise.
   promise.catch(() => {});
-  return { promise, cancel };
+  return { promise, cancel, async abandon() {
+    cancel();
+    // A popup can arrive before click() rejects. Its caller will never own it.
+    if (abandonObserved) {
+      const cleanup = abandonObserved;
+      abandonObserved = null;
+      try { await cleanup(); } catch { /* Preserve the original click failure. */ }
+    }
+  } };
 }
 
 /**
@@ -88,7 +98,7 @@ async function clickOpensPopup(page, locator, options = {}) {
   const label = options.label || 'popup';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
   const pending = watchOutcomes([
-    { emitter: context, event: 'page', result(popup) {
+    { emitter: context, event: 'page', abandon: popup => popup.close(), result(popup) {
       if (options.recorder) wireStrictPage(popup, label, options.recorder, options);
       return popup;
     } },
@@ -99,6 +109,9 @@ async function clickOpensPopup(page, locator, options = {}) {
     await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     await target.click({ timeout });
     popup = await pending.promise;
+  } catch (error) {
+    await pending.abandon();
+    throw error;
   } finally {
     pending.cancel();
   }
@@ -140,7 +153,7 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   const pending = watchOutcomes([
-    { emitter: context, event: 'page', result(popup) {
+    { emitter: context, event: 'page', abandon: popup => popup.close(), result(popup) {
       if (options.recorder) wireStrictPage(popup, label, options.recorder, options);
       return { page: popup, isPopup: true };
     } },
@@ -154,6 +167,9 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
     await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     await target.click({ timeout });
     outcome = await pending.promise;
+  } catch (error) {
+    await pending.abandon();
+    throw error;
   } finally {
     pending.cancel();
   }
@@ -206,7 +222,7 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
   const pending = watchOutcomes([
     { emitter: page, event: 'download', result: download =>
       ({ kind: 'download', url: download.url(), download, page: null }) },
-    { emitter: context, event: 'page', result(popup) {
+    { emitter: context, event: 'page', abandon: popup => popup.close(), result(popup) {
       if (options.recorder) wireStrictPage(popup, label, options.recorder, options);
       return { kind: 'popup', url: '', download: null, page: popup };
     } },
@@ -218,6 +234,9 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
     await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     await target.click({ timeout });
     outcome = await pending.promise;
+  } catch (error) {
+    await pending.abandon();
+    throw error;
   } finally {
     pending.cancel();
   }

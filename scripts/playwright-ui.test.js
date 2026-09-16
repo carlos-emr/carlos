@@ -308,6 +308,41 @@ test('a failed navigation names the page by path, never by its query string', ()
 
 
 
+for (const helper of [clickOpensPopup, clickOpensPopupOrNavigates, clickDownloadsOrOpens]) {
+  for (const closeFails of [false, true]) {
+    test(`${helper.name} closes an observed popup before propagating a click failure (close fails: ${closeFails})`, async () => {
+      const context = new EventEmitter();
+      const page = eventPage();
+      const popup = eventPage();
+      const clickError = new Error('click failed after opening popup');
+      let closeCount = 0;
+      popup.close = async () => {
+        closeCount++;
+        if (closeFails) throw new Error('already closed');
+      };
+      await assert.rejects(helper(page, control(async () => {
+        context.emit('page', popup);
+        throw clickError;
+      }), { context, timeout: 50 }), error => error === clickError);
+      assert.equal(closeCount, 1);
+      noOutcomeListeners(page, context);
+    });
+  }
+}
+
+test('a click failure after same-tab navigation preserves the host page', async () => {
+  const context = new EventEmitter();
+  const page = eventPage();
+  let closed = false;
+  page.close = async () => { closed = true; };
+  await assert.rejects(clickOpensPopupOrNavigates(page, control(async () => {
+    page.emit('framenavigated', page.mainFrame());
+    throw new Error('click failed after navigation');
+  }), { context, timeout: 50 }), /click failed after navigation/);
+  assert.equal(closed, false);
+  noOutcomeListeners(page, context);
+});
+
 test('a popup that fails its own checks is closed, not leaked', async () => {
   const context = new EventEmitter();
   const page = eventPage();

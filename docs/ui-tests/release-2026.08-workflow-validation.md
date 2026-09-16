@@ -25,7 +25,7 @@ with newer develop migrations were not reused or modified.
   excluded by Surefire. Successful CI had therefore not executed its contact
   regressions. Renamed it `Contact2ActionUnitTest` to match the normal suite;
   all 19 focused cases now pass. Full-suite discovery verification is pending.
-- Revised script regressions: **614 passed** (baseline 593).
+- Revised script regressions: **621 passed** (baseline 593).
 - Revised package-management Python tests: **1,519 passed**. Generated O19
   primitive-column metadata was regenerated from pinned upstream commit
   `a7900d569d3faf741993e5e1da8c14021bbefede` after the nullable model fix; the
@@ -92,6 +92,9 @@ audit logs are intentionally retained.
   signature and EOF). Real Chromium probes cover nested menus, hover entries and
   iframe destinations. Native PDFs are validated as PDFs, not accepted as blank
   HTML. Failed popup validation closes the popup without closing its host tab.
+- Six additional regressions reproduce popups opened before a click rejects;
+  the helpers now close those abandoned popups and preserve the original error,
+  even if closing also fails. A same-tab control confirms its host stays open.
 - Five before/after event-race probes reproduce stale listeners in the original
   helpers and prove zero listeners remain after navigation/download success or
   click failure. Popup-only, popup/navigation and popup/download waits now all
