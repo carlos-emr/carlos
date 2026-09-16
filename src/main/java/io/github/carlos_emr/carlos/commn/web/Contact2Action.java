@@ -88,6 +88,9 @@ public class Contact2Action extends ActionSupport {
     private static final String PROFESSIONAL_CONTACT_PREFIX = "procontact_";
     private static final String CONTACT_ID_SUFFIX = ".contactId";
     private static final String CONTACT_ID_PARAMETER = "contactId";
+    private static final String CONTACT_ROLE_SUFFIX = ".role";
+    private static final String CONTACT_TYPE_SUFFIX = ".type";
+    private static final String CONTACT_NOTE_SUFFIX = ".note";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -256,9 +259,9 @@ public class Contact2Action extends ActionSupport {
                 linkContactToDemographic(contactId,
                         demographicContactIdInt,
                         demographicNo,
-                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".role"),
-                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".type"),
-                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".note"),
+                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + CONTACT_ROLE_SUFFIX),
+                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + CONTACT_TYPE_SUFFIX),
+                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + CONTACT_NOTE_SUFFIX),
                         DemographicContact.CATEGORY_PERSONAL,
                         request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".sdm"),
                         request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".ec"),
@@ -275,7 +278,7 @@ public class Contact2Action extends ActionSupport {
                             Integer.parseInt(contactId),
                             reverseRole,
                             Integer.toString(DemographicContact.TYPE_DEMOGRAPHIC),
-                            request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".note"),
+                            request.getParameter(PERSONAL_CONTACT_PREFIX + x + CONTACT_NOTE_SUFFIX),
                             DemographicContact.CATEGORY_PERSONAL,
                             null, // Reciprocal relationships do not grant SDM or emergency-contact status.
                             null,
@@ -314,9 +317,9 @@ public class Contact2Action extends ActionSupport {
                 linkContactToDemographic(contactId,
                         demographicContactIdInt,
                         demographicNo,
-                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".role"),
-                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".type"),
-                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".note"),
+                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + CONTACT_ROLE_SUFFIX),
+                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + CONTACT_TYPE_SUFFIX),
+                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + CONTACT_NOTE_SUFFIX),
                         DemographicContact.CATEGORY_PROFESSIONAL,
                         request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".sdm"),
                         request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".ec"),
@@ -441,12 +444,12 @@ public class Contact2Action extends ActionSupport {
 
         // Existing rows disable their type selector, so browsers omit it.
         // Match the persisted-type fallback used by linkContactToDemographic.
-        String submittedType = request.getParameter(field + ".type");
+        String submittedType = request.getParameter(field + CONTACT_TYPE_SUFFIX);
         int effectiveType = existing != null ? existing.getType() : DemographicContact.TYPE_PROVIDER;
         if (submittedType != null) effectiveType = Integer.parseInt(submittedType);
         if (effectiveType != DemographicContact.TYPE_DEMOGRAPHIC
                 || !demographicContactDao.find(Integer.parseInt(contactId), demographicNo).isEmpty()) return null;
-        return getReverseRole(request.getParameter(field + ".role"), demographicNo);
+        return getReverseRole(request.getParameter(field + CONTACT_ROLE_SUFFIX), demographicNo);
     }
 
     private static DemographicContact requireOwnedContact(int associationId, int demographicNo) {
@@ -1042,11 +1045,10 @@ public class Contact2Action extends ActionSupport {
      **/
 
     /*
-     * Links a Contact with Demographic with the DemographicContact associate table.
-     * Edit DemographicContact by setting demographicContactId to 0.
-     * Add a DemographicContact by setting demographicContactId > 0.
-     * All parameters are mandatory.
-     * sdm & ec can be set to null for default false.
+     * Creates or updates a contact association owned by the supplied patient.
+     * A zero association ID creates a row; a positive ID updates an owned row.
+     * A null type preserves an existing row's type, or the model default for a new row.
+     * Null sdm/ec values mean unselected; non-null values represent selected checkboxes.
      */
     private static final DemographicContact linkContactToDemographic(final String contactId, final Integer demographicContactId,
                                                                      final Integer demographic_no, final String role, final String type, final String note, final String category,

@@ -165,7 +165,7 @@ make; neither is a shortcut around the rule.
 | `diagnosis-flowsheet` | §2.5 | Code search/add; diagnosis-triggered diabetes flowsheet and A1C entry; resolve and cancelled/accepted archive |
 | `prevention-lifecycle` | §3.4 | Vaccine picker; refused/completed/ineligible status, comments and dates; reopen and archive |
 | `allergy-custom-lifecycle` | §3.2 | Non-drug custom allergy; confirmation cancellation; amendment retaining history; cancelled/accepted archive |
-| `contact-lifecycle` | §2.4 | External-contact search, punctuation-safe selection, clinical flags, consent, notes, cancellation, association deletion and professional consent/status round-trip |
+| `contact-lifecycle` | §2.4 | External-contact search, punctuation-safe selection, clinical flags, consent, notes, cancellation, association deletion, professional consent/status round-trip, and editing a seeded internal relationship with reciprocal type/flags and duplicate checks |
 | `consultation-directory-crud` | §3.3 | Institution/department create, edit and cancelled/accepted deletion; unselected records survive |
 | `measurement-history` | §2.5 | Dated measurement values, plotted PNG bytes, selected-row deletion and preserved archive |
 
