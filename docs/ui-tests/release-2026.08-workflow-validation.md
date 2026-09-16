@@ -21,7 +21,7 @@ with newer develop migrations were not reused or modified.
 
 - Baseline Java package build: 12,103 tests, zero failures/errors, 51 skips.
 - Revised full Java package build: **12,109 tests**, zero failures/errors, 51 skips.
-- Revised script regressions: **612 passed** (baseline 593).
+- Revised script regressions: **614 passed** (baseline 593).
 - Revised package-management Python tests: **1,519 passed**. Generated O19
   primitive-column metadata was regenerated from pinned upstream commit
   `a7900d569d3faf741993e5e1da8c14021bbefede` after the nullable model fix; the
@@ -84,6 +84,10 @@ audit logs are intentionally retained.
   signature and EOF). Real Chromium probes cover nested menus, hover entries and
   iframe destinations. Native PDFs are validated as PDFs, not accepted as blank
   HTML. Failed popup validation closes the popup without closing its host tab.
+- Five before/after event-race probes reproduce stale listeners in the original
+  helpers and prove zero listeners remain after navigation/download success or
+  click failure. Popup-only, popup/navigation and popup/download waits now all
+  dispose their temporary listeners.
 - The runner rejects unknown `--only` and `--skip` names, including mixed
   valid/misspelled selections, before launching a browser.
 - Demographic audit waits for its asynchronous read before closing the window;
@@ -147,4 +151,8 @@ Host compilation occurs only with the VM stopped, with a 5 GiB memory cap and on
 Surefire fork. Host/guest memory guards protect the sequential browser runs.
 Default package compression exceeded the temporary-file quota; sequential zstd
 compression succeeded, and no partial package was installed. The final package
-and live retest evidence will be recorded before this PR leaves draft.
+and live retest evidence will be recorded before this PR leaves draft. Final
+validation is currently paused: LXD stalled during VM shutdown (including forced
+stop/cancellation), with the guest agent offline. No compilation was started
+while the VM process remained running. Host administrator intervention is needed
+to stop that process before rebuilding and resuming validation.

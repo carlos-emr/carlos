@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { EventEmitter } = require('node:events');
-const { clickDownloadsOrOpens, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const { clickOpensPopup, clickDownloadsOrOpens, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { createRecorder, wireStrictPage, assertStrictPage } = require('./lib/playwright-harness');
 
 function eventPage(text = 'Working page') {
@@ -78,7 +78,7 @@ test('same-address main-frame navigation counts, subframes do not, and errors us
   assert.equal(later.listenerCount('pageerror'), 0);
 });
 
-for (const helper of [clickOpensPopupOrNavigates, clickDownloadsOrOpens]) {
+for (const helper of [clickOpensPopup, clickOpensPopupOrNavigates, clickDownloadsOrOpens]) {
   test(`${helper.name} removes all listeners when the click fails`, async () => {
     const context = new EventEmitter();
     const page = eventPage();
@@ -108,7 +108,7 @@ for (const helper of [clickOpensPopupOrNavigates, clickDownloadsOrOpens]) {
       context.emit('page', popup);
       popup.emit('pageerror', new Error('startup handler failed'));
     }), { context, recorder, label: 'early-popup' });
-    assert.equal(result.page, popup);
+    assert.equal(helper === clickOpensPopup ? result : result.page, popup);
     assert.throws(() => assertStrictPage(recorder), /startup handler failed/);
     noOutcomeListeners(page, context);
   });
@@ -308,88 +308,17 @@ test('a failed navigation names the page by path, never by its query string', ()
 
 
 
-test('a popup is wired before the awaiting code resumes, not after', async () => {
-  // Playwright does not replay EventEmitter events. A popup whose FIRST
-  // document throws, logs an error, raises a dialog or fails a request can do
-  // so between the 'page' event and the moment `await popupPromise` resumes --
-  // so wiring after the await lost exactly the startup failures the audits
-  // exist to report, and they called the popup clean.
-  const { clickOpensPopup } = require('./lib/playwright-ui');
-  const { createRecorder } = require('./lib/playwright-harness');
-  const recorder = createRecorder();
-
-  const handlers = {};
-  const popup = {
-    on(event, handler) { (handlers[event] = handlers[event] || []).push(handler); },
-    url: () => 'https://carlos.test/carlos/admin/panel',
-    async waitForLoadState() {},
-    locator: () => ({ innerText: async () => 'a working page' }),
-    context: () => ({}),
-  };
-  // The popup emits its startup failure the instant it exists, which is what a
-  // real one does while its first document parses.
-  let emitted = false;
-  const context = {
-    async waitForEvent() { return popup; },
-  };
-  const page = {
-    locator: () => ({
-      scrollIntoViewIfNeeded: async () => {},
-      async click() {
-        // The click resolves; the popup's own event fires around the same time.
-        emitted = true;
-      },
-    }),
-    context: () => context,
-  };
-
-  const opened = await clickOpensPopup(page, page.locator('a'), {
-    context, label: 'panel', recorder, timeout: 1000,
-  });
-  assert.equal(opened, popup);
-  assert.ok(emitted, 'the click must have run');
-  // The wiring must already have registered its listeners, so a failure raised
-  // now is recorded under this popup's label.
-  assert.ok((handlers.pageerror || []).length > 0,
-    'the popup must be wired for pageerror before the caller gets it back');
-  handlers.pageerror[0]({ message: 'boom', stack: 'boom' });
-  assert.equal(recorder.pageErrors.length, 1);
-  assert.equal(recorder.pageErrors[0].label, 'panel');
-
-  // And the wiring happens inside the event continuation, not after the await.
-  const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-ui'), 'utf8');
-  const helper = source.slice(source.indexOf('async function clickOpensPopup'));
-  const body = helper.slice(0, helper.indexOf('\n}\n'));
-  assert.match(body, /waitForEvent\('page', \{ timeout \}\)\.then\(\(popup\) => \{/);
-  assert.ok(body.indexOf('wireStrictPage') < body.indexOf('await target.click'),
-    'the wiring must be set up before the click, or the popup can outrun it');
-});
-
 test('a popup that fails its own checks is closed, not leaked', async () => {
-  // assertNotErrorPage() and the load-state wait both throw, and the caller
-  // never receives the page when they do -- so auditCatalogue's finally, which
-  // closes popups, has nothing to close. A 120-item admin sweep with several
-  // broken popups leaked one Playwright page each and kept going, which
-  // exhausts the browser for a reason unrelated to anything under test.
-  const { clickOpensPopup } = require('./lib/playwright-ui');
+  const context = new EventEmitter();
+  const page = eventPage();
+  const popup = eventPage();
   let closed = false;
-  const popup = {
-    on() {},
-    url: () => 'https://carlos.test/carlos/admin/broken',
-    async waitForLoadState() { throw new Error('navigation failed'); },
-    async close() { closed = true; },
-    locator: () => ({ innerText: async () => '' }),
-  };
-  const context = { async waitForEvent() { return popup; } };
-  const page = {
-    context: () => context,
-    locator: () => ({ scrollIntoViewIfNeeded: async () => {}, click: async () => {} }),
-  };
-  await assert.rejects(
-    () => clickOpensPopup(page, page.locator('a'), { context, label: 'broken', timeout: 500 }),
-    /navigation failed/,
-  );
-  assert.equal(closed, true, 'the popup must be closed before the error is rethrown');
+  popup.waitForLoadState = async () => { throw new Error('navigation failed'); };
+  popup.close = async () => { closed = true; };
+  await assert.rejects(clickOpensPopup(page, control(async () => context.emit('page', popup)), { context }),
+    /navigation failed/);
+  assert.equal(closed, true);
+  noOutcomeListeners(page, context);
 });
 
 /*
@@ -426,4 +355,3 @@ test('pickDate accepts an input whose flatpickr instance cannot be read', async 
   const double = flatpickrDouble(() => september, { selectedIso: null });
   assert.equal(await pickDate(double.page, '#appointment_date', '2026-09-20', { timeout: 50 }), '2026-09-20');
 });
-
