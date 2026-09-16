@@ -255,7 +255,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="2"><p><fmt:message key="provider.setDefaultPrinter.manualEntryHelp"/></p><select id="printerList" size="5" onclick="setPrinter();"></select></td>
+                            <td colspan="2"><p><fmt:message key="provider.setDefaultPrinter.manualEntryHelp"/></p><label for="printerList"><fmt:message key="provider.setDefaultPrinter.msgdefaulPrinter"/></label><select id="printerList" size="5" onclick="setPrinter();"></select></td>
                         </tr>
                         <tr>
                             <td colspan="2">
