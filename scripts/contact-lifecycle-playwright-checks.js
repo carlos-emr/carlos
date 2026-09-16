@@ -31,6 +31,8 @@ async function workflow(s) {
     await open();
     await editor.locator('a[onclick="addContact();"]').click();
     await editor.locator('a[onclick="addProContact();"]').click();
+    const ids = await editor.locator('#contact_1 [id], #procontact_1 [id]').evaluateAll(elements => elements.map(element => element.id));
+    assert(new Set(ids).size === ids.length, 'Personal and professional contact controls share duplicate IDs');
     await editor.locator('#contact_1 a[onclick*="deleteContact("]').click();
     await editor.locator('#procontact_1 a[onclick*="deleteProContact("]').click();
     await save();

@@ -181,7 +181,8 @@ class Contact2ActionTest extends CarlosWebTestBase {
         registerContactActionBeans();
         addRequestParameter("contactId", "41");
         withContactDao(() -> {
-            assertThatThrownBy(() -> new Contact2Action().removeContact()).isInstanceOf(SecurityException.class);
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::removeContact).isInstanceOf(SecurityException.class);
             verifyNoInteractions(mockDemographicContactDao);
         });
     }
@@ -195,7 +196,8 @@ class Contact2ActionTest extends CarlosWebTestBase {
         otherPatient.setDemographicNo(67890);
         when(mockDemographicContactDao.find(41)).thenReturn(otherPatient);
         withContactDao(() -> {
-            assertThatThrownBy(() -> new Contact2Action().removeContact()).isInstanceOf(SecurityException.class);
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::removeContact).isInstanceOf(SecurityException.class);
             assertThat(otherPatient.isDeleted()).isFalse();
             verify(mockDemographicContactDao).find(41);
             verifyNoMoreInteractions(mockDemographicContactDao);
@@ -208,7 +210,8 @@ class Contact2ActionTest extends CarlosWebTestBase {
         addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
         addRequestParameter("contactId", "41");
         withContactDao(() -> {
-            assertThatThrownBy(() -> new Contact2Action().removeContact()).isInstanceOf(SecurityException.class);
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::removeContact).isInstanceOf(SecurityException.class);
             verify(mockDemographicContactDao).find(41);
             verifyNoMoreInteractions(mockDemographicContactDao);
         });
@@ -228,7 +231,8 @@ class Contact2ActionTest extends CarlosWebTestBase {
         when(mockDemographicContactDao.find(41)).thenReturn(ownPatient);
         when(mockDemographicContactDao.find(42)).thenReturn(otherPatient);
         withContactDao(() -> {
-            assertThatThrownBy(() -> new Contact2Action().removeContact()).isInstanceOf(SecurityException.class);
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::removeContact).isInstanceOf(SecurityException.class);
             assertThat(ownPatient.isDeleted()).isFalse();
             assertThat(otherPatient.isDeleted()).isFalse();
             verify(mockDemographicContactDao).find(41);

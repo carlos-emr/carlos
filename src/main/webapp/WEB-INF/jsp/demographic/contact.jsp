@@ -88,14 +88,14 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
 
     &nbsp;
 
-    <select name="contact_${carlos:forHtmlAttribute(param.id)}.consentToContact" id="procontact_${carlos:forHtmlAttribute(param.id)}.consentToContact" title="Consent to Contact">
+    <select name="contact_${carlos:forHtmlAttribute(param.id)}.consentToContact" id="contact_${carlos:forHtmlAttribute(param.id)}.consentToContact" title="Consent to Contact">
         <option value="1">Consent</option>
         <option value="0">No Consent</option>
     </select>
 
     &nbsp;
 
-    <select name="contact_${carlos:forHtmlAttribute(param.id)}.active" id="procontact_${carlos:forHtmlAttribute(param.id)}.active" title="Active">
+    <select name="contact_${carlos:forHtmlAttribute(param.id)}.active" id="contact_${carlos:forHtmlAttribute(param.id)}.active" title="Active">
         <option value="1">Active</option>
         <option value="0">Inactive</option>
     </select>
@@ -114,7 +114,10 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
     <a href="#" onclick="doPersonalSearch('<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' context="html"/></a><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 
     &nbsp;
-    SDM:<input type="checkbox" name="contact_${carlos:forHtmlAttribute(param.id)}.sdm"/>
-    EC:<input type="checkbox" name="contact_${carlos:forHtmlAttribute(param.id)}.ec"/>
-    <textarea name="contact_${carlos:forHtmlAttribute(param.id)}.note" rows="3" cols="25" title="Contact Note"></textarea>
+    <label for="contact_${carlos:forHtmlAttribute(param.id)}.sdm">SDM:</label>
+    <input type="checkbox" name="contact_${carlos:forHtmlAttribute(param.id)}.sdm" id="contact_${carlos:forHtmlAttribute(param.id)}.sdm"/>
+    <label for="contact_${carlos:forHtmlAttribute(param.id)}.ec">EC:</label>
+    <input type="checkbox" name="contact_${carlos:forHtmlAttribute(param.id)}.ec" id="contact_${carlos:forHtmlAttribute(param.id)}.ec"/>
+    <label for="contact_${carlos:forHtmlAttribute(param.id)}.note">Contact Note:</label>
+    <textarea name="contact_${carlos:forHtmlAttribute(param.id)}.note" id="contact_${carlos:forHtmlAttribute(param.id)}.note" rows="3" cols="25" title="Contact Note"></textarea>
 </div>
