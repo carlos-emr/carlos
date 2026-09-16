@@ -447,6 +447,26 @@
       ]
     },
     {
+      "name": "inactive-drug-status",
+      "script": "scripts/inactive-drug-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "DRUGREF_TEST_DATABASE",
+        "INACTIVE_DRUG_DIN"
+      ],
+      "fixtures": "Creates and removes an owned patient; reads a real inactive DrugRef product (default DIN 02245547) and never saves a prescription."
+    },
+    {
       "name": "drugref-update",
       "script": "scripts/drugref-update-playwright-checks.js",
       "tiers": [
@@ -1572,6 +1592,24 @@
       ]
     },
     {
+      "name": "provider-preferences",
+      "script": "scripts/provider-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Uses the disposable test provider; snapshots and restores printer, document-description and text-signature preferences."
+    },
+    {
       "name": "surface-audit:referrals-surface",
       "script": "scripts/surface-audit-playwright-checks.js",
       "envSet": {
@@ -1744,6 +1782,24 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
+    },
+    {
+      "name": "record-access",
+      "script": "scripts/record-access-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes owned patients, an episode and scratchpad versions; requires a second provider in a local disposable database."
     },
     {
       "name": "diagnosis-flowsheet",
