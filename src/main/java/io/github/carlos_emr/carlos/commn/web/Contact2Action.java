@@ -197,6 +197,9 @@ public class Contact2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveManage() {
+        if (!requireContactPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         int demographicNo = Integer.parseInt(request.getParameter("demographic_no"));
@@ -379,6 +382,9 @@ public class Contact2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String removeContact() {
+        if (!requireContactPost()) {
+            return NONE;
+        }
 
         ArrayList<String> arrayListIds = null;
         String[] ids = null;
@@ -389,9 +395,11 @@ public class Contact2Action extends ActionSupport {
         String demographicNo = StringUtils.trimToNull(request.getParameter("demographic_no"));
         String actionForward = null;
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
+        if (demographicNo == null || !securityInfoManager.hasPrivilege(
+                LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
+        int demographicId = Integer.parseInt(demographicNo);
 
         if ("ajax".equalsIgnoreCase(postMethod)) {
             actionForward = postMethod;
@@ -426,6 +434,7 @@ public class Contact2Action extends ActionSupport {
         }
 
         if (ids != null && ids.length > 0) {
+            List<DemographicContact> removals = new ArrayList<>();
             int contactId;
             for (String id : ids) {
                 contactId = Integer.parseInt(id);
@@ -435,6 +444,13 @@ public class Contact2Action extends ActionSupport {
                     continue;
                 }
                 DemographicContact dc = demographicContactDao.find(contactId);
+                if (dc == null || dc.getDemographicNo() != demographicId) {
+                    throw new SecurityException("Contact association does not belong to the requested patient");
+                }
+                removals.add(dc);
+            }
+            // Validate the whole selection before changing any association.
+            for (DemographicContact dc : removals) {
                 dc.setDeleted(true);
                 demographicContactDao.merge(dc);
             }
@@ -442,6 +458,15 @@ public class Contact2Action extends ActionSupport {
 
         return actionForward;
 
+    }
+
+    private boolean requireContactPost() {
+        if ("POST".equals(request.getMethod())) {
+            return true;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     @SuppressWarnings("unused")

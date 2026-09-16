@@ -96,7 +96,7 @@ async function clickOpensPopup(page, locator, options = {}) {
   const target = typeof locator === 'string' ? page.locator(locator) : locator;
   let popup;
   try {
-    await target.scrollIntoViewIfNeeded().catch(() => {});
+    await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     await target.click({ timeout });
     popup = await pending.promise;
   } finally {
@@ -151,7 +151,7 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   const target = typeof locator === 'string' ? page.locator(locator) : locator;
   let outcome;
   try {
-    await target.scrollIntoViewIfNeeded().catch(() => {});
+    await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     await target.click({ timeout });
     outcome = await pending.promise;
   } finally {
@@ -215,7 +215,7 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
   const target = typeof locator === 'string' ? page.locator(locator) : locator;
   let outcome;
   try {
-    await target.scrollIntoViewIfNeeded().catch(() => {});
+    await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     await target.click({ timeout });
     outcome = await pending.promise;
   } finally {

@@ -38,6 +38,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.apache.struts2.ActionSupport;
 import org.mockito.Mock;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -74,13 +77,13 @@ class Contact2ActionTest extends CarlosWebTestBase {
     @Mock private PharmacyManager mockPharmacyManager;
 
     @Test
-    @DisplayName("should reject ajax remove when patient record ACL denies read")
-    void shouldRejectAjaxRemove_whenPatientRecordAclDeniesRead() {
+    @DisplayName("should reject ajax remove when patient record ACL denies write")
+    void shouldRejectAjaxRemove_whenPatientRecordAclDeniesWrite() {
         registerContactActionBeans();
         addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
         addRequestParameter("postMethod", "ajax");
         when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq(DEMOGRAPHIC_NO)))
+                any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(DEMOGRAPHIC_NO)))
                 .thenReturn(false);
         Contact2Action action = new Contact2Action();
 
@@ -89,11 +92,12 @@ class Contact2ActionTest extends CarlosWebTestBase {
                 .hasMessageContaining("missing required sec object (_demographic)");
 
         verify(mockSecurityInfoManager).hasPrivilege(
-                any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq(DEMOGRAPHIC_NO));
+                any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(DEMOGRAPHIC_NO));
         verifyNoInteractions(mockDemographicContactDao);
     }
 
     private void registerContactActionBeans() {
+        mockRequest.setMethod("POST");
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(ContactDao.class, mockContactDao);
         replaceSpringUtilsBean(ProfessionalContactDao.class, mockProfessionalContactDao);
@@ -127,6 +131,8 @@ class Contact2ActionTest extends CarlosWebTestBase {
         addRequestParameter("procontact.delete", "42");
         DemographicContact personal = new DemographicContact();
         DemographicContact professional = new DemographicContact();
+        personal.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
+        professional.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
         when(mockDemographicContactDao.find(41)).thenReturn(personal);
         when(mockDemographicContactDao.find(42)).thenReturn(professional);
         withContactDao(() -> {
@@ -150,6 +156,84 @@ class Contact2ActionTest extends CarlosWebTestBase {
         withContactDao(() -> {
             assertThat(new Contact2Action().removeContact()).isEqualTo("ajax");
             verifyNoInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    void shouldRejectUnsupportedMethods_whenRemovingOrSavingContacts(String method) {
+        registerContactActionBeans();
+        mockRequest.setMethod(method);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThat(action.removeContact()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(405);
+            assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+            mockResponse.setStatus(200);
+            assertThat(action.saveManage()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(405);
+            verifyNoInteractions(mockDemographicContactDao, mockSecurityInfoManager);
+        });
+    }
+
+    @Test
+    void shouldRejectRemoval_whenPatientContextIsMissing() {
+        registerContactActionBeans();
+        addRequestParameter("contactId", "41");
+        withContactDao(() -> {
+            assertThatThrownBy(() -> new Contact2Action().removeContact()).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldRejectRemoval_whenAssociationBelongsToAnotherPatient() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        addRequestParameter("contactId", "41");
+        DemographicContact otherPatient = new DemographicContact();
+        otherPatient.setDemographicNo(67890);
+        when(mockDemographicContactDao.find(41)).thenReturn(otherPatient);
+        withContactDao(() -> {
+            assertThatThrownBy(() -> new Contact2Action().removeContact()).isInstanceOf(SecurityException.class);
+            assertThat(otherPatient.isDeleted()).isFalse();
+            verify(mockDemographicContactDao).find(41);
+            verifyNoMoreInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldRejectRemoval_whenAssociationDoesNotExist() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        addRequestParameter("contactId", "41");
+        withContactDao(() -> {
+            assertThatThrownBy(() -> new Contact2Action().removeContact()).isInstanceOf(SecurityException.class);
+            verify(mockDemographicContactDao).find(41);
+            verifyNoMoreInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldLeaveAllRowsUnchanged_whenSelectionContainsAnotherPatientsAssociation() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        // Professional IDs are read first; validate the entire batch before any merge.
+        addRequestParameter("procontact.delete", "41");
+        addRequestParameter("contact.delete", "42");
+        DemographicContact ownPatient = new DemographicContact();
+        ownPatient.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
+        DemographicContact otherPatient = new DemographicContact();
+        otherPatient.setDemographicNo(67890);
+        when(mockDemographicContactDao.find(41)).thenReturn(ownPatient);
+        when(mockDemographicContactDao.find(42)).thenReturn(otherPatient);
+        withContactDao(() -> {
+            assertThatThrownBy(() -> new Contact2Action().removeContact()).isInstanceOf(SecurityException.class);
+            assertThat(ownPatient.isDeleted()).isFalse();
+            assertThat(otherPatient.isDeleted()).isFalse();
+            verify(mockDemographicContactDao).find(41);
+            verify(mockDemographicContactDao).find(42);
+            verifyNoMoreInteractions(mockDemographicContactDao);
         });
     }
 

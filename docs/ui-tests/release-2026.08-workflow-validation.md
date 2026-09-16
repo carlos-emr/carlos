@@ -21,8 +21,9 @@ with newer develop migrations were not reused or modified.
 
 - Baseline Java package build: 12,103 tests, zero failures/errors, 51 skips.
 - Revised full Java package build: **12,109 tests**, zero failures/errors, 51 skips.
-  Three later contact-deletion regressions await CI/local execution; they are not
-  included in that completed-build count.
+  Later contact-deletion regressions passed remote Java/JSP CI. Additional
+  authorization/HTTP-method regressions await the next run; neither addition is
+  included in that earlier local-build count.
 - Revised script regressions: **614 passed** (baseline 593).
 - Revised package-management Python tests: **1,519 passed**. Generated O19
   primitive-column metadata was regenerated from pinned upstream commit
@@ -105,8 +106,11 @@ in the current chart; Row Display's absent CSRF input; provider-preference error
 and an Inbox HRM row present under All but absent from New/Acknowledged/Filed.
 The anonymous empty responses do not establish patient-data disclosure.
 
-Source review also found candidate episode validation/authorization, contact
-removal privilege/ownership, and scratchpad version-ownership gaps; low-privilege live exploitation was not tested.
+Contact removal now requires POST, patient write permission and matching
+association ownership; a mixed-owner selection is rejected before any deletion.
+Regression coverage is added, with installed-package validation pending.
+Source review also found candidate episode validation/authorization and
+scratchpad version-ownership gaps; low-privilege live exploitation was not tested.
 The existing upstream [DrugRef issue #13](https://github.com/carlos-emr/drugref2026/issues/13)
 remains open. Unit-test success does not make these application findings green.
 

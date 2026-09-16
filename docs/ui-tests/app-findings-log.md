@@ -148,7 +148,7 @@ application defects from test defects and missing fixtures, and records retests.
 | 24 | Scratchpad version operations lack the owner comparison used by save | Source review of `Scratch2Action.showVersion()` and `delete()` versus ordinary save; cross-provider behavior has not been live-validated. Tracked in #3682. | `needs-live-check` |
 
 | 25 | Contact deletion fails for both new and persisted associations | Follow-up review of `Contact2Action.removeContact()`: zero-valued unsaved IDs reach `find(0)`, and casting `ArrayList.toArray()` to `String[]` throws before persisted deletions. Both corrected; added Java regressions and unsaved personal/professional UI steps. Final live retest pending; #3682. | `issue-filed` |
-| 26 | Contact removal authorization needs a focused follow-up | Source review: `removeContact()` checks patient read privilege and loads the association by ID without comparing its demographic owner. Cross-patient/low-privilege behavior was not live-tested; #3682. | `needs-live-check` |
+| 26 | Contact removal lacked write permission and association ownership checks | Review confirmed `removeContact()` checked read access and lacked association ownership validation. Added write permission, required patient context, POST-only save/removal, and validation of every selected owner before any deletion. Added negative Java regressions; packaged live validation pending; #3682. | `needs-live-check` |
 
 ## How this list is meant to be used
 
