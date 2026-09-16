@@ -8,11 +8,16 @@ const vm = require('node:vm');
 test('loading OHIP simulation initializes its own form without hijacking shell navigation', () => {
   const source = fs.readFileSync(path.join(__dirname,
     '../src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingOHIPsimulation.jsp'), 'utf8');
-  const scripts = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
-  const script = scripts.find(match => match[1].includes("registerFormSubmit('serviceform'"));
-  assert.ok(script, 'The billing simulation initialization script was not found');
+  const marker = "registerFormSubmit('serviceform'";
+  const markerAt = source.indexOf(marker);
+  const openingTag = '<script type="text/javascript">';
+  const start = source.lastIndexOf(openingTag, markerAt);
+  const end = source.indexOf('</script>', markerAt);
+  assert.ok(markerAt >= 0 && start >= 0 && end > markerAt,
+    'The billing simulation initialization script was not found');
+  const script = source.slice(start + openingTag.length, end);
   const registered = [], dates = [], listeners = [];
-  vm.runInNewContext(script[1], {
+  vm.runInNewContext(script, {
     registerFormSubmit: (...args) => registered.push(args),
     flatpickr: selector => dates.push(selector),
     document: { querySelectorAll: () => [{addEventListener: (...args) => listeners.push(args)}] },
