@@ -401,7 +401,8 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
                 .thenReturn(false);
         withContactDao(() -> {
-            assertThatThrownBy(() -> new Contact2Action().saveManage()).isInstanceOf(SecurityException.class);
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
             assertThat(own.getContactId()).isEqualTo("45678");
             verify(mockDemographicContactDao, never()).persist(any(DemographicContact.class));
             verify(mockDemographicContactDao, never()).merge(any(DemographicContact.class));

@@ -1815,7 +1815,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
+      "fixtures": "Creates and removes owned FAKE-PW patients, directory contact and relationship fixtures; local disposable database only."
     },
     {
       "name": "consultation-directory-crud",
