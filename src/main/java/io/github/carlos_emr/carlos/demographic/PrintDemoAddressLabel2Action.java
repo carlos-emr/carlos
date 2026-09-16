@@ -29,11 +29,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.HashMap;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -41,13 +38,11 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarDocumentCreator;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -127,17 +122,12 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public String execute() {
+    public String execute() throws IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        //patient
-        String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
-        if (classpath == null)
-            classpath = (String) request.getSession().getServletContext().getAttribute("com.ibm.websphere.servlet.application.classpath");
-        System.setProperty("jasper.reports.compile.class.path", classpath);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String curUser_no = loggedInInfo.getLoggedInProviderNo();
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -159,15 +149,14 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
         if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
             exportPdfJavascript = "var params = this.getPrintParams();"
                     + "params.pageHandling=params.constants.handling.none;"
-                    + "params.printerName='" + defaultPrinterName + "';";
+                    + "params.printerName='" + org.owasp.encoder.Encode.forJavaScript(defaultPrinterName) + "';";
             if (silentPrint == true) {
                 exportPdfJavascript += "params.interactive=params.constants.interactionLevel.silent;";
             }
             exportPdfJavascript += "this.print(params);";
         }
-        HashMap parameters = new HashMap();
+        HashMap<String, Object> parameters = new HashMap<>();
         parameters.put("demo", request.getParameter("demographic_no"));
-        ServletOutputStream sos = null;
 
 
         InputStream ins = null;
@@ -190,66 +179,9 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
             }
         }
 
-        try {
-            sos = response.getOutputStream();
-        } catch (IOException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-
-        response.setHeader("Content-disposition", getHeader(response).toString());
-        OscarDocumentCreator osc = new OscarDocumentCreator();
-        try {
-            try (InputStream templateStream = ins;
-                 Connection connection = LegacyJdbcQuery.getConnection()) {
-                osc.fillDocumentStream(parameters, sos, "pdf", templateStream, connection, exportPdfJavascript);
-            }
-        } catch (IOException | SQLException e) {
-            MiscUtils.getLogger().error("Error generating demographic label PDF", e);
-            if (!response.isCommitted()) {
-                try {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error generating demographic label PDF");
-                } catch (IOException sendErrorException) {
-                    MiscUtils.getLogger().error("Unable to send demographic label PDF error response", sendErrorException);
-                }
-            }
-        }
-
-        // Action writes PDF bytes directly to response.getOutputStream() above, so return
-        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
-        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
-        // and the global exception result would render errorpage.jsp on top of the PDF bytes
-        // already written to the response (visible as a stray "0" from errorData.statusCode).
+        DemographicLabelPdf.write(response, parameters, ins, exportPdfJavascript);
+        // The response is complete; do not append a Struts result page.
         return NONE;
     }
 
-    /**
-     * Constructs HTTP headers for the PDF response.
-     *
-     * <p>This method generates the Content-Disposition header value for inline PDF display
-     * in the browser with a default filename of "label_.pdf". It also sets cache control
-     * headers to prevent caching of the generated document.</p>
-     *
-     * <p><b>Headers Set:</b></p>
-     * <ul>
-     *   <li>Cache-Control: max-age=0 - Prevents caching of the PDF</li>
-     *   <li>Expires: 0 - Sets expiration to epoch time</li>
-     *   <li>Content-Type: application/pdf - Indicates PDF content</li>
-     *   <li>Content-Disposition: inline; filename=label_.pdf - Displays PDF inline with filename</li>
-     * </ul>
-     *
-     * @param response HttpServletResponse the HTTP response object to configure headers on
-     * @return StringBuilder the Content-Disposition header value including filename
-     */
-    private StringBuilder getHeader(HttpServletResponse response) {
-        StringBuilder strHeader = new StringBuilder();
-        strHeader.append("label_");
-        strHeader.append(".pdf");
-        response.setHeader("Cache-Control", "max-age=0");
-        response.setDateHeader("Expires", 0);
-        response.setContentType("application/pdf");
-        StringBuilder sbContentDispValue = new StringBuilder();
-        sbContentDispValue.append("inline; filename="); //inline - display
-        sbContentDispValue.append(strHeader);
-        return sbContentDispValue;
-    }
 }

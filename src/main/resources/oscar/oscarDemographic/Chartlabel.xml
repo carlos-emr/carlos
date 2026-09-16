@@ -4,7 +4,7 @@
 	<property name="ireport.x" value="0" />
 	<property name="ireport.y" value="0" />
 	<parameter name="demo" class="java.lang.String" />
-	<queryString>
+	<query>
 		<![CDATA[select d.last_name, IFNULL(d.chart_no,'') AS chart_no, d.first_name,
 			CONCAT(IFNULL(d.address,''),' ') AS address, CONCAT(IFNULL(d.city,''),' ') AS city,
 			CONCAT(IFNULL(d.province,''), ' ') AS province, CONCAT(IFNULL(d.postal,''),' ') AS postal,
@@ -15,7 +15,7 @@
 			IFNULL(CONCAT(p.last_name, CONCAT(', ',p.first_name)),'') AS doc_name
 			from demographic d left outer join provider p on d.provider_no = p.provider_no
 			where demographic_no =$P{demo}]]>
-	</queryString>
+	</query>
 	<field name="last_name" class="java.lang.String" />
 	<field name="chart_no" class="java.lang.String" />
 	<field name="first_name" class="java.lang.String" />
@@ -34,10 +34,10 @@
 	<field name="sex" class="java.lang.String" />
 	<field name="doc_name" class="java.lang.String" />
 	<variable name="nowyear" class="java.lang.Integer" resetType="None">
-		<variableExpression><![CDATA[new java.lang.Integer( 1900 +  (new java.util.Date().getYear()) )]]></variableExpression>
+		<expression><![CDATA[new java.lang.Integer( 1900 +  (new java.util.Date().getYear()) )]]></expression>
 	</variable>
 	<variable name="useryear" class="java.lang.Integer" resetType="None">
-		<variableExpression><![CDATA[new java.lang.Integer($F{year_of_birth})]]></variableExpression>
+		<expression><![CDATA[new java.lang.Integer($F{year_of_birth})]]></expression>
 	</variable>
 	<title height="60" splitType="Stretch">
 		<element kind="textField" x="17" y="45" width="330" height="14">
