@@ -197,7 +197,9 @@ test('the check asserts only valid input, and says where the rest is recorded', 
 });
 
 test('the calculators are reached by clicking, never by their URL', () => {
-  assert.match(SOURCE, /a\[title="calculators"\]/);
+  assert.ok(SOURCE.includes('a[onclick*="ViewCalculators"]'));
+  const navigation = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/navigation.jsp'), 'utf8');
+  assert.match(navigation, /ViewCalculators/);
   assert.ok(!/page\.goto\(/.test(SOURCE),
     'entering by address would skip the chart header opener this check exists to exercise');
   assert.ok(!/ViewOsteoporoticFracture|ViewSimpleCalculator/.test(SOURCE),

@@ -162,7 +162,8 @@ async function auditRows(context, masterPage, recorder, timeout) {
     // it actually wrote.
     await audit.locator('select[name="auditLog_length"]').first()
       .selectOption('-1', { timeout });
-    return audit.$$eval('#auditLog tbody tr', (rows) => rows
+    // Await before finally closes the popup; returning the promise races close().
+    return await audit.$$eval('#auditLog tbody tr', (rows) => rows
       .map((row) => Array.from(row.querySelectorAll('td'))
         .slice(0, 3)
         .map((cell) => (cell.textContent || '').trim())
@@ -383,4 +384,4 @@ if (require.main === module) {
   runCheck({ name: 'demographic-edit-update', run: main });
 }
 
-module.exports = { ROUND_TRIP_FIELDS, UNTOUCHED_COLUMN, main, openEditForm, presentFields };
+module.exports = { ROUND_TRIP_FIELDS, UNTOUCHED_COLUMN, main, openEditForm, presentFields, auditRows };

@@ -1,14 +1,17 @@
 # Playwright coverage plan — release/2026.08
 
-Status: **Phase 0 has landed; everything else is still a plan.** What exists in the
-repository today is listed in §0; the rest of this document has not been implemented. It records what
-browser checks exist on `release/2026.08` (at `7e322ee3`, 2026.08.0-alpha13-SNAPSHOT), what
-they leave untouched, and — grouped by priority — which scripts to add and which to change to
-get comprehensive, *meaningful* Playwright coverage of CARLOS. "Meaningful" has the definition
-the suite already uses ([clinical-workflow-browser-checks.md](clinical-workflow-browser-checks.md)):
-a check reaches the surface the way an operator does, asserts the rows that reached MariaDB
-(or the bytes that reached the browser), proves a refusal against a matching acceptance,
-cleans up on a per-run marker, and reports a defect rather than pinning it.
+Status: **Phase 0 and selected workflow checks are implemented; the remaining
+items are a backlog.** Section 0 records implemented checks. The release VM pass
+and its actual results are tracked in
+[release-2026.08-workflow-validation.md](release-2026.08-workflow-validation.md)
+and [issue #3682](https://github.com/carlos-emr/carlos/issues/3682). A registered
+check is not evidence of a passing live workflow.
+
+This plan groups missing coverage by priority. "Meaningful" has the definition
+used in [clinical-workflow-browser-checks.md](clinical-workflow-browser-checks.md):
+a check reaches the surface the way an operator does, asserts the rows that
+reached MariaDB (or the bytes that reached the browser), proves a refusal against
+a matching acceptance, cleans up its owned fixtures, and reports defects.
 
 Related open issues this plan absorbs or depends on: #3313 (12 suites fail against a real
 deployment), #3317 (`validateBaseUrl` duplicated in 19+ scripts), #3598 (`ignoreHTTPSErrors`
@@ -107,16 +110,16 @@ Save / Sign / Bill buttons through their handlers because the row sits below the
 ## 0. What has landed so far
 
 Phase 0 of §5 (the shared harness, the suite manifest and the runner) is in the
-repository, and **22 checks implementing this plan have landed on it** — listed
+repository, and **29 checks implementing this plan are present** — listed
 in the second table below, which is the authoritative account of what exists.
-Everything else in this document is still a plan.
+Items outside that implementation table remain planned.
 
 | Landed | What it is | Verified by |
 |---|---|---|
 | `scripts/lib/playwright-harness.js` | The shared harness: `readConfig`, `createSqlRunner`, `login` (forced reset, facility select, and the MFA challenge **when the caller supplies an `mfaCode` callback** — the harness generates no OTP itself, and no check passes one today, so an MFA-enrolled account is refused with an assertion rather than logged in; `login-mfa` in §2.2 is what closes that), `wireStrictPage` / `assertStrictPage`, `runCheck`, the TLS gate, `SkipCheck` | `scripts/playwright-harness.test.js` (18 tests), run by `script-regressions.yml` |
 | `scripts/lib/playwright-ui.js` | The JavaScript-path helpers (`clickOpensPopup`, `clickInjectsPanel`, `expectOpenerRefresh`, `typeAutocomplete`, `pickDate`, `dataTableRows`, `pressShortcut`, `csrfTokenPresent`, `expectDialog`) and the `NAVIGATION` click map | `scripts/playwright-suite-manifest.test.js` |
 | `scripts/lib/console-baseline.json` | The suite-wide, issue-keyed allow-list that replaces per-check `allow` arrays | a test asserts every entry names where its removal is tracked |
-| `scripts/playwright-suite.json` | The manifest: 101 named check entries over 92 scripts (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
+| `scripts/playwright-suite.json` | The manifest: 108 named check entries over 99 scripts (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
 | `scripts/run-playwright-suite.js` | The runner: `--tier`, `--only`, `--skip`, `--province`, `--junit`, `--list`, `--dry-run` | `scripts/playwright-suite-manifest.test.js` |
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 
@@ -158,10 +161,18 @@ make; neither is a shortcut around the rule.
 | `csrf-bootstrap-audit` (static) | §2.2 | CLAUDE.md's CSRF token-bootstrapping rule, enforced across all 1,031 JSPs. **The first exception to the UI-driven rule below**: not a browser check at all — it reads the webapp's JSPs from disk, needs no deployment, and so runs on every pull request |
 | `schedule-date-navigation` | §2.3 | The day sheet's month-boundary arithmetic (`day-1` on the 1st, `day+1` on the last), reached through the calendar popup — the two days a month where a clinician hits it and cannot reproduce it the next day |
 | `anonymous-access-refused` | §2.2 | Everything a clinician reaches from the Administration panel and the Master Record, re-requested from a **session-less** context. Routes catalogued from the UI, not listed |
+| `episode-lifecycle` | §2.5 | Description validation; create/edit/complete/reactivate/archive with persisted history and chart refresh |
+| `diagnosis-flowsheet` | §2.5 | Code search/add; diagnosis-triggered diabetes flowsheet and A1C entry; resolve and cancelled/accepted archive |
+| `prevention-lifecycle` | §3.4 | Vaccine picker; refused/completed/ineligible status, comments and dates; reopen and archive |
+| `allergy-custom-lifecycle` | §3.2 | Non-drug custom allergy; confirmation cancellation; amendment retaining history; cancelled/accepted archive |
+| `contact-lifecycle` | §2.4 | External-contact search, punctuation-safe selection, clinical flags, consent, notes, cancellation and association deletion |
+| `consultation-directory-crud` | §3.3 | Institution/department create, edit and cancelled/accepted deletion; unselected records survive |
+| `measurement-history` | §2.5 | Dated measurement values, plotted PNG bytes and selected-row deletion |
 
-The first thirteen share one tested engine (`scripts/lib/playwright-link-audit.js`):
+The navigation audits share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
-to the page that broke. The last three are not audits: `demographic-edit-update`
+to the page that broke. The remaining checks exercise workflows or contracts:
+`demographic-edit-update`
 and `patient-search-modes` assert what reached MariaDB, `clinical-calculators`
 asserts the clinical numbers a page computes in the browser, and
 `demographic-labels` asserts the bytes of a generated file — the first check in
@@ -187,27 +198,23 @@ rule is report, don't encode: a check that pins current broken behaviour as
 expected makes the bug permanent.
 
 `scripts/eform-local-playwright-utils.js` is now a re-export of the harness plus
-the eForm-specific helpers, so **no existing check changed behaviour**: `wirePage`
-deliberately records exactly what it recorded before (no `requestfailed`, no
+the eForm-specific helpers, and its legacy adapter is regression-tested: `wirePage`
+retains the original recording contract (no `requestfailed`, no
 script-MIME finding, no unexpected-dialog finding, no console baseline). Only
 `wireStrictPage` applies the strict contract, so migrating a check is a reviewed
 change to that check rather than 75 checks gaining new failure modes at once.
 
-**The CI smoke tier needs a maintainer.** `.claude/settings.json` denies Claude
-`Write(.github/**)` and `Write(.github/workflows/**)`, so the `playwright-smoke.yml`
-workflow in §2.1 cannot be added by an agent — the YAML has to be committed by a
-human. Everything else in Phase 1 is unaffected.
+**Live deployment validation.** The original checks in this section had only
+unit/static validation when written. The September 2026 release pass now runs
+them against a packaged Ubuntu 26.04 VM, records failures as well as successes,
+and repairs test blockers. See the linked validation record for the exact base,
+fixtures, check results and remaining defects. The navigation map's individual
+`validated` flags must only be changed after their own live path is verified.
 
-**What is not yet verified.** The checks above, the harness and the runner are
-unit-tested but have not
-been run against a deployment: no Tomcat or MariaDB was available in the session
-that wrote them. Before anything migrates onto them, one pass of the existing
-suite through `node scripts/run-playwright-suite.js` against the devcontainer is
-needed, and the `NAVIGATION` selectors (read out of
-`appointmentprovideradminday.jsp`, each carrying `validated: false`) have to be
-confirmed by a live run. Until that happens
-[deb-install-validation.md §6](deb-install-validation.md#6-run-the-suite) remains
-the authoritative way to run the suite.
+The hosted live-deployment smoke job remains a backlog item; script unit tests
+in CI do not substitute for a running Tomcat/MariaDB browser pass.
+[deb-install-validation.md §6](deb-install-validation.md#6-run-the-suite) documents
+the packaged-deployment runner.
 
 ---
 

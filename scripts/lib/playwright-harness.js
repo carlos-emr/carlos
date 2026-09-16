@@ -538,7 +538,9 @@ function wireStrictPage(page, label, recorder, options = {}) {
 
   page.on('dialog', async (dialog) => {
     const entry = { label: wiring.label, type: dialog.type(), text: dialog.message() };
-    recorder.dialogs.push(entry);
+    // Legacy custom handlers decide which dialogs are findings themselves.
+    // Strict wiring always retains the full dialog audit trail.
+    if (strictSignals || !wiring.dialogHandler) recorder.dialogs.push(entry);
     // Read at event time, not closed over: withExpectedDialogs() swaps it for the
     // duration of a step that deliberately raises one.
     if (wiring.dialogHandler) {
@@ -631,9 +633,7 @@ function wirePage(page, label, recorder, dialogHandler = null) {
   return wireStrictPage(page, label, recorder, {
     strictSignals: false,
     baseline: [],
-    dialogHandler: dialogHandler || (async (dialog) => {
-      await dialog.dismiss().catch(() => {});
-    }),
+    dialogHandler,
   });
 }
 

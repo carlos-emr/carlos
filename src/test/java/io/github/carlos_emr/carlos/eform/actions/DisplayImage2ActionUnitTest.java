@@ -377,6 +377,50 @@ class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Nested
+    @DisplayName("Optional clinic vaccine catalogue")
+    class VaccineCatalogueResolution {
+        private void withBundledCatalogue() throws Exception {
+            Path warRoot = tempDir.resolve("test-war");
+            Files.createDirectories(warRoot.resolve("prevention"));
+            Files.writeString(warRoot.resolve("prevention/vaccine-brands.json"),
+                    "[{\"name\":\"BUNDLED\"}]", StandardCharsets.UTF_8);
+            mockRequest = new MockHttpServletRequest(new MockServletContext("file:" + warRoot));
+            mockRequest.setParameter("imagefile", "vaccine-brands.json");
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+            action = new DisplayImage2Action();
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_prevention"), eq("r"), isNull()))
+                    .thenReturn(true);
+        }
+
+        @Test
+        void shouldServeBundledJsonWhenClinicOverrideIsAbsent() throws Exception {
+            withBundledCatalogue();
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(200);
+            assertThat(mockResponse.getContentType()).isEqualTo("application/json");
+            assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+            assertThat(mockResponse.getContentAsString()).isEqualTo("[{\"name\":\"BUNDLED\"}]");
+        }
+
+        @Test
+        void shouldPreserveClinicOverrideWhenBothCopiesExist() throws Exception {
+            withBundledCatalogue();
+            Files.writeString(tempDir.resolve("vaccine-brands.json"), "[{\"name\":\"CLINIC\"}]");
+            action.execute();
+            assertThat(mockResponse.getStatus()).isEqualTo(200);
+            assertThat(mockResponse.getContentAsString()).isEqualTo("[{\"name\":\"CLINIC\"}]");
+        }
+
+        @Test
+        void shouldFailWhenNeitherCatalogueExists() throws Exception {
+            withBundledCatalogue();
+            Files.delete(tempDir.resolve("test-war/prevention/vaccine-brands.json"));
+            action.execute();
+            assertThat(mockResponse.getStatus()).isEqualTo(404);
+        }
+    }
+
     /**
      * The editor-asset split. {@code EFormAssetDeployer} treats {@code editControl2.js} as MANAGED
      * (replaced on startup when the on-disk bytes differ) but {@code blank.rtl} and

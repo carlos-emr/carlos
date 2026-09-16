@@ -96,6 +96,7 @@ const SURFACES = [
   {
     name: 'consultations-surface',
     title: 'Consultations list',
+    skip: [{ match: /^Add ticklers for consultations/i, reason: 'bulk creation of ticklers is a mutation, not a read-only navigation target' }],
     entry: { label: /^\s*Consultations/i, popup: true },
     minimum: 3,
     province: 'all',
@@ -153,7 +154,8 @@ const SURFACES = [
     title: 'Scratch pad',
     // Icon-only control in #userSettings; its title is its accessible name.
     entry: { title: /Scratch\s*Pad/i, popup: true },
-    minimum: 1,
+    // This editor has form controls, not a catalogue of navigation links.
+    controls: ['textarea#thetext', 'input#savebutton', 'select[onchange*="showVersion"]'],
     province: 'all',
   },
 ];

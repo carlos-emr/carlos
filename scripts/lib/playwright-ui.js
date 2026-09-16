@@ -121,7 +121,11 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   // hide the outcome that actually occurred.
   const never = () => new Promise(() => {});
   const popupArrived = context.waitForEvent('page', { timeout })
-    .then((popup) => ({ page: popup, isPopup: true }), never);
+    .then((popup) => {
+      // The first document can execute before the opener's click resolves.
+      if (options.recorder) wireStrictPage(popup, label, options.recorder, options);
+      return { page: popup, isPopup: true };
+    }, never);
   // A MAIN-FRAME NAVIGATION, not merely a different address. waitForURL's
   // predicate stays false for a navigation that lands on the SAME url -- a form
   // that posts and redirects back to its own route, a control that reloads the
@@ -201,7 +205,10 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
   const downloaded = page.waitForEvent('download', { timeout })
     .then((download) => ({ kind: 'download', url: download.url(), download, page: null }), never);
   const popped = context.waitForEvent('page', { timeout })
-    .then((popup) => ({ kind: 'popup', url: '', download: null, page: popup }), never);
+    .then((popup) => {
+      if (options.recorder) wireStrictPage(popup, label, options.recorder, options);
+      return { kind: 'popup', url: '', download: null, page: popup };
+    }, never);
 
   let expire;
   const deadline = new Promise((resolve, reject) => {

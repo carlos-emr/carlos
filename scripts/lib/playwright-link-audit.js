@@ -37,7 +37,7 @@
 const {
   assert, relabelStrictPage, screenshot, withoutQueryStrings, wireStrictPage,
 } = require('./playwright-harness');
-const { clickOpensPopup } = require('./playwright-ui');
+const { clickOpensPopupOrNavigates } = require('./playwright-ui');
 
 const DEFAULT_TIMEOUT = 20000;
 // How long a click is given to START a navigation before the item is treated
@@ -299,17 +299,50 @@ function itemLocator(hostPage, item) {
   return hostPage.locator(item.selector || 'a').nth(item.index);
 }
 
+// Menu entries remain in the DOM when their menu is closed. Reveal them using
+// the same dropdown, tab, collapse or hover controls an operator uses.
+async function revealAuditLink(page, link, timeout) {
+  const controls = await link.evaluate(anchor => {
+    const all = [...document.querySelectorAll('a, button')];
+    const result = [];
+    for (let node = anchor.parentElement; node; node = node.parentElement) {
+      let control;
+      let hover = false;
+      if (node.classList.contains('dropdown-menu') && !node.classList.contains('show')) {
+        control = node.parentElement.querySelector('[data-bs-toggle="dropdown"], [data-toggle="dropdown"]');
+      } else if ((node.classList.contains('collapse') && !node.classList.contains('show'))
+          || (node.classList.contains('tab-pane') && !node.classList.contains('active'))) {
+        control = all.find(el => node.id && (el.getAttribute('data-bs-target') === '#' + node.id
+          || el.getAttribute('href') === '#' + node.id));
+      } else if (node.classList.contains('menu') && node.id.startsWith('menu')) {
+        control = document.getElementById('menuTitle' + node.id.slice(4))?.querySelector('a');
+        hover = true;
+      }
+      const index = all.indexOf(control);
+      if (index >= 0) result.unshift({ index, hover, markup: control.outerHTML });
+    }
+    return result;
+  });
+  for (const { index, hover, markup } of controls) {
+    const control = page.locator('a, button').nth(index);
+    assert(await control.evaluate(element => element.outerHTML) === markup,
+      'The menu changed while revealing an audit item; refusing to click a different control');
+    if (hover) await control.hover({ timeout });
+    else await control.click({ timeout });
+  }
+}
+
 async function openItem(context, hostPage, item, recorder, label, timeout) {
   const link = itemLocator(hostPage, item);
   const stillThere = ((await link.textContent({ timeout }).catch(() => null)) || '').replace(/\s+/g, ' ').trim();
   assert(stillThere === item.text,
     `the page changed under the audit: item ${item.index} was "${item.text}" when catalogued and is "${stillThere}" now`);
-  await link.scrollIntoViewIfNeeded().catch(() => {});
+  await revealAuditLink(hostPage, link, timeout);
+  await link.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
   if (item.opensPopup) {
-    const popup = await clickOpensPopup(hostPage, link, {
+    return clickOpensPopupOrNavigates(hostPage, link, {
       context, label, recorder, timeout,
     });
-    return { page: popup, isPopup: true };
   }
   const before = hostPage.url();
   // ARMED BEFORE THE CLICK. waitForLoadState() asked for after the click
@@ -550,7 +583,7 @@ function assertAuditClean(result, options = {}) {
 
 module.exports = {
   bodyFingerprint,
-  ERROR_PAGE_RE,
+  revealAuditLink, ERROR_PAGE_RE,
   assertAuditClean,
   auditCatalogue,
   catalogueLinks,

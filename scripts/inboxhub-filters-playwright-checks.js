@@ -63,7 +63,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext,
   readConfig, runCheck,
 } = require('./lib/playwright-harness');
-const { clickAndAwaitReload, clickOpensPopup } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 
 /*
  * The toolbar's type filters, as InboxhubListMode.jsp renders them. The id is
@@ -189,7 +189,7 @@ async function openInbox(context, schedulePage, recorder, timeout) {
   const control = schedulePage.locator('#inboxLink').first();
   assert(await schedulePage.locator('#inboxLink').count() > 0,
     'The schedule offers no Inbox control, so a clinician cannot reach their results from the day sheet at all');
-  const inbox = await clickOpensPopup(schedulePage, control, {
+  const { page: inbox } = await clickOpensPopupOrNavigates(schedulePage, control, {
     context, label: 'inbox', recorder, timeout,
   });
   await settle(inbox, timeout);

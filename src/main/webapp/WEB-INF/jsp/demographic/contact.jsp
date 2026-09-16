@@ -46,7 +46,7 @@
 %>
 
 <div id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>">
-    <input type="hidden" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" value=""/>
+    <input type="hidden" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" value="0"/>
 
     <a href="#" onclick="deleteContact(<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>);">[Delete]</a>
 

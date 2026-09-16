@@ -135,9 +135,8 @@ const ARITHMETIC_CASES = [
 
 /** Open the calculators index from the chart header, then one calculator. */
 async function openCalculator(context, chartPage, linkText, recorder, timeout) {
-  // The chart header's calculator control is an icon with no text; its title is
-  // its accessible name (encounter.Index.calculators).
-  const icon = chartPage.locator('a[title="calculators"]').first();
+  // The chart offers a text link; older layouts also offered an icon.
+  const icon = chartPage.locator('a[onclick*="ViewCalculators"]').first();
   assert(await icon.count() > 0,
     'The chart header offers no calculators control, so a clinician cannot reach the calculators from a chart at all');
   const index = await clickOpensPopup(chartPage, icon, {

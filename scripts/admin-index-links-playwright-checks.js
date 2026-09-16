@@ -48,7 +48,7 @@
 const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
-const { clickOpensPopup } = require('./lib/playwright-ui');
+const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { assertAuditClean, auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 
 /*
@@ -90,7 +90,7 @@ async function main() {
     const opener = schedulePage.locator('#admin-panel, #admin2').first();
     assert(await opener.count() > 0,
       'The schedule offers no Administration control (#admin-panel / #admin2), so an administrator cannot reach the panel');
-    const adminPage = await clickOpensPopup(schedulePage, opener, {
+    const { page: adminPage } = await clickOpensPopupOrNavigates(schedulePage, opener, {
       context, label: 'administration', recorder, timeout,
     });
 

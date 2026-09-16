@@ -341,3 +341,21 @@ test('a navbar container missing from the page altogether is a failure, not a sk
     () => waitForNavbars(fakeChartPage({ leftNavBar: 6 }), 100),
     /do not BOTH contain links/);
 });
+
+
+test('scratch surface requires its editor, save control and history selector', async () => {
+  const { assertSurfaceControls } = require('./surface-audit-playwright-checks');
+  const scratch = surfaceByName('scratch-surface');
+  assert.equal(scratch.minimum, undefined);
+  assert.equal(scratch.controls.length, 3);
+  for (const missing of [null, ...scratch.controls]) {
+    const inspected = [];
+    const page = { locator: selector => ({ async waitFor({ state }) {
+      assert.equal(state, 'visible');
+      inspected.push(selector);
+      if (selector === missing) throw new Error('required control missing');
+    } }) };
+    if (missing) await assert.rejects(assertSurfaceControls(page, scratch, 100), /required control missing/);
+    else { await assertSurfaceControls(page, scratch, 100); assert.deepEqual(inspected, scratch.controls); }
+  }
+});

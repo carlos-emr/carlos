@@ -241,3 +241,33 @@ test('the value main() returns names no patient', () => {
     'the result must not carry the demographic number');
   assert.match(returned, /return \{\s*\n?\s*fields: fields\.map/);
 });
+
+
+test('audit rows finish reading before the popup closes, including read failures', async () => {
+  const vm = require('node:vm');
+  for (const fail of [false, true]) {
+    const events = [];
+    const audit = {
+      locator: () => ({ waitFor: async () => {}, first() { return this; }, selectOption: async () => {} }),
+      async $$eval() {
+        await new Promise(resolve => setImmediate(resolve));
+        assert.ok(!events.includes('closed'), 'popup closed before its rows were read');
+        events.push('read');
+        if (fail) throw new Error('read failed');
+        return ['time|provider|action'];
+      },
+      async close() { events.push('closed'); },
+    };
+    const sandbox = {
+      require: id => id === './lib/playwright-ui'
+        ? { clickOpensPopup: async () => audit } : require(id),
+      module: { exports: {} }, console, process,
+    };
+    vm.runInNewContext(SOURCE, sandbox);
+    const page = { locator: () => ({ first() { return this; }, count: async () => 1 }) };
+    const reading = sandbox.module.exports.auditRows({}, page, {}, 100);
+    if (fail) await assert.rejects(reading, /read failed/);
+    else assert.deepEqual(await reading, ['time|provider|action']);
+    assert.deepEqual(events, ['read', 'closed']);
+  }
+});

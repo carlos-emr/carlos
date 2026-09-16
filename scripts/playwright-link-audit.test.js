@@ -403,6 +403,7 @@ function fakeAuditPage(options = {}) {
         nth: (index) => ({
           textContent: async () => options.textFor(index),
           scrollIntoViewIfNeeded: async () => {},
+          evaluate: async () => [],
           click: async () => {
             if (options.actsInPlace) { markup += 'y'; runInPage.markup = markup; }
             if (options.onClick) { options.onClick(index); }
@@ -826,6 +827,7 @@ test('an in-place destination is read from the container, not from the shell aro
         nth: () => ({
           textContent: async () => 'Broken Item',
           scrollIntoViewIfNeeded: async () => {},
+          evaluate: async () => [],
           click: async () => { panel.text = ''; },
         }),
         first: () => ({ inputValue: async () => '' }),
@@ -1036,3 +1038,33 @@ function runInPageWith(markup, fn) {
     runInPage.markup = previous;
   }
 }
+
+
+test('hidden audit entries are revealed through outer controls before the chart hover menu', async () => {
+  const { revealAuditLink } = require('./lib/playwright-link-audit');
+  const events = [];
+  const page = { locator: selector => {
+    assert.equal(selector, 'a, button');
+    return { nth: index => ({
+      evaluate: async () => `control-${index}`,
+      click: async () => events.push(`click ${index}`),
+      hover: async () => events.push(`hover ${index}`),
+    }) };
+  } };
+  await revealAuditLink(page, { evaluate: async () => [{ index: 3, hover: false, markup: 'control-3' }, { index: 9, hover: true, markup: 'control-9' }] }, 100);
+  assert.deepEqual(events, ['click 3', 'hover 9']);
+});
+
+
+test('menu reveal refuses to click a different control after the page changes', async () => {
+  const { revealAuditLink } = require('./lib/playwright-link-audit');
+  let clicked = false;
+  const page = { locator: () => ({ nth: () => ({
+    evaluate: async () => '<button>Delete</button>',
+    click: async () => { clicked = true; },
+  }) }) };
+  await assert.rejects(revealAuditLink(page, {
+    evaluate: async () => [{ index: 3, hover: false, markup: '<button>Expand</button>' }],
+  }, 100), /refusing to click a different control/);
+  assert.equal(clicked, false);
+});

@@ -62,7 +62,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig,
   runCheck,
 } = require('./lib/playwright-harness');
-const { clickAndAwaitReload, clickOpensPopup } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const {
   auditCatalogue, catalogueLinks, dedupe, findingsSince, snapshotRecorder,
 } = require('./lib/playwright-link-audit');
@@ -111,9 +111,11 @@ async function openSurface(context, schedulePage, surface, recorder, timeout) {
     `The schedule offers no control matching ${describeEntry(surface)} for ${surface.title}, so a user cannot reach it from the schedule at all`);
 
   if (surface.entry.popup) {
-    return clickOpensPopup(schedulePage, control, {
+    // Focused schedule mode navigates in place; tab/popup modes open a page.
+    const { page } = await clickOpensPopupOrNavigates(schedulePage, control, {
       context, label: surface.name, recorder, timeout,
     });
+    return page;
   }
   // A SAME-TAB SURFACE MUST ACTUALLY GO SOMEWHERE, and this branch used to
   // prove neither half of that. The load-state waits were armed AFTER the
@@ -140,6 +142,13 @@ async function openSurface(context, schedulePage, surface, recorder, timeout) {
   return schedulePage;
 }
 
+async function assertSurfaceControls(page, surface, timeout) {
+  assert(surface.controls.length > 0, 'A form surface must declare its required controls');
+  for (const selector of surface.controls) {
+    await page.locator(selector).waitFor({ state: 'visible', timeout });
+  }
+}
+
 async function auditSurface(context, schedulePage, surface, recorder, options) {
   const {
     timeout, limit, screenshotDir, scheduleUrl,
@@ -154,6 +163,12 @@ async function auditSurface(context, schedulePage, surface, recorder, options) {
   try {
     const body = await page.locator('body').innerText({ timeout }).catch(() => '');
     assert(body.trim().length > 0, `${surface.title} rendered a blank page`);
+
+    if (surface.controls) {
+      await assertSurfaceControls(page, surface, timeout);
+      return { surface: surface.name, opened: [], skipped: 0, failures: openingFindings,
+        controls: surface.controls.length };
+    }
 
     const items = dedupe(await catalogueLinks(page, surface.scope ? { selector: `${surface.scope} a` } : {}));
     assert(items.length >= surface.minimum,
@@ -266,7 +281,7 @@ async function main() {
           timeout, limit, screenshotDir, scheduleUrl,
         });
         audited.push(surface.name);
-        summary.push(`${surface.name}: opened ${result.opened.length}, skipped ${result.skipped}`);
+        summary.push(`${surface.name}: opened ${result.opened.length}, skipped ${result.skipped}${result.controls ? `, inspected ${result.controls} form controls (read-only)` : ''}`);
         // Prefix each finding with the surface so a multi-surface run stays readable.
         failures.push(...result.failures.map((line) => `[${surface.name}] ${line}`));
       } catch (error) {
@@ -303,5 +318,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  auditSurface, main, openSurface, resolveControl, surfaceLimitFrom,
+  assertSurfaceControls, auditSurface, main, openSurface, resolveControl, surfaceLimitFrom,
 };

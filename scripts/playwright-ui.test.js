@@ -554,3 +554,36 @@ test('pickDate accepts an input whose flatpickr instance cannot be read', async 
   const double = flatpickrDouble(() => september, { selectedIso: null });
   assert.equal(await pickDate(double.page, '#appointment_date', '2026-09-20', { timeout: 50 }), '2026-09-20');
 });
+
+// The click promise can remain pending after the popup has started executing.
+// Recording only after awaiting the click silently loses first-document errors.
+for (const helper of [clickOpensPopupOrNavigates, clickDownloadsOrOpens]) {
+  test(`${helper.name} records startup errors before the opener click resolves`, async () => {
+    const { EventEmitter } = require('node:events');
+    const { createRecorder, assertStrictPage } = require('./lib/playwright-harness');
+    const recorder = createRecorder();
+    const popup = Object.assign(new EventEmitter(), {
+      url: () => 'http://127.0.0.1/carlos/popup',
+      waitForLoadState: async () => {},
+      waitForURL: async () => {},
+      locator: () => ({ innerText: async () => 'Popup content' }),
+    });
+    let arrive;
+    const event = new Promise(resolve => { arrive = resolve; });
+    const opener = { waitForEvent: () => new Promise(() => {}), mainFrame: () => 'main' };
+    const control = {
+      scrollIntoViewIfNeeded: async () => {},
+      async click() {
+        arrive(popup);
+        await Promise.resolve();
+        await Promise.resolve();
+        popup.emit('pageerror', new Error('startup handler failed'));
+      },
+    };
+    const result = await helper(opener, control, {
+      context: { waitForEvent: () => event }, recorder, label: 'early-popup', timeout: 100,
+    });
+    assert.equal(result.page, popup);
+    assert.throws(() => assertStrictPage(recorder), /startup handler failed/);
+  });
+}

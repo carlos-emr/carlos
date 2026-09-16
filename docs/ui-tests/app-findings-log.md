@@ -15,7 +15,7 @@ Status values: `open` (verified, no issue filed), `issue-filed`, `fixed`,
 `needs-live-check` (verified statically, wants confirmation against a running
 deployment).
 
-**All findings below are filed as [issue #3665](https://github.com/carlos-emr/carlos/issues/3665)**,
+**Findings 1–9 are filed as [issue #3665](https://github.com/carlos-emr/carlos/issues/3665)**,
 one ticket covering the whole pass. A finding keeps `needs-live-check` where that
 is still true of it — being filed does not make a source-search result a
 confirmed one.
@@ -121,6 +121,22 @@ Recorded so the same candidates are not re-investigated.
 | "`consultationServices` rows ship inactive on Ontario, so the service picker is empty" | Real, but already found (alpha-11 observation 21) and already **fixed** on `release/2026.08` by `V1.0.23__activate_legacy_consultation_services.sql`. |
 
 ---
+
+## 4. Packaged release VM validation (September 2026)
+
+These findings are tracked together in [issue #3682](https://github.com/carlos-emr/carlos/issues/3682).
+The [validation record](release-2026.08-workflow-validation.md) distinguishes
+application defects from test defects and missing fixtures, and records retests.
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 11 | SOAP interceptor by-type autowiring initializes unrelated request actions during startup | `AuthenticationInterceptorWiringUnitTest` reproduces the original Spring `UnsatisfiedDependencyException`; release VM starts after removing that autowiring from `spring_ws.xml`. | `issue-filed` |
+| 12 | Demographic PDF labels fail and PDF Envelope is missing | Live `demographic-labels` and server journal: label actions return HTTP 500 with Jasper/Jackson rejection of `queryString`; envelope returns HTTP 404. | `issue-filed` |
+| 13 | Fresh-demo Messenger administration/compose fails on NULL clinic locations | Live `messenger`, `messenger-inbox-actions` and surface audit return HTTP 500; three demo rows contain NULL and Hibernate cannot hydrate the primitive `GroupMembers.clinicLocationNo`. Regression fails on the original mapping. | `issue-filed` |
+| 14 | Contact search cannot select a result; quoted names also corrupt its JSON handoff | Live `contact-lifecycle` records `Invalid or unexpected token` on clicking the result. `contactSearch.jsp` JavaScript-encodes a complete handler instead of HTML-encoding its attribute, then concatenates JSON. Executing the original serializer with a quoted name raises `SyntaxError`. | `issue-filed` |
+| 15 | Measurement history omits Plot for populated numeric data | Live `measurement-history` renders both owned WT rows but no Plot control. `DisplayHistory.jsp` tests `data.canPlot` after the `c:forEach` variable has left scope. | `issue-filed` |
+| 16 | Fresh-install prevention pages request an absent optional catalogue and log HTTP 404 | Live `prevention-lifecycle` captures `eform/displayImage?imagefile=vaccine-brands.json` returning 404 before the bundled fallback. A Java regression requires a bundled response when no clinic override exists and preserves override precedence. | `issue-filed` |
+| 17 | Episode editor has validation/authorization gaps requiring a focused follow-up | Source review: `episodeForm.jsp` compares status with `Completed`, but the option is `Complete`; `Episode2Action.edit()` loads an episode without the privilege check present in `list()`. No low-privilege live exploit is claimed by this validation pass. | `needs-live-check` |
 
 ## How this list is meant to be used
 

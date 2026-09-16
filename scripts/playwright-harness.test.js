@@ -240,6 +240,22 @@ test('legacy wirePage records exactly what it recorded before the harness landed
   assert.equal(recorder.badResponses.length, 1);
 });
 
+test('legacy custom dialog handlers own recording while strict handlers retain their audit trail', async () => {
+  const recorder = createRecorder();
+  const page = fakePage();
+  wirePage(page, 'allergy', recorder, async (dialog, entry) => {
+    if (entry.text === 'Expected custom allergy') await dialog.accept();
+    else { recorder.dialogs.push(entry); await dialog.dismiss(); }
+  });
+  let accepted = false;
+  await page.emit('dialog', { type: () => 'confirm', message: () => 'Expected custom allergy',
+    accept: async () => { accepted = true; } });
+  assert.equal(accepted, true);
+  assert.deepEqual(recorder.dialogs, []);
+  await page.emit('dialog', { type: () => 'alert', message: () => 'Unexpected failure', dismiss: async () => {} });
+  assert.deepEqual(recorder.dialogs.map(entry => entry.text), ['Unexpected failure']);
+});
+
 test('runCheck reports PASS/FAIL/SKIP with the exit code the runner distinguishes', async () => {
   const lines = [];
   const stdout = { log: (line) => lines.push(line) };

@@ -195,6 +195,9 @@ public class DisplayImage2Action extends ActionSupport {
 
         File validatedFile = getValidatedImageFile(fileName);
         if (!validatedFile.exists() || !validatedFile.isFile()) {
+            if (VACCINE_BRANDS_FILE.equals(fileName) && !validatedFile.exists()) {
+                return serveBundledVaccineCatalogue();
+            }
             logger.debug("eForm asset not found: {}", LogSafe.sanitize(fileName));
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
@@ -231,6 +234,26 @@ public class DisplayImage2Action extends ActionSupport {
             }
             return NONE;
         }
+    }
+
+    /**
+     * A clinic override is optional. Serve the shipped catalogue when absent so
+     * every fresh-install prevention view does not generate a browser 404 before
+     * its client-side fallback. Authorization and path validation ran above;
+     * an existing custom file still wins, and other missing assets remain 404.
+     */
+    private String serveBundledVaccineCatalogue() throws IOException {
+        try (InputStream stream = request.getServletContext()
+                .getResourceAsStream("/prevention/vaccine-brands.json")) {
+            if (stream == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setContentType("application/json");
+            IOUtils.copy(stream, response.getOutputStream());
+        }
+        return NONE;
     }
 
     /**

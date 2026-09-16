@@ -63,7 +63,7 @@ const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
   withoutQueryStrings,
 } = require('./lib/playwright-harness');
-const { clickOpensPopup } = require('./lib/playwright-ui');
+const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
@@ -189,7 +189,7 @@ async function catalogueReachable(context, schedulePage, recorder, options) {
   assert(await adminControl.count() > 0,
     'The schedule offers no Administration control, so the panel this check exists to probe cannot be '
     + 'catalogued. carlosdoc has the rights; a missing control is a finding, not a reason to check less.');
-  const admin = await clickOpensPopup(schedulePage, adminControl, {
+  const { page: admin } = await clickOpensPopupOrNavigates(schedulePage, adminControl, {
     context, label: 'administration', recorder, timeout,
   });
   const adminLinks = dedupe(await catalogueLinks(admin));
@@ -197,7 +197,12 @@ async function catalogueReachable(context, schedulePage, recorder, options) {
     `The Administration panel offered only ${adminLinks.length} link(s); it has around 120, so the catalogue `
     + 'step is broken rather than the panel having shrunk');
   found.push(...adminLinks);
-  await admin.close().catch(() => {});
+  if (admin !== schedulePage) {
+    await admin.close();
+  } else {
+    await schedulePage.goBack({ waitUntil: 'domcontentloaded' });
+    await schedulePage.locator('#search a').first().waitFor({ state: 'visible', timeout });
+  }
 
   const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
     searchTerm, preferredDemographicNo, timeout,

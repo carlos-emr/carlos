@@ -117,8 +117,10 @@
             function serializePopupData(data1, data2) {
                 var id1 = '<carlos:encode value='<%= elementId %>' context="javaScriptBlock"/>';
                 var id2 = '<carlos:encode value='<%= elementName %>' context="javaScriptBlock"/>';
-                var data = '{"' + id1 + '":"' + data1 + '","' + id2 + '":"' + data2 + '"}';
-                opener.popUpData(data);
+                var data = {};
+                data[id1] = data1;
+                data[id2] = data2;
+                opener.popUpData(JSON.stringify(data));
                 self.close();
             }
 
@@ -178,7 +180,7 @@
             %>
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
-                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
+                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="htmlAttribute"/>">
                 <td></td>
                 <td>${carlos:forHtml(contact.lastName)}</td>
                 <td>${carlos:forHtml(contact.firstName)}</td>

@@ -46,7 +46,7 @@
 %>
 
 <div id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>">
-    <input type="hidden" name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" value=""/>
+    <input type="hidden" name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" value="0"/>
 
     <a href="#" onclick="deleteProContact(<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>);">[<fmt:message key="global.btnDelete"/>]</a>
 
