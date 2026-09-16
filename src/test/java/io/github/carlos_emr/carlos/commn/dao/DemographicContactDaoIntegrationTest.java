@@ -171,4 +171,22 @@ public class DemographicContactDaoIntegrationTest extends CarlosTestBase {
                     .containsExactlyInAnyOrder(contact1.getId(), contact3.getId(), contact6.getId());
         }
     }
+    @Test
+    void personalPatientLookupExcludesCollidingDirectoryAndProviderIds() throws Exception {
+        DemographicContact expected = createContact(10, false, DemographicContact.CATEGORY_PERSONAL, "101");
+        expected.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        DemographicContact directory = createContact(10, false, DemographicContact.CATEGORY_PERSONAL, "101");
+        directory.setType(DemographicContact.TYPE_CONTACT);
+        DemographicContact provider = createContact(10, false, DemographicContact.CATEGORY_PROFESSIONAL, "101");
+        provider.setType(DemographicContact.TYPE_PROVIDER);
+        DemographicContact wrongCategory = createContact(10, false, DemographicContact.CATEGORY_PROFESSIONAL, "101");
+        wrongCategory.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        DemographicContact deleted = createContact(10, true, DemographicContact.CATEGORY_PERSONAL, "101");
+        deleted.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        hibernateTemplate.flush();
+        assertThat(dao.findPersonalPatientLinks(10, 101)).extracting(DemographicContact::getId)
+                .containsExactly(expected.getId());
+        assertThat(dao.findPersonalPatientLinks(11, 101)).isEmpty();
+    }
+
 }

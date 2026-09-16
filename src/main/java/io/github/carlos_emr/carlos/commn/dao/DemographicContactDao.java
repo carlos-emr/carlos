@@ -46,6 +46,9 @@ public interface DemographicContactDao extends AbstractDao<DemographicContact> {
 
     public List<DemographicContact> find(int demographicNo, int contactId);
 
+    /** Finds active (not deleted) personal links to a patient, excluding other ID namespaces. */
+    List<DemographicContact> findPersonalPatientLinks(int demographicNo, int contactId);
+
     public List<DemographicContact> findAllByContactIdAndCategoryAndType(int contactId, String category, int type);
 
     public List<DemographicContact> findAllByDemographicNoAndCategoryAndType(int demographicNo, String category,

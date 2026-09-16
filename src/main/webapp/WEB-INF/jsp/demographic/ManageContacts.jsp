@@ -182,14 +182,12 @@
             }
 
             function search_demographic(nameEl, valueEl) {
-                // ticklerPlus removed - demographic search functionality disabled
-                alert('Demographic search is currently unavailable');
-                return;
-                // var url = '<%= request.getContextPath() %>/demographic/DemographicSearch?outofdomain=false&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
-                // var popup = window.open(url, 'demographic_search');
-                demo_no_orig = document.contactForm.elements[valueEl].value;
-                //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
-
+                var params = new URLSearchParams({
+                    displaymode: 'Search ', caisi: 'true', formName: 'contactForm',
+                    elementName: nameEl, elementId: valueEl, keyword: '', search_mode: 'search_name'
+                });
+                var url = '<%= request.getContextPath() %>/demographic/DemographicSearch?' + params.toString();
+                var popup = window.open(url, 'demographic_search', 'width=900,height=650,scrollbars=yes,resizable=yes');
                 if (popup != null) {
                     if (popup.opener == null) {
                         popup.opener = self;

@@ -111,9 +111,9 @@ async function workflow(s) {
       WHERE demographicNo=${patient} AND contactId=${sqlString(s.provider)} AND deleted=0`, '1|1',
       'Professional consent/status update did not persist');
   });
-  await s.step('editing an existing internal contact creates a correctly typed reciprocal association', async () => {
-    // Internal search is disabled in the release UI. Seed only the pre-existing
-    // relationship; changing its role and creating the reverse row use the form.
+  await s.step('internal patient search creates a correctly typed reciprocal association', async () => {
+    // Seed only the related patient. Find and select that patient through the
+    // actual picker, then create and edit the relationship through the form.
     let related;
     // demographic.last_name is VARCHAR(30); the 23-character marker plus this
     // suffix must round-trip unchanged for the cleanup ownership check.
@@ -135,19 +135,19 @@ async function workflow(s) {
       VALUES (${sqlString(relatedName)},'Related','1960','01','02','M','AC',
         ${sqlString(s.provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
     assert(/^[1-9]\d*$/.test(related), 'Related patient fixture was not created');
-    const facility = sql.value(`SELECT facilityId FROM DemographicContact
-      WHERE demographicNo=${patient} AND category='professional' AND deleted=0 LIMIT 1`);
-    assert(/^\d+$/.test(facility), 'The saved professional contact has no facility');
-    const association = sql.value(`INSERT INTO DemographicContact
-      (facilityId,creator,updateDate,demographicNo,contactId,type,role,category,deleted,consentToContact,active)
-      VALUES (${facility},${sqlString(s.provider)},NOW(),${patient},${sqlString(related)},1,'Other','personal',0,1,1);
-      SELECT LAST_INSERT_ID()`);
-    assert(/^[1-9]\d*$/.test(association), 'Internal association fixture was not created');
     await open();
-    assert(await field('type').isDisabled(), 'Existing contact type should be omitted from form submission');
-    assert(await field('contactId').inputValue() === related, 'Editor opened the wrong internal contact');
+    await editor.locator('a[onclick="addContact();"]').click();
+    await field('type').selectOption('1');
+    const patientSearch = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]').first(), 'patient-contact-search');
+    await patientSearch.locator('[name="keyword"]').fill(relatedName);
+    await clickAndAwaitReload(patientSearch, patientSearch.locator('input[type="submit"]').first());
+    await patientSearch.locator('a').filter({hasText: relatedName}).first().click();
+    assert(await field('contactId').inputValue() === related, 'Internal search selected the wrong patient');
     await field('role').selectOption('Parent');
     await save();
+    const association = sql.value(`SELECT id FROM DemographicContact WHERE demographicNo=${patient}
+      AND contactId=${sqlString(related)} AND type=1 AND category='personal' AND deleted=0`);
+    assert(/^[1-9]\d*$/.test(association), 'Internal patient selection did not create an association');
     await expectValue(sql, `SELECT CONCAT(type,'|',role,'|',contactId) FROM DemographicContact
       WHERE id=${association} AND demographicNo=${patient}`, `1|Parent|${related}`,
       'Editing the relationship moved or changed the original association');
@@ -155,6 +155,7 @@ async function workflow(s) {
       WHERE demographicNo=${related} AND deleted=0`, `1|Daughter|${patient}||`,
       'The reciprocal relationship has the wrong type or unrequested SDM/emergency flags');
     await open();
+    assert(await field('type').isDisabled(), 'Existing contact type must remain immutable');
     assert(await field('role').inputValue() === 'Parent', 'Internal contact role did not reopen');
     await field('note').fill(`${marker}-INTERNAL`);
     await save();

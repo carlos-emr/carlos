@@ -359,6 +359,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         ReflectionTestUtils.setField(own, "id", 41);
         own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
         own.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        own.setCategory(DemographicContact.CATEGORY_PERSONAL);
         if (omitType) mockRequest.removeParameter("contact_1.type");
         when(mockDemographicContactDao.find(41)).thenReturn(own);
         prepareReverseRole();
@@ -388,6 +389,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         ReflectionTestUtils.setField(association, "id", 41);
         association.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
         association.setType(type);
+        association.setCategory(DemographicContact.CATEGORY_PERSONAL);
         association.setContactId("67890");
         when(mockDemographicContactDao.find(41)).thenReturn(association);
         return association;
@@ -456,6 +458,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         prepareFacility();
         addSaveRow("procontact_1", "41", "67890", submittedType);
         DemographicContact own = existingAssociation(DemographicContact.TYPE_PROFESSIONALSPECIALIST);
+        own.setCategory(DemographicContact.CATEGORY_PROFESSIONAL);
         withContactDao(() -> {
             new Contact2Action().saveManage();
             assertThat(own.getType()).isEqualTo(DemographicContact.TYPE_PROFESSIONALSPECIALIST);
@@ -477,6 +480,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         ReflectionTestUtils.setField(own, "id", 41);
         own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
         own.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        own.setCategory(DemographicContact.CATEGORY_PERSONAL);
         own.setContactId("45678");
         when(mockDemographicContactDao.find(41)).thenReturn(own);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
@@ -503,8 +507,9 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         ReflectionTestUtils.setField(own, "id", 41);
         own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
         own.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        own.setCategory(DemographicContact.CATEGORY_PERSONAL);
         when(mockDemographicContactDao.find(41)).thenReturn(own);
-        when(mockDemographicContactDao.find(67890, Integer.parseInt(DEMOGRAPHIC_NO)))
+        when(mockDemographicContactDao.findPersonalPatientLinks(67890, Integer.parseInt(DEMOGRAPHIC_NO)))
                 .thenReturn(java.util.List.of(new DemographicContact()));
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
                 .thenReturn(false);
@@ -551,4 +556,47 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
             Contact2Action.demographicDao = previousDemographicDao;
         }
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"bad", "-1", "2147483648", "1001"})
+    void malformedCountsAreRejectedBeforeAnyWrite(String count) {
+        prepareSave(count, "0");
+        assertThat(new Contact2Action().saveManage()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockDemographicContactDao);
+    }
+
+    @Test
+    void malformedPatientIdentifierHasControlledResponse() {
+        prepareSave("0", "0");
+        addRequestParameter("demographic_no", "invalid");
+        assertThat(new Contact2Action().saveManage()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockDemographicContactDao);
+    }
+
+    @Test
+    void malformedLaterProfessionalTypeDoesNotPartiallySavePersonalContact() {
+        prepareSave("1", "1");
+        addSaveRow("contact_1", "0", "45", "2");
+        addSaveRow("procontact_1", "0", "46", "bad");
+        assertThat(new Contact2Action().saveManage()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockDemographicContactDao, never()).persist(any());
+        verify(mockDemographicContactDao, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void cannotReclassifyOwnedAssociationThroughOtherList(boolean professional) {
+        prepareSave(professional ? "0" : "1", professional ? "1" : "0");
+        DemographicContact existing = existingAssociation(DemographicContact.TYPE_CONTACT);
+        String originalCategory = professional ? DemographicContact.CATEGORY_PERSONAL : DemographicContact.CATEGORY_PROFESSIONAL;
+        existing.setCategory(originalCategory);
+        addSaveRow(professional ? "procontact_1" : "contact_1", "41", "67890", "2");
+        withContactDao(() -> assertThatThrownBy(() -> new Contact2Action().saveManage()).isInstanceOf(SecurityException.class));
+        assertThat(existing.getCategory()).isEqualTo(originalCategory);
+        verify(mockDemographicContactDao, never()).merge(any());
+        verify(mockDemographicContactDao, never()).persist(any());
+    }
+
 }
