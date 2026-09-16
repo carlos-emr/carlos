@@ -354,7 +354,9 @@
             <%if(caisi) {%>
 
             function addNameCaisi(demographic_no, lastname, firstname, chartno, messageID) {
-                fullname = lastname + "," + firstname;
+                // Result arguments are URI-encoded for the appointment callback.
+                // A contact field needs display text, decoded exactly once.
+                fullname = decodeURIComponent(lastname) + "," + decodeURIComponent(firstname);
                 if (opener.document['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'] != null) {
                     if (opener.document['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'].
                     elements['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("elementName")) %>' context="javaScriptBlock"/>'] != null

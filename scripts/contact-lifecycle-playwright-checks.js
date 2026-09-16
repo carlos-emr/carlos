@@ -117,7 +117,7 @@ async function workflow(s) {
     let related;
     // demographic.last_name is VARCHAR(30); the 23-character marker plus this
     // suffix must round-trip unchanged for the cleanup ownership check.
-    const relatedName = `${marker}-REL`;
+    const relatedName = `${marker}-O'N`;
     s.cleanup(() => {
       if (!related) return;
       assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${related}
@@ -141,8 +141,11 @@ async function workflow(s) {
     const patientSearch = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]').first(), 'patient-contact-search');
     await patientSearch.locator('[name="keyword"]').fill(relatedName);
     await clickAndAwaitReload(patientSearch, patientSearch.locator('input[type="submit"]').first());
-    await patientSearch.locator('a').filter({hasText: relatedName}).first().click();
+    await patientSearch.locator('tr[onclick]').filter({
+      has: patientSearch.locator(`input[name="demographic_no"][value="${related}"]`),
+    }).locator('td.lastName').click();
     assert(await field('contactId').inputValue() === related, 'Internal search selected the wrong patient');
+    assert(await field('contactName').inputValue() === `${relatedName},Related`, 'Internal search corrupted the patient display name');
     await field('role').selectOption('Parent');
     await save();
     const association = sql.value(`SELECT id FROM DemographicContact WHERE demographicNo=${patient}
