@@ -110,7 +110,7 @@ public class Utility {
 
         String delim = "/";
 
-        if ("TODAY".equals(pDate.toUpperCase())) {
+        if ("TODAY".equalsIgnoreCase(pDate)) {
             return new Date();
         } else {
             try {
@@ -151,7 +151,7 @@ public class Utility {
             return c1.getTime();
         }
 
-        if ("TODAY".equals(pDate.toUpperCase())) return new Date();
+        if ("TODAY".equalsIgnoreCase(pDate)) return new Date();
 
         try {
             int day = Integer.parseInt(pDate.substring(0, 2));
@@ -173,7 +173,7 @@ public class Utility {
             return SetDate(2999, 12, 31);
         }
 
-        if ("TODAY".equals(pDate.toUpperCase())) return new Date();
+        if ("TODAY".equalsIgnoreCase(pDate)) return new Date();
 
         try {
             int day = Integer.parseInt(pDate.substring(0, 2));
