@@ -1137,3 +1137,15 @@ test('current-document exclusion preserves handlers, popups and different destin
     assert.equal(isCurrentDocumentLink({ ...item, ...changed }, host), false);
   }
 });
+
+
+test('JavaScript-encoded query separators resolve to the URL the browser opens', async () => {
+  const items = await catalogue([
+    anchorDouble({ href: '#', onclick: String.raw`popupPage(600,900,'/carlos/messenger/DisplayMessages?providerNo=999998\x26userName=Test')` }, 'Messages'),
+    anchorDouble({ href: '#', onclick: String.raw`window.open('/carlos/encounter/IncomingConsultation?providerNo=999998\u0026userName=Test')` }, 'Consultations'),
+    anchorDouble({ href: String.raw`javascript:window.open('/carlos/documentManager/ViewDocumentReport?function=providers\x26functionid=999998')` }, 'Documents'),
+  ]);
+  assert.equal(items[0].route, '/carlos/messenger/DisplayMessages?providerNo=999998&userName=Test');
+  assert.equal(items[1].route, '/carlos/encounter/IncomingConsultation?providerNo=999998&userName=Test');
+  assert.equal(items[2].route, '/carlos/documentManager/ViewDocumentReport?function=providers&functionid=999998');
+});

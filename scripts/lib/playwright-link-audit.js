@@ -148,7 +148,13 @@ async function catalogueLinks(page, options = {}) {
       && (/^[./]/.test(routeInOnclick[1])
         || /[/?]/.test(routeInOnclick[1])
         || /\.(?:jsp|do|html?)$/i.test(routeInOnclick[1]));
-    const route = looksLikeRoute ? routeInOnclick[1] : relRoute;
+    // OWASP's JavaScript encoder emits \x26 for '&', among other escapes.
+    // Decode the literal without executing the handler. Probing its source text
+    // sends a different, malformed URL from the one the browser actually opens.
+    const route = looksLikeRoute ? routeInOnclick[1].replace(
+      /\\(?:x([0-9a-f]{2})|u([0-9a-f]{4})|([\\/'"]))/gi,
+      (escape, hex, unicode, literal) => literal || String.fromCharCode(parseInt(hex || unicode, 16)),
+    ) : relRoute;
     // A FRAGMENT IS NOT A DESTINATION. Excluding only the exact string '#' let
     // every in-page tab and collapse through (`href="#custom"`,
     // `href="#collapseClinical"`, `href="#top"`). Clicking one stays on the host
