@@ -155,6 +155,8 @@ application defects from test defects and missing fixtures, and records retests.
 | 29 | Contact control IDs collide between personal and professional rows | Personal consent/active fields used the professional ID prefix. Corrected prefixes and accessible labels; live workflow checks uniqueness; #3682. | `issue-filed` |
 | 30 | Measurement Plot handler did not encode the type query parameter | Review found request-derived type embedded directly in the Plot JavaScript string. Now uses URI-component then JavaScript-attribute encoding; #3682. | `issue-filed` |
 
+| 31 | Client Lab Label silently returns an empty PDF response | Final installed-package UI click and response inspection: HTTP 200, `application/pdf;charset=UTF-8`, zero bytes. `PrintClientLabLabel2Action` catches the Jasper `queryString` deserialization exception and returns normally. Open; #3682. | `issue-filed` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is

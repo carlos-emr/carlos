@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
-  ERROR_PAGE_RE, catalogueLinks, dedupe, findingsSince, itemLocator, snapshotRecorder,
+  ERROR_PAGE_RE, auditCatalogue, catalogueLinks, dedupe, findingsSince, itemLocator, snapshotRecorder,
 } = require('./lib/playwright-link-audit');
 const { createRecorder } = require('./lib/playwright-harness');
 
@@ -1087,5 +1087,24 @@ test('iframe destination uses the synchronous FrameLocator and preserves blank/e
     };
     const page = { locator: selector => { assert.equal(selector, '#dynamic-content'); return { first: () => panel }; } };
     assert.equal(await destinationText({ page, isPopup: false }, '#dynamic-content', 100), text);
+  }
+});
+
+test('plain current-document links are skipped without inflating destination coverage', async () => {
+  const f = fakeAuditPage({ textFor: () => 'Current page', onClick: () => { throw new Error('self-link was clicked'); } });
+  const result = await auditCatalogue({ context: {}, hostPage: f.page,
+    items: [{ index: 0, text: 'Current page', href: f.page.url(), hasClickHandler: false }],
+    recorder: createRecorder(), labelPrefix: 'self-link', timeout: 20 });
+  assert.deepEqual(result, { opened: [], skipped: 1, failures: [] });
+});
+
+test('current-document exclusion preserves handlers, popups and different destinations', () => {
+  const { isCurrentDocumentLink } = require('./lib/playwright-link-audit');
+  const host = 'https://example.invalid/carlos/view?id=1';
+  const item = { href: 'view?id=1', baseURI: host, hasClickHandler: false };
+  assert.equal(isCurrentDocumentLink(item, host), true);
+  for (const changed of [{ hasClickHandler: true }, { opensPopup: true }, { route: '/action' },
+    { href: 'view?id=2' }, { href: '/elsewhere' }, { href: 'http://[' }]) {
+    assert.equal(isCurrentDocumentLink({ ...item, ...changed }, host), false);
   }
 });

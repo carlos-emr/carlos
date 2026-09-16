@@ -32,6 +32,9 @@ async function workflow(s) {
     await clickAndAwaitReload(history, history.locator('input[onclick="submit();"]'));
     await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE id=${ids[0]} AND demographicNo=${patient}`, '0',
       'Selected measurement was not deleted');
+    assert(sql.value(`SELECT COUNT(*) FROM measurementsDeleted WHERE originalId=${ids[0]}
+      AND demographicNo=${patient} AND dataField='61.2'`) === '1',
+      'Deleted measurement lost its archived value');
     assert(sql.value(`SELECT dataField FROM measurements WHERE id=${ids[1]} AND demographicNo=${patient}`) === '62.4',
       'Delete changed the unselected measurement');
     assert(await history.locator(`input[value="${ids[0]}"][name="deleteCheckbox"]`).count() === 0,

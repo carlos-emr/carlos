@@ -182,6 +182,7 @@ async function catalogueLinks(page, options = {}) {
       // branch, where it waited for a navigation that never came and then read
       // the UNCHANGED host page -- reporting the opener's own content as the
       // item's destination, which passes for every broken popup.
+      hasClickHandler: Boolean(opener),
       opensPopup: /popup|newWindow|postToPopup|window\.open/i.test(opener)
         || (anchor.getAttribute('target') || '').toLowerCase() === '_blank',
     };
@@ -485,6 +486,15 @@ async function destinationText(target, inPlaceTarget, timeout) {
   return read(container);
 }
 
+// A plain link back to the current document (for example its patient-number
+// heading) offers no additional destination. Never count it as tested coverage,
+// and never apply this exemption to an action handler or a popup.
+function isCurrentDocumentLink(item, hostUrl) {
+  if (!item.href || item.hasClickHandler || item.route || item.opensPopup) return false;
+  try { return new URL(item.href, item.baseURI || hostUrl).href === hostUrl; }
+  catch { return false; }
+}
+
 /**
  * Click every item, assert the destination, and put the host page back.
  *
@@ -516,7 +526,7 @@ async function auditCatalogue(options) {
       break;
     }
     const rule = skipRules.find((candidate) => candidate.match.test(item.text));
-    if (rule) {
+    if (rule || isCurrentDocumentLink(item, hostUrl)) {
       skipped += 1;
       continue;
     }
@@ -582,7 +592,7 @@ function assertAuditClean(result, options = {}) {
 }
 
 module.exports = {
-  bodyFingerprint, destinationText,
+  bodyFingerprint, destinationText, isCurrentDocumentLink,
   revealAuditLink, ERROR_PAGE_RE,
   assertAuditClean,
   auditCatalogue,

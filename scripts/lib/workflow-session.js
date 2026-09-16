@@ -94,10 +94,17 @@ async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups })
     // Keep the parent available for recovery if any child cleanup failed.
     if (patient && failures.length === 0) {
       try {
-        sql.execute(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${patient};
-          DELETE FROM demographicExt WHERE demographic_no=${patient};
-          DELETE FROM demographicArchive WHERE demographic_no=${patient};
-          DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
+        const supportRows = [
+          ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
+          ['measurementsDeleted', 'demographicNo'], ['demographicExt', 'demographic_no'],
+          ['demographicArchive', 'demographic_no'],
+        ];
+        sql.execute(supportRows.map(([table, column]) =>
+          `DELETE FROM ${table} WHERE ${column}=${patient}`).join(';'));
+        const remaining = supportRows.map(([table, column]) =>
+          `(SELECT COUNT(*) FROM ${table} WHERE ${column}=${patient})`).join('+');
+        h.assert(sql.value(`SELECT ${remaining}`) === '0', 'Owned chart support rows were not removed');
+        sql.execute(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
         h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) === '0',
           'The owned patient was not removed');
       } catch (error) { failures.push(error); }

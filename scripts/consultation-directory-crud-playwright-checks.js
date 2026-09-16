@@ -20,7 +20,12 @@ async function workflow(s) {
     const name = `${marker}-${def.table}`;
     let id;
     let sentinel;
-    s.cleanup(() => sql.execute(`DELETE FROM ${def.table} WHERE name IN (${sqlString(name)},${sqlString(`${name}-EDIT`)},${sqlString(`${name}-KEEP`)})`));
+    const ownedNames = `${sqlString(name)},${sqlString(`${name}-EDIT`)},${sqlString(`${name}-KEEP`)}`;
+    s.cleanup(() => {
+      sql.execute(`DELETE FROM ${def.table} WHERE name IN (${ownedNames})`);
+      assert(sql.value(`SELECT COUNT(*) FROM ${def.table} WHERE name IN (${ownedNames})`) === '0',
+        `Owned ${def.table} fixtures were not removed`);
+    });
     // Unselected control row proves a bulk delete respects its checkbox selection.
     sentinel = sql.value(`INSERT INTO ${def.table}(name) VALUES(${sqlString(`${name}-KEEP`)}); SELECT LAST_INSERT_ID()`);
     const navigate = suffix => clickAndAwaitReload(page, page.locator(`a[href$="/${suffix}"]`));
