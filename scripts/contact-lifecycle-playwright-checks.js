@@ -165,6 +165,36 @@ async function workflow(s) {
     assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${related}`) === '1',
       'Saving an existing relationship duplicated its reciprocal association');
   });
+  await s.step('invalid counts and category tampering are rejected without changing associations', async () => {
+    await open();
+    await editor.waitForFunction(() => document.querySelector('input[name="CSRF-TOKEN"]')?.value);
+    const token = await editor.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const form = await editor.locator('form[name="contactForm"]').evaluate(element => ({
+      action: element.action, entries: Array.from(new FormData(element).entries()),
+    }));
+    const original = new URLSearchParams(form.entries);
+    assert(original.get('method') === 'saveManage', 'The actual contact form does not target saveManage');
+    const ownId = original.get('contact_1.id');
+    const related = original.get('contact_1.contactId');
+    assert(/^[1-9]\d*$/.test(ownId) && /^[1-9]\d*$/.test(related), 'Missing owned internal association');
+    const snapshot = () => JSON.stringify(sql.rows(`SELECT * FROM DemographicContact
+      WHERE demographicNo IN (${patient},${related}) ORDER BY id`));
+    const before = snapshot();
+    for (const [field, value, expected] of [
+      ['procontact_num', 'invalid', 400], ['procontact_1.id', ownId, 403],
+    ]) {
+      const tampered = new URLSearchParams(original);
+      tampered.set(field, value);
+      const response = await s.context.request.post(form.action, {
+        headers: {'CSRF-TOKEN': token, 'Content-Type': 'application/x-www-form-urlencoded'},
+        data: tampered.toString(),
+      });
+      assert(response.status() === expected, `Contact ${field} tampering did not return HTTP ${expected}`);
+      assert(snapshot() === before, 'Rejected contact request changed persisted association data');
+    }
+    await editor.close();
+  });
+
 }
 if (require.main === module) runWorkflow('contact-lifecycle', workflow);
 module.exports = { workflow };

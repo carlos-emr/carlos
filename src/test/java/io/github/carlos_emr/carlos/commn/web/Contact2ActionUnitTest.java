@@ -593,7 +593,10 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         String originalCategory = professional ? DemographicContact.CATEGORY_PERSONAL : DemographicContact.CATEGORY_PROFESSIONAL;
         existing.setCategory(originalCategory);
         addSaveRow(professional ? "procontact_1" : "contact_1", "41", "67890", "2");
-        withContactDao(() -> assertThatThrownBy(() -> new Contact2Action().saveManage()).isInstanceOf(SecurityException.class));
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+        });
         assertThat(existing.getCategory()).isEqualTo(originalCategory);
         verify(mockDemographicContactDao, never()).merge(any());
         verify(mockDemographicContactDao, never()).persist(any());

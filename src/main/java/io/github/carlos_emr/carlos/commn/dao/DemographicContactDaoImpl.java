@@ -94,10 +94,9 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
 
     @Override
     public List<DemographicContact> findPersonalPatientLinks(int demographicNo, int contactId) {
-        String sql = "select x from " + this.modelClass.getName()
-                + " x where x.demographicNo=?1 and x.contactId=?2 and x.deleted=false"
-                + " and x.category=?3 and x.type=?4";
-        Query query = entityManager.createQuery(sql);
+        var query = entityManager.createQuery("select x from DemographicContact x"
+                + " where x.demographicNo=?1 and x.contactId=?2 and x.deleted=false"
+                + " and x.category=?3 and x.type=?4", DemographicContact.class);
         query.setParameter(1, demographicNo);
         query.setParameter(2, Integer.toString(contactId));
         query.setParameter(3, DemographicContact.CATEGORY_PERSONAL);

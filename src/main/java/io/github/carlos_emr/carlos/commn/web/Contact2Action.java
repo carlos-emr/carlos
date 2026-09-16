@@ -239,110 +239,44 @@ public class Contact2Action extends ActionSupport {
             forward = postMethod;
         }
 
-        for (int x = 1; x <= maxContact; x++) {
-
-            String demographicContactId = request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".id");
-
-            if (demographicContactId != null) {
-
-                String contactId = request.getParameter(PERSONAL_CONTACT_PREFIX + x + CONTACT_ID_SUFFIX);
-                if (StringUtils.isBlank(contactId) || contactId.equals("0")) {
-                    continue;
-                }
-
-                String consentToContact = request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".consentToContact");
-                String activeStatus = request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".active");
-
-                boolean activeStatusOn = Boolean.TRUE;
-                boolean consentToContactOn = Boolean.TRUE;
-
-                if ("0".equals(consentToContact)) {
-                    consentToContactOn = Boolean.FALSE;
-                }
-                if ("0".equals(activeStatus)) {
-                    activeStatusOn = Boolean.FALSE;
-                }
-
-                int demographicContactIdInt = Integer.parseInt(demographicContactId);
-
-                linkContactToDemographic(contactId,
-                        demographicContactIdInt,
-                        demographicNo,
-                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + CONTACT_ROLE_SUFFIX),
-                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + CONTACT_TYPE_SUFFIX),
-                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + CONTACT_NOTE_SUFFIX),
-                        DemographicContact.CATEGORY_PERSONAL,
-                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".sdm"),
-                        request.getParameter(PERSONAL_CONTACT_PREFIX + x + ".ec"),
-                        consentToContactOn,
-                        activeStatusOn,
-                        loggedInInfo);
-
-                // Only create reciprocal rows authorized before any save. Recheck
-                // existence so repeated targets in this submission do not duplicate them.
-                String reverseRole = reciprocalRoles.get(x);
-                if (reverseRole != null && demographicContactDao.findPersonalPatientLinks(Integer.parseInt(contactId), demographicNo).isEmpty()) {
-                    linkContactToDemographic(Integer.toString(demographicNo),
-                            0, // A reciprocal association is a distinct row.
-                            Integer.parseInt(contactId),
-                            reverseRole,
-                            Integer.toString(DemographicContact.TYPE_DEMOGRAPHIC),
-                            request.getParameter(PERSONAL_CONTACT_PREFIX + x + CONTACT_NOTE_SUFFIX),
-                            DemographicContact.CATEGORY_PERSONAL,
-                            null, // Reciprocal relationships do not grant SDM or emergency-contact status.
-                            null,
-                            consentToContactOn,
-                            activeStatusOn,
-                            loggedInInfo);
-                }
-            }
-        }
-
-        for (int x = 1; x <= maxProContact; x++) {
-
-            String demographicContactId = request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".id");
-            if (demographicContactId != null) {
-
-                String contactId = request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + CONTACT_ID_SUFFIX);
-                if (StringUtils.isBlank(contactId) || contactId.equals("0")) {
-                    continue;
-                }
-
-                String consentToContact = request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".consentToContact");
-                String activeStatus = request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".active");
-
-                boolean activeStatusOn = Boolean.TRUE;
-                boolean consentToContactOn = Boolean.TRUE;
-
-                if ("0".equals(consentToContact)) {
-                    consentToContactOn = Boolean.FALSE;
-                }
-                if ("0".equals(activeStatus)) {
-                    activeStatusOn = Boolean.FALSE;
-                }
-
-                int demographicContactIdInt = Integer.parseInt(demographicContactId);
-
-                linkContactToDemographic(contactId,
-                        demographicContactIdInt,
-                        demographicNo,
-                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + CONTACT_ROLE_SUFFIX),
-                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + CONTACT_TYPE_SUFFIX),
-                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + CONTACT_NOTE_SUFFIX),
-                        DemographicContact.CATEGORY_PROFESSIONAL,
-                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".sdm"),
-                        request.getParameter(PROFESSIONAL_CONTACT_PREFIX + x + ".ec"),
-                        consentToContactOn,
-                        activeStatusOn,
-                        loggedInInfo);
-
-            }
-        }
+        saveContactRows(PERSONAL_CONTACT_PREFIX, maxContact, demographicNo, loggedInInfo, reciprocalRoles);
+        saveContactRows(PROFESSIONAL_CONTACT_PREFIX, maxProContact, demographicNo, loggedInInfo, Map.of());
 
         //handle removes
         removeContact();
 
         return forward;
+    }
+
+    private void saveContactRows(String prefix, int count, int demographicNo, LoggedInInfo loggedInInfo,
+                                 Map<Integer, String> reciprocalRoles) {
+        String category = PERSONAL_CONTACT_PREFIX.equals(prefix)
+                ? DemographicContact.CATEGORY_PERSONAL : DemographicContact.CATEGORY_PROFESSIONAL;
+        for (int row = 1; row <= count; row++) {
+            String field = prefix + row;
+            String associationId = request.getParameter(field + ".id");
+            String contactId = request.getParameter(field + CONTACT_ID_SUFFIX);
+            if (associationId == null || StringUtils.isBlank(contactId) || "0".equals(contactId)) continue;
+            boolean consent = !"0".equals(request.getParameter(field + ".consentToContact"));
+            boolean active = !"0".equals(request.getParameter(field + ".active"));
+            linkContactToDemographic(contactId, Integer.parseInt(associationId), demographicNo,
+                    request.getParameter(field + CONTACT_ROLE_SUFFIX),
+                    request.getParameter(field + CONTACT_TYPE_SUFFIX),
+                    request.getParameter(field + CONTACT_NOTE_SUFFIX), category,
+                    request.getParameter(field + ".sdm"), request.getParameter(field + ".ec"),
+                    consent, active, loggedInInfo);
+
+            // The preflight authorizes reciprocal writes before any mutation.
+            // Recheck existence so repeated targets cannot create duplicate rows.
+            String reverseRole = reciprocalRoles.get(row);
+            if (reverseRole != null && demographicContactDao.findPersonalPatientLinks(Integer.parseInt(contactId), demographicNo).isEmpty()) {
+                linkContactToDemographic(Integer.toString(demographicNo), 0, Integer.parseInt(contactId),
+                        reverseRole, Integer.toString(DemographicContact.TYPE_DEMOGRAPHIC),
+                        request.getParameter(field + CONTACT_NOTE_SUFFIX), DemographicContact.CATEGORY_PERSONAL,
+                        null, null, // Reverse relationships do not grant SDM or emergency-contact status.
+                        consent, active, loggedInInfo);
+            }
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -360,6 +294,7 @@ public class Contact2Action extends ActionSupport {
         };
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "M/F domain codes select a relationship label; not identity or authorization")
     private String genderedReverseRole(int sourceDemographicNo, String maleRole, String femaleRole) {
         Demographic demographic = demographicDao.getDemographicById(sourceDemographicNo);
         // Do not infer a gendered relationship when the source patient's sex is unknown.
@@ -432,42 +367,47 @@ public class Contact2Action extends ActionSupport {
 
     private Map<Integer, String> validateContactSaves(String prefix, int count, int demographicNo, LoggedInInfo loggedInInfo) {
         Map<Integer, String> reciprocalRoles = new HashMap<>();
+        String category = PERSONAL_CONTACT_PREFIX.equals(prefix)
+                ? DemographicContact.CATEGORY_PERSONAL : DemographicContact.CATEGORY_PROFESSIONAL;
         for (int row = 1; row <= count; row++) {
             String field = prefix + row;
             String id = request.getParameter(field + ".id");
             if (id == null) continue;
-            int associationId = Integer.parseInt(id);
-            if (associationId < 0) throw new NumberFormatException("Invalid association identifier");
-            DemographicContact existing = associationId == 0 ? null : requireOwnedContact(associationId, demographicNo);
-            String category = PERSONAL_CONTACT_PREFIX.equals(prefix)
-                    ? DemographicContact.CATEGORY_PERSONAL : DemographicContact.CATEGORY_PROFESSIONAL;
-            if (existing != null) requireContactCategory(existing, category);
-            String contactIdValue = request.getParameter(field + CONTACT_ID_SUFFIX);
-            if (StringUtils.isNotBlank(contactIdValue) && !"0".equals(contactIdValue)) {
-                int effectiveType = existing == null ? DemographicContact.TYPE_PROVIDER : existing.getType();
-                if (existing == null) {
-                    String type = request.getParameter(field + CONTACT_TYPE_SUFFIX);
-                    if (type != null) effectiveType = Integer.parseInt(type);
-                    if (effectiveType < 0 || effectiveType > DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
-                        throw new NumberFormatException("Invalid contact type");
-                    }
-                }
-                // provider_no is a string namespace (for example T099); the
-                // patient, directory and specialist namespaces use numeric IDs.
-                if (effectiveType != DemographicContact.TYPE_PROVIDER) positiveContactId(contactIdValue);
+            DemographicContact existing = validateContactRow(field, id, category, demographicNo);
+            if (!PERSONAL_CONTACT_PREFIX.equals(prefix)) continue;
+            String reverseRole = findNewReciprocalRole(field, existing, demographicNo);
+            if (reverseRole == null) continue;
+            String contactId = request.getParameter(field + CONTACT_ID_SUFFIX);
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", contactId)) {
+                throw new SecurityException("missing required sec object (_demographic)");
             }
-            if (PERSONAL_CONTACT_PREFIX.equals(prefix)) {
-                String reverseRole = findNewReciprocalRole(field, existing, demographicNo);
-                if (reverseRole != null) {
-                    String contactId = request.getParameter(field + CONTACT_ID_SUFFIX);
-                    if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", contactId)) {
-                        throw new SecurityException("missing required sec object (_demographic)");
-                    }
-                    reciprocalRoles.put(row, reverseRole);
-                }
-            }
+            reciprocalRoles.put(row, reverseRole);
         }
         return reciprocalRoles;
+    }
+
+    private DemographicContact validateContactRow(String field, String id, String category, int demographicNo) {
+        int associationId = Integer.parseInt(id);
+        if (associationId < 0) throw new NumberFormatException("Invalid association identifier");
+        DemographicContact existing = associationId == 0 ? null : requireOwnedContact(associationId, demographicNo);
+        if (existing != null) requireContactCategory(existing, category);
+        String contactId = request.getParameter(field + CONTACT_ID_SUFFIX);
+        if (StringUtils.isNotBlank(contactId) && !"0".equals(contactId)) {
+            // provider_no is a string namespace (for example T099); the other
+            // association namespaces use positive numeric identifiers.
+            if (effectiveContactType(field, existing) != DemographicContact.TYPE_PROVIDER) positiveContactId(contactId);
+        }
+        return existing;
+    }
+
+    private int effectiveContactType(String field, DemographicContact existing) {
+        if (existing != null) return existing.getType();
+        String submitted = request.getParameter(field + CONTACT_TYPE_SUFFIX);
+        int type = submitted == null ? DemographicContact.TYPE_PROVIDER : Integer.parseInt(submitted);
+        if (type < 0 || type > DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
+            throw new NumberFormatException("Invalid contact type");
+        }
+        return type;
     }
 
     private String findNewReciprocalRole(String field, DemographicContact existing, int demographicNo) {
@@ -477,10 +417,7 @@ public class Contact2Action extends ActionSupport {
         // Existing rows disable their type selector. Preserve that classification
         // even if a crafted request supplies a different type; persistence uses
         // the same rule, so reciprocal planning cannot change independently.
-        String submittedType = request.getParameter(field + CONTACT_TYPE_SUFFIX);
-        int effectiveType = DemographicContact.TYPE_PROVIDER;
-        if (existing != null) effectiveType = existing.getType();
-        else if (submittedType != null) effectiveType = Integer.parseInt(submittedType);
+        int effectiveType = effectiveContactType(field, existing);
         if (effectiveType != DemographicContact.TYPE_DEMOGRAPHIC
                 || !demographicContactDao.findPersonalPatientLinks(Integer.parseInt(contactId), demographicNo).isEmpty()) return null;
         return getReverseRole(request.getParameter(field + CONTACT_ROLE_SUFFIX), demographicNo);

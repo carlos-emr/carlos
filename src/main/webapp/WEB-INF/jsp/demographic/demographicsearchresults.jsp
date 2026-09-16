@@ -376,7 +376,9 @@
                         List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize);
                         demoList = new ArrayList<Demographic>();
                         for (Integer r : results) {
-                            demoList.add(demographicDao.getDemographicById(r));
+                            // A patient can disappear after the recent-ID query.
+                            Demographic recentPatient = demographicDao.getDemographicById(r);
+                            if (recentPatient != null) demoList.add(recentPatient);
                         }
 
                     } else {
