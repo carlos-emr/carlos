@@ -51,7 +51,14 @@ public class ProEditPrinter2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_pref)");
         }
 
-        String forward;
+        // Opening preferences must not overwrite the provider's saved printers.
+        if ("GET".equals(request.getMethod())) {
+            return SUCCESS;
+        }
+        if (!"POST".equals(request.getMethod())) {
+            ServletActionContext.getResponse().sendError(405, "POST required");
+            return NONE;
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         createOrUpdateProperty(providerNo, UserProperty.DEFAULT_PRINTER_APPOINTMENT_RECEIPT, defaultPrinterNameAppointmentReceipt);

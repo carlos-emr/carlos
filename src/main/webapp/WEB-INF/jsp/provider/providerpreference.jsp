@@ -1355,7 +1355,7 @@
                 <a href="<%= request.getContextPath() %>/provider/ViewProviderChangePassword" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-key"></i> <fmt:message key="provider.providerpreference.link.changePassword"/>
                 </a>
-                <a href="${pageContext.request.contextPath}/EnterSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="${pageContext.request.contextPath}/provider/ViewEditSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
                 <a href="<%= request.getContextPath() %>/EditPrinter" class="pref-link" target="_blank" rel="noopener noreferrer">

@@ -61,6 +61,10 @@ public class ProEditSignature2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_pref)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
         String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         if (providerNo == null)
             return "eject";

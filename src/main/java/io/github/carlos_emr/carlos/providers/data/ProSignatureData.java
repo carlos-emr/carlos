@@ -62,28 +62,15 @@ public class ProSignatureData {
     }
 
     public void enterSignature(String providerNo, String signature) {
-
-        if (hasSignature(providerNo)) {
-            updateSignature(providerNo, signature);
+        ProviderExt existing = providerExtDao.find(providerNo);
+        if (existing == null) {
+            ProviderExt created = new ProviderExt();
+            created.setProviderNo(providerNo);
+            created.setSignature(signature);
+            providerExtDao.persist(created);
         } else {
-            addSignature(providerNo, signature);
-        }
-
-    }
-
-
-    private void addSignature(String providerNo, String signature) {
-        ProviderExt pe = new ProviderExt();
-        pe.setProviderNo(providerNo);
-        pe.setSignature(signature);
-        providerExtDao.persist(pe);
-    }
-
-    private void updateSignature(String providerNo, String signature) {
-        ProviderExt pe = providerExtDao.find(providerNo);
-        if (pe != null) {
-            pe.setSignature(signature);
-            providerExtDao.merge(pe);
+            existing.setSignature(signature);
+            providerExtDao.merge(existing);
         }
     }
 }

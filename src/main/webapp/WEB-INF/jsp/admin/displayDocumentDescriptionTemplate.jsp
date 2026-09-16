@@ -75,9 +75,24 @@
     <script type="text/javascript">
         var useDocumentDescriptionTemplateType;
 
-        function getCsrfToken() {
+        function reportTemplateError() {
+            document.getElementById('templateStatus').textContent =
+                'The document description request failed. Your changes may not have been saved. Reload and try again.';
+        }
+
+        async function templateRequest(url, data) {
+            if (window.csrfTokenReady) await window.csrfTokenReady;
             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-            return csrfEl ? csrfEl.value : '';
+            if (!csrfEl || !csrfEl.value) throw new Error('CSRF token is unavailable');
+            var response = await fetch(url, {
+                method: 'POST', credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfEl.value},
+                body: data
+            });
+            if (!response.ok || response.redirected) throw new Error('Document description request failed');
+            document.getElementById('templateStatus').textContent = '';
+            return response.text();
         }
 
         function adddocDescription() {
@@ -93,18 +108,9 @@
                     method: 'addDocumentDescription', description: docDescription, shortcut: docShortcut,
                     doctype: docType, providerNo: providerNo
                 }).toString();
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                templateRequest(url, data).then(function(responseText) {
                     getDocumentDescriptionTemplateFromSelectedDocType();
-                });
+                }).catch(reportTemplateError);
             } else {
                 alert("<fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
             }
@@ -122,18 +128,9 @@
                     method: 'updateDocumentDescription', description: docDescription, shortcut: docShortcut,
                     doctype: docType, id: id, providerNo: providerNo
                 }).toString();
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                templateRequest(url, data).then(function(responseText) {
                     getDocumentDescriptionTemplateFromSelectedDocType();
-                });
+                }).catch(reportTemplateError);
             } else {
                 alert("<fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
             }
@@ -144,18 +141,9 @@
                 var id = document.docDescriptionForm.descriptionId.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=deleteDocumentDescription&id=' + id;
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                templateRequest(url, data).then(function(responseText) {
                     getDocumentDescriptionTemplateFromSelectedDocType();
-                });
+                }).catch(reportTemplateError);
             } else {
                 alert("<fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
             }
@@ -191,16 +179,7 @@
             docDescriptionList.appendChild(adoc);
             var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
             var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=" + providerNo + "&useDocumentDescriptionTemplateType=" + useDocumentDescriptionTemplateType;
-            fetch(url, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'CSRF-TOKEN': getCsrfToken()
-                },
-                body: data
-            }).then(function(response) { return response.text(); }).then(function(responseText) {
+            templateRequest(url, data).then(function(responseText) {
                 var json = JSON.parse(responseText);
 
                 if (json != null) {
@@ -225,7 +204,7 @@
                     docDescriptionList.appendChild(mySelect);
                     getDescriptionAndShortcutFromSelectedList();
                 }
-            });
+            }).catch(reportTemplateError);
 
         }
 
@@ -241,16 +220,7 @@
                 var id = document.getElementById('docDescList').options[document.getElementById('docDescList').selectedIndex].value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=getDocumentDescriptionFromId&id=' + id;
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                templateRequest(url, data).then(function(responseText) {
                     var json = JSON.parse(responseText);
                     if (json != null) {
                         document.docDescriptionForm.addDescription.style.visibility = 'hidden';
@@ -260,11 +230,11 @@
                         document.docDescriptionForm.docDescription.value = json.documentDescriptionTemplate.description;
                         document.docDescriptionForm.docDescriptionShortcut.value = json.documentDescriptionTemplate.descriptionShortcut;
                     }
-                });
+                }).catch(reportTemplateError);
             }
         }
 
-        function checkClinicDefault() {
+        function checkClinicDefault(savePreference) {
 
             if (document.getElementById('useclinicdefault').checked && document.docDescriptionForm.providerNo.value != "null") {
                 document.getElementById('docTypeTable').style.visibility = 'hidden';
@@ -274,39 +244,23 @@
                 document.docDescriptionForm.addDescription.style.visibility = 'hidden';
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=<%=UserProperty.CLINIC%>';
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                });
+                if (savePreference) templateRequest(url, data).catch(reportTemplateError);
             } else {
                 useDocumentDescriptionTemplateType = document.docDescriptionForm.providerNo.value != "null" ? "<%=UserProperty.USER%>" : "<%=UserProperty.CLINIC%>";
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=' + useDocumentDescriptionTemplateType;
-                fetch(url, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'CSRF-TOKEN': getCsrfToken()
-                    },
-                    body: data
-                });
+                if (savePreference) templateRequest(url, data).catch(reportTemplateError);
                 document.getElementById('docTypeTable').style.visibility = 'visible';
-                document.getElementById('docType').selectedIndex = -1;
+                document.getElementById('docType').selectedIndex = 0;
                 document.getElementById('tblDesc').style.visibility = 'hidden';
                 getDocumentDescriptionTemplateFromSelectedDocType();
             }
         }
     </script>
 </head>
-<body onload="checkClinicDefault()">
+<body onload="checkClinicDefault(false)">
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
+<p id="templateStatus" role="alert"></p>
 <%
     String providerNo = curProvider_no;
     if (request.getParameter("setDefault") != null && request.getParameter("setDefault").equals("true")) {
@@ -316,7 +270,7 @@
 <form method="post" name="docDescriptionForm" action="${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate">
     <div id="usefault" style="<%=providerNo==null? "visibility:hidden" : ""%>">
         <input type="checkbox" name="useclinicdefault" <%=clinicDefault == true ? "checked='checked'" : ""%>
-               id="useclinicdefault" onclick="checkClinicDefault()"><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>
+               id="useclinicdefault" onclick="checkClinicDefault(true)"><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>
     </div>
     <% if (providerNo == null) {%>
     <fmt:message key="provider.setDocumentDescriptionTemplate.setClinicDefault"/>
