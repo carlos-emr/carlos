@@ -53,12 +53,12 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
     request.setAttribute("providers", providerDao.getActiveProviders());
 %>
 
-<div id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>">
-    <input type="hidden" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" value="0"/>
+<div id="contact_${carlos:forHtmlAttribute(param.id)}">
+    <input type="hidden" name="contact_${carlos:forHtmlAttribute(param.id)}.id" id="contact_${carlos:forHtmlAttribute(param.id)}.id" value="0"/>
 
     <a href="#" onclick="deleteContact(<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>);">[Delete]</a>
 
-    <select name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.role" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.role">
+    <select name="contact_${carlos:forHtmlAttribute(param.id)}.role" id="contact_${carlos:forHtmlAttribute(param.id)}.role">
         <option value="Mother">Mother</option>
         <option value="Father">Father</option>
         <option value="Parent">Parent</option>
@@ -88,14 +88,14 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
 
     &nbsp;
 
-    <select name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.consentToContact" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.consentToContact" title="Consent to Contact">
+    <select name="contact_${carlos:forHtmlAttribute(param.id)}.consentToContact" id="procontact_${carlos:forHtmlAttribute(param.id)}.consentToContact" title="Consent to Contact">
         <option value="1">Consent</option>
         <option value="0">No Consent</option>
     </select>
 
     &nbsp;
 
-    <select name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.active" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.active" title="Active">
+    <select name="contact_${carlos:forHtmlAttribute(param.id)}.active" id="procontact_${carlos:forHtmlAttribute(param.id)}.active" title="Active">
         <option value="1">Active</option>
         <option value="0">Inactive</option>
     </select>
@@ -103,18 +103,18 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
     &nbsp;
     <!--  they can be an internal (Demographic) or external (Contact) contact -->
 
-    <select name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.type" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.type">
+    <select name="contact_${carlos:forHtmlAttribute(param.id)}.type" id="contact_${carlos:forHtmlAttribute(param.id)}.type">
         <option value="<%=DemographicContact.TYPE_DEMOGRAPHIC%>">Internal</option>
         <option value="<%=DemographicContact.TYPE_CONTACT%>">External</option>
     </select>
 
-    <input type="hidden" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactId" value="0"/>
-    <input type="text" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" size="20"
+    <input type="hidden" name="contact_${carlos:forHtmlAttribute(param.id)}.contactId" value="0"/>
+    <input type="text" name="contact_${carlos:forHtmlAttribute(param.id)}.contactName" id="contact_${carlos:forHtmlAttribute(param.id)}.contactName" size="20"
            readonly="readonly"/>
     <a href="#" onclick="doPersonalSearch('<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' context="html"/></a><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 
     &nbsp;
-    SDM:<input type="checkbox" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.sdm"/>
-    EC:<input type="checkbox" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.ec"/>
-    <textarea name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.note" rows="3" cols="25" title="Contact Note"></textarea>
+    SDM:<input type="checkbox" name="contact_${carlos:forHtmlAttribute(param.id)}.sdm"/>
+    EC:<input type="checkbox" name="contact_${carlos:forHtmlAttribute(param.id)}.ec"/>
+    <textarea name="contact_${carlos:forHtmlAttribute(param.id)}.note" rows="3" cols="25" title="Contact Note"></textarea>
 </div>
