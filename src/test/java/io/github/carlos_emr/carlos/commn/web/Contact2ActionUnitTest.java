@@ -383,6 +383,87 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         when(mockDemographicDao.getDemographicById(Integer.parseInt(DEMOGRAPHIC_NO))).thenReturn(patient);
     }
 
+    private DemographicContact existingAssociation(int type) {
+        DemographicContact association = new DemographicContact();
+        ReflectionTestUtils.setField(association, "id", 41);
+        association.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
+        association.setType(type);
+        association.setContactId("67890");
+        when(mockDemographicContactDao.find(41)).thenReturn(association);
+        return association;
+    }
+
+    @Test
+    void shouldRejectWholeSave_whenSubmittedExternalTypeWouldHideAnInternalReciprocalWrite() {
+        prepareSave("1", "0");
+        prepareFacility();
+        prepareReverseRole();
+        addSaveRow("contact_1", "41", "67890", "2");
+        DemographicContact own = existingAssociation(DemographicContact.TYPE_DEMOGRAPHIC);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
+                .thenReturn(false);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+            assertThat(own.getType()).isEqualTo(DemographicContact.TYPE_DEMOGRAPHIC);
+            verify(mockDemographicContactDao, never()).persist(any(DemographicContact.class));
+            verify(mockDemographicContactDao, never()).merge(any(DemographicContact.class));
+        });
+    }
+
+    @Test
+    void shouldPreserveInternalTypeAndCreateReverse_whenExistingTypeIsTamperedWith() {
+        prepareSave("1", "0");
+        prepareFacility();
+        prepareReverseRole();
+        addSaveRow("contact_1", "41", "67890", "2");
+        DemographicContact own = existingAssociation(DemographicContact.TYPE_DEMOGRAPHIC);
+        withContactDao(() -> {
+            new Contact2Action().saveManage();
+            assertThat(own.getType()).isEqualTo(DemographicContact.TYPE_DEMOGRAPHIC);
+            verify(mockDemographicContactDao).merge(same(own));
+            ArgumentCaptor<DemographicContact> reverse = ArgumentCaptor.forClass(DemographicContact.class);
+            verify(mockDemographicContactDao).persist(reverse.capture());
+            assertThat(reverse.getValue().getType()).isEqualTo(DemographicContact.TYPE_DEMOGRAPHIC);
+            assertThat(reverse.getValue().getDemographicNo()).isEqualTo(67890);
+            assertThat(reverse.getValue().getContactId()).isEqualTo(DEMOGRAPHIC_NO);
+        });
+    }
+
+    @Test
+    void shouldPreserveExternalTypeWithoutReverseWrite_whenInternalTypeIsSubmitted() {
+        prepareSave("1", "0");
+        prepareFacility();
+        prepareReverseRole();
+        addSaveRow("contact_1", "41", "67890", "1");
+        DemographicContact own = existingAssociation(DemographicContact.TYPE_CONTACT);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
+                .thenReturn(false);
+        withContactDao(() -> {
+            new Contact2Action().saveManage();
+            assertThat(own.getType()).isEqualTo(DemographicContact.TYPE_CONTACT);
+            verify(mockDemographicContactDao).merge(same(own));
+            verify(mockDemographicContactDao, never()).persist(any(DemographicContact.class));
+            verify(mockDemographicDao, never()).getDemographicById(67890);
+            verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890"));
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2", "invalid"})
+    void shouldPreserveProfessionalType_whenExistingTypeIsSubmitted(String submittedType) {
+        prepareSave("0", "1");
+        prepareFacility();
+        addSaveRow("procontact_1", "41", "67890", submittedType);
+        DemographicContact own = existingAssociation(DemographicContact.TYPE_PROFESSIONALSPECIALIST);
+        withContactDao(() -> {
+            new Contact2Action().saveManage();
+            assertThat(own.getType()).isEqualTo(DemographicContact.TYPE_PROFESSIONALSPECIALIST);
+            verify(mockDemographicContactDao).merge(same(own));
+            verify(mockDemographicContactDao, never()).persist(any(DemographicContact.class));
+        });
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldRejectBeforeAnyWrite_whenExistingInternalTypeIsOmittedOrPadded(boolean omitType) {

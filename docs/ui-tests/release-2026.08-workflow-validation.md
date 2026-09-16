@@ -20,11 +20,13 @@ Reinstall applied zero migrations and preserved the database. Existing databases
 with newer develop migrations were not reused or modified.
 
 - Baseline Java package build: 12,103 tests, zero failures/errors, 51 skips.
-- Final full Java package build: **12,134 tests**, zero failures/errors, 51 skips.
+- Full local Java package build before the final type-preservation follow-up: **12,134 tests**, zero failures/errors, 51 skips.
   A discovery audit found the legacy `Contact2ActionTest` filename excluded by
   Surefire. Renamed it `Contact2ActionUnitTest`; its **25 cases** pass in both the
   focused run and the default full suite, verified in the Surefire XML. Earlier
-  successful CI did not execute that legacy filename.
+  successful CI did not execute that legacy filename. The subsequent type-preservation
+  follow-up expands the focused suite to **30 passing cases**; final-head CI runs
+  the normal suite again.
 - Revised script regressions: **635 passed** (baseline 593).
 - Revised package-management Python tests: **1,519 passed**. Generated O19
   primitive-column metadata was regenerated from pinned upstream commit
@@ -66,7 +68,7 @@ audit logs are intentionally retained.
 | SOAP interceptor by-type injection instantiates request actions during startup | Use annotated injection; executable Spring regression fails on the release definition and passes after the change; packaged app starts. |
 | Legacy NULL clinic location breaks Messenger hydration | Nullable `GroupMembers` field with existing zero-valued getter contract; unit regressions and live compose/inbox actions pass. Regenerated import metadata matches the model. |
 | Contact search handler/JSON breaks with punctuation | Encode the complete handler for its HTML attribute and serialize with `JSON.stringify`; executable original serializer fails, corrected serializer and live quoted-name selection pass. |
-| New contact association sends a blank integer ID; removal also fails | Initialize both templates to zero, ignore unsaved zero IDs during deletion, and collect typed association rows before deletion. The 25-case contact suite passes; installed-package workflow passes. |
+| New contact association sends a blank integer ID; removal also fails | Initialize both templates to zero, ignore unsaved zero IDs during deletion, and collect typed association rows before deletion. The 30-case contact suite passes; installed-package workflow passes. |
 | Contact saves can reassign another patient's association; reciprocal edits can move the original row | Prevalidate both categories and removals before writes, check both patients for reciprocal writes, and create a distinct reverse row. Negative and successful reciprocal Java regressions pass. |
 | Professional consent/status silently defaults to true | Read the professional field prefix. Regression submits opposing personal values; professional false values persist. Installed-package round-trip passes. |
 | Personal/professional row controls have duplicate IDs | Give personal fields their own prefix and label SDM/emergency/note controls; installed-package uniqueness assertion passes. |
@@ -112,6 +114,34 @@ patients and finds only 49 intentionally retained audit-log rows; directory
 cleanup also passes. Temporary episode grants were restored and the VM was
 stopped normally. Host/guest minimum available memory was 13.73/1.52 GiB, with
 zero swap use, zero full memory PSI and no guard intervention.
+
+## Existing contact type preservation
+
+A final review identified a classification-consistency defect: an existing
+association's disabled type selector could be overridden with a crafted POST.
+Planning and persistence agreed on that submitted type, so this was not an
+unauthorized write to the related patient; nevertheless it could convert the
+existing relationship and leave inconsistent reciprocal state. Existing rows
+now retain their stored type for both planning and persistence. New rows still
+use the submitted type. Reverse-role calculation reads the already-authorized
+source patient; the helper parameter is renamed to make that explicit.
+
+Five additional Java cases fail on the preceding implementation (three failures,
+two errors), then all 30 pass after the fix. They cover internal-to-external and
+external-to-internal submissions, denial before any mutation, correctly typed
+reciprocal creation, and professional-row types including malformed submissions.
+
+A controlled VM probe changes only the submitted type for the workflow's owned
+internal association. The old installed package fails the original-row type
+assertion after one tampered request, with successful fixture cleanup. The new
+package passes all six ordinary contact steps and the probe, including two
+tampered saves and the reciprocal duplicate check. Installed class/JSP hashes
+match the tested build. Reinstall applies zero migrations and preserves the
+release database's 23 successful migrations and demo data. The final audit covers
+six owned patients and finds only 26 intentionally retained audit rows. This is
+separate from the earlier 12-patient/49-row audit. Health checks pass; the VM is
+stopped and its original mounts restored. Memory guards recorded no swap use,
+full memory pressure, or interventions.
 
 ## Tests tested
 
@@ -190,7 +220,7 @@ The anonymous empty responses do not establish patient-data disclosure.
 
 Contact removal now requires POST, patient write permission and matching
 association ownership; a mixed-owner selection is rejected before any deletion.
-The 25 Java cases and installed-package contact workflows pass. Cross-patient
+The 30 Java cases and installed-package contact workflows pass. Cross-patient
 rejection is verified at the Java action boundary; no low-privilege VM exploit
 is claimed.
 Source review also found candidate episode validation/authorization and
@@ -248,17 +278,16 @@ to the PR or issue.
 Host compilation occurs only with the VM stopped, with a 5 GiB memory cap and one
 Surefire fork. Host/guest memory guards protect the sequential browser runs.
 Default package compression exceeded the temporary-file quota; sequential zstd
-compression succeeded, and no partial package was installed. The tested runtime
-is built from `73ce9d8d95`; subsequent changes shorten a test fixture name, update documentation,
-and replace three repeated field suffixes with compile-time constants. After
-that cleanup, normalized `javap` output confirms every executable method
-instruction and invokedynamic recipe is identical to the VM-tested action.
-The final 25-case action suite passes again; the class metadata differs because
-of the additional constants. The helper documentation also corrects the legacy
-reversal of the create/update ID contract. Main
-package `carlos-emr_2026.09.0~snapshot23_all.deb` reports application version
-`2026.08.0-alpha13-SNAPSHOT`, with SHA-256
-`711bee71946bf0dc4a02af360c96df9225c3747012ff32d9c956ec8249cb3e9c`.
+compression succeeded, and no partial package was installed. The earlier
+seven-workflow and 14-login validation used runtime `73ce9d8d95`; the intervening
+suffix-constant refactor was verified by normalized `javap` to preserve executable
+instructions. After the type-preservation fix, the WAR and DEB were rebuilt and
+the affected contact workflows were rerun as described above. The unaffected
+workflows were not repeated on this last artifact.
+
+The final main package `carlos-emr_2026.09.0~snapshot23_all.deb` reports application
+version `2026.08.0-alpha13-SNAPSHOT`, with SHA-256
+`537a1eb86d06495b57bf226ed36c0e0296743da25db49a5a4278a9a815828d27`.
 Installed contact class/JSP and measurement JSP hashes match the tested build.
 `carlos-ctl check` passes; reinstall applies zero migrations and preserves demo
 records. The host recovery/shutdown interruption is resolved. Final detailed

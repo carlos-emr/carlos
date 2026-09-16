@@ -338,8 +338,8 @@ public class Contact2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private String getReverseRole(String roleName, int targetDemographicNo) {
-        Demographic demographic = demographicDao.getDemographicById(targetDemographicNo);
+    private String getReverseRole(String roleName, int sourceDemographicNo) {
+        Demographic demographic = demographicDao.getDemographicById(sourceDemographicNo);
 
         if (roleName.equals("Mother") || roleName.equals("Father") || roleName.equals("Parent")) {
             if (demographic.getSex().equalsIgnoreCase("M")) {
@@ -442,11 +442,13 @@ public class Contact2Action extends ActionSupport {
         String contactId = request.getParameter(field + CONTACT_ID_SUFFIX);
         if (StringUtils.isBlank(contactId) || "0".equals(contactId)) return null;
 
-        // Existing rows disable their type selector, so browsers omit it.
-        // Match the persisted-type fallback used by linkContactToDemographic.
+        // Existing rows disable their type selector. Preserve that classification
+        // even if a crafted request supplies a different type; persistence uses
+        // the same rule, so reciprocal planning cannot change independently.
         String submittedType = request.getParameter(field + CONTACT_TYPE_SUFFIX);
-        int effectiveType = existing != null ? existing.getType() : DemographicContact.TYPE_PROVIDER;
-        if (submittedType != null) effectiveType = Integer.parseInt(submittedType);
+        int effectiveType = DemographicContact.TYPE_PROVIDER;
+        if (existing != null) effectiveType = existing.getType();
+        else if (submittedType != null) effectiveType = Integer.parseInt(submittedType);
         if (effectiveType != DemographicContact.TYPE_DEMOGRAPHIC
                 || !demographicContactDao.find(Integer.parseInt(contactId), demographicNo).isEmpty()) return null;
         return getReverseRole(request.getParameter(field + CONTACT_ROLE_SUFFIX), demographicNo);
@@ -1047,7 +1049,7 @@ public class Contact2Action extends ActionSupport {
     /*
      * Creates or updates a contact association owned by the supplied patient.
      * A zero association ID creates a row; a positive ID updates an owned row.
-     * A null type preserves an existing row's type, or the model default for a new row.
+     * Existing rows retain their type. New rows use the supplied type or the model default.
      * Null sdm/ec values mean unselected; non-null values represent selected checkboxes.
      */
     private static final DemographicContact linkContactToDemographic(final String contactId, final Integer demographicContactId,
@@ -1060,14 +1062,14 @@ public class Contact2Action extends ActionSupport {
             demographicContact = requireOwnedContact(demographicContactId, demographic_no);
         } else {
             demographicContact = new DemographicContact();
+            if (type != null) {
+                demographicContact.setType(Integer.parseInt(type));
+            }
         }
 
         demographicContact.setDemographicNo(demographic_no);
         demographicContact.setRole(role);
 
-        if (type != null) {
-            demographicContact.setType(Integer.parseInt(type));
-        }
         demographicContact.setNote(note);
         demographicContact.setContactId(contactId);
 
