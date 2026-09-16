@@ -1149,3 +1149,17 @@ test('JavaScript-encoded query separators resolve to the URL the browser opens',
   assert.equal(items[1].route, '/carlos/encounter/IncomingConsultation?providerNo=999998&userName=Test');
   assert.equal(items[2].route, '/carlos/documentManager/ViewDocumentReport?function=providers&functionid=999998');
 });
+
+
+for (const [literal, expected] of [
+  [String.raw`'/carlos/foo\x2fbar'`, '/carlos/foo/bar'],
+  [String.raw`'foo\x2Fbar'`, 'foo/bar'],
+  [String.raw`'/carlos/O\'Reilly'`, "/carlos/O'Reilly"],
+  [String.raw`'/carlos/report?q=\X26\U0026'`, '/carlos/report?q=X26U0026'],
+  [String.raw`'\u002fcarlos\x2freport'`, '/carlos/report'],
+]) {
+  test(`route extraction decodes the complete literal ${literal}`, async () => {
+    const items = await catalogue([anchorDouble({href: '#', onclick: `popup(${literal}, '_blank')`}, 'Open')]);
+    assert.equal(items[0].route, expected);
+  });
+}

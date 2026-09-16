@@ -123,38 +123,22 @@ async function catalogueLinks(page, options = {}) {
     const relRoute = /^[./]/.test(relAttribute) || /^[A-Za-z0-9_][A-Za-z0-9_.-]*\//.test(relAttribute)
       ? relAttribute
       : '';
-    // Three shapes, in order, because CARLOS writes all three and an
-    // absolute-only pattern dropped the other two: the item was catalogued
-    // with no route, and an item with href="#" and no route was filtered out
-    // of the audit entirely -- so those pages were never opened while the
-    // audit still reported a full sweep.
-    //   absolute   popupPage(600,900,'/carlos/billing/...')
-    //   relative   popupPage(..., '../encounter/IncomingEncounter?...')
-    //   bare       popup(..., 'DemographicEdit?demographic_no=...')
-    const routeInOnclick = opener.match(/["']((?:\.{1,2}\/)+[A-Za-z0-9_][^"'\s]*)["']/)
-      || opener.match(/["'](\/[A-Za-z0-9_][A-Za-z0-9_/.-]*(?:\?[^"']*)?)["']/)
-      // Bare paths only when the token actually looks like one: it carries a
-      // slash, a query string, or a server-page extension. Without that guard
-      // this matches the window name and the feature string that sit in the
-      // same argument list ('_blank', 'width=600'), and the audit would report
-      // a route for every opener whether or not it found one.
-      // The segment class excludes '/' deliberately. With '/' inside it, a
-      // segment could be split at any slash and (?:\/[^...]*)* had exponentially
-      // many ways to match the same string -- catastrophic backtracking on an
-      // unterminated quote full of slashes, which would hang the audit inside
-      // the page rather than fail it (CodeQL js/redos).
-      || opener.match(/["']([A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[^"'\s?/]*)*(?:\.(?:jsp|do|html?)\b)?(?:\?[^"']*)?)["']/);
-    const looksLikeRoute = routeInOnclick
-      && (/^[./]/.test(routeInOnclick[1])
-        || /[/?]/.test(routeInOnclick[1])
-        || /\.(?:jsp|do|html?)$/i.test(routeInOnclick[1]));
-    // OWASP's JavaScript encoder emits \x26 for '&', among other escapes.
-    // Decode the literal without executing the handler. Probing its source text
-    // sends a different, malformed URL from the one the browser actually opens.
-    const route = looksLikeRoute ? routeInOnclick[1].replace(
-      /\\(?:x([0-9a-f]{2})|u([0-9a-f]{4})|([\\/'"]))/gi,
-      (escape, hex, unicode, literal) => literal || String.fromCharCode(parseInt(hex || unicode, 16)),
-    ) : relRoute;
+    // Read complete quoted literals, including escaped quotes, without executing
+    // the handler. Decode before validating the route: even its slashes may be
+    // JavaScript-encoded. The disjoint alternatives avoid nested backtracking.
+    const literals = opener.match(/"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'/g) || [];
+    const route = literals.map(literal => literal.slice(1, -1).replace(
+      /\\(?:x([0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|([\s\S]))/g,
+      (escape, hex, unicode, character) => {
+        if (hex || unicode) return String.fromCharCode(parseInt(hex || unicode, 16));
+        const special = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v' };
+        return Object.prototype.hasOwnProperty.call(special, character) ? special[character] : character;
+      },
+    )).find(candidate => !/\s/.test(candidate)
+      && (/^(?:\.{1,2}\/)+[A-Za-z0-9_]/.test(candidate)
+        || /^\/[A-Za-z0-9_]/.test(candidate)
+        || (/^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:[/?]|$)/.test(candidate)
+          && (/[/?]/.test(candidate) || /\.(?:jsp|do|html?)$/i.test(candidate))))) || relRoute;
     // A FRAGMENT IS NOT A DESTINATION. Excluding only the exact string '#' let
     // every in-page tab and collapse through (`href="#custom"`,
     // `href="#collapseClinical"`, `href="#top"`). Clicking one stays on the host
