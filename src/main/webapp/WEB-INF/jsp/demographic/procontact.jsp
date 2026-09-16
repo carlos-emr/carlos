@@ -29,6 +29,14 @@
 
 --%>
 
+<%--
+Purpose: Render a new professional-contact association row in the contact editor.
+Features: Provider/contact selection, role, consent, active status and notes.
+Parameters: id identifies the form row; the hidden association ID starts at zero
+            until Contact2Action.saveManage persists the new association.
+@since 2026.08 new-association ID contract
+--%>
+
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="demographic.procontact.title.consentToContact" var="procontactConsentTitle"/>

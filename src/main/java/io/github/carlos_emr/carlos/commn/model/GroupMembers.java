@@ -92,6 +92,12 @@ public class GroupMembers extends AbstractModel<Integer> {
         this.facilityId = facilityId;
     }
 
+    /**
+     * Returns the member's clinic location, treating a legacy persisted NULL as
+     * zero, the messaging convention for the local location.
+     *
+     * @return the configured clinic location, or zero for a legacy NULL
+     */
     public int getClinicLocationNo() {
         return clinicLocationNo == null ? 0 : clinicLocationNo;
     }

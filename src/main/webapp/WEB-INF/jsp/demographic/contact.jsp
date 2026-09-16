@@ -29,6 +29,14 @@
 
 --%>
 
+<%--
+Purpose: Render a new personal-contact association row in the contact editor.
+Features: Contact selection, relationship, SDM/emergency flags, consent and notes.
+Parameters: id identifies the form row; the hidden association ID starts at zero
+            until Contact2Action.saveManage persists the new association.
+@since 2026.08 new-association ID contract
+--%>
+
 <%@ include file="/taglibs.jsp" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

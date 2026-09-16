@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+Purpose: Search the contact directory and return a selection to the opener.
+Features: Paged search and punctuation-safe JSON handoff, with a legacy form fallback.
+Parameters: form, elementId and elementName identify opener fields; keyword,
+            search_mode, orderby and list select results; limit1/limit2 and submit
+            control paging and search submission.
+@since 2026.08 punctuation-safe selection handoff
+--%>
+
 <%@ page import="java.util.*,java.sql.*, java.net.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
