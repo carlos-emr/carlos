@@ -65,7 +65,9 @@ public class HRMResultsData {
             providerNo = "-1";
         }
 
-        int viewed = 1;
+        // Viewing and signing off are independent. A report can be signed off
+        // without first being opened here, and must remain in the review filters.
+        int viewed = 2;
         int signedOff = 0;
         if (status == null || status.equalsIgnoreCase("N")) {
             viewed = 2;
