@@ -42,11 +42,11 @@ test('nullable consultation rejects non-numeric fixture IDs before any SQL or br
   const end = source.indexOf('const mysqlHost =', start);
   assert.ok(start >= 0 && end > start && end < source.indexOf('(async () =>'));
   const validation = source.slice(start, end);
-  for (const value of ['2 OR 1=1', '2; DELETE FROM consultationRequests', '-2', '2.5', '2\nOR 1=1']) {
+  for (const value of ['0', '0000', '2 OR 1=1', '2; DELETE FROM consultationRequests', '-2', '2.5', '2\nOR 1=1']) {
     assert.throws(() => vm.runInNewContext(validation, {
       process: { env: { CONSULT_NULLABLE_REQUEST_ID: value } },
       assert: (condition, message) => assert.ok(condition, message),
-    }), /CONSULT_NULLABLE_REQUEST_ID must be numeric/);
+    }), /CONSULT_NULLABLE_REQUEST_ID must be a positive decimal ID/);
   }
   for (const value of ['2', '0002', '2147483647']) {
     assert.doesNotThrow(() => vm.runInNewContext(validation, {

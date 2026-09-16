@@ -117,7 +117,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldMapHealthCareTeamRoleByDescriptionInsteadOfUnrelatedServiceId() {
+    void shouldMapHealthCareTeamRole_byServiceDescription() {
         consultationFormRequestUtil.setService("7");
         ConsultationServices service = new ConsultationServices();
         service.setServiceDesc("Cardiology");
@@ -132,7 +132,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldUseOtherSpecialtyWhenConsultationServiceHasNoCatalogueMatch() {
+    void shouldUseOtherSpecialty_whenConsultationServiceHasNoCatalogueMatch() {
         consultationFormRequestUtil.setService("7");
         ConsultationServices service = new ConsultationServices();
         service.setServiceDesc("Unmapped specialty");
@@ -146,13 +146,13 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldUseUnspecifiedRoleWhenServiceAndOtherSpecialtyAreMissing() {
+    void shouldUseUnspecifiedRole_whenServiceAndOtherSpecialtyAreMissing() {
         consultationFormRequestUtil.setService("7");
         assertThat(consultationFormRequestUtil.getHealthCareTeamRole()).isEqualTo("0");
     }
 
     @Test
-    void shouldUseUnspecifiedRoleWhenNeitherSpecialtyNorFallbackExists() {
+    void shouldUseUnspecifiedRole_whenNeitherSpecialtyNorFallbackExists() {
         consultationFormRequestUtil.setService("7");
         ConsultationServices service = new ConsultationServices();
         service.setServiceDesc("Unmapped specialty");
@@ -164,7 +164,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"0", "-1", "invalid", "2147483648"})
-    void shouldTolerateAbsentOrInvalidServiceWhenResolvingHealthCareTeamRole(String service) {
+    void shouldResolveUnspecifiedHealthCareTeamRole_withAbsentOrInvalidService(String service) {
         consultationFormRequestUtil.setService(service);
         assertThat(consultationFormRequestUtil.getHealthCareTeamRole()).isEqualTo("0");
         verifyNoInteractions(mockConsultationServiceDao);

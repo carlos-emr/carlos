@@ -8,6 +8,34 @@ const { EventEmitter } = require('node:events');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const source = fs.readFileSync(path.join(__dirname, 'email-recovery-playwright-checks.js'), 'utf8');
 
+function validateTarget(baseUrl) {
+  const start = source.indexOf('const config =');
+  const end = source.indexOf('const mysqlHost =', start);
+  assert.ok(start >= 0 && end > start);
+  return vm.runInNewContext(source.slice(start, end), {
+    process: { env: { BASE_URL: baseUrl, ALLOW_NON_LOCAL_BASE_URL: 'true' } },
+    // Isolate this fixture's stricter guard from the shared helper's remote opt-in.
+    validateBaseUrl: value => new URL(value),
+    assert: (condition, message) => assert.ok(condition, message),
+  });
+}
+
+test('email recovery rejects remote HTTP and HTTPS even with the shared opt-in', () => {
+  for (const host of ['example.invalid', '192.0.2.1', '10.0.0.1', 'localhost.example.invalid']) {
+    for (const protocol of ['http', 'https']) {
+      assert.throws(() => validateTarget(`${protocol}://${host}/carlos`), /loopback BASE_URL/);
+    }
+  }
+});
+
+test('email recovery accepts loopback HTTP and self-signed HTTPS test deployments', () => {
+  for (const host of ['localhost', '127.0.0.1', '[::1]']) {
+    for (const protocol of ['http', 'https']) {
+      assert.doesNotThrow(() => validateTarget(`${protocol}://${host}/carlos`));
+    }
+  }
+});
+
 for (const failure of ['launch', 'SIGINT', 'SIGTERM']) {
   test(`email recovery removes only its owned logs after ${failure}`, async () => {
     const events = [];

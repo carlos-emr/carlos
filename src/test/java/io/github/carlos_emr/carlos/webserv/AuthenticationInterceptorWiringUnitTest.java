@@ -31,7 +31,7 @@ import org.w3c.dom.Node;
 class AuthenticationInterceptorWiringUnitTest {
 
     @Test
-    void shouldInitializeSecurityWithoutCreatingUnrelatedRequestActions() throws Exception {
+    void shouldInitializeSecurity_withoutCreatingUnrelatedRequestActions() throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newDefaultInstance();
         factory.setNamespaceAware(true);
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);

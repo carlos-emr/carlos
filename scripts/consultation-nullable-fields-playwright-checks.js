@@ -69,7 +69,7 @@ const config = {
   screenshotDir: process.env.CONSULT_NULLABLE_SCREENSHOT_DIR || '/tmp',
 };
 const requestId = process.env.CONSULT_NULLABLE_REQUEST_ID || '2';
-assert(/^\d+$/.test(requestId), `CONSULT_NULLABLE_REQUEST_ID must be numeric, got ${requestId}`);
+assert(/^0*[1-9]\d*$/.test(requestId), 'CONSULT_NULLABLE_REQUEST_ID must be a positive decimal ID');
 
 const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
 assert(['localhost', '127.0.0.1', '::1'].includes(mysqlHost),

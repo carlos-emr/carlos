@@ -31,7 +31,7 @@ class EmailLogContentUnitTest {
 
     @ParameterizedTest(name = "{0}: nullable stored content and UTF-8 compatibility")
     @MethodSource("contentFields")
-    void shouldReadNullableAndEncodedContent(String field, Function<EmailLog, String> read,
+    void shouldReadNullableAndEncodedContent_forSupportedFields(String field, Function<EmailLog, String> read,
             BiConsumer<EmailLog, String> write) {
         EmailLog log = new EmailLog();
         // Simulate JPA hydration from the nullable BLOB column, independently of setters.

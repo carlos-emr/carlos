@@ -492,7 +492,9 @@ recovery guard, stale-delivery warning and resolution, fresh compose passphrases
 and server-acknowledged cancellation. It does not send email and removes only its
 owned logs. With no sender configured, it also requires an explicit warning and
 disabled Send button. Both checks require a disposable local database and reject
-non-loopback `MYSQL_HOST` values.
+non-loopback `MYSQL_HOST` values. Email recovery also requires a loopback
+`BASE_URL`, even when the shared remote-target opt-in is set, because its
+fixtures belong to the local database.
 
 For a 6 GiB validation guest, set `CARLOS_JAVA_XMS="2g"` and
 `CARLOS_JAVA_XMX="2g"` in the VM environment file before starting the browser

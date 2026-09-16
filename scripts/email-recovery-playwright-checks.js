@@ -21,6 +21,9 @@ const config = {
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
 };
+// Fixtures are staged in the local database, so a remote app is never a valid target.
+const isLoopback = ['localhost', '127.0.0.1', '[::1]'].includes(config.baseUrl.hostname);
+assert(isLoopback, 'Email recovery fixture requires a loopback BASE_URL');
 const mysqlHost = process.env.MYSQL_HOST || 'localhost';
 assert(['localhost', '127.0.0.1', '::1'].includes(mysqlHost), 'Email recovery fixture requires a loopback MYSQL_HOST');
 const demographicNo = process.env.EMAIL_RECOVERY_DEMO_NO || '1';
@@ -53,7 +56,7 @@ function sql(query) {
       const [freshId, staleId] = ids;
       browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), handleSIGINT: false, handleSIGTERM: false });
       cancellation.throwIfCancelled();
-      const context = await browser.newContext({ ignoreHTTPSErrors: true });
+      const context = await browser.newContext({ ignoreHTTPSErrors: isLoopback });
       const page = await login(context, config, recorder);
       page.removeAllListeners('dialog');
       page.on('dialog', async dialog => {
