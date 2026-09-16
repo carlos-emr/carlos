@@ -79,10 +79,13 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
         };
         if (name === 'child_process') return { execFileSync(command, args) {
           const sql = args.at(-1);
-          if (sql.startsWith('SELECT')) return '999998\t1';
+          if (sql.startsWith('SELECT COUNT')) return '0';
+          if (sql.startsWith('SELECT')) return '999998\t1\t7\t8';
+          if (sql.startsWith('INSERT')) return '9001';
+          if (sql.startsWith('DELETE')) { events.push('specialist-cleanup'); return ''; }
           if (sql.includes('providerNo=NULL')) events.push('stage');
           else {
-            assert.match(sql, /providerNo='999998', urgency='1'/);
+            assert.match(sql, /providerNo='999998', urgency='1', specId='7', demographicContactId='8'/);
             events.push('restore');
           }
           return '';
@@ -106,7 +109,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     });
     assert.equal(launchOptions.handleSIGINT, false);
     assert.equal(launchOptions.handleSIGTERM, false);
-    assert.deepEqual(events, ['stage', 'operation-settled', 'close', 'restore', 'credentials-cleanup']);
+    assert.deepEqual(events, ['stage', 'operation-settled', 'close', 'restore', 'specialist-cleanup', 'credentials-cleanup']);
     assert.equal(signalProcess.exitCode, signal === 'SIGINT' ? 130 : 143);
     assert.equal(signalProcess.listenerCount('SIGINT'), 0);
     assert.equal(signalProcess.listenerCount('SIGTERM'), 0);

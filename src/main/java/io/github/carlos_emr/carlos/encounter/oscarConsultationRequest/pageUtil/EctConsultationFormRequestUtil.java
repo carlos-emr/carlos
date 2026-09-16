@@ -475,16 +475,16 @@ public class EctConsultationFormRequestUtil {
         specEmail = ps != null ? ps.getEmailAddress() : null;
         if (specPhone == null || specPhone.equals("null")) {
             specPhone = "";
-    }
-    if (specFax == null || specFax.equals("null")) {
-        specFax = "";
-    }
-    if (specAddr == null || specAddr.equals("null")) {
-        specAddr = "";
-    }
-    if (specEmail == null || org.apache.commons.lang3.Strings.CI.equals(specEmail, "null")) {
-        specEmail = "";
-    }
+        }
+        if (specFax == null || specFax.equals("null")) {
+            specFax = "";
+        }
+        if (specAddr == null || specAddr.equals("null")) {
+            specAddr = "";
+        }
+        if (specEmail == null || org.apache.commons.lang3.Strings.CI.equals(specEmail, "null")) {
+            specEmail = "";
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
