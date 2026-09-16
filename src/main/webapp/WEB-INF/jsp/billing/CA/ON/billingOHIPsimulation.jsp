@@ -240,13 +240,9 @@
         }
     }
 
-    document.querySelectorAll(".xlink").forEach(function (el) {
-        el.addEventListener('click', function (e) {
-            var source = this.getAttribute('rel');
-            // Existing pattern: creates iframe from server-set rel attribute
-            document.getElementById("dynamic-content").innerHTML = '<iframe id="myFrame" name="myFrame" frameborder="0" width="950" height="1000" src="' + source + '">';
-        });
-    });
+    // The administration shell owns navigation, including POST-only reports.
+    // This fragment must not attach GET iframe handlers to its persistent links.
+
 
 </script>
 </body>

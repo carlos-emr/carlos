@@ -65,7 +65,14 @@
     <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <link rel="stylesheet" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
 <%-- AJAX fragments reuse the administration shell's jQuery and its registered plugins. --%>
-<% if (!"XMLHttpRequest".equals(request.getHeader("X-Requested-With"))) { %>
+<%
+    // jQuery and CSRFGuard can each append the AJAX marker to this header.
+    String eformRequestedWith = request.getHeader("X-Requested-With");
+    boolean eformAjaxFragment = eformRequestedWith != null
+            && java.util.Arrays.stream(eformRequestedWith.split(","))
+                    .anyMatch(value -> "XMLHttpRequest".equalsIgnoreCase(value.trim()));
+    if (!eformAjaxFragment) {
+%>
     <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 <% } %>
