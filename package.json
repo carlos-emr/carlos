@@ -83,6 +83,7 @@
     "test:schedule-quick-search-appointment-playwright": "node scripts/schedule-quick-search-appointment-playwright-checks.js",
     "test:appointment-lifecycle-playwright": "node scripts/appointment-lifecycle-playwright-checks.js",
     "test:messenger-inbox-actions-playwright": "node scripts/messenger-inbox-actions-playwright-checks.js",
+    "test:lab-pdf-footer-playwright": "node scripts/lab-pdf-footer-playwright-checks.js",
     "test:lab-acknowledge-playwright": "node scripts/lab-acknowledge-playwright-checks.js",
     "test:prevention-recall-report-playwright": "node scripts/prevention-recall-report-playwright-checks.js",
     "test:measurement-validation-playwright": "node scripts/measurement-validation-playwright-checks.js",

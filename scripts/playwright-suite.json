@@ -940,6 +940,22 @@
       ]
     },
     {
+      "name": "lab-pdf-footer",
+      "script": "scripts/lab-pdf-footer-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_PDF_DEMOGRAPHIC_NO",
+        "LAB_PDF_EXPECTED_NOTICE"
+      ]
+    },
+    {
       "name": "lab-acknowledge",
       "script": "scripts/lab-acknowledge-playwright-checks.js",
       "tiers": [

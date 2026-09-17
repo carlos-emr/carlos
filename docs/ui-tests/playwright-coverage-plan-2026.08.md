@@ -119,7 +119,7 @@ Items outside that implementation table remain planned.
 | `scripts/lib/playwright-harness.js` | The shared harness: `readConfig`, `createSqlRunner`, `login` (forced reset, facility select, and the MFA challenge **when the caller supplies an `mfaCode` callback** — the harness generates no OTP itself, and no check passes one today, so an MFA-enrolled account is refused with an assertion rather than logged in; `login-mfa` in §2.2 is what closes that), `wireStrictPage` / `assertStrictPage`, `runCheck`, the TLS gate, `SkipCheck` | `scripts/playwright-harness.test.js` (18 tests), run by `script-regressions.yml` |
 | `scripts/lib/playwright-ui.js` | The JavaScript-path helpers (`clickOpensPopup`, `clickInjectsPanel`, `expectOpenerRefresh`, `typeAutocomplete`, `pickDate`, `dataTableRows`, `pressShortcut`, `csrfTokenPresent`, `expectDialog`) and the `NAVIGATION` click map | `scripts/playwright-suite-manifest.test.js` |
 | `scripts/lib/console-baseline.json` | The suite-wide, issue-keyed allow-list that replaces per-check `allow` arrays | a test asserts every entry names where its removal is tracked |
-| `scripts/playwright-suite.json` | The manifest: 111 named check entries over 102 scripts (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
+| `scripts/playwright-suite.json` | The manifest: 112 named check entries over 103 scripts (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
 | `scripts/run-playwright-suite.js` | The runner: `--tier`, `--only`, `--skip`, `--province`, `--junit`, `--list`, `--dry-run` | `scripts/playwright-suite-manifest.test.js` |
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 
@@ -306,6 +306,7 @@ priority group where its module lives:
 | `add-login-account`, `assign-role` | `admin/View…AddARecord`, `admin/ProviderRole` | Schedule ▸ Administration ▸ User Management ▸ … |
 | `allergy-add-penicillin`, `allergy-rx-alert` | `rx/showAllergy`, `encounter/IncomingEncounter` | Chart ▸ Allergies |
 | `eform-*` (six scripts) | `eform/efmformmanager`, `efmformadd_data`, `efmshowform_data` | Schedule ▸ Administration ▸ Forms/eForms ▸ Manage eForms; Chart ▸ eForms |
+| `lab-pdf-footer` | `lab/CA/ALL/PrintPDF` | Search ▸ Master Record ▸ E-Chart ▸ Urinalysis ▸ Print; poppler-utils required; full expected confidentiality notice, printable bounds, no overlap and page numbering on every page |
 | `document-upload` | `web/inboxhub/Inboxhub` | Schedule ▸ Inbox ▸ Doc Upload |
 | `consultation-*` (four) | `encounter/ViewRequest?requestId=…` | Schedule ▸ Consultations ▸ row |
 
