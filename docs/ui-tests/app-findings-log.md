@@ -96,17 +96,16 @@ user is shown nothing.
 
 | # | Finding | Evidence | Status |
 |---|---|---|---|
-| 10 | **Six pages POST through the shared AJAX helper with nothing to populate the token.** `share/javascript/carlos-ajax.js` is the common path: `CarlosAjax.request()` defaults to `method: 'POST'` and `getCsrfToken()` reads `input[name="CSRF-TOKEN"]` on the caller's behalf (`carlos-ajax.js:49`). These six carry neither a qualifying form nor the include, so every one of those POSTs is sent with an empty token. Three are whole pages (`documentsInQueues.jsp`, 14 such calls; `CumulativeLabValues.jsp`; `newEncounterLayout.jsp`); three are fragments or generated script whose host pages were checked and do not carry it either (`ChartNotesAjax.jsp`, `labDisplayAjax.jsp`, `js/newCaseManagementView.js.jsp`). Remedy: add the `csrf-token.jspf` include to the document that owns each — and on any page setting its own `script-src`, publish the `cspNonce` request attribute first, or the inline bootstrap is blocked and the symptom is unchanged | `scripts/lib/csrf-bootstrap-audit.js` over the whole webapp, with the six pinned in `scripts/lib/csrf-bootstrap-baseline.json`; `labDisplayAjax.jsp` and `newEncounterLayout.jsp` carry the action-less-form anti-pattern CLAUDE.md names explicitly. Not confirmed against a running deployment: the audit is static, and `csrfBootstrapFinding()` in `scripts/lib/playwright-link-audit.js` is the browser half that would confirm the input is empty in a live DOM | `needs-live-check` |
+| 10 | **Six pages POST through the shared AJAX helper with nothing to populate the token.** `share/javascript/carlos-ajax.js` reads `input[name="CSRF-TOKEN"]` on the caller's behalf, and these six (`documentsInQueues.jsp`, `CumulativeLabValues.jsp`, `newEncounterLayout.jsp`, and the fragments `ChartNotesAjax.jsp`, `labDisplayAjax.jsp`, `js/newCaseManagementView.js.jsp` those pages host) carry neither a qualifying form nor the `csrf-token.jspf` include, so the audit concluded every one of those POSTs is sent with an empty token and rejected | **Not an application defect; the defect was in the audit's model.** The hidden input is not the token's only carrier: `CarlosAjax` sends with `XMLHttpRequest`, never `fetch()`, precisely so that CSRFGuard's own script (which `CsrfGuardScriptInjectionFilter` adds to every HTML response) injects the `CSRF-TOKEN` and `X-Requested-With` headers into every send, and CSRFGuard validates the header before the body (`docs/csrf-protection-architecture.md`; the helper's own comment at `carlos-ajax.js:285`). Live: `scripts/csrf-xhr-token-playwright-checks.js` reaches Pending Docs, the chart and the Labs Row Display by clicking, POSTs through each page's own `CarlosAjax.request()`, reads the headers off the wire, and sees the token header, a 200 and the JSON body on every one — with **no** hidden input present. The static audit no longer judges helper-only pages, `csrf-bootstrap-baseline.json` is deleted, and `csrf-bootstrap-audit.test.js` pins the fact the exclusion rests on (the helper uses `XMLHttpRequest`) so the audit widens again the day that changes | `fixed` |
 
-**How this was missed.** The audit's own applicability test required the token read
-and the AJAX send to appear in the page's *own* source. All six POST through
-`CarlosAjax` instead, so the audit classified them not applicable and reported the
-webapp clean — 25 applicable pages, **zero** violations. Widening applicability to
-the shared helper, and teaching the detector that `CarlosAjax` sends GET without a
-token, takes it to 33 applicable pages: the 25 that send for themselves, all still
-satisfied, plus 8 that delegate to the helper, 6 of which violate. Every one of the
-six is a page the original rule never looked at. A guard that ran, found nothing,
-and passed.
+**How this was missed, and then mis-called.** The audit's applicability test first
+required the token read and the AJAX send to appear in the page's *own* source, so
+pages that delegate to `CarlosAjax` were never looked at. Widening it to the
+helper found six "violations" — and reported them without checking what the
+helper does with the token, which is send it in a header CSRFGuard's script
+sets. The browser check is the half that settles such a question; the static
+half now says why it does not judge those pages, and the test suite fails if
+the reason stops being true.
 
 ---
 
@@ -119,6 +118,7 @@ Recorded so the same candidates are not re-investigated.
 | "64 of 136 `admin.admin.*` labels are blank in `oscarResources_en.properties`" | My own search was wrong, not the bundle. The keys are written with spaces around the separator (`admin.admin.mergeRec = Merge Patient Records`), so `grep "^key="` missed them while Java's properties parser reads them correctly. All the labels resolve. |
 | "The Administration panel renders the CAISI heading twice" | `admin.jsp` renders two `<h3>CAISI</h3>` blocks, but they are the two branches of one `oscarSec` check on `_admin.caisi` (`reverse="false"` and `reverse="true"`). They are mutually exclusive at render time; exactly one appears. |
 | "`consultationServices` rows ship inactive on Ontario, so the service picker is empty" | Real, but already found (alpha-11 observation 21) and already **fixed** on `release/2026.08` by `V1.0.23__activate_legacy_consultation_services.sql`. |
+| "Six pages POST through `CarlosAjax` with an empty CSRF token" (finding 10) | The helper sends with `XMLHttpRequest`, which CSRFGuard's injected script equips with the `CSRF-TOKEN` header on every send; the hidden input the helper also reads is a second copy. Measured on a packaged install: every such POST carried the header and was answered 200 with JSON, on pages with no hidden input at all. A bootstrap include would have been added to six pages that do not need one. |
 
 ---
 

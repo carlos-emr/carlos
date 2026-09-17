@@ -6,12 +6,18 @@ const path = require('node:path');
 
 const {
   auditSource, auditWebapp, hasActionlessForm,
-  hasRealPostForm, isSelfContained, jspFiles, sendsMutatingViaSharedHelper,
+  hasRealPostForm, isSelfContained, jspFiles,
 } = require('./lib/csrf-bootstrap-audit');
 
-const BASELINE = JSON.parse(fs.readFileSync(path.join(__dirname, 'lib', 'csrf-bootstrap-baseline.json'), 'utf8'));
-
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
+const CARLOS_AJAX = fs.readFileSync(path.join(
+  __dirname, '..', 'src', 'main', 'webapp', 'share', 'javascript', 'carlos-ajax.js',
+), 'utf8');
+
+/** carlos-ajax.js with its comments removed, so a mention of fetch() in prose is not a call. */
+function codeOnly(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
 
 /*
  * CLAUDE.md's CSRF bootstrapping rule had no enforcement at all, which is how a
@@ -43,16 +49,11 @@ test('the audit is not vacuous: it finds the pages the rule applies to', () => {
     + 'the detector is probably broken rather than the webapp having changed that much');
 });
 
-test('no page violates the rule except the ones already recorded as findings', () => {
-  // A BURN-DOWN, not a permission. The six in the baseline are application
-  // defects recorded as finding 10 in docs/ui-tests/app-findings-log.md and
-  // tracked in issue #3665; this branch is test coverage, and fixing a
-  // bootstrap wants a browser to confirm the token actually populates. Anything
-  // NOT on that list fails here, so the defect cannot spread.
+test('no page violates the rule', () => {
+  // No baseline and no burn-down: every page the rule governs satisfies it
+  // today, so a new violation fails the build on the page that introduced it.
   const { violations, unattributed } = auditWebapp();
-  const known = new Set(BASELINE.known);
-  const unexpected = violations.filter((entry) => !known.has(entry.file));
-  assert.deepEqual(unexpected.map((entry) => `${entry.file}: ${entry.reason}`), [],
+  assert.deepEqual(violations.map((entry) => `${entry.file}: ${entry.reason}`), [],
     'a page reads input[name="CSRF-TOKEN"] for an AJAX POST but nothing populates it, so those requests are '
     + 'answered with an HTML error page and fail inside a catch the user never sees');
   assert.deepEqual(unattributed.map((entry) => entry.file), [],
@@ -60,40 +61,45 @@ test('no page violates the rule except the ones already recorded as findings', (
     + 'holds for it: that needs a human, not a guess');
 });
 
-test('a baseline entry that no longer violates has to be removed', () => {
-  // The other half of a burn-down. Without this the list only ever grows stale,
-  // and a page that was fixed keeps its licence to break again unnoticed.
-  const violating = new Set(auditWebapp().violations.map((entry) => entry.file));
-  const stale = BASELINE.known.filter((file) => !violating.has(file));
-  assert.deepEqual(stale, [],
-    'these pages satisfy the CSRF bootstrapping rule now; delete them from '
-    + 'scripts/lib/csrf-bootstrap-baseline.json and from finding 10 in the findings log');
-});
-
-test('the baseline cites the finding and the issue that track it', () => {
-  // A baseline with no paper trail is just a suppression.
-  assert.match(BASELINE.issue, /github\.com\/carlos-emr\/carlos\/issues\/\d+/);
-  assert.match(BASELINE.finding, /app-findings-log\.md/);
-  assert.ok(BASELINE.known.length > 0, 'an empty baseline should be deleted, not kept');
-  assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', 'ui-tests', 'app-findings-log.md')),
-    'the findings log the baseline cites must exist');
-});
-
-test('the shared-helper path is part of applicability', () => {
-  // The audit used to require the token read and the send in the page's own
-  // source. 18 webapp files POST through share/javascript/carlos-ajax.js, whose
-  // getCsrfToken() reads input[name="CSRF-TOKEN"] on their behalf and whose
-  // request() defaults to POST -- so they were classified NOT APPLICABLE and
-  // the audit reported the webapp clean while never looking at them. That is
-  // the failure this audit exists to catch, in the audit itself.
+test('a page that posts only through the shared helper is outside the rule', () => {
+  // The audit once judged these pages and reported six violations (issue
+  // #3665, finding 10). CarlosAjax sends with XMLHttpRequest so that
+  // CSRFGuard's injected script puts the CSRF-TOKEN header on every send; the
+  // hidden input the helper also reads is a second copy of the token, not the
+  // only one. Judging such a page demanded a bootstrap it does not need.
   const viaHelper = `
     <html><body>
     <script src="/carlos/share/javascript/carlos-ajax.js"></script>
     <script>CarlosAjax.request(url, { parameters: { a: 1 } });</script>
     </body></html>`;
-  const verdict = auditSource('helper.jsp', viaHelper);
-  assert.ok(verdict, 'a page POSTing through the shared helper must be in scope');
+  assert.equal(auditSource('helper.jsp', viaHelper), null,
+    'a page whose only AJAX write goes through CarlosAjax has nothing to bootstrap');
+  // The method does not matter: it is the transport that takes it out of scope.
+  const getOnly = '<html><body><script>CarlosAjax.request("/carlos/lookup", { method: "GET" });</script></body></html>';
+  assert.equal(auditSource('get-only.jsp', getOnly), null);
+  // A page that reads the token ITSELF and sends it over fetch() is still in.
+  const itself = `
+    <html><body><script>
+      var t = document.querySelector('input[name="CSRF-TOKEN"]').value;
+      CarlosAjax.request(url, { parameters: { a: 1 } });
+      fetch('/carlos/x', { method: 'POST', headers: { 'CSRF-TOKEN': t } });
+    </script></body></html>`;
+  const verdict = auditSource('itself.jsp', itself);
+  assert.ok(verdict, 'reading the input for a fetch() is the rule\'s own case, whatever else the page does');
   assert.equal(verdict.satisfied, false);
+});
+
+test('the exclusion rests on the helper using XMLHttpRequest, so that is pinned', () => {
+  // The day carlos-ajax.js sends with fetch(), CSRFGuard's interceptor no
+  // longer sees its requests and every helper caller IS governed by the rule
+  // again. This is the fact the exclusion above depends on, in the helper's
+  // own words and in its code.
+  assert.match(CARLOS_AJAX, /new XMLHttpRequest\(\)/, 'the helper must send with XMLHttpRequest');
+  assert.match(CARLOS_AJAX, /CSRFGuard[^\n]*interceptor/i, 'the helper must say why it uses XMLHttpRequest');
+  assert.doesNotMatch(codeOnly(CARLOS_AJAX), /\bfetch\s*\(/,
+    'carlos-ajax.js calls fetch(); CSRFGuard cannot intercept that, so widen the audit back to helper callers');
+  assert.match(CLAUDE_MD, /fetch\(\)`?\s+calls\s+are\s+\*\*not\*\*\s+hijacked/,
+    'CLAUDE.md must keep stating which transport the rule is for');
 });
 
 test('a form action must be a real url, not a fragment or a script', () => {
@@ -233,57 +239,17 @@ test('one form with an action does not excuse a second without one', () => {
 
 
 /*
- * THE SHARED HELPER, AND THE METHOD IT SENDS WITH.
- *
- * share/javascript/carlos-ajax.js reads input[name="CSRF-TOKEN"] on the caller's
- * behalf, so a page that never mentions the token is still governed by the rule
- * when it calls CarlosAjax. That widening is what surfaced finding 10. But the
- * helper only attaches a token to a mutating request: GET and HEAD go without
- * one, and CSRFGuard does not check them. Treating a GET-only caller as
- * applicable would pad the floor with pages the rule does not govern -- and a
- * floor padded with pages that can never violate is exactly the kind of number
- * that makes a guard look healthier than it is.
+ * The pages finding 10 named are the live regression for this exclusion: the
+ * static half here says they are out of scope, and
+ * scripts/csrf-xhr-token-playwright-checks.js proves on a deployment that their
+ * POSTs carry the token header and are accepted. Both halves name the same
+ * pages so a reader can go from one to the other.
  */
-test('a page that only GETs through the shared helper is not governed by the rule', () => {
-  const page = '<html><body><script>CarlosAjax.request("/carlos/lookup", { method: "GET" });</script></body></html>';
-  assert.equal(sendsMutatingViaSharedHelper(page), false);
-  assert.equal(auditSource('get-only.jsp', page), null,
-    'a GET through the helper carries no token, so the bootstrapping rule has nothing to say about it');
-});
-
-test('the shared helper defaults to POST, so a call with no method is governed', () => {
-  const page = '<html><body><script>CarlosAjax.request("/carlos/save", { data: payload });</script></body></html>';
-  assert.equal(sendsMutatingViaSharedHelper(page), true);
-  const verdict = auditSource('default-method.jsp', page);
-  assert.ok(verdict, 'CarlosAjax.request() defaults to POST; an absent method is the common CARLOS case');
-  assert.equal(verdict.satisfied, false);
-});
-
-test('one mutating call is enough, even on a page whose other calls are reads', () => {
-  const page = [
-    '<html><body><script>',
-    '  CarlosAjax.request("/carlos/lookup", { method: "GET" });',
-    '  CarlosAjax.request("/carlos/save", { method: "POST" });',
-    '</script></body></html>',
-  ].join('\n');
-  assert.equal(sendsMutatingViaSharedHelper(page), true,
-    'the read does not excuse the write; the page still needs a populated token');
-});
-
-test('HEAD is a read too', () => {
-  const page = '<html><body><script>CarlosAjax.request("/carlos/ping", { method: "HEAD" });</script></body></html>';
-  assert.equal(sendsMutatingViaSharedHelper(page), false);
-});
-
-test('the six pinned violations all arrive through the shared helper, not their own source', () => {
-  // Every baseline entry is a page the ORIGINAL applicability test -- token read
-  // and AJAX send both in the page's own source -- never looked at. That is the
-  // whole of why the audit reported the webapp clean. If one of them ever starts
-  // reading the token for itself this stops being true, and the "how this was
-  // missed" note in the findings log would need rewriting with it.
-  for (const file of BASELINE.known) {
-    const source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
-    assert.equal(sendsMutatingViaSharedHelper(source), true,
-      `${file} is pinned as a violation, so it must still reach the rule through CarlosAjax`);
-  }
+test('the browser check covers the whole pages the static audit stopped judging', () => {
+  const check = fs.readFileSync(path.join(__dirname, 'csrf-xhr-token-playwright-checks.js'), 'utf8');
+  assert.match(check, /Pending Docs/, 'documentsInQueues.jsp is reached as Pending Docs');
+  assert.match(check, /Row Display/, 'CumulativeLabValues.jsp is reached as the Labs menu\'s Row Display');
+  assert.match(check, /openChart\(/, 'newEncounterLayout.jsp is the chart');
+  assert.match(check, /allHeaders\(\)/, 'the token must be read off the wire, not out of the DOM');
+  assert.match(check, /csrf-token/, 'the header CSRFGuard validates');
 });

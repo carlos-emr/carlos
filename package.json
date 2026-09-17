@@ -115,7 +115,8 @@
     "test:allergy-custom-lifecycle-playwright": "node scripts/allergy-custom-lifecycle-playwright-checks.js",
     "test:contact-lifecycle-playwright": "node scripts/contact-lifecycle-playwright-checks.js",
     "test:consultation-directory-crud-playwright": "node scripts/consultation-directory-crud-playwright-checks.js",
-    "test:measurement-history-playwright": "node scripts/measurement-history-playwright-checks.js"
+    "test:measurement-history-playwright": "node scripts/measurement-history-playwright-checks.js",
+    "test:csrf-xhr-token-playwright": "node scripts/csrf-xhr-token-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

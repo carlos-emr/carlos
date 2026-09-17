@@ -1850,6 +1850,23 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ]
+    },
+    {
+      "name": "csrf-xhr-token",
+      "script": "scripts/csrf-xhr-token-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CSRF_XHR_SEARCH",
+        "CSRF_XHR_DEMOGRAPHIC_NO",
+        "CSRF_XHR_TIMEOUT_MS"
+      ]
     }
   ]
 }

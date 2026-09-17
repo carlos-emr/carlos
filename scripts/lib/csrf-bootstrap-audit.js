@@ -71,49 +71,29 @@ const SENDS_OVER_AJAX = [
   /jQuery\.post\s*\(/,
 ];
 
-/**
- * Sending through the SHARED HELPER, which reads the token on the page's behalf.
+/*
+ * THE SHARED HELPER IS OUTSIDE THIS RULE, and deliberately so.
  *
- * WHY THIS IS A SEPARATE LIST. The rule's applicability test used to require the
- * token read and the send to BOTH appear in the page's own source. 18 webapp
- * files POST through share/javascript/carlos-ajax.js instead, where the read
- * lives -- `CarlosAjax.request()` defaults to method POST and getCsrfToken()
- * does document.querySelector('input[name="CSRF-TOKEN"]') at carlos-ajax.js:49.
- * Those pages were therefore classified NOT APPLICABLE and the audit reported
- * them clean without ever checking them: a hole in a security audit, in exactly
- * the shape the audit exists to find.
+ * share/javascript/carlos-ajax.js does read input[name="CSRF-TOKEN"] on the
+ * caller's behalf, and for a while this audit treated every page that POSTs
+ * through CarlosAjax as governed by the bootstrapping rule. It reported six
+ * such pages as violations (issue #3665, finding 10) because none of them
+ * carries a populated input. The model was wrong: the hidden input is not the
+ * token's only carrier. CarlosAjax sends with XMLHttpRequest, never fetch(),
+ * PRECISELY so that CSRFGuard's own script -- which CsrfGuardScriptInjectionFilter
+ * puts on every HTML response -- injects the CSRF-TOKEN and X-Requested-With
+ * headers into every send, and CSRFGuard validates the header before it looks
+ * at the body (docs/csrf-protection-architecture.md). The body token the helper
+ * adds is a second copy, not the first. The bootstrapping rule exists for
+ * fetch() callers, which that script cannot reach.
  *
- * Delegating the read does not change the failure. When the page carries no
- * populated input the helper sends an empty token, the request comes back as an
- * HTML error page, and nothing surfaces -- which is the whole of CLAUDE.md's
- * bootstrapping rule.
+ * So a page whose only AJAX writes go through the helper has nothing to
+ * bootstrap. scripts/csrf-xhr-token-playwright-checks.js is the live proof: it
+ * opens the three whole pages the finding named, POSTs through their own
+ * CarlosAjax, and reads the token header back off the wire. The test file pins
+ * that the helper still uses XMLHttpRequest, because that is the fact this
+ * exclusion rests on.
  */
-const SHARED_HELPER_CALL = /\bCarlosAjax\s*\.\s*(?:request|updater|post)\s*\(/g;
-
-/**
- * True when a page makes at least one MUTATING call through the shared helper.
- *
- * carlos-ajax.js:187 defaults method to POST, and :197 adds the token to the
- * body only when the method is neither GET nor HEAD, so a page whose every call
- * passes `method: 'GET'` needs no token at all -- treating those as applicable would
- * report a bootstrap violation against a page with nothing to bootstrap, and
- * would pad the applicability floor with pages the rule does not govern.
- *
- * The method is read out of the options object that follows the call. Absent
- * means POST, which is the helper's own default and the common case in CARLOS.
- */
-function sendsMutatingViaSharedHelper(source) {
-  for (const call of source.matchAll(SHARED_HELPER_CALL)) {
-    // The options object begins after the url argument; a window wide enough to
-    // hold it, bounded so a call near the end of a file cannot read the next one.
-    const optionsWindow = source.slice(call.index, call.index + 400);
-    const method = optionsWindow.match(/\bmethod\s*:\s*['"]([A-Za-z]+)['"]/);
-    if (!method || !['GET', 'HEAD'].includes(method[1].toUpperCase())) {
-      return true;
-    }
-  }
-  return false;
-}
 
 /**
  * (a) A form CSRFGuard will actually inject into: real action, non-GET.
@@ -222,11 +202,10 @@ const matchesAny = (patterns, text) => patterns.some((pattern) => pattern.test(t
  *   { file, satisfied, reason }
  */
 function auditSource(relativePath, source) {
-  // Two ways in: the page reads the token AND sends it itself, or it delegates
-  // both to the shared helper (see sendsMutatingViaSharedHelper). Either way the page
-  // must carry a populated CSRF-TOKEN input or the POST is rejected.
+  // One way in: the page reads the token AND sends it itself. A page that only
+  // delegates to CarlosAjax is not judged (see the note above SHARED HELPER).
   const sendsItself = matchesAny(READS_TOKEN_INPUT, source) && matchesAny(SENDS_OVER_AJAX, source);
-  if (!sendsItself && !sendsMutatingViaSharedHelper(source)) {
+  if (!sendsItself) {
     return null;
   }
   if (BOOTSTRAP_INCLUDE.test(source)) {
@@ -392,7 +371,6 @@ module.exports = {
   INLINE_BOOTSTRAP,
   READS_TOKEN_INPUT,
   SENDS_OVER_AJAX,
-  sendsMutatingViaSharedHelper,
   WEBAPP,
   auditSource,
   auditWebapp,
