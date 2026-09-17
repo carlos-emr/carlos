@@ -945,6 +945,12 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                     //force save when exiting chart in case we loaded edited note in other chart
                     origCaseNote += ".";
                     tmpSaveNeeded = true;
+                },
+                error: function () {
+                    // 409: the lease expired or moved to another window while the prompt was
+                    // open, so this window does not own the lock and must not keep editing.
+                    alert("This note could not be taken over because it is being edited in another window.  Please reopen the chart to try again.");
+                    window.close();
                 }
             });
         } else {

@@ -1934,6 +1934,28 @@ function updateCPPNote() {
 
     var sigCache = "";
 
+    // Takes over this provider's own lock from another window. Synchronous so editing only
+    // starts once the server has actually transferred the lease: a 409 means it expired or
+    // was replaced while the confirm prompt was open, and typing into a note without owning
+    // its lock would only surface as a rejected save later.
+    function takeOverNoteLock(nId) {
+        var tookOver = false;
+        var url = ctx + "/CaseManagementEntry";
+        var params = "method=updateNoteLock&demographicNo=" + demographicNo + "&noteId=" + nId;
+        CarlosAjax.request(
+            url,
+            {
+                method: 'post',
+                postBody: params,
+                synchronous: true,
+                onSuccess: function () {
+                    tookOver = true;
+                }
+            }
+        );
+        return tookOver;
+    }
+
     /**
      * Opens an existing clinical note for editing. Replaces the read-only note
      * display with a textarea, checks/acquires the concurrent edit lock, and
@@ -1965,14 +1987,22 @@ function updateCPPNote() {
             if (viewEditedNote) {
                 var parent = $(caseNote).parentNode.id;
                 var oldNoteId = parent.substr(1);
-                var params = "method=releaseNoteLock&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&noteId=" + oldNoteId + "&force=true";
-                jQuery.ajax({
-                    type: "POST",
-                    url: ctx + "/CaseManagementEntry",
-                    data: params
-                });
 
-                params = "method=updateNoteLock&demographicNo=" + demographicNo + "&noteId=" + nId;
+                if (!takeOverNoteLock(nId)) {
+                    // The lease lapsed or moved while the prompt was open. A fresh lock check
+                    // acquires an expired lease outright; anything else still belongs to
+                    // another window, so do not open the editor (and keep the lock on the
+                    // note that is currently open).
+                    noteLockStatus = NoteisLocked(nId);
+                    if (noteLockStatus != "unlocked") {
+                        Event.stop(e);
+                        alert("This note could not be taken over because it is being edited in another window.  Try again later");
+                        return false;
+                    }
+                }
+
+                // The session lock now points at the new note, so release the old note's lock.
+                var params = "method=releaseNoteLock&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&noteId=" + oldNoteId + "&force=true";
                 jQuery.ajax({
                     type: "POST",
                     url: ctx + "/CaseManagementEntry",
@@ -2959,19 +2989,31 @@ var month=new Array(12);
 var msgDraftSaved;
 var lostNoteLock = false;
 var autoSaveXhr = null;
-function autoSave() {
-    sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
+// The note lock is an inactivity lease renewed by autosave requests. Autosave only runs when
+// the note changed, so an open editor also sends a keep-alive at this interval (kept well
+// under the configured casemgmt.note_lock_timeout_minutes minimum) to survive a pause in typing.
+var NOTE_LOCK_KEEPALIVE_MILLIS = 60000;
+var lastAutoSaveAt = new Date().getTime();
+function autoSave(keepAliveOnly) {
+    if (!keepAliveOnly) {
+        sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
+    }
     var url = ctx + "/CaseManagementEntry";
     var programId = case_program_id;
     var demoNo = demographicNo;
     var cmeFrm = document.forms["caseManagementEntryForm"];
     var nId = cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value;
-    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent($F(caseNote));
+    // A keep-alive sends an empty note: the server renews the lease before it looks at the
+    // draft text and stores nothing for an empty note, so casemgmt_tmpsave is untouched.
+    var noteText = keepAliveOnly ? "" : encodeURIComponent($F(caseNote));
+    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + noteText;
+    lastAutoSaveAt = new Date().getTime();
 
         autoSaveXhr = CarlosAjax.request(url, {
                 method: 'post',
                 postBody: params,
                 onSuccess: function (req) {
+                    if (keepAliveOnly) { return; }
                     var statusEl = $("autosaveTime");
                     if (!statusEl) { return; }
                     var d = new Date();
@@ -3013,7 +3055,9 @@ function autoSave() {
     function backup() {
 
         if (origCaseNote != $(caseNote).value || origObservationDate != $("observationDate").value) {
-            autoSave();
+            autoSave(false);
+        } else if (new Date().getTime() - lastAutoSaveAt >= NOTE_LOCK_KEEPALIVE_MILLIS) {
+            autoSave(true);
         }
 
         if (!lostNoteLock) {
