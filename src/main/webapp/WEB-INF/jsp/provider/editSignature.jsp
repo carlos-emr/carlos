@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+    Purpose: View and edit the authenticated provider's text signature.
+    Features: Escapes stored text, supports an existing NULL signature, and submits
+    explicit saves through the POST-only EnterSignature action.
+    Parameters: The session user identifies the provider; signature is the form
+    value. CSRFGuard supplies the token for the protected POST request.
+    @since 2026-09-17
+--%>
+
 <!-- add by caisi -->
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

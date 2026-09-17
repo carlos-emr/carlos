@@ -22,6 +22,20 @@ class ProEditSignature2ActionUnitTest extends CarlosWebTestBase {
         return dao;
     }
 
+    @Test void shouldRejectSignatureWrite_whenPreferencePrivilegeIsMissing() throws Exception {
+        ProviderExtDao dao = register();
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_pref"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setMethod("POST");
+        ProEditSignature2Action action = new ProEditSignature2Action();
+        action.setSignature("Must not be persisted");
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_pref)");
+        verifyNoInteractions(dao);
+    }
+
     @Test void shouldPreserveSignature_whenRequestIsGet() throws Exception {
         ProviderExtDao dao = register();
         mockRequest.setMethod("GET");

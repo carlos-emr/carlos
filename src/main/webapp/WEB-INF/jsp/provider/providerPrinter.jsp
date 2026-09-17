@@ -28,6 +28,15 @@
 
 --%>
 
+<%--
+    Purpose: Display and edit the authenticated provider's printer preferences.
+    Features: Preserves settings on GET, safely renders manual printer names and
+    NULL silent-print flags, and permits editing when new_label_print is enabled.
+    Parameters: The session user identifies the provider. defaultPrinterName*
+    and silentPrint* form fields are saved by an explicit, CSRF-protected POST.
+    @since 2026-09-17
+--%>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
