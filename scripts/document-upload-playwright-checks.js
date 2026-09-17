@@ -163,6 +163,10 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
   const trackPage = page => ownedPages.add(page);
   context.on('page', trackPage);
   try {
+    // Keep the chart handoff inspectable when it calls self.close(), as in the
+    // other chart workflows. Declining an existing-draft prompt must preserve
+    // that draft; this check only uses the document navigation.
+    await context.addInitScript(() => { window.close = () => {}; });
     const { masterPage } = await openMasterRecord(context, schedule, recorder, {
       searchTerm: surname, preferredDemographicNo: demographicNo, timeout: 30000,
     });
