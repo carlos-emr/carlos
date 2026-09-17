@@ -21,9 +21,14 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `efmformmanager.jsp` for the eForm workflow.
+  Purpose: Manage installed eForm templates from the administration interface.
+  Features: Ordering, upload/import controls, token-aware deletion and support for
+  full-page or AJAX-fragment rendering without replacing the shell's jQuery.
+  Parameters: orderby selects the allowed template sort; input selects the open
+  upload/import panel. The X-Requested-With header identifies AJAX fragments.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
+  @since 2026-09-17
 --%>
 <!DOCTYPE html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
@@ -49,8 +54,18 @@
     <title>E-Form Manager</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
+<%-- AJAX fragments reuse the administration shell's jQuery and its registered plugins. --%>
+<%
+    // jQuery and CSRFGuard can each append the AJAX marker to this header.
+    String eformRequestedWith = request.getHeader("X-Requested-With");
+    boolean eformAjaxFragment = eformRequestedWith != null
+            && java.util.Arrays.stream(eformRequestedWith.split(","))
+                    .anyMatch(value -> "XMLHttpRequest".equalsIgnoreCase(value.trim()));
+    if (!eformAjaxFragment) {
+%>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<% } %>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>

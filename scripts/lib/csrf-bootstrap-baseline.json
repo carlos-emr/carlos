@@ -37,7 +37,6 @@
     "src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotesAjax.jsp",
     "src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp",
     "src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplayAjax.jsp",
-    "src/main/webapp/WEB-INF/jsp/lab/CumulativeLabValues.jsp",
     "src/main/webapp/WEB-INF/jsp/oscarMDS/documentsInQueues.jsp",
     "src/main/webapp/js/newCaseManagementView.js.jsp"
   ]

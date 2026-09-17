@@ -70,15 +70,15 @@ it is the figure a prescribing decision is made on.
 
 | # | Defect | Where | Status |
 |---|---|---|---|
-| 8 | **A blank age is treated as 50.** `calculate()` reads `document.calCorArDi.age.value` as a string and tests `age <= 54` first; `"" <= 54` coerces to `0 <= 54`, so an empty box silently selects the youngest age band and prints its probability. Reproduce: open the calculator, leave Age empty, pick any T-score, press Calculate — it reports the 50-year-old figure. Remedy: refuse a non-numeric or out-of-range age instead of computing one | `src/main/webapp/WEB-INF/jsp/encounter/calculators/OsteoporoticFracture.jsp:203-221` (`var age = ...value` then the `age <= 54` ladder); the same shape at `CoronaryArteryDiseaseRiskPrediction.jsp:230-242`; filed as [#3665](https://github.com/carlos-emr/carlos/issues/3665) | `issue-filed` |
-| 9 | **A non-numeric age selects the OLDEST band.** Every comparison against `NaN` is false, so the ladder falls through to its final `else` and sets `ageGroup = 8` — the 85-and-over row. A typo in the age box therefore produces the highest-risk answer on the table with no indication anything went wrong. The coronary calculator has the mirror-image fault: its `ageGroup` is a page-level variable (`var ageGroup = 0` outside the function), so a `NaN` age leaves it at **the value the previous calculation set**, while `ageFactor` does fall back to 0 — an answer assembled from two different patients' ages. Remedy: the same validation as finding 8 | `OsteoporoticFracture.jsp:218-219` (the unguarded final `else`); `CoronaryArteryDiseaseRiskPrediction.jsp:54` (the page-level `ageGroup`) and `:232-243` (the ladder with no final `else`); filed as #3665 | `issue-filed` |
+| 8 | **A blank age is treated as 50.** `calculate()` reads `document.calCorArDi.age.value` as a string and tests `age <= 54` first; `"" <= 54` coerces to `0 <= 54`, so an empty box silently selects the youngest age band and prints its probability. Reproduce: open the calculator, leave Age empty, pick any T-score, press Calculate — it reports the 50-year-old figure | Reproduced live on the pre-fix package (blank age printed the 50-year-old figure with the first band highlighted). Fixed: both `calculate()` functions parse the box through `share/javascript/clinicalCalculatorAge.js` (a whole number inside the page's own table range: 50–120 for the fracture table, whose first row is 50; 20–79 for the coronary tables, whose cholesterol and smoking bands run 20–39 to 70–79) and refuse anything else with a message in the prediction box and nothing computed. `scripts/clinical-calculators-playwright-checks.js` now asserts every refusal on both calculators and that a valid age computes again afterwards; `scripts/clinical-calculators.test.js` pins the parser, the guard in each JSP, and the message in every bundle | `fixed` |
+| 9 | **A non-numeric age selects the OLDEST band.** Every comparison against `NaN` is false, so the ladder falls through to its final `else` and sets `ageGroup = 8` — the 85-and-over row. A typo in the age box therefore produces the highest-risk answer on the table with no indication anything went wrong. The coronary calculator has the mirror-image fault: its `ageGroup` is a page-level variable (`var ageGroup = 0` outside the function), so a `NaN` age leaves it at **the value the previous calculation set**, while `ageFactor` does fall back to 0 — an answer assembled from two different patients' ages | Reproduced live on the pre-fix package (`abc` printed the 85-and-over figure). Fixed with finding 8 by the same guard (`clinicalCalculatorAge.js`); the coronary `ageGroup` is now local to `calculate()`, and the browser check proves a refusal changes nothing by computing the same total for the same patient before and after it. Found on the way: the default chart layout (`newEncounterLayout`) had **no control that reached the calculators at all** — only the older `encounterLayout`'s navigation column offered one — so `newEncounterHeader.jsp` now carries the same popup link the `Index2` layout has | `fixed` |
 
 Verified by reading the source and by evaluating the same comparison ladder
 directly: `"" → band 1`, `"abc" → band 8`, `"54" → band 1`, `"55" → band 2`.
 
-`scripts/clinical-calculators-playwright-checks.js` deliberately asserts only
-valid input. Pinning either behaviour as expected would make it permanent; when
-it is fixed, the assertion belongs in that check.
+`scripts/clinical-calculators-playwright-checks.js` asserted only valid input
+while these were open (pinning the behaviour as expected would have made it
+permanent); the invalid-input assertions now live there.
 
 ## 2b. Pages that POST over AJAX with no CSRF token to send
 
@@ -107,8 +107,8 @@ matching the five paths in the combined checkout's
 `scripts/lib/csrf-bootstrap-baseline.json` after applying PR #3691; there are
 no unattributed fragments. PR #3691 adds the bootstrap to
 `lab/CumulativeLabValues.jsp`, removing it from the original six-page violation
-baseline. Until PR #3691 is applied, this documentation PR branch by itself
-still contains the six-entry baseline, including `CumulativeLabValues.jsp`.
+baseline. PR #3691 is now included through the release merge, so this branch also
+contains the five-entry baseline.
 These are static results; the remaining findings still need live confirmation.
 
 ---
@@ -181,6 +181,13 @@ offered PDFs pass byte validation. The latest administration retest identified a
 OHIP fragment's extra GET handler and repeated AJAX headers as the causes of the
 remaining report failures. Final package validation remains explicitly pending
 in the ledger; source changes alone do not establish a live fix.
+
+## 5. Found while resolving #3665 (September 2026)
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 39 | The four calculator pages link their stylesheet at the context root (`/encounterStyles.css`), where nothing is served, so every calculator opens with a 404 for its stylesheet, a "Refused to apply style ... MIME type ('text/html')" console error, and unstyled tables | Surfaced the moment `clinical-calculators-playwright-checks.js` could reach the pages by clicking (§2a): the strict recorder failed on the request and the console error for all three calculators it opens. The file is `encounter/encounterStyles.css`, which is how the calculators index itself links it. Fixed on those four pages; `encounter/immunization/Schedule.jsp`, `ScheduleEdit.jsp` and `messenger/Transfer/SelectItems.jsp` carry the same wrong path and are left for their own checks | `fixed` |
+| 40 | Twenty Administration panel items are broken on the packaged install, none of them touched by the #3665 change | `admin-index-links-playwright-checks.js` on the post-fix package (101 items opened): **Age-Sex Report** answers 405 (the panel posts a hidden form, `DbReportAgeSex2Action` is POST-only, and the audit's click reaches it as a GET — a check-versus-page disagreement to settle in the check); **Visit Report** and **Overnight Batch** throw `$(...).validate is not a function` (the jQuery Validation plugin is not loaded on those pages); **Patient List by Appointment Time** throws `Identifier 'reportForm' has already been declared` (a script is injected twice); **Document Description Template** aborts a fetch and **Messages** an image request (see finding 22). Recorded, not fixed here | `open` |
 
 ## How this list is meant to be used
 
