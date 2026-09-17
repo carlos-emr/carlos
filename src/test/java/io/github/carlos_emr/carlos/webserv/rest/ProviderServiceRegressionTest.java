@@ -23,14 +23,23 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response.Status;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -58,6 +67,9 @@ class ProviderServiceRegressionTest {
     @Mock
     private ProviderDao providerDao;
 
+    @Mock
+    private ProviderManager2 providerManager;
+
     private ProviderService service;
 
     @BeforeEach
@@ -69,6 +81,7 @@ class ProviderServiceRegressionTest {
             }
         };
         service.providerDao = providerDao;
+        service.providerManager = providerManager;
     }
 
     @Test
@@ -103,6 +116,37 @@ class ProviderServiceRegressionTest {
                 .isInstanceOf(WebApplicationException.class)
                 .extracting(exception -> ((WebApplicationException) exception).getResponse().getStatus())
                 .isEqualTo(Status.INTERNAL_SERVER_ERROR.getStatusCode());
+    }
+
+    /**
+     * The textual {@code active} coercion must stay ASCII-strict. {@code equalsIgnoreCase}
+     * case-folds Unicode, so {@code "fal\u017Fe"} (LATIN SMALL LETTER LONG S) compares equal
+     * to {@code "false"} and would silently select inactive providers instead of rejecting
+     * the request. Pins the {@code toLowerCase(Locale.ROOT)} + exact-equals contract.
+     */
+    @Test
+    @DisplayName("should return 400 for a Unicode case-folding lookalike in 'active'")
+    void shouldReturn400_forUnicodeLookalikeActiveValue() {
+        ObjectNode json = new ObjectMapper().createObjectNode();
+        json.put("active", "fal\u017Fe");
+
+        assertThatThrownBy(() -> service.search(json, null, null))
+                .isInstanceOf(WebApplicationException.class)
+                .extracting(exception -> ((WebApplicationException) exception).getResponse().getStatus())
+                .isEqualTo(Status.BAD_REQUEST.getStatusCode());
+    }
+
+    @Test
+    @DisplayName("should accept ASCII case variants of 'active' and pass the coerced flag through")
+    void shouldAcceptAsciiCaseVariants_forActiveValue() {
+        when(providerManager.search(any(LoggedInInfo.class), isNull(), eq(false), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        ObjectNode json = new ObjectMapper().createObjectNode();
+        json.put("active", " FALSE ");
+
+        service.search(json, null, null);
+
+        verify(providerManager).search(any(LoggedInInfo.class), isNull(), eq(false), anyInt(), anyInt());
     }
 
     private static Provider provider(String providerNo) {

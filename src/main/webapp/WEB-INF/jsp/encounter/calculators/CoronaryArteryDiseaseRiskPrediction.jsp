@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<%-- The refusal message lives in the bundle like every other calculator label; it is
+     spliced into a JavaScript string below, so it is JavaScript-encoded first. --%>
+<fmt:message key="encounter.calculators.CoronaryArteryDiseaseRiskPrediction.msgInvalidAge" var="msgInvalidAge"/>
 
 <%--
   Purpose: Display the coronary artery disease risk calculator.
@@ -44,6 +50,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/clinicalCalculatorAge.js"></script>
     <title>Coronary Artery Disease Risk Prediction</title>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
     <script type="text/javascript">
@@ -60,7 +67,12 @@
         var smokerM = new Array();
         var smokerF = new Array();
 
-        var ageGroup = 0;
+        // The ages this page's tables answer for. The cholesterol and smoking
+        // tables are banded 20-39, 40-49, 50-59, 60-69 and 70-79: a younger or
+        // older patient has no row, and the ladders below would silently hand
+        // them the nearest band's points. So the bounds are the tables' own.
+        var AGE_MIN = 20;
+        var AGE_MAX = 79;
         var Total = 0;
         var i = 0;
         var riskLvl;
@@ -237,7 +249,20 @@
 
             Total = new Number(0);
             var ageFactor = 0
-            var age = new Number(document.calCorArDi.age.value);
+            // Issue #3665, findings 8 and 9: new Number("") is 0 and new Number("abc")
+            // is NaN. The band ladder below has no final else, and ageGroup used to be
+            // a page-level variable, so a NaN age left it at whatever the PREVIOUS
+            // calculation set while ageFactor fell back to 0 -- an answer assembled
+            // from two different patients' ages. ageGroup is now local to this call
+            // and an age the tables cannot answer is refused before anything is added.
+            var ageGroup = 0;
+            var age = CarlosCalculatorAge.parseAge(document.calCorArDi.age.value, AGE_MIN, AGE_MAX);
+            if (age === null) {
+                resetAverageChart();
+                document.second.prediction.value = "${carlos:forJavaScript(msgInvalidAge)}";
+                document.calCorArDi.age.focus();
+                return;
+            }
 
             if (age <= 39) {
                 ageGroup = 0;

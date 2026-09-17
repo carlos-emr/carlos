@@ -54,12 +54,11 @@ to name the issue that removes it; these two can only name a docs paragraph.
 
 | # | Defect | Where | Status |
 |---|---|---|---|
-| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature. Remedy: make the request conditional on the provider having a stored signature | alpha-11 observation 6; tolerated by `scripts/lib/console-baseline.json`; filed as #3665 | `issue-filed` |
-| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on **every keystroke** (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders). Until it is fixed, no check can type into a chart note and assert a clean console | alpha-11 observation 15; tolerated by `scripts/lib/console-baseline.json`; filed as #3665 | `issue-filed` |
+| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature | alpha-11 observation 6. Fixed on `release/2026.08` by the alpha12 regression sweep: `ProviderSignatureImage2Action` answers **204** for a provider without a stamp (absence is a normal state), the `<img>` fires `onerror`, and the form falls back to the signature pad. Live: `scripts/consultation-signature-fallback-playwright-checks.js` opens the form from the chart, probes the current provider and then the other providers the form offers until one's stamp request answers 204 (it skips only when every one has a stored stamp), and sees the pad shown, `newSignature=true`, and a clean console with **no** baseline. The console-baseline entry is deleted. | `fixed` |
+| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on every click into the note (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders) | alpha-11 observation 15. Fixed on `release/2026.08` by the alpha12 regression sweep: `getActiveText()` returns when `$("keyword")` is absent. Live: `scripts/echart-note-editor-playwright-checks.js` clicks into the note, types, and asserts a clean console with **no** baseline. The console-baseline entry is deleted, so a check can type into a chart note again. | `fixed` |
 
-Both are now filed as #3665, and both console-baseline entries cite it. Delete
-the entry in the same change that fixes the defect, or the suite stays blind to
-the next occurrence.
+Both console-baseline entries are gone. The suite is no longer blind to either
+class of error, and the two checks above are the regression for them.
 
 ## 2a. Clinical calculators answer confidently on input they cannot use
 
@@ -71,19 +70,15 @@ it is the figure a prescribing decision is made on.
 
 | # | Defect | Where | Status |
 |---|---|---|---|
-| 8 | **A blank age is treated as 50.** `calculate()` reads `document.calCorArDi.age.value` as a string and tests `age <= 54` first; `"" <= 54` coerces to `0 <= 54`, so an empty box silently selects the youngest age band and prints its probability. Reproduce: open the calculator, leave Age empty, pick any T-score, press Calculate — it reports the 50-year-old figure. Remedy: refuse a non-numeric or out-of-range age instead of computing one | `src/main/webapp/WEB-INF/jsp/encounter/calculators/OsteoporoticFracture.jsp:203-221` (`var age = ...value` then the `age <= 54` ladder); the same shape at `CoronaryArteryDiseaseRiskPrediction.jsp:230-242`; filed as [#3665](https://github.com/carlos-emr/carlos/issues/3665) | `issue-filed` |
-| 9 | **A non-numeric age selects the OLDEST band.** Every comparison against `NaN` is false, so the ladder falls through to its final `else` and sets `ageGroup = 8` — the 85-and-over row. A typo in the age box therefore produces the highest-risk answer on the table with no indication anything went wrong. The coronary calculator has the mirror-image fault: its `ageGroup` is a page-level variable (`var ageGroup = 0` outside the function), so a `NaN` age leaves it at **the value the previous calculation set**, while `ageFactor` does fall back to 0 — an answer assembled from two different patients' ages. Remedy: the same validation as finding 8 | `OsteoporoticFracture.jsp:218-219` (the unguarded final `else`); `CoronaryArteryDiseaseRiskPrediction.jsp:54` (the page-level `ageGroup`) and `:232-243` (the ladder with no final `else`); filed as #3665 | `issue-filed` |
+| 8 | **A blank age is treated as 50.** `calculate()` reads `document.calCorArDi.age.value` as a string and tests `age <= 54` first; `"" <= 54` coerces to `0 <= 54`, so an empty box silently selects the youngest age band and prints its probability. Reproduce: open the calculator, leave Age empty, pick any T-score, press Calculate — it reports the 50-year-old figure | Reproduced live on the pre-fix package (blank age printed the 50-year-old figure with the first band highlighted). Fixed: both `calculate()` functions parse the box through `share/javascript/clinicalCalculatorAge.js` (a whole number inside the page's own table range: 50–120 for the fracture table, whose first row is 50; 20–79 for the coronary tables, whose cholesterol and smoking bands run 20–39 to 70–79) and refuse anything else with a message in the prediction box and nothing computed. `scripts/clinical-calculators-playwright-checks.js` now asserts every refusal on both calculators and that a valid age computes again afterwards; `scripts/clinical-calculators.test.js` pins the parser, the guard in each JSP, and the message in every bundle | `fixed` |
+| 9 | **A non-numeric age selects the OLDEST band.** Every comparison against `NaN` is false, so the ladder falls through to its final `else` and sets `ageGroup = 8` — the 85-and-over row. A typo in the age box therefore produces the highest-risk answer on the table with no indication anything went wrong. The coronary calculator has the mirror-image fault: its `ageGroup` is a page-level variable (`var ageGroup = 0` outside the function), so a `NaN` age leaves it at **the value the previous calculation set**, while `ageFactor` does fall back to 0 — an answer assembled from two different patients' ages | Reproduced live on the pre-fix package (`abc` printed the 85-and-over figure). Fixed with finding 8 by the same guard (`clinicalCalculatorAge.js`); the coronary `ageGroup` is now local to `calculate()`, and the browser check proves a refusal changes nothing by computing the same total for the same patient before and after it. Found on the way: the default chart layout (`newEncounterLayout`) had **no control that reached the calculators at all** — only the older `encounterLayout`'s navigation column offered one — so `newEncounterHeader.jsp` now carries the same popup link the `Index2` layout has | `fixed` |
 
 Verified by reading the source and by evaluating the same comparison ladder
 directly: `"" → band 1`, `"abc" → band 8`, `"54" → band 1`, `"55" → band 2`.
 
-`scripts/clinical-calculators-playwright-checks.js` deliberately asserts only
-valid input. Pinning either behaviour as expected would make it permanent; when
-it is fixed, the assertion belongs in that check.
-
-Finding 7 is the more serious of the two: it is on the single most-used screen in
-the product, it fires continuously while a clinician types, and it is the reason
-a baseline entry has to exist at all.
+`scripts/clinical-calculators-playwright-checks.js` asserted only valid input
+while these were open (pinning the behaviour as expected would have made it
+permanent); the invalid-input assertions now live there.
 
 ## 2b. Pages that POST over AJAX with no CSRF token to send
 
@@ -166,6 +161,13 @@ application defects from test defects and missing fixtures, and records retests.
 
 | 37 | Crafted contact type changes can reclassify existing relationships | Existing rows now retain persisted types in reciprocal planning and persistence. Five regressions fail before the fix; all 30 contact cases pass afterward. Old installed package fails the owned-request tampering probe; the rebuilt DEB passes normal and twice-tampered saves, with cleanup verified; #3682. | `issue-filed` |
 | 38 | Existing contact category can be changed by submitting the row in the opposite list | `validateContactSaves` validates patient ownership but not the stored personal/professional category; `linkContactToDemographic` assigns the submitted list's category. Source-patient write permission is required; this is a classification-consistency candidate, not a demonstrated authorization bypass. No normal UI path or VM reproduction was established; #3682. | `needs-live-check` |
+
+## 5. Found while resolving #3665 (September 2026)
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 39 | The four calculator pages link their stylesheet at the context root (`/encounterStyles.css`), where nothing is served, so every calculator opens with a 404 for its stylesheet, a "Refused to apply style ... MIME type ('text/html')" console error, and unstyled tables | Surfaced the moment `clinical-calculators-playwright-checks.js` could reach the pages by clicking (§2a): the strict recorder failed on the request and the console error for all three calculators it opens. The file is `encounter/encounterStyles.css`, which is how the calculators index itself links it. Fixed on those four pages; `encounter/immunization/Schedule.jsp`, `ScheduleEdit.jsp` and `messenger/Transfer/SelectItems.jsp` carry the same wrong path and are left for their own checks | `fixed` |
+| 40 | Twenty Administration panel items are broken on the packaged install, none of them touched by the #3665 change | `admin-index-links-playwright-checks.js` on the post-fix package (101 items opened): **Age-Sex Report** answers 405 (the panel posts a hidden form, `DbReportAgeSex2Action` is POST-only, and the audit's click reaches it as a GET — a check-versus-page disagreement to settle in the check); **Visit Report** and **Overnight Batch** throw `$(...).validate is not a function` (the jQuery Validation plugin is not loaded on those pages); **Patient List by Appointment Time** throws `Identifier 'reportForm' has already been declared` (a script is injected twice); **Document Description Template** aborts a fetch and **Messages** an image request (see finding 22). Recorded, not fixed here | `open` |
 
 ## How this list is meant to be used
 

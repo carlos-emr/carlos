@@ -39,7 +39,10 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<%-- Spliced into a JavaScript string in calculate(), so JavaScript-encoded first. --%>
+<fmt:message key="encounter.calculators.OsteoporoticFracture.msgInvalidAge" var="msgInvalidAge"/>
 
 
 <html>
@@ -48,6 +51,7 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/clinicalCalculatorAge.js"></script>
         <title><fmt:message key="encounter.calculators.OsteoporoticFracture.title"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <script type="text/javascript">
@@ -204,12 +208,26 @@
             osteFactorFemale[8][5] = 33.1; // < -2
 
 
+            // The ages this page's table answers for: its first row is 50, and 120 is
+            // the plausible ceiling. Anything else is refused by calculate() below.
+            var AGE_MIN = 50;
+            var AGE_MAX = 120;
+
             function calculate() {
                 resetAverageChart();
                 var ageGroup = 0;
                 var retval = "";
                 var total = "";
-                var age = document.calCorArDi.age.value;
+                // Issue #3665, findings 8 and 9: the age box is free text. Read as a
+                // string, "" coerced to 0 and chose the youngest band, and a typo
+                // compared false at every rung and fell through to the OLDEST band --
+                // both printed a confident probability. Refuse instead of computing.
+                var age = CarlosCalculatorAge.parseAge(document.calCorArDi.age.value, AGE_MIN, AGE_MAX);
+                if (age === null) {
+                    document.second.prediction.value = "${carlos:forJavaScript(msgInvalidAge)}";
+                    document.calCorArDi.age.focus();
+                    return;
+                }
                 if (age <= 54) {
                     ageGroup = 1
                 } else if (age <= 59) {
