@@ -29,6 +29,18 @@
 
 --%>
 
+<%--
+    Displays patient search results for appointment selection and contact pickers.
+    Features: search/pagination, recent patients, appointment return, and the
+    caisi=true callback that fills the opener's patient name and identifier.
+    Parameters: keyword/search_mode control search; appointment context includes
+    provider_no and originalPage. Contact callbacks use formName, elementName,
+    and elementId; URI-encoded result names are decoded once for display fields.
+    Access: requires _search read access. Recent-patient loading excludes missing
+    or merged records in the DAO and skips records removed during rendering.
+    @since 2026.08 (contact workflow corrections and contract documentation)
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

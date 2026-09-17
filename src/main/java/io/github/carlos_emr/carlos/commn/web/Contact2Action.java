@@ -203,6 +203,17 @@ public class Contact2Action extends ActionSupport {
         return "manage";
     }
 
+    /**
+     * Saves personal and professional contact associations submitted by POST.
+     * Checks patient write access, including reciprocal targets, and validates
+     * both categories and removals before changing any association.
+     *
+     * @return {@code windowClose} or {@code ajax} on success; {@link #NONE} with
+     *         HTTP 405 for other methods or HTTP 400 for malformed identifiers,
+     *         row counts, or unsupported contact types
+     * @throws SecurityException when write access is denied or an existing
+     *         association does not belong to the submitted patient/category
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveManage() {

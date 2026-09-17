@@ -29,6 +29,18 @@
 
 --%>
 
+<%--
+    Manages a patient's personal and professional contact associations.
+    Features: directory/provider/patient pickers, relationship flags, and removal.
+    Parameters: demographic_no identifies the patient (request parameter or
+    action attribute); indexed contact/procontact fields are posted to saveManage.
+    Internal patient selection uses the search popup's formName, elementName,
+    and elementId callback fields. Names and identifiers are separate values.
+    Access: this view requires _demographic read access; the save action enforces
+    POST, patient write access, association ownership, and reciprocal permissions.
+    @since 2026.08 (contact workflow corrections and contract documentation)
+--%>
+
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
