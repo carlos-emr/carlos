@@ -123,9 +123,14 @@ function fallbackCopy(text) {
          encounterLayout offered them from its navigation column; this layout,
          the default since the new chart landed, had no control that reached them
          at all, so the calculators were unreachable from the chart (found while
-         resolving issue #3665 findings 8 and 9). Same popup as the Index2 layout. --%>
+         resolving issue #3665 findings 8 and 9). Same popup as the Index2 layout.
+         The href is the real route, not javascript:void(0): the click opens the
+         popup and returns false, so a plain click behaves like the other header
+         popups, while a middle-click or keyboard follow still reaches the page
+         (and the anchor is a link, not a button dressed as one -- Sonar S6844). --%>
     <div>
-        <a href="javascript:void(0);" id="chartCalculatorsLink"
+        <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewCalculators?sex=${carlos:forUriComponent(popupPatientSex)}&amp;age=${carlos:forUriComponent(popupPatientAge)}"
+           id="chartCalculatorsLink"
            title="<fmt:message key="encounter.Index.calculators"/>"
            onClick="popupPage(350,280,'calculatorWin','${carlos:forJavaScript(ctx)}/encounter/ViewCalculators?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
     </div>
