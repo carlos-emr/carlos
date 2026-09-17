@@ -78,10 +78,12 @@ class RxInactiveDateUnitTest extends CarlosWebTestBase {
         assertThat(result().get("checked").asBoolean()).isFalse();
     }
 
-    @Test void shouldAvoidDrugrefCall_whenReadDenied() {
+    @Test void shouldReturnForbiddenWithoutDrugrefCall_whenReadDenied() throws Exception {
         RxSearchDrug2Action action = action();
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull())).thenReturn(false);
-        assertThatThrownBy(action::execute).isInstanceOf(RuntimeException.class);
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        assertThat(mockResponse.getErrorMessage()).isEqualTo("missing required sec object (_rx)");
         verifyNoInteractions(drugref);
     }
 }

@@ -75,7 +75,8 @@ public final class RxSearchDrug2Action extends ActionSupport {
             throws IOException, ServletException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "missing required sec object (_rx)");
+            return NONE;
         }
 
         String method = request.getParameter("method");
