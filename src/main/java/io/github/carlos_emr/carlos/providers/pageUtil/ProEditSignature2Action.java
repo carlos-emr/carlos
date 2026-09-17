@@ -47,6 +47,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Saves the authenticated provider's signature using _pref write permission and POST.
+ *
+ * @since 2026-09-17
+ */
 public class ProEditSignature2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -54,6 +59,16 @@ public class ProEditSignature2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
+    /**
+     * Persists the bound signature for the session provider after authorization.
+     *
+     * @return {@link #SUCCESS} on save, {@link #NONE} after HTTP 405 for a non-POST
+     *         request, or {@code eject} when the session has no provider number
+     * @throws SecurityException if _pref write permission is absent
+     * @throws ServletException if servlet processing fails
+     * @throws IOException if the HTTP error cannot be written
+     */
+    @Override
     public String execute()
             throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

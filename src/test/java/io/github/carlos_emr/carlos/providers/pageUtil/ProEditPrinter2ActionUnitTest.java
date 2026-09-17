@@ -25,25 +25,25 @@ class ProEditPrinter2ActionUnitTest extends CarlosWebTestBase {
         return new ProEditPrinter2Action();
     }
 
-    @Test void openingPreferencesDoesNotReadOrOverwriteAnyPrinterSetting() throws Exception {
+    @Test void shouldPreservePrinterSettings_whenOpeningPreferences() throws Exception {
         assertThat(action("GET", true).execute()).isEqualTo("success");
         assertThat(mockRequest.getAttribute("status")).isNull();
         verifyNoInteractions(properties);
     }
 
-    @Test void unsupportedMethodDoesNotChangeSettings() throws Exception {
+    @Test void shouldRejectWithoutChangingSettings_whenMethodUnsupported() throws Exception {
         assertThat(action("PUT", true).execute()).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(405);
         verifyNoInteractions(properties);
     }
 
-    @Test void deniedSaveDoesNotChangeSettings() {
+    @Test void shouldPreserveSettings_whenSaveDenied() {
         ProEditPrinter2Action action = action("POST", false);
         assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(properties);
     }
 
-    @Test void explicitSavePersistsPrinterAndReportsSuccess() throws Exception {
+    @Test void shouldPersistPrinterAndReportSuccess_whenSaveExplicit() throws Exception {
         ProEditPrinter2Action action = action("POST", true);
         action.setDefaultPrinterNamePDFLabel("Clinic's Label Printer");
         action.setSilentPrintPDFLabel(true);

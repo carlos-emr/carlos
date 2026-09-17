@@ -37,10 +37,22 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderExtDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
+/**
+ * Reads and stores signature text on a provider's extension row.
+ * Callers are responsible for authorization before accessing provider data.
+ *
+ * @since 2026-09-17
+ */
 public class ProSignatureData {
 
     private ProviderExtDao providerExtDao = SpringUtils.getBean(ProviderExtDao.class);
 
+    /**
+     * Checks for non-null signature text, including a deliberately empty signature.
+     *
+     * @param proNo provider identifier
+     * @return whether the provider has a row with non-null signature text
+     */
     public boolean hasSignature(String proNo) {
         boolean retval = false;
 
@@ -52,6 +64,12 @@ public class ProSignatureData {
         return retval;
     }
 
+    /**
+     * Retrieves the provider's stored signature.
+     *
+     * @param providerNo provider identifier
+     * @return stored text (possibly null), or an empty string when no row exists
+     */
     public String getSignature(String providerNo) {
         String retval = "";
         ProviderExt pe = providerExtDao.find(providerNo);
@@ -61,6 +79,13 @@ public class ProSignatureData {
         return retval;
     }
 
+    /**
+     * Updates an existing provider row, including one with a null signature, or
+     * creates a row when none exists. Row existence does not depend on signature text.
+     *
+     * @param providerNo provider identifier
+     * @param signature replacement signature text, possibly null
+     */
     public void enterSignature(String providerNo, String signature) {
         ProviderExt existing = providerExtDao.find(providerNo);
         if (existing == null) {

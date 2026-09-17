@@ -22,7 +22,7 @@ class ProEditSignature2ActionUnitTest extends CarlosWebTestBase {
         return dao;
     }
 
-    @Test void getCannotClearSignature() throws Exception {
+    @Test void shouldPreserveSignature_whenRequestIsGet() throws Exception {
         ProviderExtDao dao = register();
         mockRequest.setMethod("GET");
         assertThat(new ProEditSignature2Action().execute()).isEqualTo("none");
@@ -30,7 +30,7 @@ class ProEditSignature2ActionUnitTest extends CarlosWebTestBase {
         verifyNoInteractions(dao);
     }
 
-    @Test void nullSignatureOnExistingProviderUpdatesInsteadOfInsertingDuplicateKey() {
+    @Test void shouldUpdateExistingRow_whenStoredSignatureIsNull() {
         ProviderExtDao dao = register();
         ProviderExt existing = new ProviderExt();
         existing.setProviderNo("999998");
@@ -42,7 +42,7 @@ class ProEditSignature2ActionUnitTest extends CarlosWebTestBase {
         verify(dao, never()).persist(any());
     }
 
-    @Test void firstSignatureCreatesProviderExtension() {
+    @Test void shouldCreateProviderExtension_whenFirstSignatureSaved() {
         ProviderExtDao dao = register();
         new ProSignatureData().enterSignature("999998", "Synthetic Signature");
         verify(dao).persist(argThat((ProviderExt p) -> "999998".equals(p.getProviderNo()) && "Synthetic Signature".equals(p.getSignature())));

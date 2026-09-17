@@ -39,12 +39,26 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Opens or saves the session provider's printer preferences with _pref write access.
+ * Opening on GET is read-only; only POST persists the bound printer and silent-print fields.
+ *
+ * @since 2026-09-17
+ */
 public class ProEditPrinter2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private HttpServletRequest request = ServletActionContext.getRequest();
     private UserPropertyDAO propertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 
+    /**
+     * Displays preferences on GET or saves them on POST after checking permission.
+     *
+     * @return {@link #SUCCESS} for display/save, or {@link #NONE} after HTTP 405
+     * @throws SecurityException if the session provider lacks _pref write access
+     * @throws Exception if persistence or writing the HTTP error fails
+     */
+    @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
