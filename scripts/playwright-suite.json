@@ -1924,6 +1924,40 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owns and removes one synthetic lot catalogue row; exercises initial and repeated search from Administration."
+    },
+    {
+      "name": "consultation-signature-fallback",
+      "script": "scripts/consultation-signature-fallback-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CONSULT_FALLBACK_SEARCH",
+        "CONSULT_FALLBACK_DEMOGRAPHIC_NO",
+        "CONSULT_FALLBACK_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "echart-note-editor",
+      "script": "scripts/echart-note-editor-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "NOTE_EDITOR_SEARCH",
+        "NOTE_EDITOR_DEMOGRAPHIC_NO",
+        "NOTE_EDITOR_TIMEOUT_MS"
+      ]
     }
   ]
 }

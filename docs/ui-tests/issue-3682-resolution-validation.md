@@ -18,7 +18,7 @@ and target that release. Develop was fetched only to check migration allocation.
 | [3689](https://github.com/carlos-emr/carlos/pull/3689) | Printer/signature/document-description preferences | Final package retest pending, including both printer-feature settings |
 | [3690](https://github.com/carlos-emr/carlos/pull/3690) | Explicit inactive-drug status and visible lookup failure | Actual inactive DIN returns its stored calendar date; malformed response shows warning and recovery, without saving a prescription |
 | [3691](https://github.com/carlos-emr/carlos/pull/3691) | Admin/chart navigation, calculator entry/styles, Row Display and lot search | Chart module audit and repeated lot search pass; 101-item administration sweep exposed OHIP handler and duplicated AJAX-header failures; both corrected, final package retest pending |
-| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 112 named checks / 103 scripts registered; 695 Node regressions pass |
+| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 114 named checks / 105 scripts registered after merging #3699; 647 standalone branch Node regressions pass (695 in the earlier combined-fix checkout) |
 | [3694](https://github.com/carlos-emr/carlos/pull/3694) | Signature identity migration | Nine real MariaDB cases and both province fresh/adopted Flyway CI jobs pass, including preservation of duplicate unassigned rows; application upgrade pending |
 | [DrugRef 14](https://github.com/carlos-emr/drugref2026/pull/14) | JDBC calendar dates and explicit lookup faults | 69 tests and WAR pass at 1941e142; earlier installed-DEB calendar-date lookup passes, latest query-failure follow-up installation pending |
 
