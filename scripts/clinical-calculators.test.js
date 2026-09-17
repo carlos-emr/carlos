@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  ARITHMETIC_CASES, FRACTURE_BELOW_TABLE_AGE, FRACTURE_CASES, INVALID_AGE_CASES, REFUSED_AGE_TEXT, T_SCORES,
-  parsePointCount, parsePrediction,
+  ARITHMETIC_CASES, CORONARY_OUTSIDE_TABLE_AGES, FRACTURE_BELOW_TABLE_AGE, FRACTURE_CASES, INVALID_AGE_CASES,
+  REFUSED_AGE_TEXT, T_SCORES, parsePointCount, parsePrediction,
 } = require('./clinical-calculators-playwright-checks');
 const { parseAge } = require('../src/main/webapp/share/javascript/clinicalCalculatorAge');
 
@@ -200,10 +200,18 @@ test('every computed scenario uses a valid age, and every refused one does not',
     'finding 9 (non-numeric age) must be asserted');
   for (const scenario of INVALID_AGE_CASES) {
     assert.equal(parseAge(scenario.age, 50, 120), null, `${scenario.why}: the fracture page would accept ${scenario.age}`);
-    assert.equal(parseAge(scenario.age, 1, 120), null, `${scenario.why}: the coronary page would accept ${scenario.age}`);
+    assert.equal(parseAge(scenario.age, 20, 79), null, `${scenario.why}: the coronary page would accept ${scenario.age}`);
   }
   assert.equal(parseAge(FRACTURE_BELOW_TABLE_AGE, 50, 120), null);
-  assert.equal(parseAge(FRACTURE_BELOW_TABLE_AGE, 1, 120), 49, 'the coronary table answers for a 49-year-old');
+  assert.equal(parseAge(FRACTURE_BELOW_TABLE_AGE, 20, 79), 49, 'the coronary tables answer for a 49-year-old');
+  for (const outside of CORONARY_OUTSIDE_TABLE_AGES) {
+    assert.equal(parseAge(outside, 20, 79), null, `the coronary tables have no band for a ${outside}-year-old`);
+  }
+  // The two pages' bounds differ, and the cases must show it: an 80-year-old
+  // is inside the fracture table (whose last row is open-ended) and outside
+  // the coronary one.
+  assert.ok(CORONARY_OUTSIDE_TABLE_AGES.includes('80'));
+  assert.equal(parseAge('80', 50, 120), 80);
 });
 
 test('the shared age parser refuses exactly what the pages must refuse', () => {
@@ -218,19 +226,19 @@ test('the shared age parser refuses exactly what the pages must refuse', () => {
   for (const rejected of ['', '   ', 'abc', '54a', '54.5', '-5', '+54', '49', '121', '0', undefined, null]) {
     assert.equal(parseAge(rejected, 50, 120), null, `${JSON.stringify(rejected)} must be refused`);
   }
-  assert.equal(parseAge(0, 1, 120), null, 'zero is below every table');
-  assert.equal(parseAge(72, 1, 120), 72, 'a number is accepted as its own text');
+  assert.equal(parseAge(0, 20, 79), null, 'zero is below every table');
+  assert.equal(parseAge(72, 20, 79), 72, 'a number is accepted as its own text');
 });
 
 test('both pages guard the age with the shared parser and their own table bounds', () => {
   // The guard lives in the pages' own calculate(); if either stops calling it,
   // the browser check still fails, but this says which page and why first.
-  for (const [name, jsp, min] of [['OsteoporoticFracture', FRACTURE_JSP, 50], ['CoronaryArteryDiseaseRiskPrediction', CORONARY_JSP, 1]]) {
+  for (const [name, jsp, min, max] of [['OsteoporoticFracture', FRACTURE_JSP, 50, 120], ['CoronaryArteryDiseaseRiskPrediction', CORONARY_JSP, 20, 79]]) {
     assert.match(jsp, /share\/javascript\/clinicalCalculatorAge\.js/, `${name} must load the shared parser`);
     assert.match(jsp, /CarlosCalculatorAge\.parseAge\(document\.calCorArDi\.age\.value, AGE_MIN, AGE_MAX\)/,
       `${name} must parse the age box through the shared parser`);
     assert.match(jsp, new RegExp(`var AGE_MIN = ${min};`), `${name}'s first table row is ${min}`);
-    assert.match(jsp, /var AGE_MAX = 120;/);
+    assert.match(jsp, new RegExp(`var AGE_MAX = ${max};`), `${name}'s last table band ends at ${max}`);
     assert.match(jsp, new RegExp(`<fmt:message key="encounter\\.calculators\\.${name}\\.msgInvalidAge" var="msgInvalidAge"\\/>`),
       `${name} must print its refusal from the i18n bundle`);
     // The message is spliced into a JavaScript string, so it must be encoded for
@@ -259,12 +267,12 @@ test('the refusal message exists in every bundle and matches what the check look
   assert.ok(bundles.length >= 5, `expected the five locale bundles, found ${bundles.length}`);
   for (const bundle of bundles) {
     const text = fs.readFileSync(path.join(BUNDLE_DIR, bundle), 'utf8');
-    for (const [key, min] of [['OsteoporoticFracture', 50], ['CoronaryArteryDiseaseRiskPrediction', 1]]) {
+    for (const [key, min, max] of [['OsteoporoticFracture', 50, 120], ['CoronaryArteryDiseaseRiskPrediction', 20, 79]]) {
       const line = text.split('\n').find((candidate) => candidate.startsWith(`encounter.calculators.${key}.msgInvalidAge=`));
       assert.ok(line, `${bundle} lacks encounter.calculators.${key}.msgInvalidAge`);
       const message = line.slice(line.indexOf('=') + 1);
       assert.match(message, REFUSED_AGE_TEXT, `${bundle}: the ${key} message no longer says which range is accepted`);
-      assert.ok(message.includes(`from ${min} to 120`), `${bundle}: the ${key} message must state its own table's range`);
+      assert.ok(message.includes(`from ${min} to ${max}`), `${bundle}: the ${key} message must state its own table's range`);
     }
   }
 });
@@ -286,7 +294,7 @@ test('the coronary point-count parser reads the page\'s actual output format', (
   assert.equal(parsePointCount('* Total Point Count: -3\n'), '-3');
   assert.equal(parsePointCount(''), '');
   // A refusal must never parse as a score.
-  assert.equal(parsePointCount("Enter the patient's age as a whole number from 1 to 120 before calculating."), '');
+  assert.equal(parsePointCount("Enter the patient's age as a whole number from 20 to 79 before calculating."), '');
 });
 
 test('the calculators are reached by clicking, never by their URL', () => {
@@ -311,7 +319,7 @@ test('the run refuses to report success having computed nothing', () => {
   // table would leave them all unexecuted, and the check would pass. The floors
   // have to stay below the table sizes, or they fail on a correct run.
   assert.match(SOURCE, /fracture\.computed\.length >= 5/);
-  assert.match(SOURCE, /fracture\.refused\.length >= 6 && coronary\.refused\.length >= 5/);
+  assert.match(SOURCE, /fracture\.refused\.length >= 6 && coronary\.refused\.length >= 7/);
   assert.match(SOURCE, /arithmetic\.length >= 4/);
   assert.ok(FRACTURE_CASES.length >= 5, 'the floor must be reachable');
   // The fracture page refuses INVALID_AGE_CASES plus the below-table age.

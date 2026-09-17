@@ -139,6 +139,12 @@ const INVALID_AGE_CASES = [
 ];
 /* One below the fracture table's first row, which the page labels 50. */
 const FRACTURE_BELOW_TABLE_AGE = '49';
+/*
+ * Just outside the coronary tables, whose cholesterol and smoking bands run
+ * 20-39 to 70-79. The ladders used to hand a 19-year-old the 20-39 points and
+ * an 80-year-old the 70-79 ones, which is the same class of wrong number.
+ */
+const CORONARY_OUTSIDE_TABLE_AGES = ['19', '80'];
 const REFUSED_AGE_TEXT = /whole number from \d+ to \d+/;
 /* The band highlight the fracture page paints on a computed answer. */
 const FRACTURE_HIGHLIGHT = 'rgb(204, 204, 255)';
@@ -321,7 +327,9 @@ async function checkCoronaryRisk(context, chartPage, recorder, timeout) {
     await form.locator('input[name="sex"][value="F"]').check();
     const fortyFive = await total('45');
     const refused = [];
-    for (const scenario of INVALID_AGE_CASES) {
+    const invalid = [...INVALID_AGE_CASES,
+      ...CORONARY_OUTSIDE_TABLE_AGES.map((age) => ({ why: `outside the tables (${age} has no 20-79 band)`, age }))];
+    for (const scenario of invalid) {
       await assertAgeRefused(page, form, scenario, timeout);
       refused.push(scenario.why);
     }
@@ -385,7 +393,7 @@ async function main() {
     // times in this suite already, so each family states how many it must run.
     assert(fracture.computed.length >= 5,
       `Only ${fracture.computed.length} fracture-risk scenario(s) ran; the table holds more, so the loop did not execute`);
-    assert(fracture.refused.length >= 6 && coronary.refused.length >= 5,
+    assert(fracture.refused.length >= 6 && coronary.refused.length >= 7,
       `Only ${fracture.refused.length} fracture and ${coronary.refused.length} coronary refusal(s) ran; `
       + 'the table holds more, so the loop did not execute');
     assert(arithmetic.length >= 4,
@@ -405,6 +413,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  ARITHMETIC_CASES, FRACTURE_BELOW_TABLE_AGE, FRACTURE_CASES, INVALID_AGE_CASES, REFUSED_AGE_TEXT, T_SCORES,
-  main, openCalculator, parsePointCount, parsePrediction,
+  ARITHMETIC_CASES, CORONARY_OUTSIDE_TABLE_AGES, FRACTURE_BELOW_TABLE_AGE, FRACTURE_CASES, INVALID_AGE_CASES,
+  REFUSED_AGE_TEXT, T_SCORES, main, openCalculator, parsePointCount, parsePrediction,
 };

@@ -58,10 +58,12 @@
         var smokerM = new Array();
         var smokerF = new Array();
 
-        // The ages this page's tables answer for: the first band is "<= 34", so any
-        // whole-number age from 1 up to a plausible ceiling of 120 has a row.
-        var AGE_MIN = 1;
-        var AGE_MAX = 120;
+        // The ages this page's tables answer for. The cholesterol and smoking
+        // tables are banded 20-39, 40-49, 50-59, 60-69 and 70-79: a younger or
+        // older patient has no row, and the ladders below would silently hand
+        // them the nearest band's points. So the bounds are the tables' own.
+        var AGE_MIN = 20;
+        var AGE_MAX = 79;
         var Total = 0;
         var i = 0;
         var riskLvl;
