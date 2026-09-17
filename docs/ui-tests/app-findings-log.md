@@ -54,12 +54,11 @@ to name the issue that removes it; these two can only name a docs paragraph.
 
 | # | Defect | Where | Status |
 |---|---|---|---|
-| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature. Remedy: make the request conditional on the provider having a stored signature | alpha-11 observation 6; tolerated by `scripts/lib/console-baseline.json`; filed as #3665 | `issue-filed` |
-| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on **every keystroke** (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders). Until it is fixed, no check can type into a chart note and assert a clean console | alpha-11 observation 15; tolerated by `scripts/lib/console-baseline.json`; filed as #3665 | `issue-filed` |
+| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature | alpha-11 observation 6. Fixed on `release/2026.08` by the alpha12 regression sweep: `ProviderSignatureImage2Action` answers **204** for a provider without a stamp (absence is a normal state), the `<img>` fires `onerror`, and the form falls back to the signature pad. Live: `scripts/consultation-signature-fallback-playwright-checks.js` opens the form from the chart for provider 999998 with no stamp staged, sees the request answer 204, the pad shown, `newSignature=true`, and a clean console with **no** baseline. The console-baseline entry is deleted. | `fixed` |
+| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on every click into the note (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders) | alpha-11 observation 15. Fixed on `release/2026.08` by the alpha12 regression sweep: `getActiveText()` returns when `$("keyword")` is absent. Live: `scripts/echart-note-editor-playwright-checks.js` clicks into the note, types, and asserts a clean console with **no** baseline. The console-baseline entry is deleted, so a check can type into a chart note again. | `fixed` |
 
-Both are now filed as #3665, and both console-baseline entries cite it. Delete
-the entry in the same change that fixes the defect, or the suite stays blind to
-the next occurrence.
+Both console-baseline entries are gone. The suite is no longer blind to either
+class of error, and the two checks above are the regression for them.
 
 ## 2a. Clinical calculators answer confidently on input they cannot use
 
@@ -80,10 +79,6 @@ directly: `"" → band 1`, `"abc" → band 8`, `"54" → band 1`, `"55" → band
 `scripts/clinical-calculators-playwright-checks.js` deliberately asserts only
 valid input. Pinning either behaviour as expected would make it permanent; when
 it is fixed, the assertion belongs in that check.
-
-Finding 7 is the more serious of the two: it is on the single most-used screen in
-the product, it fires continuously while a clinician types, and it is the reason
-a baseline entry has to exist at all.
 
 ## 2b. Pages that POST over AJAX with no CSRF token to send
 
