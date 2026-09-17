@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.FetchType;
 import jakarta.persistence.OneToMany;
+import org.hibernate.annotations.BatchSize;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,16 @@ class EntityFetchTypeUnitTest {
     @Test
     void shouldKeepPreventionExtsLazy_forBulkPreventionQueries() throws NoSuchFieldException {
         assertOneToManyFetchType(Prevention.class, "preventionExts", FetchType.LAZY);
+    }
+
+    @Test
+    void shouldBatchLoadPreventionExts_forInTransactionInitialization() throws NoSuchFieldException {
+        // PreventionDaoImpl#findUniqueByDemographicId initializes the lazy collection for a whole
+        // result list; without @BatchSize that would be one SELECT per prevention.
+        BatchSize batchSize = Prevention.class.getDeclaredField("preventionExts").getAnnotation(BatchSize.class);
+
+        assertThat(batchSize).as("Prevention.preventionExts should be batch loaded").isNotNull();
+        assertThat(batchSize.size()).isGreaterThan(1);
     }
 
     @Test
