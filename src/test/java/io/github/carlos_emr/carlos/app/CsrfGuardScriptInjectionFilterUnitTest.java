@@ -427,8 +427,40 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
-    @DisplayName("should replay captured HTML when reset buffer fails after commit")
-    void shouldReplayCapturedHtml_whenResetBufferFailsAfterCommit() throws Exception {
+    @DisplayName("should replay captured HTML without reset when response is committed")
+    void shouldReplayCapturedHtml_withoutResetWhenResponseIsCommitted() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
+        CommittedResetTrackingResponse response = new CommittedResetTrackingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter()
+                    .write("<html><head><title>Provider</title></head><body></body></html>");
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
+            assertThat(response.getResetBufferCalls()).isZero();
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("response already committed")
+                        .contains("writing captured content without buffer reset")
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should replay captured HTML without stack trace when response commits before reset")
+    void shouldReplayCapturedHtml_withoutStackTraceWhenResponseCommitsBeforeReset() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
         request.setContextPath("/carlos");
         request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
@@ -446,8 +478,10 @@ class CsrfGuardScriptInjectionFilterUnitTest {
             assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
             assertThat(capture.events()).anySatisfy(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getThrown()).isNull();
                 assertThat(event.getMessage().getFormattedMessage())
-                        .contains("writing captured content without reset")
+                        .contains("response became committed")
+                        .contains("writing captured content without buffer reset")
                         .contains("uri=/carlos/provider/providercontrol")
                         .doesNotContain("jsessionid")
                         .doesNotContain("secret-session");
@@ -501,6 +535,25 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         @Override
         public void resetBuffer() {
             throw new IllegalStateException("already committed");
+        }
+    }
+
+    private static class CommittedResetTrackingResponse extends MockHttpServletResponse {
+
+        private int resetBufferCalls;
+
+        CommittedResetTrackingResponse() {
+            setCommitted(true);
+        }
+
+        @Override
+        public void resetBuffer() {
+            resetBufferCalls++;
+            super.resetBuffer();
+        }
+
+        int getResetBufferCalls() {
+            return resetBufferCalls;
         }
     }
 
