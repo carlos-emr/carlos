@@ -91,17 +91,25 @@ user is shown nothing.
 
 | # | Finding | Evidence | Status |
 |---|---|---|---|
-| 10 | **Six pages POST through the shared AJAX helper with nothing to populate the token.** `share/javascript/carlos-ajax.js` is the common path: `CarlosAjax.request()` defaults to `method: 'POST'` and `getCsrfToken()` reads `input[name="CSRF-TOKEN"]` on the caller's behalf (`carlos-ajax.js:49`). These six carry neither a qualifying form nor the include, so every one of those POSTs is sent with an empty token. Three are whole pages (`documentsInQueues.jsp`, 14 such calls; `CumulativeLabValues.jsp`; `newEncounterLayout.jsp`); three are fragments or generated script whose host pages were checked and do not carry it either (`ChartNotesAjax.jsp`, `labDisplayAjax.jsp`, `js/newCaseManagementView.js.jsp`). Remedy: add the `csrf-token.jspf` include to the document that owns each — and on any page setting its own `script-src`, publish the `cspNonce` request attribute first, or the inline bootstrap is blocked and the symptom is unchanged | `scripts/lib/csrf-bootstrap-audit.js` over the whole webapp, with the six pinned in `scripts/lib/csrf-bootstrap-baseline.json`; `labDisplayAjax.jsp` and `newEncounterLayout.jsp` carry the action-less-form anti-pattern CLAUDE.md names explicitly. Not confirmed against a running deployment: the audit is static, and `csrfBootstrapFinding()` in `scripts/lib/playwright-link-audit.js` is the browser half that would confirm the input is empty in a live DOM | `needs-live-check` |
+| 10 | **Five remaining pages POST through the shared AJAX helper with nothing to populate the token.** `share/javascript/carlos-ajax.js` is the common path: `CarlosAjax.request()` defaults to `method: 'POST'` and `getCsrfToken()` reads `input[name="CSRF-TOKEN"]` on the caller's behalf (`carlos-ajax.js:49`). These five carry neither a qualifying form nor the include, so every one of those POSTs is sent with an empty token. Two are whole pages (`documentsInQueues.jsp`, 14 such calls; `newEncounterLayout.jsp`); three are fragments or generated script whose host pages were checked and do not carry it either (`ChartNotesAjax.jsp`, `labDisplayAjax.jsp`, `js/newCaseManagementView.js.jsp`). Remedy: add the `csrf-token.jspf` include to the document that owns each — and on any page setting its own `script-src`, publish the `cspNonce` request attribute first, or the inline bootstrap is blocked and the symptom is unchanged | `scripts/lib/csrf-bootstrap-audit.js` over the whole webapp, with the five remaining pages pinned in the combined checkout's `scripts/lib/csrf-bootstrap-baseline.json` after applying PR #3691; `labDisplayAjax.jsp` and `newEncounterLayout.jsp` carry the action-less-form anti-pattern CLAUDE.md names explicitly. Not confirmed against a running deployment: the audit is static, and `csrfBootstrapFinding()` in `scripts/lib/playwright-link-audit.js` is the browser half that would confirm the input is empty in a live DOM | `needs-live-check` |
 
-**How this was missed.** The audit's own applicability test required the token read
-and the AJAX send to appear in the page's *own* source. All six POST through
-`CarlosAjax` instead, so the audit classified them not applicable and reported the
-webapp clean — 25 applicable pages, **zero** violations. Widening applicability to
-the shared helper, and teaching the detector that `CarlosAjax` sends GET without a
-token, takes it to 33 applicable pages: the 25 that send for themselves, all still
-satisfied, plus 8 that delegate to the helper, 6 of which violate. Every one of the
-six is a page the original rule never looked at. A guard that ran, found nothing,
-and passed.
+**How this was missed.** The original audit required the token read and AJAX
+send to appear in the page's own source, so it missed pages that delegated to
+`CarlosAjax`. At discovery, widening applicability to mutating shared-helper
+calls increased coverage from 25 to 33 pages and exposed six violations. These
+are historical discovery counts, not the current baseline.
+
+**Current combined-fix audit (2026-09-17).** Running `auditWebapp()` from
+`scripts/lib/csrf-bootstrap-audit.js` over the combined issue #3682 fixes finds
+34 applicable pages: 26 that read and send the token themselves, plus eight
+additional pages that delegate to the helper. Five violations remain, exactly
+matching the five paths in the combined checkout's
+`scripts/lib/csrf-bootstrap-baseline.json` after applying PR #3691; there are
+no unattributed fragments. PR #3691 adds the bootstrap to
+`lab/CumulativeLabValues.jsp`, removing it from the original six-page violation
+baseline. PR #3691 is now included through the release merge, so this branch also
+contains the five-entry baseline.
+These are static results; the remaining findings still need live confirmation.
 
 ---
 
@@ -161,6 +169,18 @@ application defects from test defects and missing fixtures, and records retests.
 
 | 37 | Crafted contact type changes can reclassify existing relationships | Existing rows now retain persisted types in reciprocal planning and persistence. Five regressions fail before the fix; all 30 contact cases pass afterward. Old installed package fails the owned-request tampering probe; the rebuilt DEB passes normal and twice-tampered saves, with cleanup verified; #3682. | `issue-filed` |
 | 38 | Existing contact category can be changed by submitting the row in the opposite list | `validateContactSaves` validates patient ownership but not the stored personal/professional category; `linkContactToDemographic` assigns the submitted list's category. Source-patient write permission is required; this is a classification-consistency candidate, not a demonstrated authorization bypass. No normal UI path or VM reproduction was established; #3682. | `needs-live-check` |
+
+## Issue 3682 follow-up
+
+The [focused PR and validation ledger](issue-3682-resolution-validation.md) records
+follow-up fixes, live results, negative controls and pending checks for the
+historical observations above. In particular, finding 23 was malformed audit URL
+generation, not an authentication-code defect: 122 correctly generated anonymous
+routes refuse access. The original PDF Envelope 404 did not reproduce; all six
+offered PDFs pass byte validation. The latest administration retest identified an
+OHIP fragment's extra GET handler and repeated AJAX headers as the causes of the
+remaining report failures. Final package validation remains explicitly pending
+in the ledger; source changes alone do not establish a live fix.
 
 ## 5. Found while resolving #3665 (September 2026)
 

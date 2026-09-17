@@ -303,6 +303,7 @@ function fakeChartPage(counts) {
   };
   return {
     locator: () => ({ first: () => ({ waitFor: async () => {} }) }),
+    waitForLoadState: async () => {},
     waitForFunction: async (fn) => {
       const previous = global.document;
       global.document = document;
@@ -358,4 +359,11 @@ test('scratch surface requires its editor, save control and history selector', a
     if (missing) await assert.rejects(assertSurfaceControls(page, scratch, 100), /required control missing/);
     else { await assertSurfaceControls(page, scratch, 100); assert.deepEqual(inspected, scratch.controls); }
   }
+});
+
+
+test('an unfinished chart AJAX load cannot pass on early navbar links', async () => {
+  const page = fakeChartPage({ leftNavBar: 6, rightNavBar: 4 });
+  page.waitForLoadState = async () => { throw new Error('module requests still pending'); };
+  await assert.rejects(() => waitForNavbars(page, 100), /module requests still pending/);
 });

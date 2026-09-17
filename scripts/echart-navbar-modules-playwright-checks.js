@@ -104,6 +104,10 @@ async function waitForNavbars(chartPage, timeout) {
   await chartPage.locator('#leftNavBar, #rightNavBar').first()
     .waitFor({ state: 'attached', timeout })
     .catch(() => {});
+  // The first link on each side does not mean all module requests have
+  // finished. Cataloguing then races later insertions and changes link indices.
+  // Require the initial AJAX burst to finish, then assert both populated sides.
+  await chartPage.waitForLoadState('networkidle', { timeout });
   // EACH CONTAINER ON ITS OWN. The two were summed, so a fully empty
   // #rightNavBar was masked by a populated #leftNavBar and vice versa -- and
   // they are filled from separate module groups, so losing one is exactly the
