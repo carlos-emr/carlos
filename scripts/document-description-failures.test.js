@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/admin/displayDocumentDescriptionTemplate.jsp'), 'utf8');
 const source = jsp.slice(jsp.indexOf('function reportTemplateError('), jsp.indexOf('function adddocDescription('));
 function fixture({token = 'test-token', response = {ok: true, redirected: false, text: async () => '{"ok":true}'}} = {}) {
-  const status = {textContent: 'old error'};
+  const status = {textContent: ''};
   const calls = [];
   const context = {window: {}, document: {querySelector: () => ({value: token}), getElementById: () => status},
     fetch: async (...args) => { calls.push(args); return response; }};
@@ -37,3 +37,19 @@ for (const response of [{ok: false, redirected: false}, {ok: true, redirected: t
     assert.match(f.status.textContent, /failed.*may not have been saved/);
   });
 }
+
+test('a successful overlapping read cannot hide a failed settings write', async () => {
+  const f = fixture();
+  let finishRead;
+  f.context.fetch = (_url, options) => options.body.includes('saveDocumentDescriptionTemplatePreference')
+    ? Promise.resolve({ok: false, redirected: false})
+    : new Promise(resolve => { finishRead = resolve; });
+  const write = f.context.templateRequest('/route', 'method=saveDocumentDescriptionTemplatePreference')
+    .catch(f.context.reportTemplateError);
+  const read = f.context.templateRequest('/route', 'method=getDocumentDescriptionFromDocType');
+  await write;
+  assert.match(f.status.textContent, /failed.*may not have been saved/);
+  finishRead({ok: true, redirected: false, text: async () => '[]'});
+  assert.equal(await read, '[]');
+  assert.match(f.status.textContent, /failed.*may not have been saved/);
+});

@@ -91,7 +91,8 @@
                 body: data
             });
             if (!response.ok || response.redirected) throw new Error('Document description request failed');
-            document.getElementById('templateStatus').textContent = '';
+            // Keep errors visible until reload: a concurrent successful read must
+            // not hide an earlier failed write or uncertain save outcome.
             return response.text();
         }
 
