@@ -30,7 +30,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 final class DemographicLabelAccess {
     private DemographicLabelAccess() { }
 
-    /** Returns the authorized canonical patient ID, or null after a bad-request response. */
+    /**
+     * Returns the authorized canonical patient ID, or null after an authorized
+     * caller supplies an invalid ID. Access denial takes precedence over HTTP 400.
+     */
     static String authorizeRead(LoggedInInfo loggedInInfo, String requestedId,
             HttpServletResponse response, SecurityInfoManager securityInfoManager) throws IOException {
         requireRead(loggedInInfo, requestedId, securityInfoManager);

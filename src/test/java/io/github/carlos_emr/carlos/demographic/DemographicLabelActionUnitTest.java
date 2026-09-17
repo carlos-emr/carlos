@@ -157,6 +157,23 @@ class DemographicLabelActionUnitTest extends CarlosUnitTestBase {
         assertNoLabelAccess();
     }
 
+    static Stream<Arguments> deniedInvalidIds() {
+        return Arrays.stream(Route.values()).flatMap(route ->
+                Stream.of(null, "invalid").map(id -> Arguments.of(route, id)));
+    }
+
+    @ParameterizedTest @MethodSource("deniedInvalidIds")
+    void shouldDenyAccessBeforeValidation_whenUnauthorizedIdentifierInvalid(Route route, String id) {
+        if (id == null) request.removeParameter("demographic_no");
+        else request.setParameter("demographic_no", id);
+        when(security.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), any()))
+                .thenReturn(false);
+        ActionSupport action = route.action.get();
+        assertThrows(SecurityException.class, action::execute);
+        assertThat(response.getErrorMessage()).isNull();
+        assertNoLabelAccess();
+    }
+
     @ParameterizedTest @EnumSource(Route.class)
     void shouldUseCanonicalAuthorizedPatient_whenIdHasLeadingZeros(Route route) throws Exception {
         request.setParameter("demographic_no", "0012345");

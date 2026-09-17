@@ -71,7 +71,8 @@ public class PrintClientLabLabel2Action extends ActionSupport {
 
     /**
      * Checks patient-specific demographic read access and validates demographic_no
-     * before generating the PDF. Invalid identifiers return HTTP 400, and report
+     * before generating the PDF. Authorized requests with invalid identifiers return
+     * HTTP 400; access denial takes precedence. Report
      * generation failures return HTTP 500 before any successful PDF output.
      *
      * @return NONE because this action completes the response directly
