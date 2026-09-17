@@ -310,8 +310,9 @@ test('a page that only mentions a fragment in a comment does not host it', () =>
   const fragment = path.join(scratch, 'Fragment.jsp');
   const commentOnly = path.join(scratch, 'CommentOnly.jsp');
   const loader = path.join(scratch, 'Loader.jsp');
-  fs.writeFileSync(fragment, '<script>fetch("/x")</script>');
-  fs.writeFileSync(commentOnly, '<script>\n  /* text\n  */ // Fragment.jsp\n</script>');
+  // The fixtures are plain text: hostsOf() matches file names, not markup.
+  fs.writeFileSync(fragment, 'fetch("/x")');
+  fs.writeFileSync(commentOnly, '  /* text\n  */ // Fragment.jsp\n');
   fs.writeFileSync(loader, '<jsp:include page="Fragment.jsp"/>');
   const strutsDirectory = path.join(scratch, 'classes');
   fs.mkdirSync(strutsDirectory);
