@@ -13,12 +13,12 @@ and target that release. Develop was fetched only to check migration allocation.
 | [3684](https://github.com/carlos-emr/carlos/pull/3684) | Decode JavaScript URL literals in the route audit | Original anonymous-route finding was malformed URL generation; 122 correctly generated anonymous routes refuse access without an authentication-code change |
 | [3685](https://github.com/carlos-emr/carlos/pull/3685) | Jasper-compatible labels and explicit PDF failures | Earlier installed package passes all six offered PDF checks; current patient-access/null-preference/fallback follow-ups pass 72 action and ten PDF/template cases, with installed-package retest pending |
 | [3686](https://github.com/carlos-emr/carlos/pull/3686) | HRM status filtering and matching counts | Live All/New/Acknowledged/Filed partition and count checks pass; legacy A/F are aliases, not disjoint buckets |
-| [3687](https://github.com/carlos-emr/carlos/pull/3687) | Episode validation/access and scratchpad ownership | Five episode lifecycle steps and four cross-patient/provider/owner checks pass |
-| [3688](https://github.com/carlos-emr/carlos/pull/3688) | Internal contact picker, reciprocal identity, preflight validation and stale recent patients | Final package retest pending |
+| [3687](https://github.com/carlos-emr/carlos/pull/3687) | Episode validation/access and scratchpad ownership | Earlier installed package passes five episode lifecycle steps and four access checks; latest session/dispatch/existence fixes pass 37 scratchpad and 18 episode cases in CI, installed retest pending |
+| [3688](https://github.com/carlos-emr/carlos/pull/3688) | Internal contact picker, reciprocal identity, preflight validation and stale recent patients | 53 contact-action cases and five recent-patient regressions pass in CI; final package retest pending |
 | [3689](https://github.com/carlos-emr/carlos/pull/3689) | Printer/signature/document-description preferences | Final package retest pending, including both printer-feature settings |
 | [3690](https://github.com/carlos-emr/carlos/pull/3690) | Explicit inactive-drug status and visible lookup failure | Actual inactive DIN returns its stored calendar date; malformed response shows warning and recovery, without saving a prescription |
 | [3691](https://github.com/carlos-emr/carlos/pull/3691) | Admin/chart navigation, calculator entry/styles, Row Display and lot search | Chart module audit and repeated lot search pass; 101-item administration sweep exposed OHIP handler and duplicated AJAX-header failures; both corrected, final package retest pending |
-| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 112 named checks / 103 scripts registered; 677 Node regressions pass |
+| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 112 named checks / 103 scripts registered; 678 Node regressions pass |
 | [3694](https://github.com/carlos-emr/carlos/pull/3694) | Signature identity migration | Nine real MariaDB cases and both province fresh/adopted Flyway CI jobs pass, including preservation of duplicate unassigned rows; application upgrade pending |
 | [DrugRef 14](https://github.com/carlos-emr/drugref2026/pull/14) | JDBC calendar dates and explicit lookup faults | 69 tests and WAR pass at 1941e142; earlier installed-DEB calendar-date lookup passes, latest query-failure follow-up installation pending |
 
@@ -60,7 +60,7 @@ application PRs. Validate the combined release candidate before shipping it.
 
 The audit decoder now handles JavaScript braced Unicode escapes, including astral
 characters and explicit failure for invalid code points. Four new regression cases
-bring its unit file to 68 cases; the complete Node suite has 677 passing cases.
+bring its unit file to 68 cases; the complete Node suite has 678 passing cases.
 
 Printing head `7c139eebd1` passes [12,221 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35178032145)
 with no failures/errors and 48 skips. This includes 72 action cases and ten
@@ -81,6 +81,36 @@ instead of being cached as an empty inactive-drug list or a missing DIN; expande
 category 19 searches also check inactive status. Its full CodeRabbit review reports
 no actionable findings. The CARLOS pin is updated in #3690. The earlier installed
 calendar-date result does not substitute for an installed test of these later changes.
+
+Access head `2c9e4613cf` passes [12,186 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35187990768)
+with no failures/errors and 48 skips, including 37 scratchpad and 18 episode cases.
+Scratchpad dispatch rejects unsupported operations and verbs, requires a session
+provider before request processing, and rejects missing text while preserving an
+intentional empty-string save. Episode requests using only an ID return the same
+404 for missing and inaccessible records. CodeRabbit accepted these changes; their
+installed-package retest is pending.
+
+Contacts head `a52418d5a1` passes [12,169 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35191083977)
+with no failures/errors and 48 skips, including 53 contact-action cases and five
+recent-patient regressions. Recent-patient filtering excludes soft-deleted `DE`
+records before pagination while retaining legacy SQL NULL statuses and audit
+history. The two new database regressions cover both cases. CodeRabbit accepted
+these changes; installed contact/reciprocal/low-privilege retesting is pending.
+
+Preferences head `dc54dd067c` passes [12,146 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35192285070)
+with no failures/errors and 48 skips. A successful overlapping background read can
+no longer clear a failed document-description write warning. The concurrency test
+fails against the original helper and passes after the fix; all five request/error
+checks and all 678 combined Node cases pass. Full CodeRabbit review and the latest
+installed-package preference workflows remain pending.
+
+Inactive-drug endpoint head `ad6fe7f8a1` passes [12,144 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35189703344)
+with no failures/errors and 48 skips, including five endpoint cases. Denied `_rx`
+read access returns HTTP 403 before any DrugRef call, and the JSON response returns
+`NONE` to prevent further rendering. JSON tests cover content type and hostile
+identifier round-tripping; the method-local SpotBugs suppression documents Jackson
+serialization and the JSON-only response. Full CodeRabbit review and installation
+of these endpoint changes with DrugRef `1941e142` remain pending.
 
 ## Latest retest and environment blocker
 
