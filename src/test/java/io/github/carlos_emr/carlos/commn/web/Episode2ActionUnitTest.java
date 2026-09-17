@@ -77,11 +77,23 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("10");
     }
 
-    @Test void shouldDenyStoredPatient_whenLinkOmitsPatientParameter() {
+    @Test void shouldHideStoredPatient_whenIdOnlyLinkIsUnauthorized() throws Exception {
         stored(20);
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), eq(20))).thenReturn(false);
-        assertThatThrownBy(action::edit).isInstanceOf(SecurityException.class);
+        assertThat(action.edit()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(404);
+        assertThat(mockResponse.getErrorMessage()).isEqualTo("Episode not found");
         assertThat(mockRequest.getAttribute("episode")).isNull();
+        assertThat(mockRequest.getAttribute("demographicNo")).isNull();
+    }
+
+    @Test void shouldHideMissingEpisode_whenIdOnlyLinkDoesNotExist() throws Exception {
+        addRequestParameter("episode.id", "7");
+        assertThat(action.edit()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(404);
+        assertThat(mockResponse.getErrorMessage()).isEqualTo("Episode not found");
+        assertThat(mockRequest.getAttribute("episode")).isNull();
+        assertThat(mockRequest.getAttribute("demographicNo")).isNull();
     }
 
     @Test void shouldRejectEditor_whenPatientAndEpisodeMissing() throws Exception {

@@ -54,6 +54,8 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * Stored patient ownership is immutable; validation precedes managed-entity changes.
  */
 public class Episode2Action extends ActionSupport {
+    private static final String INVALID_PATIENT_IDENTIFIER = "Invalid patient identifier";
+    private static final String DEMOGRAPHIC_NO = "demographicNo";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -75,8 +77,8 @@ public class Episode2Action extends ActionSupport {
 
     /** Lists episodes only after validating the patient ID and demographic read access. */
     public String list() throws IOException {
-        Integer demographicNo = positiveInteger(request.getParameter("demographicNo"));
-        if (demographicNo == null) return reject(400, "Invalid patient identifier");
+        Integer demographicNo = positiveInteger(request.getParameter(DEMOGRAPHIC_NO));
+        if (demographicNo == null) return reject(400, INVALID_PATIENT_IDENTIFIER);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
@@ -92,9 +94,9 @@ public class Episode2Action extends ActionSupport {
      * Links containing only episode.id authorize the patient recorded on that episode.
      */
     public String edit() throws IOException {
-        String requestedPatient = request.getParameter("demographicNo");
+        String requestedPatient = request.getParameter(DEMOGRAPHIC_NO);
         Integer demographicNo = positiveInteger(requestedPatient);
-        if (requestedPatient != null && demographicNo == null) return reject(400, "Invalid patient identifier");
+        if (requestedPatient != null && demographicNo == null) return reject(400, INVALID_PATIENT_IDENTIFIER);
         if (demographicNo != null) requirePatientAccess(demographicNo, "r");
         String rawId = request.getParameter("episode.id");
         if (rawId != null && !rawId.isBlank()) {
@@ -108,15 +110,17 @@ public class Episode2Action extends ActionSupport {
             // stored patient before exposing the record through those links.
             if (demographicNo == null) {
                 demographicNo = stored.getDemographicNo();
-                requirePatientAccess(demographicNo, "r");
+                if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
+                    return reject(404, "Episode not found");
+                }
             }
             request.setAttribute("episode", stored);
         } else if (demographicNo == null) {
-            return reject(400, "Invalid patient identifier");
+            return reject(400, INVALID_PATIENT_IDENTIFIER);
         }
         String[] codingSystems = CarlosProperties.getInstance().getProperty("dxResearch_coding_sys", "").split(",");
         request.setAttribute("codingSystems", Arrays.asList(codingSystems));
-        request.setAttribute("demographicNo", demographicNo.toString());
+        request.setAttribute(DEMOGRAPHIC_NO, demographicNo.toString());
         return "form";
     }
 
@@ -127,7 +131,7 @@ public class Episode2Action extends ActionSupport {
      */
     public String save() throws IOException {
         if (!"POST".equals(request.getMethod())) return reject(405, "POST required");
-        if (episode == null || episode.getDemographicNo() <= 0) return reject(400, "Invalid patient identifier");
+        if (episode == null || episode.getDemographicNo() <= 0) return reject(400, INVALID_PATIENT_IDENTIFIER);
         requirePatientAccess(episode.getDemographicNo(), "w");
         String rawId = request.getParameter("episode.id");
         boolean creating = rawId == null || rawId.isBlank() || "0".equals(rawId);

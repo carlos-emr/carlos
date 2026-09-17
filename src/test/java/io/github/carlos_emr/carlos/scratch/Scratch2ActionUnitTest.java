@@ -43,7 +43,10 @@ import java.io.StringWriter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -102,7 +105,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
 
         ArgumentCaptor<ScratchPad> scratchPadCaptor = ArgumentCaptor.forClass(ScratchPad.class);
 
-        assertThat(action.execute()).isNull();
+        assertThat(action.execute()).isEqualTo("none");
         verify(scratchPadDao).persist(scratchPadCaptor.capture());
         assertThat(scratchPadCaptor.getValue().getProviderNo()).isEqualTo("999998");
         assertThat(scratchPadCaptor.getValue().getText()).isEqualTo("test note");
@@ -116,7 +119,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         StringWriter json = new StringWriter();
         when(request.getParameter("id")).thenReturn("0");
         when(response.getWriter()).thenReturn(new PrintWriter(json));
-        assertThat(createAction(request, response).execute()).isNull();
+        assertThat(createAction(request, response).execute()).isEqualTo("none");
         verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
         verifyNoInteractions(scratchPadDao);
         assertThat(json.toString()).contains("\"success\":false");
@@ -141,7 +144,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
             saved.setId(8);
             return null;
         }).when(scratchPadDao).persist(any(ScratchPad.class));
-        assertThat(createAction(request, response).execute()).isNull();
+        assertThat(createAction(request, response).execute()).isEqualTo("none");
         ArgumentCaptor<ScratchPad> saved = ArgumentCaptor.forClass(ScratchPad.class);
         verify(scratchPadDao).persist(saved.capture());
         assertThat(saved.getValue().getText()).isEmpty();
@@ -192,7 +195,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         try (LogCapture capture = LogCapture.forLogger(Scratch2Action.class)) {
             Scratch2Action action = createAction(request, response);
 
-            assertThat(action.execute()).isNull();
+            assertThat(action.execute()).isEqualTo("none");
 
             verify(response).setStatus(HttpServletResponse.SC_FORBIDDEN);
             verifyNoInteractions(scratchPadDao);
@@ -220,7 +223,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         when(scratchPadDao.find(7)).thenReturn(stored);
         assertThat(createAction(request, response).showVersion()).isEqualTo("none");
         verify(response).setStatus(404);
-        org.mockito.Mockito.verify(request, org.mockito.Mockito.never()).setAttribute(any(), any());
+        verify(request, never()).setAttribute(any(), any());
     }
 
     @Test
@@ -238,7 +241,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         createAction(request, response).delete();
         verify(response).setStatus(404);
         assertThat(stored.isStatus()).isTrue();
-        org.mockito.Mockito.verify(scratchPadDao, org.mockito.Mockito.never()).merge(any());
+        verify(scratchPadDao, never()).merge(any());
         assertThat(json.toString()).contains("\"success\":false");
     }
 
@@ -286,7 +289,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpSession session = mock(HttpSession.class);
         when(request.getMethod()).thenReturn(httpMethod);
-        when(request.getSession()).thenReturn(session);
+        when(request.getSession(false)).thenReturn(session);
         when(session.getAttribute("user")).thenReturn(providerNo);
         return request;
     }
@@ -322,7 +325,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         stored.setId(7);
         stored.setProviderNo("999998");
         when(scratchPadDao.find(7)).thenReturn(stored);
-        org.mockito.Mockito.doThrow(new IllegalStateException("database unavailable"))
+        doThrow(new IllegalStateException("database unavailable"))
                 .when(scratchPadDao).merge(stored);
         createAction(request, response).delete();
         verify(response).setStatus(500);
@@ -351,8 +354,31 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         when(request.getParameter("id")).thenReturn("7");
         when(request.getParameter("scratchpad")).thenReturn("Must not be saved");
         when(response.getWriter()).thenReturn(new PrintWriter(json));
-        assertThat(createAction(request, response).execute()).isNull();
+        assertThat(createAction(request, response).execute()).isEqualTo("none");
         verify(response).setStatus(status);
+        verifyNoInteractions(scratchPadDao);
+        assertThat(json.toString()).contains("\"success\":false");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"execute,missing", "showVersion,missing", "delete,missing",
+            "execute,blank", "showVersion,blank", "delete,blank",
+            "execute,absent", "showVersion,absent", "delete,absent"})
+    void shouldRejectBeforeRequestProcessing_whenSessionProviderUnavailable(String entryPoint, String sessionState) throws Exception {
+        HttpServletRequest request = mockRequest("POST", "blank".equals(sessionState) ? " " : null);
+        if ("absent".equals(sessionState)) when(request.getSession(false)).thenReturn(null);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        Scratch2Action action = createAction(request, response);
+        String result = switch (entryPoint) {
+            case "showVersion" -> action.showVersion();
+            case "delete" -> action.delete();
+            default -> action.execute();
+        };
+        assertThat(result).isEqualTo("none");
+        verify(response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        verify(request, never()).getParameter(anyString());
         verifyNoInteractions(scratchPadDao);
         assertThat(json.toString()).contains("\"success\":false");
     }

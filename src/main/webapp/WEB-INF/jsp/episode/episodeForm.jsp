@@ -28,6 +28,17 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Episode create/edit form for an authorized patient's care history. Supports
+    coding-system selection, description, status, dates and notes; completion
+    requires an end date, and server-side validation remains authoritative.
+
+    Request attributes: demographicNo (authorized patient), episode (optional
+    stored record), and codingSystems (available diagnosis coding systems).
+    Submits method=save and episode.* fields to the Episode action with CSRF
+    protection. Retains the existing authenticated-session and _admin read gate.
+    @since 2026-09-17
+--%>
 <!DOCTYPE html>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
