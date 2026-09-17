@@ -59,13 +59,25 @@ const READS_TOKEN_INPUT = [
   /getElementsByName\s*\(\s*['"]CSRF-TOKEN['"]/,
   /\$\s*\([^)]{0,200}CSRF-TOKEN/,
   /jQuery\s*\([^)]{0,200}CSRF-TOKEN/,
-  // The helper's accessor reads the same input. A page that calls it and then
-  // sends the value by a transport CSRFGuard does not intercept is exactly the
-  // fetch() case with one indirection, so it is judged like one.
-  /\bCarlosAjax\.getCsrfToken\s*\(/,
 ];
 
-/** Sending it anywhere the CSRFGuard client script does not hijack. */
+/**
+ * The helper's accessor reads the same input, but on the page's behalf, and
+ * most pages that call it hand the value straight back to CarlosAjax.request(),
+ * whose XMLHttpRequest send gets the header anyway (see SHARED HELPER below).
+ * So the accessor is a token read for this rule only when it feeds a send the
+ * page makes itself, and that is decided by pairing (helperReadFeedsOwnSend),
+ * not by the accessor being somewhere on the page.
+ */
+const HELPER_TOKEN_READ = /\bCarlosAjax\.getCsrfToken\s*\(/;
+
+/**
+ * Sending it by AJAX at all. A page that reads the hidden input by hand and
+ * sends by any of these is in the rule whatever else it does: the read is the
+ * fetch() shape, and XMLHttpRequest is listed because a hand-rolled XHR that
+ * puts the input's value in its body is the same page-owned dependence on the
+ * input (the header CSRFGuard adds is a second copy there, not the first).
+ */
 const SENDS_OVER_AJAX = [
   /\bfetch\s*\(/,
   /\bXMLHttpRequest\b/,
@@ -77,6 +89,27 @@ const SENDS_OVER_AJAX = [
   // the token it carries can only come from the hidden input.
   /\bnavigator\.sendBeacon\s*\(/,
 ];
+
+/**
+ * The sends CSRFGuard's script cannot reach, which is what makes a helper-read
+ * token the page's own problem: fetch() and sendBeacon(). XMLHttpRequest is
+ * not here on purpose; an XHR gets the header whoever opens it.
+ */
+const PAGE_OWNED_SENDS = [
+  /\bfetch\s*\(/g,
+  /\bnavigator\.sendBeacon\s*\(/g,
+];
+/*
+ * How far apart the accessor call and the send may be, in characters, and
+ * still be one act. The chart's onClosing() reads the token, appends it to the
+ * beacon's body and sends within about 250; a whole handler fits in 600. The
+ * pairing is by distance because the value travels through a local (`params`
+ * on the chart), so "the send's arguments name the token" would miss the one
+ * real case. A read that feeds CarlosAjax.request() in one handler and a
+ * token-free beacon in another, far away, are not paired, and that page is
+ * left to the helper's exclusion.
+ */
+const PAIRING_WINDOW = 600;
 
 /*
  * THE SHARED HELPER IS OUTSIDE THIS RULE, and deliberately so.
@@ -105,8 +138,9 @@ const SENDS_OVER_AJAX = [
  * IT. js/newCaseManagementView.js.jsp releases the note lock on pagehide with
  * navigator.sendBeacon(), carrying the value of CarlosAjax.getCsrfToken() in
  * the body. That send goes nowhere near XMLHttpRequest, so the header cannot
- * rescue it: it is a bootstrapping-rule page, and READS_TOKEN_INPUT and
- * SENDS_OVER_AJAX both name that shape so the audit sees it. It is satisfied
+ * rescue it: it is a bootstrapping-rule page, and helperReadFeedsOwnSend()
+ * names that shape (the accessor within reach of a fetch() or beacon) so the
+ * audit sees it without sweeping in every accessor caller. It is satisfied
  * because the chart's `frmIssueNotes` form has action="" and method="post",
  * which CSRFGuard injects into (see FORM_ACTION below).
  */
@@ -131,9 +165,14 @@ const FORM_WINDOW = 600;
  *
  *   - no `action` attribute at all: skipped (getAttribute() is null);
  *   - starts with `#`: skipped, an anchor;
- *   - starts with `//` or with a scheme (`javascript:`, `data:`, ...): skipped,
- *     except http(s) to the page's own host, which this audit cannot decide
- *     statically and so accepts;
+ *   - starts with `//` or with a scheme (`javascript:`, `data:`, ...): skipped.
+ *     http(s) is the one scheme it does not skip outright: it injects when the
+ *     URL's host is the page's own. The audit does not know the deployment
+ *     host, so it cannot make that call, and it REPORTS such a form rather than
+ *     accepting it: an absolute action in CARLOS source is written to reach
+ *     another site (OntarioMDRedirect.jsp posts to ontariomd.ca), where
+ *     CSRFGuard injects nothing. Accepting it would let a form that populates
+ *     no input clear a page;
  *   - anything else, INCLUDING THE EMPTY STRING and a value that is only
  *     whitespace: injected. "" is not trimmed and does not start with `/`, so it
  *     falls to the `has no scheme` branch and is a local resource.
@@ -145,7 +184,7 @@ const FORM_WINDOW = 600;
  * that already has one, and a maintainer who adds the include to quiet it would
  * be adding a second copy of the token to a page that never lacked the first.
  */
-const FORM_ACTION = /\baction\s*=\s*(["'])(?!#|\/\/|(?!https?:)[a-z][a-z0-9.+-]*:)[^"']*\1/i;
+const FORM_ACTION = /\baction\s*=\s*(["'])(?!#|\/\/|[a-z][a-z0-9.+-]*:)[^"']*\1/i;
 const FORM_METHOD_NON_GET = /\bmethod\s*=\s*["']\s*(?!get\b)[a-z]+\s*["']/i;
 
 function hasRealPostForm(source) {
@@ -226,15 +265,33 @@ function jspFiles(root = WEBAPP) {
 const matchesAny = (patterns, text) => patterns.some((pattern) => pattern.test(text));
 
 /**
+ * Whether a CarlosAjax.getCsrfToken() call sits within PAIRING_WINDOW of a
+ * fetch() or sendBeacon() call, in either order (the accessor may be inline in
+ * the send's own arguments, or read into a local a few lines above it).
+ */
+function helperReadFeedsOwnSend(source) {
+  const reads = [...source.matchAll(new RegExp(HELPER_TOKEN_READ.source, 'g'))].map((found) => found.index);
+  if (reads.length === 0) {
+    return false;
+  }
+  const sends = PAGE_OWNED_SENDS.flatMap((pattern) => [...source.matchAll(pattern)].map((found) => found.index));
+  return reads.some((read) => sends.some((send) => Math.abs(send - read) <= PAIRING_WINDOW));
+}
+
+/**
  * Classify one page against the rule.
  *
  * @returns {null} when the rule does not apply to this page, otherwise
  *   { file, satisfied, reason }
  */
 function auditSource(relativePath, source) {
-  // One way in: the page reads the token AND sends it itself. A page that only
-  // delegates to CarlosAjax is not judged (see the note above SHARED HELPER).
-  const sendsItself = matchesAny(READS_TOKEN_INPUT, source) && matchesAny(SENDS_OVER_AJAX, source);
+  // Two ways in: the page reads the hidden input by hand AND sends by AJAX, or
+  // it reads the token through the helper's accessor and hands the value to a
+  // fetch() or beacon of its own. A page that only delegates to CarlosAjax is
+  // not judged (see the note above SHARED HELPER), and neither is one whose
+  // accessor call and whose beacon are unrelated to each other.
+  const sendsItself = (matchesAny(READS_TOKEN_INPUT, source) && matchesAny(SENDS_OVER_AJAX, source))
+    || helperReadFeedsOwnSend(source);
   if (!sendsItself) {
     return null;
   }
@@ -344,7 +401,9 @@ function hostsOf(file, files, strutsDirectory, webappRoot = WEBAPP) {
  * The source with JSP, HTML, block and whole-line `//` comments removed.
  *
  * Only a `//` that opens its line is a comment: a `//` mid-line is far more
- * often the one in `http://`. A block comment inside a string literal would be
+ * often the one in `http://`. "Opens its line" means nothing but indentation
+ * and removed block comments precede it, so the `//` that follows a block
+ * comment's closer on an otherwise blank line is a comment too. A block comment inside a string literal would be
  * cut too, which for host attribution errs towards finding fewer hosts and is
  * accepted; hostsOf() is a substring match, not a parser. An opener with no
  * closer is kept as text rather than swallowing the rest of the file.
@@ -383,16 +442,22 @@ function stripComments(source) {
       index += 1;
       continue;
     }
-    lineStart = false;
     const opener = openers.find(([open]) => source.startsWith(open, index));
     if (opener) {
       const close = source.indexOf(opener[1], index + opener[0].length);
       if (close >= 0) {
+        // A removed block leaves the line as it was: if nothing but indentation
+        // came before it, a `//` after its closer still opens the line
+        // (a closer, a space, then `// Fragment.jsp`), so lineStart is left
+        // alone here.
         parts.push(source.slice(kept, index));
         index = close + opener[1].length;
         kept = index;
         continue;
       }
+    }
+    if (character !== ' ' && character !== '\t') {
+      lineStart = false;
     }
     index += 1;
   }
@@ -467,6 +532,9 @@ module.exports = {
   BOOTSTRAP_INCLUDE,
   FORM_WINDOW,
   INLINE_BOOTSTRAP,
+  HELPER_TOKEN_READ,
+  PAGE_OWNED_SENDS,
+  PAIRING_WINDOW,
   READS_TOKEN_INPUT,
   SENDS_OVER_AJAX,
   WEBAPP,
@@ -474,6 +542,7 @@ module.exports = {
   auditWebapp,
   hasActionlessForm,
   hasRealPostForm,
+  helperReadFeedsOwnSend,
   hostsOf,
   isSelfContained,
   jspFiles,

@@ -4,9 +4,11 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const os = require('node:os');
+
 const {
-  auditSource, auditWebapp, hasActionlessForm,
-  hasRealPostForm, isSelfContained, jspFiles, stripComments,
+  PAIRING_WINDOW, auditSource, auditWebapp, hasActionlessForm,
+  hasRealPostForm, helperReadFeedsOwnSend, hostsOf, isSelfContained, jspFiles, stripComments,
 } = require('./lib/csrf-bootstrap-audit');
 
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
@@ -108,6 +110,22 @@ test('reading the token through the helper and sending it by beacon is inside th
   // is the excluded case.
   assert.equal(auditSource('no-token.jsp', '<html><script>navigator.sendBeacon("/x");</script></html>'), null);
   assert.equal(auditSource('helper.jsp', '<html><script>var t = CarlosAjax.getCsrfToken(); CarlosAjax.request(u);</script></html>'), null);
+  // And both halves on one page are not the shape either unless they are one
+  // act: an accessor call that feeds CarlosAjax.request() in one handler and a
+  // token-free beacon in another are matched independently by a page-wide
+  // search, and that page has nothing to bootstrap.
+  const unrelated = `<html><script>
+      function save() { var t = CarlosAjax.getCsrfToken(); CarlosAjax.request(u, { token: t }); }
+    </script>${'\n'.repeat(PAIRING_WINDOW)}<script>
+      window.addEventListener('pagehide', function () { navigator.sendBeacon('/carlos/ping'); });
+    </script></html>`;
+  assert.equal(helperReadFeedsOwnSend(unrelated), false);
+  assert.equal(auditSource('unrelated.jsp', unrelated), null,
+    'a helper read and a beacon that do not belong to each other are not the beacon-carries-the-token shape');
+  // The pairing reads in both directions: the accessor may be inline in the
+  // send's own arguments.
+  assert.ok(auditSource('inline.jsp',
+    '<html><script>fetch("/carlos/x", { method: "POST", headers: { "CSRF-TOKEN": CarlosAjax.getCsrfToken() } });</script></html>'));
 
   // And the real page is in the audit, satisfied by the documents that load it.
   const { applicable } = auditWebapp();
@@ -153,9 +171,17 @@ test('a form action is judged the way csrfguard.js isValidUrl() judges it', () =
   assert.equal(hasRealPostForm('<form action="" method="post"></form>'), true);
   assert.equal(hasRealPostForm("<form action='' method='post'></form>"), true);
   assert.equal(hasRealPostForm('<form action="   " method="post"></form>'), true);
-  // An absolute http(s) URL is accepted only for the page's own host, which a
-  // static audit cannot decide; it is accepted rather than reported.
-  assert.equal(hasRealPostForm('<form action="https://emr.example/carlos/x" method="post"></form>'), true);
+  // An absolute http(s) URL is injected into only when its host is the page's
+  // own, which a static audit cannot decide, so it is reported rather than
+  // accepted: the one such form in CARLOS posts to another site, where
+  // CSRFGuard injects nothing.
+  assert.equal(hasRealPostForm('<form action="https://emr.example/carlos/x" method="post"></form>'), false);
+  assert.equal(hasRealPostForm('<form action="http://emr.example/carlos/x" method="post"></form>'), false);
+  const ontarioMd = fs.readFileSync(path.join(
+    __dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp', 'common', 'OntarioMDRedirect.jsp',
+  ), 'utf8');
+  assert.match(ontarioMd, /action="https:\/\/www\.ontariomd\.ca\//, 'the cross-site form this pins is still there');
+  assert.equal(hasRealPostForm(ontarioMd), false, 'a form posting to another host populates no token input');
   // The shapes CARLOS really writes must keep passing.
   assert.equal(hasRealPostForm('<form action="<%= request.getContextPath() %>/x" method="post"></form>'), true);
   assert.equal(hasRealPostForm('<form action="${pageContext.request.contextPath}/x" method="post"></form>'), true);
@@ -272,6 +298,24 @@ test('a page that only mentions a fragment in a comment does not host it', () =>
     '<script>\n\n</script>');
   // A `//` mid-line is a URL, not a comment, and the src that loads a script is code.
   assert.equal(stripComments('<script src="http://h/js/x.js.jsp"></script>'), '<script src="http://h/js/x.js.jsp"></script>');
+  // A block comment that opens its line does not use the line up: the `//`
+  // after its closer is still a whole-line comment. The scanner cleared the
+  // line-start state at the block's first character, so the mention after the
+  // closer survived and counted as a host.
+  assert.equal(stripComments('  /* text\n*/ // Fragment.jsp\nx'), '  \nx');
+  assert.equal(stripComments('\t/* a */ /* b */ // Fragment.jsp'), '\t ');
+  // Code before the block keeps the rest of the line: that `//` is mid-line.
+  assert.equal(stripComments('a /* b */ // http://h'), 'a  // http://h');
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'csrf-audit-'));
+  const fragment = path.join(scratch, 'Fragment.jsp');
+  const commentOnly = path.join(scratch, 'CommentOnly.jsp');
+  const loader = path.join(scratch, 'Loader.jsp');
+  fs.writeFileSync(fragment, '<script>fetch("/x")</script>');
+  fs.writeFileSync(commentOnly, '<script>\n  /* text\n  */ // Fragment.jsp\n</script>');
+  fs.writeFileSync(loader, '<jsp:include page="Fragment.jsp"/>');
+  const strutsDirectory = path.join(scratch, 'classes');
+  fs.mkdirSync(strutsDirectory);
+  assert.deepEqual(hostsOf(fragment, [fragment, commentOnly, loader], strutsDirectory, scratch), [loader]);
 
   const chartNotesAjax = fs.readFileSync(path.join(
     __dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp', 'casemgmt', 'ChartNotesAjax.jsp',
