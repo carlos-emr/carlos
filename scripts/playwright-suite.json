@@ -940,6 +940,22 @@
       ]
     },
     {
+      "name": "lab-pdf-footer",
+      "script": "scripts/lab-pdf-footer-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_PDF_DEMOGRAPHIC_NO",
+        "LAB_PDF_EXPECTED_NOTICE"
+      ]
+    },
+    {
       "name": "lab-requisition-links",
       "script": "scripts/lab-requisition-links-playwright-checks.js",
       "tiers": [
@@ -1095,6 +1111,21 @@
         "MEASUREMENT_DEMOGRAPHIC_NO",
         "MEASUREMENT_GROUP",
         "MEASUREMENT_TYPE"
+      ]
+    },
+    {
+      "name": "patient-messenger-context",
+      "script": "scripts/patient-messenger-context-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MESSENGER_CONTEXT_DEMOGRAPHICS"
       ]
     },
     {
