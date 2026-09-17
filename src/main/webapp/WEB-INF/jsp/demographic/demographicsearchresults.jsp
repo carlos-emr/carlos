@@ -28,6 +28,17 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+<%--
+    Displays the general patient search and recently viewed patient list.
+    Features: search result navigation, pagination, and patient selection links.
+    Parameters: keyword, search_mode, displaymode, dboperation, ptstatus, orderby,
+    limit1 (offset), and limit2 (page size) preserve the current search context.
+    Access: requires _search read access. Recent-patient loading excludes missing
+    or merged records before pagination and skips records removed during rendering;
+    audit history is retained. Patient-specific access remains with destination actions.
+    @since 2026.08 (recent-patient corrections and contract documentation)
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -376,7 +387,9 @@
                         List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize);
                         demoList = new ArrayList<Demographic>();
                         for (Integer r : results) {
-                            demoList.add(demographicDao.getDemographicById(r));
+                            // A patient can disappear after the recent-ID query.
+                            Demographic recentPatient = demographicDao.getDemographicById(r);
+                            if (recentPatient != null) demoList.add(recentPatient);
                         }
 
                     } else {
