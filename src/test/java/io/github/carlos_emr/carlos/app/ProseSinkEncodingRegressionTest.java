@@ -77,13 +77,13 @@ class ProseSinkEncodingRegressionTest {
                         "rows=\"8\"><%=alert%>", "rows=\"8\"><%=SafeEncode.forHtmlContent(alert)%>"),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp",
                         "rows=\"8\"><%=notes%>", "rows=\"8\"><%=SafeEncode.forHtmlContent(notes)%>"),
-                // The provider encounter-note template body (exclusion 1142). These two already
-                // encode; the rows are here so they cannot quietly stop, now that the packaged
+                // The provider encounter-note template body (exclusion 1142). This one already
+                // encodes; the row is here so it cannot quietly stop, now that the packaged
                 // rules no longer score six signature families on the argument that fills them.
+                // (Its sibling row for provider/providerencountersingle.jsp went when that
+                // unreachable legacy encounter page was removed; issue #3665, finding 5.)
                 Arguments.of("src/main/webapp/WEB-INF/jsp/admin/providertemplate.jsp",
-                        "<%=tValue%>", "SafeEncode.forHtml(tValue)"),
-                Arguments.of("src/main/webapp/WEB-INF/jsp/provider/providerencountersingle.jsp",
-                        "out.println(val)", "out.println(SafeEncode.forHtml(val))"));
+                        "<%=tValue%>", "SafeEncode.forHtml(tValue)"));
     }
 
     /**

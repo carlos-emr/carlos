@@ -680,13 +680,13 @@ shared helper.
   transport. They cost money, need credentials, or take an hour.
 - **Routes with no UI entry**: no check — the finding is that the route is dead (or
   service-only), tracked for removal or documentation under the cleanup policy. Found while
-  verifying this plan: `prevention/printPrevention`; `report/ViewGenerateLetters` and the
-  letters / envelopes / spreadsheet generation behind it (nothing links the page);
-  `provider/ViewProviderEncounterHistory` (a `providercontrol` dispatch nothing calls);
-  the immunization *set* configuration pages (`encounter/immunization/config/*`);
-  `admin/ViewDbConnection`; `billing/CA/ON/ImportOnRA` (service-only, the Billing
-  Reconciliation page reads the MOH directory instead); and several `View*` fragments only
-  reachable as includes.
+  verifying this plan: `prevention/printPrevention`, and several `View*` fragments only
+  reachable as includes. Five more were filed as issue #3665 and resolved on a packaged
+  install (findings 1–5 in `app-findings-log.md`): the letters / spreadsheet flow behind
+  `report/ViewGenerateLetters`, `admin/ViewDbConnection`, `billing/CA/ON/ImportOnRA`, the
+  legacy `provider/ViewProviderEncounterHistory` family and its `providercontrol` dispatch
+  rows are removed; the immunization *set* configuration pages turned out to be reachable
+  by relative links and stay.
 - **PHR / integrator / eConsult**: the top bar's eConsult opens an external URL; nothing to
   assert locally.
 - **Visual regression by screenshot diff**: the MCP manual tests keep gold screenshots; the

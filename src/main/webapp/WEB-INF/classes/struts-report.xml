@@ -100,25 +100,6 @@
         <action name="report/GenerateEnvelopes" class="io.github.carlos_emr.carlos.report.pageUtil.GenerateEnvelopes2Action">
             <result name="success">/WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp</result>
         </action>
-        <action name="report/GenerateSpreadsheet" class="io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientSpreadSheetList2Action">
-            <result name="success">/WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp</result>
-        </action>
-        <action name="report/GenerateLetters" class="io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action">
-            <result name="success">/WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp</result>
-        </action>
-        <action name="report/ViewManageLetters" class="io.github.carlos_emr.carlos.report.pageUtil.ViewManageLetters2Action">
-            <result name="success">/WEB-INF/jsp/report/ManageLetters.jsp</result>
-        </action>
-        <action name="report/ManageLetters" class="io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action">
-            <result name="success">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
-            <result name="success_manage_from_prevention">/WEB-INF/jsp/prevention/PreventionReporting.jsp</result>
-        </action>
-        <action name="report/DownloadLetter" class="io.github.carlos_emr.carlos.report.pageUtil.DownloadPatientLetters2Action">
-            <result name="success">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
-        </action>
-        <action name="report/DeleteLetter" class="io.github.carlos_emr.carlos.report.pageUtil.DeletePatientLetters2Action">
-            <result name="success">/WEB-INF/jsp/report/ManageLetters.jsp</result>
-        </action>
         <action name="oscarReport/reportByTemplate/GenerateReportAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateReport2Action">
             <result name="success">/WEB-INF/jsp/oscarReport/reportByTemplate/resultReport.jsp</result>
             <result name="fail">/WEB-INF/jsp/oscarReport/reportByTemplate/reportConfiguration.jsp</result>
@@ -267,9 +248,6 @@
         </action>
         <action name="report/ViewClinicalExport" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
             <result name="success">/WEB-INF/jsp/report/ClinicalExport.jsp</result>
-        </action>
-        <action name="report/ViewGenerateLetters" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
-            <result name="success">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
         </action>
         <action name="report/ViewReportExport" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
             <result name="success">/WEB-INF/jsp/report/reportExport.jsp</result>

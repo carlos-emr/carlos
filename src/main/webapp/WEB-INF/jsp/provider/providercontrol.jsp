@@ -162,22 +162,24 @@
     //associate each operation with an output JSP file - displaymode
     // RequestDispatcher.include() below takes paths relative to the servlet
     // context root — do NOT prepend request.getContextPath() here.
+    //
+    // Only modes that something in the webapp still sets are listed. The
+    // pre-casemgmt encounter modes (encounter, encountersingle, encounterhistory,
+    // saveencounter, savebill, ar1, ar2, savedeletetemplate) were removed with
+    // the legacy `encounter`-table pages they dispatched to (issue #3665,
+    // finding 5): most of their targets no longer existed, and nothing set them.
+    // The "vary" mode went with them: it included whatever path the request's
+    // displaymodevariable named, which let a caller reach any resource in the
+    // webapp -- including WEB-INF views -- without going through its Struts
+    // gate and privilege check. A dispatch table must never take its target
+    // from the request.
     String[][] opToFile = new String[][]{
             {"day", "/WEB-INF/jsp/provider/appointmentprovideradminday.jsp"},
             {"month", "/WEB-INF/jsp/provider/appointmentprovideradminmonth.jsp"},
             {"addstatus", "/provider/AddStatus"},
             {"updatepreference", "/provider/ViewProviderUpdatePreference"},
             {"displaymygroup", "/provider/ViewProviderDisplayMyGroup"},
-            {"encounter", "providerencounter.jsp"},
-            {"encountersingle", "/provider/ViewProviderEncounterSingle"},
-            {"vary", request.getParameter("displaymodevariable") == null ? "" : URLDecoder.decode(request.getParameter("displaymodevariable"))},
-            {"saveencounter", "providersaveencounter.jsp"},
-            {"savebill", "providersavebill.jsp"},
             {"savedemographicaccessory", "/provider/SaveDemographicAccessory"},
-            {"encounterhistory", "/provider/ViewProviderEncounterHistory"},
-            {"savedeletetemplate", "providertemplate.jsp"},
-            {"ar1", "formar1_99_12.jsp"},
-            {"ar2", "formar2_99_08.jsp"},
             {"newgroup", "/provider/ViewProviderNewGroup"},
             {"savemygroup", "/provider/SaveMyGroup"}
 

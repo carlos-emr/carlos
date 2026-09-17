@@ -311,9 +311,6 @@
         <action name="encounter/immunization/config/ViewCreateImmunizationSetInit" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/immunization/config/CreateImmunizationSetInit.jsp</result>
         </action>
-        <action name="encounter/immunization/config/ViewImmunizationSetDisplay" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/encounter/immunization/config/ImmunizationSetDisplay.jsp</result>
-        </action>
         <action name="encounter/oscarConsultationRequest/ViewCalendarPopup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/CalendarPopup.jsp</result>
         </action>

@@ -199,9 +199,6 @@
         <action name="admin/ViewConfigureFax" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureFax2Action">
             <result name="success">/WEB-INF/jsp/admin/configureFax.jsp</result>
         </action>
-        <action name="admin/ViewDbConnection" class="io.github.carlos_emr.carlos.admin.gate.ViewDbConnection2Action">
-            <result name="success">/WEB-INF/jsp/admin/dbconnection.jsp</result>
-        </action>
         <action name="admin/ViewEformReportTool" class="io.github.carlos_emr.carlos.admin.gate.ViewEformReportTool2Action">
             <result name="success">/WEB-INF/jsp/admin/eformReportTool/eformReportTool.jsp</result>
         </action>

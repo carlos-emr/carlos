@@ -29,7 +29,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaSummaryViewModel
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaSettlementService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaSummaryTotalsService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.RaHeaderTotalsPersister;
@@ -268,11 +267,6 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
                             return harness(() -> new ViewOnGenRa2Action(security, assembler).execute(),
                                     assembler);
                         }),
-                Arguments.of("ImportOnRa2Action", "_billing",
-                        (ActionHarnessFactory) security -> {
-                            OnRaImportService service = mock(OnRaImportService.class);
-                            return harness(() -> new ImportOnRa2Action(security, service).execute(), service);
-                        }),
                 Arguments.of("ViewOnGenRaError2Action", "_billing",
                         (ActionHarnessFactory) security -> {
                             OnRaErrorViewModelAssembler assembler = mock(OnRaErrorViewModelAssembler.class);
@@ -321,7 +315,7 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
     @org.junit.jupiter.api.Test
     void shouldIncludeBenefitScheduleViewAction_inPrivilegeCoverage() {
         assertThat(actionFactories().map(arguments -> (String) arguments.get()[0]))
-                .contains("ViewBenefitScheduleUpload2Action", "ImportOnRa2Action");
+                .contains("ViewBenefitScheduleUpload2Action");
     }
 
     @ParameterizedTest(name = "{0} rejects denied {1} privilege")
