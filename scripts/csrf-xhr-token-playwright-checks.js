@@ -175,8 +175,13 @@ async function main() {
   const preferredDemographicNo = process.env.CSRF_XHR_DEMOGRAPHIC_NO || '2';
   const timeout = Number(process.env.CSRF_XHR_TIMEOUT_MS || '20000');
   // The probe posts to the configured deployment, not to whatever the open
-  // page's first path segment happens to be.
-  const contextPath = config.baseUrl.pathname.replace(/\/+$/, '');
+  // page's first path segment happens to be. Trailing slashes come off in a
+  // loop rather than with `/\/+$/`, the pattern CodeQL flags as polynomial on
+  // a value that arrives from the environment.
+  let contextPath = config.baseUrl.pathname;
+  while (contextPath.endsWith('/')) {
+    contextPath = contextPath.slice(0, -1);
+  }
 
   const recorder = createRecorder();
   const browser = await launchBrowser(config);

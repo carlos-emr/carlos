@@ -346,14 +346,58 @@ function hostsOf(file, files, strutsDirectory, webappRoot = WEBAPP) {
  * Only a `//` that opens its line is a comment: a `//` mid-line is far more
  * often the one in `http://`. A block comment inside a string literal would be
  * cut too, which for host attribution errs towards finding fewer hosts and is
- * accepted; hostsOf() is a substring match, not a parser.
+ * accepted; hostsOf() is a substring match, not a parser. An opener with no
+ * closer is kept as text rather than swallowing the rest of the file.
+ *
+ * A single left-to-right pass rather than a chain of replace() calls. The
+ * replace form is what CodeQL's incomplete-sanitization query targets: after
+ * `<!-- -->` is cut out, the text around the cut can itself read `<!--`, and a
+ * lazy `[\s\S]*?` over a whole file is the shape its ReDoS query flags. The
+ * scanner has neither property, and the same three kinds of comment go.
  */
 function stripComments(source) {
-  return source
-    .replace(/<%--[\s\S]*?--%>/g, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^[ \t]*\/\/.*$/gm, '');
+  const openers = [['<%--', '--%>'], ['<!--', '-->'], ['/*', '*/']];
+  const parts = [];
+  const length = source.length;
+  let index = 0;
+  let kept = 0;
+  let lineStart = true;
+  while (index < length) {
+    if (lineStart) {
+      let cursor = index;
+      while (cursor < length && (source[cursor] === ' ' || source[cursor] === '\t')) {
+        cursor += 1;
+      }
+      if (source.startsWith('//', cursor)) {
+        parts.push(source.slice(kept, index));
+        while (index < length && source[index] !== '\n') {
+          index += 1;
+        }
+        kept = index;
+        continue;
+      }
+    }
+    const character = source[index];
+    if (character === '\n') {
+      lineStart = true;
+      index += 1;
+      continue;
+    }
+    lineStart = false;
+    const opener = openers.find(([open]) => source.startsWith(open, index));
+    if (opener) {
+      const close = source.indexOf(opener[1], index + opener[0].length);
+      if (close >= 0) {
+        parts.push(source.slice(kept, index));
+        index = close + opener[1].length;
+        kept = index;
+        continue;
+      }
+    }
+    index += 1;
+  }
+  parts.push(source.slice(kept));
+  return parts.join('');
 }
 
 const isSelfContained = (source) => /<html\b/i.test(source);
