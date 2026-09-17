@@ -34,19 +34,19 @@ class RxInactiveDateUnitTest extends CarlosWebTestBase {
         return new ObjectMapper().readTree(mockResponse.getContentAsString());
     }
 
-    @Test void inactiveProductReturnsExplicitCalendarDate() throws Exception {
+    @Test void shouldReturnCalendarDate_whenProductIsInactive() throws Exception {
         RxSearchDrug2Action action = action();
         Vector<Object> dates = new Vector<>();
         dates.add(java.sql.Date.valueOf("2018-07-24"));
         when(drugref.getInactiveDate("02245547")).thenReturn(dates);
-        assertThat(action.execute()).isNull();
+        assertThat(action.execute()).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(200);
         assertThat(result().get("checked").asBoolean()).isTrue();
         assertThat(result().get("inactiveDate").asText()).isEqualTo("2018-07-24");
         assertThat(dates).hasSize(1);
     }
 
-    @Test void successfulEmptyLookupIsDistinctFromFailure() throws Exception {
+    @Test void shouldReportCheckedWithoutDate_whenLookupSucceedsWithNoRows() throws Exception {
         RxSearchDrug2Action action = action();
         when(drugref.getInactiveDate("02245547")).thenReturn(new Vector<>());
         action.execute();
@@ -55,7 +55,7 @@ class RxInactiveDateUnitTest extends CarlosWebTestBase {
         assertThat(result().get("inactiveDate").isNull()).isTrue();
     }
 
-    @Test void remoteFailureReturns503WithoutDetailsOrAllClear() throws Exception {
+    @Test void shouldReturn503WithoutSensitiveDetails_whenRemoteLookupFails() throws Exception {
         RxSearchDrug2Action action = action();
         when(drugref.getInactiveDate("02245547")).thenThrow(new Exception("sensitive remote detail"));
         action.execute();
@@ -64,7 +64,7 @@ class RxInactiveDateUnitTest extends CarlosWebTestBase {
         assertThat(mockResponse.getContentAsString()).doesNotContain("sensitive remote detail", "inactiveDate");
     }
 
-    @Test void malformedRemoteResultIsNotTreatedAsActive() throws Exception {
+    @Test void shouldReportUnknownStatus_whenRemoteResultMalformed() throws Exception {
         RxSearchDrug2Action action = action();
         Vector<Object> dates = new Vector<>();
         dates.add("unexpected value");
@@ -74,7 +74,7 @@ class RxInactiveDateUnitTest extends CarlosWebTestBase {
         assertThat(result().get("checked").asBoolean()).isFalse();
     }
 
-    @Test void deniedReadNeverCallsDrugref() {
+    @Test void shouldAvoidDrugrefCall_whenReadDenied() {
         RxSearchDrug2Action action = action();
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull())).thenReturn(false);
         assertThatThrownBy(action::execute).isInstanceOf(RuntimeException.class);

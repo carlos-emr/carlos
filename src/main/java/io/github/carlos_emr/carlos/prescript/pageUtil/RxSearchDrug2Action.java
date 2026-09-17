@@ -216,7 +216,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
             result.put("error", "Drug status could not be checked");
         }
         response.getWriter().write(result.toString());
-        return null;
+        return NONE;
     }
 
     /**
