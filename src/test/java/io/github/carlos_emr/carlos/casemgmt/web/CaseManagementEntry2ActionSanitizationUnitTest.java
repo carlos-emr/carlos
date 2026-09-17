@@ -516,6 +516,10 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
         var dao = mock(io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao.class);
         var lock = new io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock();
         lock.setNoteId(42L);
+        // An active lease: the lease model treats a lock without a lastActivity timestamp as
+        // abandoned (see CaseManagementNoteLockLeaseUnitTest), so give this legacy row a
+        // fresh timestamp to test the null-provider ownership rule on its own.
+        lock.setLockAcquired(new java.util.Date());
         when(dao.findByNoteDemo(1, 42L)).thenReturn(lock);
         try (var spring = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class)) {
             spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
