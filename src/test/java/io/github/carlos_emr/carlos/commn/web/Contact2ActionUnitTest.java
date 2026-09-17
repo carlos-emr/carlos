@@ -678,4 +678,67 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         });
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"067890", "+67890"})
+    void shouldDenyReciprocalWrite_whenCanonicalTargetAclDeniesAlias(String target) {
+        prepareSave("2", "0");
+        addSaveRow("contact_1", "0", "45", "2");
+        addSaveRow("contact_2", "0", target, "1");
+        prepareReverseRole();
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(target)))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
+                .thenReturn(false);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+            verify(mockDemographicContactDao, never()).persist(any());
+            verify(mockDemographicContactDao, never()).merge(any());
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"012345", "+12345"})
+    void shouldDenyRemoval_whenCanonicalPatientAclDeniesAlias(String patient) {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", patient);
+        addRequestParameter("contactId", "41");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(patient)))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(DEMOGRAPHIC_NO)))
+                .thenReturn(false);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::removeContact).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldReturnBadRequest_whenRemovalPatientIdentifierIsMalformed() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", "invalid");
+        withContactDao(() -> {
+            assertThat(new Contact2Action().removeContact()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldRejectWholeRemoval_whenLaterAssociationIdentifierIsMalformed() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        mockRequest.setParameter("contact.delete", "41", "invalid");
+        DemographicContact own = new DemographicContact();
+        own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
+        when(mockDemographicContactDao.find(41)).thenReturn(own);
+        withContactDao(() -> {
+            assertThat(new Contact2Action().removeContact()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            assertThat(own.isDeleted()).isFalse();
+            verify(mockDemographicContactDao, never()).merge(any());
+        });
+    }
+
 }

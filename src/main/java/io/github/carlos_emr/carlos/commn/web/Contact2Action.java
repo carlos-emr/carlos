@@ -231,15 +231,7 @@ public class Contact2Action extends ActionSupport {
     private String saveManagedContacts() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        String submittedPatient = request.getParameter("demographic_no");
-        requireContactWriteAccess(loggedInInfo, submittedPatient);
-        int demographicNo = positiveContactId(submittedPatient);
-        String canonicalPatient = Integer.toString(demographicNo);
-        // A padded/signed input must not bypass a patient-specific ACL by
-        // falling back to general privileges under a different string key.
-        if (!canonicalPatient.equals(submittedPatient)) {
-            requireContactWriteAccess(loggedInInfo, canonicalPatient);
-        }
+        int demographicNo = authorizedContactPatientId(loggedInInfo, request.getParameter("demographic_no"));
         String forward = "windowClose";
         String postMethod = request.getParameter("postMethod");
 
@@ -261,6 +253,18 @@ public class Contact2Action extends ActionSupport {
         removeContact();
 
         return forward;
+    }
+
+    private int authorizedContactPatientId(LoggedInInfo loggedInInfo, String submittedPatient) {
+        requireContactWriteAccess(loggedInInfo, submittedPatient);
+        int demographicNo = positiveContactId(submittedPatient);
+        String canonicalPatient = Integer.toString(demographicNo);
+        // Numeric aliases must not fall back to general privileges when the
+        // actual patient has a specific ACL. Apply this to every patient write.
+        if (!canonicalPatient.equals(submittedPatient)) {
+            requireContactWriteAccess(loggedInInfo, canonicalPatient);
+        }
+        return demographicNo;
     }
 
     private void requireContactWriteAccess(LoggedInInfo loggedInInfo, String demographicNo) {
@@ -343,6 +347,15 @@ public class Contact2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Removes owned contact associations submitted by POST after checking the
+     * submitted and canonical patient ACLs and validating every removal ID.
+     *
+     * @return {@code ajax} for AJAX callers, {@code null} otherwise, or
+     *         {@link #NONE} with HTTP 405/400 for unsupported methods/malformed IDs
+     * @throws SecurityException when the patient context is missing, write access
+     *         is denied, or an association belongs to another patient
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
@@ -351,14 +364,20 @@ public class Contact2Action extends ActionSupport {
             return NONE;
         }
 
-        String demographicNo = StringUtils.trimToNull(request.getParameter("demographic_no"));
-        if (demographicNo == null || !securityInfoManager.hasPrivilege(
-                LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
+        String submittedPatient = StringUtils.trimToNull(request.getParameter("demographic_no"));
+        if (submittedPatient == null) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
-        for (DemographicContact association : findContactRemovals(Integer.parseInt(demographicNo))) {
-            association.setDeleted(true);
-            demographicContactDao.merge(association);
+        try {
+            int demographicNo = authorizedContactPatientId(
+                    LoggedInInfo.getLoggedInInfoFromSession(request), submittedPatient);
+            for (DemographicContact association : findContactRemovals(demographicNo)) {
+                association.setDeleted(true);
+                demographicContactDao.merge(association);
+            }
+        } catch (NumberFormatException ex) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
         String postMethod = request.getParameter("postMethod");
         return "ajax".equalsIgnoreCase(postMethod) ? postMethod : null;
@@ -399,9 +418,7 @@ public class Contact2Action extends ActionSupport {
             String reverseRole = findNewReciprocalRole(field, existing, demographicNo);
             if (reverseRole == null) continue;
             String contactId = request.getParameter(field + CONTACT_ID_SUFFIX);
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", contactId)) {
-                throw new SecurityException("missing required sec object (_demographic)");
-            }
+            authorizedContactPatientId(loggedInInfo, contactId);
             reciprocalRoles.put(row, reverseRole);
         }
         return reciprocalRoles;
