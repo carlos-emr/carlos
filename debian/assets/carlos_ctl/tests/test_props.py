@@ -83,6 +83,7 @@ DIVERGENT_CARRY_DEFAULTS = (
     "consultation_fax_enabled",
     "faxPollInterval",
     "save_as_xml",
+    "label.top",
 )
 
 
@@ -102,6 +103,18 @@ class TestBaselineDiff(unittest.TestCase):
         self.assertNotIn("billregion", fragment)
         self.assertEqual(by_key.get("HL7TEXT_LABS"), "carlos-default")
         self.assertNotIn("HL7TEXT_LABS", fragment)
+
+    def test_explicit_label_calibration_survives_new_install_defaults(self):
+        for top in ("0", "24", "37"):
+            with self.subTest(top=top):
+                result = o19props.translate_all([
+                    ("label.top", top), ("label.left", "200"),
+                    ("label.height", "145"), ("label.gap", "0")])
+                self.assertEqual(dict(result["fragment"]), {
+                    "label.top": top, "label.left": "200",
+                    "label.height": "145", "label.gap": "0"})
+                self.assertTrue(all(d == "carry" for _, d, _ in result["rows"]))
+        self.assertNotIn("label.top", dict(o19props.translate_all([])["fragment"]))
 
     def test_project_home_default_with_spaces_is_ignored(self):
         result = fixture_result()

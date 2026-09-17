@@ -13,6 +13,8 @@ Rules, in order:
     CARLOS's default DIFFERS from the O19 one (manifest CARLOS_DEFAULTS)
     that silently changes behaviour at cutover, so the key still earns a
     `carlos-default` report row naming both values; nothing is carried.
+    Exception: explicit label.* values are carried even when equal to stock
+    defaults, because they can represent calibrated physical label stock.
  2. Disposition from the generated manifest (o19map_props): exact KEYS
     first, then the ordered PREFIX_RULES; anything unmatched is `unknown`
     (reported for human classification, never silently carried/dropped).
@@ -396,7 +398,9 @@ def translate_all(clinic: List[Tuple[str, str]],
     unknown: List[str] = []
 
     for key, value in clinic:
-        if defaults.get(key) == value:
+        # Physical label calibration is an explicit setting even at zero.
+        # A new-install margin must not silently shift a migrated clinic.
+        if defaults.get(key) == value and not key.startswith("label."):
             # untouched default — CARLOS's own default wins (plan §8.1
             # rule 1). Nothing is carried, but where CARLOS ships a
             # DIFFERENT default the clinic's behaviour changes at
