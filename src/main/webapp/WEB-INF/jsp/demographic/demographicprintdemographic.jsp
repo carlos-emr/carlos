@@ -44,6 +44,14 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="demographic.demographicprintdemographic.title"/></title>
+        <style>
+            .print-controls { position: fixed; top: 8px; right: 8px; z-index: 3; }
+            .print-controls input { display: block; margin-bottom: 4px; }
+            @media print {
+                .print-controls { display: none; }
+                body { background: white; }
+            }
+        </style>
         <script language="JavaScript">
             <!--
 
@@ -72,7 +80,7 @@
 
         for (int i = 0; i < b1; i++) {
     %>
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr>
@@ -96,7 +104,7 @@
         for (int i = 0; i < b2; i++) {
     %>
 
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+b1*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr>
@@ -118,7 +126,7 @@
         for (int i = 0; i < b3; i++) {
     %>
 
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+(b1+b2)*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr>
@@ -135,7 +143,7 @@
         for (int i = 0; i < b4; i++) {
     %>
 
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+(b1+b2+b3)*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr>
@@ -151,7 +159,7 @@
         }
         for (int i = 0; i < b5; i++) {
     %>
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+(b1+b2+b3+b4)*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr>
@@ -170,16 +178,11 @@
     <%
         }
     %>
-    <div ID="blockDiv1"
-         STYLE="position: absolute; visibility: visible; z-index: 2; left: 620px; top: 0px; width: 70px; height: 20px;">
-        <input type="button" name="button"
-               value="<fmt:message key='global.btnPrint'/>" onClick="window.print();">
+    <div class="print-controls">
+        <input type="button" value="<fmt:message key='global.btnPrint'/>" onClick="window.print();">
+        <input type="button" value="<fmt:message key='global.btnBack'/>"
+               onClick="history.go(-1);return false;">
     </div>
-    <div ID="blockDiv1"
-         STYLE="position: absolute; visibility: visible; z-index: 2; left: 620px; top: 24px; width: 70px; height: 20px;">
-        <input type="button" name="button"
-               value="<fmt:message key='global.btnBack'/>"
-               onClick="javascript:history.go(-1);return false;"></div>
 
     </body>
 </html>

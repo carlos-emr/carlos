@@ -1099,6 +1099,21 @@
       ]
     },
     {
+      "name": "patient-messenger-context",
+      "script": "scripts/patient-messenger-context-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MESSENGER_CONTEXT_DEMOGRAPHICS"
+      ]
+    },
+    {
       "name": "messenger",
       "script": "scripts/messenger-playwright-checks.js",
       "tiers": [

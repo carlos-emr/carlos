@@ -307,6 +307,7 @@ priority group where its module lives:
 | `allergy-add-penicillin`, `allergy-rx-alert` | `rx/showAllergy`, `encounter/IncomingEncounter` | Chart ▸ Allergies |
 | `eform-*` (six scripts) | `eform/efmformmanager`, `efmformadd_data`, `efmshowform_data` | Schedule ▸ Administration ▸ Forms/eForms ▸ Manage eForms; Chart ▸ eForms |
 | `lab-pdf-footer` | `lab/CA/ALL/PrintPDF` | Search ▸ Master Record ▸ E-Chart ▸ Urinalysis ▸ Print; poppler-utils required; full expected confidentiality notice, printable bounds, no overlap and page numbering on every page |
+| `patient-messenger-context` | `messenger/DisplayDemographicMessages` | Search ▸ Master Record ▸ E-Chart ▸ Messenger tab; two demo patients in one session, eight subject/date sorts retain patient context; owned message fixtures cleaned |
 | `document-upload` | `web/inboxhub/Inboxhub` | Schedule ▸ Inbox ▸ Doc Upload |
 | `consultation-*` (four) | `encounter/ViewRequest?requestId=…` | Schedule ▸ Consultations ▸ row |
 
