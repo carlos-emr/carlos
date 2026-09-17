@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -184,6 +185,9 @@ public final class RxSearchDrug2Action extends ActionSupport {
     }
 
 
+    // FindSecBugs XSS_SERVLET: Jackson serializes every value into an application/json response;
+    // returning NONE prevents JSP/HTML rendering. See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Jackson ObjectNode serialization with application/json content type; no HTML rendering")
     private String getInactiveDate() throws IOException {
         response.setContentType("application/json");
         response.setHeader("Cache-Control", "no-store");

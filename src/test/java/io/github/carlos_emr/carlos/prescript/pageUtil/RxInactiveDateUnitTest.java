@@ -48,11 +48,15 @@ class RxInactiveDateUnitTest extends CarlosWebTestBase {
 
     @Test void shouldReportCheckedWithoutDate_whenLookupSucceedsWithNoRows() throws Exception {
         RxSearchDrug2Action action = action();
+        String rowId = "</script><script>alert(1)</script>\n\"";
+        mockRequest.setParameter("id", rowId);
         when(drugref.getInactiveDate("02245547")).thenReturn(new Vector<>());
-        action.execute();
+        assertThat(action.execute()).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(200);
+        assertThat(mockResponse.getContentType()).isEqualTo("application/json");
         assertThat(result().get("checked").asBoolean()).isTrue();
         assertThat(result().get("inactiveDate").isNull()).isTrue();
+        assertThat(result().get("results").get(0).asText()).isEqualTo(rowId);
     }
 
     @Test void shouldReturn503WithoutSensitiveDetails_whenRemoteLookupFails() throws Exception {
