@@ -110,6 +110,46 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectSave_whenTextParameterMissing() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("0");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        assertThat(createAction(request, response).execute()).isNull();
+        verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(scratchPadDao);
+        assertThat(json.toString()).contains("\"success\":false");
+    }
+
+    @Test
+    void shouldSaveEmptyText_whenProviderDeliberatelyClearsScratchpad() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn("");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        ScratchPad existing = new ScratchPad();
+        existing.setId(7);
+        existing.setProviderNo("999998");
+        existing.setText("Previous scratchpad text");
+        existing.setDateTime(new java.util.Date(0));
+        when(scratchPadDao.findByProviderNo("999998")).thenReturn(existing);
+        doAnswer(invocation -> {
+            ScratchPad saved = invocation.getArgument(0);
+            saved.setId(8);
+            return null;
+        }).when(scratchPadDao).persist(any(ScratchPad.class));
+        assertThat(createAction(request, response).execute()).isNull();
+        ArgumentCaptor<ScratchPad> saved = ArgumentCaptor.forClass(ScratchPad.class);
+        verify(scratchPadDao).persist(saved.capture());
+        assertThat(saved.getValue().getText()).isEmpty();
+        assertThat(saved.getValue().getProviderNo()).isEqualTo("999998");
+        assertThat(json.toString()).contains("\"id\":\"8\"", "\"text\":\"\"");
+    }
+
+    @Test
     @DisplayName("should allow save when providerNo request parameter is absent")
     void shouldAllowSave_whenProviderNoRequestParameterIsAbsent() {
         assertThat(Scratch2Action.isRequestForSessionProvider("999998", null)).isTrue();

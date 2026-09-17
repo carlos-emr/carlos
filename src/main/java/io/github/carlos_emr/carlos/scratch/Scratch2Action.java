@@ -90,7 +90,8 @@ public class Scratch2Action extends JSONAction {
     /**
      * Routes version reads and deletes explicitly. A POST without an operation, or
      * with method=save, saves the session provider's scratchpad. Unknown operations
-     * return HTTP 400 instead of falling through to the save path.
+     * return HTTP 400 instead of falling through to the save path. The text parameter
+     * is required, but an empty string remains a valid deliberate clear.
      *
      * @return a view result, or null after completing a JSON response
      * @throws Exception if scratchpad storage or response generation fails
@@ -119,6 +120,9 @@ public class Scratch2Action extends JSONAction {
         if (isRequestForSessionProvider(providerNo, pNo)){
         String id = request.getParameter("id");
         String scratchPad = request.getParameter("scratchpad");
+        if (scratchPad == null) {
+            return rejectRequest(HttpServletResponse.SC_BAD_REQUEST, "Scratchpad text is required");
+        }
         String windowId = request.getParameter("windowId");
         String returnId;
         String returnText;
