@@ -26,12 +26,14 @@ import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 
 import java.time.Duration;
 import java.util.Date;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -132,6 +134,48 @@ class CaseManagementNoteLockLeaseUnitTest {
                 .isEqualTo(CaseManagementEntry2Action.DEFAULT_NOTE_LOCK_TIMEOUT_MILLIS);
         assertThat(CaseManagementEntry2Action.parseNoteLockTimeoutMillis("15"))
                 .isEqualTo(Duration.ofMinutes(15).toMillis());
+    }
+
+    @Test
+    @DisplayName("should reject a timeout at or below the once-a-minute lease heartbeat")
+    void shouldUseDefaultTimeout_whenConfiguredBelowHeartbeatInterval() {
+        assertThat(CaseManagementEntry2Action.parseNoteLockTimeoutMillis("1"))
+                .isEqualTo(CaseManagementEntry2Action.DEFAULT_NOTE_LOCK_TIMEOUT_MILLIS);
+        assertThat(CaseManagementEntry2Action.parseNoteLockTimeoutMillis("2"))
+                .isEqualTo(Duration.ofMinutes(2).toMillis());
+    }
+
+    @Test
+    @DisplayName("should release the lease that the unloading session still owns")
+    void shouldReleaseLock_whenSessionStillOwnsLease() {
+        CasemgmtNoteLockDao noteLockDao = mock(CasemgmtNoteLockDao.class);
+        CasemgmtNoteLock ownLock = noteLock(30L, "provider-a", "session-a", NOW);
+        CasemgmtNoteLock otherNoteLock = noteLock(31L, "provider-a", "session-a", NOW);
+        otherNoteLock.setNoteId(43L);
+        when(noteLockDao.findBySession("session-a")).thenReturn(List.of(ownLock, otherNoteLock));
+
+        boolean released = CaseManagementEntry2Action.releaseNoteLockIfHeld(noteLockDao,
+                "provider-a", 1, 42L, "session-a");
+
+        assertThat(released).isTrue();
+        verify(noteLockDao).remove(30L);
+        verify(noteLockDao, never()).remove(31L);
+    }
+
+    @Test
+    @DisplayName("should keep a replacement lease when a stale session releases the note")
+    void shouldKeepLock_whenReleasingSessionNoLongerOwnsLease() {
+        CasemgmtNoteLockDao noteLockDao = mock(CasemgmtNoteLockDao.class);
+        // The stale session's own row was already replaced (or transferred) by session-b,
+        // so nothing under session-a matches the note being released.
+        when(noteLockDao.findBySession("session-a")).thenReturn(List.of());
+
+        boolean released = CaseManagementEntry2Action.releaseNoteLockIfHeld(noteLockDao,
+                "provider-a", 1, 42L, "session-a");
+
+        assertThat(released).isFalse();
+        verify(noteLockDao, never()).remove(anyLong());
+        verify(noteLockDao, never()).remove("provider-a", 1, 42L);
     }
 
     @Test

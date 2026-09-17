@@ -114,6 +114,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;
     static final String NOTE_LOCK_TIMEOUT_MINUTES_PROPERTY = "casemgmt.note_lock_timeout_minutes";
     static final long DEFAULT_NOTE_LOCK_TIMEOUT_MILLIS = Duration.ofMinutes(5).toMillis();
+    // The slowest lease heartbeat is the once-a-minute autosave of the legacy encounter page
+    // (CaseManagementEntry.jsp); the new view keeps the same cadence with its keep-alive. A
+    // timeout at or below that interval would expire an active editor between heartbeats.
+    static final long MIN_NOTE_LOCK_TIMEOUT_MINUTES = 2;
     private static final long NOTE_LOCK_RENEW_INTERVAL_MILLIS = Duration.ofSeconds(30).toMillis();
 
     private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
@@ -751,7 +755,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         try {
             long minutes = Long.parseLong(configuredMinutes.trim());
-            if (minutes > 0 && minutes <= Duration.ofDays(1).toMinutes()) {
+            if (minutes >= MIN_NOTE_LOCK_TIMEOUT_MINUTES && minutes <= Duration.ofDays(1).toMinutes()) {
                 return Duration.ofMinutes(minutes).toMillis();
             }
         } catch (NumberFormatException ignored) {
@@ -2106,6 +2110,29 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         casemgmtNoteLockDao.remove(providerNo, demographicNo, noteId);
     }
 
+    /**
+     * Releases the note lock only while the persisted lease still belongs to the releasing
+     * session. The browser's unload beacon can arrive after the lease expired and another
+     * session acquired a replacement, or after the same provider took the lease over from
+     * another window; deleting by provider/patient/note alone would then drop the live
+     * editor's lease and reject its next save.
+     *
+     * @return true when a lease owned by this session was removed
+     */
+    static synchronized boolean releaseNoteLockIfHeld(CasemgmtNoteLockDao noteLockDao,
+            String providerNo, Integer demographicNo, Long noteId, String sessionId) {
+        boolean released = false;
+        for (CasemgmtNoteLock lock : noteLockDao.findBySession(sessionId)) {
+            if (Objects.equals(lock.getProviderNo(), providerNo)
+                    && Objects.equals(lock.getDemographicNo(), demographicNo)
+                    && Objects.equals(lock.getNoteId(), noteId)) {
+                noteLockDao.remove(lock.getId());
+                released = true;
+            }
+        }
+        return released;
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String releaseNoteLock() {
@@ -2121,13 +2148,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
             //If browser is exiting check to see if we should release lock.  It may be held by same user in another window so we check
             if (request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) && casemgmtNoteLockSession.getNoteId() == Long.parseLong(noteId)) {
-                releaseNoteLock(providerNo, Integer.parseInt(demoNo), Long.parseLong(noteId));
+                releaseNoteLockIfHeld(casemgmtNoteLockDao, providerNo, Integer.parseInt(demoNo),
+                        Long.parseLong(noteId), session.getId());
                 session.removeAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): release of own-session lock keyed by demographic scope
             }
             //If we clicked on a note to edit we want to release old note's lock.  Session lock has already been updated with new note id
             //so we force removal of old note lock
             else if (forceRelease != null && forceRelease.equalsIgnoreCase("true")) {
-                releaseNoteLock(providerNo, Integer.parseInt(demoNo), Long.parseLong(noteId));
+                releaseNoteLockIfHeld(casemgmtNoteLockDao, providerNo, Integer.parseInt(demoNo),
+                        Long.parseLong(noteId), session.getId());
             }
 
         } catch (Exception e) {
