@@ -18,7 +18,7 @@ and target that release. Develop was fetched only to check migration allocation.
 | [3689](https://github.com/carlos-emr/carlos/pull/3689) | Printer/signature/document-description preferences | Final package retest pending, including both printer-feature settings |
 | [3690](https://github.com/carlos-emr/carlos/pull/3690) | Explicit inactive-drug status and visible lookup failure | Actual inactive DIN returns its stored calendar date; malformed response shows warning and recovery, without saving a prescription |
 | [3691](https://github.com/carlos-emr/carlos/pull/3691) | Admin/chart navigation, calculator entry/styles, Row Display and lot search | Chart module audit and repeated lot search pass; 101-item administration sweep exposed OHIP handler and duplicated AJAX-header failures; both corrected, final package retest pending |
-| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 112 named checks / 103 scripts registered; 678 Node regressions pass |
+| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 112 named checks / 103 scripts registered; 679 Node regressions pass |
 | [3694](https://github.com/carlos-emr/carlos/pull/3694) | Signature identity migration | Nine real MariaDB cases and both province fresh/adopted Flyway CI jobs pass, including preservation of duplicate unassigned rows; application upgrade pending |
 | [DrugRef 14](https://github.com/carlos-emr/drugref2026/pull/14) | JDBC calendar dates and explicit lookup faults | 69 tests and WAR pass at 1941e142; earlier installed-DEB calendar-date lookup passes, latest query-failure follow-up installation pending |
 
@@ -60,7 +60,7 @@ application PRs. Validate the combined release candidate before shipping it.
 
 The audit decoder now handles JavaScript braced Unicode escapes, including astral
 characters and explicit failure for invalid code points. Four new regression cases
-bring its unit file to 68 cases; the complete Node suite has 678 passing cases.
+bring its unit file to 68 cases; the complete Node suite has 679 passing cases.
 
 Printing head `7c139eebd1` passes [12,221 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35178032145)
 with no failures/errors and 48 skips. This includes 72 action cases and ten
@@ -97,12 +97,17 @@ records before pagination while retaining legacy SQL NULL statuses and audit
 history. The two new database regressions cover both cases. CodeRabbit accepted
 these changes; installed contact/reciprocal/low-privilege retesting is pending.
 
-Preferences head `dc54dd067c` passes [12,146 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35192285070)
-with no failures/errors and 48 skips. A successful overlapping background read can
-no longer clear a failed document-description write warning. The concurrency test
-fails against the original helper and passes after the fix; all five request/error
-checks and all 678 combined Node cases pass. Full CodeRabbit review and the latest
-installed-package preference workflows remain pending.
+Preferences head `d9f45d121a` passes [12,147 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35202354902)
+with no failures/errors and 48 skips, including eight preference action/data cases.
+A successful overlapping background read can no longer clear a failed
+document-description write warning. The concurrency test fails against the original
+helper and passes after the fix; all five request/error checks and all 679 combined
+Node cases pass. Full-review follow-ups correct three locales' Unicode escapes,
+close the HTML document, document the JSP contracts and cover denied signature
+POSTs without DAO access. CodeRabbit accepts all seven fixes and withdrew its
+additional CSRF question after verifying the existing request filter's ordering,
+configuration and fail-closed path. The latest installed-package preference
+workflows remain pending.
 
 Inactive-drug endpoint head `ad6fe7f8a1` passes [12,144 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35189703344)
 with no failures/errors and 48 skips, including five endpoint cases. Denied `_rx`
@@ -111,6 +116,16 @@ read access returns HTTP 403 before any DrugRef call, and the JSON response retu
 identifier round-tripping; the method-local SpotBugs suppression documents Jackson
 serialization and the JSON-only response. Full CodeRabbit review and installation
 of these endpoint changes with DrugRef `1941e142` remain pending.
+
+Navigation head `6c75d801a2` passes [12,139 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35209972118)
+with no failures/errors and 48 skips. The new header calculator link passes the
+originating chart reference to the existing patient-authorized server lookup,
+keeping age and sex out of both header URLs while preserving prefill. The executable
+popup/fallback regression fails against the old header and passes after the fix.
+Existing legacy child-calculator URL contracts are unchanged. All twelve touched
+JSPs now document their purpose and request contracts. CodeRabbit accepted the
+fixes and the final lab failure-handling documentation; all review threads are
+resolved. Latest installed administration/calculator validation remains pending.
 
 ## Latest retest and environment blocker
 
