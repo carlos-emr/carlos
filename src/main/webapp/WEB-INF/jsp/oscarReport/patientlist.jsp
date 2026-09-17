@@ -1,3 +1,11 @@
+<%--
+  Purpose: Render the patient-by-appointment report form in administration.
+  Features: Provider selection, a date range and fragment-local date-picker/form
+  initialization that permits repeated navigation to this page.
+  Parameters: The page reads no direct query parameters. Its POST form submits
+  provider_no, date_from and date_to to patientlistbyappt; session roles gate access.
+  @since 2026-09-17
+--%>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DoctorList" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.bean.ProviderNameBean" %>
 <%@ page import="java.util.ArrayList" %>
@@ -91,6 +99,7 @@
 </form>
 
 <script>
+(function () {
     flatpickr("#date_from", {dateFormat: "Y-m-d", allowInput: true});
     flatpickr("#date_to", {dateFormat: "Y-m-d", allowInput: true});
 
@@ -130,6 +139,7 @@
             reportForm.reportValidity();
         }
     });
+})();
 </script>
 </body>
 </html>

@@ -246,27 +246,13 @@ async function csrfBootstrapFinding(page, itemText) {
   const readsToken = await page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code, no interpolation
     const inline = Array.from(document.querySelectorAll('script:not([src])'))
       .map((element) => element.textContent || '').join('\n');
-    // THE SHARED HELPER COUNTS TOO, and on its own. carlos-ajax.js reads
-    // input[name="CSRF-TOKEN"] on the page's behalf, so a page calling
-    // CarlosAjax never mentions the token itself -- which is why the static
-    // audit missed eight such pages, six of them violations, until it was
-    // widened to cover the helper. Without this the browser half stays blind to
-    // them too, and those six open clean in every surface audit that touches
-    // them.
-    //
-    // Mirrors sendsMutatingViaSharedHelper() in lib/csrf-bootstrap-audit.js:
-    // the helper defaults to POST and injects no token for GET or HEAD, so a
-    // page whose every call is a GET has nothing to bootstrap. Written out
-    // longhand rather than imported because this body runs inside the page.
-    const helperCalls = [...inline.matchAll(/\bCarlosAjax\s*\.\s*(?:request|updater|post)\s*\(/g)];
-    const mutatesViaHelper = helperCalls.some((call) => {
-      const options = inline.slice(call.index, call.index + 400);
-      const method = options.match(/\bmethod\s*:\s*['"]([A-Za-z]+)['"]/);
-      return !method || !['GET', 'HEAD'].includes(method[1].toUpperCase());
-    });
-    if (mutatesViaHelper) {
-      return true;
-    }
+    // THE SHARED HELPER DOES NOT COUNT. A page that POSTs only through
+    // CarlosAjax never needs the hidden input: the helper sends with
+    // XMLHttpRequest so that CSRFGuard's injected script puts the CSRF-TOKEN
+    // header on every send (lib/csrf-bootstrap-audit.js explains; issue #3665,
+    // finding 10, was the static audit judging those pages anyway).
+    // csrf-xhr-token-playwright-checks.js is the live proof for that path;
+    // this probe stays with the rule's own case, the page's own fetch/XHR.
     return /CSRF-TOKEN/.test(inline) && /fetch\(|XMLHttpRequest|\$\.ajax|\$\.post/.test(inline);
   }).catch(() => false);
   if (!readsToken) {

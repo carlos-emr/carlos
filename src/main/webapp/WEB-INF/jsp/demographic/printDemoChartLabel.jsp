@@ -27,6 +27,14 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays the patient label PDF and the current provider's printer preferences.
+    Parameters: demographic_no identifies the patient; optional label/appointment
+    parameters are forwarded to the PDF action, which enforces patient read access.
+    Unset or null printer settings use interactive printing without a default printer.
+    @since 2026-09-17
+--%>
+
 
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -68,7 +76,7 @@
     }
     prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_CHART_LABEL_SILENT_PRINT);
     if (prop != null) {
-        if (prop.getValue().equalsIgnoreCase("yes")) {
+        if ("yes".equalsIgnoreCase(prop.getValue())) {
             silentPrint = true;
         }
     }
@@ -79,7 +87,7 @@
         <title><fmt:message key="report.printLabel.title"/></title>
     </head>
     <body>
-    <% if (!defaultPrinterName.isEmpty()) {
+    <% if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
         if (silentPrint == true) {%>
     <fmt:message key="report.printLabel.SilentlyPrintToDefaultPrinter"/>
     <%} else {%>

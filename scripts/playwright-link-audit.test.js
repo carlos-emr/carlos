@@ -941,30 +941,19 @@ test('the per-surface limit bounds attempts, not successes', () => {
   assert.ok(body.indexOf('attempted += 1;') < body.indexOf('target = await openItem'));
 });
 
-test('the browser-side CSRF audit knows about the shared helper too', () => {
-  // The static audit was widened to carlos-ajax.js; this one was not, so the
-  // six known violations would still have opened clean in every surface audit
-  // that touches them. GET and HEAD stay excluded for the same reason: the
-  // helper injects no token for them.
+test('the browser-side CSRF audit leaves the shared helper alone, like the static one', () => {
+  // It briefly judged CarlosAjax callers, mirroring the static audit's widening
+  // that produced issue #3665 finding 10. The helper sends with XMLHttpRequest
+  // so CSRFGuard's script equips every send with the token header; a page that
+  // only calls it has nothing to bootstrap, and reporting it would send a
+  // maintainer to add an include the page does not need. The two halves must
+  // agree, or a surface audit fails on a page the static audit passes.
   const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-link-audit'), 'utf8');
   const finding = source.slice(source.indexOf('async function csrfBootstrapFinding'));
   const body = finding.slice(0, finding.indexOf('\n}\n'));
-  assert.match(body, /CarlosAjax/);
-  assert.match(body, /\['GET', 'HEAD'\]/);
-
-  // The predicate itself, run the way the page would run it.
-  const mutates = (inline) => {
-    const calls = [...inline.matchAll(/\bCarlosAjax\s*\.\s*(?:request|updater|post)\s*\(/g)];
-    return calls.some((call) => {
-      const options = inline.slice(call.index, call.index + 400);
-      const method = options.match(/\bmethod\s*:\s*['"]([A-Za-z]+)['"]/);
-      return !method || !['GET', 'HEAD'].includes(method[1].toUpperCase());
-    });
-  };
-  assert.equal(mutates('CarlosAjax.request(url, { parameters: p });'), true, 'no method means POST');
-  assert.equal(mutates("CarlosAjax.updater('dd', url, { method: 'GET' });"), false);
-  assert.equal(mutates("CarlosAjax.updater('dd', url, { method: 'POST', parameters: p });"), true);
-  assert.equal(mutates('somethingElse.request(url);'), false);
+  assert.doesNotMatch(body, /matchAll\(\/\\bCarlosAjax/, 'the probe must not scan for helper calls');
+  assert.match(body, /CarlosAjax/, 'the probe must say why the helper is out of scope');
+  assert.match(body, /CSRF-TOKEN[^\n]*\n?[^\n]*fetch/, 'the rule\'s own case, a page reading the token for its own fetch/XHR, stays');
 });
 
 /*
