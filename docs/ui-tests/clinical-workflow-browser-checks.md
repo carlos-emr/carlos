@@ -7,13 +7,17 @@ every other check there.
 
 | Check | Covers | The check next to it |
 |---|---|---|
-| `appointment-lifecycle` | Edit, validate Update & Receipt PDF, advance status from the day sheet, cancel, delete an appointment (+ the `appointmentArchive` row) | `schedule-quick-search-appointment` and `echart-new-patient-notes` cover **booking**; nothing covered what happens to a booking afterwards |
+| `appointment-lifecycle` | Appointment HTML label preview/print, edit, validate the Update & Receipt PDF, advance status from the day sheet, cancel, delete an appointment (+ the `appointmentArchive` row) | `schedule-quick-search-appointment` and `echart-new-patient-notes` cover **booking**; nothing covered what happens to a booking afterwards |
 | `messenger-inbox-actions` | Mark read / unread, search and clear, archive, unarchive, and the archived box | `messenger` covers composing, sending from the messenger and the chart, and that **opening** a message marks it read |
 | `lab-acknowledge` | Acknowledge a result (`oscarMDS/UpdateStatus`), the lab PDF, cumulative values | `lab-macro-tickler` covers raising a tickler from a lab macro |
 | `prevention-recall-report` | Run the prevention recall report over a seeded patient set and assert a patient who is due comes back as due | `prevention-brand-picker` covers recording an immunization on one chart |
 | `measurement-validation` | A bad vital is **refused** and writes nothing; a good one through the same form still saves | `echart-vitals-bmi` covers the happy path on the same popup |
 
-The appointment lifecycle check requires `pdftotext` (`poppler-utils`). It checks the
+The appointment lifecycle check requires `pdftotext` (`poppler-utils`) to inspect
+printed contents. For labels it enters through the appointment Label link, checks
+screen-only controls, and verifies both nonzero and calibrated zero top offsets.
+New installations default to a 24px top offset; existing `label.top` configuration
+is preserved for clinics with calibrated label stock. For receipts it checks the
 receipt loaded by the browser under the application CSP, its same-origin PDF link,
 and the PDF patient, appointment ID, date and time. Missing PDF tooling fails the
 check rather than silently skipping its content assertions.

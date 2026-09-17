@@ -486,6 +486,7 @@ CARLOS_DEFAULTS = {
     'confidentiality_statement.v1': 'The information transmitted is intended only for the person to whom it is addressed and may contain confidential, proprietary and/or privileged material. Any unauthorized review, distribution or other use of or the taking of any action in reliance upon this information is prohibited. The contents of this message may be subject to privilege and all rights to that privilege are expressly claimed and not waived. If you receive this in error, please contact the sender  and delete or destroy this message and any copies. Thank you.',
     'consultation_fax_enabled': 'true',
     'faxPollInterval': '60000',
+    'label.top': '24',
     'save_as_xml': 'false',
 }
 
