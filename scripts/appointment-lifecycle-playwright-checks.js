@@ -15,6 +15,8 @@
 /*
  * Browser check for what the front desk does to an appointment AFTER it exists:
  * edit it, advance its status from the day sheet, cancel it, delete it.
+ * Also verifies excessive durations are refused on add and edit with actionable
+ * feedback, no database change, and successful saving after correction (#3702).
  *
  * schedule-quick-search-appointment covers booking from the quick-search widget
  * and echart-new-patient-notes books from a day-sheet slot, so the booking half
@@ -233,6 +235,37 @@ async function openDaySheet(page) {
   }
 }
 
+/** Reject an excessive duration before any appointment write, then allow correction. */
+async function checkInvalidDuration(popup, button, label) {
+  const before = JSON.stringify(stampedAppointments());
+  const duration = popup.locator('#duration');
+  const original = await duration.inputValue();
+  const writes = [];
+  const recordWrite = (request) => {
+    if (request.method() === 'POST'
+        && /\/appointment\/(AddRecord|UpdateRecord)$/.test(new URL(request.url()).pathname)) {
+      writes.push(request.url());
+    }
+  };
+  popup.on('request', recordWrite);
+  try {
+    await duration.fill('7500');
+    await button.click();
+    await popup.locator('#jsAlertBanner').waitFor({ state: 'visible', timeout: 10000 });
+    const message = (await popup.locator('#jsAlertText').innerText()).trim();
+    assert(writes.length === 0, `${label}: invalid duration submitted an appointment write`);
+    assert(JSON.stringify(stampedAppointments()) === before,
+      `${label}: invalid duration changed the appointment rows`);
+    assert(/start time/i.test(message) && /duration/i.test(message)
+      && /same day/i.test(message) && !/!{2,}/.test(message),
+      `${label}: duration feedback must explain the same-day constraint without repeated exclamation marks; got ${JSON.stringify(message)}`);
+    pass(`${label}: duration 7500 refused with actionable feedback and no write`);
+  } finally {
+    popup.off('request', recordWrite);
+    if (!popup.isClosed()) await duration.fill(original);
+  }
+}
+
 /** Books the appointment this check then operates on, from an empty slot link. */
 async function bookFromSlot(context, daySheet) {
   // Scoped to the target provider's COLUMN, not just the first slot on the sheet.
@@ -292,6 +325,7 @@ async function bookFromSlot(context, daySheet) {
     `booking form start_time was not prefilled from the slot, got ${slotStart}`);
   await popup.locator('#reason').fill(bookedReason);
   await popup.locator('textarea[name="notes"]').fill(bookedNotes);
+  await checkInvalidDuration(popup, popup.locator('#addButton'), 'add appointment');
 
   const [response] = await Promise.all([
     popup.waitForResponse((r) => r.request().method() === 'POST'
@@ -353,6 +387,7 @@ async function editAppointment(context, daySheet, appointmentNo) {
   assert(prefilled === bookedReason,
     `edit popup prefilled reason ${prefilled}, expected the booked ${bookedReason}`);
 
+  await checkInvalidDuration(popup, popup.locator('#updateButton'), 'edit appointment');
   await popup.locator('#reason').fill(editedReason);
   await popup.locator('textarea[name="notes"]').fill(editedNotes);
   await popup.locator('#duration').fill('30');
