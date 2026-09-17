@@ -1649,7 +1649,15 @@ function renderRxStage() {
                 if (!result || result.checked !== true) { unavailable(); return; }
                 if (result.inactiveDate === null) { target.textContent = ''; return; }
                 // A database DATE is a calendar date, not a browser-local instant.
-                if (typeof result.inactiveDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(result.inactiveDate)) {
+                var parts = typeof result.inactiveDate === 'string'
+                    ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(result.inactiveDate) : null;
+                if (!parts) { unavailable(); return; }
+                var year = Number(parts[1]);
+                var month = Number(parts[2]);
+                var day = Number(parts[3]);
+                var leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+                var monthDays = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                if (month < 1 || month > 12 || day < 1 || day > monthDays[month - 1]) {
                     unavailable(); return;
                 }
                 target.textContent = 'Inactive Drug Since: ' + result.inactiveDate;

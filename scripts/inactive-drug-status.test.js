@@ -42,3 +42,16 @@ test('request values are encoded individually', () => {
   assert.equal(new URLSearchParams(sent.options.postBody).get('id'), 'row&1');
   assert.equal(new URLSearchParams(sent.options.postBody).get('din'), '02245547');
 });
+
+for (const date of ['2026-02-31', '2026-99-99', '2026-02-29', '1900-02-29', '2100-02-29',
+  '2026-04-31', '2026-00-10', '2026-13-01', '2026-01-00', '2026-01-32']) {
+  test(`impossible calendar date ${date} shows the unavailable warning`, () => {
+    assert.match(check(JSON.stringify({checked: true, inactiveDate: date})).target.textContent, /could not be checked/);
+  });
+}
+for (const date of ['2024-02-29', '2000-02-29', '1900-02-28', '2026-04-30', '2026-01-31', '2026-12-31']) {
+  test(`valid calendar date ${date} is preserved exactly`, () => {
+    assert.equal(check(JSON.stringify({checked: true, inactiveDate: date})).target.textContent,
+      'Inactive Drug Since: ' + date);
+  });
+}
