@@ -53,6 +53,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Streams the client lab label for a patient the provider may read.
+ * Clinic template overrides take precedence over the bundled JasperReports template;
+ * unavailable overrides fall back to the bundle. Printer settings belong to the
+ * logged-in provider, and missing settings leave printing interactive.
+ */
 public class PrintClientLabLabel2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -63,9 +69,19 @@ public class PrintClientLabLabel2Action extends ActionSupport {
     public PrintClientLabLabel2Action() {
     }
 
+    /**
+     * Checks patient-specific demographic read access and validates demographic_no
+     * before generating the PDF. Invalid identifiers return HTTP 400, and report
+     * generation failures return HTTP 500 before any successful PDF output.
+     *
+     * @return NONE because this action completes the response directly
+     * @throws SecurityException if the provider lacks patient demographic read access
+     * @throws IOException if the template or response stream cannot be read or written
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
+    @Override
     public String execute() throws IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -78,24 +94,19 @@ public class PrintClientLabLabel2Action extends ActionSupport {
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
         String defaultPrinterName = "";
-        Boolean silentPrint = false;
         prop = propertyDao.getProp(loggedInInfo.getLoggedInProviderNo(), UserProperty.DEFAULT_PRINTER_CLIENT_LAB_LABEL);
         if (prop != null) {
             defaultPrinterName = prop.getValue();
         }
         prop = propertyDao.getProp(loggedInInfo.getLoggedInProviderNo(), UserProperty.DEFAULT_PRINTER_CLIENT_LAB_LABEL_SILENT_PRINT);
-        if (prop != null) {
-            if ("yes".equalsIgnoreCase(prop.getValue())) {
-                silentPrint = true;
-            }
-        }
+        boolean silentPrint = prop != null && "yes".equalsIgnoreCase(prop.getValue());
         String exportPdfJavascript = null;
 
         if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
             exportPdfJavascript = "var params = this.getPrintParams();"
                     + "params.pageHandling=params.constants.handling.none;"
                     + "params.printerName='" + io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(defaultPrinterName) + "';";
-            if (silentPrint == true) {
+            if (silentPrint) {
                 exportPdfJavascript += "params.interactive=params.constants.interactionLevel.silent;";
             }
             exportPdfJavascript += "this.print(params);";

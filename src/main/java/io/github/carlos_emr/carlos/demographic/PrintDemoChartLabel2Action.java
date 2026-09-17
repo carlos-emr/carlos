@@ -124,7 +124,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      * User Properties Consulted:
      * <ul>
      *   <li>DEFAULT_PRINTER_PDF_CHART_LABEL - Configured printer name for automatic printing</li>
-     *   <li>DEFAULT_PRINTER_PDF_LABEL_SILENT_PRINT - Whether to print silently without dialog ("yes"/"no")</li>
+     *   <li>DEFAULT_PRINTER_PDF_CHART_LABEL_SILENT_PRINT - Whether to print silently without dialog ("yes"/"no")</li>
      * </ul>
      *
      * Template Resolution:
@@ -142,6 +142,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
+    @Override
     public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -156,24 +157,19 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
         String defaultPrinterName = "";
-        Boolean silentPrint = false;
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_CHART_LABEL);
         if (prop != null) {
             defaultPrinterName = prop.getValue();
         }
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_CHART_LABEL_SILENT_PRINT);
-        if (prop != null) {
-            if ("yes".equalsIgnoreCase(prop.getValue())) {
-                silentPrint = true;
-            }
-        }
+        boolean silentPrint = prop != null && "yes".equalsIgnoreCase(prop.getValue());
         String exportPdfJavascript = null;
 
         if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
             exportPdfJavascript = "var params = this.getPrintParams();"
                     + "params.pageHandling=params.constants.handling.none;"
                     + "params.printerName='" + io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(defaultPrinterName) + "';";
-            if (silentPrint == true) {
+            if (silentPrint) {
                 exportPdfJavascript += "params.interactive=params.constants.interactionLevel.silent;";
             }
             exportPdfJavascript += "this.print(params);";
