@@ -119,7 +119,7 @@ Items outside that implementation table remain planned.
 | `scripts/lib/playwright-harness.js` | The shared harness: `readConfig`, `createSqlRunner`, `login` (forced reset, facility select, and the MFA challenge **when the caller supplies an `mfaCode` callback** — the harness generates no OTP itself, and no check passes one today, so an MFA-enrolled account is refused with an assertion rather than logged in; `login-mfa` in §2.2 is what closes that), `wireStrictPage` / `assertStrictPage`, `runCheck`, the TLS gate, `SkipCheck` | `scripts/playwright-harness.test.js` (18 tests), run by `script-regressions.yml` |
 | `scripts/lib/playwright-ui.js` | The JavaScript-path helpers (`clickOpensPopup`, `clickInjectsPanel`, `expectOpenerRefresh`, `typeAutocomplete`, `pickDate`, `dataTableRows`, `pressShortcut`, `csrfTokenPresent`, `expectDialog`) and the `NAVIGATION` click map | `scripts/playwright-suite-manifest.test.js` |
 | `scripts/lib/console-baseline.json` | The suite-wide, issue-keyed allow-list that replaces per-check `allow` arrays | a test asserts every entry names where its removal is tracked |
-| `scripts/playwright-suite.json` | The manifest: 108 named check entries over 99 scripts (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
+| `scripts/playwright-suite.json` | The manifest: 111 named check entries over 102 scripts (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
 | `scripts/run-playwright-suite.js` | The runner: `--tier`, `--only`, `--skip`, `--province`, `--junit`, `--list`, `--dry-run` | `scripts/playwright-suite-manifest.test.js` |
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 
@@ -680,13 +680,13 @@ shared helper.
   transport. They cost money, need credentials, or take an hour.
 - **Routes with no UI entry**: no check — the finding is that the route is dead (or
   service-only), tracked for removal or documentation under the cleanup policy. Found while
-  verifying this plan: `prevention/printPrevention`; `report/ViewGenerateLetters` and the
-  letters / envelopes / spreadsheet generation behind it (nothing links the page);
-  `provider/ViewProviderEncounterHistory` (a `providercontrol` dispatch nothing calls);
-  the immunization *set* configuration pages (`encounter/immunization/config/*`);
-  `admin/ViewDbConnection`; `billing/CA/ON/ImportOnRA` (service-only, the Billing
-  Reconciliation page reads the MOH directory instead); and several `View*` fragments only
-  reachable as includes.
+  verifying this plan: `prevention/printPrevention`, and several `View*` fragments only
+  reachable as includes. Five more were filed as issue #3665 and resolved on a packaged
+  install (findings 1–5 in `app-findings-log.md`): the letters / spreadsheet flow behind
+  `report/ViewGenerateLetters`, `admin/ViewDbConnection`, `billing/CA/ON/ImportOnRA`, the
+  legacy `provider/ViewProviderEncounterHistory` family and its `providercontrol` dispatch
+  rows are removed; the immunization *set* configuration pages turned out to be reachable
+  by relative links and stay.
 - **PHR / integrator / eConsult**: the top bar's eConsult opens an external URL; nothing to
   assert locally.
 - **Visual regression by screenshot diff**: the MCP manual tests keep gold screenshots; the

@@ -119,6 +119,17 @@ function fallbackCopy(text) {
     </div>
     <%}%>
 
+    <%-- The chart's clinical calculators (encounter/ViewCalculators). The older
+         encounterLayout offered them from its navigation column; this layout,
+         the default since the new chart landed, had no control that reached them
+         at all, so the calculators were unreachable from the chart (found while
+         resolving issue #3665 findings 8 and 9). Same popup as the Index2 layout. --%>
+    <div>
+        <a href="javascript:void(0);" id="chartCalculatorsLink"
+           title="<fmt:message key="encounter.Index.calculators"/>"
+           onClick="popupPage(350,280,'calculatorWin','${carlos:forJavaScript(ctx)}/encounter/ViewCalculators?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
+    </div>
+
     <div>
         <%=getEChartLinks() %>
     </div>

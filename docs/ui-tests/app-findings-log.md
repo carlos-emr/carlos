@@ -15,10 +15,17 @@ Status values: `open` (verified, no issue filed), `issue-filed`, `fixed`,
 `needs-live-check` (verified statically, wants confirmation against a running
 deployment).
 
-**Findings 1–9 are filed as [issue #3665](https://github.com/carlos-emr/carlos/issues/3665)**,
+**Findings 1–10 are filed as [issue #3665](https://github.com/carlos-emr/carlos/issues/3665)**,
 one ticket covering the whole pass. A finding keeps `needs-live-check` where that
 is still true of it — being filed does not make a source-search result a
 confirmed one.
+
+**Resolution of #3665 (September 2026).** Every finding below was re-checked on a
+packaged install (the three `.deb`s built from this branch's base, installed into
+an Ubuntu 26.04 container with the demo dataset, checked through the `:443`
+front door), and each row's evidence cell now records what the deployment
+answered. Two of the ten (4 and 10) turned out not to be application defects and
+are recorded in §3 as well; the rest are fixed on this branch.
 
 ---
 
@@ -32,11 +39,11 @@ have silently had a feature taken away.
 
 | # | Route | Evidence | Status |
 |---|---|---|---|
-| 1 | `report/ViewGenerateLetters`, and the letters / envelopes / spreadsheet generation behind it (`report/GenerateLetters`, `GenerateEnvelopes`, `GenerateSpreadsheet`) | `grep -rl` across `src/main/webapp` and `src/main/java` for `.jsp`/`.jspf`/`.js`/`.java`/`.xml` returns **0** references outside the JSP itself and `struts-report.xml`. `report/GenerateLetters.jsp` exists and references `ViewManageLetters`, but nothing links to the page that would start the flow. | `needs-live-check` |
-| 2 | `admin/ViewDbConnection` | **0** references outside its own JSP and the Struts config. Not linked from the Administration panel or the `/administration` shell left nav. | `needs-live-check` |
-| 3 | `billing/CA/ON/ImportOnRA` | **0** UI callers. `ImportOnRa2Action` exists and is mapped, but the Billing Reconciliation page reads the MOH files directory instead of posting here, so the route is service-only. Either it is dead, or the reconciliation page is meant to use it. | `needs-live-check` |
-| 4 | `encounter/immunization/config/*` (the immunization **set** configuration pages, e.g. `ViewImmunizationSetDisplay`) | **0** references. `CreateImmunizationSetInit.jsp` posts to `CreateInitImmunization`, but nothing links to `CreateImmunizationSetInit.jsp` itself, so the whole set-configuration area has no way in. | `needs-live-check` |
-| 5 | `provider/ViewProviderEncounterHistory` | Referenced only as a `dboperation` dispatch-table entry in `providercontrol.jsp` (`{"encounterhistory", "/provider/ViewProviderEncounterHistory"}`), and `dboperation=encounterhistory` is referenced only by `providerencounterhistory.jsp` itself. Nothing sets it, so the dispatch entry is never taken. | `needs-live-check` |
+| 1 | `report/ViewGenerateLetters`, and the letters / spreadsheet generation behind it (`report/GenerateLetters`, `GenerateSpreadsheet`, `ViewManageLetters`, `ManageLetters`, `DownloadLetter`, `DeleteLetter`) | Source: **0** references outside the JSPs and `struts-report.xml`; the flow expects `demo` parameters from a per-patient selection that the Demographic Report Tool no longer renders (its results table has no row selection since it moved to patient sets), so the entry was dropped when that page was redesigned. Live, by URL: `ViewGenerateLetters?demo=1&demo=2` answered 200 and `ViewManageLetters` answered 200 with every label as a raw `???report.ManageLetters.*???` key — the page never declared its bundle, which nobody noticed because nobody could reach it. Removed under the cleanup policy: the seven routes, six actions, `report.data.ManageLetters`, both JSPs and their 10 i18n keys. `report/GenerateEnvelopes` stays: the demographic record's envelope print uses it. | `fixed` |
+| 2 | `admin/ViewDbConnection` | Source: **0** references outside the Struts config. Live: answered 200 with an **empty body** — `admin/dbconnection.jsp` is a 32-line fragment holding one scriptlet, which thirteen other JSPs `<%@ include %>` for the `oscarVariables` it declares. The route and its gate are removed; the fragment stays because those includes need it. | `fixed` |
+| 3 | `billing/CA/ON/ImportOnRA` | Source: **0** UI callers, and `ViewGenRa2Action` runs the identical `OnRaImportService.importDocumentBeanFileOutcome()` branch itself on the reconciliation page's own POST, so the route duplicated a path that already exists. Live: GET answered 405 (POST-only), as the action was written. Route and `ImportOnRa2Action` removed; the privilege contract test's row for it went with it. | `fixed` |
+| 4 | `encounter/immunization/config/*` (the immunization **set** configuration pages) | **Not a defect.** The area is reached by relative links the search missed: chart ▸ Immunizations (`initSchedule`) ▸ Configure (`ScheduleConfig.jsp`) ▸ Create Template (`config/initConfig`) ▸ `AdministrateImmunizationSets.jsp`, which links `ViewCreateImmunizationSetInit` and `ImmunizationSetDisplay`. Live: `config/initConfig` answered 200 with the set list. One route in the family was dead: the `ViewImmunizationSetDisplay` gate rendered the display JSP without the action that prepares its data and answered **500** live; it is removed, the linked `ImmunizationSetDisplay` action stays. | `fixed` |
+| 5 | `provider/ViewProviderEncounterHistory` | Source: reached only through `providercontrol.jsp`'s `displaymode` dispatch table, which nothing sets; the page is the pre-casemgmt `encounter`-table viewer, and its siblings (`ViewProviderEncounterSingle`, `ViewProviderEncounterPrint`) were linked only from it. Live: the route answered **500** (`Unknown column 'e1_0.encounter_attachment'` — the packaged schema no longer has the column the page queries), and `displaymode=encounterhistory` rendered the error page. The dispatch table also carried entries for six JSPs that no longer exist and a `vary` mode that included whatever path `displaymodevariable` named: live, `displaymode=vary&displaymodevariable=/WEB-INF/jsp/admin/admin.jsp` rendered the **Administration panel** to a session holding only the appointment gate. Removed: the three routes, gates and JSPs, their 29 i18n keys, and every dead dispatch row including `vary`. | `fixed` |
 
 All five are filed as #3665.
 
@@ -54,12 +61,11 @@ to name the issue that removes it; these two can only name a docs paragraph.
 
 | # | Defect | Where | Status |
 |---|---|---|---|
-| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature. Remedy: make the request conditional on the provider having a stored signature | alpha-11 observation 6; tolerated by `scripts/lib/console-baseline.json`; filed as #3665 | `issue-filed` |
-| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on **every keystroke** (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders). Until it is fixed, no check can type into a chart note and assert a clean console | alpha-11 observation 15; tolerated by `scripts/lib/console-baseline.json`; filed as #3665 | `issue-filed` |
+| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature | alpha-11 observation 6. Fixed on `release/2026.08` by the alpha12 regression sweep: `ProviderSignatureImage2Action` answers **204** for a provider without a stamp (absence is a normal state), the `<img>` fires `onerror`, and the form falls back to the signature pad. Live: `scripts/consultation-signature-fallback-playwright-checks.js` opens the form from the chart for provider 999998 with no stamp staged, sees the request answer 204, the pad shown, `newSignature=true`, and a clean console with **no** baseline. The console-baseline entry is deleted. | `fixed` |
+| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on every click into the note (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders) | alpha-11 observation 15. Fixed on `release/2026.08` by the alpha12 regression sweep: `getActiveText()` returns when `$("keyword")` is absent. Live: `scripts/echart-note-editor-playwright-checks.js` clicks into the note, types, and asserts a clean console with **no** baseline. The console-baseline entry is deleted, so a check can type into a chart note again. | `fixed` |
 
-Both are now filed as #3665, and both console-baseline entries cite it. Delete
-the entry in the same change that fixes the defect, or the suite stays blind to
-the next occurrence.
+Both console-baseline entries are gone. The suite is no longer blind to either
+class of error, and the two checks above are the regression for them.
 
 ## 2a. Clinical calculators answer confidently on input they cannot use
 
@@ -71,19 +77,15 @@ it is the figure a prescribing decision is made on.
 
 | # | Defect | Where | Status |
 |---|---|---|---|
-| 8 | **A blank age is treated as 50.** `calculate()` reads `document.calCorArDi.age.value` as a string and tests `age <= 54` first; `"" <= 54` coerces to `0 <= 54`, so an empty box silently selects the youngest age band and prints its probability. Reproduce: open the calculator, leave Age empty, pick any T-score, press Calculate — it reports the 50-year-old figure. Remedy: refuse a non-numeric or out-of-range age instead of computing one | `src/main/webapp/WEB-INF/jsp/encounter/calculators/OsteoporoticFracture.jsp:203-221` (`var age = ...value` then the `age <= 54` ladder); the same shape at `CoronaryArteryDiseaseRiskPrediction.jsp:230-242`; filed as [#3665](https://github.com/carlos-emr/carlos/issues/3665) | `issue-filed` |
-| 9 | **A non-numeric age selects the OLDEST band.** Every comparison against `NaN` is false, so the ladder falls through to its final `else` and sets `ageGroup = 8` — the 85-and-over row. A typo in the age box therefore produces the highest-risk answer on the table with no indication anything went wrong. The coronary calculator has the mirror-image fault: its `ageGroup` is a page-level variable (`var ageGroup = 0` outside the function), so a `NaN` age leaves it at **the value the previous calculation set**, while `ageFactor` does fall back to 0 — an answer assembled from two different patients' ages. Remedy: the same validation as finding 8 | `OsteoporoticFracture.jsp:218-219` (the unguarded final `else`); `CoronaryArteryDiseaseRiskPrediction.jsp:54` (the page-level `ageGroup`) and `:232-243` (the ladder with no final `else`); filed as #3665 | `issue-filed` |
+| 8 | **A blank age is treated as 50.** `calculate()` reads `document.calCorArDi.age.value` as a string and tests `age <= 54` first; `"" <= 54` coerces to `0 <= 54`, so an empty box silently selects the youngest age band and prints its probability. Reproduce: open the calculator, leave Age empty, pick any T-score, press Calculate — it reports the 50-year-old figure | Reproduced live on the pre-fix package (blank age printed the 50-year-old figure with the first band highlighted). Fixed: both `calculate()` functions parse the box through `share/javascript/clinicalCalculatorAge.js` (a whole number inside the page's own table range: 50–120 for the fracture table, whose first row is 50; 1–120 for the coronary tables, whose first band is "≤ 34") and refuse anything else with a message in the prediction box and nothing computed. `scripts/clinical-calculators-playwright-checks.js` now asserts every refusal on both calculators and that a valid age computes again afterwards; `scripts/clinical-calculators.test.js` pins the parser, the guard in each JSP, and the message in every bundle | `fixed` |
+| 9 | **A non-numeric age selects the OLDEST band.** Every comparison against `NaN` is false, so the ladder falls through to its final `else` and sets `ageGroup = 8` — the 85-and-over row. A typo in the age box therefore produces the highest-risk answer on the table with no indication anything went wrong. The coronary calculator has the mirror-image fault: its `ageGroup` is a page-level variable (`var ageGroup = 0` outside the function), so a `NaN` age leaves it at **the value the previous calculation set**, while `ageFactor` does fall back to 0 — an answer assembled from two different patients' ages | Reproduced live on the pre-fix package (`abc` printed the 85-and-over figure). Fixed with finding 8 by the same guard (`clinicalCalculatorAge.js`); the coronary `ageGroup` is now local to `calculate()`, and the browser check proves a refusal changes nothing by computing the same total for the same patient before and after it. Found on the way: the default chart layout (`newEncounterLayout`) had **no control that reached the calculators at all** — only the older `encounterLayout`'s navigation column offered one — so `newEncounterHeader.jsp` now carries the same popup link the `Index2` layout has | `fixed` |
 
 Verified by reading the source and by evaluating the same comparison ladder
 directly: `"" → band 1`, `"abc" → band 8`, `"54" → band 1`, `"55" → band 2`.
 
-`scripts/clinical-calculators-playwright-checks.js` deliberately asserts only
-valid input. Pinning either behaviour as expected would make it permanent; when
-it is fixed, the assertion belongs in that check.
-
-Finding 7 is the more serious of the two: it is on the single most-used screen in
-the product, it fires continuously while a clinician types, and it is the reason
-a baseline entry has to exist at all.
+`scripts/clinical-calculators-playwright-checks.js` asserted only valid input
+while these were open (pinning the behaviour as expected would have made it
+permanent); the invalid-input assertions now live there.
 
 ## 2b. Pages that POST over AJAX with no CSRF token to send
 
@@ -96,17 +98,16 @@ user is shown nothing.
 
 | # | Finding | Evidence | Status |
 |---|---|---|---|
-| 10 | **Six pages POST through the shared AJAX helper with nothing to populate the token.** `share/javascript/carlos-ajax.js` is the common path: `CarlosAjax.request()` defaults to `method: 'POST'` and `getCsrfToken()` reads `input[name="CSRF-TOKEN"]` on the caller's behalf (`carlos-ajax.js:49`). These six carry neither a qualifying form nor the include, so every one of those POSTs is sent with an empty token. Three are whole pages (`documentsInQueues.jsp`, 14 such calls; `CumulativeLabValues.jsp`; `newEncounterLayout.jsp`); three are fragments or generated script whose host pages were checked and do not carry it either (`ChartNotesAjax.jsp`, `labDisplayAjax.jsp`, `js/newCaseManagementView.js.jsp`). Remedy: add the `csrf-token.jspf` include to the document that owns each — and on any page setting its own `script-src`, publish the `cspNonce` request attribute first, or the inline bootstrap is blocked and the symptom is unchanged | `scripts/lib/csrf-bootstrap-audit.js` over the whole webapp, with the six pinned in `scripts/lib/csrf-bootstrap-baseline.json`; `labDisplayAjax.jsp` and `newEncounterLayout.jsp` carry the action-less-form anti-pattern CLAUDE.md names explicitly. Not confirmed against a running deployment: the audit is static, and `csrfBootstrapFinding()` in `scripts/lib/playwright-link-audit.js` is the browser half that would confirm the input is empty in a live DOM | `needs-live-check` |
+| 10 | **Six pages POST through the shared AJAX helper with nothing to populate the token.** `share/javascript/carlos-ajax.js` reads `input[name="CSRF-TOKEN"]` on the caller's behalf, and these six (`documentsInQueues.jsp`, `CumulativeLabValues.jsp`, `newEncounterLayout.jsp`, and the fragments `ChartNotesAjax.jsp`, `labDisplayAjax.jsp`, `js/newCaseManagementView.js.jsp` those pages host) carry neither a qualifying form nor the `csrf-token.jspf` include, so the audit concluded every one of those POSTs is sent with an empty token and rejected | **Not an application defect; the defect was in the audit's model.** The hidden input is not the token's only carrier: `CarlosAjax` sends with `XMLHttpRequest`, never `fetch()`, precisely so that CSRFGuard's own script (which `CsrfGuardScriptInjectionFilter` adds to every HTML response) injects the `CSRF-TOKEN` and `X-Requested-With` headers into every send, and CSRFGuard validates the header before the body (`docs/csrf-protection-architecture.md`; the helper's own comment at `carlos-ajax.js:285`). Live: `scripts/csrf-xhr-token-playwright-checks.js` reaches Pending Docs, the chart and the Labs Row Display by clicking, POSTs through each page's own `CarlosAjax.request()`, reads the headers off the wire, and sees the token header, a 200 and the JSON body on every one — with **no** hidden input present. The static audit no longer judges helper-only pages, `csrf-bootstrap-baseline.json` is deleted, and `csrf-bootstrap-audit.test.js` pins the fact the exclusion rests on (the helper uses `XMLHttpRequest`) so the audit widens again the day that changes | `fixed` |
 
-**How this was missed.** The audit's own applicability test required the token read
-and the AJAX send to appear in the page's *own* source. All six POST through
-`CarlosAjax` instead, so the audit classified them not applicable and reported the
-webapp clean — 25 applicable pages, **zero** violations. Widening applicability to
-the shared helper, and teaching the detector that `CarlosAjax` sends GET without a
-token, takes it to 33 applicable pages: the 25 that send for themselves, all still
-satisfied, plus 8 that delegate to the helper, 6 of which violate. Every one of the
-six is a page the original rule never looked at. A guard that ran, found nothing,
-and passed.
+**How this was missed, and then mis-called.** The audit's applicability test first
+required the token read and the AJAX send to appear in the page's *own* source, so
+pages that delegate to `CarlosAjax` were never looked at. Widening it to the
+helper found six "violations" — and reported them without checking what the
+helper does with the token, which is send it in a header CSRFGuard's script
+sets. The browser check is the half that settles such a question; the static
+half now says why it does not judge those pages, and the test suite fails if
+the reason stops being true.
 
 ---
 
@@ -119,6 +120,8 @@ Recorded so the same candidates are not re-investigated.
 | "64 of 136 `admin.admin.*` labels are blank in `oscarResources_en.properties`" | My own search was wrong, not the bundle. The keys are written with spaces around the separator (`admin.admin.mergeRec = Merge Patient Records`), so `grep "^key="` missed them while Java's properties parser reads them correctly. All the labels resolve. |
 | "The Administration panel renders the CAISI heading twice" | `admin.jsp` renders two `<h3>CAISI</h3>` blocks, but they are the two branches of one `oscarSec` check on `_admin.caisi` (`reverse="false"` and `reverse="true"`). They are mutually exclusive at render time; exactly one appears. |
 | "`consultationServices` rows ship inactive on Ontario, so the service picker is empty" | Real, but already found (alpha-11 observation 21) and already **fixed** on `release/2026.08` by `V1.0.23__activate_legacy_consultation_services.sql`. |
+| "The immunization **set** configuration pages have no way in" (finding 4) | The search looked for the gate routes by name; the area is reached by relative links (`config/initConfig` from `ScheduleConfig.jsp`, `ViewCreateImmunizationSetInit` from `AdministrateImmunizationSets.jsp`) and answers 200 on a packaged install. Only the unlinked `ViewImmunizationSetDisplay` gate was dead (and answered 500), and it is removed. |
+| "Six pages POST through `CarlosAjax` with an empty CSRF token" (finding 10) | The helper sends with `XMLHttpRequest`, which CSRFGuard's injected script equips with the `CSRF-TOKEN` header on every send; the hidden input the helper also reads is a second copy. Measured on a packaged install: every such POST carried the header and was answered 200 with JSON, on pages with no hidden input at all. A bootstrap include would have been added to six pages that do not need one. |
 
 ---
 
@@ -166,6 +169,14 @@ application defects from test defects and missing fixtures, and records retests.
 
 | 37 | Crafted contact type changes can reclassify existing relationships | Existing rows now retain persisted types in reciprocal planning and persistence. Five regressions fail before the fix; all 30 contact cases pass afterward. Old installed package fails the owned-request tampering probe; the rebuilt DEB passes normal and twice-tampered saves, with cleanup verified; #3682. | `issue-filed` |
 | 38 | Existing contact category can be changed by submitting the row in the opposite list | `validateContactSaves` validates patient ownership but not the stored personal/professional category; `linkContactToDemographic` assigns the submitted list's category. Source-patient write permission is required; this is a classification-consistency candidate, not a demonstrated authorization bypass. No normal UI path or VM reproduction was established; #3682. | `needs-live-check` |
+
+## 5. Found while resolving #3665 (September 2026)
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 39 | The four calculator pages link their stylesheet at the context root (`/encounterStyles.css`), where nothing is served, so every calculator opens with a 404 for its stylesheet, a "Refused to apply style ... MIME type ('text/html')" console error, and unstyled tables | Surfaced the moment `clinical-calculators-playwright-checks.js` could reach the pages by clicking (§2a): the strict recorder failed on the request and the console error for all three calculators it opens. The file is `encounter/encounterStyles.css`, which is how the calculators index itself links it. Fixed on those four pages; `encounter/immunization/Schedule.jsp`, `ScheduleEdit.jsp` and `messenger/Transfer/SelectItems.jsp` carry the same wrong path and are left for their own checks | `fixed` |
+
+| 40 | Twenty Administration panel items are broken on the packaged install, none of them touched by the #3665 change | `admin-index-links-playwright-checks.js` on the post-fix package (101 items opened): **Age-Sex Report** answers 405 (the panel posts a hidden form, `DbReportAgeSex2Action` is POST-only, and the audit's click reaches it as a GET — a check-versus-page disagreement to settle in the check); **Visit Report** and **Overnight Batch** throw `$(...).validate is not a function` (the jQuery Validation plugin is not loaded on those pages); **Patient List by Appointment Time** throws `Identifier 'reportForm' has already been declared` (a script is injected twice); **Document Description Template** aborts a fetch and **Messages** an image request (see finding 22). Recorded, not fixed here | `open` |
 
 ## How this list is meant to be used
 
