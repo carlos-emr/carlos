@@ -35,6 +35,8 @@ import java.util.Map;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
+import org.hibernate.query.NativeQuery;
+import org.hibernate.type.StandardBasicTypes;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -59,14 +61,14 @@ public class FormsDao {
     @NativeSql("formLabReq07")
     public List<Object[]> findIdFormCreatedAndPatientNameFromFormLabReq07() {
         String sql = "SELECT ID, formCreated, patientName FROM formLabReq07";
-        Query query = entityManager.createNativeQuery(sql);
+        Query query = requisitionRowsQuery(sql);
         return query.getResultList();
     }
 
     @NativeSql("formLabReq10")
     public List<Object[]> findIdFormCreatedAndPatientNameFromFormLabReq10() {
         String sql = "SELECT ID, formCreated, patientName FROM formLabReq10";
-        Query query = entityManager.createNativeQuery(sql);
+        Query query = requisitionRowsQuery(sql);
         return query.getResultList();
     }
 
@@ -76,7 +78,7 @@ public class FormsDao {
             return findIdFormCreatedAndPatientNameFromFormLabReq07();
         }
         String sql = "SELECT ID, formCreated, patientName FROM formLabReq07 where demographic_no = :demoNo";
-        Query query = entityManager.createNativeQuery(sql);
+        Query query = requisitionRowsQuery(sql);
         try {
             query.setParameter("demoNo", Integer.parseInt(demographicNo));
         } catch (NumberFormatException e) {
@@ -92,7 +94,7 @@ public class FormsDao {
             return findIdFormCreatedAndPatientNameFromFormLabReq10();
         }
         String sql = "SELECT ID, formCreated, patientName FROM formLabReq10 where demographic_no = :demoNo";
-        Query query = entityManager.createNativeQuery(sql);
+        Query query = requisitionRowsQuery(sql);
         try {
             query.setParameter("demoNo", Integer.parseInt(demographicNo));
         } catch (NumberFormatException e) {
@@ -105,7 +107,8 @@ public class FormsDao {
     @NativeSql("formLabReq07")
     public List<Object> findFormCreatedFromFormLabReq07ById(Integer linkReqId) {
         String sql = "SELECT formCreated FROM formLabReq07 WHERE ID = :linkReqId";
-        Query query = entityManager.createNativeQuery(sql);
+        Query query = entityManager.createNativeQuery(sql).unwrap(NativeQuery.class)
+                .addScalar("formCreated", StandardBasicTypes.DATE);
         query.setParameter("linkReqId", linkReqId);
         return query.getResultList();
     }
@@ -113,9 +116,21 @@ public class FormsDao {
     @NativeSql("formLabReq10")
     public List<Object> findFormCreatedFromFormLabReq10ById(Integer linkReqId) {
         String sql = "SELECT formCreated FROM formLabReq10 WHERE ID = :linkReqId";
-        Query query = entityManager.createNativeQuery(sql);
+        Query query = entityManager.createNativeQuery(sql).unwrap(NativeQuery.class)
+                .addScalar("formCreated", StandardBasicTypes.DATE);
         query.setParameter("linkReqId", linkReqId);
         return query.getResultList();
+    }
+
+    /** Keep the legacy requisition contract stable across Hibernate versions.
+     * Hibernate 7 discovers SQL DATE as LocalDate; LinkReq expects java.util.Date
+     * both when listing requisitions and when saving the selected link.
+     */
+    private Query requisitionRowsQuery(String sql) {
+        return entityManager.createNativeQuery(sql).unwrap(NativeQuery.class)
+                .addScalar("ID", StandardBasicTypes.INTEGER)
+                .addScalar("formCreated", StandardBasicTypes.DATE)
+                .addScalar("patientName", StandardBasicTypes.STRING);
     }
 
     public EntityManager getEntityManager() {

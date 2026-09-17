@@ -940,6 +940,21 @@
       ]
     },
     {
+      "name": "lab-requisition-links",
+      "script": "scripts/lab-requisition-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_LINK_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
       "name": "lab-acknowledge",
       "script": "scripts/lab-acknowledge-playwright-checks.js",
       "tiers": [
