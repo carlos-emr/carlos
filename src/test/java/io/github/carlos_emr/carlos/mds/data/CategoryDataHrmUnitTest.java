@@ -20,7 +20,7 @@ import static org.mockito.Mockito.*;
 class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({"N,0", "A,1", "F,1", "'',any"})
-    void matchedAndUnmatchedCountsUseTheSameReviewFilterAsResults(String status, String signedOff) throws Exception {
+    void shouldUseSameReviewFilterForMatchedAndUnmatchedCounts_whenStatusSelected(String status, String signedOff) throws Exception {
         EntityManagerFactory factory = mock(EntityManagerFactory.class);
         EntityManager manager = mock(EntityManager.class);
         Query query = mock(Query.class);

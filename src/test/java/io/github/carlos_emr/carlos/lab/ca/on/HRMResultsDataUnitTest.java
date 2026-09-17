@@ -18,7 +18,7 @@ import static org.mockito.Mockito.*;
 class HRMResultsDataUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({"N,0", "A,1", "F,1", "'',2"})
-    void reviewFiltersDoNotHideSignedReportsThatWereNeverViewed(String status, int signedOff) {
+    void shouldFilterBySignOffIndependentlyOfViewedState_whenReviewStatusSelected(String status, int signedOff) {
         HRMDocumentToProviderDao providers = mock(HRMDocumentToProviderDao.class);
         registerMock(HRMDocumentToProviderDao.class, providers);
         registerMock(HRMDocumentDao.class, mock(HRMDocumentDao.class));
