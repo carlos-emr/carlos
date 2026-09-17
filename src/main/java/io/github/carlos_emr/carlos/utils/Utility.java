@@ -41,6 +41,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Utility {
+    /** Legacy date-filter sentinel meaning "now"; matched case-insensitively by the GetSysDate* methods. */
+    private static final String TODAY_KEYWORD = "TODAY";
+
     public static boolean IsEmpty(String pStr) {
         if (pStr == null || pStr.trim().equals("")) {
             return true;
@@ -125,7 +128,7 @@ public class Utility {
 
         String delim = "/";
 
-        if ("TODAY".equalsIgnoreCase(pDate)) {
+        if (TODAY_KEYWORD.equalsIgnoreCase(pDate)) {
             return new Date();
         } else {
             try {
@@ -181,7 +184,7 @@ public class Utility {
             return c1.getTime();
         }
 
-        if ("TODAY".equalsIgnoreCase(pDate)) return new Date();
+        if (TODAY_KEYWORD.equalsIgnoreCase(pDate)) return new Date();
 
         // Legacy fixed-offset parse. Note substring(3, 2) has begin > end and always throws, so
         // every non-sentinel input reaches the catch below; there are no in-tree callers of this
@@ -221,7 +224,7 @@ public class Utility {
             return SetDate(2999, 12, 31);
         }
 
-        if ("TODAY".equalsIgnoreCase(pDate)) return new Date();
+        if (TODAY_KEYWORD.equalsIgnoreCase(pDate)) return new Date();
 
         // Same legacy fixed-offset parse as GetSysDateMin; see the note there.
         try {
