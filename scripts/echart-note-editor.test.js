@@ -36,7 +36,7 @@ function fakeSql(failing = /$^/) {
 
 function seed(overrides = {}) {
   Object.assign(check.fixture, {
-    sql: fakeSql(), stamp: 'PW_NOTE_EDITOR_1', providerNo: '999998', demographicNo: '2', preexistingLockIds: [],
+    sql: fakeSql(), stamp: 'PW_NOTE_EDITOR_1', providerNo: '999998', demographicNo: '2', sessionId: 'ABC123SESSION',
   }, overrides);
 }
 
@@ -62,14 +62,28 @@ test('both deletes are scoped to the test provider and the patient, and the draf
   await check.cleanup();
   const [draft, lock] = sql.executed;
   assert.match(draft, /^DELETE FROM casemgmt_tmpsave WHERE provider_no = '999998' AND demographic_no = 2 AND note LIKE '%PW_NOTE_EDITOR_1%'$/);
-  assert.match(lock, /^DELETE FROM casemgmt_note_lock WHERE provider_no = '999998' AND demographic_no = 2$/);
+  assert.match(lock, /^DELETE FROM casemgmt_note_lock WHERE session_id = 'ABC123SESSION' AND provider_no = '999998' AND demographic_no = 2$/);
 });
 
-test('locks that existed before the chart was opened are never deleted', async () => {
-  seed({ preexistingLockIds: ['41', '57'] });
+test('the lock delete names this browser session, so another session\'s lock on the same patient survives', async () => {
+  // casemgmt_note_lock has no uniqueness on provider and patient: a concurrent
+  // chart session for the same clinician and patient takes its own row, and a
+  // delete keyed on provider and patient alone would take both. The row this
+  // session took carries this session's id, and only that row is deleted.
+  seed({ sessionId: '' });
   const { sql } = check.fixture;
   await check.cleanup();
-  assert.match(sql.executed[1], /AND id NOT IN \(41, 57\)$/);
+  assert.equal(sql.executed.length, 1, 'with no session id known, no lock is deleted at all');
+  assert.match(sql.executed[0], /^DELETE FROM casemgmt_tmpsave/);
+  assert.match(CODE, /find\(\(cookie\) => cookie\.name === 'JSESSIONID'\)/, 'the session id comes from the browser\'s own cookie');
+});
+
+test('no patient key reaches stdout or the result record', () => {
+  // demographic_no joins straight back to a patient, and runCheck() writes
+  // thrown messages and stdout into CI artifacts.
+  assert.doesNotMatch(CODE, /patient \$\{demographicNo\}/);
+  assert.doesNotMatch(CODE, /\$\{chartPage\.url\(\)\}/);
+  assert.doesNotMatch(CODE, /return \{ demographicNo/);
 });
 
 test('nothing is deleted when the run never learned whose rows it wrote', async () => {

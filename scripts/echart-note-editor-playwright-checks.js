@@ -51,10 +51,17 @@
  * it into the check's stamped text and the cleanup would then delete a
  * clinician's draft: the check refuses before it clicks, with a SKIP naming
  * the way out (another patient, or the draft signed or discarded). The lock
- * delete is scoped to the test provider and to rows that did not exist before
- * the chart was opened, so a lock another session holds on the same patient is
- * left where it is. Cleanup runs through runCheck()'s cleanup hook: a delete
- * that fails is a FAIL, whatever the assertions said.
+ * delete is scoped to THIS browser session: casemgmt_note_lock records the HTTP
+ * session id that took the lock (CaseManagementEntry2Action.isNoteEdited), the
+ * same id the JSESSIONID cookie carries, so the delete names that id together
+ * with the test provider and the patient, and a lock any other session holds
+ * on the same patient is left where it is. Cleanup runs through runCheck()'s
+ * cleanup hook: a delete that fails is a FAIL, whatever the assertions said.
+ *
+ * NO PATIENT KEY IN THE OUTPUT. demographic_no joins straight back to a
+ * patient record, and runCheck() writes thrown messages and stdout into CI
+ * artifacts, so the diagnostics say "the selected patient" and never print the
+ * chart URL.
  *
  * Defaults are for the local devcontainer:
  *   MYSQL_PASSWORD=... npm run test:echart-note-editor-playwright
@@ -111,8 +118,8 @@ const fixture = {
   stamp: '',
   providerNo: '',
   demographicNo: '',
-  /** Lock ids that existed for this patient before the chart was opened: not ours, never deleted. */
-  preexistingLockIds: [],
+  /** The browser's HTTP session id: the lock row this session takes records it. */
+  sessionId: '',
 };
 
 /**
@@ -124,7 +131,7 @@ const fixture = {
  * rows still in the database.
  */
 async function cleanup() {
-  const { sql, stamp, providerNo, demographicNo, preexistingLockIds } = fixture;
+  const { sql, stamp, providerNo, demographicNo, sessionId } = fixture;
   if (!sql) {
     return;
   }
@@ -134,10 +141,10 @@ async function cleanup() {
       `DELETE FROM casemgmt_tmpsave WHERE provider_no = '${providerNo}' AND demographic_no = ${demographicNo} `
       + `AND note LIKE '%${stamp}%'`]);
   }
-  if (providerNo && demographicNo) {
-    const keep = preexistingLockIds.length ? ` AND id NOT IN (${preexistingLockIds.join(', ')})` : '';
+  if (sessionId && providerNo && demographicNo) {
     statements.push(['the note lock this session took',
-      `DELETE FROM casemgmt_note_lock WHERE provider_no = '${providerNo}' AND demographic_no = ${demographicNo}${keep}`]);
+      `DELETE FROM casemgmt_note_lock WHERE session_id = '${sessionId}' AND provider_no = '${providerNo}' `
+      + `AND demographic_no = ${demographicNo}`]);
   }
   const failed = [];
   for (const [what, statement] of statements) {
@@ -186,26 +193,19 @@ async function main() {
     browser = await launchBrowser(config);
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
+    // The lock the chart is about to take records this session's id; capture it
+    // now so the cleanup can name exactly that row and no other session's.
+    const sessionCookie = (await context.cookies()).find((cookie) => cookie.name === 'JSESSIONID');
+    assert(sessionCookie && /^[A-Za-z0-9._-]+$/.test(sessionCookie.value),
+      'the login left no JSESSIONID cookie, so the note lock this session takes could not be told from another session\'s');
+    fixture.sessionId = sessionCookie.value;
     const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
       searchTerm, preferredDemographicNo, timeout,
     });
-    // Locks the patient already carries are somebody else's: record them so the
-    // cleanup can leave them alone.
-    const chartLink = masterPage.locator('a').filter({ hasText: /^\s*E-?Chart\s*$/i }).first();
-    const chartHref = await chartLink.getAttribute('href').catch(() => null);
-    const expectedDemographicNo = chartHref ? new URL(chartHref, config.baseUrl.href).searchParams.get('demographicNo') : null;
-    if (expectedDemographicNo && /^\d+$/.test(expectedDemographicNo)) {
-      fixture.preexistingLockIds = sql.rows(`SELECT id FROM casemgmt_note_lock WHERE demographic_no = ${expectedDemographicNo}`)
-        .map((row) => row[0]).filter((id) => /^\d+$/.test(id));
-    }
     const chartPage = await openChartWithoutBaseline(context, masterPage, recorder, timeout);
     const demographicNo = sqlNumber(new URL(chartPage.url()).searchParams.get('demographicNo') || '',
-      `the demographicNo in the chart URL (${chartPage.url()})`);
+      'the demographicNo in the chart URL');
     fixture.demographicNo = demographicNo;
-    if (expectedDemographicNo !== demographicNo) {
-      // The link and the popup disagree on the patient; the lock snapshot is for the wrong one.
-      fixture.preexistingLockIds = [];
-    }
 
     // The chart has restored any draft this provider holds for the patient into
     // the textarea. Typing would autosave it back with the stamp inside, and
@@ -214,7 +214,7 @@ async function main() {
       `SELECT COUNT(*) FROM casemgmt_tmpsave WHERE provider_no = '${providerNo}' AND demographic_no = ${demographicNo}`,
     ) || '0');
     if (priorDrafts > 0) {
-      throw new SkipCheck(`the test provider already holds an autosaved draft for patient ${demographicNo}; typing here `
+      throw new SkipCheck('the test provider already holds an autosaved draft for the selected patient; typing here '
         + 'would overwrite it. Point NOTE_EDITOR_DEMOGRAPHIC_NO at a patient with no draft, or sign or discard that one first');
     }
 
@@ -244,9 +244,9 @@ async function main() {
     assert(drafts >= 1, 'the autosave answered 200 but wrote no casemgmt_tmpsave row, so the POST did not reach the action');
 
     assertStrictPage(recorder, ['echart']);
-    console.log(`  typed into the note for patient ${demographicNo}: console clean, autosave POST carried the CSRF-TOKEN header and was stored`);
+    console.log('  typed into the note for the selected patient: console clean, autosave POST carried the CSRF-TOKEN header and was stored');
     await chartPage.close().catch(() => {});
-    return { demographicNo, drafts };
+    return { drafts };
   } finally {
     if (browser) await browser.close().catch(() => {});
   }

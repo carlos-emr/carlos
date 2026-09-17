@@ -68,13 +68,24 @@ function stampRequests(recorder, label) {
   return recorder.requestLog.filter((entry) => entry.label === label && STAMP_REQUEST.test(entry.url));
 }
 
-/** Switch the form to another provider and wait for the stamp request that triggers. */
+/**
+ * Switch the form to another provider and return the stamp request that triggers.
+ *
+ * The wait is registered BEFORE the switch, so a fast answer cannot slip past
+ * it, and a missing answer is a failure rather than a null: a provider switch
+ * that asks nothing means the page under test changed, and a check that
+ * quietly kept the previous probe would report SKIP ("every provider has a
+ * stamp") on evidence it never gathered.
+ */
 async function switchProviderAndProbe(formPage, recorder, label, value, timeout) {
   const before = stampRequests(recorder, label).length;
+  const answered = formPage.waitForResponse((response) => STAMP_REQUEST.test(response.url()), { timeout });
   await formPage.locator('#providerNoSelect').selectOption(value);
-  await formPage.waitForResponse((response) => STAMP_REQUEST.test(response.url()), { timeout }).catch(() => null);
+  await answered;
   const after = stampRequests(recorder, label);
-  return after.length > before ? after[after.length - 1] : null;
+  assert(after.length > before,
+    'switching the provider produced a stamp response the recorder never logged, so the probe cannot be judged');
+  return after[after.length - 1];
 }
 
 async function main() {
@@ -130,7 +141,7 @@ async function main() {
         );
         for (const value of values.slice(0, MAX_PROVIDERS_TO_TRY)) {
           const next = await switchProviderAndProbe(formPage, recorder, label, value, timeout);
-          if (next && next.status !== 200) {
+          if (next.status !== 200) {
             probe = next;
             providerNo = value;
             break;
@@ -142,8 +153,10 @@ async function main() {
         }
       }
 
+      // The provider number is a PHI-correlating identifier (CLAUDE.md), so the
+      // diagnostics describe the provider rather than print it.
       assert(probe.status === 204,
-        `provider ${providerNo} has no stored stamp and the form's stamp request answered HTTP ${probe.status}; `
+        `the probed provider has no stored stamp and the form's stamp request answered HTTP ${probe.status}; `
         + 'the contract is 204 (absence is a normal state), and a 404 here is the console error finding 6 recorded');
 
       // The fallback itself: the pad is offered, the stamp box is hidden, and the
@@ -157,7 +170,7 @@ async function main() {
         'after a 204 the stored-stamp box (#signatureShow) should be hidden, and it is still shown');
 
       assertStrictPage(recorder, [label]);
-      console.log(`  provider ${providerNo} without a stamp: stamp request answered 204, signature pad shown, console clean`);
+      console.log('  a provider without a stamp: stamp request answered 204, signature pad shown, console clean');
       return { providerNo, status: probe.status };
     } finally {
       await formPage.close().catch(() => {});
