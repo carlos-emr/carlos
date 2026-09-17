@@ -96,5 +96,19 @@ class SignatureIdentityMigration(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
 
 
+    def test_identical_unassigned_rows_survive_assigned_deduplication(self):
+        self.run_sql("INSERT INTO providerExt VALUES (NULL,'One'),(NULL,'One'),"
+                     "(NULL,NULL),(NULL,NULL),('T099','Doctor'),('T099','Doctor')")
+        unassigned = ("SELECT COALESCE(HEX(signature),'NULL') FROM providerExt "
+                      "WHERE provider_no IS NULL ORDER BY BINARY signature")
+        before = self.run_sql(unassigned)
+        self.run_sql(MIGRATION)
+        self.assertEqual(self.run_sql(unassigned), before)
+        self.assertEqual(self.run_sql("SELECT COUNT(*) FROM providerExt WHERE provider_no='T099'"), '1')
+        repaired = self.snapshot()
+        self.run_sql(MIGRATION)
+        self.assertEqual(self.snapshot(), repaired)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

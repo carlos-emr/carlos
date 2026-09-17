@@ -1,7 +1,8 @@
 -- ProviderExt maps provider_no as its entity ID, but legacy schemas only index
 -- that column non-uniquely. Repeated empty signature saves can create identical
--- rows and make Hibernate reject subsequent reads. Keep one exact copy and
--- enforce the mapped identity. Do not choose between conflicting signatures.
+-- rows and make Hibernate reject subsequent reads. Keep one exact copy for each
+-- assigned provider and enforce the mapped identity. Preserve all unassigned
+-- NULL-provider rows. Do not choose between conflicting signatures.
 --
 -- Run with all application nodes stopped (the normal upgrade requirement).
 -- The temporary copy uses the source column definitions/collation. Its unique
@@ -14,7 +15,12 @@ CREATE TEMPORARY TABLE carlos_signature_identity_v1_0_23_1 LIKE providerExt;
 ALTER TABLE carlos_signature_identity_v1_0_23_1
     ADD UNIQUE INDEX signature_identity_validation (provider_no);
 INSERT INTO carlos_signature_identity_v1_0_23_1 (provider_no, signature)
-SELECT DISTINCT BINARY provider_no, BINARY signature FROM providerExt;
+SELECT DISTINCT BINARY provider_no, BINARY signature FROM providerExt
+WHERE provider_no IS NOT NULL;
+-- NULL provider IDs have no mapped identity and remain outside the unique rule.
+-- Preserve their multiplicity, even when their signature values are identical.
+INSERT INTO carlos_signature_identity_v1_0_23_1 (provider_no, signature)
+SELECT provider_no, signature FROM providerExt WHERE provider_no IS NULL;
 
 START TRANSACTION;
 DELETE FROM providerExt;

@@ -59,7 +59,8 @@ See [the release process](../../../docs/release-process.md) for branch promotion
 
 Stop all application nodes and take a database backup before upgrade. The migration
 copies signatures into a temporary table with a unique provider key before changing
-`providerExt`. Exact byte-for-byte duplicates collapse; distinct text, including case
+`providerExt`. Exact byte-for-byte duplicates for an assigned provider collapse;
+distinct text for that provider, including case
 or a NULL versus text value, produces a duplicate-key failure with the source untouched.
 Confirm the intended text with the affected provider and resolve the conflicting rows
 from the backup; do not pick an arbitrary signature. For the DEB deployment, inspect
@@ -68,7 +69,8 @@ all published migration files are unchanged, run `sudo carlos-ctl db-repair`, th
 `sudo carlos-ctl db-migrate` and `sudo carlos-ctl db-validate`. Do not use repair to accept
 a checksum mismatch or conceal an unrelated migration failure. Successful application preserves signature text
 and enforces one row per non-NULL provider identifier, matching the Hibernate entity ID.
-Legacy unassigned NULL-provider rows are preserved.
+Every legacy unassigned NULL-provider row is preserved, including identical rows
+and rows with a NULL signature. These rows are outside the provider identity rule.
 
 The executable isolated-database regression is
 `python3 scripts/test-provider-signature-migration.py` from the repository root, using a

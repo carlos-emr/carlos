@@ -33,7 +33,8 @@ run the updated acknowledgement code to participate in this coordination protoco
 metadata when the idempotent V1.0.21 creation finds a pre-existing coordination table.
 
 `V1.0.23.1__enforce_provider_signature_identity.sql` repairs exact duplicate provider
-signature rows and enforces the mapped provider identity. Conflicting signatures fail
+signature rows for assigned providers and enforces the mapped provider identity.
+Every unassigned NULL-provider row is retained, including identical rows. Conflicting signatures fail
 before source changes. See the parent README for preparation and recovery instructions.
 
 Applied together with exactly one province. The release high-water mark is `1.0.23.1`;
