@@ -29,7 +29,7 @@ class DemographicLabelPdfUnitTest {
             """).formatted(query).getBytes(StandardCharsets.UTF_8));
     }
 
-    @Test void writesCompletePdfAndClosesConnection() throws Exception {
+    @Test void shouldWriteCompletePdfAndCloseConnection_whenTemplateAndDataArePresent() throws Exception {
         Connection connection = DriverManager.getConnection("jdbc:h2:mem:labelPdf");
         MockHttpServletResponse response = new MockHttpServletResponse();
         try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
@@ -47,7 +47,7 @@ class DemographicLabelPdfUnitTest {
         }
     }
 
-    @Test void malformedTemplateReturnsFailureBeforeOpeningDatabase() throws Exception {
+    @Test void shouldReturnFailureBeforeOpeningDatabase_whenTemplateIsMalformed() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
         try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             DemographicLabelPdf.write(response, Map.of(), new ByteArrayInputStream("invalid".getBytes(StandardCharsets.UTF_8)), null);
@@ -56,13 +56,13 @@ class DemographicLabelPdfUnitTest {
         assertFailure(response);
     }
 
-    @Test void missingTemplateReturnsFailure() throws Exception {
+    @Test void shouldReturnFailure_whenTemplateIsMissing() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
         DemographicLabelPdf.write(response, Map.of(), null, null);
         assertFailure(response);
     }
 
-    @Test void databaseFailureDoesNotReturnEmptySuccessfulPdf() throws Exception {
+    @Test void shouldReturnFailureWithoutDatabaseDetails_whenConnectionFails() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
         try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(LegacyJdbcQuery::getConnection).thenThrow(new SQLException("private database details"));
@@ -72,7 +72,7 @@ class DemographicLabelPdfUnitTest {
         assertThat(response.getErrorMessage()).doesNotContain("private");
     }
 
-    @Test void noPatientDataIsExplicitFailureAndClosesConnection() throws Exception {
+    @Test void shouldReturnFailureAndCloseConnection_whenReportHasNoPages() throws Exception {
         Connection connection = DriverManager.getConnection("jdbc:h2:mem:emptyLabelPdf");
         MockHttpServletResponse response = new MockHttpServletResponse();
         try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {

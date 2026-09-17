@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.demographic;
 
 import java.io.InputStream;
+import java.io.File;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -34,11 +36,13 @@ import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -177,6 +181,26 @@ class DemographicLabelActionUnitTest extends CarlosUnitTestBase {
     void shouldEnableSilentPrinting_whenPreferenceYes(Route route) throws Exception {
         stubPreferences("yes");
         assertRendered(route, true);
+    }
+
+    @ParameterizedTest @EnumSource(Route.class)
+    void shouldUseBundledTemplate_whenOverridePathRejected(Route route) throws Exception {
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
+            paths.when(() -> PathValidationUtils.resolveTrustedPath(any(File.class)))
+                    .thenThrow(new SecurityException("Invalid override path"));
+            assertRendered(route, null);
+        }
+    }
+
+    @ParameterizedTest @EnumSource(Route.class)
+    void shouldUseBundledTemplate_whenOverrideCannotBeOpened(Route route, @TempDir Path directory)
+            throws Exception {
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
+            // An existing directory passes File.exists(), but cannot be opened as a template.
+            paths.when(() -> PathValidationUtils.resolveTrustedPath(any(File.class)))
+                    .thenReturn(directory.toFile());
+            assertRendered(route, null);
+        }
     }
 
     private void stubPreferences(String silentValue) {

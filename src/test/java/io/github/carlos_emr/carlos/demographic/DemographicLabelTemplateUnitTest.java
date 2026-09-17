@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DemographicLabelTemplateUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"label.xml", "Addresslabel.xml", "Chartlabel.xml", "ClientLabLabel.xml", "SexualHealthClinicLabel.xml"})
-    void rendersPatientIdentityWithRuntimeJasperVersion(String name) throws Exception {
+    void shouldRender_withPatientIdentityUsingRuntimeJasperVersion(String name) throws Exception {
         try (InputStream template = getClass().getResourceAsStream("/oscar/oscarDemographic/" + name)) {
             assertThat(template).isNotNull();
             JasperReport report = JasperCompileManager.compileReport(template);

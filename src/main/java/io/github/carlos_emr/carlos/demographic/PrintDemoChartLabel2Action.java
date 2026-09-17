@@ -213,7 +213,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
 
         try {
             ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + File.separator + labelFile)));
-        } catch (FileNotFoundException ex) {
+        } catch (FileNotFoundException | SecurityException ex) {
             logger.debug("Chart label override absent; using bundled template");
         }
         if (ins == null) {

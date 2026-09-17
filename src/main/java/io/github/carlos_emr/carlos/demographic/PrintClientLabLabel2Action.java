@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.demographic;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -102,9 +103,16 @@ public class PrintClientLabLabel2Action extends ActionSupport {
         HashMap<String, Object> parameters = new HashMap<>();
         parameters.put("demo", demographicNo);
 
-        File file = PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/ClientLabLabel.xml"));
-        InputStream ins = file.exists() ? new FileInputStream(file)
-                : getClass().getResourceAsStream("/oscar/oscarDemographic/ClientLabLabel.xml");
+        InputStream ins = null;
+        try {
+            File file = PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/ClientLabLabel.xml"));
+            ins = new FileInputStream(file);
+        } catch (FileNotFoundException | SecurityException ex) {
+            logger.debug("Client lab label override unavailable; using bundled template");
+        }
+        if (ins == null) {
+            ins = getClass().getResourceAsStream("/oscar/oscarDemographic/ClientLabLabel.xml");
+        }
         DemographicLabelPdf.write(response, parameters, ins, exportPdfJavascript);
         return NONE;
     }
