@@ -406,7 +406,7 @@ async function submitEditWithReceipt(context, popup, appointmentNo) {
   for (const expected of [targetDate, row.startTime.slice(0, 5), ...patient]) {
     assert(text.includes(expected), `receipt is missing expected appointment content: ${expected}`);
   }
-  assert(new RegExp(`\\b${appointmentNo}\\b`).test(text), 'receipt contains no matching appointment ID');
+  assert(text.split(/\W+/).includes(String(appointmentNo)), 'receipt contains no matching appointment ID');
   await receipt.close();
   pass('Update & Receipt displayed its PDF under the application CSP with correct patient, date, time and appointment ID');
 }
