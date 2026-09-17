@@ -59,6 +59,10 @@ const READS_TOKEN_INPUT = [
   /getElementsByName\s*\(\s*['"]CSRF-TOKEN['"]/,
   /\$\s*\([^)]{0,200}CSRF-TOKEN/,
   /jQuery\s*\([^)]{0,200}CSRF-TOKEN/,
+  // The helper's accessor reads the same input. A page that calls it and then
+  // sends the value by a transport CSRFGuard does not intercept is exactly the
+  // fetch() case with one indirection, so it is judged like one.
+  /\bCarlosAjax\.getCsrfToken\s*\(/,
 ];
 
 /** Sending it anywhere the CSRFGuard client script does not hijack. */
@@ -69,6 +73,9 @@ const SENDS_OVER_AJAX = [
   /\$\.post\s*\(/,
   /jQuery\.ajax\s*\(/,
   /jQuery\.post\s*\(/,
+  // sendBeacon() is not XMLHttpRequest: CSRFGuard's script never sees it, so
+  // the token it carries can only come from the hidden input.
+  /\bnavigator\.sendBeacon\s*\(/,
 ];
 
 /*
@@ -93,6 +100,15 @@ const SENDS_OVER_AJAX = [
  * CarlosAjax, and reads the token header back off the wire. The test file pins
  * that the helper still uses XMLHttpRequest, because that is the fact this
  * exclusion rests on.
+ *
+ * THE EXCLUSION IS FOR THE HELPER'S OWN SENDS, NOT FOR EVERY PAGE THAT LOADS
+ * IT. js/newCaseManagementView.js.jsp releases the note lock on pagehide with
+ * navigator.sendBeacon(), carrying the value of CarlosAjax.getCsrfToken() in
+ * the body. That send goes nowhere near XMLHttpRequest, so the header cannot
+ * rescue it: it is a bootstrapping-rule page, and READS_TOKEN_INPUT and
+ * SENDS_OVER_AJAX both name that shape so the audit sees it. It is satisfied
+ * because the chart's `frmIssueNotes` form has action="" and method="post",
+ * which CSRFGuard injects into (see FORM_ACTION below).
  */
 
 /**
@@ -108,14 +124,28 @@ const SENDS_OVER_AJAX = [
  */
 const FORM_WINDOW = 600;
 /*
- * A REAL URL, not merely a non-empty attribute. `[^"']+` accepted
- * action="#anchor", action="javascript:doIt()" and action="   ": CSRFGuard
- * injects into none of those, so hasRealPostForm() could call a page compliant
- * while its token input was never populated -- the static guard reporting clean
- * on exactly the page it exists to catch. The value must have a non-space
- * character and must not open with a fragment or a script scheme.
+ * THE ACTION CSRFGuard ACCEPTS, no stricter and no looser. This mirrors
+ * isValidUrl() in csrfguard.js (META-INF/csrfguard.js in
+ * csrfguard-4.5.0-jakarta.jar), which injectTokenForm() applies to the raw
+ * attribute value:
+ *
+ *   - no `action` attribute at all: skipped (getAttribute() is null);
+ *   - starts with `#`: skipped, an anchor;
+ *   - starts with `//` or with a scheme (`javascript:`, `data:`, ...): skipped,
+ *     except http(s) to the page's own host, which this audit cannot decide
+ *     statically and so accepts;
+ *   - anything else, INCLUDING THE EMPTY STRING and a value that is only
+ *     whitespace: injected. "" is not trimmed and does not start with `/`, so it
+ *     falls to the `has no scheme` branch and is a local resource.
+ *
+ * The chart (newEncounterLayout.jsp) writes <form action="" method="post">, and
+ * its hidden input is populated live: the earlier `[^"'\s]` requirement called
+ * that form unusable and was wrong about it. Being stricter than CSRFGuard here
+ * is not a safe direction: it would have the audit demand a bootstrap on a page
+ * that already has one, and a maintainer who adds the include to quiet it would
+ * be adding a second copy of the token to a page that never lacked the first.
  */
-const FORM_ACTION = /\baction\s*=\s*["']\s*(?!#|javascript:|vbscript:|data:)[^"'\s][^"']*["']/i;
+const FORM_ACTION = /\baction\s*=\s*(["'])(?!#|\/\/|(?!https?:)[a-z][a-z0-9.+-]*:)[^"']*\1/i;
 const FORM_METHOD_NON_GET = /\bmethod\s*=\s*["']\s*(?!get\b)[a-z]+\s*["']/i;
 
 function hasRealPostForm(source) {
@@ -288,6 +318,14 @@ function routesRenderingFile(strutsDirectory, jspPath, webappRoot = WEBAPP) {
  * browser runs is the HOST's, so the host is what must carry the token input.
  * Attributing the rule to the fragment would demand a form of something that
  * has no document to put one in.
+ *
+ * The match is a plain substring of the file name or of a route that renders
+ * it, looked for in the candidate's CODE AND MARKUP ONLY. A mention in a comment
+ * renders nothing: ChartNotesAjax.jsp names js/newCaseManagementView.js.jsp
+ * twice, both times in prose about the script that fetches it, and read
+ * as a host it turned a page whose token input is populated live into a
+ * reported violation. Missing a real host is still the costlier direction, so
+ * the match stays a substring; only comments are excluded.
  */
 function hostsOf(file, files, strutsDirectory, webappRoot = WEBAPP) {
   const base = path.basename(file);
@@ -297,9 +335,25 @@ function hostsOf(file, files, strutsDirectory, webappRoot = WEBAPP) {
     if (candidate === file) {
       return false;
     }
-    const source = fs.readFileSync(candidate, 'utf8');
+    const source = stripComments(fs.readFileSync(candidate, 'utf8'));
     return needles.some((needle) => source.includes(needle));
   });
+}
+
+/**
+ * The source with JSP, HTML, block and whole-line `//` comments removed.
+ *
+ * Only a `//` that opens its line is a comment: a `//` mid-line is far more
+ * often the one in `http://`. A block comment inside a string literal would be
+ * cut too, which for host attribution errs towards finding fewer hosts and is
+ * accepted; hostsOf() is a substring match, not a parser.
+ */
+function stripComments(source) {
+  return source
+    .replace(/<%--[\s\S]*?--%>/g, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^[ \t]*\/\/.*$/gm, '');
 }
 
 const isSelfContained = (source) => /<html\b/i.test(source);
@@ -380,4 +434,5 @@ module.exports = {
   isSelfContained,
   jspFiles,
   routesRenderingFile,
+  stripComments,
 };

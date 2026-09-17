@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const {
   auditSource, auditWebapp, hasActionlessForm,
-  hasRealPostForm, isSelfContained, jspFiles,
+  hasRealPostForm, isSelfContained, jspFiles, stripComments,
 } = require('./lib/csrf-bootstrap-audit');
 
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
@@ -89,6 +89,40 @@ test('a page that posts only through the shared helper is outside the rule', () 
   assert.equal(verdict.satisfied, false);
 });
 
+test('reading the token through the helper and sending it by beacon is inside the rule', () => {
+  // The exclusion covers the helper's OWN sends, which are XMLHttpRequest and
+  // get the header. js/newCaseManagementView.js.jsp reads
+  // CarlosAjax.getCsrfToken() and sends the value with navigator.sendBeacon()
+  // on pagehide: CSRFGuard's script never sees a beacon, so the hidden input is
+  // the only carrier and the bootstrapping rule applies exactly as for fetch().
+  const beacon = `
+    <html><body><script>
+      var t = CarlosAjax.getCsrfToken();
+      navigator.sendBeacon('/carlos/CaseManagementEntry', new Blob(['method=releaseNoteLock&CSRF-TOKEN=' + t]));
+    </script></body></html>`;
+  const verdict = auditSource('beacon.jsp', beacon);
+  assert.ok(verdict, 'a beacon carrying the helper-read token is judged');
+  assert.equal(verdict.satisfied, false);
+  // Either half alone is not the shape: a beacon with no token is not this
+  // rule's business, and the helper's accessor feeding an XHR the helper makes
+  // is the excluded case.
+  assert.equal(auditSource('no-token.jsp', '<html><script>navigator.sendBeacon("/x");</script></html>'), null);
+  assert.equal(auditSource('helper.jsp', '<html><script>var t = CarlosAjax.getCsrfToken(); CarlosAjax.request(u);</script></html>'), null);
+
+  // And the real page is in the audit, satisfied by the documents that load it.
+  const { applicable } = auditWebapp();
+  const chartScript = applicable.find((entry) => entry.file.endsWith('js/newCaseManagementView.js.jsp'));
+  assert.ok(chartScript, 'the chart script must be judged, not cleared by the helper exclusion');
+  assert.equal(chartScript.satisfied, true);
+  assert.match(chartScript.reason, /rendered into .*newEncounterLayout\.jsp/);
+  // Its own source has the beacon shape, not a hand-rolled fetch.
+  const source = fs.readFileSync(path.join(
+    __dirname, '..', 'src', 'main', 'webapp', 'js', 'newCaseManagementView.js.jsp',
+  ), 'utf8');
+  assert.match(source, /CarlosAjax\.getCsrfToken\s*\(/);
+  assert.match(source, /navigator\.sendBeacon\s*\(/);
+});
+
 test('the exclusion rests on the helper using XMLHttpRequest, so that is pinned', () => {
   // The day carlos-ajax.js sends with fetch(), CSRFGuard's interceptor no
   // longer sees its requests and every helper caller IS governed by the rule
@@ -102,18 +136,38 @@ test('the exclusion rests on the helper using XMLHttpRequest, so that is pinned'
     'CLAUDE.md must keep stating which transport the rule is for');
 });
 
-test('a form action must be a real url, not a fragment or a script', () => {
-  // `[^"']+` accepted all of these, so hasRealPostForm() could call a page
-  // compliant while CSRFGuard injected into nothing.
+test('a form action is judged the way csrfguard.js isValidUrl() judges it', () => {
+  // The audit must predict what CSRFGuard's injectTokenForm() will do with the
+  // raw attribute value, no stricter and no looser. `[^"']+` accepted anchors
+  // and script schemes, which it skips; the `[^"'\s]` that replaced it rejected
+  // the empty string, which it injects into (the chart's frmIssueNotes form).
   assert.equal(hasRealPostForm('<form action="/carlos/x" method="post"></form>'), true);
   assert.equal(hasRealPostForm('<form action="  /carlos/x" method="post"></form>'), true);
   assert.equal(hasRealPostForm('<form action="#" method="post"></form>'), false);
   assert.equal(hasRealPostForm('<form action="#tab" method="post"></form>'), false);
   assert.equal(hasRealPostForm('<form action="javascript:save()" method="post"></form>'), false);
-  assert.equal(hasRealPostForm('<form action="   " method="post"></form>'), false);
+  assert.equal(hasRealPostForm('<form action="data:text/html,x" method="post"></form>'), false);
+  assert.equal(hasRealPostForm('<form action="//other.host/x" method="post"></form>'), false);
+  // isValidUrl("") falls to its "local resource without a protocol" branch,
+  // and it does not trim, so whitespace lands in the same branch.
+  assert.equal(hasRealPostForm('<form action="" method="post"></form>'), true);
+  assert.equal(hasRealPostForm("<form action='' method='post'></form>"), true);
+  assert.equal(hasRealPostForm('<form action="   " method="post"></form>'), true);
+  // An absolute http(s) URL is accepted only for the page's own host, which a
+  // static audit cannot decide; it is accepted rather than reported.
+  assert.equal(hasRealPostForm('<form action="https://emr.example/carlos/x" method="post"></form>'), true);
   // The shapes CARLOS really writes must keep passing.
   assert.equal(hasRealPostForm('<form action="<%= request.getContextPath() %>/x" method="post"></form>'), true);
   assert.equal(hasRealPostForm('<form action="${pageContext.request.contextPath}/x" method="post"></form>'), true);
+});
+
+test('the empty-action form is not the empty-placeholder anti-pattern', () => {
+  // The anti-pattern CLAUDE.md names has NO action attribute, which CSRFGuard
+  // skips because getAttribute() is null. action="" is an attribute with a
+  // value CSRFGuard accepts, so a page carrying it is compliant, not a
+  // placeholder to be reported.
+  assert.equal(hasActionlessForm('<form id="frmIssueNotes" action="" method="post"></form>'), false);
+  assert.equal(hasActionlessForm('<form id="csrfForm" style="display:none;"></form>'), true);
 });
 
 test('a page that reads the token with no form and no bootstrap is a violation', () => {
@@ -209,6 +263,24 @@ test('a fragment is judged by the pages that render it, not on its own', () => {
   assert.match(attributed.reason, /rendered into .*SearchDrug3\.jsp/);
 });
 
+test('a page that only mentions a fragment in a comment does not host it', () => {
+  // ChartNotesAjax.jsp names js/newCaseManagementView.js.jsp twice, in prose
+  // about the script that fetches it. Read as a host it is a fragment with no
+  // form, and the chart script was reported as a violation on the strength of
+  // a comment. Comments render nothing, so hostsOf() reads past them.
+  assert.equal(stripComments('<%-- ListDrugs.jsp --%><!-- ListDrugs.jsp --><script>/* ListDrugs.jsp */\n  // ListDrugs.jsp\n</script>'),
+    '<script>\n\n</script>');
+  // A `//` mid-line is a URL, not a comment, and the src that loads a script is code.
+  assert.equal(stripComments('<script src="http://h/js/x.js.jsp"></script>'), '<script src="http://h/js/x.js.jsp"></script>');
+
+  const chartNotesAjax = fs.readFileSync(path.join(
+    __dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp', 'casemgmt', 'ChartNotesAjax.jsp',
+  ), 'utf8');
+  assert.ok(chartNotesAjax.includes('newCaseManagementView.js.jsp'), 'the comment mention this guards against is still there');
+  assert.ok(!stripComments(chartNotesAjax).includes('newCaseManagementView.js.jsp'),
+    'ChartNotesAjax.jsp now loads the chart script in code, so it must carry the token input or be attributed to a page that does');
+});
+
 test('every JSP in the webapp is scanned, not a subdirectory of them', () => {
   const files = jspFiles();
   assert.ok(files.length > 900, `expected the whole webapp, found ${files.length} files`);
@@ -252,4 +324,12 @@ test('the browser check covers the whole pages the static audit stopped judging'
   assert.match(check, /openChart\(/, 'newEncounterLayout.jsp is the chart');
   assert.match(check, /allHeaders\(\)/, 'the token must be read off the wire, not out of the DOM');
   assert.match(check, /csrf-token/, 'the header CSRFGuard validates');
+  // The chart's note-lock beacon has only the hidden input to carry its token,
+  // so the check must prove that input is populated on the live chart.
+  assert.match(check, /assertHiddenInputPopulated\('echart'/,
+    'the chart\'s hidden CSRF-TOKEN input must be asserted populated: the pagehide beacon has no other carrier');
+  // The context path comes from the configured base URL, not from a guess at
+  // the first path segment of whatever page happens to be open.
+  assert.match(check, /config\.baseUrl\.pathname/);
+  assert.doesNotMatch(check, /location\.pathname\.split/);
 });

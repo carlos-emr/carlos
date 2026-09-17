@@ -70,25 +70,23 @@ const PROBE_BODY = 'method=isDocumentLinkedToDemographic&docId=0';
  * The request is matched by endpoint AND body so a page that happens to be
  * making its own inboxManage calls cannot be mistaken for the probe.
  */
-async function probeXhrPost(page, label, timeout) {
+async function probeXhrPost(page, label, timeout, contextPath) {
   const hiddenInput = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue().catch(() => null);
   const onTheWire = page.waitForRequest((request) => request.method() === 'POST'
     && request.url().includes(PROBE_ENDPOINT) && (request.postData() || '').includes(PROBE_BODY), { timeout });
-  const outcome = await page.evaluate(({ endpoint, body }) => new Promise((resolve) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code; the two arguments are module constants
+  const outcome = await page.evaluate(({ endpoint, body, prefix }) => new Promise((resolve) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code; the arguments are module constants and the validated base URL's path
     if (typeof CarlosAjax === 'undefined' || typeof CarlosAjax.request !== 'function') {
       resolve({ error: 'CarlosAjax is not defined on this page' });
       return;
     }
-    // The context path is the first segment of every CARLOS URL ("/carlos").
-    const contextPath = `/${window.location.pathname.split('/')[1]}`;
-    CarlosAjax.request(contextPath + endpoint, {
+    CarlosAjax.request(prefix + endpoint, {
       method: 'post',
       parameters: body,
       onComplete(transport) {
         resolve({ status: transport.status, body: String(transport.responseText || '').slice(0, 300) });
       },
     });
-  }), { endpoint: PROBE_ENDPOINT, body: PROBE_BODY });
+  }), { endpoint: PROBE_ENDPOINT, body: PROBE_BODY, prefix: contextPath });
   assert(!outcome.error, `${label}: ${outcome.error}`);
 
   const request = await onTheWire;
@@ -127,6 +125,22 @@ function assertTokenCarried(label, result) {
   console.log(`  ${label}: ${carrier} on the page; the POST carried the CSRF-TOKEN header and answered 200 JSON`);
 }
 
+/**
+ * The chart's note-lock release is the one send on these pages that the header
+ * cannot rescue: onClosing() in js/newCaseManagementView.js.jsp reads
+ * CarlosAjax.getCsrfToken() and posts it with navigator.sendBeacon(), which
+ * CSRFGuard's script does not intercept. The hidden input is its only carrier,
+ * and the static audit accepts the chart's <form action="" method="post"> as
+ * what populates it; this is where that is proved on the running page.
+ */
+function assertHiddenInputPopulated(label, result) {
+  assert(result.hiddenInput !== null,
+    `${label}: the page has no hidden CSRF-TOKEN input, and its pagehide beacon has no other way to carry the token`);
+  assert(result.hiddenInput.trim(),
+    `${label}: the hidden CSRF-TOKEN input is empty, so the pagehide beacon would post an empty token and the note lock `
+    + 'would never be released');
+}
+
 /** Pending Docs, from the Inbox the schedule links to. */
 async function openPendingDocuments(context, schedulePage, recorder, timeout) {
   const { page: inboxPage } = await clickOpensPopupOrNavigates(schedulePage, schedulePage.locator('#inboxLink').first(), {
@@ -160,6 +174,9 @@ async function main() {
   const searchTerm = process.env.CSRF_XHR_SEARCH || 'FAKE-';
   const preferredDemographicNo = process.env.CSRF_XHR_DEMOGRAPHIC_NO || '2';
   const timeout = Number(process.env.CSRF_XHR_TIMEOUT_MS || '20000');
+  // The probe posts to the configured deployment, not to whatever the open
+  // page's first path segment happens to be.
+  const contextPath = config.baseUrl.pathname.replace(/\/+$/, '');
 
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
@@ -170,7 +187,7 @@ async function main() {
 
     const pendingPage = await openPendingDocuments(context, schedulePage, recorder, timeout);
     try {
-      results['pending-documents'] = await probeXhrPost(pendingPage, 'pending-documents', timeout);
+      results['pending-documents'] = await probeXhrPost(pendingPage, 'pending-documents', timeout, contextPath);
       assertTokenCarried('pending-documents', results['pending-documents']);
     } finally {
       await pendingPage.close().catch(() => {});
@@ -180,12 +197,13 @@ async function main() {
       searchTerm, preferredDemographicNo, timeout,
     });
     const chartPage = await openChart(context, masterPage, recorder, timeout);
-    results.echart = await probeXhrPost(chartPage, 'echart', timeout);
+    results.echart = await probeXhrPost(chartPage, 'echart', timeout, contextPath);
     assertTokenCarried('echart', results.echart);
+    assertHiddenInputPopulated('echart', results.echart);
 
     const labPage = await openLabRowDisplay(context, chartPage, recorder, timeout);
     try {
-      results['lab-row-display'] = await probeXhrPost(labPage, 'lab-row-display', timeout);
+      results['lab-row-display'] = await probeXhrPost(labPage, 'lab-row-display', timeout, contextPath);
       assertTokenCarried('lab-row-display', results['lab-row-display']);
     } finally {
       await labPage.close().catch(() => {});
@@ -205,5 +223,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  PROBE_BODY, PROBE_ENDPOINT, assertTokenCarried, main, openLabRowDisplay, openPendingDocuments, probeXhrPost,
+  PROBE_BODY, PROBE_ENDPOINT, assertHiddenInputPopulated, assertTokenCarried, main, openLabRowDisplay,
+  openPendingDocuments, probeXhrPost,
 };
