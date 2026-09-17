@@ -80,6 +80,7 @@ async function main() {
         await request.locator('select[name="linkReqId"]').selectOption(value);
         const [response] = await Promise.all([
           request.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/lab/ViewLinkReq')),
+          lab.waitForEvent('load', { timeout: 30000 }),
           request.locator('input[type="submit"]').click(),
         ]);
         assert(response.status() === 200, `Link returned HTTP ${response.status()}`);
@@ -88,13 +89,13 @@ async function main() {
         assert(saved.length === 1 && saved[0][0] === row.table && saved[0][1] === row.id && saved[0][2] === row.date,
           'link did not persist exactly the chosen requisition and date');
         await request.close();
-        await lab.reload({ waitUntil: 'domcontentloaded' });
         request = await popupFrom(lab, lab.locator('input[title="Link to Requisition"]').first(), 'lab-requisition');
         assert(await request.locator('select[name="linkReqId"]').inputValue() === value, 'reopened selector lost the saved link');
       }
       await request.locator('select[name="linkReqId"]').selectOption('-1');
       await Promise.all([
         request.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/lab/ViewLinkReq')),
+        lab.waitForEvent('load', { timeout: 30000 }),
         request.locator('input[type="submit"]').click(),
       ]);
       await request.waitForFunction(() => window.__closeRequested === true, undefined, { timeout: 30000 });
