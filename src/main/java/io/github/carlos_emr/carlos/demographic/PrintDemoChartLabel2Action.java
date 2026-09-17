@@ -82,7 +82,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO
  * @see io.github.carlos_emr.carlos.managers.ProgramManager2
  * @see io.github.carlos_emr.carlos.managers.SecurityInfoManager
- * @see io.github.carlos_emr.OscarDocumentCreator
+ * @see DemographicLabelPdf
  * @since 2026-01-24
  */
 public class PrintDemoChartLabel2Action extends ActionSupport {
@@ -111,7 +111,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      *   <li>Determines which label template to use (ChartLabel or SexualHealthClinicLabel)</li>
      *   <li>Loads the label template XML from user home directory or classpath</li>
      *   <li>Gathers demographic and program context parameters</li>
-     *   <li>Generates PDF using JasperReports via OscarDocumentCreator</li>
+     *   <li>Generates PDF using JasperReports</li>
      *   <li>Streams PDF to response with optional JavaScript for automatic printing</li>
      * </ol>
      *
@@ -145,8 +145,10 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
     public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        String demographicNo = DemographicLabelAccess.authorizeRead(loggedInInfo,
+                request.getParameter("demographic_no"), response, securityInfoManager);
+        if (demographicNo == null) {
+            return NONE;
         }
 
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -161,7 +163,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         }
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_CHART_LABEL_SILENT_PRINT);
         if (prop != null) {
-            if (prop.getValue().equalsIgnoreCase("yes")) {
+            if ("yes".equalsIgnoreCase(prop.getValue())) {
                 silentPrint = true;
             }
         }
@@ -170,7 +172,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
             exportPdfJavascript = "var params = this.getPrintParams();"
                     + "params.pageHandling=params.constants.handling.none;"
-                    + "params.printerName='" + org.owasp.encoder.Encode.forJavaScript(defaultPrinterName) + "';";
+                    + "params.printerName='" + io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(defaultPrinterName) + "';";
             if (silentPrint == true) {
                 exportPdfJavascript += "params.interactive=params.constants.interactionLevel.silent;";
             }
@@ -194,7 +196,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
 
 
         HashMap<String, Object> parameters = new HashMap<>();
-        parameters.put("demo", request.getParameter("demographic_no"));
+        parameters.put("demo", demographicNo);
 
         ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 

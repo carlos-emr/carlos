@@ -64,9 +64,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Integration with patient demographic and appointment data</li>
  * </ul>
  *
- * <p>Security: Requires the "_demographic" security privilege with read access.
- * All patient data access is logged through the LoggedInInfo framework for
- * HIPAA/PIPEDA compliance.</p>
+ * <p>Security: Requires "_demographic" read access for the requested patient
+ * before loading printer preferences or generating the report.</p>
  *
  * <p>Label templates are configurable via CarlosProperties:</p>
  * <ul>
@@ -81,7 +80,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * </ul>
  *
  * @see io.github.carlos_emr.carlos.commn.model.UserProperty
- * @see io.github.carlos_emr.OscarDocumentCreator
+ * @see DemographicLabelPdf
  * @see io.github.carlos_emr.carlos.managers.SecurityInfoManager
  * @since 2026-01-24
  */
@@ -111,7 +110,7 @@ public class PrintDemoLabel2Action extends ActionSupport {
      *   <li>Retrieves provider-specific printer settings from UserProperty</li>
      *   <li>Determines the appropriate label template (MRP or appointment provider)</li>
      *   <li>Loads the label template XML from configured path or default classpath resource</li>
-     *   <li>Generates PDF using OscarDocumentCreator with patient demographic data</li>
+     *   <li>Generates PDF using JasperReports with authorized patient demographic data</li>
      *   <li>Streams the PDF to the response output with appropriate headers</li>
      *   <li>Optionally injects JavaScript for automatic/silent printing</li>
      * </ol>
@@ -148,11 +147,13 @@ public class PrintDemoLabel2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN", "CRLF_INJECTION_LOGS"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input; logged labelPath is from trusted CARLOS properties/config, no attacker-controlled CR/LF")
     public String execute() throws IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String demographicNo = DemographicLabelAccess.authorizeRead(loggedInInfo,
+                request.getParameter("demographic_no"), response, securityInfoManager);
+        if (demographicNo == null) {
+            return NONE;
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String curUser_no = loggedInInfo.getLoggedInProviderNo();
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
@@ -164,7 +165,7 @@ public class PrintDemoLabel2Action extends ActionSupport {
         }
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_LABEL_SILENT_PRINT);
         if (prop != null) {
-            if (prop.getValue().equalsIgnoreCase("yes")) {
+            if ("yes".equalsIgnoreCase(prop.getValue())) {
                 silentPrint = true;
             }
         }
@@ -173,14 +174,14 @@ public class PrintDemoLabel2Action extends ActionSupport {
         if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
             exportPdfJavascript = "var params = this.getPrintParams();"
                     + "params.pageHandling=params.constants.handling.none;"
-                    + "params.printerName='" + org.owasp.encoder.Encode.forJavaScript(defaultPrinterName) + "';";
+                    + "params.printerName='" + io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(defaultPrinterName) + "';";
             if (silentPrint == true) {
                 exportPdfJavascript += "params.interactive=params.constants.interactionLevel.silent;";
             }
             exportPdfJavascript += "this.print(params);";
         }
         HashMap<String, Object> parameters = new HashMap<>();
-        parameters.put("demo", request.getParameter("demographic_no"));
+        parameters.put("demo", demographicNo);
 
         Integer apptNo = null;
         try {

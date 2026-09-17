@@ -66,7 +66,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * lab specimen labels, and medical record filing in Canadian healthcare settings.</p>
  *
  * @see UserProperty
- * @see OscarDocumentCreator
+ * @see DemographicLabelPdf
  * @see UserPropertyDAO
  * @since 2026-01-24
  */
@@ -124,11 +124,13 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String execute() throws IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String demographicNo = DemographicLabelAccess.authorizeRead(loggedInInfo,
+                request.getParameter("demographic_no"), response, securityInfoManager);
+        if (demographicNo == null) {
+            return NONE;
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String curUser_no = loggedInInfo.getLoggedInProviderNo();
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
@@ -140,7 +142,7 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
         }
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_ADDRESS_LABEL_SILENT_PRINT);
         if (prop != null) {
-            if (prop.getValue().equalsIgnoreCase("yes")) {
+            if ("yes".equalsIgnoreCase(prop.getValue())) {
                 silentPrint = true;
             }
         }
@@ -149,14 +151,14 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
         if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
             exportPdfJavascript = "var params = this.getPrintParams();"
                     + "params.pageHandling=params.constants.handling.none;"
-                    + "params.printerName='" + org.owasp.encoder.Encode.forJavaScript(defaultPrinterName) + "';";
+                    + "params.printerName='" + io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(defaultPrinterName) + "';";
             if (silentPrint == true) {
                 exportPdfJavascript += "params.interactive=params.constants.interactionLevel.silent;";
             }
             exportPdfJavascript += "this.print(params);";
         }
         HashMap<String, Object> parameters = new HashMap<>();
-        parameters.put("demo", request.getParameter("demographic_no"));
+        parameters.put("demo", demographicNo);
 
 
         InputStream ins = null;
