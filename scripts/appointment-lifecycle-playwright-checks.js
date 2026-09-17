@@ -325,6 +325,9 @@ async function bookFromSlot(context, daySheet) {
     `booking form start_time was not prefilled from the slot, got ${slotStart}`);
   await popup.locator('#reason').fill(bookedReason);
   await popup.locator('textarea[name="notes"]').fill(bookedNotes);
+  const intendedDuration = Number(await popup.locator('#duration').inputValue());
+  assert(Number.isInteger(intendedDuration) && intendedDuration > 0,
+    'the selected slot must provide a positive duration');
   await checkInvalidDuration(popup, popup.locator('#addButton'), 'add appointment');
 
   const [response] = await Promise.all([
@@ -348,6 +351,12 @@ async function bookFromSlot(context, daySheet) {
     `booked appointment landed on provider ${row2.provider}, expected the ${providerNo} column that was clicked`);
   assert(row2.startTime.startsWith(slotStart.slice(0, 5)),
     `booked appointment start_time ${row2.startTime} did not match the clicked slot ${slotStart}`);
+  const startMinutes = Number(slotStart.slice(0, 2)) * 60 + Number(slotStart.slice(3, 5));
+  const endMinutes = Number(row2.endTime.slice(0, 2)) * 60 + Number(row2.endTime.slice(3, 5));
+  // The schedule stores an inclusive final minute (15 minutes at 08:00 ends at
+  // 08:14). Check the saved value, so recovery cannot leave the rejected end time.
+  assert(endMinutes - startMinutes === intendedDuration - 1,
+    `corrected duration ${intendedDuration} saved end_time ${row2.endTime} for start ${slotStart}`);
   await popup.close().catch(() => {});
   return row2;
 }
