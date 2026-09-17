@@ -37,6 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -80,7 +81,10 @@ public class SxmlMisc extends Properties {
 
             // Validate element name - only allow alphanumeric, underscore, hyphen
             if (!temp.matches("^[a-zA-Z0-9_-]+$")) {
-                log.error("Invalid XML element name: " + temp);
+                // temp is an attacker-controlled request parameter name and is logged here
+                // precisely because it failed the alphanumeric guard above, so it may contain
+                // CR/LF or control chars. Sanitize to prevent log forging (CodeQL log-injection).
+                log.error("Invalid XML element name: {}", LogSafe.sanitize(temp)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 continue; // Skip invalid parameter names
             }
 

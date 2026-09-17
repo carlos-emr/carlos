@@ -175,7 +175,7 @@ public final class LegacyJdbcQuery {
         PreparedStatement ps = null;
         try {
             // codeql[java/sql-injection] -- TrustedSql is constructed only after legacy SELECT validation; values are bound below.
-            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_SENSITIVE, // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- TrustedSql is constructed only after legacy SELECT validation; values are bound below
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
@@ -193,7 +193,7 @@ public final class LegacyJdbcQuery {
         PreparedStatement ps = null;
         try {
             // codeql[java/sql-injection] -- Raw legacy overload is restricted to caller-owned SQL shape; request-driven SQL uses TrustedSql or ParameterizedSql.
-            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- raw legacy overload is restricted to caller-owned SQL shape; values are bound below
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
@@ -332,21 +332,22 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Potential SQL injection pattern detected");
         }
 
-        if (containsSqlWord(normalized, "union")) {
+        String normalizedSqlSyntax = stripQuotedSqlSections(sql).toLowerCase(Locale.ROOT);
+        if (containsSqlWord(normalizedSqlSyntax, "union")) {
             throw new SQLException("Unsafe SQL detected: UNION not permitted");
         }
 
         String[] blockedWords = {"insert", "update", "delete", "drop", "alter", "create", "truncate",
                 "grant", "revoke", "exec", "execute", "call", "merge", "commit", "rollback"};
         for (String word : blockedWords) {
-            if (containsSqlWord(normalized, word)) {
+            if (containsSqlWord(normalizedSqlSyntax, word)) {
                 throw new SQLException("Unsafe SQL detected: prohibited keyword");
             }
         }
 
         String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
         for (String phrase : blockedPhrases) {
-            if (normalized.contains(phrase)) {
+            if (normalizedSqlSyntax.contains(phrase)) {
                 throw new SQLException("Unsafe SQL detected: prohibited keyword");
             }
         }
@@ -417,6 +418,9 @@ public final class LegacyJdbcQuery {
                 char current = sql.charAt(position);
                 char next = nextChar();
                 if (insideQuotedLiteral()) {
+                    if (isSqlModeDependentEscape(current)) {
+                        return true;
+                    }
                     skipQuotedLiteralToken(current, next);
                 } else if (opensQuotedLiteral(current)) {
                     quote = current;
@@ -436,13 +440,15 @@ public final class LegacyJdbcQuery {
         }
 
         private void skipQuotedLiteralToken(char current, char next) {
-            if (quote != '`' && current == '\\' && next != '\0') {
-                position++;
-            } else if (current == quote && next == quote) {
+            if (current == quote && next == quote) {
                 position++;
             } else if (current == quote) {
                 quote = '\0';
             }
+        }
+
+        private boolean isSqlModeDependentEscape(char current) {
+            return quote != '`' && current == '\\';
         }
 
         private static boolean opensQuotedLiteral(char current) {
@@ -613,6 +619,46 @@ public final class LegacyJdbcQuery {
             index = sql.indexOf(word, index + 1);
         }
         return false;
+    }
+
+    /**
+     * Masks quoted sections while preserving input length for keyword checks.
+     * Backslash-containing string literals are rejected by the control-token scanner before this
+     * method is called because their boundaries depend on MySQL's {@code NO_BACKSLASH_ESCAPES} mode.
+     * This intentionally differs from the Query-by-Example validator's scanner, which must match
+     * JSqlParser's configured parsing. The two scanners must not be merged.
+     */
+    private static String stripQuotedSqlSections(String sql) {
+        StringBuilder stripped = new StringBuilder(sql.length());
+        char quote = '\0';
+        int i = 0;
+        while (i < sql.length()) {
+            char current = sql.charAt(i);
+            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+            if (quote == '\0') {
+                quote = sqlQuoteDelimiter(current);
+                stripped.append(quote == '\0' ? current : ' ');
+                i++;
+            } else if (isSqlEscapedPair(quote, current, next)) {
+                stripped.append("  ");
+                i += 2;
+            } else {
+                if (current == quote) {
+                    quote = '\0';
+                }
+                stripped.append(' ');
+                i++;
+            }
+        }
+        return stripped.toString();
+    }
+
+    private static boolean isSqlEscapedPair(char quote, char current, char next) {
+        return current == quote && next == quote;
+    }
+
+    private static char sqlQuoteDelimiter(char candidate) {
+        return candidate == '\'' || candidate == '"' || candidate == '`' ? candidate : '\0';
     }
 
     private static boolean startsWithSqlWord(String sql, String word) {

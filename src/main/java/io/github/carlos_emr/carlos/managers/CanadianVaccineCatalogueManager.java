@@ -365,7 +365,9 @@ public class CanadianVaccineCatalogueManager {
         //unique it
         Map<String, CVCImmunization> tmp = new HashMap<String, CVCImmunization>();
         for (CVCImmunization i : results) {
-            tmp.put(i.getSnomedConceptId(), i);
+            // An imported lot/GTIN may reference a medication whose immunization
+            // has not arrived yet; it must not abort the remaining suggestions.
+            if (i != null) tmp.put(i.getSnomedConceptId(), i);
         }
         List<CVCImmunization> uniqueResults = new ArrayList<CVCImmunization>(tmp.values());
 

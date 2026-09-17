@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
@@ -81,7 +82,15 @@ public class DemographicUpdate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public DemographicUpdate2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public DemographicUpdate2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     /**
      * Validates session and privileges, then applies all update logic extracted
@@ -93,7 +102,8 @@ public class DemographicUpdate2Action extends ActionSupport {
      *         {@code _demographic} write privilege
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws IOException {
         if (!"POST".equals(request.getMethod())) {
@@ -181,12 +191,10 @@ public class DemographicUpdate2Action extends ActionSupport {
         demographic.setSex(request.getParameter("sex"));
         demographic.setPcnIndicator(request.getParameter("pcn_indicator"));
         demographic.setHcType(request.getParameter("hc_type"));
-        demographic.setFamilyDoctor(
-                "<rdohip>" + request.getParameter("r_doctor_ohip") + "</rdohip>" +
-                "<rd>" + request.getParameter("r_doctor") + "</rd>" +
-                (request.getParameter("family_doc") != null
-                        ? "<family_doc>" + request.getParameter("family_doc") + "</family_doc>"
-                        : ""));
+        demographic.setFamilyDoctor(DemographicXml.familyDoctor(
+                request.getParameter("r_doctor_ohip"),
+                request.getParameter("r_doctor"),
+                request.getParameter("family_doc")));
         demographic.setCountryOfOrigin(request.getParameter("countryOfOrigin"));
         demographic.setNewsletter(request.getParameter("newsletter"));
         demographic.setSin(request.getParameter("sin"));
@@ -394,7 +402,7 @@ public class DemographicUpdate2Action extends ActionSupport {
             demographicCust.setNurse(request.getParameter("nurse"));
             demographicCust.setAlert(request.getParameter("alert"));
             demographicCust.setMidwife(request.getParameter("midwife"));
-            demographicCust.setNotes("<unotes>" + request.getParameter("notes") + "</unotes>");
+            demographicCust.setNotes(DemographicXml.userNotes(request.getParameter("notes")));
             demographicCustDao.merge(demographicCust);
         } else {
             demographicCust = new DemographicCust();
@@ -402,7 +410,7 @@ public class DemographicUpdate2Action extends ActionSupport {
             demographicCust.setNurse(request.getParameter("nurse"));
             demographicCust.setAlert(request.getParameter("alert"));
             demographicCust.setMidwife(request.getParameter("midwife"));
-            demographicCust.setNotes("<unotes>" + request.getParameter("notes") + "</unotes>");
+            demographicCust.setNotes(DemographicXml.userNotes(request.getParameter("notes")));
             demographicCust.setId(demographicNo);
             demographicCustDao.persist(demographicCust);
         }

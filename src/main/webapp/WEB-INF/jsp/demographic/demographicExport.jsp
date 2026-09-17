@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -262,14 +263,40 @@
                         document.getElementById('exportLoadingOverlay').style.display = 'none';
                         document.getElementById('exportSuccessMessage').style.display = 'block';
                     } else {
-                        document.getElementById('exportLoadingOverlay').style.display = 'none';
-                        document.getElementById('exportErrorMessage').style.display = 'block';
+                        // X-Export-Error carries a fixed, non-PHI validation reason (for example an
+                        // unsupported export template). Assigned via textContent so the server
+                        // string is never interpreted as markup.
+                        showExportError(response.headers.get('X-Export-Error'));
                     }
                 } catch (e) {
                     console.error('Export request failed:', e);
-                    document.getElementById('exportLoadingOverlay').style.display = 'none';
-                    document.getElementById('exportErrorMessage').style.display = 'block';
+                    showExportError('');
                 }
+            }
+
+            /**
+             * Hides the loading overlay and shows the error alert. When the server sent a reason
+             * code, the matching localized sentence is copied into the alert; an unknown or absent
+             * code leaves only the generic message.
+             *
+             * @param code value of the X-Export-Error response header, may be null/empty
+             */
+            function showExportError(code) {
+                document.getElementById('exportLoadingOverlay').style.display = 'none';
+
+                var detail = '';
+                // Reason codes are a fixed server-side vocabulary. Anything else is ignored rather
+                // than fed into a selector, and the text is assigned with textContent so a
+                // localized string can never be interpreted as markup.
+                if (code && /^[A-Za-z]+$/.test(code)) {
+                    var localized = document.querySelector(
+                        '#exportErrorReasons [data-export-error-code="' + code + '"]');
+                    if (localized) {
+                        detail = localized.textContent;
+                    }
+                }
+                document.getElementById('exportErrorDetail').textContent = detail;
+                document.getElementById('exportErrorMessage').style.display = 'block';
             }
 
             /**
@@ -391,17 +418,27 @@
                 <fmt:message key="demographic.demographicexport.downloadNotStarted"/> <a href="javascript:void(0);" onclick="retryExport()"><fmt:message key="demographic.demographicexport.clickToDownload"/></a>
             </div>
 
+            <!--
+                Localized text for each X-Export-Error reason code the action can return.
+                Kept in the page (not in the action) so the message follows the user's locale;
+                showExportError() copies the matching entry into #exportErrorDetail.
+            -->
+            <div id="exportErrorReasons" style="display: none;">
+                <span data-export-error-code="unsupportedTemplate"><fmt:message key="demographic.demographicexport.unsupportedTemplate"/></span>
+            </div>
+
             <!-- Error message shown if export fails -->
             <div id="exportErrorMessage" class="alert alert-danger">
                 <fmt:message key="demographic.demographicexport.exportError"/>
-                <br/><br/>
+                <div id="exportErrorDetail"></div>
+                <br/>
                 <button type="button" class="btn btn-secondary" onclick="retryExport()"><fmt:message key="demographic.demographicexport.retry"/></button>
             </div>
 
             <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport" method="post" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
-                <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+                <input type="hidden" name="demographicNo" id="demographicNo" value="<%= SafeEncode.forHtmlAttribute(demographicNo) %>"/>
                 <fmt:message key="demographic.demographicexport.exportingdemographicno"/><carlos:encode value='<%= demographicNo %>' context="html"/>
                 <%} else {%>
                 <fmt:message key="demographic.demographicexport.patientset"/><br>
@@ -416,7 +453,7 @@
                         for (int i = 0; i < sets.size(); i++) {
                             String setName = sets.get(i);
                     %>
-                    <option value="<%=setName%>"><%=setName%>
+                    <option value="<%= SafeEncode.forHtmlAttribute(setName) %>"><carlos:encode value='<%= setName %>' context="html"/>
                     </option>
                     <%}%>
                 </select>
@@ -437,7 +474,7 @@
                         for (int i = 0; i < providers.size(); i++) {
                             Provider p = providers.get(i);
                     %>
-                    <option value="<%=p.getProviderNo()%>"><%=p.getFormattedName()%>
+                    <option value="<%= SafeEncode.forHtmlAttribute(p.getProviderNo()) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                     </option>
                     <%}%>
                 </select>
@@ -449,10 +486,13 @@
 
 
                 <fmt:message key="demographic.demographicexport.exporttemplate"/><br>
+                <%-- Only templates in DemographicExportAction42Action.SUPPORTED_TEMPLATES may be
+                     offered here. The E2E option was removed because the action never had a working
+                     implementation for it (GitHub issue #3405);
+                     DemographicExportAction42ActionTemplateValidationUnitTest fails the build if
+                     select drifts from the supported set. --%>
                 <select style="width: 189px" name="template">
-                    <option
-                            value="<%=(new Integer(DemographicExportAction42Action.CMS4)).toString() %>">EMR DM 5.0</option>
-                    <option value="<%=(new Integer(DemographicExportAction42Action.E2E)).toString() %>">E2E</option>
+                    <option value="<%=DemographicExportAction42Action.CMS4%>">EMR DM 5.0</option>
                 </select>
 
                 <br>

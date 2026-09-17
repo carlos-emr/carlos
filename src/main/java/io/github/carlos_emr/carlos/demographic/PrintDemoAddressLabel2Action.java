@@ -24,6 +24,7 @@
 
 package io.github.carlos_emr.carlos.demographic;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -78,15 +80,24 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    /**
+     * Constructs the action with its injected security dependency. Request and response
+     * objects are obtained from {@link ServletActionContext} following the Struts2 2Action pattern.
+     *
+     * @param securityInfoManager manager used to authorize demographic label access
+     */
+    public PrintDemoAddressLabel2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     /**
-     * Constructs a new PrintDemoAddressLabel2Action instance.
-     *
-     * <p>This constructor initializes the action with default settings. Request and response
-     * objects are automatically injected by Struts2 via ServletActionContext.</p>
+     * Legacy no-arg entry point used by Struts; delegates to the injected constructor
+     * via {@link SpringUtils} so the action remains instantiable under the default
+     * Struts Spring autowire strategy.
      */
     public PrintDemoAddressLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     /**
@@ -123,10 +134,13 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
      * @throws SecurityException if the user lacks "_demographic" read privilege
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String execute() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -135,7 +149,6 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
         if (classpath == null)
             classpath = (String) request.getSession().getServletContext().getAttribute("com.ibm.websphere.servlet.application.classpath");
         System.setProperty("jasper.reports.compile.class.path", classpath);
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String curUser_no = loggedInInfo.getLoggedInProviderNo();
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
@@ -172,9 +185,9 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
         logger.debug("user home: " + System.getProperty("user.home"));
 
         try {
-            ins = new FileInputStream(System.getProperty("user.home") + "/Addresslabel.xml");
-        } catch (FileNotFoundException ex1) {
-            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead");
+            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/Addresslabel.xml")));
+        } catch (FileNotFoundException | SecurityException ex1) {
+            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead", ex1);
         }
 
         if (ins == null) {

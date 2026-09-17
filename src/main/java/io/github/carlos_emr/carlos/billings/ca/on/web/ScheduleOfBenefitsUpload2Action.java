@@ -152,6 +152,8 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
     private BigDecimal updateAssistantFeesValue;
     private BigDecimal updateAnaesthetistFeesValue;
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {

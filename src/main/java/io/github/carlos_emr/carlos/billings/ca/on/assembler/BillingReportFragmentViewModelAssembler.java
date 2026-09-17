@@ -148,7 +148,15 @@ public class BillingReportFragmentViewModelAssembler {
             String apptTime = ConversionUtils.toDateString(a.getStartTime());
             String reason = nullToEmpty(a.getReason());
 
-            String popupUrl = "/billing?billForm="
+            // The .jspf hands popupUrl straight to popupPage() without adding the
+            // context path, so it has to be baked in here — CARLOS deploys under
+            // /carlos and a root-relative URL 404s at the host root.
+            // billRegion pins the cross-province router (Billing2Action) to the
+            // Ontario branch. Without it the router falls back to the
+            // deployment-wide `billregion` property, and an install that never
+            // set it lands on billingBC.jsp — which queries BC-only tables the
+            // Ontario schema does not have, producing "CARLOS Error: 500".
+            String popupUrl = request.getContextPath() + "/billing?billRegion=ON&billForm="
                     + java.net.URLEncoder.encode(defaultView, java.nio.charset.StandardCharsets.UTF_8)
                     + "&hotclick=&appointment_no=" + apptNo
                     + "&demographic_name="
