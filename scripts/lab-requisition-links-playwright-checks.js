@@ -107,6 +107,12 @@ async function main() {
       failures.push(`Req#: ${error.message}`);
     }
     assert(failures.length === 0, failures.join(' | '));
+    // Opening a demo chart may offer to resume this user's existing draft.
+    // The strict handler dismissed it, preserving the draft and its lock. This
+    // read-only chart workflow must not take over or save someone else's work.
+    recorder.unexpectedDialogs = recorder.unexpectedDialogs.filter((entry) =>
+      !(entry.label === 'echart' && entry.type === 'confirm'
+        && /^You have started to edit this note in another window at [^\n]+\.\nDo you wish to continue\?$/.test(entry.text)));
     assertStrictPage(recorder);
   } finally {
     try { if (browser) await browser.close(); }
