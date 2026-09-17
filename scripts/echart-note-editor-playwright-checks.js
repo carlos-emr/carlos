@@ -43,6 +43,19 @@
  * always release. Both are deleted afterwards through MYSQL_*; nothing is
  * signed or saved, so no casemgmt_note row is ever written.
  *
+ * ONLY ITS OWN ROWS, AND ONLY WHEN IT CAN TELL WHICH THOSE ARE. The autosave
+ * REPLACES the provider's draft for the patient (CaseManagementEntry2Action
+ * .autosave() deletes by provider, patient and program before it inserts), and
+ * opening the chart restores an existing draft into the textarea first. So if
+ * the test provider already holds a draft for this patient, typing would fold
+ * it into the check's stamped text and the cleanup would then delete a
+ * clinician's draft: the check refuses before it clicks, with a SKIP naming
+ * the way out (another patient, or the draft signed or discarded). The lock
+ * delete is scoped to the test provider and to rows that did not exist before
+ * the chart was opened, so a lock another session holds on the same patient is
+ * left where it is. Cleanup runs through runCheck()'s cleanup hook: a delete
+ * that fails is a FAIL, whatever the assertions said.
+ *
  * Defaults are for the local devcontainer:
  *   MYSQL_PASSWORD=... npm run test:echart-note-editor-playwright
  *
@@ -55,7 +68,8 @@
  */
 
 const {
-  assert, assertStrictPage, createRecorder, createSqlRunner, launchBrowser, login, newContext, readConfig, runCheck,
+  SkipCheck, assert, assertStrictPage, createRecorder, createSqlRunner, launchBrowser, login, newContext, readConfig,
+  runCheck,
 } = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
@@ -86,6 +100,67 @@ function isAutosaveRequest(request) {
     && /(^|&)method=autosave(&|$)/.test(request.postData() || '');
 }
 
+/**
+ * What the run leaves for cleanup() to remove, filled in as the run learns it.
+ * Module state rather than a closure because runCheck() calls run and cleanup
+ * separately, and cleanup must see whatever the run managed to record before
+ * it failed.
+ */
+const fixture = {
+  sql: null,
+  stamp: '',
+  providerNo: '',
+  demographicNo: '',
+  /** Lock ids that existed for this patient before the chart was opened: not ours, never deleted. */
+  preexistingLockIds: [],
+};
+
+/**
+ * Remove what the run wrote, every statement attempted, any failure thrown.
+ *
+ * Thrown rather than logged: runCheck() promotes a cleanup error to FAIL, while
+ * a `process.exitCode = 1` set here is overwritten when runCheck() records the
+ * PASS the assertions earned -- the check reported success with its fixture
+ * rows still in the database.
+ */
+async function cleanup() {
+  const { sql, stamp, providerNo, demographicNo, preexistingLockIds } = fixture;
+  if (!sql) {
+    return;
+  }
+  const statements = [];
+  if (stamp && providerNo && demographicNo) {
+    statements.push(['the stamped draft row',
+      `DELETE FROM casemgmt_tmpsave WHERE provider_no = '${providerNo}' AND demographic_no = ${demographicNo} `
+      + `AND note LIKE '%${stamp}%'`]);
+  }
+  if (providerNo && demographicNo) {
+    const keep = preexistingLockIds.length ? ` AND id NOT IN (${preexistingLockIds.join(', ')})` : '';
+    statements.push(['the note lock this session took',
+      `DELETE FROM casemgmt_note_lock WHERE provider_no = '${providerNo}' AND demographic_no = ${demographicNo}${keep}`]);
+  }
+  const failed = [];
+  for (const [what, statement] of statements) {
+    try {
+      sql.execute(statement);
+    } catch (error) {
+      // The label, not the statement: the statement carries the patient key.
+      failed.push(`${what} (${error.message})`);
+    }
+  }
+  sql.dispose();
+  fixture.sql = null;
+  if (failed.length) {
+    throw new Error(`could not remove ${failed.join('; ')}`);
+  }
+}
+
+/** A value about to be spliced into SQL: digits only, or the check refuses. */
+function sqlNumber(value, what) {
+  assert(/^\d+$/.test(String(value)), `${what} is not a plain number, so it cannot be used in a database query`);
+  return String(value);
+}
+
 async function main() {
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
   const searchTerm = process.env.NOTE_EDITOR_SEARCH || 'FAKE-';
@@ -94,8 +169,18 @@ async function main() {
   const stamp = `PW_NOTE_EDITOR_${Date.now()}`;
 
   const sql = createSqlRunner(config.mysql);
+  fixture.sql = sql;
+  fixture.stamp = stamp;
+  // The provider the draft and the lock will belong to. The user name is an
+  // operator-supplied string headed for a query, so it is constrained rather
+  // than escaped.
+  assert(/^[A-Za-z0-9_.@-]{1,255}$/.test(config.testUser),
+    'TEST_USER must be a plain account name (letters, digits, . _ @ -) for the provider lookup');
+  const providerNo = sql.value(`SELECT provider_no FROM security WHERE user_name = '${config.testUser}'`);
+  assert(/^[A-Za-z0-9-]{1,6}$/.test(providerNo), 'the test user has no provider number in the security table, so its draft and lock could not be told from another provider\'s');
+  fixture.providerNo = providerNo;
+
   const recorder = createRecorder();
-  let demographicNo = '';
   let browser;
   try {
     browser = await launchBrowser(config);
@@ -104,9 +189,34 @@ async function main() {
     const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
       searchTerm, preferredDemographicNo, timeout,
     });
+    // Locks the patient already carries are somebody else's: record them so the
+    // cleanup can leave them alone.
+    const chartLink = masterPage.locator('a').filter({ hasText: /^\s*E-?Chart\s*$/i }).first();
+    const chartHref = await chartLink.getAttribute('href').catch(() => null);
+    const expectedDemographicNo = chartHref ? new URL(chartHref, config.baseUrl.href).searchParams.get('demographicNo') : null;
+    if (expectedDemographicNo && /^\d+$/.test(expectedDemographicNo)) {
+      fixture.preexistingLockIds = sql.rows(`SELECT id FROM casemgmt_note_lock WHERE demographic_no = ${expectedDemographicNo}`)
+        .map((row) => row[0]).filter((id) => /^\d+$/.test(id));
+    }
     const chartPage = await openChartWithoutBaseline(context, masterPage, recorder, timeout);
-    demographicNo = new URL(chartPage.url()).searchParams.get('demographicNo') || '';
-    assert(/^\d+$/.test(demographicNo), `the chart URL names no demographicNo (${chartPage.url()}), so the draft it writes could not be removed`);
+    const demographicNo = sqlNumber(new URL(chartPage.url()).searchParams.get('demographicNo') || '',
+      `the demographicNo in the chart URL (${chartPage.url()})`);
+    fixture.demographicNo = demographicNo;
+    if (expectedDemographicNo !== demographicNo) {
+      // The link and the popup disagree on the patient; the lock snapshot is for the wrong one.
+      fixture.preexistingLockIds = [];
+    }
+
+    // The chart has restored any draft this provider holds for the patient into
+    // the textarea. Typing would autosave it back with the stamp inside, and
+    // the cleanup would delete it: not this check's to lose.
+    const priorDrafts = Number(sql.value(
+      `SELECT COUNT(*) FROM casemgmt_tmpsave WHERE provider_no = '${providerNo}' AND demographic_no = ${demographicNo}`,
+    ) || '0');
+    if (priorDrafts > 0) {
+      throw new SkipCheck(`the test provider already holds an autosaved draft for patient ${demographicNo}; typing here `
+        + 'would overwrite it. Point NOTE_EDITOR_DEMOGRAPHIC_NO at a patient with no draft, or sign or discard that one first');
+    }
 
     const note = chartPage.locator(NOTE_TEXTAREA).first();
     await note.waitFor({ state: 'visible', timeout });
@@ -127,7 +237,10 @@ async function main() {
     // The draft holds the whole textarea, and a fresh note opens with a header
     // line ("[date .: reason]") already in it, so the stamp is inside the text,
     // not at its start.
-    const drafts = Number(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE note LIKE '%${stamp}%'`) || '0');
+    const drafts = Number(sql.value(
+      `SELECT COUNT(*) FROM casemgmt_tmpsave WHERE provider_no = '${providerNo}' AND demographic_no = ${demographicNo} `
+      + `AND note LIKE '%${stamp}%'`,
+    ) || '0');
     assert(drafts >= 1, 'the autosave answered 200 but wrote no casemgmt_tmpsave row, so the POST did not reach the action');
 
     assertStrictPage(recorder, ['echart']);
@@ -136,25 +249,13 @@ async function main() {
     return { demographicNo, drafts };
   } finally {
     if (browser) await browser.close().catch(() => {});
-    // Every step is attempted; a fixture left behind fails the check even when
-    // every assertion passed.
-    for (const statement of [
-      `DELETE FROM casemgmt_tmpsave WHERE note LIKE '%${stamp}%'`,
-      demographicNo ? `DELETE FROM casemgmt_note_lock WHERE demographic_no = ${demographicNo}` : null,
-    ].filter(Boolean)) {
-      try {
-        sql.execute(statement);
-      } catch (cleanupError) {
-        console.error(`FAIL cleanup failed: ${statement}: ${cleanupError.message}`);
-        process.exitCode = 1;
-      }
-    }
-    sql.dispose();
   }
 }
 
 if (require.main === module) {
-  runCheck({ name: 'echart-note-editor', run: main });
+  runCheck({ name: 'echart-note-editor', run: main, cleanup });
 }
 
-module.exports = { AUTOSAVE_URL, NOTE_TEXTAREA, isAutosaveRequest, main, openChartWithoutBaseline };
+module.exports = {
+  AUTOSAVE_URL, NOTE_TEXTAREA, cleanup, fixture, isAutosaveRequest, main, openChartWithoutBaseline,
+};
