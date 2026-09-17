@@ -92,6 +92,14 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
         return dContacts;
     }
 
+    /**
+     * Finds non-deleted personal demographic links for reciprocal-identity checks.
+     * Inactive links remain included to prevent duplicate reciprocal rows.
+     *
+     * @param demographicNo association owner demographic number
+     * @param contactId linked demographic number
+     * @return matching personal demographic associations, including inactive links
+     */
     @Override
     public List<DemographicContact> findPersonalPatientLinks(int demographicNo, int contactId) {
         var query = entityManager.createQuery("select x from DemographicContact x"

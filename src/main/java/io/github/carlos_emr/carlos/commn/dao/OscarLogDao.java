@@ -55,8 +55,9 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
     /**
      * Lists existing, unmerged patients accessed by the provider, newest access first.
      * Repeated accesses are grouped by patient; equal latest timestamps are ordered
-     * by demographic ID. Deleted patients and active merge-source records are
-     * excluded before pagination without changing their retained audit history.
+     * by demographic ID. Missing patients, soft-deleted (DE) patients and active
+     * merge-source records are excluded before pagination without changing their
+     * retained audit history. Existing patients with a NULL status remain eligible.
      *
      * @param providerNo provider whose access history is selected
      * @param startPosition zero-based offset into the filtered patient list

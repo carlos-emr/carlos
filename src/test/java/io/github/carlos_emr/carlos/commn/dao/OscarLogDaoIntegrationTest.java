@@ -95,6 +95,7 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
     private int createRecentPatient() throws Exception {
         Demographic patient = new Demographic();
         EntityDataGenerator.generateTestDataForModelClass(patient);
+        patient.setPatientStatus(Demographic.PatientStatus.AC.name());
         entityManager.persist(patient);
         entityManager.flush();
         return patient.getDemographicNo();
@@ -146,6 +147,38 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         entityManager.find(DemographicMerged.class, mergeId).setDeleted(1);
         entityManager.flush();
         assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 1)).containsExactly(source);
+    }
+
+    @Test
+    @DisplayName("should exclude soft-deleted patients before recent-patient pagination and retain history")
+    void shouldExcludeSoftDeletedPatients_beforeRecentPatientPagination() throws Exception {
+        int visible = createRecentPatient();
+        int deleted = createRecentPatient();
+        entityManager.find(Demographic.class, deleted).setPatientStatus(Demographic.PatientStatus.DE.name());
+        entityManager.flush();
+        createOscarLog(visible, "recent", "read", "demographic", "1", new Date(1000));
+        createOscarLog(deleted, "recent", "read", "demographic", "2", new Date(2000));
+
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 1)).containsExactly(visible);
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 1, 1)).isEmpty();
+        assertThat(dao.findByDemographicId(deleted)).hasSize(1);
+        assertThat(entityManager.find(Demographic.class, deleted).getPatientStatus()).isEqualTo("DE");
+    }
+
+    @Test
+    @DisplayName("should retain a valid recent patient with a persisted NULL status")
+    void shouldRetainRecentPatient_whenPersistedStatusIsNull() throws Exception {
+        int patient = createRecentPatient();
+        createOscarLog(patient, "recent", "read", "demographic", "1", new Date(1000));
+        // The Java getter normalizes null to an empty string. Write an actual SQL
+        // NULL to exercise SQL three-valued logic rather than that getter behavior.
+        entityManager.createNativeQuery("update demographic set patient_status = null where demographic_no = ?1")
+                .setParameter(1, patient).executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(entityManager.createNativeQuery("select patient_status from demographic where demographic_no = ?1")
+                .setParameter(1, patient).getSingleResult()).isNull();
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 1)).containsExactly(patient);
     }
 
     @Nested

@@ -174,12 +174,13 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn) {
-        // Audit history outlives deleted/merged patient rows. Apply existence
-        // before pagination so a stale ID neither breaks the picker nor hides
-        // the next available recent patient. Group by the latest access time.
+        // Audit history outlives deleted/merged patient rows. Exclude missing
+        // and soft-deleted patients before pagination so a stale ID neither breaks
+        // the picker nor hides the next available patient. Group by latest access.
         var query = entityManager.createQuery("select l.demographicId from OscarLog l"
                 + " where l.providerNo = ?1 and l.demographicId > 0"
-                + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId)"
+                + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId"
+                + " and (d.patientStatus is null or d.patientStatus <> 'DE'))"
                 + " and not exists (select m.id from DemographicMerged m where m.demographicNo = l.demographicId and m.deleted = 0)"
                 + " group by l.demographicId order by max(l.created) desc, l.demographicId", Integer.class);
         query.setParameter(1, providerNo);
