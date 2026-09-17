@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
+import io.github.carlos_emr.carlos.commn.interfaces.Immunization.ImmunizationProperty;
 import io.github.carlos_emr.carlos.managers.DHIRSubmissionManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -323,9 +324,10 @@ public class PreventionData {
                 h.put("provider_no", prevention.getProviderNo());
                 if (!StringUtils.isEmpty(prevention.getProviderNo())) {
                     if ("-1".equals(prevention.getProviderNo())) {
-                        // External provider: the name lives in PreventionExt. Query it directly;
-                        // the entity is detached here and its preventionExts collection is lazy.
-                        h.put("provider_name", getPreventionExtValue(prevention.getId(), "providerName"));
+                        // External provider: the name lives in PreventionExt. A targeted lookup is
+                        // used because this entity is detached and its preventionExts collection is lazy.
+                        h.put("provider_name", getPreventionExtValue(prevention.getId(),
+                                ImmunizationProperty.providerName.name()));
                     } else {
                         h.put("provider_name", ProviderData.getProviderName(prevention.getProviderNo()));
                     }
