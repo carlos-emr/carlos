@@ -18,7 +18,7 @@ and target that release. Develop was fetched only to check migration allocation.
 | [3689](https://github.com/carlos-emr/carlos/pull/3689) | Printer/signature/document-description preferences | Final package retest pending, including both printer-feature settings |
 | [3690](https://github.com/carlos-emr/carlos/pull/3690) | Explicit inactive-drug status and visible lookup failure | Actual inactive DIN returns its stored calendar date; malformed response shows warning and recovery, without saving a prescription |
 | [3691](https://github.com/carlos-emr/carlos/pull/3691) | Admin/chart navigation, calculator entry/styles, Row Display and lot search | Chart module audit and repeated lot search pass; 101-item administration sweep exposed OHIP handler and duplicated AJAX-header failures; both corrected, final package retest pending |
-| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 112 named checks / 103 scripts registered; 679 Node regressions pass |
+| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 112 named checks / 103 scripts registered; 695 Node regressions pass |
 | [3694](https://github.com/carlos-emr/carlos/pull/3694) | Signature identity migration | Nine real MariaDB cases and both province fresh/adopted Flyway CI jobs pass, including preservation of duplicate unassigned rows; application upgrade pending |
 | [DrugRef 14](https://github.com/carlos-emr/drugref2026/pull/14) | JDBC calendar dates and explicit lookup faults | 69 tests and WAR pass at 1941e142; earlier installed-DEB calendar-date lookup passes, latest query-failure follow-up installation pending |
 
@@ -60,7 +60,7 @@ application PRs. Validate the combined release candidate before shipping it.
 
 The audit decoder now handles JavaScript braced Unicode escapes, including astral
 characters and explicit failure for invalid code points. Four new regression cases
-bring its unit file to 68 cases; the complete Node suite has 679 passing cases.
+bring its unit file to 68 cases; the complete Node suite has 695 passing cases.
 
 Printing head `7c139eebd1` passes [12,221 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35178032145)
 with no failures/errors and 48 skips. This includes 72 action cases and ten
@@ -82,6 +82,15 @@ category 19 searches also check inactive status. Its full CodeRabbit review repo
 no actionable findings. The CARLOS pin is updated in #3690. The earlier installed
 calendar-date result does not substitute for an installed test of these later changes.
 
+HRM head `ca33639e03` passes [12,149 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35227086272)
+with no failures/errors and 48 skips, including ten HRM query/count cases. All 22
+Node filter regressions pass. Direct null status now selects unsigned HRM rows
+in both result and count paths; empty status remains All. The matched/unmatched
+count queries bind an integer sign-off value, with explicit null and binding
+regressions. CodeRabbit accepted both full-review fixes and both threads are
+resolved. The earlier installed status-filter checks passed; this later null-status
+follow-up still requires installed validation.
+
 Access head `2c9e4613cf` passes [12,186 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35187990768)
 with no failures/errors and 48 skips, including 37 scratchpad and 18 episode cases.
 Scratchpad dispatch rejects unsupported operations and verbs, requires a session
@@ -101,7 +110,7 @@ Preferences head `d9f45d121a` passes [12,147 Java tests and JSP compilation](htt
 with no failures/errors and 48 skips, including eight preference action/data cases.
 A successful overlapping background read can no longer clear a failed
 document-description write warning. The concurrency test fails against the original
-helper and passes after the fix; all five request/error checks and all 679 combined
+helper and passes after the fix; all five request/error checks and all 695 combined
 Node cases pass. Full-review follow-ups correct three locales' Unicode escapes,
 close the HTML document, document the JSP contracts and cover denied signature
 POSTs without DAO access. CodeRabbit accepts all seven fixes and withdrew its
@@ -109,13 +118,18 @@ additional CSRF question after verifying the existing request filter's ordering,
 configuration and fail-closed path. The latest installed-package preference
 workflows remain pending.
 
-Inactive-drug endpoint head `ad6fe7f8a1` passes [12,144 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35189703344)
+Inactive-drug endpoint head `32f70e542a` passes [12,144 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35233828973)
 with no failures/errors and 48 skips, including five endpoint cases. Denied `_rx`
 read access returns HTTP 403 before any DrugRef call, and the JSON response returns
 `NONE` to prevent further rendering. JSON tests cover content type and hostile
 identifier round-tripping; the method-local SpotBugs suppression documents Jackson
-serialization and the JSON-only response. Full CodeRabbit review and installation
-of these endpoint changes with DrugRef `1941e142` remain pending.
+serialization and the JSON-only response. The UI also rejects impossible calendar
+dates using month/day bounds and Gregorian leap-year rules without converting them
+to browser-local instants. Ten new negative cases fail against the prior JSP; all
+26 inactive-status Node cases pass after the fix, including valid month ends and
+century leap-year boundaries. CodeRabbit accepted the full-review fix and its
+thread is resolved. Installation of these endpoint/UI changes with DrugRef
+`1941e142` remains pending.
 
 Navigation head `6c75d801a2` passes [12,139 Java tests and JSP compilation](https://github.com/carlos-emr/carlos/actions/runs/35209972118)
 with no failures/errors and 48 skips. The new header calculator link passes the
