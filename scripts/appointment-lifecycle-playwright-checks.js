@@ -50,7 +50,8 @@
  *   APPOINTMENT_DAYS_AHEAD=400       how far out to book, to stay clear of demo data
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  *
- * Requires pdftotext (poppler-utils) to inspect the printed HTML labels.
+ * Requires pdftotext (poppler-utils) to inspect the printed HTML labels and to
+ * validate the printed receipt contents.
  *
  * Cleanup: one appointment is booked, its reason and notes carry a unique
  * PW_APPT_<millis> marker, and every appointment / appointmentArchive row with
@@ -455,6 +456,68 @@ async function submitEdit(popup) {
   await assertNotErrorPage(popup, 'appointment update confirmation');
 }
 
+/** Exercise the real Update & Receipt popup, including its embedded PDF request. */
+async function submitEditWithReceipt(context, popup, appointmentNo) {
+  const receiptPromise = context.waitForEvent('page', { timeout: 45000 });
+  // Register before the click: the receipt window is reserved synchronously and
+  // navigated after UpdateRecord succeeds. Fetching the URL separately would miss
+  // CSP blocking the browser's actual embedding request.
+  const pdfPromise = context.waitForEvent('response', {
+    predicate: (response) => /\/printAppointmentReceiptAction$/.test(new URL(response.url()).pathname)
+      && new URL(response.url()).searchParams.get('appointment_no') === String(appointmentNo),
+    timeout: 45000,
+  });
+  receiptPromise.catch(() => {});
+  pdfPromise.catch(() => {});
+  const [update, receipt] = await Promise.all([
+    popup.waitForResponse((response) => response.request().method() === 'POST'
+      && /\/appointment\/UpdateRecord$/.test(new URL(response.url()).pathname), { timeout: 45000 }),
+    receiptPromise.then((page) => {
+      wirePage(page, 'appointment-receipt', recorder);
+      return page;
+    }),
+    popup.locator('#printReceiptButton').click(),
+  ]);
+  assert(update.status() === 200, `Update & Receipt returned HTTP ${update.status()}`);
+  await receipt.waitForURL(/\/appointment\/printappointment/, { timeout: 45000 });
+  await assertNotErrorPage(receipt, 'appointment receipt');
+  const frame = receipt.locator('iframe#apptpdf');
+  await frame.waitFor({ state: 'visible', timeout: 10000 });
+  const frameUrl = new URL(await frame.getAttribute('src'), receipt.url());
+  assert(frameUrl.origin === new URL(config.baseUrl).origin, 'receipt PDF must stay on the application origin');
+  assert(frameUrl.searchParams.get('appointment_no') === String(appointmentNo), 'receipt targets a different appointment');
+  assert(await frame.getAttribute('title'), 'receipt iframe needs an accessible title');
+  const bounds = await frame.boundingBox();
+  assert(bounds && bounds.width >= 200 && bounds.height >= 200, 'receipt viewer has no usable dimensions');
+  const link = receipt.locator('#appointmentReceiptPdf');
+  assert(await link.isVisible(), 'receipt needs a visible PDF link for browsers without an embedded PDF viewer');
+  assert(new URL(await link.getAttribute('href'), receipt.url()).href === frameUrl.href,
+    'receipt PDF link and viewer point to different receipts');
+  const response = await pdfPromise;
+  assert(response.status() === 200, `embedded receipt PDF returned HTTP ${response.status()}`);
+  assert(/application\/pdf/i.test(response.headers()['content-type'] || ''), 'receipt response is not PDF');
+  // Chromium exposes its internal PDF viewer HTML through response.body().
+  // Keep the actual iframe HTTP assertions above, then fetch the same resource
+  // with this authenticated browser context to inspect the original PDF bytes.
+  const pdf = await context.request.get(frameUrl.href);
+  assert(pdf.status() === 200 && /application\/pdf/i.test(pdf.headers()['content-type'] || ''),
+    'receipt PDF content request failed');
+  const bytes = await pdf.body();
+  assert(bytes.subarray(0, 5).toString() === '%PDF-', 'receipt response has no PDF signature');
+  const text = execFileSync('pdftotext', ['-layout', '-', '-'], {
+    input: bytes, encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024,
+  });
+  const row = stampedAppointments().find((entry) => entry.id === String(appointmentNo));
+  assert(row, 'receipt appointment disappeared');
+  const [patient] = sqlRows(`SELECT first_name, last_name FROM demographic WHERE demographic_no=${demographicNo}`);
+  for (const expected of [targetDate, row.startTime.slice(0, 5), ...patient]) {
+    assert(text.includes(expected), `receipt is missing expected appointment content: ${expected}`);
+  }
+  assert(text.split(/\W+/).includes(String(appointmentNo)), 'receipt contains no matching appointment ID');
+  await receipt.close();
+  pass('Update & Receipt displayed its PDF under the application CSP with correct patient, date, time and appointment ID');
+}
+
 async function editAppointment(context, daySheet, appointmentNo) {
   const popup = await openEditPopup(context, daySheet, appointmentNo);
   const prefilled = await popup.locator('#reason').inputValue();
@@ -465,7 +528,7 @@ async function editAppointment(context, daySheet, appointmentNo) {
   await popup.locator('#reason').fill(editedReason);
   await popup.locator('textarea[name="notes"]').fill(editedNotes);
   await popup.locator('#duration').fill('30');
-  await submitEdit(popup);
+  await submitEditWithReceipt(context, popup, appointmentNo);
   await popup.close().catch(() => {});
 
   const row = await waitFor(() => {

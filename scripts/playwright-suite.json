@@ -414,6 +414,21 @@
       ]
     },
     {
+      "name": "document-pagination",
+      "script": "scripts/document-pagination-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_PAGINATION_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
       "name": "document-upload",
       "script": "scripts/document-upload-playwright-checks.js",
       "tiers": [
@@ -940,6 +955,22 @@
       ]
     },
     {
+      "name": "lab-pdf-footer",
+      "script": "scripts/lab-pdf-footer-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_PDF_DEMOGRAPHIC_NO",
+        "LAB_PDF_EXPECTED_NOTICE"
+      ]
+    },
+    {
       "name": "lab-acknowledge",
       "script": "scripts/lab-acknowledge-playwright-checks.js",
       "tiers": [
@@ -1080,6 +1111,21 @@
         "MEASUREMENT_DEMOGRAPHIC_NO",
         "MEASUREMENT_GROUP",
         "MEASUREMENT_TYPE"
+      ]
+    },
+    {
+      "name": "patient-messenger-context",
+      "script": "scripts/patient-messenger-context-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MESSENGER_CONTEXT_DEMOGRAPHICS"
       ]
     },
     {
