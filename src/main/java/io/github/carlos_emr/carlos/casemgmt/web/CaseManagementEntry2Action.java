@@ -850,9 +850,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logger.warn("updateNoteLock: lock not found - lock may have been released");
             return null;
         }
+        // The container-issued session id is recorded on the server-built lock entity so a later
+        // request can prove it is the same session; it is not user-controlled input.
+        String currentSessionId = request.getSession().getId(); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): container-issued session id recorded on the lock entity, not user input
         CasemgmtNoteLock transferredLock = transferNoteLock(casemgmtNoteLockDao,
                 casemgmtNoteLock, loggedInInfo.getLoggedInProviderNo(), request.getRemoteAddr(),
-                request.getSession().getId(), new Date(), getNoteLockTimeoutMillis());
+                currentSessionId, new Date(), getNoteLockTimeoutMillis());
         if (transferredLock == null) {
             logger.warn("updateNoteLock: refusing to transfer an expired or unowned lock");
             response.setStatus(HttpServletResponse.SC_CONFLICT);
@@ -2072,8 +2075,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (casemgmtNoteLockSession == null) {
                 return false;
             }
+            String currentSessionId = request.getSession().getId(); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): container-issued session id compared with the own-session lock, not user input
             return renewNoteLock(casemgmtNoteLockDao, casemgmtNoteLockSession,
-                    request.getSession().getId(), new Date(), getNoteLockTimeoutMillis());
+                    currentSessionId, new Date(), getNoteLockTimeoutMillis());
         } catch (Exception e) {
             logger.warn("Lock check failed unexpectedly ({})", e.getClass().getSimpleName());
             return false;
