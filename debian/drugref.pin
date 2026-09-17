@@ -4,7 +4,8 @@
 # code under one package version.
 #
 # The current pin fixes SQL-date XML-RPC serialization and propagates failed
-# inactive-date queries instead of returning a false empty success (issue #13).
+# inactive-status/date queries instead of returning a false empty success
+# (issue #13); expanded category-19 search also checks inactive status.
 # It descends from the master merge commit of the free-text allergy fix
 # (carlos-emr/drugref2026#12). It descends from the master merge commit of the
 # database-update fix (carlos-emr/drugref2026#11), so one revision now carries
@@ -63,4 +64,4 @@
 # It also carries the earlier EntityManager-leak fix
 # (carlos-emr/drugref2026#8), without which drug searches exhaust the JDBC pool
 # after one or two calls and permanently return "None found".
-ref=7aa00ecdb1166c257b10887479e02cfd5acdc694
+ref=1941e1426a52c2a129c96ec4d32a0f3499974739
