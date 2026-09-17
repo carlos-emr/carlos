@@ -29,6 +29,14 @@
 
 --%>
 
+<%--
+  Purpose: Display general clinical calculation and conversion tools.
+  Features: Browser-side calculation controls and application-context styling
+  that loads correctly when the page opens from its nested calculator route.
+  Parameters: No request parameters are consumed; users enter values in the page.
+  @since 2026-09-17
+--%>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -40,7 +48,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="encounter.calculators.GeneralCalculators.title"/></title>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
 
         <SCRIPT LANGUAGE="JavaScript">
 

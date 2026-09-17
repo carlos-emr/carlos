@@ -24,16 +24,6 @@
   ],
   "allow": [
     {
-      "match": "providerSignatureImage",
-      "issue": "#3665 (also docs/ui-tests/app-findings-log.md finding 6)",
-      "note": "The consultation form requests providerSignatureImage?providerNo=... unconditionally, which 404s for any provider without a stored signature, so every open of that form logs a console error. Delete this entry in the change that makes the request conditional."
-    },
-    {
-      "match": "getActiveText",
-      "issue": "#3665 (also docs/ui-tests/app-findings-log.md finding 7)",
-      "note": "The eChart note editor throws a TypeError on every keystroke from getActiveText() in js/newCaseManagementView.js.jsp, which writes to a 'keyword' element the current layout no longer renders. Until it is fixed no check can type into a chart note and assert a clean console; delete this entry in the change that fixes it."
-    },
-    {
       "match": "expandPreview",
       "issue": "#3578",
       "note": "The Rx preview pane's expandPreview writes into the preview iframe before it has parsed, raising 'Cannot set properties of null'. Tolerated today by rx-fax-reprint-represcribe; delete this entry when #3578 closes."

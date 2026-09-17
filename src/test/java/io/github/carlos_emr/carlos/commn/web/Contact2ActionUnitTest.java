@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.apache.struts2.ActionSupport;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
@@ -359,6 +360,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         ReflectionTestUtils.setField(own, "id", 41);
         own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
         own.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        own.setCategory(DemographicContact.CATEGORY_PERSONAL);
         if (omitType) mockRequest.removeParameter("contact_1.type");
         when(mockDemographicContactDao.find(41)).thenReturn(own);
         prepareReverseRole();
@@ -388,6 +390,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         ReflectionTestUtils.setField(association, "id", 41);
         association.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
         association.setType(type);
+        association.setCategory(DemographicContact.CATEGORY_PERSONAL);
         association.setContactId("67890");
         when(mockDemographicContactDao.find(41)).thenReturn(association);
         return association;
@@ -456,6 +459,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         prepareFacility();
         addSaveRow("procontact_1", "41", "67890", submittedType);
         DemographicContact own = existingAssociation(DemographicContact.TYPE_PROFESSIONALSPECIALIST);
+        own.setCategory(DemographicContact.CATEGORY_PROFESSIONAL);
         withContactDao(() -> {
             new Contact2Action().saveManage();
             assertThat(own.getType()).isEqualTo(DemographicContact.TYPE_PROFESSIONALSPECIALIST);
@@ -477,6 +481,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         ReflectionTestUtils.setField(own, "id", 41);
         own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
         own.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        own.setCategory(DemographicContact.CATEGORY_PERSONAL);
         own.setContactId("45678");
         when(mockDemographicContactDao.find(41)).thenReturn(own);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
@@ -503,9 +508,12 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         ReflectionTestUtils.setField(own, "id", 41);
         own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
         own.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        own.setCategory(DemographicContact.CATEGORY_PERSONAL);
         when(mockDemographicContactDao.find(41)).thenReturn(own);
-        when(mockDemographicContactDao.find(67890, Integer.parseInt(DEMOGRAPHIC_NO)))
-                .thenReturn(java.util.List.of(new DemographicContact()));
+        DemographicContact inactiveReverse = new DemographicContact();
+        inactiveReverse.setActive(false);
+        when(mockDemographicContactDao.findPersonalPatientLinks(67890, Integer.parseInt(DEMOGRAPHIC_NO)))
+                .thenReturn(java.util.List.of(inactiveReverse));
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
                 .thenReturn(false);
         withContactDao(() -> {
@@ -551,4 +559,186 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
             Contact2Action.demographicDao = previousDemographicDao;
         }
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"bad", "-1", "2147483648", "1001"})
+    void shouldRejectMalformedCounts_beforeAnyWrite(String count) {
+        prepareSave(count, "0");
+        assertThat(new Contact2Action().saveManage()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockDemographicContactDao);
+    }
+
+    @Test
+    void shouldReturnControlledResponse_forMalformedPatientIdentifier() {
+        prepareSave("0", "0");
+        addRequestParameter("demographic_no", "invalid");
+        assertThat(new Contact2Action().saveManage()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockDemographicContactDao);
+    }
+
+    @Test
+    void shouldRejectMalformedProfessionalType_beforeSavingPersonalContact() {
+        prepareSave("1", "1");
+        addSaveRow("contact_1", "0", "45", "2");
+        addSaveRow("procontact_1", "0", "46", "bad");
+        assertThat(new Contact2Action().saveManage()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockDemographicContactDao, never()).persist(any());
+        verify(mockDemographicContactDao, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRejectReclassification_throughOtherCategoryList(boolean professional) {
+        prepareSave(professional ? "0" : "1", professional ? "1" : "0");
+        DemographicContact existing = existingAssociation(DemographicContact.TYPE_CONTACT);
+        String originalCategory = professional ? DemographicContact.CATEGORY_PERSONAL : DemographicContact.CATEGORY_PROFESSIONAL;
+        existing.setCategory(originalCategory);
+        addSaveRow(professional ? "procontact_1" : "contact_1", "41", "67890", "2");
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+        });
+        assertThat(existing.getCategory()).isEqualTo(originalCategory);
+        verify(mockDemographicContactDao, never()).merge(any());
+        verify(mockDemographicContactDao, never()).persist(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreserveAlphanumericProviderId_whenCreatingOrResaving(boolean existing) {
+        prepareSave("0", "1");
+        prepareFacility();
+        DemographicContact row = existingAssociation(DemographicContact.TYPE_PROVIDER);
+        row.setCategory(DemographicContact.CATEGORY_PROFESSIONAL);
+        addSaveRow("procontact_1", existing ? "41" : "0", "T099", "0");
+        withContactDao(() -> {
+            assertThat(new Contact2Action().saveManage()).isEqualTo("windowClose");
+            ArgumentCaptor<DemographicContact> saved = ArgumentCaptor.forClass(DemographicContact.class);
+            if (existing) verify(mockDemographicContactDao).merge(saved.capture());
+            else verify(mockDemographicContactDao).persist(saved.capture());
+            assertThat(saved.getValue().getContactId()).isEqualTo("T099");
+            assertThat(saved.getValue().getType()).isEqualTo(DemographicContact.TYPE_PROVIDER);
+        });
+    }
+
+    @Test
+    void shouldDenyUnauthorizedRequest_beforeParsingMalformedPatient() {
+        prepareSave("0", "0");
+        addRequestParameter("demographic_no", "invalid");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("invalid")))
+                .thenReturn(false);
+        Contact2Action action = new Contact2Action();
+        assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockDemographicContactDao);
+    }
+
+    @Test
+    void shouldDenyCanonicalPatientAcl_whenSubmittedIdentifierIsPadded() {
+        prepareSave("0", "0");
+        addRequestParameter("demographic_no", "0" + DEMOGRAPHIC_NO);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("0" + DEMOGRAPHIC_NO)))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(DEMOGRAPHIC_NO)))
+                .thenReturn(false);
+        Contact2Action action = new Contact2Action();
+        assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockDemographicContactDao);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"contact_2,0", "contact_2,3", "procontact_1,1"})
+    void shouldRejectUnsupportedNewType_beforeSavingEitherCategory(String field, String type) {
+        boolean personal = field.startsWith("contact_");
+        prepareSave(personal ? "2" : "1", personal ? "0" : "1");
+        addSaveRow("contact_1", "0", "45", "2");
+        addSaveRow(field, "0", "46", type);
+        withContactDao(() -> {
+            assertThat(new Contact2Action().saveManage()).isEqualTo("none");
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            verify(mockDemographicContactDao, never()).persist(any());
+            verify(mockDemographicContactDao, never()).merge(any());
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldAllowDirectoryContact_inEitherCategory(boolean professional) {
+        prepareSave(professional ? "0" : "1", professional ? "1" : "0");
+        prepareFacility();
+        addSaveRow(professional ? "procontact_1" : "contact_1", "0", "45", "2");
+        withContactDao(() -> {
+            assertThat(new Contact2Action().saveManage()).isEqualTo("windowClose");
+            ArgumentCaptor<DemographicContact> saved = ArgumentCaptor.forClass(DemographicContact.class);
+            verify(mockDemographicContactDao).persist(saved.capture());
+            assertThat(saved.getValue().getType()).isEqualTo(DemographicContact.TYPE_CONTACT);
+            assertThat(saved.getValue().getCategory()).isEqualTo(professional
+                    ? DemographicContact.CATEGORY_PROFESSIONAL : DemographicContact.CATEGORY_PERSONAL);
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"067890", "+67890"})
+    void shouldDenyReciprocalWrite_whenCanonicalTargetAclDeniesAlias(String target) {
+        prepareSave("2", "0");
+        addSaveRow("contact_1", "0", "45", "2");
+        addSaveRow("contact_2", "0", target, "1");
+        prepareReverseRole();
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(target)))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("67890")))
+                .thenReturn(false);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::saveManage).isInstanceOf(SecurityException.class);
+            verify(mockDemographicContactDao, never()).persist(any());
+            verify(mockDemographicContactDao, never()).merge(any());
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"012345", "+12345"})
+    void shouldDenyRemoval_whenCanonicalPatientAclDeniesAlias(String patient) {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", patient);
+        addRequestParameter("contactId", "41");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(patient)))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(DEMOGRAPHIC_NO)))
+                .thenReturn(false);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::removeContact).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldReturnBadRequest_whenRemovalPatientIdentifierIsMalformed() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", "invalid");
+        withContactDao(() -> {
+            assertThat(new Contact2Action().removeContact()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockDemographicContactDao);
+        });
+    }
+
+    @Test
+    void shouldRejectWholeRemoval_whenLaterAssociationIdentifierIsMalformed() {
+        registerContactActionBeans();
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        mockRequest.setParameter("contact.delete", "41", "invalid");
+        DemographicContact own = new DemographicContact();
+        own.setDemographicNo(Integer.parseInt(DEMOGRAPHIC_NO));
+        when(mockDemographicContactDao.find(41)).thenReturn(own);
+        withContactDao(() -> {
+            assertThat(new Contact2Action().removeContact()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            assertThat(own.isDeleted()).isFalse();
+            verify(mockDemographicContactDao, never()).merge(any());
+        });
+    }
+
 }
