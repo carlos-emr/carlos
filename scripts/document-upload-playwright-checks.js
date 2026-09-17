@@ -157,18 +157,23 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
   const recipientName = sql(`SELECT last_name FROM provider WHERE provider_no='${recipient}'`);
   assert(recipientName.length >= 3, 'Recipient surname must support provider autocomplete');
   const surname = sql(`SELECT last_name FROM demographic WHERE demographic_no=${demographicNo}`);
-  const { masterPage } = await openMasterRecord(context, schedule, recorder, {
-    searchTerm: surname, preferredDemographicNo: demographicNo, timeout: 30000,
-  });
-  const chart = await openChart(context, masterPage, recorder, 30000);
-  await waitForNavbars(chart, 30000);
-  const link = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: description }).first();
-  const viewer = await clickOpensPopup(chart, link, { context, recorder, label: 'document-forward', timeout: 30000 });
-  const routes = () => sql(`SELECT provider_no,status FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} ORDER BY id`);
-  const before = routes();
-  assert(sql(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} AND provider_no='${recipient}'`) === '0',
-    'The owned upload must not already be routed to this recipient');
+  // Track every popup from its creation, including helpers that throw before
+  // returning. Keep caller-owned pages, and close each new page independently.
+  const ownedPages = new Set();
+  const trackPage = page => ownedPages.add(page);
+  context.on('page', trackPage);
   try {
+    const { masterPage } = await openMasterRecord(context, schedule, recorder, {
+      searchTerm: surname, preferredDemographicNo: demographicNo, timeout: 30000,
+    });
+    const chart = await openChart(context, masterPage, recorder, 30000);
+    await waitForNavbars(chart, 30000);
+    const link = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: description }).first();
+    const viewer = await clickOpensPopup(chart, link, { context, recorder, label: 'document-forward', timeout: 30000 });
+    const routes = () => sql(`SELECT provider_no,status FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} ORDER BY id`);
+    const before = routes();
+    assert(sql(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} AND provider_no='${recipient}'`) === '0',
+      'The owned upload must not already be routed to this recipient');
     // A refused dialog request must be visible and recoverable, not another
     // silent Forward click. Only this owned browser request is intercepted.
     const dialogRoute = '**/oscarMDS/ViewSelectProvider';
@@ -214,7 +219,10 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
     assert(count === '1', `Expected one route to the selected provider, got ${count}`);
     console.log('PASS chart document Forward: visible dialog, empty-recipient refusal, autocomplete, persisted routing');
   } finally {
-    await viewer.close(); await chart.close(); await masterPage.close(); await schedule.close();
+    context.off('page', trackPage);
+    for (const page of ownedPages) {
+      await page.close().catch(() => {});
+    }
   }
 }
 
