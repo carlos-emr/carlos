@@ -128,9 +128,12 @@ async function catalogueLinks(page, options = {}) {
     // JavaScript-encoded. The disjoint alternatives avoid nested backtracking.
     const literals = opener.match(/"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'/g) || [];
     const route = literals.map(literal => literal.slice(1, -1).replace(
-      /\\(?:x([0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|([\s\S]))/g,
-      (escape, hex, unicode, character) => {
+      /\\(?:x([0-9a-fA-F]{2})|u(?:([0-9a-fA-F]{4})|\{([0-9a-fA-F]+)\})|([\s\S]))/g,
+      (escape, hex, unicode, codePoint, character) => {
         if (hex || unicode) return String.fromCharCode(parseInt(hex || unicode, 16));
+        // Braced escapes also allow astral code points and leading zeroes.
+        // fromCodePoint rejects invalid values rather than inventing a probe URL.
+        if (codePoint) return String.fromCodePoint(parseInt(codePoint, 16));
         const special = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v' };
         return Object.prototype.hasOwnProperty.call(special, character) ? special[character] : character;
       },

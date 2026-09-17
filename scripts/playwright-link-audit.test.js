@@ -1163,3 +1163,21 @@ for (const [literal, expected] of [
     assert.equal(items[0].route, expected);
   });
 }
+
+
+for (const [literal, expected] of [
+  [String.raw`'/carlos\u{2f}report'`, '/carlos/report'],
+  [String.raw`'\u{0000002F}carlos/report'`, '/carlos/report'],
+  [String.raw`'/carlos/report?q=\u{1F600}'`, '/carlos/report?q=😀'],
+]) {
+  test(`route extraction decodes Unicode code-point literal ${literal}`, async () => {
+    const items = await catalogue([anchorDouble({href: '#', onclick: `popup(${literal}, '_blank')`}, 'Open')]);
+    assert.equal(items[0].route, expected);
+  });
+}
+
+test('an invalid Unicode code point fails the audit instead of inventing a route', async () => {
+  await assert.rejects(() => catalogue([anchorDouble({
+    href: '#', onclick: String.raw`popup('/carlos/\u{110000}')`,
+  }, 'Open')]), RangeError);
+});
