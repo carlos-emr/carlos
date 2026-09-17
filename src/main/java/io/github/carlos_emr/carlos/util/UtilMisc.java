@@ -152,6 +152,20 @@ public class UtilMisc {
         return sb.toString();
     }
 
+    /**
+     * Formats a person name for display as "Title Case": the input is trimmed, lower-cased, and
+     * the first character plus every character that follows a space or a comma is upper-cased
+     * (so {@code "SMITH, JOHN"} becomes {@code "Smith, John"}).
+     *
+     * <p>The lower-casing deliberately uses the JVM default locale rather than
+     * {@link java.util.Locale#ROOT}: every caller passes patient-facing display text, so the
+     * result must follow the deployment's locale conventions. The per-character upper-casing uses
+     * {@link Character#toUpperCase(char)} and therefore cannot expand one character into two.
+     *
+     * @param S the raw name text; may be {@code null}
+     * @return the title-cased name, {@code ""} for a blank input, or {@code null} when
+     *         {@code S} is {@code null}
+     */
     public static String toUpperLowerCase(String S) {
         if (S == null) {
             return S;
@@ -159,7 +173,8 @@ public class UtilMisc {
         // Deliberately default-locale, NOT Locale.ROOT: every caller formats patient names for
         // display (appointment sheets, group records), so the casing must follow the deployment's
         // locale. Under a Turkish default locale ROOT turns "I\u015EIK" into "I\u015Fik" instead of the
-        // correct "I\u015F\u0131k". The IMPROPER_UNICODE suppression on this method covers this fold.
+        // correct "I\u015F\u0131k". FindSecBugs IMPROPER_UNICODE does not flag this fold because its
+        // result is never fed into an equality comparison, so no suppression is needed here.
         S = S.trim().toLowerCase();
         int N = S.length();
         boolean bUpper = false;
