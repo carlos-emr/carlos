@@ -263,9 +263,12 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     void shouldAvoidDatabase_whenVersionRequestIsAnonymous() throws Exception {
         HttpServletRequest request = mockRequest("GET", null);
         HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
         assertThat(createAction(request, response).showVersion()).isEqualTo("none");
         verify(response).setStatus(401);
         verifyNoInteractions(scratchPadDao);
+        assertThat(json.toString()).contains("\"success\":false", "Session provider required");
     }
 
     @Test
