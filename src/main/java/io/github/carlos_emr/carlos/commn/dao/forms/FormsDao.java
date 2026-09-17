@@ -61,14 +61,14 @@ public class FormsDao {
     @NativeSql("formLabReq07")
     public List<Object[]> findIdFormCreatedAndPatientNameFromFormLabReq07() {
         String sql = "SELECT ID, formCreated, patientName FROM formLabReq07";
-        Query query = requisitionRowsQuery(sql);
+        Query query = requisitionRowsQuery(entityManager.createNativeQuery(sql));
         return query.getResultList();
     }
 
     @NativeSql("formLabReq10")
     public List<Object[]> findIdFormCreatedAndPatientNameFromFormLabReq10() {
         String sql = "SELECT ID, formCreated, patientName FROM formLabReq10";
-        Query query = requisitionRowsQuery(sql);
+        Query query = requisitionRowsQuery(entityManager.createNativeQuery(sql));
         return query.getResultList();
     }
 
@@ -78,7 +78,7 @@ public class FormsDao {
             return findIdFormCreatedAndPatientNameFromFormLabReq07();
         }
         String sql = "SELECT ID, formCreated, patientName FROM formLabReq07 where demographic_no = :demoNo";
-        Query query = requisitionRowsQuery(sql);
+        Query query = requisitionRowsQuery(entityManager.createNativeQuery(sql));
         try {
             query.setParameter("demoNo", Integer.parseInt(demographicNo));
         } catch (NumberFormatException e) {
@@ -94,7 +94,7 @@ public class FormsDao {
             return findIdFormCreatedAndPatientNameFromFormLabReq10();
         }
         String sql = "SELECT ID, formCreated, patientName FROM formLabReq10 where demographic_no = :demoNo";
-        Query query = requisitionRowsQuery(sql);
+        Query query = requisitionRowsQuery(entityManager.createNativeQuery(sql));
         try {
             query.setParameter("demoNo", Integer.parseInt(demographicNo));
         } catch (NumberFormatException e) {
@@ -126,8 +126,8 @@ public class FormsDao {
      * Hibernate 7 discovers SQL DATE as LocalDate; LinkReq expects java.util.Date
      * both when listing requisitions and when saving the selected link.
      */
-    private Query requisitionRowsQuery(String sql) {
-        return entityManager.createNativeQuery(sql).unwrap(NativeQuery.class)
+    private Query requisitionRowsQuery(Query query) {
+        return query.unwrap(NativeQuery.class)
                 .addScalar("ID", StandardBasicTypes.INTEGER)
                 .addScalar("formCreated", StandardBasicTypes.DATE)
                 .addScalar("patientName", StandardBasicTypes.STRING);

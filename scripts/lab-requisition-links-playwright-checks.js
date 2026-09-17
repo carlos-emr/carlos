@@ -22,6 +22,8 @@ async function main() {
   const sql = createSqlRunner(config.mysql);
   let browser, ownedLinkWhere;
   try {
+    const tables = Number(sql.value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('formLabReq07','formLabReq10')"));
+    if (tables !== 2) throw new SkipCheck('requires Ontario 2007/2010 requisition tables');
     const patient = sql.rows(`SELECT last_name, first_name FROM demographic WHERE demographic_no=${demographicNo}`)[0];
     if (!patient) throw new SkipCheck('configured demo patient is absent');
     const requisitions = ['formLabReq07', 'formLabReq10'].map((table) => {
