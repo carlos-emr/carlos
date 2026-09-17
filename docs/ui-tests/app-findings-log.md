@@ -96,7 +96,7 @@ user is shown nothing.
 
 | # | Finding | Evidence | Status |
 |---|---|---|---|
-| 10 | **Five remaining pages POST through the shared AJAX helper with nothing to populate the token.** `share/javascript/carlos-ajax.js` is the common path: `CarlosAjax.request()` defaults to `method: 'POST'` and `getCsrfToken()` reads `input[name="CSRF-TOKEN"]` on the caller's behalf (`carlos-ajax.js:49`). These five carry neither a qualifying form nor the include, so every one of those POSTs is sent with an empty token. Two are whole pages (`documentsInQueues.jsp`, 14 such calls; `newEncounterLayout.jsp`); three are fragments or generated script whose host pages were checked and do not carry it either (`ChartNotesAjax.jsp`, `labDisplayAjax.jsp`, `js/newCaseManagementView.js.jsp`). Remedy: add the `csrf-token.jspf` include to the document that owns each — and on any page setting its own `script-src`, publish the `cspNonce` request attribute first, or the inline bootstrap is blocked and the symptom is unchanged | `scripts/lib/csrf-bootstrap-audit.js` over the whole webapp, with the five remaining pages pinned in `scripts/lib/csrf-bootstrap-baseline.json`; `labDisplayAjax.jsp` and `newEncounterLayout.jsp` carry the action-less-form anti-pattern CLAUDE.md names explicitly. Not confirmed against a running deployment: the audit is static, and `csrfBootstrapFinding()` in `scripts/lib/playwright-link-audit.js` is the browser half that would confirm the input is empty in a live DOM | `needs-live-check` |
+| 10 | **Five remaining pages POST through the shared AJAX helper with nothing to populate the token.** `share/javascript/carlos-ajax.js` is the common path: `CarlosAjax.request()` defaults to `method: 'POST'` and `getCsrfToken()` reads `input[name="CSRF-TOKEN"]` on the caller's behalf (`carlos-ajax.js:49`). These five carry neither a qualifying form nor the include, so every one of those POSTs is sent with an empty token. Two are whole pages (`documentsInQueues.jsp`, 14 such calls; `newEncounterLayout.jsp`); three are fragments or generated script whose host pages were checked and do not carry it either (`ChartNotesAjax.jsp`, `labDisplayAjax.jsp`, `js/newCaseManagementView.js.jsp`). Remedy: add the `csrf-token.jspf` include to the document that owns each — and on any page setting its own `script-src`, publish the `cspNonce` request attribute first, or the inline bootstrap is blocked and the symptom is unchanged | `scripts/lib/csrf-bootstrap-audit.js` over the whole webapp, with the five remaining pages pinned in the combined checkout's `scripts/lib/csrf-bootstrap-baseline.json` after applying PR #3691; `labDisplayAjax.jsp` and `newEncounterLayout.jsp` carry the action-less-form anti-pattern CLAUDE.md names explicitly. Not confirmed against a running deployment: the audit is static, and `csrfBootstrapFinding()` in `scripts/lib/playwright-link-audit.js` is the browser half that would confirm the input is empty in a live DOM | `needs-live-check` |
 
 **How this was missed.** The original audit required the token read and AJAX
 send to appear in the page's own source, so it missed pages that delegated to
@@ -108,11 +108,13 @@ are historical discovery counts, not the current baseline.
 `scripts/lib/csrf-bootstrap-audit.js` over the combined issue #3682 fixes finds
 34 applicable pages: 26 that read and send the token themselves, plus eight
 additional pages that delegate to the helper. Five violations remain, exactly
-matching the five paths in `scripts/lib/csrf-bootstrap-baseline.json`; there are
+matching the five paths in the combined checkout's
+`scripts/lib/csrf-bootstrap-baseline.json` after applying PR #3691; there are
 no unattributed fragments. PR #3691 adds the bootstrap to
 `lab/CumulativeLabValues.jsp`, removing it from the original six-page violation
-baseline. These are static results; the remaining findings still need live
-confirmation.
+baseline. Until PR #3691 is applied, this documentation PR branch by itself
+still contains the six-entry baseline, including `CumulativeLabValues.jsp`.
+These are static results; the remaining findings still need live confirmation.
 
 ---
 
