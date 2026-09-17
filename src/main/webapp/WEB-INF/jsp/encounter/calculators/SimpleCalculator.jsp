@@ -29,6 +29,14 @@
 
 --%>
 
+<%--
+  Purpose: Display the simple arithmetic calculator from the encounter menu.
+  Features: Browser-side numeric entry, operators and clearing, with styling
+  resolved against the application context from the nested calculator route.
+  Parameters: No request parameters are consumed; button input stays in the browser.
+  @since 2026-09-17
+--%>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 

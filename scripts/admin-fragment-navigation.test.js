@@ -26,3 +26,31 @@ test('loading OHIP simulation initializes its own form without hijacking shell n
   assert.deepEqual(dates, ['#xml_vdate', '#xml_appointment_date']);
   assert.equal(listeners.length, 0, 'A billing fragment attached an extra shell navigation handler');
 });
+
+
+test('calculator header navigation keeps patient attributes out of both popup and fallback URLs', () => {
+  const source = fs.readFileSync(path.join(__dirname,
+    '../src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'), 'utf8');
+  const anchor = source.match(/<a href="([^"]*\/encounter\/ViewCalculators[^"]*)"\s+onclick="([^"]*)"/);
+  assert.ok(anchor, 'The calculator header link was not found');
+  const fixture = {ctx: '/carlos', popupDemographicNo: '12345', popupPatientSex: 'F', popupPatientAge: '55'};
+  const render = value => value.replace(/\$\{carlos:for\w+\((\w+)\)\}/g, (_, name) => {
+    assert.ok(Object.hasOwn(fixture, name), `Unexpected calculator interpolation: ${name}`);
+    return fixture[name];
+  }).replaceAll('&amp;', '&');
+  const popups = [];
+  const prevented = vm.runInNewContext('(function () {' + render(anchor[2]) + '})()', {
+    window: {open: (...args) => popups.push(args)},
+  });
+  assert.equal(prevented, false, 'Opening the popup must prevent a second navigation');
+  assert.equal(popups.length, 1);
+  assert.equal(popups[0][1], 'ClinicalCalculators');
+  for (const target of [render(anchor[1]), popups[0][0]]) {
+    const url = new URL(target, 'https://example.test');
+    assert.equal(url.pathname, '/carlos/encounter/ViewCalculators');
+    assert.equal(url.searchParams.has('sex'), false, 'Patient sex must not be serialized into a navigation URL');
+    assert.equal(url.searchParams.has('age'), false, 'Patient age must not be serialized into a navigation URL');
+    assert.equal(url.searchParams.get('demo'), fixture.popupDemographicNo,
+      'The menu must resolve demographics for the originating chart, not a later shared-session patient');
+  }
+});

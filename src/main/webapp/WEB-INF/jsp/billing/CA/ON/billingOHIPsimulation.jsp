@@ -21,10 +21,14 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingOHIPsimulation in the Ontario billing workflow.
-  Expected request model data includes: simulationModel.
+  Purpose: Display the Ontario billing simulation form in administration.
+  Features: Provider/date selection, simulation options and fragment-local form
+  submission without registering handlers on the administration shell's links.
+  Parameters: simulationModel is supplied by the paired action; the form submits
+  provider, xml_vdate, xml_appointment_date and simulation options.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
+  @since 2026-09-17
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

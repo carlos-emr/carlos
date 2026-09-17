@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+  Purpose: Display cumulative laboratory values for the selected patient.
+  Features: Lab-type selection and an asynchronous row-display refresh that waits
+  for CSRF readiness and reports a failed refresh in the result area.
+  Parameters: demographic_no identifies the patient; the row-display request also
+  carries the selected lab type and display options. Session roles control lab access.
+  @since 2026-09-17
+--%>
+
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.util.Objects" %>
 <%@page

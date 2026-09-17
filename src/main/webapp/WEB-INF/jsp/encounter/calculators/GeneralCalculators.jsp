@@ -29,6 +29,14 @@
 
 --%>
 
+<%--
+  Purpose: Display general clinical calculation and conversion tools.
+  Features: Browser-side calculation controls and application-context styling
+  that loads correctly when the page opens from its nested calculator route.
+  Parameters: No request parameters are consumed; users enter values in the page.
+  @since 2026-09-17
+--%>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 

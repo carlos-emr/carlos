@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+  Purpose: Display the osteoporotic fracture risk calculator.
+  Features: Editable age, sex and T-score inputs with probability and age-band
+  results; styling uses the application context path from this nested route.
+  Parameters: Legacy sex and age query parameters optionally prefill the form;
+  calculation and editing occur in the browser.
+  @since 2026-09-17
+--%>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 

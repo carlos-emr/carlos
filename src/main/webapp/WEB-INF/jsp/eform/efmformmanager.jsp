@@ -21,9 +21,14 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `efmformmanager.jsp` for the eForm workflow.
+  Purpose: Manage installed eForm templates from the administration interface.
+  Features: Ordering, upload/import controls, token-aware deletion and support for
+  full-page or AJAX-fragment rendering without replacing the shell's jQuery.
+  Parameters: orderby selects the allowed template sort; input selects the open
+  upload/import panel. The X-Requested-With header identifies AJAX fragments.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
+  @since 2026-09-17
 --%>
 <!DOCTYPE html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
