@@ -28,9 +28,6 @@ async function main() {
       JOIN ctl_document c ON c.document_no=d.document_no
       WHERE c.module='demographic' AND c.module_id=${demographicNo}
         AND d.status='A' AND d.contenttype='application/pdf' ORDER BY d.document_no`);
-    const multi = docs.find((row) => Number(row[1]) >= 3);
-    const single = docs.find((row) => Number(row[1]) === 1);
-    if (!multi || !single) throw new SkipCheck('need linked single-page and >=3-page demo PDFs');
     const recorder = createRecorder();
     browser = await launchBrowser(config);
     const context = await newContext(browser, config);
@@ -40,6 +37,14 @@ async function main() {
     });
     const chart = await openChart(context, masterPage, recorder, 45000);
     await waitForNavbars(chart, 45000);
+    // The chart applies privacy, program/facility and ECONSULT visibility rules.
+    // Choose fixtures from its rendered links, not merely the database rows.
+    const visibleIds = new Set(await chart.locator('#docs a[onclick]').evaluateAll((links) =>
+      links.map((link) => /segmentID=(\d+)'/.exec(link.getAttribute('onclick') || '')?.[1]).filter(Boolean)));
+    const visibleDocs = docs.filter(([id]) => visibleIds.has(id));
+    const multi = visibleDocs.find((row) => Number(row[1]) >= 3);
+    const single = visibleDocs.find((row) => Number(row[1]) === 1);
+    if (!multi || !single) throw new SkipCheck('need chart-visible single-page and >=3-page demo PDFs');
     for (const [id, count] of [multi, single]) {
       assert(/^\d+$/.test(id), 'document fixture ID must be numeric');
       // Use the actual patient document link; a duplicate date link opens the
