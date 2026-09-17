@@ -331,9 +331,13 @@ async function checkTypeFilters(page, timeout) {
   return { whole: whole.length, parts: parts.map((part) => `${part.title}=${part.rows.length}`), skipped };
 }
 
-// HRM has only a signedOff flag: Acknowledged and Filed are legacy aliases.
-// Keep strict partitions for documents/labs and for HRM New versus signed-off;
-// require the two signed-off HRM views to agree instead of inventing a third state.
+/**
+ * Verifies strict document/lab partitions and HRM New versus signed-off coverage.
+ * HRM Acknowledged and Filed are aliases and must contain the same rows.
+ * @param {string[]} whole identities shown under All
+ * @param {{title: string, rows: string[]}[]} parts identities from each status view
+ * @throws {Error} when a row is missing, duplicated or placed in inconsistent views
+ */
 function assertReviewStatusCoverage(whole, parts) {
   const hrm = row => row.startsWith('HRM:');
   const select = (title, predicate) => ({title, rows: parts.find(part => part.title === title).rows.filter(predicate)});
@@ -349,6 +353,12 @@ function assertReviewStatusCoverage(whole, parts) {
   assertPartitions(whole.filter(hrm), [select('New', hrm), acknowledged], 'HRM review status');
 }
 
+/**
+ * Requires the HRM category total and optional badge to match displayed HRM rows.
+ * @param {import('playwright').Page} page settled inbox page
+ * @param {string[]} rows visible result identities
+ * @returns {Promise<void>} resolves when both available counts agree
+ */
 async function assertHrmCount(page, rows) {
   const expected = rows.filter(row => row.startsWith('HRM:')).length;
   const count = await page.locator('#totalHRMCount').inputValue();
@@ -360,6 +370,13 @@ async function assertHrmCount(page, rows) {
   }
 }
 
+/**
+ * Submits every review-status filter and checks coverage and HRM totals.
+ * @param {import('playwright').Page} page authenticated inbox page
+ * @param {number} timeout maximum wait per filter in milliseconds
+ * @returns {Promise<object>} whole-row count and per-status count summaries
+ * @throws {SkipCheck} when the selected dataset contains no results
+ */
 async function checkStatusFilters(page, timeout) {
   // "All" first, so the whole set is measured under the same form submission
   // path as the parts -- not against the AJAX-loaded initial list.

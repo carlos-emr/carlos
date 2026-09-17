@@ -16,10 +16,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Regression coverage for matching HRM category counts.
+ *
+ * @since 2026-09-16
+ */
 @Tag("unit")
 class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
-    @CsvSource({"N,0", "A,1", "F,1", "'',any"})
+    @CsvSource(value = {"N,0", "A,1", "F,1", "'',any", "NULL,0"}, nullValues = "NULL")
     void shouldUseSameReviewFilterForMatchedAndUnmatchedCounts_whenStatusSelected(String status, String signedOff) throws Exception {
         EntityManagerFactory factory = mock(EntityManagerFactory.class);
         EntityManager manager = mock(EntityManager.class);
@@ -42,8 +47,10 @@ class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
         for (String statement : sql.getAllValues()) {
             assertThat(statement).contains("COUNT(DISTINCT h.id)").doesNotContain("hp.viewed");
             if ("any".equals(signedOff)) assertThat(statement).doesNotContain("hp.signedOff");
-            else assertThat(statement).contains("hp.signedOff = " + signedOff);
+            else assertThat(statement).contains("hp.signedOff = :hrmSignedOff");
         }
         verify(query, times(2)).setParameter("hrmProviderNo", "999998");
+        if ("any".equals(signedOff)) verify(query, never()).setParameter(eq("hrmSignedOff"), any());
+        else verify(query, times(2)).setParameter("hrmSignedOff", Integer.parseInt(signedOff));
     }
 }

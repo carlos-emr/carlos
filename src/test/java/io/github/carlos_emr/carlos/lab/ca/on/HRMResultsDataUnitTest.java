@@ -14,10 +14,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Regression coverage for HRM result query filters.
+ *
+ * @since 2026-09-16
+ */
 @Tag("unit")
 class HRMResultsDataUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
-    @CsvSource({"N,0", "A,1", "F,1", "'',2"})
+    @CsvSource(value = {"N,0", "A,1", "F,1", "'',2", "NULL,0"}, nullValues = "NULL")
     void shouldFilterBySignOffIndependentlyOfViewedState_whenReviewStatusSelected(String status, int signedOff) {
         HRMDocumentToProviderDao providers = mock(HRMDocumentToProviderDao.class);
         registerMock(HRMDocumentToProviderDao.class, providers);

@@ -50,6 +50,10 @@ import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Builds inbox category counts and patient summaries for the selected filters.
+ * HRM sign-off filtering is independent of viewing and matches HRM result queries.
+ */
 public class CategoryData {
     private static final String COUNT_COLUMN = "count";
     private static final String SQL_EQUALS_PARAM = " = ? ";
@@ -142,8 +146,23 @@ public class CategoryData {
 
     private final List<String> labDateParams = new ArrayList<>();
     private final List<String> documentDateParams = new ArrayList<>();
-    private final java.util.Map<String, String> hrmParams = new java.util.LinkedHashMap<>();
+    private final java.util.Map<String, Object> hrmParams = new java.util.LinkedHashMap<>();
 
+    /**
+     * Prepares inbox count filters without executing the count queries.
+     *
+     * @param patientLastName optional patient surname search
+     * @param patientFirstName optional patient given-name search
+     * @param patientHealthNumber optional patient health-number search
+     * @param patientSearch whether patient search restrictions apply
+     * @param providerSearch whether to restrict results to the selected provider
+     * @param searchProviderNo provider identifier; "0" selects unassigned HRM reports
+     * @param status HRM: empty selects all, null/N unsigned, A/F signed off;
+     *               document and lab status semantics are retained
+     * @param abnormalStatus optional normal/abnormal result restriction
+     * @param startDate optional inclusive start date
+     * @param endDate optional inclusive end date
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public CategoryData(String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
@@ -226,13 +245,13 @@ public class CategoryData {
             }
         }
 
-        // Match HRMResultsData: viewing is independent of review sign-off.
-        if (matchesAnyStatus()) {
+        // Match HRMResultsData: only an empty status selects all HRM rows;
+        // null defaults to unsigned, and viewing is independent of sign-off.
+        if (status != null && status.isEmpty()) {
             hrmSignedOff = "";
-        } else if (status.equalsIgnoreCase("A") || status.equalsIgnoreCase("F")) {
-            hrmSignedOff = " AND hp.signedOff = 1 ";
         } else {
-            hrmSignedOff = " AND hp.signedOff = 0 ";
+            hrmSignedOff = " AND hp.signedOff = :hrmSignedOff ";
+            hrmParams.put("hrmSignedOff", "A".equalsIgnoreCase(status) || "F".equalsIgnoreCase(status) ? 1 : 0);
         }
 
         totalDocs = 0;
@@ -542,6 +561,12 @@ public class CategoryData {
         if (!StringUtils.isEmpty(patientHealthNumber)) params.add("%" + patientHealthNumber + "%");
     }
 
+    /**
+     * Counts matching HRM documents and updates the patient summaries.
+     *
+     * @return total matching documents across the grouped patient rows
+     * @throws SQLException if a database count operation fails
+     */
     public int getHRMDocumentCountForPatient() throws SQLException {
         int count = 0;
         PatientInfo info;
@@ -599,6 +624,12 @@ public class CategoryData {
         return count;
     }
 
+    /**
+     * Counts HRM documents without a patient match using the same sign-off filter.
+     *
+     * @return number of matching unassigned documents
+     * @throws SQLException if a database count operation fails
+     */
     public int getHRMDocumentCountForUnmatched() throws SQLException {
         int count = 0;
 

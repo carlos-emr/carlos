@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/** Supplies inbox HRM results with provider, patient, date and review-status filters. */
 public class HRMResultsData {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -42,15 +43,46 @@ public class HRMResultsData {
     private HRMDocumentToDemographicDao hrmDocumentToDemographicDao = (HRMDocumentToDemographicDao) SpringUtils.getBean(HRMDocumentToDemographicDao.class);
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
+    /** Creates a result reader backed by the configured HRM and demographic services. */
     public HRMResultsData() {
     }
 
+    /**
+     * Loads HRM results without patient-name or demographic restrictions.
+     *
+     * @param loggedInInfo authenticated caller used for demographic access
+     * @param providerNo provider identifier, empty/null for all or "0" for unassigned
+     * @param status empty for all, null/N for unsigned, A/F for signed-off reports
+     * @param newestDate optional newest received-date bound
+     * @param oldestDate optional oldest received-date bound
+     * @param isPaged whether to limit the DAO result page
+     * @param page requested page number
+     * @param pageSize maximum results per page
+     * @return HRM results keyed internally by report identity
+     */
     public Collection<LabResultData> populateHRMdocumentsResultsData(LoggedInInfo loggedInInfo, String providerNo, String status, Date newestDate, Date oldestDate,
                                                                      boolean isPaged, Integer page, Integer pageSize) {
         return populateHRMdocumentsResultsData(loggedInInfo, providerNo, "", "", "", null, status, newestDate, oldestDate, isPaged, page, pageSize);
     }
 
 
+    /**
+     * Loads HRM results while keeping sign-off status independent of viewing.
+     *
+     * @param loggedInInfo authenticated caller used for demographic access
+     * @param providerNo provider identifier, empty/null for all or "0" for unassigned
+     * @param firstName optional patient given-name search
+     * @param lastName optional patient surname search
+     * @param hin optional patient health-number search
+     * @param demographicNumber optional specific patient identifier
+     * @param status empty for all, null/N for unsigned, A/F for signed-off reports
+     * @param newestDate optional newest received-date bound
+     * @param oldestDate optional oldest received-date bound
+     * @param isPaged whether to limit the DAO result page
+     * @param page requested page number
+     * @param pageSize maximum results per page
+     * @return HRM results keyed internally by report identity
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Collection<LabResultData> populateHRMdocumentsResultsData(LoggedInInfo loggedInInfo, String providerNo, String firstName, String lastName, String hin, String demographicNumber, String status, Date newestDate, Date oldestDate,
