@@ -49,6 +49,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Lists and edits episodes using patient-specific demographic read/write rights.
+ * Stored patient ownership is immutable; validation precedes managed-entity changes.
+ */
 public class Episode2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -57,6 +61,7 @@ public class Episode2Action extends ActionSupport {
     private EpisodeDao episodeDao = SpringUtils.getBean(EpisodeDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /** Dispatches the requested episode operation, defaulting to the patient list. */
     @Override
     public String execute() throws IOException {
         if ("save".equals(request.getParameter("method"))) {
@@ -68,6 +73,7 @@ public class Episode2Action extends ActionSupport {
         return this.list();
     }
 
+    /** Lists episodes only after validating the patient ID and demographic read access. */
     public String list() throws IOException {
         Integer demographicNo = positiveInteger(request.getParameter("demographicNo"));
         if (demographicNo == null) return reject(400, "Invalid patient identifier");
@@ -81,6 +87,10 @@ public class Episode2Action extends ActionSupport {
         return "list";
     }
 
+    /**
+     * Opens an episode form after patient read authorization and stored ownership checks.
+     * Links containing only episode.id authorize the patient recorded on that episode.
+     */
     public String edit() throws IOException {
         String requestedPatient = request.getParameter("demographicNo");
         Integer demographicNo = positiveInteger(requestedPatient);
@@ -110,6 +120,11 @@ public class Episode2Action extends ActionSupport {
         return "form";
     }
 
+    /**
+     * Creates or updates an episode on POST with patient write access. Description,
+     * status and calendar dates must be valid before copying submitted fields.
+     * Existing episodes cannot move to another patient; audit ownership is server-set.
+     */
     public String save() throws IOException {
         if (!"POST".equals(request.getMethod())) return reject(405, "POST required");
         if (episode == null || episode.getDemographicNo() <= 0) return reject(400, "Invalid patient identifier");

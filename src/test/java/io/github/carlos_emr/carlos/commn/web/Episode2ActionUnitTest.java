@@ -45,7 +45,7 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         return stored;
     }
 
-    @Test void cannotViewEpisodeWithoutPatientReadAccess() {
+    @Test void shouldDenyRead_whenPatientAccessMissing() {
         addRequestParameter("demographicNo", "10");
         addRequestParameter("episode.id", "7");
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), eq(10))).thenReturn(false);
@@ -54,7 +54,7 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         assertThat(mockRequest.getAttribute("episode")).isNull();
     }
 
-    @Test void cannotViewEpisodeFromDifferentPatient() throws Exception {
+    @Test void shouldRejectRead_whenEpisodeBelongsToAnotherPatient() throws Exception {
         stored(20);
         addRequestParameter("demographicNo", "10");
         assertThat(action.edit()).isEqualTo("none");
@@ -62,14 +62,14 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         assertThat(mockRequest.getAttribute("episode")).isNull();
     }
 
-    @Test void canViewOwnedEpisode() throws Exception {
+    @Test void shouldShowEpisode_whenPatientMatches() throws Exception {
         Episode existing = stored(10);
         addRequestParameter("demographicNo", "10");
         assertThat(action.edit()).isEqualTo("form");
         assertThat(mockRequest.getAttribute("episode")).isSameAs(existing);
     }
 
-    @Test void existingEpisodeLinkWithoutPatientParameterAuthorizesStoredPatient() throws Exception {
+    @Test void shouldAuthorizeStoredPatient_whenLinkOmitsPatientParameter() throws Exception {
         Episode existing = stored(10);
         assertThat(action.edit()).isEqualTo("form");
         verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_demographic"), eq("r"), eq(10));
@@ -77,20 +77,20 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("10");
     }
 
-    @Test void existingEpisodeLinkCannotExposeDeniedStoredPatient() {
+    @Test void shouldDenyStoredPatient_whenLinkOmitsPatientParameter() {
         stored(20);
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), eq(20))).thenReturn(false);
         assertThatThrownBy(action::edit).isInstanceOf(SecurityException.class);
         assertThat(mockRequest.getAttribute("episode")).isNull();
     }
 
-    @Test void missingPatientAndEpisodeCannotOpenBlankEditor() throws Exception {
+    @Test void shouldRejectEditor_whenPatientAndEpisodeMissing() throws Exception {
         assertThat(action.edit()).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         verifyNoInteractions(dao);
     }
 
-    @Test void cannotMoveAnotherPatientsEpisodeOrMutateManagedEntity() throws Exception {
+    @Test void shouldPreserveStoredEpisode_whenPatientDoesNotMatch() throws Exception {
         Episode existing = stored(20);
         assertThat(action.save()).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(404);
@@ -99,7 +99,7 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         verify(dao, never()).merge(any());
     }
 
-    @Test void deniedSaveLeavesManagedEntityUntouched() {
+    @Test void shouldPreserveStoredEpisode_whenWriteAccessDenied() {
         Episode existing = stored(10);
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("w"), eq(10))).thenReturn(false);
         assertThatThrownBy(action::save).isInstanceOf(SecurityException.class);
@@ -107,7 +107,7 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         verifyNoInteractions(dao);
     }
 
-    @Test void validUpdatePreservesIdentity() throws Exception {
+    @Test void shouldPreserveIdentity_whenUpdatingEpisode() throws Exception {
         Episode existing = stored(10);
         assertThat(action.save()).isEqualTo("success");
         assertThat(existing.getId()).isEqualTo(7);
@@ -116,12 +116,12 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         verify(dao).merge(existing);
     }
 
-    @Test void canCreateEpisode() throws Exception {
+    @Test void shouldCreateEpisode_whenSubmissionValid() throws Exception {
         assertThat(action.save()).isEqualTo("success");
         verify(dao).persist(argThat((Episode e) -> e.getDemographicNo() == 10 && "Current".equals(e.getStatus())));
     }
 
-    @Test void completionRequiresEndDateOnServer() throws Exception {
+    @Test void shouldRejectCompletion_whenEndDateMissing() throws Exception {
         Episode existing = stored(10);
         submitted.setStatus("Complete");
         assertThat(action.save()).isEqualTo("none");
@@ -130,7 +130,7 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         verify(dao, never()).merge(any());
     }
 
-    @Test void completedEpisodeWithEndDateCanSave() throws Exception {
+    @Test void shouldSaveCompletion_whenEndDatePresent() throws Exception {
         submitted.setStatus("Complete");
         submitted.setEndDateStr("2026-02-03");
         assertThat(action.save()).isEqualTo("success");
@@ -138,14 +138,14 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest @ValueSource(strings = {"bad", "-1", "2147483648"})
-    void malformedIdCannotCreateNewEpisode(String id) throws Exception {
+    void shouldRejectSave_whenEpisodeIdMalformed(String id) throws Exception {
         addRequestParameter("episode.id", id);
         assertThat(action.save()).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         verifyNoInteractions(dao);
     }
 
-    @Test void invalidCalendarDateCannotBeSilentlyNormalized() throws Exception {
+    @Test void shouldRejectSave_whenCalendarDateInvalid() throws Exception {
         submitted.setStartDateStr("2026-02-31");
         addRequestParameter("episode.startDateStr", "2026-02-31");
         assertThat(action.save()).isEqualTo("none");
@@ -153,7 +153,7 @@ class Episode2ActionUnitTest extends CarlosWebTestBase {
         verifyNoInteractions(dao);
     }
 
-    @Test void saveRequiresPost() throws Exception {
+    @Test void shouldRejectSave_whenRequestIsGet() throws Exception {
         mockRequest.setMethod("GET");
         assertThat(action.save()).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(405);

@@ -32,6 +32,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import java.io.PrintWriter;
@@ -73,13 +77,16 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(scratchPadDao);
     }
 
-    @Test
-    @DisplayName("should save scratchpad for session user when providerNo request parameter is absent")
-    void shouldSaveScratchpadForSessionUser_whenProviderNoParameterIsAbsent() throws Exception {
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "save"})
+    @DisplayName("should save for the session provider with the default or explicit save operation")
+    void shouldSaveScratchpadForSessionUser_whenProviderNoParameterIsAbsent(String method) throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter json = new StringWriter();
 
+        when(request.getParameter("method")).thenReturn(method);
         when(request.getParameter("id")).thenReturn("0");
         when(request.getParameter("scratchpad")).thenReturn("test note");
         when(request.getParameter("windowId")).thenReturn("window-1");
@@ -164,7 +171,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void anotherProvidersVersionIsNotExposed() throws Exception {
+    void shouldDenyVersionRead_whenOwnedByAnotherProvider() throws Exception {
         HttpServletRequest request = mockRequest("GET", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         when(request.getParameter("id")).thenReturn("7");
@@ -177,7 +184,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void anotherProvidersVersionCannotBeDeleted() throws Exception {
+    void shouldDenyVersionDelete_whenOwnedByAnotherProvider() throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter json = new StringWriter();
@@ -195,20 +202,22 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(json.toString()).contains("\"success\":false");
     }
 
-    @Test
-    void ownerCanViewVersion() throws Exception {
-        HttpServletRequest request = mockRequest("GET", "999998");
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldShowOwnedVersion_whenDispatchedAsRead(String httpMethod) throws Exception {
+        HttpServletRequest request = mockRequest(httpMethod, "999998");
+        when(request.getParameter("method")).thenReturn("showVersion");
         HttpServletResponse response = mock(HttpServletResponse.class);
         when(request.getParameter("id")).thenReturn("7");
         ScratchPad stored = new ScratchPad();
         stored.setProviderNo("999998");
         when(scratchPadDao.find(7)).thenReturn(stored);
-        assertThat(createAction(request, response).showVersion()).isEqualTo("scratchPadVersion");
+        assertThat(createAction(request, response).execute()).isEqualTo("scratchPadVersion");
         verify(request).setAttribute("ScratchPad", stored);
     }
 
     @Test
-    void anonymousVersionRequestDoesNotReachDatabase() throws Exception {
+    void shouldAvoidDatabase_whenVersionRequestIsAnonymous() throws Exception {
         HttpServletRequest request = mockRequest("GET", null);
         HttpServletResponse response = mock(HttpServletResponse.class);
         assertThat(createAction(request, response).showVersion()).isEqualTo("none");
@@ -217,7 +226,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void deleteRequiresPostEvenWhenCalledDirectly() throws Exception {
+    void shouldRejectDelete_whenCalledDirectlyWithGet() throws Exception {
         HttpServletRequest request = mockRequest("GET", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         when(response.getWriter()).thenReturn(new PrintWriter(new StringWriter()));
@@ -242,19 +251,13 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         return request;
     }
 
-    /**
-     * Creates a scratch action with mocked servlet request and response dependencies injected.
-     *
-     * @param request HttpServletRequest mocked request to inject
-     * @param response HttpServletResponse mocked response to inject
-     * @return Scratch2Action configured action instance for unit testing
-     */
     @Test
-    void ownerCanDeleteAndReceivesSuccessOnlyAfterPersistence() throws Exception {
+    void shouldReportDeleteSuccess_afterPersistingOwnedVersion() throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter json = new StringWriter();
         when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(request.getParameter("method")).thenReturn("delete");
         when(request.getParameter("id")).thenReturn("7");
         ScratchPad stored = new ScratchPad();
         stored.setId(7);
@@ -262,14 +265,14 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         stored.setStatus(true);
         stored.setDateTime(java.sql.Date.valueOf("2026-08-01"));
         when(scratchPadDao.find(7)).thenReturn(stored);
-        createAction(request, response).delete();
+        createAction(request, response).execute();
         verify(scratchPadDao).merge(stored);
         assertThat(stored.isStatus()).isFalse();
         assertThat(json.toString()).contains("\"success\":true", "\"id\":\"7\"");
     }
 
     @Test
-    void failedDeleteNeverReportsSuccess() throws Exception {
+    void shouldReportDeleteFailure_whenPersistenceFails() throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter json = new StringWriter();
@@ -287,7 +290,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void malformedVersionIdIsRejectedBeforeDatabaseLookup() throws Exception {
+    void shouldRejectVersionId_beforeDatabaseLookup() throws Exception {
         HttpServletRequest request = mockRequest("GET", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         when(request.getParameter("id")).thenReturn("not-an-id");
@@ -296,6 +299,31 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(scratchPadDao);
     }
 
+    @ParameterizedTest
+    @CsvSource({"POST,showVersion,405", "PUT,showVersion,405", "GET,delete,405", "HEAD,delete,405",
+            "GET,save,405", "POST,unexpected,400", "GET,unexpected,400"})
+    void shouldRejectWithoutSaving_whenRequestedOperationCannotRun(String httpMethod, String method,
+            int status) throws Exception {
+        HttpServletRequest request = mockRequest(httpMethod, "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("method")).thenReturn(method);
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn("Must not be saved");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        assertThat(createAction(request, response).execute()).isNull();
+        verify(response).setStatus(status);
+        verifyNoInteractions(scratchPadDao);
+        assertThat(json.toString()).contains("\"success\":false");
+    }
+
+    /**
+     * Creates a scratch action with mocked servlet request and response dependencies injected.
+     *
+     * @param request HttpServletRequest mocked request to inject
+     * @param response HttpServletResponse mocked response to inject
+     * @return Scratch2Action configured action instance for unit testing
+     */
     private Scratch2Action createAction(HttpServletRequest request, HttpServletResponse response) {
         Scratch2Action action = new Scratch2Action();
         injectDependency(action, "request", request);

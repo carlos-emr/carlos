@@ -42,9 +42,10 @@ import org.owasp.encoder.Encode;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
+ * Displays and saves the session provider's scratchpad and manages owned versions.
+ * Named operations are dispatched explicitly so invalid requests cannot become saves.
  *
  * @author jay
  */
@@ -52,7 +53,11 @@ public class Scratch2Action extends JSONAction {
 
     private final ScratchPadDao scratchPadDao = SpringUtils.getBean(ScratchPadDao.class);
 
+    /** Returns an owned version for GET/HEAD, or a direct error response. */
     public String showVersion() throws Exception {
+        if (!"GET".equals(request.getMethod()) && !"HEAD".equals(request.getMethod())) {
+            return rejectRequest(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "GET or HEAD required");
+        }
         ScratchPad scratch = findOwnedVersion();
         if (scratch == null) return NONE;
         request.setAttribute("ScratchPad", scratch);
@@ -82,24 +87,26 @@ public class Scratch2Action extends JSONAction {
         return scratch;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * Routes version reads and deletes explicitly. A POST without an operation, or
+     * with method=save, saves the session provider's scratchpad. Unknown operations
+     * return HTTP 400 instead of falling through to the save path.
+     *
+     * @return a view result, or null after completing a JSON response
+     * @throws Exception if scratchpad storage or response generation fails
+     */
+    @Override
     public String execute() throws Exception {
-
         String method = request.getParameter("method");
-        if ("POST".equalsIgnoreCase(request.getMethod())) {
-            if ("delete".equals(method)) {
-                return delete();
-            }
-            // POST without a method parameter is the normal scratchpad save operation.
-        } else {
-            if ("showVersion".equals(method)) {
-                return showVersion();
-            }
-            return SUCCESS;
+        if ("showVersion".equals(method)) return showVersion();
+        if ("delete".equals(method)) return delete();
+        if (method != null && !method.isBlank() && !"save".equals(method)) {
+            return rejectRequest(HttpServletResponse.SC_BAD_REQUEST, "Unknown scratchpad operation");
         }
-        if ("GET".equalsIgnoreCase(request.getMethod())) {
-            return "success";
+        if (!"POST".equals(request.getMethod())) {
+            return "save".equals(method)
+                    ? rejectRequest(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required")
+                    : SUCCESS;
         }
 
         String providerNo =  (String) request.getSession().getAttribute("user");
@@ -202,6 +209,7 @@ public class Scratch2Action extends JSONAction {
         return null;      
     }
     
+    /** Soft-deletes only a version owned by the session provider, on POST only. */
     public String delete() {
         ObjectNode result = objectMapper.createObjectNode();
         result.put("success", false);
@@ -226,6 +234,15 @@ public class Scratch2Action extends JSONAction {
             MiscUtils.getLogger().error("Unable to delete scratchpad version ({})", ex.getClass().getSimpleName());
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
+        jsonResponse(result);
+        return null;
+    }
+
+    private String rejectRequest(int status, String message) {
+        response.setStatus(status);
+        ObjectNode result = objectMapper.createObjectNode();
+        result.put("success", false);
+        result.put("message", message);
         jsonResponse(result);
         return null;
     }
