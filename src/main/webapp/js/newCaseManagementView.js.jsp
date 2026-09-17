@@ -2995,9 +2995,7 @@ var autoSaveXhr = null;
 var NOTE_LOCK_KEEPALIVE_MILLIS = 60000;
 var lastAutoSaveAt = new Date().getTime();
 function autoSave(keepAliveOnly) {
-    if (!keepAliveOnly) {
-        sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
-    }
+    if (!keepAliveOnly) { sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2); }
     var url = ctx + "/CaseManagementEntry";
     var programId = case_program_id;
     var demoNo = demographicNo;

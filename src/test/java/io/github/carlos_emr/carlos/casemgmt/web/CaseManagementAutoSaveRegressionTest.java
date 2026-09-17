@@ -109,7 +109,8 @@ class CaseManagementAutoSaveRegressionTest {
     void autoSaveOnFailureShouldLogNon409Statuses() throws IOException {
         String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
 
-        int autoSaveStart = js.indexOf("function autoSave()");
+        // autoSave takes a keep-alive flag since the note-lock lease change; anchor on the name only.
+        int autoSaveStart = js.indexOf("function autoSave(");
         assertThat(autoSaveStart).isGreaterThan(0);
         int autoSaveEnd = js.indexOf("\n    }", autoSaveStart);
         String autoSaveBody = js.substring(autoSaveStart, autoSaveEnd);
