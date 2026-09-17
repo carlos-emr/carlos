@@ -732,15 +732,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             } else if (noteId != 0) {
                 noteLock.setLocked(true);
             } else {
-                logger.debug("STATIC isNoteEdited CREATING LOCK NOTE ID 0 DEMO: "
-                        + demographicNo + " PROVIDER: " + providerNo);
+                logger.debug("STATIC isNoteEdited CREATING LOCK NOTE ID 0 DEMO: {} PROVIDER: {}",
+                        LogSafe.sanitizeObject(demographicNo), LogSafe.sanitize(providerNo));
                 noteLock = createNoteLock(noteId, demographicNo, providerNo, ipAddress,
                         sessionId, now);
                 noteLockDao.persist(noteLock);
             }
         } else {
-            logger.debug("STATIC isNoteEdited CREATING NEW LOCK DEMO: " + demographicNo
-                    + " PROVIDER: " + providerNo);
+            logger.debug("STATIC isNoteEdited CREATING NEW LOCK DEMO: {} PROVIDER: {}",
+                    LogSafe.sanitizeObject(demographicNo), LogSafe.sanitize(providerNo));
             noteLock = createNoteLock(noteId, demographicNo, providerNo, ipAddress,
                     sessionId, now);
             noteLockDao.persist(noteLock);
