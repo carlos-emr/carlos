@@ -41,12 +41,15 @@ import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.ServletContext;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
+import java.util.Properties;
 
 /**
  * This ContextListener is used to Initialize classes at startup - Initialize the DBConnection Pool.
@@ -90,19 +93,31 @@ public class Startup implements ServletContextListener {
             propFileName = System.getProperty("user.home") + sep + propName;
             logger.info("looking up " + propFileName);
 
+            // Decide the /WEB-INF/ fallback from deployment-supplied config only: the singleton is
+            // pre-loaded with packaged /carlos.properties defaults, including db_username, so asking it
+            // always answers "configured" and the merge would never run.
+            Properties deploymentProperties = readDeploymentProperties(propFileName);
+
             try {
                 // This has been used to look in the users home directory that started tomcat
                 p.readFromFile(propFileName);
-                logger.info("loading properties from " + propFileName);
+                logger.info("loading properties from {}", propFileName);
             } catch (java.io.FileNotFoundException ex) {
-                logger.info(propFileName + " not found");
+                logger.info("{} not found", propFileName);
             }
-            if (p.isEmpty()) {
-                /* if the file not found in the user root, look in the WEB-INF directory */
+
+            if (!hasDatabaseConfiguration(deploymentProperties)) {
+                // The deployment supplied no usable DB config, so /WEB-INF/ is still the source of truth.
                 try {
-                    logger.info("looking up  /WEB-INF/" + propName);
+                    logger.info("looking up  /WEB-INF/{}", propName);
+                    // Keep the deployment key: a /WEB-INF/ placeholder would otherwise overwrite the
+                    // real generated key and break decryption of data stored since first startup.
+                    String existingKey = deploymentProperties.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
                     p.readFromFile("/WEB-INF/" + propName);
-                    logger.info("loading properties from /WEB-INF/" + propName);
+                    if (existingKey != null && !existingKey.isBlank()) {
+                        p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, existingKey); // real key wins
+                    }
+                    logger.info("loading properties from /WEB-INF/{}", propName);
                 } catch (java.io.FileNotFoundException e) {
                     /*
                      * No configuration in either location means the app has no DB connection and,
@@ -197,6 +212,46 @@ public class Startup implements ServletContextListener {
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
             throw (new RuntimeException(e));
+        }
+    }
+
+    // Ask this about deployment-supplied properties only, never the singleton: packaged defaults
+    // always carry a db_username. Package-private for testing.
+    static boolean hasDatabaseConfiguration(Properties props) {
+        String dbUsername = props.getProperty("db_username");
+        return dbUsername != null && !dbUsername.isBlank();
+    }
+
+    /**
+     * Loads deployment-supplied configuration, excluding the packaged classpath defaults that make the
+     * singleton useless for an "is this configured?" check. Both channels count: the
+     * {@code carlos_override_properties} file and the user-home file, loaded last so it wins on conflict.
+     *
+     * @param userHomePropFileName absolute path of the user-home properties file for this context
+     * @return deployment-supplied properties; empty when neither file exists
+     */
+    static Properties readDeploymentProperties(String userHomePropFileName) {
+        Properties deploymentProperties = new Properties();
+        loadIfPresent(deploymentProperties, System.getProperty("carlos_override_properties"));
+        loadIfPresent(deploymentProperties, userHomePropFileName);
+        return deploymentProperties;
+    }
+
+    /**
+     * Merges one configuration file into {@code target}. Absent is normal - either channel may be
+     * unused, and an empty result is what drives the {@code /WEB-INF/} fallback. Unreadable is fatal.
+     */
+    private static void loadIfPresent(Properties target, String configuredPath) {
+        if (configuredPath == null || configuredPath.isBlank()) {
+            return;
+        }
+        File file = PathValidationUtils.resolveConfiguredFile(configuredPath, "carlos properties file");
+        try (FileInputStream input = new FileInputStream(file)) {
+            target.load(input);
+        } catch (FileNotFoundException e) {
+            logger.info("{} not found", configuredPath);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read configuration file " + configuredPath, e);
         }
     }
 
