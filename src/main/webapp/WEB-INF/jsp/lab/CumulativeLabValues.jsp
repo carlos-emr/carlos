@@ -32,7 +32,8 @@
 <%--
   Purpose: Display cumulative laboratory values for the selected patient.
   Features: Lab-type selection and an asynchronous row-display refresh that waits
-  for CSRF readiness and reports a failed refresh in the result area.
+  for CSRF readiness. Readiness/token failures display an alert; CarlosAjax.updater
+  renders successful and failed response bodies in the new row container.
   Parameters: demographic_no identifies the patient; the row-display request also
   carries the selected lab type and display options. Session roles control lab access.
   @since 2026-09-17
