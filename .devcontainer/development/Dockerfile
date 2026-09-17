@@ -38,10 +38,10 @@ LABEL author="CARLOS EMR Project" \
 
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
-ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
+ARG OSCAR_DOCUMENT="${DOCS_PATH}/CarlosDocument"
 ARG DB_DOCS="/db-data/documents"
-ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
-ARG EFORM_IMAGES_DIR="/var/lib/OscarDocument/oscar/eform/images"
+ARG DOCS_DEST="/var/lib/CarlosDocument/carlos/document"
+ARG EFORM_IMAGES_DIR="/var/lib/CarlosDocument/carlos/eform/images"
 
 WORKDIR /workspace
 
@@ -221,17 +221,17 @@ COPY ./openosp_files/tomcat-users.xml $TOMCAT_PATH/conf/tomcat-users.xml
 
 # Set up document directories, including seeded document data for the database and the destination
 # of all documents
-RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
-    $OSCAR_DOCUMENT/oscar/billing/download \
-    $OSCAR_DOCUMENT/oscar/billing/invoices \
-    $OSCAR_DOCUMENT/oscar/form/records \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/inbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/outbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/sent \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/archive \
-    $OSCAR_DOCUMENT/oscar/encounter/oscarMeasurements/styles \
-    $OSCAR_DOCUMENT/oscar/incomingdocs \
-    $OSCAR_DOCUMENT/oscar/export \
+RUN mkdir -p $OSCAR_DOCUMENT/carlos/document \
+    $OSCAR_DOCUMENT/carlos/billing/download \
+    $OSCAR_DOCUMENT/carlos/billing/invoices \
+    $OSCAR_DOCUMENT/carlos/form/records \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/inbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/outbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/sent \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/archive \
+    $OSCAR_DOCUMENT/carlos/encounter/oscarMeasurements/styles \
+    $OSCAR_DOCUMENT/carlos/incomingdocs \
+    $OSCAR_DOCUMENT/carlos/export \
     $DB_DOCS \
     $DOCS_DEST \
     $EFORM_IMAGES_DIR \

@@ -1,8 +1,10 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -18,11 +20,15 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.ResourceBundle;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -44,9 +50,15 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
     private File tempUploadDirectory;
     private File tempDestinationFile;
     private File tempDestinationDirectory;
+    private String originalDocumentDir;
+    private boolean originalDocumentDirPresent;
+    private boolean documentDirCaptured;
 
     @BeforeEach
     void setUp() {
+        originalDocumentDirPresent = CarlosProperties.getInstance().containsKey("DOCUMENT_DIR");
+        originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        documentDirCaptured = true;
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -70,6 +82,13 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
     void tearDown() throws Exception {
         Exception cleanupFailure = null;
 
+        if (documentDirCaptured) {
+            if (originalDocumentDirPresent) {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            } else {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            }
+        }
         cleanupFailure = deleteIfExists(tempDestinationFile, cleanupFailure);
         cleanupFailure = deleteIfExists(tempUploadFile, cleanupFailure);
         cleanupFailure = deleteIfExists(tempDestinationDirectory, cleanupFailure);
@@ -166,6 +185,60 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
                     .doesNotContain("error");
             assertThat(tempDestinationFile).exists();
             assertThat(tempUploadFile).doesNotExist();
+        }
+    }
+
+    @Test
+    @DisplayName("document upload collision should not log a patient-like filename or path")
+    void documentUploadCollisionShouldNotLogFilenameOrPath() throws Exception {
+        String patientLikeFilename = "DOE_JANE_123456.pdf";
+        tempUploadFile = File.createTempFile("document-upload", ".pdf");
+        Files.writeString(tempUploadFile.toPath(), "new scan");
+        tempDestinationDirectory = Files.createTempDirectory("document-store").toFile();
+        tempDestinationFile = tempDestinationDirectory.toPath().resolve(patientLikeFilename).toFile();
+        Files.writeString(tempDestinationFile.toPath(), "existing scan");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDestinationDirectory.getPath());
+
+        DocumentUpload2Action action = new DocumentUpload2Action();
+        HashMap<String, Object> responseMap = new HashMap<>();
+        ResourceBundle props = ResourceBundle.getBundle("oscarResources");
+
+        try (LogCapture logs = LogCapture.forLogger(DocumentUpload2Action.class)) {
+            assertThatThrownBy(() -> action.writeLocalFile(tempUploadFile, patientLikeFilename))
+                    .isInstanceOf(FileAlreadyExistsException.class);
+            assertThat(logs.events()).isEmpty();
+
+            action.recordDuplicateUploadError(responseMap, props);
+
+            assertThat(responseMap.get("error"))
+                    .isEqualTo(props.getString("dms.addDocument.errorDuplicate"));
+            assertThat(logs.events()).singleElement().satisfies(event -> {
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getFormattedMessage())
+                        .isEqualTo("Uploaded document name already taken; asking the user to retry")
+                        .doesNotContain(patientLikeFilename)
+                        .doesNotContain(tempDestinationFile.getPath());
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("document upload I/O failure should retain diagnostic exception logging")
+    void documentUploadIoFailureShouldRetainDiagnosticLogging() throws Exception {
+        tempUploadFile = File.createTempFile("document-upload-missing", ".pdf");
+        Files.delete(tempUploadFile.toPath());
+        tempDestinationDirectory = Files.createTempDirectory("document-store").toFile();
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDestinationDirectory.getPath());
+
+        DocumentUpload2Action action = new DocumentUpload2Action();
+        try (LogCapture logs = LogCapture.forLogger(DocumentUpload2Action.class)) {
+            assertThatThrownBy(() -> action.writeLocalFile(tempUploadFile, "diagnostic.pdf"))
+                    .isInstanceOf(IOException.class);
+
+            assertThat(logs.events()).singleElement().satisfies(event -> {
+                assertThat(event.getThrown()).isInstanceOf(IOException.class);
+                assertThat(event.getMessage().getFormattedMessage()).isEqualTo("Error writing local file");
+            });
         }
     }
 

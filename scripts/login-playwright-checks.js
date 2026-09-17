@@ -12,6 +12,13 @@
  * password, forcePasswordReset flag, and passwordUpdateDate in a finally block. Use a
  * disposable development database, not a production or PHI-bearing environment.
  *
+ * NOT for a migrated clinic database. This script needs TEST_PASSWORD_HASH to match the
+ * CARLOS dev seed and drives the seeded clinician `carlosdoc`, which an OSCAR 19 import
+ * deletes (its P0 pristine gate refuses a target holding extra logins, and the seed
+ * script removes the seeded clinician before the clinic's rows land). Point it at a dev
+ * database; for a migrated one use scripts/o19-migrated-smoke-playwright-checks.js,
+ * which discovers its own accounts and fixtures from the migrated schema.
+ *
  * Defaults are for the local devcontainer:
  *   node scripts/login-playwright-checks.js
  *
@@ -24,7 +31,7 @@
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -43,7 +50,7 @@ const testPin = requiredEnv('TEST_PIN');
 const mysqlHost = process.env.MYSQL_HOST || 'db';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = requiredEnv('MYSQL_PASSWORD');
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const resetPasswordNoCsrf = ['Carlos', '2026', '!NoCsrf'].join('');
 const resetPasswordRetry = ['Carlos', '2026', '!Retry'].join('');
 const resetPasswordValid = ['Carlos', '2026', '!Valid'].join('');
@@ -66,6 +73,9 @@ function requiredEnv(name) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }

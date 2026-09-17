@@ -4597,7 +4597,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
                     InputStream stream = new ByteArrayInputStream(observationMsg.replace("\r", "\r\n").getBytes(StandardCharsets.UTF_8));
                     String filePath = Utilities.saveFile(stream, filename);
-                    File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+                    if (filePath == null) {
+                        // Utilities.saveFile returns null when the write failed and the partial file
+                        // was removed; surface it through the enclosing import-error handling.
+                        throw new IllegalStateException("Unable to save lab file for demographic import");
+                    }
+                    File file = PathValidationUtils.validateExistingDocumentPath(filePath);
 
                     localFileIs = new FileInputStream(file);
 

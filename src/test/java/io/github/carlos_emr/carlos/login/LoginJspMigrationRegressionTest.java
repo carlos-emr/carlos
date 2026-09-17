@@ -75,6 +75,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/java/io/github/carlos_emr/carlos/login/gate/ViewForcePasswordReset2Action.java");
     private static final Path FORCE_PASSWORD_RESET_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/forcepasswordreset.jsp");
+    private static final Path LOGIN_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/index.jsp");
     private static final Path LOGIN_FAILED_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/loginfailed.jsp");
     private static final Path SELECT_FACILITY_JSP =
@@ -89,8 +91,20 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/java/io/github/carlos_emr/carlos/sec/LoginFilter.java");
 
     @Test
+    @DisplayName("login page should not steal focus after credential entry begins")
+    void shouldNotStealFocus_afterCredentialEntryBegins() throws IOException {
+        String loginJsp = Files.readString(LOGIN_JSP, StandardCharsets.UTF_8);
+
+        assertThat(loginJsp)
+                .contains("const activeElement = document.activeElement")
+                .contains("activeElement !== document.body")
+                .contains("activeElement !== document.documentElement")
+                .containsSubsequence("if (activeElement", "return;", "document.loginForm.username.focus()");
+    }
+
+    @Test
     @DisplayName("struts login config should expose the migrated page actions and internal view targets")
-    void strutsLoginConfigShouldExposeMigratedPageActions() throws IOException {
+    void shouldExposeMigratedPageActions_inStrutsLoginConfig() throws IOException {
         String struts = Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8);
 
         assertThat(struts).contains("<action name=\"index\"");
@@ -274,8 +288,8 @@ class LoginJspMigrationRegressionTest {
     }
 
     @Test
-    @DisplayName("login failure JSP should prefer action attributes before legacy query parameters")
-    void shouldPreferActionAttribute_beforeLegacyLoginFailureQueryParameter() throws IOException {
+    @DisplayName("login failure JSP should preserve local resources without Host header leakage")
+    void shouldSecureLoginFailureJsp_withoutHostHeaderLeakage() throws IOException {
         String loginFailedJsp = Files.readString(LOGIN_FAILED_JSP, StandardCharsets.UTF_8);
 
         assertThat(loginFailedJsp)
@@ -285,7 +299,11 @@ class LoginJspMigrationRegressionTest {
                 .isLessThan(loginFailedJsp.indexOf("request.getParameter(\"errormsg\")"));
         assertThat(loginFailedJsp)
                 .contains("request.setAttribute(\"errormsg\", errormsg)")
+                .contains("${pageContext.request.contextPath}/images/favicon.ico")
+                .contains("<%= request.getContextPath() %>/js/global.js")
                 .contains("value=\"${errormsg}\"")
+                .doesNotContain("<base href")
+                .doesNotContain("request.getServerName()")
                 .doesNotContain("<%= errormsg %>")
                 .doesNotContain("owasp.encoder.jakarta.advanced");
     }

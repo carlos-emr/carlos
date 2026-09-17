@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-alpha8</version>
+    <version>2026.08.0-alpha13-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -19,7 +19,7 @@
         <url>https://github.com/carlos-emr/carlos</url>
         <connection>scm:git:https://github.com/carlos-emr/carlos.git</connection>
         <developerConnection>scm:git:ssh://git@github.com:carlos-emr/carlos.git</developerConnection>
-        <tag>2026.08.0-alpha8</tag>
+        <tag>HEAD</tag>
     </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -84,6 +84,7 @@
         <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine/>
+        <test.forkCount>4</test.forkCount>
         <!-- Log4j Version -->
         <log4j2.version>2.25.5</log4j2.version>
         <!-- Slf4j Version -->
@@ -755,7 +756,7 @@
             </exclusions>
         </dependency>
 
-        <!-- ==================== Rules Engine (Drools) ==================== -->
+                <!-- ==================== Rules Engine (Drools) ==================== -->
 
         <!-- Drools 10.x KIE engine aggregator (upgraded from 7.74.1.Final for Jakarta EE). -->
         <dependency>
@@ -1175,6 +1176,12 @@
             <artifactId>cxf-rt-rs-client</artifactId>
             <version>${cxf.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-transports-local</artifactId>
+            <version>${cxf.version}</version>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>org.commonmark</groupId>
@@ -1586,15 +1593,25 @@
                         </goals>
                         <configuration>
                             <target>
+                                <!-- Build identity stamp. Written into carlos-build.properties (read by
+                                     BuildInfo), NOT into carlos.properties: that file is deployment
+                                     configuration and is re-loaded from an operator override copy, which
+                                     froze the stamp at first install. Ant properties are immutable once
+                                     set, so the two <property name="env.*"> lines below only take effect
+                                     when JOB_NAME / BUILD_NUMBER are absent from the environment; without
+                                     them an unset variable survived as the literal text ${env.JOB_NAME}
+                                     and was rendered on the login page. -->
                                 <tstamp>
                                     <format property="build.dateTime.value" pattern="yyyy-MM-dd hh:mm aa"/>
                                 </tstamp>
                                 <echo level="info" message="build time : ${build.dateTime.value}"/>
-                                <replace file="target/classes/carlos.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
                                 <property environment="env"/>
+                                <property name="env.JOB_NAME" value=""/>
+                                <property name="env.BUILD_NUMBER" value=""/>
                                 <echo level="info" message="JOB_NAME - BUILD_NUMBER : ${env.JOB_NAME}-${env.BUILD_NUMBER}"/>
-                                <replace file="target/classes/carlos.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
-                                <replace file="target/classes/carlos.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
+                                <replace file="target/classes/carlos-build.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
+                                <replace file="target/classes/carlos-build.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
+                                <replace file="target/classes/carlos-build.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
                             </target>
                         </configuration>
                     </execution>
@@ -1734,7 +1751,7 @@
                 <configuration>
                     <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
                          so forks are completely isolated and safe to run in parallel. -->
-                    <forkCount>4</forkCount>
+                    <forkCount>${test.forkCount}</forkCount>
                     <reuseForks>true</reuseForks>
                     <!-- Keep test classes sequential within each fork. Several Spring integration
                          tests share application-context caches or fixed seed data; fork-level
@@ -1747,9 +1764,19 @@
                         <include>**/messenger/**/*Test.java</include>
                         <include>**/provider/**/*Test.java</include>
                         <include>**/managers/**/*Test.java</include>
+                        <include>**/i18n/**/*Test.java</include>
                         <include>**/*IntegrationTest.java</include>
                         <include>**/*UnitTest.java</include>
+                        <include>**/*EndpointTest.java</include>
                         <include>**/*RegressionTest.java</include>
+                        <!-- Promotion-touched legacy test names must run without -Dtest. -->
+                        <include>**/eform/actions/AddEForm2Action*Test.java</include>
+                        <include>**/DocumentDelete2ActionTest.java</include>
+                        <include>**/DocumentUndelete2ActionTest.java</include>
+                        <include>**/RxRePrescribe2ActionTest.java</include>
+                        <include>**/RxShowAllergy2ActionTest.java</include>
+                        <include>**/SimpleXmlRpcClientTest.java</include>
+                        <include>**/WLMutation2ActionsTest.java</include>
                     </includes>
                     <argLine>
                        @{argLine}

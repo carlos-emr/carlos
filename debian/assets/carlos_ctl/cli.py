@@ -15,12 +15,15 @@ import os
 import sys
 from typing import List, Optional
 
-from . import config, dbops, util, validate, waf
+from . import config, dbops, provision, util, validate, waf
 from .util import LIB, die, need_root
 
 _USAGE = """carlos-ctl — administration for a CARLOS EMR host
 
   carlos-ctl check                run the full deployment check (start here)
+  carlos-ctl finish-install       finish an installation whose database
+                                  provisioning did not run (idempotent; also
+                                  runs itself at the next boot)
   carlos-ctl status               systemd status of the EMR and its timers
   carlos-ctl restart              restart the EMR (applies config changes;
                                   takes ~2 minutes to redeploy)
@@ -37,7 +40,14 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
   carlos-ctl db-apply-settings    restart MariaDB if it is not running the
                                   settings in the CARLOS drop-in
   carlos-ctl db-dump              consistent dump to stdout
+  carlos-ctl db-rename-schema     move every table of one schema into another
+                                  and drop the emptied source (idempotent;
+                                  the oscar -> carlos default-rename catch-up)
   carlos-ctl db-users             (re)create the databases and accounts
+  carlos-ctl demo-data            load the fictitious demonstration dataset
+                                  into an EMPTY, freshly migrated database
+                                  (refuses on any database with patients;
+                                  NEVER for production systems)
 
   carlos-ctl cert status          what certificate is being served
   carlos-ctl cert selfsigned      (re)generate the self-signed certificate
@@ -62,6 +72,18 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
   carlos-ctl bootstrap-admin      reset the seeded administrator credential
   carlos-ctl rotate               rotate every generated database password
   carlos-ctl logs [args]          journalctl -u carlos-emr
+
+Clinic migration from OSCAR 19 (experimental — review output before
+clinical use):
+  carlos-ctl import-o19 (experimental)
+                                  import an OSCAR 19 clinic backup into a
+                                  STOCK initial deploy: --bundle FILE (or
+                                  --dump/--documents/--properties),
+                                  --admin-user NAME; see --help for the
+                                  --accept sign-off flags and --dry-run
+  carlos-ctl o19-preflight (experimental)
+                                  stage a dump and run the go/no-go
+                                  feasibility check only
 
 Decommissioning:
   carlos-ctl destroy-data --confirm <server-name>
@@ -102,8 +124,42 @@ def _cmd_lifecycle(verb: str, argv) -> int:
         die(f"'{verb}' takes no arguments; it manages carlos-emr.service only "
             f"(for other units use systemctl directly)")
     need_root(verb)
+    if verb in ("start", "restart"):
+        _refuse_start_during_o19_import(verb)
+        # An operator asking for a restart is never a crash loop; clear the
+        # start-rate counter so systemd cannot refuse it. See
+        # util.reset_emr_start_limit for why this is needed and why it does not
+        # weaken crash-loop protection.
+        util.reset_emr_start_limit()
     os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])
     raise AssertionError("unreachable: execvp replaces the process")
+
+
+O19_GUARD = os.path.join(LIB, "carlos-emr-o19-guard")
+
+
+def _refuse_start_during_o19_import(verb: str) -> None:
+    """Refuse `start`/`restart` while an OSCAR 19 import is in progress.
+
+    carlos-emr.service already consults the same guard as ExecCondition=,
+    so systemctl would not start the EMR either -- but it reports a
+    condition failure as a clean exit 0 and a silent "condition failed"
+    in the journal, which an operator at the terminal would read as
+    "started". Run the shipped guard here first so the refusal, with its
+    remedy, lands on the terminal. The guard is the single predicate; this
+    function only relays its verdict. A host without the guard file (a
+    build that predates it) falls through to systemctl unchanged.
+    """
+    if not os.path.exists(O19_GUARD):
+        return
+    verdict = util.run([O19_GUARD], capture_output=True)
+    if verdict.returncode == 0:
+        return
+    detail = (verdict.stderr or "").strip()
+    die(f"'{verb}' refused: an OSCAR 19 import is in progress and "
+        f"carlos-emr must stay stopped until it finishes "
+        f"(see: sudo carlos-ctl import-o19 --help, --resume / --cleanup)"
+        + (f"\n{detail}" if detail else ""))
 
 
 def _cmd_cert(argv) -> int:
@@ -144,7 +200,8 @@ def _cmd_backup(argv) -> int:
             util.warn("the backup FAILED — journalctl -u carlos-emr-backup -n 50")
         return rc
     if sub[0] == "verify":
-        util.log("running the restore-drill unit (journalctl -u carlos-emr-backup-verify -f to watch)")
+        util.log("running the restore-drill unit "
+                 "(journalctl -u carlos-emr-backup-verify -f to watch)")
         rc = util.run(["systemctl", "start", "carlos-emr-backup-verify.service"]).returncode
         if rc == 0:
             util.log("restore drill passed")
@@ -161,11 +218,26 @@ def _cmd_logs(argv) -> int:
     raise AssertionError("unreachable: execvp replaces the process")
 
 
+def _cmd_import_o19(argv) -> int:
+    # Lazy import: the o19 modules parse the generated schema manifest
+    # (tens of thousands of data lines) — that cost belongs to the two
+    # import verbs, not to every `carlos-ctl status`.
+    from . import o19import
+    return o19import.cmd_import_o19(argv)
+
+
+def _cmd_o19_preflight(argv) -> int:
+    from . import o19import
+    return o19import.cmd_o19_preflight(argv)
+
+
 _VERBS = {
     "check": validate.cmd_check,
+    "finish-install": provision.cmd_finish_install,
     "status": _cmd_status,
     "db": dbops.cmd_db,
     "db-dump": dbops.cmd_db_dump,
+    "db-rename-schema": dbops.cmd_db_rename_schema,
     "db-users": dbops.cmd_db_users,
     "db-migrate": dbops.cmd_db_migrate,
     "db-info": dbops.make_flyway_cmd("info"),
@@ -173,6 +245,7 @@ _VERBS = {
     "db-baseline": dbops.make_flyway_cmd("baseline"),
     "db-repair": dbops.make_flyway_cmd("repair"),
     "db-apply-settings": dbops.cmd_db_apply_settings,
+    "demo-data": dbops.cmd_demo_data,
     "cert": _cmd_cert,
     "cert-renew": _cmd_cert_renew,
     "waf": waf.cmd_waf,
@@ -181,6 +254,8 @@ _VERBS = {
     "bootstrap-admin": dbops.cmd_bootstrap_admin,
     "rotate": dbops.cmd_rotate,
     "destroy-data": dbops.cmd_destroy_data,
+    "import-o19": _cmd_import_o19,
+    "o19-preflight": _cmd_o19_preflight,
     "logs": _cmd_logs,
     "restart": lambda argv: _cmd_lifecycle("restart", argv),
     "start": lambda argv: _cmd_lifecycle("start", argv),

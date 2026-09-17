@@ -12,168 +12,28 @@
  * https://github.com/carlos-emr/carlos
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
+/*
+ * The suite's original shared harness, now a thin re-export of
+ * scripts/lib/playwright-harness.js plus the eForm-specific helpers that only
+ * ever belonged here.
+ *
+ * WHY THE SPLIT. Despite the eForm name this module became the harness for 50 of
+ * the 75 browser checks, which made "shared harness" and "eForm helpers" the same
+ * file and left no obvious home for anything that was neither. The general
+ * helpers moved to lib/playwright-harness.js; the names below keep working so no
+ * existing check has to change in the same commit that moves them.
+ *
+ * NEW CHECKS SHOULD require('./lib/playwright-harness') AND './lib/playwright-ui'
+ * DIRECTLY. This file stays for the unmigrated checks and is expected to shrink
+ * to the eForm helpers alone once they have all moved.
+ */
 
-const SAFE_ARTIFACT_BASENAME_RE = /^[A-Za-z0-9._-]+$/;
-const SAFE_ARTIFACT_EXTENSION_RE = /^\.[A-Za-z0-9]+$/;
+const harness = require('./lib/playwright-harness');
+const { clickAndAwaitReload } = require('./lib/playwright-ui');
 
-function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
-}
-
-function resolveArtifactDir(rawDir) {
-  assert(typeof rawDir === 'string' && rawDir.trim() !== '', 'Artifact directory must be a non-empty string');
-  const resolvedDir = path.resolve(rawDir); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- artifact dirs are restricted to /tmp or the current workspace before use
-  const allowedRoots = [path.resolve('/tmp'), path.resolve(process.cwd())];
-  assert(allowedRoots.some((root) => resolvedDir === root || resolvedDir.startsWith(`${root}${path.sep}`)), `Artifact directory must be under ${allowedRoots.join(' or ')}, got ${resolvedDir}`);
-  fs.mkdirSync(resolvedDir, { recursive: true });
-  return resolvedDir;
-}
-
-function buildArtifactPath(artifactDir, baseName, extension = '.png') {
-  assert(SAFE_ARTIFACT_BASENAME_RE.test(baseName), `Invalid artifact name: ${baseName}`);
-  assert(SAFE_ARTIFACT_EXTENSION_RE.test(extension), `Invalid artifact extension: ${extension}`);
-  return path.join(resolveArtifactDir(artifactDir), `${baseName}${extension}`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- output path stays under a validated artifact directory and uses a sanitized basename
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
-  const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
-  if (!loopbackHosts.has(normalizedHost) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-loopback BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
-
-function appUrl(baseUrl, appPath) {
-  if (!appPath.startsWith('/') || appPath.startsWith('//')) {
-    throw new Error(`Application path must be root-relative, got ${appPath}`);
-  }
-  const relative = new URL(appPath, 'http://localhost');
-  const url = new URL(baseUrl.href);
-  url.pathname = `${baseUrl.pathname}${relative.pathname}`.replace(/\/{2,}/g, '/');
-  url.search = relative.search;
-  return url.toString();
-}
-
-function createRecorder() {
-  return {
-    badResponses: [],
-    consoleIssues: [],
-    pageErrors: [],
-    requestLog: [],
-    dialogs: [],
-  };
-}
-
-function isExpectedMissingAsset(status, responseUrl) {
-  return status === 404 && (
-    responseUrl.endsWith('/favicon.ico')
-    || /\/imageRenderingServlet\?/.test(responseUrl)
-    || /\/eform\/displayImage\?imagefile=signature_pad\.min\.js(?:$|&)/.test(responseUrl)
-    || /\/eform\/displayImage\?imagefile=BNK\.png(?:$|&)/.test(responseUrl)
-  );
-}
-
-function isIgnorableConsoleMessage(message) {
-  const text = message.text();
-  return /Content Security Policy.*report-only/i.test(text)
-    || /Master token \[CSRF-TOKEN\]/.test(text)
-    || /Hidden token fields .* were updated with new token value/.test(text)
-    || /window\.print/i.test(text);
-}
-
-function isExpectedLegacyConsoleIssue(text, location = {}) {
-  const source = `${location.url || ''} ${text}`;
-  return /signature_pad\.min\.js|BNK\.png/.test(source);
-}
-
-function isSevereConsoleMessage(message) {
-  if (isIgnorableConsoleMessage(message)) {
-    return false;
-  }
-  const text = message.text();
-  if (isExpectedLegacyConsoleIssue(text, message.location())) {
-    return false;
-  }
-  if (message.type() === 'error') {
-    return true;
-  }
-  return /(ReferenceError|TypeError|SyntaxError|\$ is not defined|jQuery is not defined|Cannot read|Cannot set|is not defined)/i.test(text);
-}
-
-function wirePage(page, label, recorder) {
-  page.on('dialog', async (dialog) => {
-    recorder.dialogs.push({ label, type: dialog.type(), text: dialog.message() });
-    await dialog.dismiss().catch(() => {});
-  });
-  page.on('response', async (response) => {
-    const responseUrl = response.url();
-    const status = response.status();
-    const contentType = response.headers()['content-type'] || '';
-    recorder.requestLog.push({
-      label,
-      status,
-      method: response.request().method(),
-      url: responseUrl,
-      contentType,
-    });
-    if (status >= 400 && !isExpectedMissingAsset(status, responseUrl)) {
-      recorder.badResponses.push({
-        label,
-        status,
-        method: response.request().method(),
-        url: responseUrl,
-        contentType,
-      });
-    }
-  });
-  page.on('console', (message) => {
-    if (isSevereConsoleMessage(message)) {
-      recorder.consoleIssues.push({
-        label,
-        type: message.type(),
-        text: message.text(),
-        location: message.location(),
-      });
-    }
-  });
-  page.on('pageerror', (error) => {
-    recorder.pageErrors.push({ label, text: error.stack || error.message });
-  });
-}
-
-async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
-  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
-}
-
-async function login(context, config, recorder) {
-  const page = await context.newPage();
-  wirePage(page, 'login', recorder);
-  await gotoApp(page, config.baseUrl, '/');
-  await page.locator('#username').fill(config.testUser);
-  await page.locator('#password').fill(config.testPassword);
-  if (await page.locator('#pin').count()) {
-    await page.locator('#pin').fill(config.testPin);
-  }
-  await Promise.all([
-    page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
-    page.locator('input[type="submit"], button[type="submit"]').first().click(),
-  ]);
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  return page;
-}
+const {
+  assert, assertNotErrorPage, gotoApp, wirePage,
+} = harness;
 
 async function openManager(context, config, recorder, label = 'manager') {
   const page = await context.newPage();
@@ -188,12 +48,12 @@ async function findLibraryEform(page, formName) {
   await row.waitFor({ state: 'visible', timeout: 15000 });
   const previewOnclick = await row.locator('a[onclick*="efmshowform_data?fid="]').first().getAttribute('onclick');
   const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
-  const previewMatch = previewOnclick?.match(/fid=([^&'"]+)/);
-  const editMatch = editHref?.match(/fid=([^&'"]+)/);
-  assert(previewMatch?.[1] ?? editMatch?.[1], `Could not extract fid for ${formName}`);
+  const previewMatch = previewOnclick ? previewOnclick.match(/fid=([^&'"]+)/) : null;
+  const editMatch = editHref ? editHref.match(/fid=([^&'"]+)/) : null;
+  assert((previewMatch && previewMatch[1]) || (editMatch && editMatch[1]), `Could not extract fid for ${formName}`);
   return {
     row,
-    fid: decodeURIComponent(previewMatch?.[1] || editMatch[1]),
+    fid: decodeURIComponent((previewMatch && previewMatch[1]) || editMatch[1]),
   };
 }
 
@@ -210,20 +70,12 @@ async function openAddEform(context, config, recorder, fid, demographicNo, label
   return page;
 }
 
-async function assertNotErrorPage(page, label) {
-  const text = await page.locator('body').innerText({ timeout: 10000 }).catch(() => '');
-  assert(!/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
-  assert(text.trim().length > 0, `${label} rendered a blank page`);
-}
-
 async function saveCurrentEform(page, subjectValue) {
   await assertNotErrorPage(page, 'save candidate');
   await page.locator('#remote_eform_subject').fill(subjectValue);
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
-    page.locator('#remoteSubmitButton').click(),
-  ]);
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await clickAndAwaitReload(page, page.locator('#remoteSubmitButton'), {
+    timeout: 30000, label: 'the eForm save',
+  });
   await page.locator('#fdid').waitFor({ state: 'attached', timeout: 15000 });
   const fdid = await page.locator('#fdid').inputValue();
   assert(/^\d+$/.test(fdid), `Expected saved eForm fdid after submit, got ${fdid}`);
@@ -278,7 +130,9 @@ async function invokeFetchAttached(page) {
     }
   });
   if (invocation.error) {
-    return { hasFunction: true, error: invocation.error, text: '', html: '' };
+    return {
+      hasFunction: true, error: invocation.error, text: '', html: '',
+    };
   }
 
   // Let whichever of the DOM change or the network response settle first, then wait for the DOM to
@@ -316,72 +170,22 @@ async function invokeFetchAttached(page) {
   }
 
   return page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
-    const target = document.getElementById('tdAttachedDocs');
+    const attached = document.getElementById('tdAttachedDocs');
     return {
       hasFunction: true,
-      text: target ? target.textContent.trim() : '',
-      html: target ? target.innerHTML : '',
+      text: attached ? attached.textContent.trim() : '',
+      html: attached ? attached.innerHTML : '',
     };
   });
 }
 
-function getLatestRequest(recorder, predicate) {
-  const matches = recorder.requestLog.filter(predicate);
-  return matches.length ? matches[matches.length - 1] : null;
-}
-
-function getLaunchOptions(chromePath) {
-  // --no-sandbox is required when Chromium runs as root (the devcontainer/CI default).
-  // Set EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true to keep the Chromium sandbox enabled
-  // on deployments that run the renderer as an unprivileged user.
-  const args = ['--disable-dev-shm-usage'];
-  if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
-    args.unshift('--no-sandbox');
-  }
-  const launchOptions = {
-    headless: true,
-    args,
-  };
-  if (chromePath) {
-    launchOptions.executablePath = chromePath;
-  }
-  return launchOptions;
-}
-
-async function screenshot(page, screenshotDir, name) {
-  const outputPath = buildArtifactPath(screenshotDir, name);
-  await page.screenshot({ path: outputPath, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
-  return outputPath;
-}
-
-function buildFailureDetails(recorder) {
-  return {
-    badResponses: recorder.badResponses,
-    consoleIssues: recorder.consoleIssues,
-    pageErrors: recorder.pageErrors,
-    dialogs: recorder.dialogs,
-  };
-}
-
 module.exports = {
-  appUrl,
-  assert,
-  assertNotErrorPage,
-  buildArtifactPath,
-  buildFailureDetails,
-  createRecorder,
+  ...harness,
   findLibraryEform,
-  getLaunchOptions,
-  getLatestRequest,
-  gotoApp,
   invokeFetchAttached,
-  login,
   openAddEform,
   openAttachPopup,
   openManager,
   saveCurrentEform,
-  screenshot,
-  validateBaseUrl,
   waitForPopupReady,
-  wirePage,
 };

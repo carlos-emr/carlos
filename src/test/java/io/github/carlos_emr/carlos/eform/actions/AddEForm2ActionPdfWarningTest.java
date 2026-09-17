@@ -93,6 +93,30 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("eFormPDFName").toString()).matches("\\d{4}_\\d{2}_\\d{2}_Doe\\.pdf");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"setPdfError", "setPdfWarning", "buildPdfPreviewName"})
+    void shouldBoundEveryPdfDiagnosticWithoutChangingItsFailureContract(String operation) {
+        var failure = new IllegalStateException("PRIVATE_RENDERER_PATH",
+                new IllegalArgumentException("PRIVATE_RENDERER_CAUSE"));
+        AddEForm2Action action = new AddEForm2Action();
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AddEForm2Action.class)) {
+            if ("buildPdfPreviewName".equals(operation)) {
+                when(demographicManager.getDemographicFormattedName(loggedInInfo, 123)).thenThrow(failure);
+                String filename = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                        action, operation, loggedInInfo, "123");
+                assertThat(filename).matches("\\d{4}_\\d{2}_\\d{2}_eform\\.pdf");
+            } else {
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(action, operation,
+                        "Safe operation-specific user guidance", failure);
+                assertThat(request.getAttribute("setPdfError".equals(operation) ? "errorMessage" : "warningMessage"))
+                        .isEqualTo("Safe operation-specific user guidance");
+            }
+            assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalStateException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_RENDERER_PATH", "PRIVATE_RENDERER_CAUSE");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
     @Test
     @DisplayName("should fall back to a generic preview filename when demographic number is invalid")
     void shouldUseFallbackPreviewFilename_whenDemographicNumberIsInvalid() throws Exception {

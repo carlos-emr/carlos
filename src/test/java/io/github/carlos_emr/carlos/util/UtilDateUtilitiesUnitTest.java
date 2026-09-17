@@ -24,6 +24,9 @@ package io.github.carlos_emr.carlos.util;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import java.util.Date;
 import java.util.Locale;
 
@@ -40,7 +43,10 @@ import org.junit.jupiter.api.Test;
  * @since 2026-05-23
  */
 @Tag("unit")
+@Tag("fast")
+@Tag("utility")
 @DisplayName("UtilDateUtilities")
+@SuppressWarnings({"java:S1874", "java:S8692"})
 class UtilDateUtilitiesUnitTest {
 
     private static final Date FIXED = new Date(1704412800000L); // 2024-01-05T00:00:00Z
@@ -51,6 +57,16 @@ class UtilDateUtilitiesUnitTest {
         Date expected = new SimpleDateFormat("yyyy-MM-dd", Locale.CANADA).parse("2024-03-05");
         assertThat(UtilDateUtilities.StringToDate("2024-03-05", "yyyy-MM-dd", Locale.CANADA))
                 .isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should parse date with default pattern yyyy-MM-dd")
+    void shouldParseDate_withDefaultPattern() {
+        Date result = UtilDateUtilities.StringToDate("2026-03-31");
+        assertThat(result).isNotNull();
+        Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
+        cal.setTime(result);
+        assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
     }
 
     @Test
@@ -68,10 +84,22 @@ class UtilDateUtilitiesUnitTest {
     }
 
     @Test
+    @DisplayName("should return null for null input")
+    void shouldReturnNull_forNullInput() {
+        assertThat(UtilDateUtilities.StringToDate(null)).isNull();
+    }
+
+    @Test
     @DisplayName("should format a date with the given pattern and locale")
     void shouldFormatDate_forGivenPattern() {
         assertThat(UtilDateUtilities.DateToString(FIXED, "dd-MMM-yyyy", Locale.ENGLISH))
                 .isEqualTo(new SimpleDateFormat("dd-MMM-yyyy", Locale.ENGLISH).format(FIXED));
+    }
+
+    @Test
+    @DisplayName("should return empty string for null date")
+    void shouldReturnEmpty_forNullDate() {
+        assertThat(UtilDateUtilities.DateToString(null)).isEmpty();
     }
 
     @Test
@@ -90,6 +118,23 @@ class UtilDateUtilitiesUnitTest {
     @DisplayName("should extract the day via justDay")
     void shouldExtractDay_forJustDay() {
         assertThat(UtilDateUtilities.justDay(FIXED)).isEqualTo(new SimpleDateFormat("dd").format(FIXED));
+    }
+
+    @Test
+    @DisplayName("should create date from year, month, day strings")
+    void shouldCreateDate_fromStrings() {
+        Date result = UtilDateUtilities.calcDate("2026", "3", "31");
+        assertThat(result).isNotNull();
+        Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
+        cal.setTime(result);
+        assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
+        assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH);
+    }
+
+    @Test
+    @DisplayName("should return null for null date components")
+    void shouldReturnNull_forNullDateComponents() {
+        assertThat(UtilDateUtilities.calcDate(null, "3", "31")).isNull();
     }
 
     @Test
