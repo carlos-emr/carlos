@@ -414,6 +414,21 @@
       ]
     },
     {
+      "name": "document-pagination",
+      "script": "scripts/document-pagination-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_PAGINATION_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
       "name": "document-upload",
       "script": "scripts/document-upload-playwright-checks.js",
       "tiers": [

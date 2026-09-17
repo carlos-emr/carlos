@@ -580,7 +580,7 @@
     <table class="docTable">
         <tr>
             <td class="pdfPreviewColumn" style="vertical-align: top;">
-                <div style="text-align: right;font-weight: bold">
+                <div class="document-pagination" style="text-align: right; font-weight: bold; position: sticky; top: 0; background: white; z-index: 1;">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
                     <a id="firstP_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
                        onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
@@ -598,16 +598,6 @@
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>
-                <div style="text-align: right;font-weight: bold">
-                    <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
-                    <a id="firstP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
-                    <a id="prevP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.previous"/></a>
-                    <a id="nextP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="nextPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.next"/></a>
-                    <a id="lastP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="lastPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.last"/></a>
-                    <%} %>
-                </div>
             </td>
 
             <td class="pdfAssignmentToolsColumn" style="vertical-align: top;">
