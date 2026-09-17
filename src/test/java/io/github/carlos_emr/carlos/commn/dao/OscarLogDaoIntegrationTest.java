@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -123,6 +124,28 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         createOscarLog(null, "recent", "read", "login", "2");
         createOscarLog(-1, "recent", "read", "login", "3");
         assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 3)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should exclude active merge sources before pagination and retain undone merges")
+    void shouldExcludeMergeSources_beforeRecentPatientPagination() throws Exception {
+        int head = createRecentPatient();
+        int source = createRecentPatient();
+        DemographicMerged merge = new DemographicMerged();
+        merge.setDemographicNo(source);
+        merge.setMergedTo(head);
+        merge.setDeleted(0);
+        entityManager.persist(merge);
+        entityManager.flush();
+        int mergeId = merge.getId();
+        createOscarLog(head, "recent", "read", "demographic", "1", new Date(1000));
+        createOscarLog(source, "recent", "read", "demographic", "2", new Date(2000));
+
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 1)).containsExactly(head);
+        assertThat(dao.findByDemographicId(source)).hasSize(1);
+        entityManager.find(DemographicMerged.class, mergeId).setDeleted(1);
+        entityManager.flush();
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 1)).containsExactly(source);
     }
 
     @Nested

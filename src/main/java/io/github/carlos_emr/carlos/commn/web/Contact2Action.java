@@ -220,13 +220,17 @@ public class Contact2Action extends ActionSupport {
     private String saveManagedContacts() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        int demographicNo = positiveContactId(request.getParameter("demographic_no"));
+        String submittedPatient = request.getParameter("demographic_no");
+        requireContactWriteAccess(loggedInInfo, submittedPatient);
+        int demographicNo = positiveContactId(submittedPatient);
+        String canonicalPatient = Integer.toString(demographicNo);
+        // A padded/signed input must not bypass a patient-specific ACL by
+        // falling back to general privileges under a different string key.
+        if (!canonicalPatient.equals(submittedPatient)) {
+            requireContactWriteAccess(loggedInInfo, canonicalPatient);
+        }
         String forward = "windowClose";
         String postMethod = request.getParameter("postMethod");
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo + "")) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
 
         int maxContact = contactRowCount("contact_num");
         int maxProContact = contactRowCount("procontact_num");
@@ -246,6 +250,12 @@ public class Contact2Action extends ActionSupport {
         removeContact();
 
         return forward;
+    }
+
+    private void requireContactWriteAccess(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
     }
 
     private void saveContactRows(String prefix, int count, int demographicNo, LoggedInInfo loggedInInfo,
@@ -395,9 +405,19 @@ public class Contact2Action extends ActionSupport {
         if (StringUtils.isNotBlank(contactId) && !"0".equals(contactId)) {
             // provider_no is a string namespace (for example T099); the other
             // association namespaces use positive numeric identifiers.
-            if (effectiveContactType(field, existing) != DemographicContact.TYPE_PROVIDER) positiveContactId(contactId);
+            int type = effectiveContactType(field, existing);
+            if (existing == null) requireNewContactType(category, type);
+            if (type != DemographicContact.TYPE_PROVIDER) positiveContactId(contactId);
         }
         return existing;
+    }
+
+    private static void requireNewContactType(String category, int type) {
+        if (type == DemographicContact.TYPE_CONTACT) return;
+        boolean supported = DemographicContact.CATEGORY_PERSONAL.equals(category)
+                ? type == DemographicContact.TYPE_DEMOGRAPHIC
+                : type == DemographicContact.TYPE_PROVIDER || type == DemographicContact.TYPE_PROFESSIONALSPECIALIST;
+        if (!supported) throw new NumberFormatException("Contact type is not supported in this category");
     }
 
     private int effectiveContactType(String field, DemographicContact existing) {

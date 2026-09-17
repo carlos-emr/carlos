@@ -172,7 +172,7 @@ public class DemographicContactDaoIntegrationTest extends CarlosTestBase {
         }
     }
     @Test
-    void personalPatientLookupExcludesCollidingDirectoryAndProviderIds() throws Exception {
+    void shouldExcludeCollidingDirectoryAndProviderIds_forPersonalPatientLookup() throws Exception {
         DemographicContact expected = createContact(10, false, DemographicContact.CATEGORY_PERSONAL, "101");
         expected.setType(DemographicContact.TYPE_DEMOGRAPHIC);
         DemographicContact directory = createContact(10, false, DemographicContact.CATEGORY_PERSONAL, "101");
@@ -187,6 +187,17 @@ public class DemographicContactDaoIntegrationTest extends CarlosTestBase {
         assertThat(dao.findPersonalPatientLinks(10, 101)).extracting(DemographicContact::getId)
                 .containsExactly(expected.getId());
         assertThat(dao.findPersonalPatientLinks(11, 101)).isEmpty();
+    }
+
+    @Test
+    void shouldRetainInactivePatientLink_whenCheckingReciprocalIdentity() throws Exception {
+        DemographicContact inactive = createContact(10, false, DemographicContact.CATEGORY_PERSONAL, "101");
+        inactive.setType(DemographicContact.TYPE_DEMOGRAPHIC);
+        inactive.setActive(false);
+        hibernateTemplate.flush();
+        assertThat(dao.findPersonalPatientLinks(10, 101)).extracting(DemographicContact::getId)
+                .containsExactly(inactive.getId());
+        assertThat(inactive.isActive()).isFalse();
     }
 
 }

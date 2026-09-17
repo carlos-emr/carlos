@@ -52,6 +52,18 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
 
     public List<Integer> getDemographicIdsOpenedSinceTime(Date value);
 
+    /**
+     * Lists existing, unmerged patients accessed by the provider, newest access first.
+     * Repeated accesses are grouped by patient; equal latest timestamps are ordered
+     * by demographic ID. Deleted patients and active merge-source records are
+     * excluded before pagination without changing their retained audit history.
+     *
+     * @param providerNo provider whose access history is selected
+     * @param startPosition zero-based offset into the filtered patient list
+     * @param itemsToReturn maximum number of patients to return
+     * @return ordered patient identifiers after applying the offset and limit
+     * @throws IllegalArgumentException if the offset/limit is negative or the limit exceeds the configured maximum
+     */
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn);
 

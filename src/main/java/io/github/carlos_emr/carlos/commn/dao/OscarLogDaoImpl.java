@@ -170,6 +170,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return (results);
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn) {
@@ -179,6 +180,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         var query = entityManager.createQuery("select l.demographicId from OscarLog l"
                 + " where l.providerNo = ?1 and l.demographicId > 0"
                 + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId)"
+                + " and not exists (select m.id from DemographicMerged m where m.demographicNo = l.demographicId and m.deleted = 0)"
                 + " group by l.demographicId order by max(l.created) desc, l.demographicId", Integer.class);
         query.setParameter(1, providerNo);
         query.setFirstResult(startPosition);
