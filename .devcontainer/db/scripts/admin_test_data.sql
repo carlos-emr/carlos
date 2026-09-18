@@ -386,14 +386,17 @@ WHERE NOT EXISTS (
 
 -- System Management ---------------------------------------------------------
 -- Include active lots plus a soft-deleted lot so add/reactivate and search/
--- delete paths can both be exercised.
+-- delete paths can both be exercised. preventionType must be a canonical
+-- PreventionItems.xml name: influenza is 'Inf' (displayName "Flu"); the
+-- legacy 'Flu' type was migrated away by update-2026-03-10, so a lot filed
+-- under it would never match the Manage Lot Numbers type picker.
 INSERT INTO PreventionsLotNrs
     (creationDate, providerNo, preventionType, lotNr, deleted, lastUpdateDate)
-SELECT NOW(), '999998', 'Flu', 'LOCAL-FLU-2026-A', FALSE, NOW()
+SELECT NOW(), '999998', 'Inf', 'LOCAL-FLU-2026-A', FALSE, NOW()
 WHERE NOT EXISTS (
     SELECT 1
     FROM PreventionsLotNrs
-    WHERE preventionType = 'Flu'
+    WHERE preventionType = 'Inf'
       AND lotNr = 'LOCAL-FLU-2026-A'
 );
 
