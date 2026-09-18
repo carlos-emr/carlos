@@ -1338,7 +1338,10 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # address, and probing the first one would blame the application for
         # an address nothing was ever meant to answer on.
         PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1)"
-        case "${PROBE_IP}" in ""|0.0.0.0|::) PROBE_IP=127.0.0.1 ;; esac
+        case "${PROBE_IP}" in
+            ""|0.0.0.0) PROBE_IP=127.0.0.1 ;;
+            ::) PROBE_IP=::1 ;;
+        esac
         i=0
         while [ "${i}" -lt 60 ]; do
             code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \

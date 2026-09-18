@@ -280,8 +280,6 @@ def cmd_init_config(argv) -> int:
     # down, HTTP and HTTPS alike, on the next init-config of a host that never
     # had IPv6. /proc/net/if_inet6 is present iff the IPv6 stack is loaded, so
     # its absence is the kernel's own authoritative "no IPv6 here".
-    # nginx requires brackets around an IPv6 literal before appending a port.
-    listen_ip = f"[{s.bind_ip}]" if ":" in s.bind_ip else s.bind_ip
     ipv6_available = os.path.exists("/proc/net/if_inet6")
     listen_ip = _listen_directive_address(s.bind_ip)
     listen6_http = "listen [::]:80;" if s.bind_ip == "0.0.0.0" and ipv6_available else ""  # nosec B104

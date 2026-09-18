@@ -302,7 +302,7 @@ def cmd_check(argv) -> int:
     # Probe the address nginx actually listens on: with a non-default
     # CARLOS_BIND_IP nothing answers on loopback and every front-door check
     # would false-fail on a healthy install.
-    probe_ip = s.bind_ip if s.bind_ip not in ("", "0.0.0.0", "::") else "127.0.0.1"
+    probe_ip = {"": "127.0.0.1", "0.0.0.0": "127.0.0.1", "::": "::1"}.get(s.bind_ip, s.bind_ip)
     resolve = ["--resolve", f"{s.server_name}:443:{probe_ip}"]
     url = f"https://{s.server_name}/carlos/"
     # Retry a while before calling it down: deploying this webapp takes about

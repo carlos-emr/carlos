@@ -414,3 +414,19 @@ front_door_listening
     }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('postinst HTTP probe uses the last overrides and the matching wildcard address family', () => {
+  const start = postinst.indexOf('        PROBE_NAME="$(sed');
+  const end = postinst.indexOf('        i=0', start);
+  assert.ok(start >= 0 && end > start);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-probe-'));
+  try {
+    const envFile = path.join(root, 'env');
+    for (const [ip, expected] of [['0.0.0.0', '127.0.0.1'], ['::', '::1'], ['::1', '::1'], ['192.0.2.8', '192.0.2.8']]) {
+      fs.writeFileSync(envFile, `CARLOS_SERVER_NAME=old.invalid\nCARLOS_SERVER_NAME="clinic.test"\nCARLOS_BIND_IP=192.0.2.1\nCARLOS_BIND_IP="${ip}"\n`);
+      const result = spawnSync('sh', ['-c', `ENV_FILE='${envFile}'\n${postinst.slice(start, end)}\nprintf '%s %s' "$PROBE_NAME" "$PROBE_IP"`], { encoding: 'utf8' });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout, `clinic.test ${expected}`);
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
