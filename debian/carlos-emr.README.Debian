@@ -194,14 +194,21 @@ password hash is published in the CARLOS source repository. When the
 installer's "replace the seeded administrator password" question is accepted
 (the default), the package replaces that password and PIN with random values
 and writes them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
-Declining the question keeps the published credential active — a choice for
-a throwaway machine only; on any other host run
+Declining the question leaves the published credential in the database and
+keeps the EMR stopped and disabled. To complete that installation, run
 
-  sudo carlos-ctl bootstrap-admin
+  sudo dpkg-reconfigure carlos-emr
 
-before anyone else can reach the server. The verb takes no options: exactly
-one of -h, --help or help prints its usage without running it, and any other
-argument (or anything after the help word) is refused rather than ignored.
+and accept seeded-password replacement. This also clears the credential
+guard and restores service startup after provisioning succeeds. Running
+bootstrap-admin alone replaces the credential but does not clear that guard
+or restore service startup.
+
+On an already completed installation, `sudo carlos-ctl bootstrap-admin`
+generates a new administrator password and PIN. The verb takes no options:
+exactly one of -h, --help or help prints its usage without running it, and
+any other argument (or anything after the help word) is refused rather than
+ignored.
 
 That account arrives flagged for a FORCED PASSWORD RESET — the state the
 migrations seed it in, which this package deliberately keeps. Your first login
