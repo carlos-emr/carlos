@@ -60,8 +60,7 @@ does not mean its deployment-specific prerequisites have been satisfied.
 ## Corrected-package verification in progress
 
 - Full corrected Java `clean package`: 12,412 tests, zero failures/errors, 51 skips.
-- Python: 1,587 passed. Node: 691 passed before the latest edit-state and
-  temperature regressions; all 16 calculator cases pass together.
+- Python: 1,587 passed. Node: 694 passed, including all 16 calculator cases.
 - Matched main, DrugRef and renderer `validation3` packages built and installed;
   all three report `ii`. Clinical counts, administrator credential records and
   the initial credential file are unchanged. Installed deployment checks and
@@ -85,6 +84,42 @@ conflict; that was a test setup mismatch with the package's provisioner, not a
 failure of the supported fresh install. The calculator menu intentionally closes
 its opener; the browser helper now supports that behavior while still awaiting
 and checking the new page.
+
+## Extended VM verification
+
+The first complete smoke/core/front-door pass ran 116 checks: 96 passed, 18
+failed, and 2 were skipped (referrals and workflow modules disabled). The raw
+failure count includes absent test prerequisites and shared demo state; it is
+not a count of confirmed application defects.
+
+Targeted runs with separately owned patients passed demographic editing (five
+fields plus audit records), eChart navigation, note save/sign/billing, patient
+Messenger sorting, manual consultation-signature fallback, draft autosave, and
+CSRF header enforcement. Reusing a chart across browser sessions left note locks
+and draft recovery dialogs; dismissing those dialogs produced the apparent blank
+pages. Existing demo drafts were not deleted. Each targeted scenario received a
+fresh patient and removed only its own support rows.
+
+The contact lifecycle check selected both a visible search input and a hidden
+input with the same name. Its selectors now identify the text inputs. The demo
+doctor role explicitly denies episode access, and faxing is disabled in the VM
+configuration; those checks require their documented permissions/configuration.
+Consultation, prescription, login-reset and patient-list checks also need their
+explicit fixtures. These requirements are not bypassed or counted as passes.
+
+The separate document annotation script passed server-rendered pages, actual
+annotation saves, Unicode text and unsupported-glyph rejection, stale-source
+refusal, text-layer retry, in-flight save protection, lost-response warnings,
+failed-page-image refusal, CSP enforcement, and protected fax-preview cancellation.
+An owned two-page PDF remained byte-identical. Six filed copies were verified;
+all owned document files, rows and the patient were removed, retaining audit logs.
+
+The OSCAR 19 SQL semantics oracle passed against the VM's MariaDB 11.8. It tested
+seed precedence, twin preservation, ID/FK remapping, charset repair, row-value
+parity, archived columns, collation compatibility, packet-size-independent
+digests, and dump/restore corruption controls. Its uniquely named scratch schemas
+were removed and the global packet setting restored. This is synthetic SQL
+validation, not validation of a real clinic's complete source dataset.
 
 ## Baseline verification
 

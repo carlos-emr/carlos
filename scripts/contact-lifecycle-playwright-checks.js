@@ -46,7 +46,7 @@ async function workflow(s) {
     await editor.locator('a[onclick="addContact();"]').click();
     await field('type').selectOption('2');
     const search = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]'), 'contact-search');
-    await search.locator('[name="keyword"]').fill(marker);
+    await search.locator('input[name="keyword"][type="text"]').fill(marker);
     await clickAndAwaitReload(search, search.locator('input[type="submit"]').first());
     await search.locator('tr[onclick]').filter({ hasText: marker }).click();
     assert(await field('contactId').inputValue() === contact, 'Contact search selected the wrong record');
@@ -139,7 +139,7 @@ async function workflow(s) {
     await editor.locator('a[onclick="addContact();"]').click();
     await field('type').selectOption('1');
     const patientSearch = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]').first(), 'patient-contact-search');
-    await patientSearch.locator('[name="keyword"]').fill(relatedName);
+    await patientSearch.locator('input[name="keyword"][type="text"]').fill(relatedName);
     await clickAndAwaitReload(patientSearch, patientSearch.locator('input[type="submit"]').first());
     await patientSearch.locator('tr[onclick]').filter({
       has: patientSearch.locator(`input[name="demographic_no"][value="${related}"]`),
