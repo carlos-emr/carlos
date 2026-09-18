@@ -49,7 +49,7 @@ const {
   login,
   validateBaseUrl,
   wirePage,
-} = require('./eform-local-playwright-utils');
+  } = require('./lib/playwright-harness');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
