@@ -858,7 +858,11 @@ an AP key the server does not configure is withheld behind the missing-content a
 a non-zero "Failed content resources" count and no key name) rather than rendered with a blank
 field. On a packaged install, `APCACHE_JOURNAL_UNIT=carlos-emr` additionally pins the servlet's
 WARN line (fdid and key, no throwable, no values) and `APCACHE_PROBE_URL=http://127.0.0.1:18080/carlos`
-probes the servlet without a grant (401 on loopback, 405 on POST, refused through the front door).
+probes the servlet without a grant (401 on loopback, 403/405 on POST, refused through the front door).
+It also pins the save result view: the form action `EForm` writes carries
+`efmfid`/`efmdemographic_no` rather than `fid`/`demographic_no`, and the interactive lookup route
+(`eform/efmformapconfig_lookup`, via `ApCacheLookupParameterResolver`) accepts both spellings, so
+the lookups a form re-runs after a save-and-download resolve instead of answering "Invalid fid".
 
 ### 3. Look at the PDF
 

@@ -31,7 +31,10 @@
  *
  *   1. positive: a saved form whose lookups name configured APs renders to a
  *      PDF whose text carries the values the bridge served (the signed-in
- *      provider's name, today's date) -- no placeholder, no pending marker;
+ *      provider's name, today's date) -- no placeholder, no pending marker --
+ *      and the save result view's own re-run lookups (which carry the
+ *      efmfid/efmdemographic_no form-action query string) still resolve
+ *      through the interactive route with no 400 and no alert;
  *   2. negative: a form that also looks up an AP key this server does not
  *      configure is NOT silently rendered with a blank field: the download is
  *      withheld and the clinician gets the missing-content approval page whose
@@ -329,6 +332,12 @@ async function checkPositiveRender(context, fid, runId, artifactPaths) {
   assert(!text.includes('APCACHE-PENDING'), 'rendered PDF still carries a pending marker: a lookup never completed in the renderer');
   assert(!text.includes('APCACHE-ERROR'), 'rendered PDF carries an APCache error marker: the bridge refused a configured key');
   assert(!text.includes('TemplateProvider') && !text.includes('TemplateToday'), 'rendered PDF carries template placeholders instead of bridge values');
+  // The download lands on the save result view, whose form action query string carries
+  // efmfid/efmdemographic_no rather than fid/demographic_no. The fixture's lookups re-run there
+  // against the INTERACTIVE route and must still resolve: a 400 here left every APCache field
+  // blank behind the library's "an error has occurred" alert after any save-and-download.
+  const postSaveProvider = await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo');
+  assert(postSaveProvider === providerValue, 'post-save view resolved a different provider value than the add view');
   const fdid = await savedFdidOnPage(page);
   await page.close().catch(() => {});
   return { fdid, providerValue, todayValue };
@@ -450,15 +459,16 @@ async function main() {
 
     // A 422 from the bridge is expected during the negative render (it is what withholds the
     // PDF); it happens inside the headless renderer, not in this browser, so this browser must
-    // never have seen the bridge answer an error. One pre-existing condition outside this
-    // servlet is recorded rather than failed on: after a save-and-download the result view
-    // carries efmfid/efmdemographic_no instead of fid/demographic_no, so the fixture's own
-    // reloaded lookups against the INTERACTIVE route (efmformapconfig_lookup) answer
-    // "Invalid fid" 400s. That route is not the renderer bridge.
-    const knownPostSaveLookupFailures = recorder.badResponses.filter((response) => response.url.includes('/eform/efmformapconfig_lookup?') && response.url.includes('efmfid='));
-    const unexpectedResponses = recorder.badResponses.filter((response) => !knownPostSaveLookupFailures.includes(response));
+    // never have seen the bridge answer an error. The interactive route must not have answered
+    // one either: the save result view's efmfid/efmdemographic_no query string once produced
+    // "Invalid fid" 400s on every post-save lookup, and APCache.js turns any lookup failure
+    // into a "contact an administrator" alert the recorder captures as a dialog.
+    const lookupFailures = recorder.badResponses.filter((response) => response.url.includes('/eform/efmformapconfig_lookup'));
+    assert(lookupFailures.length === 0, `interactive APCache lookups answered errors: ${JSON.stringify(lookupFailures, null, 2)}`);
     assert(!recorder.badResponses.some((response) => response.url.includes(SERVLET_PATH)), `this browser saw the renderer bridge answer an error: ${JSON.stringify(recorder.badResponses, null, 2)}`);
-    assert(unexpectedResponses.length === 0, `Unexpected HTTP errors: ${JSON.stringify(unexpectedResponses, null, 2)}`);
+    assert(recorder.badResponses.length === 0, `Unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
+    const lookupAlerts = recorder.dialogs.filter((dialog) => /an error has occurred/i.test(dialog.text));
+    assert(lookupAlerts.length === 0, `APCache raised its lookup-failure alert: ${JSON.stringify(lookupAlerts, null, 2)}`);
 
     console.log(JSON.stringify({
       positiveTemplateFid: positiveFid,
@@ -469,7 +479,6 @@ async function main() {
       todayValue: positive.todayValue,
       journal,
       probes,
-      knownPostSaveInteractiveLookupFailures: knownPostSaveLookupFailures.length,
     }, null, 2));
     for (const artifactPath of artifactPaths) {
       fs.rmSync(artifactPath, { force: true });
