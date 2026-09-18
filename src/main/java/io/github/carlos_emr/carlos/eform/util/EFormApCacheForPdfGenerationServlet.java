@@ -58,8 +58,18 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
             List<ApResult> results = executeQueries(grant, definitions);
             writeResponse(response, renderRequest.lookupType(), results);
         } catch (ApDefinitionException e) {
-            // Definition failures are expected server-specific incompatibilities. Preserve their
-            // actionable fixed messages without logging them as unexpected lookup failures.
+            // Definition failures are expected server-specific incompatibilities (an AP absent from
+            // apconfig.xml, or one that needs appointment context this render cannot supply), so
+            // they keep their actionable fixed messages and are not logged as lookup failures.
+            // WARN, with the key: the browser only ever sees the fixed 422 text and the render
+            // report only counts a failed data resource, so this line is the operator's one
+            // pointer to WHICH configured AP the form depends on. The key passed KEY_PATTERN and
+            // the grant allowlist and names configuration, not a patient.
+            logger.warn("Renderer APCache key cannot be executed for this render: fdid={} key={} "
+                    + "reason={}",
+                    LogSafe.sanitize(String.valueOf(grant.fdid())),
+                    LogSafe.sanitize(e.key()),
+                    e.getMessage());
             sendErrorIfUncommitted(response, 422, e.getMessage());
         } catch (ApLookupException e) {
             // A key that resolved to the wrong shape is a defect, not "no data". Refusing the whole
@@ -89,35 +99,41 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
 
     private static RenderRequest validateRequest(
             HttpServletRequest request, HttpServletResponse response) throws IOException {
+        // Nothing has been written yet on this path, so isCommitted() is always false here; every
+        // rejection still goes through the one helper so the servlet has a single response-error
+        // policy rather than two that can drift.
         if (!EFormRendererRequestAuthorization.isLoopback(request.getRemoteAddr())) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            sendErrorIfUncommitted(response, HttpServletResponse.SC_FORBIDDEN);
             return null;
         }
         EFormRenderTokenService.RenderGrant grant =
                 EFormRendererRequestAuthorization.grantFromCookie(request);
         if (grant == null) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            sendErrorIfUncommitted(response, HttpServletResponse.SC_UNAUTHORIZED);
             return null;
         }
         String[] requestedKeys = request.getParameterValues("key");
         if (requestedKeys == null || requestedKeys.length == 0 || requestedKeys.length > MAX_KEYS) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache key count");
+            sendErrorIfUncommitted(
+                    response, HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache key count");
             return null;
         }
         for (String key : requestedKeys) {
             if (key == null || !key.matches(KEY_PATTERN)) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache key");
+                sendErrorIfUncommitted(
+                        response, HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache key");
                 return null;
             }
             if (!grant.allowsApKey(key)) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                sendErrorIfUncommitted(response, HttpServletResponse.SC_FORBIDDEN);
                 return null;
             }
         }
 
         String lookupType = request.getParameter("oscarAPCacheLookupType");
         if (lookupType != null && !lookupType.matches(KEY_PATTERN)) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache lookup type");
+            sendErrorIfUncommitted(
+                    response, HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache lookup type");
             return null;
         }
         return new RenderRequest(grant, List.of(requestedKeys), lookupType);
@@ -134,11 +150,11 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         for (String key : requestedKeys) {
             DatabaseAP ap = EFormLoader.getAP(key);
             if (ap == null) {
-                throw new ApDefinitionException("APCache key is not configured");
+                throw new ApDefinitionException(key, "APCache key is not configured");
             }
             if (DatabaseAP.parserGetNames(ap.getApSQL()).contains("appt_no")) {
                 throw new ApDefinitionException(
-                        "APCache key requires unavailable appointment context");
+                        key, "APCache key requires unavailable appointment context");
             }
             definitions.add(new ApDefinition(key, ap));
         }
@@ -172,10 +188,23 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         }
     }
 
+    /**
+     * Sends an error response unless the response is already committed. Once bytes have gone out
+     * there is no second response to send, and calling {@code sendError} then only raises an
+     * {@code IllegalStateException} that would replace the real failure in the logs.
+     */
     private static void sendErrorIfUncommitted(
             HttpServletResponse response, int status, String message) throws IOException {
         if (!response.isCommitted()) {
             response.sendError(status, message);
+        }
+    }
+
+    /** Same guard, for rejections that use the container's default error text. */
+    private static void sendErrorIfUncommitted(
+            HttpServletResponse response, int status) throws IOException {
+        if (!response.isCommitted()) {
+            response.sendError(status);
         }
     }
 
@@ -188,12 +217,22 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         }
     }
 
-    /** Raised when this render request cannot safely execute a configured AP definition. */
+    /**
+     * Raised when this render request cannot safely execute a configured AP definition. The
+     * message is one of the fixed operator-facing texts sent as the 422 body; the key is kept
+     * separately so the log can name the AP without that name ever reaching the response.
+     */
     private static final class ApDefinitionException extends Exception {
         private static final long serialVersionUID = 1L;
+        private final String key;
 
-        private ApDefinitionException(String message) {
+        private ApDefinitionException(String key, String message) {
             super(message);
+            this.key = key;
+        }
+
+        private String key() {
+            return key;
         }
     }
 
