@@ -213,13 +213,13 @@
             if (curdocid != "0") {
                 var url2 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=display&doc_no='
                     + curdocid;
-                document.getElementById('docdisp').innerHTML = '<iframe	src="' + url2 + '"  width="' + (getWidth() - 40) + '" height="' + (getHeight() - 50) + '"></iframe>';
+                document.getElementById('docdisp').innerHTML = '<iframe src="' + url2 + '" width="' + (getWidth() - 40) + '" height="' + (getHeight() - 50) + '" title="Document preview"></iframe>';
 
                 var url4 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewDocumentDescription&doc_no=' + curdocid;
                 document.getElementById('docextrainfo').innerHTML = '<iframe src="' + url4 + '" style="height:250px;width:100%;border:0;" title="Document details"></iframe>';
 
                 var url5 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewAnnotationAcknowledgementTickler&doc_no=' + curdocid;
-                document.getElementById('docinfo').innerHTML = '<iframe src="' + url5 + '" style="height:100px;width:100%;border:0;" title="Document details"></iframe>';
+                document.getElementById('docinfo').innerHTML = '<iframe src="' + url5 + '" style="height:100px;width:100%;border:0;" title="Document annotations, acknowledgements and ticklers"></iframe>';
 
                 document.getElementById('printnotesbutton').style.visibility = 'hidden';
             } else {
