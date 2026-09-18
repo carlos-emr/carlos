@@ -41,7 +41,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("ViewEditAppointmentWrite2Action Unit Tests")
 @Tag("unit")
 @Tag("gate")
-class ViewEditAppointmentWrite2ActionTest extends CarlosUnitTestBase {
+class ViewEditAppointmentWrite2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
