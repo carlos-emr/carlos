@@ -186,7 +186,10 @@ class EFormApCacheForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
             assertThat(logs.events())
                     .anyMatch(event -> event.getLevel() == Level.WARN
                             && event.getMessage().getFormattedMessage().contains("key=" + key)
-                            && event.getMessage().getFormattedMessage().contains("fdid=77"));
+                            && event.getMessage().getFormattedMessage().contains(
+                                    "reason=APCache key is not configured"));
+            // The fix is in apconfig.xml, not in any record: no patient-correlating id rides along.
+            assertThat(logs.messages()).noneMatch(message -> message.contains("fdid="));
             // Never the throwable: its stack would be the only non-fixed text on the line.
             assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
         }

@@ -106,6 +106,40 @@ const config = {
 
 const recorder = createRecorder();
 
+// Failure output must not carry patient-correlating identifiers: response URLs the recorder keeps
+// include fdid and demographic numbers. Same contract as eform-test-pattern-playwright-checks.js.
+const sensitiveQueryParamPattern = /([?&](?:fdid|efmfid|fid|demographic_no|efmdemographic_no|demographicNo|demo_no|demoNo|patient_id|patientId)=)[^&#\s'"]*/gi;
+const sensitiveDiagnosticFieldPattern = /^(fdid|efmfid|demographic_no|efmdemographic_no|demographicNo|demo_no|demoNo|patient_id|patientId)$/i;
+
+function redactSensitiveFailureText(value) {
+  return String(value)
+    .replace(sensitiveQueryParamPattern, '$1<redacted>')
+    .replace(/(["']?)(fdid|efmdemographic_no|demographic_no|demographicNo|demo_no|demoNo|patient_id|patientId)(\1)(\s*[:=]\s*)(["']?)\d+\5/gi, '$1$2$3$4$5<redacted>$5')
+    .replace(/\b(fdid|efmdemographic_no|demographic_no|demographicNo|demo_no|demoNo|patient_id|patientId)\b\s+\d+/gi, '$1 <redacted>');
+}
+
+function redactSensitiveFailureDetails(value) {
+  if (typeof value === 'string') {
+    return redactSensitiveFailureText(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(redactSensitiveFailureDetails);
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        sensitiveDiagnosticFieldPattern.test(key) ? '<redacted>' : redactSensitiveFailureDetails(nestedValue),
+      ]),
+    );
+  }
+  return value;
+}
+
+function describe(value) {
+  return JSON.stringify(redactSensitiveFailureDetails(value), null, 2);
+}
+
 function validateConfig() {
   assert(/^\d+$/.test(config.demographicNo), `APCACHE_DEMOGRAPHIC_NO must be numeric, got ${config.demographicNo}`);
   assert(fs.existsSync(config.fixtureHtmlPath), `Fixture not found: ${config.fixtureHtmlPath}`);
@@ -329,6 +363,10 @@ async function checkPositiveRender(context, fid, runId, artifactPaths) {
     `rendered PDF does not carry the provider value the bridge should have served (viewer saw a ${providerValue.length}-character value)`);
   const todayMatch = text.match(new RegExp(`APCACHE-VALUE\\[${TODAY_KEY}\\]=(\\d{4}-\\d{2}-\\d{2})`));
   assert(todayMatch, "rendered PDF does not carry the 'today' value the bridge should have served");
+  // Same value the viewer's own lookup produced moments earlier, not just any date: a stale or
+  // wrong renderer value must not pass on shape alone (a run that straddles midnight would fail
+  // here; rerun it).
+  assert(todayMatch[1] === todayValue, `rendered PDF 'today' value ${todayMatch[1]} does not match the viewer's ${todayValue}`);
   assert(!text.includes('APCACHE-PENDING'), 'rendered PDF still carries a pending marker: a lookup never completed in the renderer');
   assert(!text.includes('APCACHE-ERROR'), 'rendered PDF carries an APCache error marker: the bridge refused a configured key');
   assert(!text.includes('TemplateProvider') && !text.includes('TemplateToday'), 'rendered PDF carries template placeholders instead of bridge values');
@@ -368,7 +406,7 @@ async function checkNegativeRender(context, fid, missingKey, runId, artifactPath
 }
 
 /** Part 3 (optional): the WARN line names the key in the journal, and nothing else about the render. */
-function checkJournal(sinceIso, missingKey, negativeFdid, positiveProviderValue) {
+function checkJournal(sinceIso, missingKey, runFdids, positiveProviderValue) {
   if (!config.journalUnit) {
     return { skipped: true };
   }
@@ -376,13 +414,18 @@ function checkJournal(sinceIso, missingKey, negativeFdid, positiveProviderValue)
   const warnLines = journal.split('\n').filter((line) => line.includes(WARN_LINE));
   assert(warnLines.length >= 1, `journal has no "${WARN_LINE}" line since ${sinceIso}`);
   const keyed = warnLines.filter((line) => line.includes(`key=${missingKey}`));
-  assert(keyed.length >= 1, `journal WARN lines never name key=${missingKey}: ${warnLines.slice(0, 3).join(' | ')}`);
-  assert(keyed.some((line) => line.includes(`fdid=${negativeFdid}`)), `journal WARN line does not carry fdid=${negativeFdid}`);
+  assert(keyed.length >= 1, `journal WARN lines never name key=${missingKey}`);
   assert(keyed.every((line) => line.includes('reason=APCache key is not configured')), 'journal WARN line carries an unexpected reason');
+  // Key and reason only: the fix is in apconfig.xml, so no patient-correlating fdid rides along.
+  assert(!keyed.some((line) => line.includes('fdid=')), 'journal WARN line carries an fdid');
   assert(!keyed.some((line) => /\bat [a-z]+\./.test(line) || line.includes('Exception')), 'journal WARN line carries a stack trace');
   assert(!journal.includes(positiveProviderValue), 'journal carries an AP value; the servlet must log identifiers only');
-  const failed = journal.split('\n').filter((line) => line.includes('Renderer APCache lookup failed') || line.includes('Renderer APCache lookup returned an unusable result'));
-  assert(failed.length === 0, `journal reports an unexpected lookup failure during the run: ${failed[0]}`);
+  // The lookup-failure ERROR lines carry the render's fdid; only this run's renders count, so a
+  // concurrent render on the same install cannot fail the check.
+  const failed = journal.split('\n')
+    .filter((line) => line.includes('Renderer APCache lookup failed') || line.includes('Renderer APCache lookup returned an unusable result'))
+    .filter((line) => runFdids.some((fdid) => line.includes(`fdid=${fdid}`)));
+  assert(failed.length === 0, 'journal reports an unexpected lookup failure for one of this run\'s renders');
   return { warnLines: keyed.length };
 }
 
@@ -454,7 +497,7 @@ async function main() {
     const negative = await checkNegativeRender(context, negativeFid, missingKey, runId, artifactPaths);
     savedFdids.add(negative.fdid);
 
-    const journal = checkJournal(sinceIso, missingKey, negative.fdid, positive.providerValue);
+    const journal = checkJournal(sinceIso, missingKey, [positive.fdid, negative.fdid].filter(Boolean), positive.providerValue);
     const probes = await checkDirectProbes();
 
     // A 422 from the bridge is expected during the negative render (it is what withholds the
@@ -464,17 +507,16 @@ async function main() {
     // "Invalid fid" 400s on every post-save lookup, and APCache.js turns any lookup failure
     // into a "contact an administrator" alert the recorder captures as a dialog.
     const lookupFailures = recorder.badResponses.filter((response) => response.url.includes('/eform/efmformapconfig_lookup'));
-    assert(lookupFailures.length === 0, `interactive APCache lookups answered errors: ${JSON.stringify(lookupFailures, null, 2)}`);
-    assert(!recorder.badResponses.some((response) => response.url.includes(SERVLET_PATH)), `this browser saw the renderer bridge answer an error: ${JSON.stringify(recorder.badResponses, null, 2)}`);
-    assert(recorder.badResponses.length === 0, `Unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
+    assert(lookupFailures.length === 0, `interactive APCache lookups answered errors: ${describe(lookupFailures)}`);
+    assert(!recorder.badResponses.some((response) => response.url.includes(SERVLET_PATH)), `this browser saw the renderer bridge answer an error: ${describe(recorder.badResponses)}`);
+    assert(recorder.badResponses.length === 0, `Unexpected HTTP errors: ${describe(recorder.badResponses)}`);
     const lookupAlerts = recorder.dialogs.filter((dialog) => /an error has occurred/i.test(dialog.text));
-    assert(lookupAlerts.length === 0, `APCache raised its lookup-failure alert: ${JSON.stringify(lookupAlerts, null, 2)}`);
+    assert(lookupAlerts.length === 0, `APCache raised its lookup-failure alert: ${describe(lookupAlerts)}`);
 
     console.log(JSON.stringify({
       positiveTemplateFid: positiveFid,
       negativeTemplateFid: negativeFid,
-      positiveSavedFdid: positive.fdid,
-      negativeSavedFdid: negative.fdid,
+      savedEformsCreated: [positive.fdid, negative.fdid].filter(Boolean).length,
       providerValueLength: positive.providerValue.length,
       todayValue: positive.todayValue,
       journal,
@@ -486,8 +528,8 @@ async function main() {
     console.log('PASS eForm renderer APCache bridge check');
   } catch (error) {
     console.error('FAIL eForm renderer APCache bridge check');
-    console.error(error.stack || error.message);
-    console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
+    console.error(redactSensitiveFailureText(error.stack || error.message));
+    console.error(describe(buildFailureDetails(recorder)));
     process.exitCode = 1;
   } finally {
     const cleanupErrors = [];
