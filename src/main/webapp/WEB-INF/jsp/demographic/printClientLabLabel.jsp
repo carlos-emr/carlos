@@ -92,8 +92,10 @@
     <carlos:encode value='<%= defaultPrinterName %>' context="html"/>
     <%}%>
     <br>
-    <object id="pdf" type="application/pdf"
-            data="printClientLabLabelAction?demographic_no=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>" height="80%"
-            width="100%"></object>
+    <%-- The packaged CSP intentionally blocks object/embed (object-src 'none').
+         A same-origin frame allows the browser's PDF viewer without weakening it. --%>
+    <iframe id="pdf" title="Lab Label"
+            src="printClientLabLabelAction?demographic_no=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>"
+            style="width: 100%; height: 80vh; min-height: 240px; border: 0;"></iframe>
     </body>
 </html>

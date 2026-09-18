@@ -25,6 +25,33 @@ an administration tool — a working, secured EMR from `apt install`.
   and disk sized for your document store plus backups.
 - Root access. The *installation* uses root; the *running system* does not —
   every long-lived component runs as an unprivileged account.
+- The `universe` component enabled and the package lists current. Five of the
+  dependencies (`tomcat11-common`, `libtomcat11-java`, `openjdk-21-jre-headless`,
+  `modsecurity-crs`, `libnginx-mod-http-modsecurity`) live in `universe`, and
+  without it the install stops on unmet dependencies before anything is
+  configured. It is enabled by default on Ubuntu Server.
+
+### Do not install the `tomcat11` package
+
+CARLOS runs its **own private Tomcat instance** and installs everything it
+needs for one. It depends on `tomcat11-common` and `libtomcat11-java` — the
+distribution's Tomcat *code*, so container security updates keep arriving
+through `apt` — and then runs a container of its own:
+`CATALINA_BASE=/var/lib/carlos-emr/catalina`, as the unprivileged `carlos`
+account, with its connector bound to `127.0.0.1:18080` behind the
+nginx + ModSecurity front door, serving an application tree the EMR's own
+account cannot write to.
+
+Installing the `tomcat11` *service* package on top of that ("CARLOS is a Java
+webapp, so it must need Tomcat") starts a **second, unrelated** container as
+the `tomcat` user listening on `*:8080` — every interface, with no TLS, WAF,
+or rate limiting. This creates an additional network service outside the
+packaged front door; it does not serve the CARLOS application by default.
+It also competes for the memory the EMR's heap was sized against.
+
+The packages therefore refuse the combination (`Conflicts: tomcat11`): if it
+is already installed, `apt` will offer to remove it. If it hosts another
+application, move that application to a separate host before proceeding.
 
 ### Before you start — a five-minute pre-flight
 
@@ -50,6 +77,7 @@ attestations (the `carlos-emr` package ships that release's published WAR,
 byte for byte). Download all three, verify, install:
 
 ```bash
+sudo apt update
 sha256sum -c carlos-emr_<version>_all.deb.sha256
 sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
 sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
@@ -57,6 +85,24 @@ sudo apt install ./carlos-emr_<version>_all.deb \
                  ./carlos-emr-drugref_<version>_all.deb \
                  ./carlos-emr-eform-renderer_<version>_amd64.deb
 ```
+
+`<version>` is the release's Debian version as it appears in the asset name,
+with dots throughout — for example `2026.08.0.alpha12`, giving
+`carlos-emr_2026.08.0.alpha12_all.deb`.
+
+> **Releases up to and including 2026.08.0-alpha12:** the `.sha256` files
+> record the build-time name, which spells the pre-release with a tilde
+> (`carlos-emr_2026.08.0~alpha12_all.deb`), while GitHub rewrites that tilde to
+> a dot when it stores the asset. `sha256sum -c` therefore fails with
+> `No such file or directory` even though the download is intact. Compare the
+> digests directly instead:
+>
+> ```bash
+> sha256sum carlos-emr_<version>_all.deb
+> cat carlos-emr_<version>_all.deb.sha256
+> ```
+>
+> Later releases record the published name and verify normally.
 
 Three packages, and it is worth knowing what each is for:
 
@@ -362,6 +408,8 @@ sudo carlos-ctl check
 | Certificate warning in the browser | `sudo carlos-ctl cert status` | Expected with the default self-signed certificate — the connection is still encrypted; switch with `sudo carlos-ctl cert acme <email>` |
 | "502 Bad Gateway" or a long spinner right after install/restart | `sudo carlos-ctl logs -f` | The webapp takes about two minutes to deploy; if it never comes up, the log says why |
 | Login rejected with the seeded credentials | `sudo cat /etc/carlos-emr/initial-admin.txt` | Using the repository's published dev password instead of the generated one. Also: the PIN must be exactly four digits — a longer PIN fails with a message blaming the *password* |
+| `carlos-ctl check` says `carlos-emr is not running`, and `journalctl -u carlos-emr` shows the unit start, exit and restart several times before giving up | `sudo journalctl -u carlos-emr -n 200`, then `free -h` | The unit exhausted its restart limit (six failures in thirty minutes) and stays down until started by hand; an out-of-memory exit loops exactly this way, because the JVM runs with `-XX:+ExitOnOutOfMemoryError`. Give the machine enough memory for the heap (`CARLOS_JAVA_XMX` in `/etc/carlos-emr/carlos-emr.env`) plus MariaDB and the OS, or lower the heap, then `sudo systemctl reset-failed carlos-emr && sudo carlos-ctl restart` |
+| Something answers on port `8080`, or an older `carlos-ctl check` reported the JVM running as `tomcat` | `dpkg -l tomcat11` | The distribution's `tomcat11` *service* package is installed. CARLOS does not use it and current packages refuse to coexist with it (see [Do not install the `tomcat11` package](#do-not-install-the-tomcat11-package)): `sudo apt purge tomcat11` |
 | Install finished but the EMR is stopped, and `carlos-ctl check` says the unit is DISABLED | `sudo carlos-ctl check`, then `sudo carlos-ctl finish-install` | The installer could not replace the seeded `carlosdoc` credential (published in the source repository), so it stopped and disabled the service rather than expose the EMR with a known administrator password. It stays disabled across reboots on purpose. A successful `finish-install` verifies the credential, re-enables the unit, removes the start guard and starts the EMR |
 | A specific page or action fails, but nothing in the application log | `sudo carlos-ctl waf tail` | The WAF blocked the request before it reached the application — the tail explains which rule and why |
 | eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-chromedriver -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
