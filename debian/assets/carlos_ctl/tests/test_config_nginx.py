@@ -150,13 +150,23 @@ class TestApplyNginx(unittest.TestCase):
         self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
 
     def test_a_missing_site_outside_the_package_configure_is_fatal(self):
-        # Run by hand on a live host, a missing symlink means nginx is not
-        # serving CARLOS at all — the reload just dropped the server block —
-        # and reporting success would hide a front door that is down.
+        # Preserve any working in-memory configuration when the enabled site
+        # is missing on disk. Diagnose the problem before dropping its workers.
         self.site_enabled = False
         self.first_run = False
         with self.assertRaises(SystemExit):
             self._apply()
+        self.assertNotIn(["systemctl", "reload", "nginx.service"], self.calls)
+        self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
+    def test_inactive_nginx_cannot_hide_a_missing_site_outside_configure(self):
+        self.site_enabled = False
+        self.first_run = False
+        self.active_rc = 3
+        with self.assertRaises(SystemExit):
+            self._apply()
+        self.assertNotIn(["systemctl", "start", "nginx.service"], self.calls)
+        self.assertNotIn(["systemctl", "reload", "nginx.service"], self.calls)
 
     def test_site_not_enabled_yet_reloads_without_demanding_the_listeners(self):
         # postinst runs init-config BEFORE it symlinks the site, so on a first

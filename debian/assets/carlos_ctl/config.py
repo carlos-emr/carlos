@@ -432,6 +432,12 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
         warn("(the running config keeps serving). Details:")
         run(["nginx", "-t"])
         return 1
+    site_enabled = os.path.exists(NGINX_SITE_ENABLED)
+    if not site_enabled and (start_if_inactive or
+                             os.environ.get("CARLOS_CONFIGURE_FIRST_RUN") != "1"):
+        die(f"{NGINX_SITE_ENABLED} is missing; restore the symlink to "
+            "/etc/nginx/sites-available/carlos-emr (or run "
+            "'dpkg-reconfigure carlos-emr') before applying configuration")
     if not active and not start_if_inactive:
         # The package's own nginx step starts it during configure; an operator
         # who stopped it on purpose keeps it stopped. The test above still ran:
@@ -439,10 +445,6 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
         # parse, which would otherwise surface only at some later start.
         log("nginx is not running; the rendered configuration serves when it starts")
         return 0
-    site_enabled = os.path.exists(NGINX_SITE_ENABLED)
-    if start_if_inactive and not site_enabled:
-        die("the CARLOS nginx site is missing; run 'dpkg-reconfigure carlos-emr' "
-            "to restore it before retrying finish-install")
     action = "reload" if active else "start"
     if run(["systemctl", action, "nginx.service"]).returncode != 0:
         die(f"nginx {action} FAILED — front-door changes are NOT live; "
@@ -458,15 +460,9 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
         # Reload what is rendered (other fragments this verb wrote are live
         # immediately) and leave the proof to whoever enables the site.
         #
-        # ONLY during that configure, though: the postinst says so with
-        # CARLOS_CONFIGURE_FIRST_RUN. Run by hand on a live host, a missing
-        # symlink means the front door is down — the reload just dropped the
-        # CARLOS server block — and reporting success would hide it.
-        if os.environ.get("CARLOS_CONFIGURE_FIRST_RUN") != "1":
-            die(f"{NGINX_SITE_ENABLED} is missing, so nginx is not serving "
-                "CARLOS at all; restore the symlink to "
-                "/etc/nginx/sites-available/carlos-emr (or run "
-                "'dpkg-reconfigure carlos-emr') and run this again")
+        # The preflight above allows this only during the package configure.
+        # Manual application fails before reloading or returning success for
+        # an inactive service, preserving any still-working in-memory config.
         log("the CARLOS site is not enabled in nginx yet; the rendered front "
             "door serves once the package enables it")
         return 0
