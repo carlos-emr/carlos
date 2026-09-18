@@ -48,7 +48,7 @@ test('the demo lab-req practitioner correction exists', () => {
 
 test('the correction targets only double-hyphen values', () => {
   const sql = read(sqlPath);
-  const updates = sql.split(';').filter((s) => /^\s*UPDATE/im.test(s));
+  const updates = [...sql.matchAll(/^\s*UPDATE\b[\s\S]*?;/gim)].map((match) => match[0]);
   assert.ok(updates.length > 0, 'expected at least one UPDATE');
   for (const stmt of updates) {
     assert.match(
