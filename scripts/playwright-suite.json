@@ -1979,6 +1979,22 @@
         "CSRF_XHR_DEMOGRAPHIC_NO",
         "CSRF_XHR_TIMEOUT_MS"
       ]
+    },
+    {
+      "name": "edit-appointment-direct-link",
+      "script": "scripts/edit-appointment-direct-link-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "APPOINTMENT_NO",
+        "APPOINTMENT_DEMOGRAPHIC_NO"
+      ]
     }
   ]
 }

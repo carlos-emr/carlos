@@ -107,6 +107,22 @@ class ViewEditAppointmentWrite2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(mockAppointmentDao);
     }
 
+    /**
+     * editappointment.jsp re-parses the raw request parameter, so the gate must not accept a
+     * shape the JSP cannot. Trimming here made " 11 " resolve in the gate and throw in the JSP,
+     * which left it with a null appointment and answered 500 — the failure the gate exists to
+     * prevent. Reproduced against a running instance before the fix.
+     */
+    @Test
+    @DisplayName("should answer 400 when appointment_no is padded with whitespace")
+    void shouldAnswerBadRequest_whenAppointmentNoWhitespacePadded() throws Exception {
+        mockRequest.setParameter("appointment_no", " 11 ");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockAppointmentDao);
+    }
+
     @Test
     @DisplayName("should answer 400 when appointment_no is not positive")
     void shouldAnswerBadRequest_whenAppointmentNoNotPositive() throws Exception {

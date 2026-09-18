@@ -59,6 +59,27 @@ const demographicNo = process.env.APPOINTMENT_DEMOGRAPHIC_NO || '1';
 
 const failures = [];
 
+// editappointment.jsp stamps a fresh current-time `createdatetime` into the form on every
+// response, so two requests that cross a one-second boundary differ even when they rendered
+// the same appointment. Comparing raw HTML would make this check intermittently fail for a
+// reason that has nothing to do with #3729, so the comparison is over the form's stable
+// state: every named field's value, minus the ones the server regenerates per response.
+const VOLATILE_FIELDS = new Set(['createdatetime', 'CSRF-TOKEN']);
+
+async function readFormState(page) {
+  return page.evaluate((volatile) => {
+    const state = [];
+    for (const el of document.querySelectorAll('input[name], select[name], textarea[name]')) {
+      if (volatile.includes(el.name)) {
+        continue;
+      }
+      const value = el.type === 'checkbox' || el.type === 'radio' ? String(el.checked) : el.value;
+      state.push(`${el.name}=${value}`);
+    }
+    return state.sort().join('\n');
+  }, Array.from(VOLATILE_FIELDS));
+}
+
 async function fetchEdit(page, query, label, expectedStatus) {
   const search = new URLSearchParams(query).toString();
   const response = await gotoApp(page, config.baseUrl, `/appointment/editappointment?${search}`);
@@ -67,7 +88,7 @@ async function fetchEdit(page, query, label, expectedStatus) {
     failures.push(`${label}: expected HTTP ${expectedStatus}, got ${status}`);
     return null;
   }
-  return status === 200 ? page.content() : '';
+  return status === 200 ? readFormState(page) : '';
 }
 
 (async () => {
@@ -94,13 +115,14 @@ async function fetchEdit(page, query, label, expectedStatus) {
     if (bare && daySheet && bare !== daySheet) {
       failures.push('bare appointment_no link rendered a different form than the day-sheet link for the same appointment');
     }
-    if (bare && !/appointment_no"\s+value="/.test(bare)) {
-      failures.push('bare appointment_no link did not render the edit form (no appointment_no field)');
+    if (bare !== null && !bare.includes(`appointment_no=${appointmentNo}`)) {
+      failures.push('bare appointment_no link did not render the edit form for that appointment');
     }
 
     // A malformed or stale link is a client error, not a server fault.
     await fetchEdit(page, { dboperation: 'search' }, 'no appointment_no', 400);
     await fetchEdit(page, { appointment_no: 'abc' }, 'non-numeric appointment_no', 400);
+    await fetchEdit(page, { appointment_no: ` ${appointmentNo} ` }, 'whitespace-padded appointment_no', 400);
     await fetchEdit(page, { appointment_no: '999999999' }, 'unknown appointment_no', 404);
 
     await page.close();

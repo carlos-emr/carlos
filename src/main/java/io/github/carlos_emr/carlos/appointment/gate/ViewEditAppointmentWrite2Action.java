@@ -15,6 +15,8 @@ package io.github.carlos_emr.carlos.appointment.gate;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.util.regex.Pattern;
+
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -40,6 +42,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class ViewEditAppointmentWrite2Action extends ViewAppointmentWrite2Action {
 
+    /** Exactly the shape {@code Integer.parseInt} accepts with no normalisation. */
+    private static final Pattern DIGITS = Pattern.compile("\\d+");
+
     @Override
     protected String afterPrivilegeGranted(HttpServletRequest request,
                                            HttpServletResponse response) throws Exception {
@@ -49,10 +54,21 @@ public final class ViewEditAppointmentWrite2Action extends ViewAppointmentWrite2
             return NONE;
         }
 
+        // Deliberately strict, and deliberately NOT trimmed: editappointment.jsp re-reads the
+        // raw request parameter and parses it again, so any shape this gate normalises away is
+        // one the JSP would still choke on. Accepting " 11 " here let the gate resolve the
+        // appointment while the JSP's own parse threw, leaving it with a null appointment and
+        // answering 500 — the very failure this gate exists to prevent.
+        if (!DIGITS.matcher(appointmentNo).matches()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid appointment_no");
+            return NONE;
+        }
+
         int parsed;
         try {
-            parsed = Integer.parseInt(appointmentNo.trim());
+            parsed = Integer.parseInt(appointmentNo);
         } catch (NumberFormatException e) {
+            // Digits that overflow an int.
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid appointment_no");
             return NONE;
         }
