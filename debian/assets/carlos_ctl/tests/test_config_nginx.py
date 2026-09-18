@@ -343,10 +343,20 @@ class TestBindAddressCanonicalisation(unittest.TestCase):
         for raw in ("0.0.0.0", "127.0.0.1", "192.0.2.8"):
             self.assertEqual(self._settings(raw).bind_ip, raw)
 
-    def test_a_value_that_is_not_an_ip_literal_is_passed_through(self):
-        # nginx -t is the authority on what the rendered configuration
-        # accepts; this verb has work to do before it gets there.
-        self.assertEqual(self._settings("clinic.invalid").bind_ip, "clinic.invalid")
+    def test_invalid_addresses_are_rejected_before_rendering_or_service_changes(self):
+        for raw in ("localhost", "clinic.invalid", "127.0.0.999", " "):
+            with self.subTest(raw=raw), contextlib.ExitStack() as stack:
+                stack.enter_context(mock.patch.object(config, "env_get",
+                    side_effect=lambda _f, key: raw if key == "CARLOS_BIND_IP" else None))
+                stack.enter_context(mock.patch.object(config.util, "need_root"))
+                writes = stack.enter_context(mock.patch.object(config, "prop_set"))
+                services = stack.enter_context(mock.patch.object(config, "run"))
+                stderr = stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+                with self.assertRaises(SystemExit):
+                    config.cmd_init_config([])
+                self.assertIn("CARLOS_BIND_IP must be an IPv4 or IPv6 address", stderr.getvalue())
+                writes.assert_not_called()
+                services.assert_not_called()
 
     def test_either_spelling_reaches_the_same_listen_directive(self):
         for raw in ("[::1]", "::1"):

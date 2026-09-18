@@ -608,7 +608,8 @@ case "$1" in
         # once, here, so the env file every later shell and Python read shares
         # carries the spelling those proofs will see. python3 is a hard
         # dependency (carlos-ctl is written in it); if it cannot parse the
-        # value, keep what the operator wrote and let nginx -t judge it.
+        # value, keep what the operator wrote so carlos-ctl rejects it with
+        # an actionable error before rendering; the failed apply is recorded.
         BIND_IP="$(printf '%s' "${BIND_IP}" | python3 -c '
 import ipaddress, sys
 raw = sys.stdin.read().strip()

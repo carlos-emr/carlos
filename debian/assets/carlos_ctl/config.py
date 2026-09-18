@@ -68,10 +68,9 @@ def _canonical_bind_ip(raw: str) -> str:
     incomplete; `[::1]`, the spelling nginx itself uses, failed the same way.
 
     Only the nginx `listen` directive wants brackets, and
-    _listen_directive_address puts them back. A value that is not an IP
-    literal at all is passed through untouched rather than rejected here:
-    `nginx -t` is the authority on what the rendered configuration accepts,
-    and this verb has other work to do before it gets there.
+    _listen_directive_address puts them back. Hostnames are rejected before
+    any rendering or service action: nginx can resolve them, but a numeric
+    socket cannot prove which address a changing DNS name was intended to bind.
     """
     value = raw.strip()
     if value.startswith("[") and value.endswith("]"):
@@ -79,7 +78,8 @@ def _canonical_bind_ip(raw: str) -> str:
     try:
         return ipaddress.ip_address(value).compressed
     except ValueError:
-        return value
+        die("CARLOS_BIND_IP must be an IPv4 or IPv6 address "
+            "(for example 127.0.0.1 or ::1); hostnames are not supported")
 
 
 class Settings:

@@ -798,6 +798,8 @@ The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silen
   Recovery starts nginx if stopped and verifies the configured ports before
   clearing the pending state; init-config alone leaves a stopped nginx stopped.
   If the CARLOS site is missing, run dpkg-reconfigure carlos-emr to restore it.
+  CARLOS_BIND_IP must be an IPv4 or IPv6 address (for example 127.0.0.1 or
+  ::1), not a hostname; invalid input is rejected before rendering or reload.
   It preserves
   the pending state so you can fix the reported cause and run the same command
   again. A populated schema that fails validation is NEVER migrated at boot;

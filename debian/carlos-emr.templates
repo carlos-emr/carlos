@@ -24,6 +24,8 @@ Template: carlos-emr/bind-ip
 Type: string
 Default: 0.0.0.0
 Description: Address the CARLOS EMR front door should listen on:
+ Enter an IPv4 or IPv6 address, not a host name. For IPv6 loopback use ::1.
+ .
  0.0.0.0 serves every network interface, which is what a clinic server
  normally needs.
  .
