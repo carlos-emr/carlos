@@ -550,7 +550,7 @@ async function main() {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
     if (cleanupErrors.length) {
-      console.error(`cleanup problems: ${cleanupErrors.map((error) => error.message).join('; ')}`);
+      console.error(`cleanup problems: ${cleanupErrors.map((error) => redactSensitiveFailureText(error.message)).join('; ')}`);
       process.exitCode = 1;
     }
   }
