@@ -75,12 +75,12 @@ const FORMS = [
 ];
 
 // A form asset is anything served out of the form module. A request for one of these that
-// does not return 200 is the #3727 failure: either the bare relative path resolved against
-// the page's <base> (the context root) or it was rewritten somewhere that does not exist.
-// Stylesheets are deliberately not matched here: this runs against full URLs and would then
-// also police CDN stylesheets the forms have nothing to do with. Bare stylesheet references
-// are caught on the attribute itself in the page scan below, where a CDN href cannot match.
-const FORM_ASSET = /\/(formScripts\.js|form\/graphics\/|graphics\/)/;
+// does not return 200 is the #3727 failure: the bare relative path resolved against the page's
+// <base> (the context root), or it was rewritten somewhere that does not exist, or the
+// extension is missing from struts.action.excludePattern so Struts claims the request and 404s
+// it before the container can serve the packaged file. Only same-origin URLs are considered,
+// so CDN stylesheets the forms have nothing to do with are never policed here.
+const FORM_ASSET = /\/(formScripts\.js|form\/graphics\/|graphics\/|form\/[A-Za-z0-9_-]+\.css)/;
 
 const failures = [];
 
@@ -97,7 +97,7 @@ function formPath(form) {
 function watchAssets(page, formName) {
   page.on('response', (response) => {
     const url = response.url();
-    if (FORM_ASSET.test(url) && response.status() !== 200) {
+    if (url.startsWith(config.baseUrl) && FORM_ASSET.test(url) && response.status() !== 200) {
       failures.push(`${formName}: ${response.status()} ${url}`);
     }
   });
