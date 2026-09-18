@@ -57,8 +57,17 @@ class DevelopmentAdminSeedRegressionTest {
         // and the load order is what this test actually cares about: the seed's
         // eForm group references the Rich Text Letter row the RTL chain installs,
         // and its labels must not be FAKE- prefixed by the name sanitization.
+        // indexOf() answers -1 for an absent marker, which would satisfy the
+        // ordering comparisons below, so every prerequisite is asserted present
+        // before the offsets are compared.
+        assertThat(populate).contains(
+                "update-2026-03-22-rtl-2026.3.0-modernize.sql",
+                "update-2026-03-12-rtl-enable-direct.sql",
+                "update-2026-06-29-rtl-attachment-route-fix.sql",
+                "/scripts/demo-name-sanitization-on.sql",
+                "/scripts/admin_test_data.sql",
+                "/scripts/admin_test_account.sql");
         assertThat(populate)
-                .contains("/scripts/admin_test_data.sql")
                 .satisfies(script -> assertThat(script.indexOf("/scripts/admin_test_data.sql"))
                         .isGreaterThan(script.indexOf("update-2026-03-22-rtl-2026.3.0-modernize.sql"))
                         .isGreaterThan(script.indexOf("update-2026-03-12-rtl-enable-direct.sql"))
@@ -84,8 +93,12 @@ class DevelopmentAdminSeedRegressionTest {
         // same ordering constraints as in populate_db.sh (after the RTL chain and
         // after the name sanitization), and the ON-only supplement is appended
         // conditionally, so the seed must come after that append too.
+        assertThat(dbops).contains(
+                "\"update-2026-06-29-rtl-attachment-route-fix.sql\"",
+                "\"demo-name-sanitization.sql\"",
+                "\"demo-name-sanitization-on.sql\"",
+                "os.path.join(DEMO_DIR, \"admin_test_data.sql\")");
         assertThat(dbops)
-                .contains("os.path.join(DEMO_DIR, \"admin_test_data.sql\")")
                 .satisfies(source -> assertThat(source.indexOf("\"admin_test_data.sql\""))
                         .isGreaterThan(source.indexOf("\"update-2026-06-29-rtl-attachment-route-fix.sql\""))
                         .isGreaterThan(source.indexOf("\"demo-name-sanitization.sql\""))
