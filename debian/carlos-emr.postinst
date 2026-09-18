@@ -129,10 +129,16 @@ sd_invoke() {
     deb-systemd-invoke "$@"
 }
 
-# The front-door listeners the rendered configuration asks for — CARLOS_BIND_IP
-# on 80 and 443 — are bound. Polled briefly: nginx binds them a moment after the
-# reload signal is delivered, and asking too early would restart a front door
-# that was about to come up on its own. An IPv6 literal shows bracketed in ss.
+# NGINX has bound the front-door listeners the rendered configuration asks for
+# — CARLOS_BIND_IP on 80 and 443. Polled briefly: nginx binds them a moment
+# after the reload signal is delivered, and asking too early would restart a
+# front door that was about to come up on its own. An IPv6 literal shows
+# bracketed in ss.
+#
+# -p, and the nginx match on it, are the point: "something is listening there"
+# is the question that reported a healthy front door on the tester's broken
+# host, and another daemon holding both ports would read exactly the same. The
+# postinst runs as root, so the owner column is populated.
 front_door_listening() {
     bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1)"
     [ -n "${bind_ip}" ] || bind_ip=0.0.0.0
@@ -1183,6 +1189,9 @@ case "$1" in
             # Re-run purely to SHOW the failure detail; the || true keeps this
             # diagnostic from aborting configure a second time.
             nginx -t || true
+            # This runs after clear_incomplete(), so without recording it an
+            # invalid site or certificate would leave the front door down with
+            # no marker and nothing for finish-install to retry.
             mark_incomplete "the nginx configuration test failed"
         fi
         ;;

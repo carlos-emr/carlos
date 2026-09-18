@@ -324,8 +324,9 @@ def _listeners(port: str) -> list:
         if not re.search(r'\("nginx",pid=[0-9]+,fd=[0-9]+\)', line):
             continue
         cols = line.split()
-        if len(cols) >= 4 and cols[3].rsplit(":", 1)[-1] == port:
-            found.append(cols[3].rsplit(":", 1)[0].lstrip("[").rstrip("]"))
+        if len(cols) < 4 or cols[3].rsplit(":", 1)[-1] != port:
+            continue
+        found.append(cols[3].rsplit(":", 1)[0].lstrip("[").rstrip("]"))
     return found
 
 
