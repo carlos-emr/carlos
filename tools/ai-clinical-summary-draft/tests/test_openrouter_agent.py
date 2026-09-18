@@ -140,11 +140,18 @@ class OpenRouterTest(unittest.TestCase):
         self.gateway.config['section_passes'] = True
         output = self.gateway.run(self.request)['output']
         self.assertEqual(5, len(self.calls))
-        for section, payload in zip(agent.SECTION_SCOPES, self.calls):
-            self.assertEqual(self.request['sources'], json.loads(payload['messages'][1]['content'])['sources'])
+        # Passes are scheduled longest-first over a thread pool, so identify each by its
+        # constrained section rather than by arrival order.
+        by_section = {}
+        for payload in self.calls:
             schema = payload['response_format']['json_schema']['schema']['properties']['sections']
-            self.assertEqual([section], schema['items']['properties']['id']['enum'])
             self.assertEqual(1, schema['maxItems'])
+            section_ids = schema['items']['properties']['id']['enum']
+            self.assertEqual(1, len(section_ids))
+            by_section[section_ids[0]] = payload
+        self.assertEqual(set(agent.SECTION_SCOPES), set(by_section))
+        for payload in by_section.values():
+            self.assertEqual(self.request['sources'], json.loads(payload['messages'][1]['content'])['sources'])
         self.gateway.run(self.request)
         self.assertEqual(5, self.gateway.cache_hits)
         self.assertEqual(5, len(self.calls))
@@ -337,6 +344,12 @@ class OpenRouterTest(unittest.TestCase):
         self.gateway.cache.clear()
         self.gateway.cache_bytes = 0
         output = copy.deepcopy(baseline)
+        # The transport stands in for raw model output; the host labels each review with the
+        # source ID on every pass, so replay the baseline without that host-added prefix.
+        for entry in output['coverage']:
+            prefix = entry['source_id'] + ': '
+            self.assertTrue(entry['reason'].startswith(prefix))
+            entry['reason'] = entry['reason'][len(prefix):]
         claim_ids = output['sections'][0]['claim_ids'][:]
         output['sections'] += [
             {'id': 'active_problems', 'title': 'Active problems', 'claim_ids': claim_ids},
