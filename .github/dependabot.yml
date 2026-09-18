@@ -1,0 +1,28 @@
+# Dependabot: keep the SHA-pinned GitHub Actions in .github/workflows current.
+#
+# Every action in this repository is pinned to a full commit SHA (supply-chain
+# hygiene), which means nothing bumps them unless something opens a PR. This
+# config does that for the github-actions ecosystem only. Updates are grouped
+# into one PR per month because every Dependabot PR costs a full CI run
+# (~40 runner-minutes); container image digests (semgrep/semgrep, ubuntu:26.04,
+# the devcontainer base image) stay manual.
+#
+# Dependabot rewrites the pinned SHA and the trailing "# vX.Y.Z" comment.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    # Wait a week before proposing a newly published version: a freshly cut
+    # action release can be yanked or found malicious in its first days.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci(deps)"
+    labels:
+      - "type: dependencies"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
