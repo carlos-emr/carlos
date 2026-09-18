@@ -48,7 +48,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -77,10 +76,23 @@
     List<String> billingSettingsKeys = Arrays.asList("auto_populate_refer", "bc_default_service_location", "default_billing_form");
 
     /*
+     * BC is the only billing region with clinic-wide settings on this page. Ontario billing is
+     * configured through its own administration pages (service codes, diagnostic codes, payment
+     * types, MOH file management), so this page has nothing editable for ON by design.
+     *
+     * The save block is gated on the same flag deliberately: every input below is rendered only for
+     * BC, so a POST from any other region would read null for each parameter and overwrite the
+     * stored Property rows and SystemPreferences with null.
+     */
+    boolean hasEditableSettings = "BC".equals(billRegion);
+    boolean isOntarioBillRegion = "ON".equals(billRegion);
+
+    /*
      * Save on page reload.
      * TODO: not really the best method, but will work until there is time to refactor.
      */
-    if (request.getParameter("dboperation") != null && !request.getParameter("dboperation").isEmpty() && request.getParameter("dboperation").equals("Save")
+    if (hasEditableSettings
+            && request.getParameter("dboperation") != null && !request.getParameter("dboperation").isEmpty() && request.getParameter("dboperation").equals("Save")
             && "POST".equalsIgnoreCase(request.getMethod())) {
 
         request.setAttribute("success", false);
@@ -182,7 +194,7 @@
         <input type="hidden" name="dboperation" value="">
         <table id="displaySettingsTable" class="table table-bordered table-striped table-hover table-sm">
             <tbody>
-            <oscar:oscarPropertiesCheck property="billregion" value="BC">
+            <% if (hasEditableSettings) { %>
                 <tr>
                     <td><fmt:message key="admin.billingSettings.autoPopulateRefer"/>:</td>
                     <td>
@@ -262,15 +274,20 @@
                             ${empty dataBean["invoice_use_custom_clinic_info"] ? "disabled" : ""} >${carlos:forHtmlContent("on" eq dataBean["invoice_use_custom_clinic_info"] ? dataBean["invoice_custom_clinic_info"] : clinicData.label)}</textarea>
                     </td>
                 </tr>
-            </oscar:oscarPropertiesCheck>
-
-            <oscar:oscarPropertiesCheck property="billregion" value="ON">
+            <% } else if (isOntarioBillRegion) { %>
                 <tr>
-                    <td><fmt:message key="admin.billingSettings.noOptions"/></td>
+                    <td colspan="2"><fmt:message key="admin.billingSettings.onNoOptions"/></td>
                 </tr>
-            </oscar:oscarPropertiesCheck>
+            <% } else { %>
+                <tr>
+                    <td colspan="2"><fmt:message key="admin.billingSettings.noOptions"/></td>
+                </tr>
+            <% } %>
             </tbody>
         </table>
+        <%-- No Save control unless something on the page can actually be saved; a Save button over a
+             read-only region would post a form with no inputs. --%>
+        <% if (hasEditableSettings) { %>
         <input type="button"
                onclick="document.forms['billingSettingsForm'].dboperation.value='Save'; document.forms['billingSettingsForm'].submit();"
                name="saveBillingSettings" value="<fmt:message key='global.save'/>"/>
@@ -282,6 +299,7 @@
         <%
             }
         %>
+        <% } %>
     </form>
     </body>
 </html>

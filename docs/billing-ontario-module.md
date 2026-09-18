@@ -262,6 +262,35 @@ Privilege check: `_billing r`. Province-specific gates also enforce
 `_billing r` or `_billing w` as appropriate; the router doesn't grant; it
 funnels.
 
+### 4.1 Ontario has no clinic-wide settings on the Billing Settings page
+
+`Administration > Billing > Settings` (`/admin/BillingSettings`,
+`BillingSettings2Action` → `/WEB-INF/jsp/admin/billingSettings.jsp`) is a
+**BC-only** page. Every control on it — auto-populate referring physician,
+default Teleplan service location, default billing form, custom clinic info on
+private invoices — is read back exclusively by BC code
+(`billing/CA/BC/billingBC.jsp`, `billingPreferences.jsp`, `billReceipt.jsp`,
+`privateBilling/printPreview.jsp`). No Ontario class or JSP reads a global
+`Property` row or a `SystemPreferences.GENERAL_SETTINGS_KEYS` value.
+
+Ontario billing is configured elsewhere and is expected to stay that way:
+
+| Concern | Where it is configured |
+|---|---|
+| Service / diagnostic codes | `Administration > Billing` — service code and dx code maintenance |
+| Payment types | `billing/CA/ON/managePaymentType` |
+| MOH submission and reconciliation | `billing/CA/ON/BillingONUpload`, `ViewGenRA`, MOH file management |
+| Region selection, MCEDT, RMA toggles | `carlos.properties` (`billregion`, `mcedt.mailbox.enabled`, `rma_enabled`, …) |
+
+The page therefore renders an explanation for `billregion=ON`
+(`admin.billingSettings.onNoOptions`) instead of an unlabelled empty row, and
+renders no Save control. The Save path is gated on the same BC-only flag on
+purpose: the inputs exist only in the BC branch, so a POST from an Ontario
+install would read `null` for every parameter and overwrite the stored
+`Property` rows and `SystemPreferences` values with null. If Ontario ever gains
+a genuine clinic-wide billing setting, add it as its own branch on that page
+*and* a reader on the Ontario side — do not reuse the BC keys.
+
 ## 5 — Entity model
 
 Four entities carry the bulk of Ontario billing state:
