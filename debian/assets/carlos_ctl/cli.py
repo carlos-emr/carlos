@@ -271,7 +271,9 @@ _VERBS = {
 # destroy-data, backup, db, ...) answer for their arguments themselves.
 _NO_ARGUMENT_VERBS = frozenset({
     "bootstrap-admin", "cert-renew", "check", "db-apply-settings",
-    "init-config", "restart", "rotate", "start", "status", "stop",
+    "db-baseline", "db-dump", "db-info", "db-migrate", "db-repair",
+    "db-validate", "init-config", "restart", "rotate", "start", "status",
+    "stop",
 })
 
 
