@@ -19,7 +19,6 @@ Review baseline: `c181142689` on `release/2026.08`, compared with `origin/main`
 
 Conversion definitions: [NIST SP 811 Appendix B.8](https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b8).
 
-
 Bouncy Castle release: [upstream 1.86 announcement](https://www.bouncycastle.org/resources/new-release-bouncy-castle-java-1-86/).
 
 ## Review scope
@@ -39,6 +38,12 @@ No published Flyway migration differs from alpha12, and no normalized version
 collision exists in either common + ON or common + BC. The release does not add
 a schema migration. Configuration changes retain existing clinic values during
 the package upgrade; no replacement of the clinic configuration was required.
+The nullable booking repair also regenerates ON/BC import manifests from pinned
+OSCAR source `a7900d569d3faf741993e5e1da8c14021bbefede`. Both map families advance
+to `o19map-3`, so the existing resume guards refuse an unfinished import staged
+under the older conversion rules. No Flyway SQL is edited. A partially imported
+clinic must follow the existing rollback/restart instructions; this change does
+not waive that check.
 
 ## Running the added browser checks
 
