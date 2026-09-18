@@ -28,10 +28,14 @@
 <head>
     <meta charset="UTF-8">
     <title>General Conversions</title>
-    <script>window.location.replace('ViewGeneralCalculators');</script>
 </head>
 <body>
     <!-- Preserve legacy bookmarks without maintaining a second calculator implementation. -->
-    <p><a href="ViewGeneralCalculators">Open General Conversions</a></p>
+    <p><a id="calculatorLink" href="ViewGeneralCalculators">Open General Conversions</a></p>
+    <script>
+        var link = document.getElementById('calculatorLink');
+        link.href = 'ViewGeneralCalculators' + window.location.hash;
+        window.location.replace(link.href);
+    </script>
 </body>
 </html>

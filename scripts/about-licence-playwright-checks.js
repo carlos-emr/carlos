@@ -107,9 +107,16 @@ async function workflow(s) {
   });
   await s.step('legacy calculator bookmark reaches the maintained calculator', async () => {
     const legacy = await s.context.newPage();
-    await legacy.goto(`${s.config.baseUrl}/encounter/calculators/GeneralCalculators.htm`);
-    await legacy.waitForURL('**/encounter/calculators/ViewGeneralCalculators');
-    assert(await legacy.locator('form').count() === 4, 'Legacy bookmark did not render the calculator');
+    for (const fragment of ['', '#weight', '#temps']) {
+      await legacy.goto(`${s.config.baseUrl}/encounter/calculators/GeneralCalculators.htm${fragment}`);
+      await legacy.waitForURL(url => url.pathname.endsWith('/encounter/calculators/ViewGeneralCalculators')
+        && url.hash === fragment);
+      assert(await legacy.locator('form').count() === 4, 'Legacy bookmark did not render the calculator');
+      if (fragment) {
+        assert(await legacy.locator(`a[name="${fragment.slice(1)}"]`).count() === 1,
+          'Legacy bookmark names a missing conversion section');
+      }
+    }
     await legacy.close();
   });
 }

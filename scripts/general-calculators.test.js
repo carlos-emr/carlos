@@ -5,6 +5,24 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+for (const fragment of ['', '#weight', '#temps']) {
+  test(`legacy calculator redirect and fallback preserve fragment ${fragment || '(empty)'}`, () => {
+    const source = fs.readFileSync(path.join(__dirname,
+      '../src/main/webapp/encounter/calculators/GeneralCalculators.htm'), 'utf8');
+    const start = source.indexOf('<script>');
+    const end = source.indexOf('</script>', start);
+    assert.ok(start >= 0 && end > start);
+    const link = { href: 'ViewGeneralCalculators' };
+    let destination;
+    vm.runInNewContext(source.slice(start + '<script>'.length, end), {
+      document: { getElementById: () => link },
+      window: { location: { hash: fragment, replace: value => { destination = value; } } },
+    });
+    assert.equal(destination, `ViewGeneralCalculators${fragment}`);
+    assert.equal(link.href, destination);
+  });
+}
+
 function calculator() {
   const source = fs.readFileSync(path.join(__dirname,
     '../src/main/webapp/WEB-INF/jsp/encounter/calculators/GeneralCalculators.jsp'), 'utf8');
