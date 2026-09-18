@@ -185,15 +185,53 @@
 	}
 
 	/**
+	 * Resolves the CSRF token seeded by /WEB-INF/jspf/csrf-token.jspf.
+	 *
+	 * The bootstrap populates its hidden input from an async fetch that starts on
+	 * DOMContentLoaded, so a click landing before that settles would read an empty
+	 * value. Wait on the bootstrap's promise, and if it never ran or its fetch
+	 * failed, retry once here so a single transient failure does not leave MFA
+	 * reset broken until the administrator reloads the page.
+	 *
+	 * @returns {Promise<?string>} the token, or null if it could not be obtained.
+	 */
+	async function resolveCsrfToken() {
+		try {
+			if (window.csrfTokenReady) {
+				await window.csrfTokenReady;
+			}
+		} catch (e) {
+			// Bootstrap fetch failed; fall through to the retry below.
+		}
+		var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+		if (csrf && csrf.value) {
+			return csrf.value;
+		}
+		try {
+			await fetchCsrfToken('${carlos:forJavaScript(pageContext.request.contextPath)}');
+		} catch (e) {
+			return null;
+		}
+		csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+		return (csrf && csrf.value) ? csrf.value : null;
+	}
+
+	/**
 	 * Handles the reset MFA action for a given sec ID.
 	 *
 	 * @param {number} securityId - The ID of the sec record.
 	 */
-	function handleResetMfa(securityId) {
+	async function handleResetMfa(securityId) {
 		if (confirm("<fmt:message key="admin.securityAddRecord.mfa.reset.confirm"/>")) {
 			var url = "${pageContext.request.contextPath}/securityRecord/mfa";
-			var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-			var csrfToken = csrfEl ? csrfEl.value : '';
+			// A POST carrying an empty token is rejected by CarlosCsrfGuardFilter and the
+			// reset silently does nothing, which reads to the administrator as "MFA was
+			// reset". Fail closed and say so rather than sending a doomed request.
+			var csrfToken = await resolveCsrfToken();
+			if (!csrfToken) {
+				alert("<fmt:message key="admin.securityAddRecord.mfa.reset.tokenUnavailable"/>");
+				return;
+			}
 			var params = 'method=<%= MfaActions2Action.METHOD_RESET_MFA %>&securityId=' + encodeURIComponent(securityId);
 			fetch(url, {
 				method: 'POST',
@@ -221,6 +259,11 @@
     </head>
 
     <body onLoad="setfocus('user_name')" topmargin="0" leftmargin="0" rightmargin="0">
+    <%-- Seeds the canonical hidden CSRF-TOKEN input for the MFA reset AJAX POST. The
+         page's classic mutation form is token-injected by CSRFGuard's client script,
+         but the reset handler must not depend on an unrelated form staying on the
+         page; see docs/csrf-protection-architecture.md. --%>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
