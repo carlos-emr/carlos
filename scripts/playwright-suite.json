@@ -1979,6 +1979,21 @@
         "CSRF_XHR_DEMOGRAPHIC_NO",
         "CSRF_XHR_TIMEOUT_MS"
       ]
+    },
+    {
+      "name": "tickler-demo-main",
+      "script": "scripts/tickler-demo-main-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TICKLER_DEMOGRAPHIC_NO"
+      ]
     }
   ]
 }
