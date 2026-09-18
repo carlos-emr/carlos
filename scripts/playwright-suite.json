@@ -2045,6 +2045,60 @@
       "env": [
         "TICKLER_DEMOGRAPHIC_NO"
       ]
+    },
+    {
+      "name": "registry-ichppc-lifecycle",
+      "script": "scripts/registry-ichppc-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "about-licence",
+      "script": "scripts/about-licence-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECTED_BUILD_VERSION"
+      ]
+    },
+    {
+      "name": "pharmacy-search",
+      "script": "scripts/pharmacy-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": []
+    },
+    {
+      "name": "admin-report-validation",
+      "script": "scripts/admin-report-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": []
     }
   ]
 }

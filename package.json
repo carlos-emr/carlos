@@ -127,7 +127,11 @@
     "test:measurement-history-playwright": "node scripts/measurement-history-playwright-checks.js",
     "test:consultation-signature-fallback-playwright": "node scripts/consultation-signature-fallback-playwright-checks.js",
     "test:echart-note-editor-playwright": "node scripts/echart-note-editor-playwright-checks.js",
-    "test:csrf-xhr-token-playwright": "node scripts/csrf-xhr-token-playwright-checks.js"
+    "test:csrf-xhr-token-playwright": "node scripts/csrf-xhr-token-playwright-checks.js",
+    "test:registry-ichppc-lifecycle-playwright": "node scripts/registry-ichppc-lifecycle-playwright-checks.js",
+    "test:about-licence-playwright": "node scripts/about-licence-playwright-checks.js",
+    "test:pharmacy-search-playwright": "node scripts/pharmacy-search-playwright-checks.js",
+    "test:admin-report-validation-playwright": "node scripts/admin-report-validation-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

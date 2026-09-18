@@ -120,7 +120,9 @@ def reject_password_args(args):
     for a in args:
         if a.startswith("--password") or (
                 a.startswith("-p") and not a.startswith("--")):
-            bad.append(a.split("=")[0] if "=" in a else a[:2])
+            # Attached passwords can themselves contain '='; splitting there
+            # can expose their prefix in the refusal message.
+            bad.append("--password" if a.startswith("--password") else "-p")
     return bad
 
 

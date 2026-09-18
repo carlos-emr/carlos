@@ -143,7 +143,7 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
     @Override
     @SuppressWarnings("unchecked")
     public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city) {
-        String sql = "select x from PharmacyInfo x where x.status = ?1 and (x.name like ?2 escape '!' or x.address like ?3 escape '!') and x.city like ?4 order by x.name, x.address";
+        String sql = "select x from PharmacyInfo x where x.status = ?1 and (x.name like ?2 or x.address like ?3) and x.city like ?4 order by x.name, x.address";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, PharmacyInfo.ACTIVE);
         query.setParameter(2, "%" + name + "%");

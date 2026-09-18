@@ -114,7 +114,9 @@ def reject_password_args(args):
             if not a.startswith(flag) or (flag == "-p"
                                           and a.startswith("--")):
                 continue
-            bad.append(a.split("=")[0] if "=" in a else a[:len(flag)])
+            # Never quote any portion of argv: -psecret=more still contains
+            # password bytes before '='. Return only the recognized flag.
+            bad.append(flag)
             break
     return bad
 
