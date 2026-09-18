@@ -46,6 +46,7 @@
     "test:eform-saved-render-playwright": "node scripts/eform-saved-render-playwright-checks.js",
     "test:eform-test-pattern-playwright": "node scripts/eform-test-pattern-playwright-checks.js",
     "test:eform-consultation-acceptance": "node scripts/eform-consultation-acceptance-playwright-checks.js",
+    "test:eform-apcache-renderer-playwright": "node scripts/eform-apcache-renderer-playwright-checks.js",
     "test:eform-rtl-attachment-routes-playwright": "node scripts/eform-rtl-attachment-routes-playwright-checks.js",
     "test:eform-rtl-attachment-behavior-playwright": "node scripts/eform-rtl-attachment-behavior-playwright-checks.js",
     "test:eform-rtl-attachment-types-playwright": "node scripts/eform-rtl-attachment-types-playwright-checks.js",
