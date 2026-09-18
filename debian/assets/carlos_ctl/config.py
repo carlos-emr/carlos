@@ -457,6 +457,16 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
         # correctly, leaving .install-incomplete behind on a healthy host.
         # Reload what is rendered (other fragments this verb wrote are live
         # immediately) and leave the proof to whoever enables the site.
+        #
+        # ONLY during that configure, though: the postinst says so with
+        # CARLOS_CONFIGURE_FIRST_RUN. Run by hand on a live host, a missing
+        # symlink means the front door is down — the reload just dropped the
+        # CARLOS server block — and reporting success would hide it.
+        if os.environ.get("CARLOS_CONFIGURE_FIRST_RUN") != "1":
+            die(f"{NGINX_SITE_ENABLED} is missing, so nginx is not serving "
+                "CARLOS at all; restore the symlink to "
+                "/etc/nginx/sites-available/carlos-emr (or run "
+                "'dpkg-reconfigure carlos-emr') and run this again")
         log("the CARLOS site is not enabled in nginx yet; the rendered front "
             "door serves once the package enables it")
         return 0

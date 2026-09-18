@@ -32,6 +32,9 @@ class TestApplyNginx(unittest.TestCase):
         # The CARLOS site is enabled by default here: the interesting cases
         # for the proof all assume nginx has been given this package's site.
         self.site_enabled = True
+        # The package's own first configure is the only context where a
+        # missing site is expected; tests that need it say so.
+        self.first_run = True
         patches = [
             mock.patch.object(config.os.path, "isdir", return_value=True),
             mock.patch.object(config.os.path, "exists",
@@ -82,7 +85,12 @@ class TestApplyNginx(unittest.TestCase):
                          for a in addrs)
 
     def _apply(self, bind_ip="127.0.0.1"):
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        env = {"CARLOS_CONFIGURE_FIRST_RUN": "1"} if self.first_run else {}
+        with mock.patch.dict(config.os.environ, env, clear=False), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            if not self.first_run:
+                config.os.environ.pop("CARLOS_CONFIGURE_FIRST_RUN", None)
             return config.apply_nginx(bind_ip)
 
     def test_unrelated_processes_cannot_prove_the_front_door(self):
@@ -140,6 +148,15 @@ class TestApplyNginx(unittest.TestCase):
             self._apply()
         self.assertIn(["systemctl", "reload", "nginx.service"], self.calls)
         self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
+    def test_a_missing_site_outside_the_package_configure_is_fatal(self):
+        # Run by hand on a live host, a missing symlink means nginx is not
+        # serving CARLOS at all — the reload just dropped the server block —
+        # and reporting success would hide a front door that is down.
+        self.site_enabled = False
+        self.first_run = False
+        with self.assertRaises(SystemExit):
+            self._apply()
 
     def test_site_not_enabled_yet_reloads_without_demanding_the_listeners(self):
         # postinst runs init-config BEFORE it symlinks the site, so on a first

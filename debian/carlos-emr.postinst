@@ -872,6 +872,11 @@ except ValueError:
         # vhost's broken config). Front-door trouble is loud but must never
         # leave the package half-configured and block the apt transaction;
         # the same tolerance the nginx section below has always had.
+        # The site symlink goes in further down, with the certificates, so the
+        # front door is not this run's to prove yet. Say so explicitly: run by
+        # hand later, a missing symlink is a real fault and init-config must
+        # not report success over it.
+        [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
             carlos-ctl init-config || {
                 echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
@@ -880,6 +885,7 @@ except ValueError:
                 mark_incomplete "the configuration could not be applied"
             }
         fi
+        unset CARLOS_CONFIGURE_FIRST_RUN
 
         # (The mariadb start + wait that used to sit here is hoisted above
         # the db-name migration check — see the comment there.)
