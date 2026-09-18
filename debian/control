@@ -110,8 +110,8 @@ Suggests:
 #
 # The tomcat11 package instead starts a SECOND container as user tomcat that
 # listens on *:8080 — every interface, with no TLS, no WAF or rate limit —
-# which is a hole straight past every control this package installs, on a host
-# holding patient data. It also competes for the memory the EMR's heap was
+# creating another network service outside the packaged front door. It does
+# not serve CARLOS by default, but competes for the memory the EMR heap was
 # sized against.
 #
 # Operators install it by reflex ("CARLOS is a Java webapp, so it needs

@@ -228,7 +228,9 @@ jobs:
           # `sha256sum -c <asset>.sha256` fail on every alpha/rc download with
           # "No such file or directory", before the operator ever reached apt.
           for f in *.deb; do
-            printf '%s  %s\n' "$(sha256sum "$f" | awk '{print $1}')" "${f//\~/.}" > "$f.sha256"
+            # Keep hashing separate: printf would mask a failed substitution.
+            digest="$(sha256sum -- "$f")"
+            printf '%s  %s\n' "${digest%% *}" "${f//\~/.}" > "$f.sha256"
           done
           ls -la
 
