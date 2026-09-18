@@ -61,6 +61,41 @@ class AboutAndLicenceNoticeRegressionTest {
     private static final Path ABOUT_LAYOUT_IMAGES =
             Path.of("src/main/webapp/images/about_layout");
 
+    /**
+     * The upstream OSCAR McMaster notice, exactly as it must appear inside the
+     * Licence page's {@code <pre>} block. Held here as explicit lines rather
+     * than a loose substring list so that rewording, retrimming, dropping the
+     * closing lines, or changing the GPL version all fail the build -- that is
+     * the whole point of a GPL section 1 preservation contract. The double
+     * space in "MA  02111-1307,USA." is in the original and is deliberate.
+     */
+    private static final String UPSTREAM_NOTICE = String.join("\n",
+            "/* *",
+            " * Copyright (c) 2001-2015. Department of Family Medicine, McMaster University. All Rights Reserved.",
+            " *",
+            " * This software is published under the GPL GNU General Public License.",
+            " * This program is free software; you can redistribute it and/or",
+            " * modify it under the terms of the GNU General Public License",
+            " * as published by the Free Software Foundation; either version 2",
+            " * of the License, or (at your option) any later version.",
+            " *",
+            " * This program is distributed in the hope that it will be useful,",
+            " * but WITHOUT ANY WARRANTY; without even the implied warranty of",
+            " * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the",
+            " * GNU General Public License for more details.",
+            " *",
+            " * You should have received a copy of the GNU General Public License",
+            " * along with this program; if not, write to the Free Software",
+            " * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,USA.",
+            " *",
+            " *",
+            " * This software was written for the",
+            " * Department of Family Medicine",
+            " * McMaster University",
+            " * Hamilton",
+            " * Ontario, Canada",
+            " */");
+
     @Test
     @DisplayName("About page should expose the build stamp selector the browser checks read")
     void shouldExposeBuildStampSelector_forAboutPage() throws IOException {
@@ -126,12 +161,29 @@ class AboutAndLicenceNoticeRegressionTest {
     void shouldKeepUpstreamNoticeVerbatim_forLicencePage() throws IOException {
         String jsp = Files.readString(LICENCE_JSP);
 
+        int open = jsp.indexOf("<pre>");
+        int close = jsp.indexOf("</pre>", open);
+        assertThat(open).as("the Licence page still renders the upstream notice block").isNotNegative();
+        assertThat(close).as("the upstream notice block is closed").isGreaterThan(open);
+
+        // Compare the whole block, not a handful of substrings: a substring
+        // check would still pass after most of the notice had been reworded.
+        // Only the newlines framing the block are normalized, because those
+        // are HTML layout around the notice rather than part of it.
+        String rendered = jsp.substring(open + "<pre>".length(), close);
+
+        assertThat(rendered.strip())
+                .as("GPL section 1 requires the original notice to travel with the software "
+                        + "unchanged -- no rewording, no retrimming, no GPL version change")
+                .isEqualTo(UPSTREAM_NOTICE);
+    }
+
+    @Test
+    @DisplayName("Licence page should point at the wider attribution record")
+    void shouldPointAtWiderAttribution_forLicencePage() throws IOException {
+        String jsp = Files.readString(LICENCE_JSP);
+
         assertThat(jsp)
-                .as("GPL section 1 requires the original notice to travel with the software")
-                .contains("Department of Family Medicine, McMaster University. All Rights Reserved.")
-                .contains("either version 2")
-                .contains("This software was written for the")
-                .as("the page also points at the wider attribution record")
                 .contains("OpenOSP")
                 .contains("NOTICE.md")
                 .as("a released build must not send readers to unreleased branch docs")
