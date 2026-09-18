@@ -82,6 +82,19 @@ def _check_process_ownership():
             _ok(f"application JVM runs as: {owner}")
 
 
+def _check_front_door(bind_ip: str) -> None:
+    try:
+        missing = config._front_door_missing(bind_ip, wait=0)
+    except config.FrontDoorProbeError as exc:
+        _bad(f"cannot verify nginx front-door listeners: {exc}")
+        return
+    if not missing:
+        _ok(f"nginx is listening on {bind_ip}:80 and {bind_ip}:443")
+    else:
+        _bad(f"nginx is not listening on {', '.join(missing)} — the front door is not "
+             "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
+
+
 def cmd_check(argv) -> int:
     global _failures
     _failures = 0
@@ -174,12 +187,7 @@ def cmd_check(argv) -> int:
     # (443 without 80, or the old wildcard 80) while every worker still serves
     # the previous configuration — and "something is on 443" was green on
     # exactly that broken host.
-    missing = config._front_door_missing(s.bind_ip, wait=0)
-    if not missing:
-        _ok(f"nginx is listening on {s.bind_ip}:80 and {s.bind_ip}:443")
-    else:
-        _bad(f"nginx is not listening on {', '.join(missing)} — the front door is not "
-             "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
+    _check_front_door(s.bind_ip)
     # The MariaDB drop-in leans on AppArmor as the file-access control (it is
     # why secure_file_priv is not set there), so this check asserts the
     # profile is actually loaded and enforcing rather than assuming it.

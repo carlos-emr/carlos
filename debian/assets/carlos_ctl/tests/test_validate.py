@@ -3,6 +3,7 @@
 """Deployment ownership must describe CARLOS, including when it is down."""
 import contextlib
 import io
+import subprocess
 import unittest
 from unittest.mock import patch
 from carlos_ctl import validate
@@ -65,11 +66,21 @@ class TestFrontDoorListeners(unittest.TestCase):
 
     def listeners(self, *lines):
         def output(command):
+            if command == ["ps", "-C", "nginx", "-o", "pid=,args="]:
+                return "1 nginx: worker process"
             if command == ["ss", "-ltnpH"]:
                 return "\n".join(lines)
             self.fail("front-door probe ran an unexpected command: " + repr(command))
-        with patch.object(validate.config.util, "out", side_effect=output):
+        with patch.object(validate.config.util, "run", side_effect=lambda cmd, **kw:
+                          subprocess.CompletedProcess(cmd, 0, output(cmd), "")):
             return [validate.config._listeners(port) for port in ("80", "443")]
+
+    def test_probe_failure_is_reported_without_exiting_validation(self):
+        with patch.object(validate.config, "_front_door_missing",
+                          side_effect=validate.config.FrontDoorProbeError("ss failed")), \
+                patch.object(validate, "_bad") as bad:
+            validate._check_front_door("127.0.0.1")
+        bad.assert_called_once_with("cannot verify nginx front-door listeners: ss failed")
 
     @staticmethod
     def _ss(addr, owner="nginx"):

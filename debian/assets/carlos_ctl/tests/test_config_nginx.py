@@ -29,6 +29,7 @@ class TestApplyNginx(unittest.TestCase):
         self.calls = []
         # ss output: [after reload, after restart]; a single entry serves both.
         self.ss_outputs = []
+        self.processes = "1 nginx: worker process"
         # The CARLOS site is enabled by default here: the interesting cases
         # for the proof all assume nginx has been given this package's site.
         self.site_enabled = True
@@ -38,11 +39,11 @@ class TestApplyNginx(unittest.TestCase):
         patches = [
             mock.patch.object(config.os.path, "isdir", return_value=True),
             mock.patch.object(config.os.path, "exists",
-                              side_effect=lambda _p: self.site_enabled),
+                              side_effect=lambda p: self.site_enabled if p == config.NGINX_SITE_ENABLED else False),
             mock.patch.object(config.time, "sleep", lambda *_: None),
             mock.patch.object(config.time, "monotonic", side_effect=self._clock),
             mock.patch.object(config, "run", side_effect=self._run),
-            mock.patch.object(config.util, "out", side_effect=self._out),
+            mock.patch.object(config.util, "run", side_effect=self._probe),
         ]
         for p in patches:
             p.start()
@@ -69,7 +70,30 @@ class TestApplyNginx(unittest.TestCase):
             return _cp(self.restart_rc)
         return _cp(0)
 
+    def _probe(self, cmd, **kw):
+        return _cp(0, self._out(cmd))
+
+    def test_ss_failure_does_not_restart_nginx(self):
+        def failed(cmd, **kw):
+            return _cp(2) if cmd[0] == "ss" else _cp(0, self.processes)
+        with mock.patch.object(config.util, "run", side_effect=failed), \
+                contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit):
+                config.apply_nginx("127.0.0.1")
+        self.assertIn("ss listener probe failed", stderr.getvalue())
+        self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
+    def test_missing_probe_executable_does_not_restart_nginx(self):
+        with mock.patch.object(config.util, "run", side_effect=FileNotFoundError("ps")), \
+                contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit):
+                config.apply_nginx("127.0.0.1")
+        self.assertIn("listener probe failed", stderr.getvalue())
+        self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
     def _out(self, cmd):
+        if cmd == ["ps", "-C", "nginx", "-o", "pid=,args="]:
+            return self.processes
         assert cmd == ["ss", "-ltnpH"], cmd
         # What ss shows depends on whether nginx has been restarted yet: the
         # first entry is the state after the reload, the second (if any) the
@@ -104,6 +128,33 @@ class TestApplyNginx(unittest.TestCase):
     def test_missing_socket_ownership_is_not_success(self):
         self.ss_outputs = ["LISTEN 0 511 127.0.0.1:80 0.0.0.0:*\n"
                            "LISTEN 0 511 127.0.0.1:443 0.0.0.0:*"]
+        with self.assertRaises(SystemExit):
+            self._apply()
+
+    def test_master_only_sockets_do_not_prove_a_serving_front_door(self):
+        # A dual-stack reload can bind IPv4 443, then fail IPv6 443. The
+        # master briefly holds both expected IPv4 sockets but no worker can
+        # serve HTTPS. A name-only ownership check falsely reports success.
+        self.processes = "1 nginx: master process /usr/sbin/nginx\n2 nginx: worker process"
+        self.ss_outputs = [self._ss("0.0.0.0:80", "0.0.0.0:443")]
+        with self.assertRaises(SystemExit):
+            self._apply("0.0.0.0")
+
+    def test_a_worker_holding_the_socket_counts_even_after_a_master_entry(self):
+        self.processes = "1 nginx: master process /usr/sbin/nginx\n2 nginx: worker process"
+        self.ss_outputs = [self._ss("127.0.0.1:80", "127.0.0.1:443").replace(
+            'pid=1,fd=6))', 'pid=1,fd=6),("nginx",pid=2,fd=7))')]
+        self.assertEqual(self._apply(), 0)
+
+    def test_retiring_workers_are_not_readiness(self):
+        self.processes = "1 nginx: worker process is shutting down"
+        self.ss_outputs = [self._ss("127.0.0.1:80", "127.0.0.1:443")]
+        with self.assertRaises(SystemExit):
+            self._apply()
+
+    def test_missing_process_visibility_is_not_readiness(self):
+        self.processes = ""
+        self.ss_outputs = [self._ss("127.0.0.1:80", "127.0.0.1:443")]
         with self.assertRaises(SystemExit):
             self._apply()
 
@@ -394,8 +445,9 @@ class TestBindAddressCanonicalisation(unittest.TestCase):
         # The proof sees what ss prints; both spellings must agree with it.
         for raw in ("[::1]", "::1"):
             ip = self._settings(raw).bind_ip
-            with mock.patch.object(config.util, "out", return_value=
-                                   'LISTEN 0 511 [::1]:80 [::]:* users:(("nginx",pid=1,fd=6))'):
+            with mock.patch.object(config.util, "run", side_effect=lambda cmd, **kw: _cp(0,
+                                   "1 nginx: worker process" if cmd[0] == "ps" else
+                                   'LISTEN 0 511 [::1]:80 [::]:* users:(("nginx",pid=1,fd=6))')):
                 self.assertIn(ip, config._listeners("80"), raw)
 
 

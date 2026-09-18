@@ -144,7 +144,25 @@ front_door_listening() {
     bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^\[\(.*\)\]$/\1/')"
     [ -n "${bind_ip}" ] || bind_ip=0.0.0.0
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-        if ss -ltnpH 2>/dev/null | awk -v ip="${bind_ip}" \
+        # The master can briefly bind sockets during a reload that later
+        # fails. Only workers can serve them; refresh PIDs on every poll.
+        # Capture each command before any pipeline, so a failed visibility
+        # probe is distinct from a successful probe finding no listeners.
+        sockets="$(ss -ltnpH 2>/dev/null)" || return 2
+        if processes="$(ps -C nginx -o pid=,args= 2>&1)"; then
+            :
+        else
+            probe_rc=$?
+            # procps returns 1 with no output when there are no nginx PIDs.
+            [ "${probe_rc}" = 1 ] && [ -z "${processes}" ] || return 2
+        fi
+        worker_pids="$(printf '%s\n' "${processes}" | awk '
+            NF == 4 && $1 ~ /^[0-9]+$/ && $2 == "nginx:" && $3 == "worker" && $4 == "process" {
+                printf "%s%s", separator, $1; separator="|"
+            }')"
+        if [ -n "${worker_pids}" ] && printf '%s\n' "${sockets}" \
+            | grep -E "\\(\"nginx\",pid=(${worker_pids}),fd=[0-9]+\\)" \
+            | awk -v ip="${bind_ip}" \
             '/\("nginx",pid=[0-9]+,fd=[0-9]+\)/ {
              if ($4 == ip ":80" || $4 == "[" ip "]:80") a=1
              if ($4 == ip ":443" || $4 == "[" ip "]:443") b=1
@@ -1202,10 +1220,27 @@ except ValueError:
                 if ! sd_invoke reload nginx.service 2>/dev/null; then
                     echo "carlos-emr: WARNING: nginx reload failed — the rendered front-door configuration is not live (systemctl status nginx; journalctl -u nginx)" >&2
                     mark_incomplete "nginx could not reload the rendered front-door configuration"
-                elif ! front_door_listening; then
-                    if ! sd_invoke restart nginx.service || ! front_door_listening; then
-                        echo "carlos-emr: WARNING: nginx is not listening on the configured front-door address — it may be serving stale configuration (systemctl status nginx; journalctl -u nginx)" >&2
-                        mark_incomplete "nginx did not bind the configured front-door listeners"
+                elif front_door_listening; then
+                    :
+                else
+                    probe_rc=$?
+                    if [ "${probe_rc}" = 2 ]; then
+                        echo "carlos-emr: WARNING: cannot verify nginx listeners: ss or ps probe failed; nginx was not restarted" >&2
+                        mark_incomplete "nginx listener verification failed (ss or ps probe error)"
+                    elif ! sd_invoke restart nginx.service; then
+                        echo "carlos-emr: WARNING: nginx restart failed (systemctl status nginx; journalctl -u nginx)" >&2
+                        mark_incomplete "nginx could not restart the rendered front-door configuration"
+                    elif front_door_listening; then
+                        :
+                    else
+                        probe_rc=$?
+                        if [ "${probe_rc}" = 2 ]; then
+                            echo "carlos-emr: WARNING: cannot verify nginx listeners after restart: ss or ps probe failed" >&2
+                            mark_incomplete "nginx listener verification failed after restart (ss or ps probe error)"
+                        else
+                            echo "carlos-emr: WARNING: nginx is not listening on the configured front-door address — it may be serving stale configuration (systemctl status nginx; journalctl -u nginx)" >&2
+                            mark_incomplete "nginx did not bind the configured front-door listeners"
+                        fi
                     fi
                 fi
             fi

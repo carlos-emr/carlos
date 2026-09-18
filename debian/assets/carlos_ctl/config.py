@@ -366,14 +366,47 @@ def cmd_init_config(argv) -> int:
 
 
 
+class FrontDoorProbeError(RuntimeError):
+    """Listener visibility failed; this does not prove nginx needs a restart."""
+
+
+def _probe_output(cmd: list) -> str:
+    try:
+        cp = util.run(cmd, capture_output=True)
+    except OSError as exc:
+        raise FrontDoorProbeError(f"{cmd[0]} listener probe failed: {exc}") from exc
+    # procps exits 1, without diagnostics, when no nginx processes exist.
+    if cmd[0] == "ps" and cp.returncode == 1 and not cp.stdout and not cp.stderr:
+        return ""
+    if cp.returncode != 0:
+        raise FrontDoorProbeError(
+            f"{cmd[0]} listener probe failed (exit {cp.returncode}): {cp.stderr.strip()}")
+    return cp.stdout
+
+
+def _nginx_workers() -> set:
+    """Only accepting workers, excluding the master and retiring workers."""
+    workers = set()
+    for line in _probe_output(["ps", "-C", "nginx", "-o", "pid=,args="]).splitlines():
+        parts = line.split(None, 1)
+        if (len(parts) == 2 and parts[0].isdigit()
+                and parts[1].strip() == "nginx: worker process"):
+            workers.add(parts[0])
+    return workers
+
+
 def _listeners(port: str) -> list:
-    """Every nginx address bound on exactly this TCP port right now, with
-    IPv6 brackets stripped so a literal compares as the operator wrote it."""
+    """Addresses whose listener is held by an nginx worker on this port.
+
+    During a failed reload the master can temporarily bind a new socket
+    before a later bind fails. No worker inherits it, so it cannot serve
+    traffic even though ss names nginx as its owner. Require a serving worker.
+    """
+    workers = _nginx_workers()
     found = []
-    for line in util.out(["ss", "-ltnpH"]).splitlines():
-        # A different daemon owning both ports is not a working nginx front
-        # door. Missing process visibility must also fail closed (caller is root).
-        if not re.search(r'\("nginx",pid=[0-9]+,fd=[0-9]+\)', line):
+    for line in _probe_output(["ss", "-ltnpH"]).splitlines():
+        owners = set(re.findall(r'\("nginx",pid=([0-9]+),fd=[0-9]+\)', line))
+        if not owners.intersection(workers):
             continue
         cols = line.split()
         if len(cols) < 4 or cols[3].rsplit(":", 1)[-1] != port:
@@ -466,21 +499,24 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
         log("the CARLOS site is not enabled in nginx yet; the rendered front "
             "door serves once the package enables it")
         return 0
-    missing = _front_door_missing(bind_ip)
-    if not missing:
-        log(f"nginx {action} succeeded — front-door listeners are bound")
+    try:
+        missing = _front_door_missing(bind_ip)
+        if not missing:
+            log(f"nginx {action} succeeded — front-door listeners are bound")
+            return 0
+        warn(f"nginx {action} succeeded but is not listening on {', '.join(missing)}; "
+             "restarting nginx to release any previous listeners")
+        if run(["systemctl", "restart", "nginx.service"]).returncode != 0:
+            die("nginx restart FAILED — front-door changes are NOT live; "
+                "run 'systemctl status nginx'")
+        missing = _front_door_missing(bind_ip)
+        if missing:
+            die(f"nginx restarted but is still not listening on {', '.join(missing)}; "
+                "run 'systemctl status nginx' and 'journalctl -u nginx'")
+        log("nginx restarted — front-door changes are live")
         return 0
-    warn(f"nginx {action} succeeded but is not listening on {', '.join(missing)}; "
-         "restarting nginx to release any previous listeners")
-    if run(["systemctl", "restart", "nginx.service"]).returncode != 0:
-        die("nginx restart FAILED — front-door changes are NOT live; "
-            "run 'systemctl status nginx'")
-    missing = _front_door_missing(bind_ip)
-    if missing:
-        die(f"nginx restarted but is still not listening on {', '.join(missing)}; "
-            "run 'systemctl status nginx' and 'journalctl -u nginx'")
-    log("nginx restarted — front-door changes are live")
-    return 0
+    except FrontDoorProbeError as exc:
+        die(f"cannot verify nginx front-door listeners: {exc}")
 
 
 def _render_browser_endpoint() -> tuple:
