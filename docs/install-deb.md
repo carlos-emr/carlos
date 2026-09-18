@@ -44,8 +44,8 @@ account cannot write to.
 
 Installing the `tomcat11` *service* package on top of that ("CARLOS is a Java
 webapp, so it must need Tomcat") starts a **second, unrelated** container as
-the `tomcat` user listening on `*:8080` — every interface, with no TLS, no
-WAF, no rate limiting and the default manager application. On a machine
+the `tomcat` user listening on `*:8080` — every interface, with no TLS, WAF,
+or rate limiting. On a machine
 holding patient records that is a way straight around every control this
 package installs. It also competes for the memory the EMR's heap was sized
 against.
