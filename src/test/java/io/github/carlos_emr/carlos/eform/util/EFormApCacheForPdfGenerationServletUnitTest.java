@@ -12,6 +12,7 @@ import java.util.Date;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -163,6 +165,30 @@ class EFormApCacheForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(422);
             assertThat(response.getErrorMessage())
                     .isEqualTo("APCache key is not configured");
+        }
+    }
+
+    @Test
+    @DisplayName("should name a rejected AP key in the operator log but not in the response")
+    void shouldWarnWithKey_whenTheApIsNotConfigured() throws Exception {
+        // The 422 body is a fixed text the render report can only count; the key that failed is
+        // what an operator needs to find the apconfig.xml gap, so it goes to the log at WARN.
+        String key = "renderer_missing_ap_" + System.nanoTime();
+        try (LogCapture logs = LogCapture.forLogger(EFormApCacheForPdfGenerationServlet.class);
+                RenderFixture fixture = fixture(key)) {
+            MockHttpServletRequest request = fixture.request(key);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormApCacheForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(422);
+            assertThat(response.getErrorMessage()).doesNotContain(key);
+            assertThat(logs.events())
+                    .anyMatch(event -> event.getLevel() == Level.WARN
+                            && event.getMessage().getFormattedMessage().contains("key=" + key)
+                            && event.getMessage().getFormattedMessage().contains("fdid=77"));
+            // Never the throwable: its stack would be the only non-fixed text on the line.
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
         }
     }
 
