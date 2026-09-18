@@ -91,6 +91,21 @@ def load() -> Settings:
     return Settings()
 
 
+def _listen_directive_address(bind_ip: str) -> str:
+    """The address as an nginx `listen` directive must spell it.
+
+    `listen ::1:80;` is not valid nginx: an IPv6 literal has to be bracketed
+    or the address and the port run together and the configuration is
+    rejected — so CARLOS_BIND_IP=::1 rendered a front door that could never
+    start. CARLOS_BIND_IP holds the bare literal, which is what the operator
+    writes and what ss reports (the listener proof strips brackets for the
+    same reason); the brackets belong to this directive alone.
+    """
+    if ":" not in bind_ip or bind_ip.startswith("["):
+        return bind_ip
+    return f"[{bind_ip}]"
+
+
 def cmd_init_config(argv) -> int:
     util.need_root("init-config")
     s = load()
@@ -268,6 +283,7 @@ def cmd_init_config(argv) -> int:
     # nginx requires brackets around an IPv6 literal before appending a port.
     listen_ip = f"[{s.bind_ip}]" if ":" in s.bind_ip else s.bind_ip
     ipv6_available = os.path.exists("/proc/net/if_inet6")
+    listen_ip = _listen_directive_address(s.bind_ip)
     listen6_http = "listen [::]:80;" if s.bind_ip == "0.0.0.0" and ipv6_available else ""  # nosec B104
     listen6_https = "listen [::]:443 ssl;" if s.bind_ip == "0.0.0.0" and ipv6_available else ""  # nosec B104
     _write(os.path.join(ngx, "server-name.conf"),
@@ -377,16 +393,18 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
     if not os.path.isdir("/run/systemd/system"):
         return 0
     active = run(["systemctl", "is-active", "--quiet", "nginx.service"]).returncode == 0
-    if not active and not start_if_inactive:
-        # The package's own nginx step starts it during configure; an operator
-        # who stopped it on purpose keeps it stopped.
-        log("nginx is not running; the rendered configuration serves when it starts")
-        return 0
     if run(["nginx", "-t"], capture_output=True).returncode != 0:
         warn("the rendered nginx configuration FAILS its test; nginx was NOT reloaded")
         warn("(the running config keeps serving). Details:")
         run(["nginx", "-t"])
         return 1
+    if not active and not start_if_inactive:
+        # The package's own nginx step starts it during configure; an operator
+        # who stopped it on purpose keeps it stopped. The test above still ran:
+        # a stopped service is no reason to accept a configuration that cannot
+        # parse, which would otherwise surface only at some later start.
+        log("nginx is not running; the rendered configuration serves when it starts")
+        return 0
     site_enabled = os.path.exists(NGINX_SITE_ENABLED)
     if start_if_inactive and not site_enabled:
         die("the CARLOS nginx site is missing; run 'dpkg-reconfigure carlos-emr' "

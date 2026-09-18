@@ -1327,13 +1327,17 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # writes: a raw read would hand curl --resolve a quoted host/addr and
         # every healthy install would sit out the whole loop before wrongly
         # reporting the front door dead. Same idiom as the XMS/XMX reads above.
-        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | tr -d '\042' | tail -1)"
         PROBE_NAME="${PROBE_NAME:-localhost}"
         # Probe the address nginx actually listens on: with a non-default
         # CARLOS_BIND_IP (a LAN address) nothing answers on loopback, and a
         # healthy install used to sit through the whole five-minute loop and
         # then blame the application.
-        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        # LAST assignment, matching env_get and systemd EnvironmentFile: an
+        # operator who appends an override gets nginx rendered for that
+        # address, and probing the first one would blame the application for
+        # an address nothing was ever meant to answer on.
+        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1)"
         case "${PROBE_IP}" in ""|0.0.0.0|::) PROBE_IP=127.0.0.1 ;; esac
         i=0
         while [ "${i}" -lt 60 ]; do
