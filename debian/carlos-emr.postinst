@@ -140,7 +140,8 @@ sd_invoke() {
 # host, and another daemon holding both ports would read exactly the same. The
 # postinst runs as root, so the owner column is populated.
 front_door_listening() {
-    bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1)"
+    # Match Settings: use the last value, without surrounding space/brackets.
+    bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^\[\(.*\)\]$/\1/')"
     [ -n "${bind_ip}" ] || bind_ip=0.0.0.0
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
         if ss -ltnpH 2>/dev/null | awk -v ip="${bind_ip}" \
@@ -1337,7 +1338,7 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # operator who appends an override gets nginx rendered for that
         # address, and probing the first one would blame the application for
         # an address nothing was ever meant to answer on.
-        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1)"
+        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^\[\(.*\)\]$/\1/')"
         case "${PROBE_IP}" in
             ""|0.0.0.0) PROBE_IP=127.0.0.1 ;;
             ::) PROBE_IP=::1 ;;

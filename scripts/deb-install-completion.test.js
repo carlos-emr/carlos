@@ -395,6 +395,8 @@ test('postinst listener proof requires nginx ownership, both ports and the last 
       ['127.0.0.1', ['127.0.0.1:443'], 'nginx', 1],
       ['127.0.0.1', ['0.0.0.0:80', '127.0.0.1:443'], 'nginx', 1],
       ['::1', ['[::1]:80', '[::1]:443'], 'nginx', 0],
+      [' [::1] ', ['[::1]:80', '[::1]:443'], 'nginx', 0],
+      [' 127.0.0.1 ', ['127.0.0.1:80', '127.0.0.1:443'], 'nginx', 0],
       ['0.0.0.0', ['0.0.0.0:80', '0.0.0.0:443'], 'nginx', 0],
       ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], '', 1],
     ]) {
@@ -422,7 +424,7 @@ test('postinst HTTP probe uses the last overrides and the matching wildcard addr
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-probe-'));
   try {
     const envFile = path.join(root, 'env');
-    for (const [ip, expected] of [['0.0.0.0', '127.0.0.1'], ['::', '::1'], ['::1', '::1'], ['192.0.2.8', '192.0.2.8']]) {
+    for (const [ip, expected] of [['0.0.0.0', '127.0.0.1'], ['::', '::1'], ['::1', '::1'], [' [::] ', '::1'], [' [::1] ', '::1'], [' 192.0.2.8 ', '192.0.2.8']]) {
       fs.writeFileSync(envFile, `CARLOS_SERVER_NAME=old.invalid\nCARLOS_SERVER_NAME="clinic.test"\nCARLOS_BIND_IP=192.0.2.1\nCARLOS_BIND_IP="${ip}"\n`);
       const result = spawnSync('sh', ['-c', `ENV_FILE='${envFile}'\n${postinst.slice(start, end)}\nprintf '%s %s' "$PROBE_NAME" "$PROBE_IP"`], { encoding: 'utf8' });
       assert.equal(result.status, 0, result.stderr);
