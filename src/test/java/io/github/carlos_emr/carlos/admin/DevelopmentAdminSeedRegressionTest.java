@@ -30,6 +30,8 @@ class DevelopmentAdminSeedRegressionTest {
             ".devcontainer", "db", "Dockerfile");
     private static final Path POPULATE_DB = Path.of(
             ".devcontainer", "db", "scripts", "populate_db.sh");
+    private static final Path DEV_PROPERTIES = Path.of(
+            ".devcontainer", "development", "config", "shared", "volumes", "carlos.properties");
     private static final Path DEBIAN_RULES = Path.of("debian", "rules");
     private static final Path DEB_DBOPS = Path.of(
             "debian", "assets", "carlos_ctl", "dbops.py");
@@ -112,6 +114,20 @@ class DevelopmentAdminSeedRegressionTest {
                 .contains("WHERE NOT EXISTS");
         assertThat(rules).doesNotContain("admin_test_account.sql");
         assertThat(dbops).doesNotContain("admin_test_account.sql");
+    }
+
+    @Test
+    @DisplayName("should lock the sacrificial account by username in the devcontainer")
+    void shouldLockByUsername_inDevcontainerProperties() throws IOException {
+        String properties = readProjectFile(DEV_PROPERTIES);
+
+        // LoginCheckLogin.isBlock(ip, userName) only tracks the username when
+        // login_lock=true; otherwise it falls back to the client IP, so failing
+        // `locktest` would lock the browser's address (carlosdoc included) instead
+        // of the account the Unlock Account screen is meant to show.
+        assertThat(properties.lines().map(String::trim))
+                .as("the devcontainer must enable username-based lockout for the locktest flow")
+                .contains("login_lock=true");
     }
 
     @Test
