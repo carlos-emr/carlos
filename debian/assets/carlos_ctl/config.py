@@ -63,7 +63,18 @@ class Settings:
         self.server_name = env_get(ENV_FILE, "CARLOS_SERVER_NAME") or "localhost"
         # 0.0.0.0 is the documented default for a clinic server (see the
         # skeleton env file); the flag below tells scanners it is deliberate.
-        self.bind_ip = env_get(ENV_FILE, "CARLOS_BIND_IP") or "0.0.0.0"  # nosec B104
+        # Canonical form is UNBRACKETED, because that is the form everything
+        # downstream compares: ss reports a bound IPv6 literal bracketed and
+        # the listener proof strips those brackets, the check verb's curl
+        # --resolve takes the bare address, and the postinst helper compares
+        # both spellings. Only the nginx `listen` directive needs brackets,
+        # and _listen_directive_address puts them back. An operator who
+        # writes the bracketed form in carlos-emr.env — the spelling nginx
+        # itself uses — otherwise rendered a working front door that every
+        # proof then declared missing, restarting nginx and failing.
+        self.bind_ip = (env_get(ENV_FILE, "CARLOS_BIND_IP") or "0.0.0.0").strip()  # nosec B104
+        if self.bind_ip.startswith("[") and self.bind_ip.endswith("]"):
+            self.bind_ip = self.bind_ip[1:-1]
         self.province = (env_get(ENV_FILE, "CARLOS_PROVINCE") or "on").lower()
         self.db_host = env_get(ENV_FILE, "CARLOS_DB_HOST") or "127.0.0.1"
         self.db_port = env_get(ENV_FILE, "CARLOS_DB_PORT") or "3306"

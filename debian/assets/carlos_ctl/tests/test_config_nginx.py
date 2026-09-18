@@ -307,5 +307,44 @@ class TestNginxRendering(unittest.TestCase):
                 self.assertEqual("listen [::]:443 ssl;" in rendered["listen-https.conf"], available)
 
 
+class TestBindAddressCanonicalisation(unittest.TestCase):
+    """CARLOS_BIND_IP is held UNBRACKETED, whatever the operator wrote.
+
+    Everything downstream compares that form: ss reports a bound IPv6
+    literal bracketed and the listener proof strips the brackets, curl
+    --resolve takes the bare address. Only the nginx `listen` directive
+    needs them back. An operator who wrote `[::1]` — the spelling nginx
+    itself uses — rendered a working front door that every proof then
+    declared missing, restarting nginx and failing the verb."""
+
+    @staticmethod
+    def _settings(raw):
+        with mock.patch.object(config, "env_get",
+                               side_effect=lambda _f, key: raw if key == "CARLOS_BIND_IP" else None):
+            return config.Settings()
+
+    def test_a_bracketed_literal_is_stored_bare(self):
+        self.assertEqual(self._settings("[::1]").bind_ip, "::1")
+
+    def test_a_bare_literal_is_unchanged(self):
+        self.assertEqual(self._settings("::1").bind_ip, "::1")
+
+    def test_surrounding_whitespace_is_dropped(self):
+        self.assertEqual(self._settings(" 127.0.0.1 ").bind_ip, "127.0.0.1")
+
+    def test_either_spelling_reaches_the_same_listen_directive(self):
+        for raw in ("[::1]", "::1"):
+            ip = self._settings(raw).bind_ip
+            self.assertEqual(config._listen_directive_address(ip), "[::1]", raw)
+
+    def test_either_spelling_matches_the_same_bound_listener(self):
+        # The proof sees what ss prints; both spellings must agree with it.
+        for raw in ("[::1]", "::1"):
+            ip = self._settings(raw).bind_ip
+            with mock.patch.object(config.util, "out", return_value=
+                                   'LISTEN 0 511 [::1]:80 [::]:* users:(("nginx",pid=1,fd=6))'):
+                self.assertIn(ip, config._listeners("80"), raw)
+
+
 if __name__ == "__main__":
     unittest.main()
