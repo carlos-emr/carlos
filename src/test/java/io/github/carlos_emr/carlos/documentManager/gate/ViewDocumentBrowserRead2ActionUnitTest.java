@@ -53,7 +53,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("ViewDocumentBrowserRead2Action Tests")
 @Tag("unit")
 @Tag("documentManager")
-class ViewDocumentBrowserRead2ActionTest extends CarlosUnitTestBase {
+class ViewDocumentBrowserRead2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
