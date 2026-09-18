@@ -49,6 +49,7 @@
 
 const {
   assert,
+  assertNotErrorPage,
   buildFailureDetails,
   createRecorder,
   gotoApp,
@@ -137,6 +138,9 @@ function watchAssets(page, formName) {
         await page.close();
         continue;
       }
+      // A login or error page answers 200 too; the per-form asset count below is what
+      // actually proves the form rendered, and this names the cause when it did not.
+      await assertNotErrorPage(page, form.name);
 
       // Every asset reference the page emits must be absolute from the context root and point
       // into /form/. A bare relative value here is the defect, regardless of whether this
@@ -159,6 +163,13 @@ function watchAssets(page, formName) {
         document.querySelectorAll('script[src], img[src]'),
         (el) => el.src,
       ).filter((src) => /\/form\/(formScripts\.js|graphics\/)/.test(src)));
+      // Per form, not in aggregate. One form that renders contributes dozens of assets, so a
+      // total would stay comfortably nonzero while another route quietly served a 200 login
+      // or error page and contributed none -- and that route's assets would go unchecked.
+      if (resolved.length === 0) {
+        failures.push(`${form.name}: rendered no /form/ assets at all, so nothing about its `
+          + 'asset paths was exercised; the route may have served a login or error page with status 200');
+      }
       assetsSeen += resolved.length;
 
       await page.close();
