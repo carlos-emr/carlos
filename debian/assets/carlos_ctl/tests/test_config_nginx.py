@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 CARLOS Contributors
 """apply_nginx: a reload is proven, never assumed.
 
@@ -211,11 +211,46 @@ class TestApplyNginx(unittest.TestCase):
             config.apply_nginx("127.0.0.1", start_if_inactive=True)
         self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
 
-    def test_inactive_nginx_is_left_alone(self):
+    def test_inactive_nginx_is_left_alone_but_its_configuration_is_tested(self):
+        # An operator who stopped nginx keeps it stopped — but a rendered
+        # configuration that cannot parse is reported now, not at whatever
+        # later start finally trips over it.
         self.active_rc = 3
         self.assertEqual(self._apply(), 0)
-        self.assertEqual([c for c in self.calls if c[0] == "nginx"], [])
+        self.assertIn(["nginx", "-t"], self.calls)
         self.assertNotIn(["systemctl", "reload", "nginx.service"], self.calls)
+        self.assertNotIn(["systemctl", "start", "nginx.service"], self.calls)
+
+    def test_a_broken_configuration_is_refused_even_while_nginx_is_stopped(self):
+        self.active_rc = 3
+        self.test_rc = 1
+        self.assertEqual(self._apply(), 1)
+        self.assertNotIn(["systemctl", "reload", "nginx.service"], self.calls)
+        self.assertNotIn(["systemctl", "start", "nginx.service"], self.calls)
+
+
+
+class TestListenFragments(unittest.TestCase):
+    """`listen ::1:80;` is not valid nginx: an IPv6 literal has to be
+    bracketed or the address and port run together and the configuration is
+    rejected. CARLOS_BIND_IP holds the bare literal — that is what the
+    operator writes and what ss reports — so the brackets belong to the
+    directive alone."""
+
+    @staticmethod
+    def _listen(bind_ip):
+        return config._listen_directive_address(bind_ip)
+
+    def test_an_ipv4_address_is_written_as_given(self):
+        self.assertEqual(self._listen("127.0.0.1"), "127.0.0.1")
+        self.assertEqual(self._listen("0.0.0.0"), "0.0.0.0")
+
+    def test_an_ipv6_literal_is_bracketed(self):
+        self.assertEqual(self._listen("::1"), "[::1]")
+        self.assertEqual(self._listen("2001:db8::5"), "[2001:db8::5]")
+
+    def test_an_already_bracketed_literal_is_not_doubled(self):
+        self.assertEqual(self._listen("[::1]"), "[::1]")
 
 
 if __name__ == "__main__":
