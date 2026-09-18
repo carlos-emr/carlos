@@ -10,7 +10,9 @@ listeners and fall back to a restart."""
 
 import contextlib
 import io
+import os
 import subprocess
+import types
 import unittest
 from unittest import mock
 
@@ -216,6 +218,58 @@ class TestApplyNginx(unittest.TestCase):
         self.assertEqual(self._apply(), 0)
         self.assertEqual([c for c in self.calls if c[0] == "nginx"], [])
         self.assertNotIn(["systemctl", "reload", "nginx.service"], self.calls)
+
+
+class TestNginxRendering(unittest.TestCase):
+    def render(self, bind_ip, ipv6_available=True):
+        # Exercise init-config itself, isolating privileged file/service work.
+        # A listener-parser test alone cannot catch invalid rendered syntax.
+        with mock.patch.object(config, "env_get", return_value=None):
+            settings = config.Settings()
+        settings.bind_ip = bind_ip
+        rendered = {}
+        with contextlib.ExitStack() as stack:
+            for owner, name, kwargs in (
+                (config, "load", {"return_value": settings}),
+                (config.util, "need_root", {}),
+                (config, "prop_set", {}),
+                (config, "prop_get", {"return_value": None}),
+                (config, "prop_comment", {}),
+                (config.os, "makedirs", {}),
+                (config.os, "chmod", {}),
+                (config.os, "chown", {}),
+                (config.os.path, "isfile", {"return_value": True}),
+                (config.os.path, "exists", {"side_effect": lambda path: path == "/proc/net/if_inet6" and ipv6_available}),
+                (config, "_install_proxy_params", {}),
+                (config, "_write", {"side_effect": lambda path, value: rendered.update({os.path.basename(path): value})}),
+                (config, "run", {"return_value": _cp()}),
+                (config, "apply_nginx", {"return_value": 0}),
+            ):
+                stack.enter_context(mock.patch.object(owner, name, **kwargs))
+            stack.enter_context(mock.patch("grp.getgrnam", return_value=types.SimpleNamespace(gr_gid=42)))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            self.assertEqual(config.cmd_init_config([]), 0)
+            config.apply_nginx.assert_called_once_with(bind_ip)
+        return rendered
+
+    def test_ipv6_literal_is_bracketed_in_both_rendered_listeners(self):
+        rendered = self.render("::1")
+        self.assertIn("listen [::1]:80;", rendered["listen-http.conf"])
+        self.assertIn("listen [::1]:443 ssl;", rendered["listen-https.conf"])
+        self.assertNotIn("listen [::]:", "".join(rendered.values()))
+
+    def test_ipv4_literal_keeps_its_existing_syntax(self):
+        rendered = self.render("127.0.0.1")
+        self.assertIn("listen 127.0.0.1:80;", rendered["listen-http.conf"])
+        self.assertIn("listen 127.0.0.1:443 ssl;", rendered["listen-https.conf"])
+
+    def test_default_only_adds_ipv6_wildcards_when_available(self):
+        for available in (True, False):
+            with self.subTest(ipv6_available=available):
+                rendered = self.render("0.0.0.0", available)
+                self.assertIn("listen 0.0.0.0:80;", rendered["listen-http.conf"])
+                self.assertEqual("listen [::]:80;" in rendered["listen-http.conf"], available)
+                self.assertEqual("listen [::]:443 ssl;" in rendered["listen-https.conf"], available)
 
 
 if __name__ == "__main__":
