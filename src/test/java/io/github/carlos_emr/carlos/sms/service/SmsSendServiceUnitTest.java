@@ -29,12 +29,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("service")
 class SmsSendServiceUnitTest {
     @Test
-    @DisplayName("send returns consent-blocked until consent integration is implemented")
-    void shouldBlockSend_whenDeferredConsentServiceIsUsed() {
+    @DisplayName("send records a consent-blocked row and never reaches the SMS provider when consent denies")
+    void shouldBlockSend_whenConsentServiceDenies() {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
-                new DeferredSmsConsentService(),
+                command -> SmsConsentDecisionDto.blocked(
+                        SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN", "No SMS consent is recorded."),
                 new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
                 recorder,
                 providerType -> true,
@@ -48,7 +49,7 @@ class SmsSendServiceUnitTest {
         assertThat(result.providerMessageId()).isNull();
         assertThat(recorder.transactions()).singleElement()
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getConsentReasonCode)
-                .containsExactly(SmsStatus.CONSENT_BLOCKED, "CONSENT_MODEL_PENDING");
+                .containsExactly(SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN");
     }
 
     @Test

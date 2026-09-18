@@ -64,7 +64,9 @@ public class JpaSmsTransactionService implements SmsTransactionService {
         Objects.requireNonNull(command, "command is required");
         Objects.requireNonNull(decision, "decision is required before recording an outbound attempt");
         SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
-        if (!decision.allowed()) {
+        if (decision.allowed()) {
+            transaction.recordConsentDecision(decision);
+        } else {
             transaction.markConsentBlocked(decision);
         }
         smsTransactionDao.persist(transaction);

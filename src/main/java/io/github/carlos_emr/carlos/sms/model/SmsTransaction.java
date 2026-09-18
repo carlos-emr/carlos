@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.sms.model;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
@@ -128,6 +129,19 @@ public class SmsTransaction extends AbstractModel<Long> {
     @Column(name = "consent_reason_code", length = MAX_REASON_CODE_LENGTH)
     private String consentReasonCode;
 
+    // Consent audit snapshot: the consent state, Consent row and that row's edit date the decision relied
+    // on. consent_id is deliberately not a foreign key so the SMS record survives consent-table cleanup.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "consent_status", length = 32)
+    private SmsConsentStatus consentStatus;
+
+    @Column(name = "consent_id")
+    private Integer consentId;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "consent_last_update_date")
+    private Date consentLastUpdateDate;
+
     @Column(name = "error_code", length = MAX_REASON_CODE_LENGTH)
     private String errorCode;
 
@@ -251,10 +265,32 @@ public class SmsTransaction extends AbstractModel<Long> {
         status = decision.blockedStatus();
         messageBody = null;
         nextAttemptAt = null;
+        applyConsentSnapshot(decision);
         consentReasonCode = trimTo(decision.reasonCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(decision.operatorMessage(), MAX_ERROR_MESSAGE_LENGTH);
         clearClaim();
         touch();
+    }
+
+    /**
+     * Stores the consent record a permitted send relied on, leaving the row's status untouched.
+     * Blocking decisions go through {@link #markConsentBlocked}, which records the same snapshot.
+     */
+    public void recordConsentDecision(SmsConsentDecisionDto decision) {
+        Objects.requireNonNull(decision, "decision is required");
+        if (!decision.allowed()) {
+            throw new IllegalArgumentException("a permitting consent decision is required");
+        }
+        applyConsentSnapshot(decision);
+        touch();
+    }
+
+    private void applyConsentSnapshot(SmsConsentDecisionDto decision) {
+        consentStatus = decision.consentStatus();
+        consentId = decision.consentId();
+        consentLastUpdateDate = decision.consentLastUpdateDate() == null
+                ? null
+                : Date.from(decision.consentLastUpdateDate());
     }
 
     public void markSending(Date attemptAt) {
@@ -558,6 +594,18 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public String getConsentReasonCode() {
         return consentReasonCode;
+    }
+
+    public SmsConsentStatus getConsentStatus() {
+        return consentStatus;
+    }
+
+    public Integer getConsentId() {
+        return consentId;
+    }
+
+    public Date getConsentLastUpdateDate() {
+        return copyOf(consentLastUpdateDate);
     }
 
     public String getErrorCode() {
