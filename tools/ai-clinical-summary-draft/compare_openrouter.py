@@ -21,6 +21,8 @@ def main():
     parser.add_argument('--request-bytes', type=int)
     parser.add_argument('--reasoning-tokens', type=int)
     parser.add_argument('--timeout-seconds', type=int)
+    parser.add_argument('--prompt', type=Path, help='Prompt variant to test in place of prompt.txt')
+    parser.add_argument('--section-prompt', type=Path, help='Section-prompt variant to test in place of section-prompt.txt')
     parser.add_argument('--section-passes', action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument('--section-workers', type=int)
     parser.add_argument('--model')
@@ -65,12 +67,19 @@ def main():
         return result
 
     gateway = agent.Gateway(config, transport=transport)
+    if args.prompt:
+        # Trial-only override; the gateway's own request path still pins the committed prompt.
+        gateway.prompt = args.prompt.read_text()
+    if args.section_prompt:
+        gateway.section_prompt = args.section_prompt.read_text()
     sources = [{'id': f'note-{i + 1}', 'patient_id': 'demographic-3001',
                 'title': f'Signed encounter note (note-{i + 1})', 'date': date, 'text': body}
                for i, (fixture, date, body) in enumerate(gateway.allowed.notes) if fixture == args.fixture]
     gateway.allowed.validate(sources)
     report = {'fixture': args.fixture, 'settings': {k: v for k, v in config.items() if k != 'api_key'},
               'prompt_sha256': hashlib.sha256(gateway.prompt.encode()).hexdigest(),
+              'prompt_path': str(args.prompt) if args.prompt else 'prompt.txt',
+              'section_prompt_path': str(args.section_prompt) if args.section_prompt else 'section-prompt.txt',
               'sources': sources, 'calls': calls,
               'clinical_accuracy': 'Unverified; inspect every statement and omission against the sources.'}
     started = time.monotonic()

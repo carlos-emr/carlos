@@ -32,7 +32,9 @@ Distinguish a plan or order from a completed action, and provisional diagnoses f
 An earlier pending test that later has a result should be described as a sequence, not left pending at the end.
 Preserve relative timing such as 'tomorrow', 'in 48 hours' or 'four weeks after discharge'.
 Do not infer that discharge occurred from a plan or clearance for discharge.
-Keep who contacted whom and what was communicated accurate; omit staff names and license numbers.
+Identify every person by role only: the GP, the consultant, the registrar, the ward nurse, the rehab team.
+Never write a person's name or licence number in a claim, even when the source states it, and even when
+recording who contacted whom. 'The ward registrar contacted the GP' is correct; naming either is a defect.
 
 Actively compare medication and allergy statements across notes. Explicitly describe unresolved discrepancies
 with both documented versions, their dates and citations. Do not pick a regimen, assume a substitution or explain

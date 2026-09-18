@@ -173,5 +173,404 @@
     ]
    }
   ]
+ },
+ {
+  "name": "C1-27b-single-baseline",
+  "note": "Committed prompt; 27B single-pass baseline.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 95.297,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.2,
+  "section_passes": false,
+  "prompt_path": null,
+  "section_prompt_path": null,
+  "prompt_sha256": "1890e1d0175060f8fdd8c34a64077340de79690f3fa43ce9445bb96a6d389c57",
+  "passes": 1,
+  "claims": 29,
+  "cost_usd": 0.009343,
+  "calls": [
+   {
+    "seconds": 95.221,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7334,
+    "completion_tokens": 3755,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0093435,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "C2-27b-P2-t02",
+  "note": "Role-only prompt.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 108.789,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.2,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 31,
+  "cost_usd": 0.009761,
+  "calls": [
+   {
+    "seconds": 108.72,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3957,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0097615,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "C3-27b-P2-t0",
+  "note": "Role-only prompt; the one single-pass failure.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 112.083,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 20,
+  "cost_usd": 0.009703,
+  "calls": [
+   {
+    "seconds": 112.06,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3119,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0097026,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "C4-27b-P2-t0-sf",
+  "note": "Role-only prompt; recommended configuration.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 116.955,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 29,
+  "cost_usd": 0.009392,
+  "calls": [
+   {
+    "seconds": 116.918,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3772,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0093915,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "C5-27b-P2-t02-phala",
+  "note": "Role-only prompt; second provider.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 127.776,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.2,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 26,
+  "cost_usd": 0.011107,
+  "calls": [
+   {
+    "seconds": 127.746,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3704,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0111066,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "C6-27b-P2-t0-sf-repeat",
+  "note": "C4 repeated for stability.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 150.296,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 27,
+  "cost_usd": 0.009203,
+  "calls": [
+   {
+    "seconds": 150.258,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3678,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0092035,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "C7-27b-P2-sections",
+  "note": "Section passes; section-prompt.txt NOT patched, so leaks reflect the old rule.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 146.078,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": true,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 6,
+  "claims": 53,
+  "cost_usd": 0.036037,
+  "calls": [
+   {
+    "seconds": 35.865,
+    "sections": [
+     "clinical_overview"
+    ],
+    "prompt_tokens": 6762,
+    "completion_tokens": 1493,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00563992,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 60.339,
+    "sections": [
+     "results_observations"
+    ],
+    "prompt_tokens": 6781,
+    "completion_tokens": 2571,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00844766,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 0.232,
+    "sections": [
+     "medications_allergies"
+    ],
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 48.424,
+    "sections": [
+     "active_problems"
+    ],
+    "prompt_tokens": 6759,
+    "completion_tokens": 2087,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00718354,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 36.765,
+    "sections": [
+     "medications_allergies"
+    ],
+    "prompt_tokens": 6814,
+    "completion_tokens": 1557,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00581984,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 61.711,
+    "sections": [
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 6796,
+    "completion_tokens": 2761,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00894556,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "C8-27b-P2-sections-fixed",
+  "note": "Section passes with both prompts patched; rejected in merge validation.",
+  "fixture": "NHSSYN001",
+  "status": "rejected",
+  "error": "ValueError: Missing, unknown or duplicate source review",
+  "seconds": 168.746,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": true,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": "quality/2026-09-18/prompts/P2-role-only-section.txt",
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 5,
+  "claims": 0,
+  "cost_usd": 0.030051,
+  "calls": [
+   {
+    "seconds": 42.915,
+    "sections": [
+     "clinical_overview"
+    ],
+    "prompt_tokens": 6830,
+    "completion_tokens": 1613,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0049335,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 75.265,
+    "sections": [
+     "results_observations"
+    ],
+    "prompt_tokens": 6849,
+    "completion_tokens": 2977,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00766625,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 49.83,
+    "sections": [
+     "active_problems"
+    ],
+    "prompt_tokens": 6827,
+    "completion_tokens": 1977,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00566075,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 41.365,
+    "sections": [
+     "medications_allergies"
+    ],
+    "prompt_tokens": 6882,
+    "completion_tokens": 1608,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0049365,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 75.933,
+    "sections": [
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 6864,
+    "completion_tokens": 2569,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.006854,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
  }
 ]

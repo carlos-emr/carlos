@@ -176,3 +176,79 @@ Run records are in [quality/2026-09-18/exploratory-runs.json](quality/2026-09-18
 with the two rendered artifacts beside them. Raw reports embed the full source
 text and stay owner-only and uncommitted (`*-raw.json`); the committed corpus
 under `.devcontainer/db/scripts/nhs-synthetic/` remains the source of truth.
+
+# Making 27B work — 2026-09-18
+
+The eval harness names Qwen 27B the promotion authority
+(`../ai-clinical-summary-eval/README.md`), but the 09-15 hosted sweep rejected it
+in one row at reasoning on / temperature 0.6 and moved the gateway default to
+397B-A17B. 27B was never retried at the reasoning-off, temperature-0.2 settings
+that made 397B look good, so that rejection did not compare like with like.
+This run retests 27B properly. Venice does not serve 27B; SiliconFlow, DeepInfra
+and Phala each advertise structured outputs and appear in the ZDR catalogue.
+
+Scoring is now deterministic. `score_nhssyn001.py` checks a 20-fact labelled
+ledger (11 critical) plus four defect classes seen on 09-18: a date asserted by a
+claim that none of its cited sources carries, staff-name and patient-identity
+leakage, cross-section duplication, and mixed date formats. It reproduces the
+manual 397B findings exactly. It measures none of readability, and a passing gate
+is an engineering result on one invented record, not clinical validation.
+
+| Run | Provider | Temp | Mode | Claims | Recall | Critical | Dates | Leaks | Dups | Gate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| C1 committed prompt | SiliconFlow | 0.2 | single | 29 | 0.95 | 1.00 | 0 | 2 | 0 | fail |
+| C2 role-only prompt | SiliconFlow | 0.2 | single | 31 | 0.95 | 1.00 | 0 | 0 | 0 | **pass** |
+| C3 role-only prompt | Phala | 0 | single | 20 | 0.90 | 0.91 | 1 | 0 | 0 | fail |
+| C4 role-only prompt | SiliconFlow | 0 | single | 29 | 1.00 | 1.00 | 0 | 0 | 0 | **pass** |
+| C5 role-only prompt | Phala | 0.2 | single | 26 | 1.00 | 1.00 | 0 | 0 | 0 | **pass** |
+| C6 C4 repeated | SiliconFlow | 0 | single | 27 | 1.00 | 1.00 | 0 | 0 | 0 | **pass** |
+| C7 section passes | DeepInfra | 0 | sections | 53 | 1.00 | 1.00 | 0 | 4 | 14 | fail |
+| C8 section passes | SiliconFlow | 0 | sections | — | — | — | — | — | — | rejected |
+
+## The name leak was a prompt contradiction, not a model limitation
+
+The committed prompt said "Keep who contacted whom and what was communicated
+accurate; omit staff names and license numbers." Those two clauses pull against
+each other, and both 27B and 397B resolved them by naming people. Replacing the
+line with an explicit role-only rule and a worked example removed the leak in
+every single-pass run that used it (C2–C6, four passes, zero leaks). No model or
+sampling change was needed, and 397B leaked under the same contradiction, so this
+was never about model size.
+
+## 27B is better than 397B here, and cheaper
+
+On the same gate, 397B single-pass scored 3 name leaks and 397B section passes
+scored 3 date errors, 5 leaks, 11 duplicates and mixed formats. 27B single-pass
+with the role-only prompt passes cleanly at full labelled-fact recall, for
+about $0.0092–0.0098 against 397B's $0.0224, in 95–150 seconds. C4 and C6 repeat
+the same configuration with identical gate results.
+
+**Recommended configuration:** `qwen/qwen3.5-27b`, SiliconFlow, temperature 0,
+reasoning off, single whole-record pass, role-only prompt. Temperature 0 is also
+the reproducible choice. Phala at temperature 0 (C3) was the one single-pass
+failure, dropping a critical medication fact and misdating a claim, so provider
+is a real variable and SiliconFlow is the current pick.
+
+## Section passes fail at 27B too
+
+C7 kept 4 name leaks and produced 14 cross-section duplicates, worse than 397B's
+11. Note that C7's leaks are not a fair test of the fix: section passes read
+`section-prompt.txt`, which `--prompt` does not touch, so that run still used the
+old contradictory rule. C8 patched both prompts and was **rejected outright** —
+all five passes returned, but the merged result failed with "Missing, unknown or
+duplicate source review". The duplication is independent of prompt wording,
+because `pipeline.merge` only merges byte-identical normalized text.
+
+Section passes are therefore not a 397B-specific problem. They remain unsuitable
+in both models, and the single whole-record pass is the better configuration.
+
+## What this gate does not cover
+
+Readability, and the plan-versus-completed distinction. C4 still writes "On
+2026-01-12, the patient was discharged with a plan to take nimodipine...", which
+reads as a completed discharge from what the source records as a discharge plan —
+the first limitation recorded on 09-15, still unfixed and invisible to these
+checks. The ledger is also not difficult enough to separate good candidates:
+397B, and 27B in four configurations, all reach full or near-full recall. Neither
+trial flags note-8's `07/21/26` body date. No clinician has reviewed any of this
+prose, and real clinical use stays disabled behind both default-off flags.
