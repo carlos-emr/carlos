@@ -169,21 +169,26 @@ async function assertPreviewRenders(hostFrame, label) {
   try {
     await frame.locator('#signature').waitFor({ state: 'attached', timeout: 30000 });
   } catch (error) {
-    const bodyText = await frame.locator('body').innerText().catch(() => '');
-    throw new Error(`${label}: preview did not render (#signature missing) at ${frame.url()}: ${bodyText.replace(/\s+/g, ' ').slice(0, 400)}`);
+    // No page text in the message. This frame is the rendered prescription — patient name,
+    // address and medication details — and the top-level catch prints errors to CI logs.
+    throw new Error(`${label}: preview did not render (#signature missing) at ${frame.url()}`);
   }
   return frame.url();
 }
 
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   initMysqlDefaults();
   let stagedLinkIds = null;
+  let browser = null;
   try {
-    // Before touching the browser: a script with no drugs cannot render a preview frame,
-    // and failing here names the cause instead of timing out on a locator later (#3734).
+    // Before touching the browser, and it has to be before the launch to mean anything: a
+    // script with no drugs cannot render a preview frame, and failing here names the cause
+    // instead of timing out on a locator later (#3734). Launching first would also let a
+    // missing or unstartable Chromium mask that diagnostic behind its own error.
     scriptId = resolvePrescriptionScriptId();
+
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
 
     stagedLinkIds = stageNoPharmacy();
 
@@ -255,6 +260,8 @@ async function assertPreviewRenders(hostFrame, label) {
       console.error(`WARN failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
     }
     cleanupMysqlDefaults();
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 })();
