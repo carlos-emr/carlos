@@ -96,6 +96,10 @@ $SQL carlos < /scripts/demo-provider-links.sql
 $SQL carlos < /scripts/demo-program-links.sql
 $SQL carlos < /scripts/demo-issue-codes.sql
 $SQL carlos < /scripts/demo-specialists.sql
+# The snapshot's formLabReq07 rows carry practitionerNo '0000--00', which the
+# packaged front door's libinjection rule (CRS 942100) scores as SQL and 403s on
+# save. Issue #3724. Normalises to the provider's real number, or empty.
+$SQL carlos < /scripts/demo-labreq-practitioner-no.sql
 # Name sanitization v2: FAKE- prefixes across all person-name tables plus
 # replacement of known real names. The -on supplement covers Ontario-only
 # form tables; this devcontainer loads the Ontario schema, so both apply.
