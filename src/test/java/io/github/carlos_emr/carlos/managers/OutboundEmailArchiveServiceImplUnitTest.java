@@ -1392,6 +1392,87 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
      * Stubs both reads the service performs for a privileged archive change: the scalar
      * demographic read that the patient-record gate runs on, then the locked row.
      */
+    // --- send lifecycle ---------------------------------------------------------------------
+
+    @Test
+    @DisplayName("should stamp the attempt timestamp when dispatch begins")
+    void shouldStampAttemptTimestamp_whenDispatchBegins() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_ATTEMPTED);
+        assertThat(archive.getSendAttemptedAt()).isNotNull();
+        assertThat(archive.getSentAt()).isNull();
+        verify(outboundEmailArchiveDao).merge(archive);
+    }
+
+    @Test
+    @DisplayName("should record acceptance without claiming the recipient received it")
+    void shouldRecordAcceptance_whenTransportTookCustody() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+
+        // ACCEPTED, never "DELIVERED": SMTP hand-off is all CARLOS can observe.
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSentAt()).isNotNull();
+        assertThat(archive.getSendAttemptedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should record a transport refusal without a sent timestamp")
+    void shouldRecordFailure_whenTransportRefusedTheArtifact() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_FAILED);
+        assertThat(archive.getSentAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep a recorded acceptance when a later failure is reported")
+    void shouldKeepAcceptance_whenLaterFailureIsReported() {
+        // A post-acceptance bookkeeping fault must never rewrite the record into "not sent":
+        // the message is already with the transport and a clinician must not resend it.
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        java.util.Date acceptedAt = archive.getSentAt();
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSentAt()).isEqualTo(acceptedAt);
+    }
+
+    @Test
+    @DisplayName("should do nothing when archiving never produced a row")
+    void shouldDoNothing_whenArchiveIdIsNull() {
+        assertThat(service.recordSendOutcome(loggedInInfo, null,
+                OutboundEmailArchiveService.SendOutcome.ATTEMPTED)).isNull();
+
+        verifyNoInteractions(outboundEmailArchiveDao);
+    }
+
+    @Test
+    @DisplayName("should refuse to advance the lifecycle without eDoc write rights")
+    void shouldRefuseLifecycleChange_whenEdocWriteRightIsMissing() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.recordSendOutcome(loggedInInfo, 888,
+                OutboundEmailArchiveService.SendOutcome.ACCEPTED))
+                .isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(outboundEmailArchiveDao);
+    }
+
     private void stubArchiveLookup(OutboundEmailArchive archive) {
         // The authorization lookup reads only the patient identifier before locking.
         when(outboundEmailArchiveDao.findDemographicNoById(888)).thenReturn(

@@ -363,6 +363,47 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return changeLegalHold(loggedInInfo, archiveId, reason, OutboundEmailArchiveLegalHoldEvent.ACTION_PLACED);
     }
 
+    @Override
+    @Transactional
+    public OutboundEmailArchive recordSendOutcome(LoggedInInfo loggedInInfo, Integer archiveId, SendOutcome outcome) {
+        if (archiveId == null) {
+            // The archive could not be created, so there is no lifecycle to advance. Callers
+            // record this bookkeeping without branching on whether archiving got that far.
+            return null;
+        }
+        if (outcome == null) {
+            throw new IllegalArgumentException("Send outcome is required");
+        }
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
+                || loggedInInfo.getLoggedInProviderNo().isBlank()) {
+            throw new IllegalArgumentException("Send outcome provider number is required");
+        }
+
+        // Write authority, not the admin gate: this is the same caller who just archived the
+        // artifact, recording what their own send did. Re-checked rather than assumed, so a
+        // privilege revoked mid-send cannot quietly keep writing to the record.
+        requireArchiveWriteAuthority(loggedInInfo);
+
+        OutboundEmailArchive archive = lockArchiveForAuthorizedCaller(loggedInInfo, archiveId);
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+
+        switch (outcome) {
+            case ATTEMPTED -> archive.recordSendAttempt(providerNo);
+            case ACCEPTED -> archive.recordSendAccepted(providerNo);
+            case FAILED -> archive.recordSendFailure(providerNo);
+            // Refuse rather than silently skip: an unhandled transition would leave the row
+            // claiming a state the transport never reported.
+            default -> throw new IllegalArgumentException("Unsupported send outcome: " + outcome);
+        }
+
+        outboundEmailArchiveDao.merge(archive);
+
+        // Deliberately not audited through LogAction. The send is already audited by EmailManager,
+        // and three lifecycle rows per email would bury the entries that record access to patient
+        // data without adding anything the archive row does not already state.
+        return archive;
+    }
+
     /**
      * Shared transition for both legal hold directions.
      *
