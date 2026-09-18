@@ -4,6 +4,7 @@
 // Check the deployed build identity and close controls, not merely HTTP 200.
 // EXPECTED_BUILD_VERSION optionally pins the exact WAR version under test.
 const { assert } = require('./lib/playwright-harness');
+const { clickOpensPopup } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 
 async function closeThroughUi(page) {
@@ -16,7 +17,8 @@ async function closeThroughUi(page) {
 async function workflow(s) {
   const chart = await s.chart();
   const menu = await s.popup(chart, chart.locator('a[onclick*="ViewCalculators"]').first(), 'about-calculators');
-  const index = await s.popup(menu, menu.locator('a[onclick*="ViewGeneralCalculators"]'), 'about-conversions');
+  const index = await clickOpensPopup(menu, menu.locator('a[onclick*="ViewGeneralCalculators"]'),
+    { context: s.context, recorder: s.recorder, label: 'about-conversions', closesOpener: true });
   await s.step('general conversions calculate and calibrate without silent errors', async () => {
     const forms = index.locator('form');
     const convert = async (formIndex, input, value, output, expected, tolerance) => {
@@ -40,11 +42,18 @@ async function workflow(s) {
     await convert(0, 'val1', '0', 'val2', 0, 0);
     await convert(0, 'val1', '1e-12', 'val2', 3.937007874e-11, 1e-17);
     const distance = forms.nth(0);
+    const previous = await distance.locator('[name="val2"]').inputValue();
+    await distance.locator('[name="val2"]').focus();
+    assert(await distance.locator('[name="val2"]').inputValue() === previous,
+      'Focusing a conversion result erased it');
     await distance.locator('[name="val1"]').fill('invalid');
     await distance.locator('input[onclick="convertform(this.form)"]').click();
     assert(!await distance.locator('[name="val1"]').evaluate(input => input.validity.valid),
       'Invalid input was silently accepted');
     assert(await distance.locator('[name="val2"]').inputValue() === '', 'Invalid input produced a result');
+    assert(await distance.locator('[name="val1"]').inputValue() === 'invalid',
+      'Validation erased the value the user needs to correct');
+    await convert(0, 'val1', '1', 'val2', 1 / 0.0254, 0.00001);
     for (let i = 0; i < 3; i++) {
       const form = forms.nth(i);
       await form.locator('input[onclick="resetform(this.form)" i]').click();

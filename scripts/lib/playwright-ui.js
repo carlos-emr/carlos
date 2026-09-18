@@ -107,7 +107,9 @@ async function clickOpensPopup(page, locator, options = {}) {
   let popup;
   try {
     await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
-    await target.click({ timeout });
+    // Some menus close their own window in the click handler. Their callers
+    // can skip waiting on that opener; the popup is still awaited below.
+    await target.click({ timeout, noWaitAfter: options.closesOpener === true });
     popup = await pending.promise;
   } catch (error) {
     await pending.abandon();

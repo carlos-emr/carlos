@@ -124,6 +124,16 @@
 
             }
 
+            function conversionInputChanged(input) {
+                // Editing selects the source unit. Merely focusing a field
+                // (including reportValidity focusing an error) must preserve it.
+                for (var i = 1; i <= input.form.count; i++) {
+                    var field = input.form.elements[i];
+                    if (field !== input) field.value = "";
+                    field.setCustomValidity("");
+                }
+            }
+
             // End conversion helpers.
 
         </SCRIPT>
@@ -181,17 +191,17 @@
                                     </TR>
                                     <TR>
                                         <TD><INPUT TYPE=TEXT NAME=val1 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val2 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val3 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val4 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val5 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val6 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE="button"
                                                    VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
                                                    onclick="convertform(this.form)"></TD>
@@ -219,19 +229,19 @@
                                     </TR>
                                     <TR>
                                         <TD><INPUT TYPE=TEXT NAME=val1 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val2 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val3 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val4 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val5 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val6 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val7 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE="button"
                                                    VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
                                                    onclick="convertform(this.form)"></TD>
@@ -256,15 +266,15 @@
                                     </TR>
                                     <TR>
                                         <TD><INPUT TYPE=TEXT NAME=val1 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val2 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val3 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val4 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val5 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE="button"
                                                    VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
                                                    onclick="convertform(this.form)"></TD>

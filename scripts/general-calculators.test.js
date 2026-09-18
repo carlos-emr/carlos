@@ -13,6 +13,7 @@ function calculator() {
     for (let i = 1; i <= count; i++) {
       let value = '';
       const field = { get value() { return value; }, set value(next) { value = String(next); },
+        form,
         message: '', setCustomValidity(message) { this.message = message; },
         reportValidity() { return !this.message; } };
       form.elements.push(field);
@@ -21,7 +22,7 @@ function calculator() {
     return form;
   });
   const context = vm.createContext({ document: { forms } });
-  for (const match of source.matchAll(/<script\b([^>]*?)>([\s\S]*?)<\/script>/gi)) {
+  for (const match of source.matchAll(/<script\b([^>]*?)>([\s\S]*?)<\/script\s*>/gi)) {
     if (/\bsrc\s*=/i.test(match[1])) continue; // External library, not an inline calculator block.
     vm.runInContext(match[2], context);
   }
@@ -73,4 +74,18 @@ test('invalid and overflowing input is rejected without publishing partial resul
     assert.equal(forms[0].val1.value, '1');
     assert.ok(Number(forms[0].val2.value) > 0);
   }
+});
+
+test('editing a converted field selects that unit and clears stale outputs and errors', () => {
+  const { forms, context } = calculator();
+  const form = forms[0];
+  context.resetform(form);
+  form.val1.setCustomValidity('Previous error');
+  form.val2.value = '12';
+  context.conversionInputChanged(form.val2);
+  assert.equal(form.val1.value, '');
+  assert.equal(form.val1.message, '');
+  assert.equal(form.val2.value, '12');
+  assert.equal(context.convertform(form), true);
+  assert.equal(Number(form.val3.value), 1);
 });
