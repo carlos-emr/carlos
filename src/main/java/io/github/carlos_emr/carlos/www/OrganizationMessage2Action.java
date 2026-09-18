@@ -31,8 +31,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.services.OrganizationMessageManager;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -46,16 +44,11 @@ import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-public class OrganizationMessage2Action extends ActionSupport {
+public class OrganizationMessage2Action extends MessageBannerAction {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private OrganizationMessageManager mgr = SpringUtils.getBean(OrganizationMessageManager.class);
@@ -64,40 +57,12 @@ public class OrganizationMessage2Action extends ActionSupport {
     private ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
     private ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
-    public String execute() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String mtd = request.getParameter("method");
-
-        // "view" renders the read-only facility banner that the provider schedule
-        // (appointmentprovideradminday.jsp) fetches on every load. Facility messages are
-        // administrator-authored notices addressed to everyone working in the facility and hold
-        // no PHI, so the banner is authorized on an authenticated session alone. Requiring
-        // "_admin" write here turned every non-admin clinician's schedule load into a 403 plus a
-        // logged SecurityException (issue #3728). LoginFilter is the canonical session gate; the
-        // null check below is defence-in-depth for direct invocation and filter reordering.
-        // view() itself stays scoped to the session's current facility and the caller's own
-        // program domain.
-        if ("view".equals(mtd)) {
-            if (loggedInInfo == null) {
-                throw new SecurityException("not logged in");
-            }
-            return view();
-        }
-
-        // Everything else is the administrative management UI: listing, editing and saving the
-        // messages themselves stays behind "_admin" write.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-
-        if ("edit".equals(mtd)) {
-            return edit();
-        } else if ("save".equals(mtd)) {
-            return save();
-        }
-        return list();
+    @Override
+    protected SecurityInfoManager securityInfoManager() {
+        return securityInfoManager;
     }
 
+    @Override
     public String list() {
         //List activeMessages = mgr.getMessages();
         Facility facility = (Facility) request.getSession().getAttribute("currentFacility");
@@ -124,6 +89,7 @@ public class OrganizationMessage2Action extends ActionSupport {
         return "list";
     }
 
+    @Override
     public String edit() {
         String messageId = request.getParameter("id");
 
@@ -153,6 +119,7 @@ public class OrganizationMessage2Action extends ActionSupport {
         return "edit";
     }
 
+    @Override
     public String save() {
         FacilityMessage msg = this.getFacility_message();
         msg.setCreationDate(new Date());
@@ -168,6 +135,7 @@ public class OrganizationMessage2Action extends ActionSupport {
         return list();
     }
 
+    @Override
     public String view() {
 
         //String providerNo = (String)request.getSession().getAttribute("user");
