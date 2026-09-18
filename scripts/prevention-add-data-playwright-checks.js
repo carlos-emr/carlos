@@ -40,75 +40,38 @@
  */
 
 const { chromium } = require('playwright');
+const {
+  assert,
+  buildFailureDetails,
+  createRecorder,
+  getLaunchOptions,
+  gotoApp,
+  login,
+  validateBaseUrl,
+  wirePage,
+} = require('./eform-local-playwright-utils');
 
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
-const chromePath = process.env.CHROME_PATH || '';
-const testUser = process.env.TEST_USER || 'carlosdoc';
-const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
-const testPin = process.env.TEST_PIN || '2026';
+const config = {
+  baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
+  chromePath: process.env.CHROME_PATH || '',
+  testUser: process.env.TEST_USER || 'carlosdoc',
+  testPassword: process.env.TEST_PASSWORD || 'carlos2026',
+  testPin: process.env.TEST_PIN || '2026',
+};
 const demographicNo = process.env.PREVENTION_DEMOGRAPHIC_NO || '1';
 const typeWithoutNextDate = process.env.PREVENTION_WITHOUT_NEXTDATE || 'Flu';
 const typeWithNextDate = process.env.PREVENTION_WITH_NEXTDATE || 'HPV';
 
 const failures = [];
 
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
-
-function appUrl(appPath, query) {
-  const url = new URL(baseUrl.toString());
-  url.pathname = `${baseUrl.pathname}${appPath}`;
-  if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      url.searchParams.set(key, value);
-    }
-  }
-  return url.toString();
-}
-
-async function gotoApp(page, appPath, query = null) {
-  const url = appUrl(appPath, query);
-  // BASE_URL is restricted by validateBaseUrl(), and appUrl() only accepts root-relative app paths.
-  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
-  return page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-}
-
-async function login(page) {
-  await gotoApp(page, '/');
-  await page.locator('#username').fill(testUser);
-  await page.locator('#password').fill(testPassword);
-  await page.locator('#pin').fill(testPin);
-  await Promise.all([
-    page.waitForURL(/providercontrol/, { timeout: 30000 }),
-    page.locator('input[type="submit"], button[type="submit"]').first().click(),
-  ]);
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-}
-
-async function inspectPreventionPage(context, prevention) {
+async function inspectPreventionPage(context, recorder, prevention) {
   const page = await context.newPage();
-  const errors = [];
-  page.on('pageerror', (error) => errors.push(error.stack || error.message));
+  wirePage(page, prevention, recorder);
 
-  const response = await gotoApp(page, '/prevention/ViewAddPreventionData', {
-    demographic_no: demographicNo,
-    prevention,
-  });
+  const query = new URLSearchParams({ demographic_no: demographicNo, prevention });
+  const response = await gotoApp(
+    page, config.baseUrl, `/prevention/ViewAddPreventionData?${query.toString()}`, 'networkidle',
+  );
   if (!response || response.status() !== 200) {
     failures.push(`${prevention}: page returned ${response ? response.status() : 'no response'}`);
     await page.close();
@@ -130,8 +93,8 @@ async function inspectPreventionPage(context, prevention) {
     })(),
   }));
 
-  for (const error of errors) {
-    failures.push(`${prevention}: uncaught page error — ${error}`);
+  for (const entry of recorder.pageErrors.filter((e) => e.label === prevention)) {
+    failures.push(`${prevention}: uncaught page error — ${entry.text}`);
   }
   if (state.reRunError) {
     failures.push(`${prevention}: disableifchecked threw — ${state.reRunError}`);
@@ -141,26 +104,18 @@ async function inspectPreventionPage(context, prevention) {
 }
 
 (async () => {
-  const launchOptions = {
-    headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-  };
-  if (chromePath) {
-    launchOptions.executablePath = chromePath;
-  }
-
-  const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const recorder = createRecorder();
+  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
-    const loginPage = await context.newPage();
-    await login(loginPage);
-    await loginPage.close();
+    const context = await browser.newContext({ ignoreHTTPSErrors: true });
+    const landingPage = await login(context, config, recorder);
+    await landingPage.close();
 
-    const without = await inspectPreventionPage(context, typeWithoutNextDate);
-    const withNextDate = await inspectPreventionPage(context, typeWithNextDate);
+    const without = await inspectPreventionPage(context, recorder, typeWithoutNextDate);
+    const withNextDate = await inspectPreventionPage(context, recorder, typeWithNextDate);
 
-    // Guard the fixtures: if the chosen types ever stop representing the two shapes, the
-    // check would pass without exercising the bug.
+    // Guard the fixtures: if the chosen types ever stop representing the two shapes, the check
+    // would pass without exercising the bug.
     if (without && without.neverWarnPresent) {
       failures.push(`${typeWithoutNextDate} now renders a neverWarn control; pick another PREVENTION_WITHOUT_NEXTDATE so the null case is still covered`);
     }
@@ -170,18 +125,12 @@ async function inspectPreventionPage(context, prevention) {
 
     await context.close();
 
-    if (failures.length > 0) {
-      console.error('FAIL add prevention data Playwright check');
-      for (const failure of failures) {
-        console.error(`  - ${failure}`);
-      }
-      process.exitCode = 1;
-    } else {
-      console.log(`PASS add prevention popup loads clean for ${typeWithoutNextDate} (no next-date controls) and ${typeWithNextDate} (with them)`);
-    }
+    assert(failures.length === 0, `add prevention popup checks failed:\n  - ${failures.join('\n  - ')}`);
+    console.log(`PASS add prevention popup loads clean for ${typeWithoutNextDate} (no next-date controls) and ${typeWithNextDate} (with them)`);
   } catch (error) {
     console.error('FAIL add prevention data Playwright check');
     console.error(error.stack || error.message);
+    console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
     await browser.close();
