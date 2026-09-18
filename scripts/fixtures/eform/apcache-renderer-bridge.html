@@ -39,7 +39,7 @@ var apCache = createCache({
     var echo = document.getElementById(target.id + '_echo');
     if (echo) { echo.textContent = 'APCACHE-VALUE[' + key + ']=' + value; }
   },
-  cacheResponseErrorHandler: function (xhr, error) {
+  defaultCacheResponseErrorHandler: function (xhr, error) {
     var status = document.getElementById('apcache_error_status');
     status.textContent = 'APCACHE-ERROR[' + (xhr && xhr.status) + ']';
   }
