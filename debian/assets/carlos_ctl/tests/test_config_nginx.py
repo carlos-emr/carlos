@@ -65,7 +65,7 @@ class TestApplyNginx(unittest.TestCase):
         return _cp(0)
 
     def _out(self, cmd):
-        assert cmd == ["ss", "-ltnH"], cmd
+        assert cmd == ["ss", "-ltnpH"], cmd
         # What ss shows depends on whether nginx has been restarted yet: the
         # first entry is the state after the reload, the second (if any) the
         # state after a restart.
@@ -82,6 +82,20 @@ class TestApplyNginx(unittest.TestCase):
     def _apply(self, bind_ip="127.0.0.1"):
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return config.apply_nginx(bind_ip)
+
+    def test_unrelated_processes_cannot_prove_the_front_door(self):
+        for owner in ('python3', 'nginx-other'):
+            with self.subTest(owner=owner):
+                self.calls.clear()
+                self.ss_outputs = [self._ss("127.0.0.1:80", "127.0.0.1:443").replace('"nginx"', f'"{owner}"')]
+                with self.assertRaises(SystemExit):
+                    self._apply()
+
+    def test_missing_socket_ownership_is_not_success(self):
+        self.ss_outputs = ["LISTEN 0 511 127.0.0.1:80 0.0.0.0:*\n"
+                           "LISTEN 0 511 127.0.0.1:443 0.0.0.0:*"]
+        with self.assertRaises(SystemExit):
+            self._apply()
 
     def test_reload_that_binds_the_listeners_is_enough(self):
         self.ss_outputs = [self._ss("127.0.0.1:80", "127.0.0.1:443")]

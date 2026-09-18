@@ -382,3 +382,35 @@ ${block}
     if (bound === 2) assert.ok(result.stdout.includes('service:restart'));
   }
 });
+
+test('postinst listener proof requires nginx ownership, both ports and the last configured address', () => {
+  const fn = postinst.match(/front_door_listening\(\) \{[\s\S]*?\n\}/)[0];
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-listeners-'));
+  try {
+    const envFile = path.join(root, 'env');
+    for (const [ip, addresses, owner, expected] of [
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], 'nginx', 0],
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], 'python3', 1],
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], 'nginx-other', 1],
+      ['127.0.0.1', ['127.0.0.1:443'], 'nginx', 1],
+      ['127.0.0.1', ['0.0.0.0:80', '127.0.0.1:443'], 'nginx', 1],
+      ['::1', ['[::1]:80', '[::1]:443'], 'nginx', 0],
+      ['0.0.0.0', ['0.0.0.0:80', '0.0.0.0:443'], 'nginx', 0],
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], '', 1],
+    ]) {
+      fs.writeFileSync(envFile, `CARLOS_BIND_IP=192.0.2.1\nCARLOS_BIND_IP="${ip}"\n`);
+      const sockets = addresses.map(a => `LISTEN 0 511 ${a} 0.0.0.0:* ${owner ? `users:(("${owner}",pid=123,fd=6))` : ''}`).join('\n');
+      const result = spawnSync('sh', ['-c', `
+ENV_FILE='${envFile}'
+ss() { [ "$1" = '-ltnpH' ] || return 2; cat <<'SOCKETS'
+${sockets}
+SOCKETS
+}
+sleep() { :; }
+${fn}
+front_door_listening
+`], { encoding: 'utf8' });
+      assert.equal(result.status, expected, JSON.stringify({ ip, addresses, owner, result }));
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

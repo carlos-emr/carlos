@@ -315,10 +315,14 @@ def cmd_init_config(argv) -> int:
 
 
 def _listeners(port: str) -> list:
-    """Every address bound on exactly this TCP port right now, from ss, with
+    """Every nginx address bound on exactly this TCP port right now, with
     IPv6 brackets stripped so a literal compares as the operator wrote it."""
     found = []
-    for line in util.out(["ss", "-ltnH"]).splitlines():
+    for line in util.out(["ss", "-ltnpH"]).splitlines():
+        # A different daemon owning both ports is not a working nginx front
+        # door. Missing process visibility must also fail closed (caller is root).
+        if not re.search(r'\("nginx",pid=[0-9]+,fd=[0-9]+\)', line):
+            continue
         cols = line.split()
         if len(cols) >= 4 and cols[3].rsplit(":", 1)[-1] == port:
             found.append(cols[3].rsplit(":", 1)[0].lstrip("[").rstrip("]"))

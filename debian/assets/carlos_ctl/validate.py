@@ -174,9 +174,7 @@ def cmd_check(argv) -> int:
     # (443 without 80, or the old wildcard 80) while every worker still serves
     # the previous configuration — and "something is on 443" was green on
     # exactly that broken host.
-    missing = [f"{s.bind_ip}:{port}" for port in ("80", "443")
-               if s.bind_ip not in [a.rsplit(":", 1)[0].lstrip("[").rstrip("]")
-                                    for a in _listeners(port)]]
+    missing = config._front_door_missing(s.bind_ip, wait=0)
     if not missing:
         _ok(f"nginx is listening on {s.bind_ip}:80 and {s.bind_ip}:443")
     else:
