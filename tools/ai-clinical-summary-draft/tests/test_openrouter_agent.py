@@ -28,9 +28,11 @@ def completion(config, _endpoint, payload):
     claims = []
     for index, source in enumerate(sources):
         word = sorted(words(source['text']) - COMMON_WORDS)[0]
-        claims.append({'id': 'c' + str(index), 'text': word + ' is recorded.', 'source_ids': [source['id']]})
+        claims.append({'id': 'c' + str(index), 'text': word + f' is recorded in entry {index}.',
+                       'source_ids': [source['id']]})
+    section_id = payload['response_format']['json_schema']['schema']['properties']['sections']['items']['properties']['id']['enum'][0]
     output = {'claims': claims,
-              'sections': [{'id': 'clinical_overview', 'title': 'Clinical overview',
+              'sections': [{'id': section_id, 'title': agent.SECTION_TITLES[section_id],
                             'claim_ids': [claim['id'] for claim in claims]}],
               'coverage': [{'source_id': source['id'], 'status': 'cited',
                             'reason': 'Reviewed clinical material in ' + source['id']} for source in sources]}
@@ -40,7 +42,7 @@ def completion(config, _endpoint, payload):
 
 class OpenRouterTest(unittest.TestCase):
     def setUp(self):
-        self.config = dict(agent.DEFAULTS, api_key='test-key-never-a-real-secret')
+        self.config = dict(agent.DEFAULTS, api_key='test-key-never-a-real-secret', section_passes=False)
         self.calls = []
         self.now = 0
         def transport(config, endpoint, payload):
@@ -83,6 +85,70 @@ class OpenRouterTest(unittest.TestCase):
         uncached.run(self.request)
         self.assertEqual(4, len(self.calls))
         self.assertFalse(uncached.cache)
+
+    def test_temperature_is_forwarded_and_invalid_settings_are_rejected(self):
+        gateway = agent.Gateway(dict(self.config, temperature=0.2), transport=self.gateway.transport)
+        gateway.run(self.request)
+        self.assertEqual(0.2, self.calls[0]['temperature'])
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'config.json'
+            legacy = {k: v for k, v in self.config.items() if k not in ('temperature', 'request_bytes', 'reasoning_tokens')}
+            agent.private_write(path, json.dumps(legacy))
+            self.assertEqual(self.config, agent.read_config(path))
+            for key, value in [('temperature', True), ('temperature', -0.1), ('temperature', 2.1),
+                               ('temperature', '0.2'), ('request_bytes', 9999), ('request_bytes', 50001),
+                               ('request_bytes', 20000.5), ('reasoning_tokens', -1), ('reasoning_tokens', True),
+                               ('reasoning_tokens', 9000)]:
+                agent.private_write(path, json.dumps(dict(self.config, **{key: value})))
+                with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                    agent.read_config(path)
+
+    def test_reasoning_is_explicit_and_its_text_is_excluded(self):
+        gateway = agent.Gateway(dict(self.config, reasoning_tokens=4096), transport=self.gateway.transport)
+        gateway.run(self.request)
+        self.assertEqual({'enabled': True, 'max_tokens': 4096, 'exclude': True}, self.calls[0]['reasoning'])
+
+    def test_larger_context_keeps_complete_fixture_together(self):
+        self.gateway.config['request_bytes'] = 50000
+        sources = [dict(self.request['sources'][0], id=f'note-{i + 1}',
+                        title=f'Signed encounter note (note-{i + 1})', date=date, text=body)
+                   for i, (fixture, date, body) in enumerate(self.gateway.allowed.notes) if fixture == 'NHSSYN001']
+        self.assertGreater(len(pipeline.plan(sources, self.gateway.prompt, self.gateway.schema)), 1)
+        self.gateway.run(dict(self.request, sources=sources))
+        self.assertEqual(1, len(self.calls))
+        self.assertEqual(sources, json.loads(self.calls[0]['messages'][1]['content'])['sources'])
+
+    def test_coverage_status_is_derived_without_changing_claims_or_citations(self):
+        baseline = self.gateway.run(self.request)['output']
+        changed = copy.deepcopy(baseline)
+        changed['coverage'][0]['status'] = 'reviewed_not_cited'
+        normalized = agent.normalize_coverage_status(changed, self.request['sources'])
+        self.assertEqual(baseline['claims'], normalized['claims'])
+        self.assertEqual('cited', normalized['coverage'][0]['status'])
+        changed['claims'] = []
+        changed['sections'] = []
+        changed['coverage'][0]['status'] = 'cited'
+        normalized = agent.normalize_coverage_status(changed, self.request['sources'])
+        self.assertEqual('reviewed_not_cited', normalized['coverage'][0]['status'])
+        for entries in ([], changed['coverage'] * 2,
+                        [dict(changed['coverage'][0], source_id='unknown')],
+                        [dict(changed['coverage'][0], status='invented')]):
+            with self.subTest(entries=entries), self.assertRaises(ValueError):
+                agent.normalize_coverage_status(dict(changed, coverage=entries), self.request['sources'])
+
+    def test_section_passes_each_see_all_evidence_and_cache_separately(self):
+        self.gateway.config['section_passes'] = True
+        output = self.gateway.run(self.request)['output']
+        self.assertEqual(5, len(self.calls))
+        for section, payload in zip(agent.SECTION_SCOPES, self.calls):
+            self.assertEqual(self.request['sources'], json.loads(payload['messages'][1]['content'])['sources'])
+            schema = payload['response_format']['json_schema']['schema']['properties']['sections']
+            self.assertEqual([section], schema['items']['properties']['id']['enum'])
+            self.assertEqual(1, schema['maxItems'])
+        self.gateway.run(self.request)
+        self.assertEqual(5, self.gateway.cache_hits)
+        self.assertEqual(5, len(self.calls))
+        self.assertEqual(1, len(output['coverage']))
 
     def test_modified_sources_and_settings_are_separate_cache_keys(self):
         self.gateway.run(self.request)

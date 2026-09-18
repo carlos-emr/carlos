@@ -69,6 +69,16 @@ class PipelineTest(unittest.TestCase):
         after = pipeline.plan(sources + [dict(sources[-1], id="note-60")], self.prompt, self.schema)
         self.assertEqual(before[:-1], after[:len(before)-1])
 
+    def test_configurable_context_preserves_all_sources_at_both_budgets(self):
+        sources = [dict(self.bundle['sources'][0], id=f'note-{i}', text=f'Finding {i}: ' + 'Detail. ' * 100)
+                   for i in range(80)]
+        for budget in (10000, 50000):
+            batches = pipeline.plan(sources, self.prompt, self.schema, budget)
+            self.assertEqual(sources, [source for batch in batches for source in batch])
+            self.assertGreater(len(batches), 1)
+        self.assertGreater(len(pipeline.plan(sources, self.prompt, self.schema, 10000)),
+                           len(pipeline.plan(sources, self.prompt, self.schema, 50000)))
+
     def test_numeric_punctuation_is_never_erased_when_merging_claims(self):
         sources = [dict(self.bundle["sources"][0], id=f"source-{i}") for i in range(2)]
         outputs = [{"sections": [{"id": "clinical_overview", "title": "Clinical overview", "claim_ids": ["c"]}],
@@ -76,6 +86,18 @@ class PipelineTest(unittest.TestCase):
                     "coverage": [{"source_id": sources[i]["id"], "status": "cited", "reason": "Recorded score"}]}
                    for i, text in enumerate(["Recorded score: 2/5.", "Recorded score: 2.5."])]
         self.assertEqual(2, len(pipeline.merge(outputs, sources)["claims"]))
+
+    def test_exact_duplicate_keeps_all_citations_and_prefers_specific_section(self):
+        sources = [dict(self.bundle['sources'][0], id=f'source-{i}') for i in range(2)]
+        outputs = [{'sections': [{'id': section, 'title': title, 'claim_ids': ['c']}],
+                    'claims': [{'id': 'c', 'text': 'No known allergies.', 'source_ids': [sources[i]['id']]}],
+                    'coverage': [{'source_id': sources[i]['id'], 'status': 'cited', 'reason': 'Allergy history'}]}
+                   for i, (section, title) in enumerate([('clinical_overview', 'Clinical overview'),
+                                                         ('medications_allergies', 'Medications and allergies')])]
+        output = pipeline.merge(outputs, sources)
+        self.assertEqual(1, len(output['claims']))
+        self.assertEqual(['source-0', 'source-1'], output['claims'][0]['source_ids'])
+        self.assertEqual(['medications_allergies'], [section['id'] for section in output['sections']])
 
 
 if __name__ == "__main__":

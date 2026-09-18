@@ -20,12 +20,14 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     private final ClinicalSummaryGenerationCache cache = new ClinicalSummaryGenerationCache();
     private int failOnCall;
     private int outputLimitBytes;
+    private int requestBytes = ClinicalSummaryGenerationPipeline.REQUEST_BYTES;
     private final ClinicalSummaryAgent agent = new ClinicalSummaryAgent() {
         public String displayName() { return "Test full-record agent"; }
         public String cacheIdentity() { return "fixed-test-revision"; }
+        public int requestBytes() { return requestBytes; }
         public JsonNode generate(JsonNode request) throws IOException {
             requests.add(request.deepCopy());
-            assertThat(JSON.writeValueAsBytes(request).length).isLessThanOrEqualTo(ClinicalSummaryGenerationPipeline.REQUEST_BYTES);
+            assertThat(JSON.writeValueAsBytes(request).length).isLessThanOrEqualTo(requestBytes);
             if (requests.size() == failOnCall) throw new IOException("Test failure");
             if (outputLimitBytes > 0 && JSON.writeValueAsBytes(request.get("sources")).length > outputLimitBytes) {
                 throw new ClinicalSummaryOutputLimitException();
@@ -71,6 +73,20 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
             scope.when(() -> SyntheticSummaryScope.isEligible(chart)).thenReturn(true);
             return new ClinicalSummaryGenerationService(agent, cache).generate(chart);
         }
+    }
+
+    @Test
+    void largerAgentContextKeepsRelatedNotesTogetherWithoutDroppingSources() throws Exception {
+        ObjectNode input = chart(60);
+        requestBytes = 50000;
+        var result = generate(input);
+        assertThat(requests).hasSize(1);
+        assertThat(result.getClaimsById()).hasSize(60);
+        assertThat(result.getView().get("sources")).isEqualTo(new ClinicalSummaryArtifact(input).getView().get("sources"));
+        requests.clear();
+        requestBytes = 10000;
+        generate(input);
+        assertThat(requests).hasSizeGreaterThan(1);
     }
 
     @Test

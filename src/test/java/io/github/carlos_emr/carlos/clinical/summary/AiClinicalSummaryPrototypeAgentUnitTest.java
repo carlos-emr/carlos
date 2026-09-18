@@ -157,6 +157,7 @@ class AiClinicalSummaryPrototypeAgentUnitTest {
     void sanitizesThirdPartyExceptionsAndReleasesCapacity() throws Exception {
         ClinicalSummaryAgent custom = mock(ClinicalSummaryAgent.class);
         when(custom.displayName()).thenReturn("Custom agent");
+        when(custom.requestBytes()).thenCallRealMethod();
         when(custom.generate(any())).thenThrow(new IOException("sensitive source text"))
                 .thenThrow(new IllegalStateException("sensitive source text"));
         var service = new ClinicalSummaryGenerationService(custom);
@@ -175,6 +176,11 @@ class AiClinicalSummaryPrototypeAgentUnitTest {
         properties.setProperty("clinical.ai_summary_generation.http.name", "My agent");
         assertThat(ClinicalSummaryAgents.configured(properties)).isInstanceOf(HttpClinicalSummaryAgent.class);
         assertThat(ClinicalSummaryAgents.configured(properties).displayName()).contains("My agent");
+        assertThat(ClinicalSummaryAgents.configured(properties).requestBytes()).isEqualTo(10000);
+        properties.setProperty("clinical.ai_summary_generation.http.requestBytes", "50000");
+        assertThat(ClinicalSummaryAgents.configured(properties).requestBytes()).isEqualTo(50000);
+        properties.setProperty("clinical.ai_summary_generation.http.requestBytes", "60001");
+        assertThatThrownBy(() -> ClinicalSummaryAgents.configured(properties)).isInstanceOf(IllegalArgumentException.class);
         properties.setProperty("clinical.ai_summary_generation.agent", "unsupported");
         assertThatThrownBy(() -> ClinicalSummaryAgents.configured(properties)).isInstanceOf(IllegalArgumentException.class);
     }
