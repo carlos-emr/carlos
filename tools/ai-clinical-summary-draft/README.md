@@ -125,7 +125,7 @@ There is no statement-count or statement-character cap, and no eight-citation or
 60-source cap. The prompt requests all distinct clinically meaningful facts, with
 qualifiers, dates, doses, units, uncertainty, negatives and conflicts retained. Five
 clinical headings organize the resulting content; empty headings are omitted.
-The host processes the entire supplied snapshot in model requests of at most 10,000
+The host processes the entire supplied snapshot in model requests of at most 16,000
 serialized bytes, with a 16,384-token context and 4,096-token output budget per pass.
 Oversized sources are split into consecutive, overlapping portions without dropping
 text. Appending a note keeps earlier batches stable for cache reuse. On an Ollama

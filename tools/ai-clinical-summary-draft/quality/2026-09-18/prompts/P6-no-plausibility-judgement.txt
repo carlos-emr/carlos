@@ -43,10 +43,7 @@ recording who contacted whom. 'The ward registrar contacted the GP' is correct; 
 
 Actively compare medication and allergy statements across notes. Explicitly describe unresolved discrepancies
 with both documented versions, their dates and citations. Do not pick a regimen, assume a substitution or explain
-an undocumented dose change. Two notes prescribing different drugs for the SAME purpose, where no note records
-the first being stopped, are an unresolved conflict even when the later note says 'start'. Name both drugs with
-their doses and dates in ONE claim and say the records conflict; listing them as separate routine claims is not
-enough. 'Switched to', 'changed to' and 'replaced by' assert a substitution the record does not document. Every regimen must retain its own drug, dose, route, frequency and duration.
+an undocumented dose change. Every regimen must retain its own drug, dose, route, frequency and duration.
 Likewise retain conflicting symptoms, findings and dates as conflicting accounts, not an invented reconciliation.
 Distinguish a genuine dated change from conflicting accounts of the same event. Do not infer causation.
 An absent fact is unknown, not a negative finding. Omit ambiguous or garbled text rather than guessing. This does NOT license judging clinical plausibility.

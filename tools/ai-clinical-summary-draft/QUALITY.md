@@ -346,3 +346,168 @@ flagging it explicitly as a data-quality problem may be the better clinical
 behaviour and is currently scored the same as asserting it. No clinician has
 reviewed any of this prose, all three records are invented, and real clinical use
 remains disabled behind both default-off flags.
+
+# Correcting a harmful rule: never judge clinical plausibility — 2026-09-18
+
+The P5 rule added earlier today told the model that a "physiologically impossible"
+number, such as a heart rate of 2, should be dropped. **That rule was wrong and
+made the output less safe.** It is withdrawn.
+
+It fails on principle first. Deciding which recorded values are too extreme to
+report is a clinical judgement, and the extreme values are frequently the ones
+that matter: a rate of 25 in complete heart block, a respiratory rate of 4 in
+opioid toxicity, a temperature of 28 °C in hypothermia. A rule phrased as
+"implausible" hands the model an unbounded, unauditable licence to delete exactly
+the observations most likely to signal a deteriorating patient. Nothing in the
+prompt defined a boundary, because no defensible boundary exists.
+
+It also failed in practice. On NHSSYN002, note-9 records `HR 2, BP 124/78, RR 1,
+Temp 36.8, SpO2 98`:
+
+| Prompt | Provider | What happened to that observation set |
+| --- | --- | --- |
+| P4, before the rule | Phala | Reported in full: "HR 2 bpm, BP 124/78 mmHg, RR 1 br/min" |
+| P5, with the rule | SiliconFlow | Reported the rest and flagged the two values — the best behaviour |
+| P5, with the rule | Phala | **The entire observation set disappeared** |
+| P5, with the rule | DeepInfra | **The entire observation set disappeared** |
+
+Two of three providers silently deleted a complete set of vital signs, and the
+gate scored all three as passing, because the check penalised *mentioning* the
+values rather than *losing* them.
+
+## The corrected rule and check
+
+**P6** replaces suppression with its opposite: never delete, round, correct or
+replace a recorded number because it looks extreme, never substitute or carry a
+value over, and where a value is inconsistent with the rest of the same
+observation set, report the value **and** say it is inconsistent. Judging
+plausibility is explicitly not licensed.
+
+The check is inverted to match. `garbled-vitals` is gone; `ward-round-vitals-retained`
+is now a **critical fact**, so losing the values fails the gate and reporting
+them, flagged or not, passes. Re-scored under it, the two P5 deletions fail and
+both faithful renderings pass.
+
+## A second, more serious conflict this surfaced
+
+Investigating the vitals exposed something the ledger had missed entirely. On
+05/01/26 NHSSYN002 records **two thromboprophylaxis agents**: tinzaparin 4,500
+units SC once daily in note-7/note-8, and "start enoxaparin 40 mg SC once daily"
+in note-9, with no note recording either being stopped. Under P6 one provider
+flagged the conflict, another listed both regimens as unrelated routine claims,
+and DeepInfra asserted the patient "was switched to Enoxaparin" — inventing a
+resolution the record does not document, which the prompt already forbade.
+
+**P7** adds the generic pattern, deliberately not naming this fixture's drugs:
+two notes prescribing different drugs for the same purpose, with no recorded
+stop, are an unresolved conflict even when the later note says "start"; both must
+appear in one claim that says the records conflict; "switched to", "changed to"
+and "replaced by" assert an undocumented substitution. Under P7, SiliconFlow
+produces:
+
+> Medication records conflict regarding thromboprophylaxis: note-9 and note-12
+> prescribe enoxaparin 40 mg SC OD, while note-7 and note-8 prescribe tinzaparin
+> 4,500 units SC OD starting the evening of 05/01/26, with no documented
+> discontinuation of either agent.
+
+`thromboprophylaxis-conflict` and `assumed-anticoagulant-switch` are now a
+critical fact and a forbidden assertion, so this cannot silently regress.
+
+## Final state
+
+Committed prompt (P7), `qwen/qwen3.5-27b`, SiliconFlow, temperature 0, reasoning
+off, single whole-record pass:
+
+| Patient | Claims | Fact recall | Critical recall | Cost | Time | Gate |
+| --- | --- | --- | --- | --- | --- | --- |
+| 3001 RCVS | 28 | 1.00 | 1.00 | $0.0093 | 125 s | pass |
+| 3002 knee replacement | 62 | 1.00 | 1.00 | $0.0151 | 176 s | pass |
+| 3003 pneumomediastinum | 29 | 0.95 | 1.00 | $0.0085 | 91 s | pass |
+
+**DeepInfra is no longer recommended.** It consistently returns far shorter
+summaries — 26 to 28 claims where SiliconFlow returns 52 to 62 on the same record
+— and lost both the observation set and the anticoagulant conflict. It is the
+fastest endpoint and the least complete; speed was hiding omission.
+
+## Remaining limits
+
+The corrected rule asks for inconsistency to be *noted*, and runs vary in whether
+they do: the gate only enforces that values are retained, not that inconsistency
+is called out. Claim text still cites source IDs in prose ("note-9 and note-12
+prescribe..."), which the prompt discourages and nothing measures. The checks stay
+lexical. The P7 conflict rule was written as a generic pattern rather than from
+this fixture's drugs, but it was still authored after seeing the failure, so it
+needs an unseen record to count as validated. No clinician has reviewed any of
+this prose, all three records are invented, and both flags remain default-off.
+
+# The prompt did not fit the request budget — 2026-09-18
+
+Promoting the corrected prompt broke the default generation path, and the Python
+suite caught it. The prompt is a fixed cost paid on every pass, so it competes
+with clinical text for the per-request budget, which was 10,000 bytes in both
+`ClinicalSummaryAgent.requestBytes()` and `pipeline.REQUEST_BYTES`. Every trial
+here had run through OpenRouter at 50,000 bytes, so none of it surfaced.
+
+Measured against the committed fixtures at 10,000 bytes:
+
+| Prompt | 3001 | 3002 | 3003 |
+| --- | --- | --- | --- |
+| pre-session, 6,230 B | 13 passes | 17 passes | 9 passes |
+| corrected, 7,976 B | 30 passes | **fails** | **fails** |
+
+`pipeline.split` will not divide a source below 1024 characters, so a note too
+large to fit beside the prompt but too small to split cannot be planned at all.
+The worst real case is NHSSYN003 note-12 at 985 characters, which capped the
+prompt at about 7,318 bytes — below what the corrected prompt needs.
+
+## Condensing the prompt was the wrong fix
+
+Three attempts to fit the budget all lost clinical content, because what looked
+like redundancy was reinforcement this model depends on:
+
+| Prompt | Size | Claims on 3002 | Outcome |
+| --- | --- | --- | --- |
+| P7 corrected | 7,976 B | 56–62 | passes, exceeds budget |
+| P9 consolidated | 6,572 B | 51 | lost the anticoagulant conflict |
+| P10 | 6,650 B | 29 | lost the conflict and the vitals |
+| P11 | 6,963 B | 24 | lost both; 3003 refused outright |
+
+Merging the duplicated medication-conflict block and the repeated completeness
+instructions cut claim counts by more than half. The repetition was load-bearing.
+
+## Raising the budget instead
+
+`ClinicalSummaryAgent.requestBytes()` now defaults to 16,000, mirrored by
+`pipeline.REQUEST_BYTES`. That is roughly 4,000 tokens against the Ollama
+adapter's configured 16,384-token context less its 4,096-token output budget, so
+it fits comfortably. It also cuts passes sharply: 4, 5 and 3 for the three charts
+rather than 13, 17 and 9 at the old budget with the shorter prompt, which means
+fewer prompt re-sends per summary.
+
+The change was verified by inspection rather than execution, because `mvn test`
+fails in this environment on an unrelated dependency-lock integrity mismatch.
+Each Java reference to the old value was checked: the assertion at
+`AiClinicalSummaryPrototypeAgentUnitTest:179` covers the **HTTP** adapter's
+`http.requestBytes` property default and is unaffected; `:160` calls the real
+default without asserting it, and 16,000 remains inside the permitted range;
+`AiClinicalSummaryPrototypePipelineUnitTest` uses the pipeline floor constant and
+explicit values. **The Java tests still need to be run once the lock issue is
+resolved.**
+
+The protocol floor stays at 10,000 so existing HTTP adapter configurations remain
+valid, which leaves a real edge: an operator who configures 10,000 with this
+prompt gets a failure. It now says so — the error names the budget and the prompt
+instead of reporting an unexplained "minimal source portion" problem — and a
+regression test plans all three committed fixtures at the default budget, so
+future prompt growth fails in the suite rather than at runtime.
+
+## Final validated configuration
+
+`qwen/qwen3.5-27b`, SiliconFlow, temperature 0, reasoning off, single
+whole-record pass, committed prompt, 16,000-byte budget:
+
+| Patient | Claims | Fact recall | Critical recall | Cost | Gate |
+| --- | --- | --- | --- | --- | --- |
+| 3001 RCVS | 28 | 1.00 | 1.00 | $0.0093 | pass |
+| 3002 knee replacement | 56 | 1.00 | 1.00 | $0.0150 | pass |
+| 3003 pneumomediastinum | 31 | 0.95 | 1.00 | $0.0086 | pass |
