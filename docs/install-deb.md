@@ -335,10 +335,11 @@ What it does — and refuses to do:
 
 A note on credentials: the demonstration data adds no login accounts (the
 `locktest` account the devcontainer seeds for lock testing is deliberately
-not shipped) and works with the seeded `carlosdoc` account. If you accepted the default *replace the seeded
-administrator password* question, log in with the random credentials from
-`/etc/carlos-emr/initial-admin.txt`; on a disposable demo box you may prefer
-to decline that question and keep the well-known development credentials.
+not shipped) and works with the seeded `carlosdoc` account. If you accepted
+the default *replace the seeded administrator password* question, log in
+with the random credentials from `/etc/carlos-emr/initial-admin.txt`; on a
+disposable demo box you may prefer to decline that question and keep the
+well-known development credentials.
 
 A system holding this dataset contains publicly-known demonstration content
 and must **never** hold real patient information.
