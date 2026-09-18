@@ -48,7 +48,7 @@ const {
   login,
   validateBaseUrl,
   wirePage,
-} = require('./eform-local-playwright-utils');
+} = require('./lib/playwright-harness');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
@@ -61,17 +61,25 @@ const demographicNo = process.env.FORM_DEMOGRAPHIC_NO || '1';
 const providerNo = process.env.FORM_PROVIDER_NO || '999998';
 
 // Forms that carry the assets this check is about. formcaregiver is the page reported in
-// #3727; the other two carry the same pattern, which is why the fix swept every form/*.jsp
-// rather than only the reported one.
+// #3727; the others carry the same pattern, which is why the fix swept every form/*.jsp
+// rather than only the reported one. formannualfemaleprint is here because its images are
+// assembled inside a JSP declaration, a shape the other three do not have.
+//
+// This list is a sample and cannot prove the sweep was complete. scripts/form-asset-paths.test.js
+// resolves every reference in every form JSP statically for that.
 const FORMS = [
   { name: 'formcaregiver', path: '/form/formcaregiver' },
   { name: 'formmmse', path: '/form/formmmse' },
   { name: 'formSF36', path: '/form/formSF36' },
+  { name: 'formannualfemaleprint', path: '/form/formannualfemaleprint' },
 ];
 
 // A form asset is anything served out of the form module. A request for one of these that
 // does not return 200 is the #3727 failure: either the bare relative path resolved against
 // the page's <base> (the context root) or it was rewritten somewhere that does not exist.
+// Stylesheets are deliberately not matched here: this runs against full URLs and would then
+// also police CDN stylesheets the forms have nothing to do with. Bare stylesheet references
+// are caught on the attribute itself in the page scan below, where a CDN href cannot match.
 const FORM_ASSET = /\/(formScripts\.js|form\/graphics\/|graphics\/)/;
 
 const failures = [];
@@ -130,7 +138,7 @@ function watchAssets(page, formName) {
         const bad = [];
         for (const el of document.querySelectorAll('script[src], img[src], link[href]')) {
           const raw = el.getAttribute('src') || el.getAttribute('href') || '';
-          if (/^(formScripts\.js|graphics\/)/.test(raw)) {
+          if (/^(formScripts\.js|graphics\/|[A-Za-z0-9_-]+\.css)/.test(raw)) {
             bad.push(raw);
           }
         }
