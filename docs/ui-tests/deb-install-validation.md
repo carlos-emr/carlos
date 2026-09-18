@@ -367,8 +367,11 @@ Do not continue on a failing check — every later step assumes this baseline.
 `install-demo-data=true` in the preseed above makes the installer load the
 package's own demonstration dataset (`carlos-ctl demo-data`): the additive
 per-province patient snapshot, the referral-specialist and provider-link
-seeds, the name sanitization, and the Rich Text Letter chain including the
-attachment-route fix. Being additive (`INSERT IGNORE` only), it never touches
+seeds, the name sanitization, the Rich Text Letter chain including the
+attachment-route fix, and the synthetic Administration fixtures
+(`admin_test_data.sql`: the `Local Test -` rows behind the data-backed
+Administration screens; the devcontainer-only `locktest` login is not
+shipped). Being additive (`INSERT IGNORE` only), it never touches
 the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
 (The devcontainer counterpart is `.devcontainer/db/scripts/populate_db.sh`;
 if the two ever disagree about the RTL chain, that script and

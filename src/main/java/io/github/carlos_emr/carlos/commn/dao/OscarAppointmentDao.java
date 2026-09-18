@@ -59,6 +59,9 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
      */
     Appointment findForUpdate(Integer appointmentNo);
 
+    /** Existing legacy-series members from the anchor date through endDate; bounded at 367 rows. */
+    List<Appointment> findRecurringSeries(Appointment anchor, Date endDate);
+
     public List<Appointment> getAppointmentHistory(Integer demographicNo, Integer offset, Integer limit);
 
     public List<Appointment> getAllAppointmentHistory(Integer demographicNo, Integer offset, Integer limit);

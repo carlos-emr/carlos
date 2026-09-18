@@ -1126,3 +1126,47 @@ test('current-document exclusion preserves handlers, popups and different destin
     assert.equal(isCurrentDocumentLink({ ...item, ...changed }, host), false);
   }
 });
+
+
+test('JavaScript-encoded query separators resolve to the URL the browser opens', async () => {
+  const items = await catalogue([
+    anchorDouble({ href: '#', onclick: String.raw`popupPage(600,900,'/carlos/messenger/DisplayMessages?providerNo=999998\x26userName=Test')` }, 'Messages'),
+    anchorDouble({ href: '#', onclick: String.raw`window.open('/carlos/encounter/IncomingConsultation?providerNo=999998\u0026userName=Test')` }, 'Consultations'),
+    anchorDouble({ href: String.raw`javascript:window.open('/carlos/documentManager/ViewDocumentReport?function=providers\x26functionid=999998')` }, 'Documents'),
+  ]);
+  assert.equal(items[0].route, '/carlos/messenger/DisplayMessages?providerNo=999998&userName=Test');
+  assert.equal(items[1].route, '/carlos/encounter/IncomingConsultation?providerNo=999998&userName=Test');
+  assert.equal(items[2].route, '/carlos/documentManager/ViewDocumentReport?function=providers&functionid=999998');
+});
+
+
+for (const [literal, expected] of [
+  [String.raw`'/carlos/foo\x2fbar'`, '/carlos/foo/bar'],
+  [String.raw`'foo\x2Fbar'`, 'foo/bar'],
+  [String.raw`'/carlos/O\'Reilly'`, "/carlos/O'Reilly"],
+  [String.raw`'/carlos/report?q=\X26\U0026'`, '/carlos/report?q=X26U0026'],
+  [String.raw`'\u002fcarlos\x2freport'`, '/carlos/report'],
+]) {
+  test(`route extraction decodes the complete literal ${literal}`, async () => {
+    const items = await catalogue([anchorDouble({href: '#', onclick: `popup(${literal}, '_blank')`}, 'Open')]);
+    assert.equal(items[0].route, expected);
+  });
+}
+
+
+for (const [literal, expected] of [
+  [String.raw`'/carlos\u{2f}report'`, '/carlos/report'],
+  [String.raw`'\u{0000002F}carlos/report'`, '/carlos/report'],
+  [String.raw`'/carlos/report?q=\u{1F600}'`, '/carlos/report?q=😀'],
+]) {
+  test(`route extraction decodes Unicode code-point literal ${literal}`, async () => {
+    const items = await catalogue([anchorDouble({href: '#', onclick: `popup(${literal}, '_blank')`}, 'Open')]);
+    assert.equal(items[0].route, expected);
+  });
+}
+
+test('an invalid Unicode code point fails the audit instead of inventing a route', async () => {
+  await assert.rejects(() => catalogue([anchorDouble({
+    href: '#', onclick: String.raw`popup('/carlos/\u{110000}')`,
+  }, 'Open')]), RangeError);
+});

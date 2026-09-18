@@ -646,7 +646,7 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
     `appointmentArchive has no row for deleted appointment ${appointmentNo}: ${JSON.stringify(archived)}`);
 }
 
-(async () => {
+async function main() {
   initMysqlDefaults();
   let browser = null;
   let context = null;
@@ -710,4 +710,13 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
       cleanupMysqlDefaults();
     }
   }
-})();
+
+}
+if (require.main === module) main().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exitCode = 1;
+});
+// Shared UI fixture: importing this module does not book or delete anything.
+module.exports = { config, recorder, targetDate, target, stamp, bookedReason, bookedNotes,
+  initMysqlDefaults, cleanupMysqlDefaults, cleanupRows, sql, stampedAppointments, stampedArchiveRows,
+  openDaySheet, bookFromSlot, openEditPopup };

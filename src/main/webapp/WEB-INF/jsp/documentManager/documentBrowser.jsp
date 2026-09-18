@@ -264,7 +264,7 @@ Remote documents not supported
                 document.getElementById('docdisp').innerHTML = '<iframe	src="' + url2 + '"  width="' + width + '" height="' + height + '"></iframe>';
 
                 var url4 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewDocumentInfo&doc_no=' + curdocid;
-                document.getElementById('docextrainfo').innerHTML = '<object data="' + url4 + '"  height=250px width="100%" type="text/html" ></object>';
+                document.getElementById('docextrainfo').innerHTML = '<iframe src="' + url4 + '" style="height:250px;width:100%;border:0;" title="Document details"></iframe>';
 
 
             } else {
@@ -285,7 +285,7 @@ Remote documents not supported
                 width = getWidth() - 650;
             }
             var url2 = '<%=request.getContextPath()%>' + '/documentManager/combinePDFs?ContentDisposition=inline' + doclist;
-            document.getElementById('docdisp').innerHTML = '<object	data="' + url2 + '" type="application/pdf" width="' + width + '" height="' + height + '"></object>';
+            document.getElementById('docdisp').innerHTML = '<iframe src="' + url2 + '" style="width:' + width + 'px;height:' + height + 'px;border:0;" title="Document preview"></iframe>';
             document.getElementById('docextrainfo').innerHTML = '';
 
         }

@@ -227,6 +227,7 @@ override_dh_auto_install:
 	    database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
 	    database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
 	    .devcontainer/db/scripts/demo-hrm-report.sql \
+	    .devcontainer/db/scripts/admin_test_data.sql \
 	    $(STAGE)/$(SHAREDIR)/demo/
 	# Demo document FILES. The snapshot's document rows reference these PDFs and
 	# synthetic HRM files cover the snapshot's original .xml.<timestamp> names

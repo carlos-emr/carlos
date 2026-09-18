@@ -350,9 +350,14 @@ the host's own configured name back to it.
 For evaluation, training, and development installs, the installer can fill
 the new database with a fictitious practice: about 3000 fake patients (every
 name carries a `FAKE-` prefix), demonstration providers, appointments,
-clinical notes, labs, prescriptions, and 60 clearly-fake referral
-specialists. Answer **yes** to the `Load the FICTITIOUS demonstration
-dataset?` question during install, or run it later by hand:
+clinical notes, labs, prescriptions, 60 clearly-fake referral specialists,
+and a small set of synthetic Administration fixtures (labelled
+`Local Test -`: billing CSS styles, an inbox forwarding rule,
+patient-independent eForms, referral doctors, a report template, query
+favourites, appointment types and prevention lot numbers) so the data-backed
+Administration screens have something to show. Answer **yes** to the
+`Load the FICTITIOUS demonstration dataset?` question during install, or run
+it later by hand:
 
 ```bash
 sudo carlos-ctl demo-data
@@ -374,11 +379,13 @@ What it does — and refuses to do:
 - **No removal short of destruction.** The only supported way to get the
   demonstration data out is `carlos-ctl destroy-data` and re-provisioning.
 
-A note on credentials: the demonstration data works with the seeded
-`carlosdoc` account. If you accepted the default *replace the seeded
-administrator password* question, log in with the random credentials from
-`/etc/carlos-emr/initial-admin.txt`; on a disposable demo box you may prefer
-to decline that question and keep the well-known development credentials.
+A note on credentials: the demonstration data adds no login accounts (the
+`locktest` account the devcontainer seeds for lock testing is deliberately
+not shipped) and works with the seeded `carlosdoc` account. If you accepted
+the default *replace the seeded administrator password* question, log in
+with the random credentials from `/etc/carlos-emr/initial-admin.txt`; on a
+disposable demo box you may prefer to decline that question and keep the
+well-known development credentials.
 
 A system holding this dataset contains publicly-known demonstration content
 and must **never** hold real patient information.

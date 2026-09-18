@@ -119,7 +119,7 @@ Items outside that implementation table remain planned.
 | `scripts/lib/playwright-harness.js` | The shared harness: `readConfig`, `createSqlRunner`, `login` (forced reset, facility select, and the MFA challenge **when the caller supplies an `mfaCode` callback** — the harness generates no OTP itself, and no check passes one today, so an MFA-enrolled account is refused with an assertion rather than logged in; `login-mfa` in §2.2 is what closes that), `wireStrictPage` / `assertStrictPage`, `runCheck`, the TLS gate, `SkipCheck` | `scripts/playwright-harness.test.js` (18 tests), run by `script-regressions.yml` |
 | `scripts/lib/playwright-ui.js` | The JavaScript-path helpers (`clickOpensPopup`, `clickInjectsPanel`, `expectOpenerRefresh`, `typeAutocomplete`, `pickDate`, `dataTableRows`, `pressShortcut`, `csrfTokenPresent`, `expectDialog`) and the `NAVIGATION` click map | `scripts/playwright-suite-manifest.test.js` |
 | `scripts/lib/console-baseline.json` | The suite-wide, issue-keyed allow-list that replaces per-check `allow` arrays | a test asserts every entry names where its removal is tracked |
-| `scripts/playwright-suite.json` | The manifest: 114 named check entries over 105 scripts (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
+| `scripts/playwright-suite.json` | The manifest lists every named check and its browser script; `npm run test:playwright-list` shows the current selection (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
 | `scripts/run-playwright-suite.js` | The runner: `--tier`, `--only`, `--skip`, `--province`, `--junit`, `--list`, `--dry-run` | `scripts/playwright-suite-manifest.test.js` |
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 
@@ -182,9 +182,8 @@ rows are a table in
 `scripts/lib/playwright-surfaces.js` — a new surface is four lines, not a new
 150-line script — and each is registered and reported individually.
 
-**The smoke tier is at its budget.** Its twelve checks come to 3,600s of
-worst-case timeout, which is the ceiling `playwright-suite-manifest.test.js`
-enforces — a pull-request gate that can take longer than an hour is not a gate.
+**The smoke tier has a 3,600s worst-case timeout ceiling.**
+`playwright-suite-manifest.test.js` enforces that budget directly — a pull-request gate that can take longer than an hour is not a gate.
 `anonymous-access-refused` is registered in `core` for that reason alone, not
 because it earns less than the checks already there: it answers "can a stranger
 read patient data", which is exactly what a gate is for. Adding the next security
@@ -306,6 +305,7 @@ priority group where its module lives:
 | `add-login-account`, `assign-role` | `admin/View…AddARecord`, `admin/ProviderRole` | Schedule ▸ Administration ▸ User Management ▸ … |
 | `allergy-add-penicillin`, `allergy-rx-alert` | `rx/showAllergy`, `encounter/IncomingEncounter` | Chart ▸ Allergies |
 | `eform-*` (six scripts) | `eform/efmformmanager`, `efmformadd_data`, `efmshowform_data` | Schedule ▸ Administration ▸ Forms/eForms ▸ Manage eForms; Chart ▸ eForms |
+| `lab-requisition-links` | `lab/ViewLinkReq`, `messenger/SendDemoMessage` | Search ▸ Master Record ▸ E-Chart ▸ Urinalysis ▸ Msg/Req#; dated 2007/2010 requisitions and an unlinked report; save/reopen/change/unlink and patient context |
 | `document-pagination` | `documentManager/ViewShowDocument` | Search ▸ Master Record ▸ E-Chart ▸ existing document; requires linked single-page and 3+ page PDFs in image mode; validates all four navigation actions and actual image loads |
 | `lab-pdf-footer` | `lab/CA/ALL/PrintPDF` | Search ▸ Master Record ▸ E-Chart ▸ Urinalysis ▸ Print; poppler-utils required; full expected confidentiality notice, printable bounds, no overlap and page numbering on every page |
 | `patient-messenger-context` | `messenger/DisplayDemographicMessages` | Search ▸ Master Record ▸ E-Chart ▸ Messenger tab; two demo patients in one session, eight subject/date sorts retain patient context; owned message fixtures cleaned |
@@ -718,3 +718,5 @@ shared helper.
 | assert the opener refresh contract | 10 |
 | press a keyboard shortcut | 3 |
 | call a page function from `page.evaluate` as the path | 2 |
+
+`appointment-recurrence` drives saved appointment → R → Create repeats, invalid-date correction, repeated submission, Recurring Update/Cancel/Delete and per-occurrence archives. It reuses the existing UI booking fixture, checks exact dates and persisted fields, and removes only its own rows. Run `npm run test:appointment-recurrence-playwright` against an isolated demo database.

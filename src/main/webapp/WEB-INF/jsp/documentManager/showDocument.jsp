@@ -95,7 +95,7 @@
         - Ticklers: io.github.carlos_emr.carlos.managers.TicklerManager
         - Macros: Jackson ObjectMapper for JSON parsing
         - Security: OWASP Encoder, SecurityInfoManager
-        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js (jQuery UI removed)
+        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js, jQuery UI dialog/autocomplete
 
     @since 2003 (Macro and Tickler improvements 2026-02)
 --%>
@@ -314,6 +314,9 @@
         </script>
         <!-- include jQuery Bootstrap jQueryUI fontawesome standard styles -->
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <%-- Forward loads its dialog by AJAX; scripts in that response are not loaded. --%>
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context="htmlAttribute"/>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context="htmlAttribute"/>/js/carlosAutocomplete.js"></script>
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
 
