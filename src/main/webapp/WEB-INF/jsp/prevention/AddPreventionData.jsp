@@ -353,23 +353,39 @@
                 document.getElementById(id).style.display = 'none';
             }
 
+            // The "next date" fieldset and its "never warn" checkbox are rendered only for
+            // the prevention types that schedule a follow-up. Both helpers below are reached
+            // for types that render neither — disableifchecked from body onload on every load —
+            // so every lookup here has to tolerate a missing element instead of throwing
+            // out of onload and taking the rest of the handler with it (#3732).
             function showHideNextDate(id, nextDate, neverWarn) {
-                if (document.getElementById(id).style.display == 'none') {
+                var container = document.getElementById(id);
+                if (!container) {
+                    return;
+                }
+                if (container.style.display == 'none') {
                     showItem(id);
                 } else {
                     hideItem(id);
-                    document.getElementById(nextDate).value = "";
-                    document.getElementById(neverWarn).checked = false;
-
+                    var nextDateField = document.getElementById(nextDate);
+                    if (nextDateField) {
+                        nextDateField.value = "";
+                    }
+                    var neverWarnBox = document.getElementById(neverWarn);
+                    if (neverWarnBox) {
+                        neverWarnBox.checked = false;
+                    }
                 }
             }
 
             function disableifchecked(ele, nextDate) {
-                if (ele.checked == true) {
-                    document.getElementById(nextDate).disabled = true;
-                } else {
-                    document.getElementById(nextDate).disabled = false;
+                var nextDateField = document.getElementById(nextDate);
+                if (!nextDateField) {
+                    return;
                 }
+                // A prevention type with no "never warn" checkbox passes ele === null here;
+                // that is the same as unchecked, so the next-date field stays enabled.
+                nextDateField.disabled = !!(ele && ele.checked);
             }
 
         </SCRIPT>
