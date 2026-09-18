@@ -353,3 +353,32 @@ ${block}
     }
   });
 }
+
+// Execute the shipped nginx decision block with isolated service commands.
+// A syntax or service failure must survive the earlier clear_incomplete call.
+test('postinst records terminal nginx failures and accepts a successful rebind', () => {
+  const start = postinst.indexOf('        if nginx -t >/dev/null 2>&1; then');
+  assert.ok(start >= 0);
+  const end = postinst.indexOf('\n        ;;', start);
+  assert.ok(end > start);
+  const block = postinst.slice(start, end).replaceAll('/run/systemd/system', '/tmp');
+  for (const [syntax, reload, restart, bound, incomplete] of [
+    [1, 0, 0, 0, true], [0, 1, 0, 0, true],
+    [0, 0, 1, 1, true], [0, 0, 0, 1, true],
+    [0, 0, 0, 0, false], [0, 0, 0, 2, false],
+  ]) {
+    const script = `set -eu
+nginx() { return ${syntax}; }
+sd_invoke() { echo "service:$1"; if [ "$1" = reload ]; then return ${reload}; else return ${restart}; fi; }
+calls=0
+front_door_listening() { calls=$((calls + 1)); if [ ${bound} = 2 ]; then [ "$calls" -gt 1 ]; else return ${bound}; fi; }
+mark_incomplete() { echo "incomplete:$1"; }
+${block}
+`;
+    const result = spawnSync('sh', ['-c', script], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.includes('incomplete:'), incomplete, JSON.stringify({ syntax, reload, restart, bound, result }));
+    if (syntax || reload) assert.ok(!result.stdout.includes('service:restart'));
+    if (bound === 2) assert.ok(result.stdout.includes('service:restart'));
+  }
+});

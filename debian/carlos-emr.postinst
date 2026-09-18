@@ -1189,7 +1189,7 @@ case "$1" in
             # This runs after clear_incomplete(), so without recording it an
             # invalid site or certificate would leave the front door down with
             # no marker and nothing for finish-install to retry.
-            mark_incomplete "the nginx configuration test failed, so the front door was not reloaded"
+            mark_incomplete "the nginx configuration test failed"
         fi
         ;;
 

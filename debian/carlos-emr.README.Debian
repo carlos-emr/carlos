@@ -61,9 +61,14 @@ Verify, then install:
 On releases up to and including 2026.08.0-alpha12 the .sha256 files name the
 package with the build-time '~' spelling (carlos-emr_2026.08.0~alpha12_all.deb)
 while GitHub stores the asset with a '.', so `sha256sum -c` reports "No such
-file or directory" on an intact download. Compare the digest by eye instead
-(`sha256sum <file>` against `cat <file>.sha256`); later releases record the
-published name.
+file or directory" on an intact download. For those older releases,
+translate the filename in each downloaded checksum before checking it (the
+digest is unchanged), for example:
+
+  sed 's/~/./g' carlos-emr_2026.08.0.alpha12_all.deb.sha256 | sha256sum -c -
+
+Repeat for drugref and the renderer and require an OK result for every package
+before installing. Later releases record the published name directly.
 
 carlos-emr-eform-renderer is optional but strongly recommended: it carries the
 browser that renders saved eForms to PDF, and eForm print, fax and archive do
@@ -789,7 +794,11 @@ The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silen
   run finish-install manually: an automatic boot retry is not assured.
 
   finish-install returns nonzero if configuration, database settings, accounts,
-  migration, credential replacement or requested demo data fails. It preserves
+  migration, credential replacement, requested demo data or nginx recovery fails.
+  Recovery starts nginx if stopped and verifies the configured ports before
+  clearing the pending state; init-config alone leaves a stopped nginx stopped.
+  If the CARLOS site is missing, run dpkg-reconfigure carlos-emr to restore it.
+  It preserves
   the pending state so you can fix the reported cause and run the same command
   again. A populated schema that fails validation is NEVER migrated at boot;
   arrange a verified backup and have the administrator review the Flyway error
