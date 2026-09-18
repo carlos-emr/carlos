@@ -27,6 +27,11 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+      # Ubuntu 26.04 ships Python 3.14. The runner's 3.12 CSV reader has
+      # a known QUOTE_NOTNULL bug and cannot validate the target semantics.
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14'
       - name: Run isolated Debian tooling regressions
         working-directory: debian/assets
         run: python3 -m unittest discover -s carlos_ctl/tests -t .
