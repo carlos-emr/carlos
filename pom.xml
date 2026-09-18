@@ -111,7 +111,7 @@
              base image); this property does not constrain the runtime. -->
         <tomcat.version>11.0.24</tomcat.version>
         <!-- Bouncy Castle -->
-        <bouncycastle.version>1.84</bouncycastle.version>
+        <bouncycastle.version>1.86</bouncycastle.version>
         <!-- JasperReports -->
         <jasperreports.version>7.0.7</jasperreports.version>
         <!-- Modern OpenPDF uses org.openpdf.* for handwritten PDF code.
