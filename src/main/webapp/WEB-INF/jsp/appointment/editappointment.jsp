@@ -136,7 +136,24 @@
     ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
     ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
     //String demographic_nox = (String)session.getAttribute("demographic_nox");
+    // The day sheet appends demographic_no, provider_no, date and time to this link, but a
+    // link that carries only appointment_no (a bookmark, the receipt window, a support link)
+    // does not. The appointment record is the authority for which patient it belongs to, so
+    // load it up front and fall back to it rather than parsing an absent request parameter
+    // and dying with NumberFormatException before the page renders (#3729). The gate action
+    // has already rejected a missing, non-numeric or unknown appointment_no.
+    Appointment apptFromRequest = null;
+    if (!appointment_no.isEmpty()) {
+        try {
+            apptFromRequest = appointmentDao.find(Integer.parseInt(appointment_no));
+        } catch (NumberFormatException nfe) {
+            apptFromRequest = null;
+        }
+    }
     String demographic_nox = request.getParameter("demographic_no");
+    if ((demographic_nox == null || demographic_nox.isEmpty()) && apptFromRequest != null) {
+        demographic_nox = String.valueOf(apptFromRequest.getDemographicNo());
+    }
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Demographic demographicTmp = demographicManager.getDemographic(loggedInInfo, demographic_nox);
     String proNoTmp = demographicTmp == null ? null : demographicTmp.getProviderNo();
@@ -159,7 +176,11 @@
     ApptData apptObj = ApptUtil.getAppointmentFromSession(request);
 
     List<BillingONCHeader1> cheader1s = null;
-    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))) {
+    // demographic_nox is "0" for a free slot on the day sheet and absent on the add-appointment
+    // flows, neither of which has billing history to fetch.
+    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))
+            && demographic_nox != null && demographic_nox.matches("\\d+")
+            && !"0".equals(demographic_nox)) {
         cheader1s = cheader1Dao.getBillCheader1ByDemographicNo(Integer.parseInt(demographic_nox));
     }
 
@@ -189,7 +210,7 @@
     String strApptDate = bFirstDisp ? "" : request.getParameter("appointment_date");
 
     if (bFirstDisp) {
-        appt = appointmentDao.find(Integer.parseInt(appointment_no));
+        appt = apptFromRequest;
         pageContext.setAttribute("appointment", appt);
     }
 
@@ -222,7 +243,9 @@
             patientStatus = StringUtils.defaultString(d.getPatientStatus());
         }
 
-        DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demono));
+        DemographicCust demographicCust = demono.matches("\\d+")
+                ? demographicCustDao.find(Integer.parseInt(demono))
+                : null;
         if (demographicCust != null) {
             alert = StringUtils.defaultString(demographicCust.getAlert());
         }
