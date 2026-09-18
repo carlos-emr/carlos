@@ -2099,6 +2099,19 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "consultation-null-booking",
+      "script": "scripts/consultation-null-booking-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     }
   ]
 }

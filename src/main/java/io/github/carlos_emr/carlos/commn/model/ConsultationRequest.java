@@ -85,7 +85,8 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
     private String concurrentProblems;
     private String urgency;
     private String appointmentInstructions;
-    private boolean patientWillBook;
+    // The published schema permits NULL for legacy/imported requests.
+    private Boolean patientWillBook = Boolean.FALSE;
 
     @Column(name = "site_name")
     private String siteName;
@@ -246,7 +247,7 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
     }
 
     public boolean isPatientWillBook() {
-        return patientWillBook;
+        return Boolean.TRUE.equals(patientWillBook);
     }
 
     public void setPatientWillBook(boolean patientWillBook) {

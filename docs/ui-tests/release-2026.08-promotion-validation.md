@@ -14,8 +14,13 @@ Review baseline: `c181142689` on `release/2026.08`, compared with `origin/main`
 | Report validation depends on administration navigation order | Full admin audit opens 102 items; Visit Report and Overnight Batch produce six JavaScript error signals. eForm fragments reload jQuery and discard the shell's validation plugins | Restore the shell's jQuery instance before the next fragment; new browser workflow visits eForms before both reports and checks invalid submission is blocked |
 | Migration verification tools can echo a password prefix | An attached argument such as `-pSECRET=tail` is split at `=` before being printed in the refusal | Return only constant option names from both argument checks; regression cases cover attached passwords containing `=` and long/short options |
 | Calculator validation clears its own error and the entered value | The browser's `reportValidity()` focuses the invalid field; the legacy focus handler immediately clears the form | Select the source unit on input edits, preserve focused results, and test correction after a visible validation error |
+| Legacy referral with a NULL booking flag returns HTTP 500 | Dedicated installed-package browser regression reproduces Hibernate hydration failure; the published SQL column permits NULL | Nullable internal model field with the existing boolean API; DAO verifies reading does not rewrite NULL, and Playwright verifies the saved referral opens |
+| Bouncy Castle dependency has open security advisories | Release pins 1.84; Dependabot alerts #195/#196 include a critical name-constraints bypass | Upgrade to 1.86 and refresh its dependency lock; validate the full build and installed cryptographic workflows |
 
 Conversion definitions: [NIST SP 811 Appendix B.8](https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b8).
+
+
+Bouncy Castle release: [upstream 1.86 announcement](https://www.bouncycastle.org/resources/new-release-bouncy-castle-java-1-86/).
 
 ## Review scope
 
@@ -54,7 +59,7 @@ The registry and calculator checks own synthetic patient records; pharmacy searc
 owns two pharmacy rows. Cleanup runs after failures too. The administration check
 opens reports and attempts only an invalid submission. Pharmacy search is an
 authenticated endpoint check after UI login; the other three follow UI controls.
-The suite manifest contains 124 checks after these additions. Listing a check
+The suite manifest contains 125 checks after these additions. Listing a check
 does not mean its deployment-specific prerequisites have been satisfied.
 
 ## Corrected-package verification in progress
