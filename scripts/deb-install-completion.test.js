@@ -432,3 +432,29 @@ test('postinst HTTP probe uses the last overrides and the matching wildcard addr
     }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('reconfigure preserves the last deployed overrides, including a reduced heap and bind address', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-debconf-overrides-'));
+  try {
+    fs.writeFileSync(path.join(root, 'carlos-emr.env'), [
+      'CARLOS_SERVER_NAME=old.invalid', 'CARLOS_BIND_IP=0.0.0.0',
+      'CARLOS_PROVINCE=on', 'CARLOS_JAVA_XMX=8g',
+      'CARLOS_SERVER_NAME="clinic.test"', 'CARLOS_BIND_IP="127.0.0.1"',
+      'CARLOS_PROVINCE="bc"', 'CARLOS_JAVA_XMX="2g"', '',
+    ].join('\n'));
+    const stubs = `db_set() { printf '%s=%s\\n' "$1" "$2"; }
+db_fget() { RET=true; }
+db_input() { :; }
+db_go() { :; }
+db_get() { RET=selfsigned; }`;
+    const script = read('debian', 'carlos-emr.config')
+      .replace('. /usr/share/debconf/confmodule', stubs)
+      .replace('CONF_DIR=/etc/carlos-emr', `CONF_DIR='${root}'`);
+    const result = spawnSync('sh', ['-c', script], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(result.stdout.trim().split('\n'), [
+      'carlos-emr/server-name=clinic.test', 'carlos-emr/bind-ip=127.0.0.1',
+      'carlos-emr/province=bc', 'carlos-emr/java-heap=2g',
+    ]);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
