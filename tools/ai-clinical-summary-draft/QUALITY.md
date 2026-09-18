@@ -252,3 +252,97 @@ checks. The ledger is also not difficult enough to separate good candidates:
 397B, and 27B in four configurations, all reach full or near-full recall. Neither
 trial flags note-8's `07/21/26` body date. No clinician has reviewed any of this
 prose, and real clinical use stays disabled behind both default-off flags.
+
+# Validating 27B across all three patients — 2026-09-18
+
+Tuning against NHSSYN001 alone risks fitting the prompt to one record, so this
+round validates over all three synthetic patients: demographic-3001 (RCVS,
+19 notes, medical), demographic-3002 (elective total knee replacement, 20 notes,
+spanning a pre-op clinic two weeks before admission) and demographic-3003
+(spontaneous pneumomediastinum, 17 notes, heavily abbreviated).
+
+Two harness bugs blocked this. `compare_openrouter.py` labelled every fixture's
+sources `demographic-3001`, so 002 and 003 would have been summarised under the
+wrong patient, and note IDs were numbered from a global index so 002 began at
+`note-20`. Each fixture now carries its own patient ID and numbers its notes from
+one within its own chart.
+
+`score_nhssyn001.py` is now `score_nhs_fixture.py` with a ledger per fixture under
+`quality/facts/`, each 20 labelled facts. It adds a **forbidden assertion** check
+for things the record does not support, which closes the plan-versus-completed
+gap the 09-18 gate could not see.
+
+## The gate caught the previous recommendation
+
+Adding the forbidden-assertion check immediately failed C4, the configuration
+recommended earlier the same day: it wrote "the patient **was discharged** with a
+prescription for nimodipine". All three records end with the patient still
+admitted — 001 plans "Discharge today as fit for home", 002 says "Review tomorrow
+for potential discharge", 003 says "cleared for d/c tmrw" — and no note records
+the event. The earlier gate was too weak, not the earlier result too good.
+
+## Two more prompt defects, both fixed by worked examples
+
+The prompt already forbade inferring discharge **three times** (lines 31, 34, 61)
+and 27B still asserted it. Abstract repetition did not work; a concrete example
+did, exactly as with the staff-name contradiction:
+
+- **P3** added a worked discharge example. The model adopted the given phrasing
+  for intermediate days but still wrote "discharged home" on the final day.
+- **P4** stated plainly that these records end while the patient is admitted, that
+  this holds even when the last note plans discharge for that same day, and that
+  "post-discharge" remains correct for what is arranged afterwards. This fixed it.
+- **P5** added physiologically impossible values, after 002 reported note-9's
+  corrupted observations verbatim as "HR 2 bpm ... RR 1 br/min". A heart rate of
+  2 is incompatible with life, and the existing "omit ambiguous or garbled text"
+  instruction did not cover implausible *numbers*. P5 removed it on both providers.
+
+## Calibrating the scorer against labelled pairs
+
+Two "duplicates" turned out to be scorer false positives: a repeat chest X-ray
+*result* beside the *plan* for a later one, and an Hb result beside the iron
+prescribed for it. Both shared a condition name and date without restating a
+fact. Measured over labelled pairs, the false ones sat at 0.50 containment while
+genuine 397B restatements ran 0.60–0.83, so duplication now requires Jaccard ≥
+0.30 **and** containment ≥ 0.60. This drops two borderline true positives; the
+397B section-pass control still reports nine.
+
+The date check was likewise too strict, flagging a correctly derived date when a
+note planned something for "tomorrow" or "in 48 hours" (and 003 writes "tmrw").
+It now accepts those derivations. The 397B control still shows its three real
+misdatings, so both refinements preserve the defects they were built to catch.
+
+## Result
+
+Nine P5 runs across three patients:
+
+| Fixture | SiliconFlow | Phala | DeepInfra |
+| --- | --- | --- | --- |
+| 3001 RCVS | pass, pass | fail (1 date error) | — |
+| 3002 knee replacement | pass | pass | pass |
+| 3003 pneumomediastinum | pass | pass | — |
+
+Eight of nine pass with full critical-fact recall. The single failure is Phala at
+temperature 0 on 3001, claiming an MRI date its only cited note does not carry —
+the second time Phala has failed where SiliconFlow passed. SiliconFlow is 4/4 at
+full labelled-fact recall. DeepInfra also passed and was fastest at 62 seconds.
+
+**Recommended configuration is unchanged except for the prompt:**
+`qwen/qwen3.5-27b`, SiliconFlow, temperature 0, reasoning off, single
+whole-record pass, at roughly $0.008–0.015 and 60–210 seconds per record. P5 is
+now the committed `prompt.txt`, its Java mirror and `section-prompt.txt`, and
+run `G1` confirms the committed prompt passes with no override.
+
+## What is still not covered
+
+The checks remain lexical. "The patient was discharged" is caught; "the patient
+went home" would not be. Claim text still sometimes cites source IDs in prose
+("note-17 documents..."), which the prompt discourages and the gate does not
+measure, and readability is still unmeasured. The 003 ledger's
+`conservative-management` fact is missed in some runs, so recall of 0.95 there is
+run-to-run variation on a non-critical fact rather than a stable gap. Reporting a
+physiologically impossible value is treated as a defect that must be omitted;
+flagging it explicitly as a data-quality problem may be the better clinical
+behaviour and is currently scored the same as asserting it. No clinician has
+reviewed any of this prose, all three records are invented, and real clinical use
+remains disabled behind both default-off flags.

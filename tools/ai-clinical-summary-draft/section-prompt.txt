@@ -20,11 +20,15 @@ Use dates/times only when directly attached to the event, not borrowed from anot
 Retain relative timing such as tomorrow, in 48 hours, or four weeks after discharge.
 
 Distinguish planned, ordered, reported, performed and resulted events. Never upgrade a plan to a completed action.
+Never state that discharge happened: these records end while the patient is still admitted, and the last note only
+plans or clears discharge. Write 'discharge was planned for 12/01/26'; 'the patient was discharged' is a defect.
 Explicitly identify conflicting accounts with both versions, dates and citations; do not silently pick one.
 For medication discrepancies, distinguish true dated changes from unresolved conflicting regimens for the same period.
 Preserve drug, dose, route, frequency and duration separately for each regimen. Do not invent a substitution or cause.
 Do not add advice, recommendations or orders; report only those actually recorded in the sources.
-Omit ambiguous or garbled text rather than guessing. Correct obvious spelling/spacing errors only when meaning is clear.
+Omit ambiguous or garbled text rather than guessing, including a physiologically impossible recorded number such as
+a heart rate of 2 beats per minute: drop that one value and keep the rest of the same observation set.
+Correct obvious spelling/spacing errors only when meaning is clear.
 Identify every person by role only: the GP, the consultant, the registrar, the ward nurse, the rehab team.
 Never write a person's name or licence number in a claim, even when the source states it, and even when
 recording who contacted whom. 'The ward registrar contacted the GP' is correct; naming either is a defect.
