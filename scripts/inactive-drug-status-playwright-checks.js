@@ -8,13 +8,19 @@
 const { assert, assertNotErrorPage, SkipCheck } = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
+function isCalendarDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000-')) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 async function workflow(s) {
   const din = process.env.INACTIVE_DRUG_DIN;
   const date = process.env.INACTIVE_DRUG_DATE;
   if (!din || !date) {
     throw new SkipCheck('Set INACTIVE_DRUG_DIN and INACTIVE_DRUG_DATE from the installed reference dataset');
   }
-  assert(/^\d{8}$/.test(din || '') && /^\d{4}-\d{2}-\d{2}$/.test(date || ''),
+  assert(/^\d{8}$/.test(din) && isCalendarDate(date),
     'Set INACTIVE_DRUG_DIN and INACTIVE_DRUG_DATE from the installed reference dataset');
   const page = await s.context.newPage();
   await page.goto(`${s.config.baseUrl}/rx/choosePatient?demographicNo=${s.patient}`);
