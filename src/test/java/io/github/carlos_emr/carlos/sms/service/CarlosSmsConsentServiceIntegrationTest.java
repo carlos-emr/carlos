@@ -119,6 +119,19 @@ class CarlosSmsConsentServiceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @DisplayName("blocks as opted out when duplicate SMS consent rows disagree")
+    void shouldBlockAsOptedOut_whenDuplicateConsentRowsDisagree() {
+        ConsentType smsType = configureSmsConsentType();
+        persistConsent(smsType, false);
+        Consent optedOut = persistConsent(smsType, true);
+
+        SmsConsentDecisionDto decision = consentService.evaluate(patientMessage());
+
+        assertThat(decision.blockedStatus()).isEqualTo(SmsStatus.OPTOUT_BLOCKED);
+        assertThat(decision.consentId()).isEqualTo(optedOut.getId());
+    }
+
+    @Test
     @DisplayName("permits and persists the consent snapshot on the sms_transaction row")
     void shouldPersistConsentSnapshot_whenPatientConsented() {
         Consent consented = persistConsent(configureSmsConsentType(), false);

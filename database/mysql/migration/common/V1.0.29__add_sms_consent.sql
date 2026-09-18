@@ -17,7 +17,7 @@ ALTER TABLE sms_transaction
 INSERT INTO consentType (type, name, description, active, providerNo, remoteEnabled)
 SELECT 'sms_communication_consent',
        'SMS Text Message Consent',
-       'This patient has consented to receive text messages (SMS) from the clinic at the phone number on file, including appointment reminders and administrative notices. Text messages are not encrypted and may be visible on a locked screen. The patient may withdraw consent at any time.',
+       'This patient has consented to receive text messages (SMS) from the clinic, including appointment reminders and administrative notices. Text messages are not encrypted and may be visible on a locked screen. The patient may withdraw consent at any time.',
        1, NULL, NULL
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM consentType WHERE type = 'sms_communication_consent');

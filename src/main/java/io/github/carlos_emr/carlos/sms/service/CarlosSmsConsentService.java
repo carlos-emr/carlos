@@ -34,13 +34,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
 
 /**
  * Gates outbound SMS on the patient's current record for the configured SMS consent type.
  * <p>
- * Anything other than a current opt-in blocks the send: SMS consent is never implied. The consent
+ * Anything other than a current opt-in blocks the send: SMS consent is never implied. When a patient has
+ * several live records for the consent type, any opt-out among them blocks the send. The consent
  * record is read through {@link ConsentDao} rather than {@code PatientConsentManager} because the
  * manager's lookup requires a {@code LoggedInInfo} for its privilege check and access log, and the queue
  * worker rechecks consent on a scheduler thread that has no session. Authorizing the sender belongs to
@@ -64,6 +67,10 @@ public class CarlosSmsConsentService implements SmsConsentService {
     private static final String SYSTEM_TEST_DISABLED_CODE = "SMS_SYSTEM_TEST_DISABLED";
     private static final String SYSTEM_TEST_DISABLED_MESSAGE =
             "SMS system-test messages are disabled (sms.systemTest.enabled).";
+
+    /** Orders consent records by edit date, treating an undated record as the oldest. */
+    private static final Comparator<Consent> BY_EDIT_DATE =
+            Comparator.comparing(Consent::getEditDate, Comparator.nullsFirst(Comparator.naturalOrder()));
 
     private final SmsConsentTypeResolver consentTypeResolver;
     private final ConsentDao consentDao;
@@ -106,21 +113,37 @@ public class CarlosSmsConsentService implements SmsConsentService {
                     SmsConsentStatus.NOT_CONFIGURED);
         }
 
-        Consent consent = consentDao.findByDemographicAndConsentTypeId(
-                command.demographicNo(), consentType.get().getId());
-        if (consent == null || consent.isDeleted()) {
+        List<Consent> records = currentRecords(command.demographicNo(), consentType.get());
+        if (records.isEmpty()) {
             return blockedWithoutRecord(SmsStatus.CONSENT_BLOCKED, UNKNOWN_CODE, UNKNOWN_MESSAGE,
                     SmsConsentStatus.UNKNOWN);
         }
 
-        Instant lastUpdate = consent.getEditDate() == null
-                ? null
-                : Instant.ofEpochMilli(consent.getEditDate().getTime());
-        if (consent.isOptout()) {
+        // Nothing stops the Consent table holding more than one live row per patient and consent type, and
+        // a single-row lookup would pick one arbitrarily. Fail safe: any live opt-out blocks the send.
+        Optional<Consent> optOut = records.stream().filter(Consent::isOptout).max(BY_EDIT_DATE);
+        if (optOut.isPresent()) {
             return SmsConsentDecisionDto.blocked(SmsStatus.OPTOUT_BLOCKED, OPTED_OUT_CODE, OPTED_OUT_MESSAGE,
-                    SmsConsentStatus.OPT_OUT, consent.getId(), lastUpdate);
+                    SmsConsentStatus.OPT_OUT, optOut.get().getId(), lastUpdate(optOut.get()));
         }
-        return SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, consent.getId(), lastUpdate);
+        Consent latestOptIn = records.stream().max(BY_EDIT_DATE).orElseThrow();
+        return SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, latestOptIn.getId(), lastUpdate(latestOptIn));
+    }
+
+    private List<Consent> currentRecords(int demographicNo, ConsentType consentType) {
+        List<Consent> all = consentDao.findByDemographic(demographicNo);
+        if (all == null) {
+            return List.of();
+        }
+        return all.stream()
+                .filter(consent -> !consent.isDeleted())
+                .filter(consent -> consentType.getId().equals(consent.getConsentTypeId()))
+                .toList();
+    }
+
+    private static Instant lastUpdate(Consent consent) {
+        // java.sql.Date subclasses throw from toInstant(); epoch millis is safe for every Date.
+        return consent.getEditDate() == null ? null : Instant.ofEpochMilli(consent.getEditDate().getTime());
     }
 
     private static SmsConsentDecisionDto blockedWithoutRecord(
