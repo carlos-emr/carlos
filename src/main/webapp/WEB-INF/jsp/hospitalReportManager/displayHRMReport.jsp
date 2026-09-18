@@ -502,7 +502,7 @@
             <%-- The packaged CSP intentionally blocks object/embed (object-src 'none').
                  A same-origin frame allows the browser's PDF viewer without weakening it. --%>
             <iframe title="HRM report"
-                    src="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>"
+                    src="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>&amp;disposition=inline"
                     style="width: 100%; height: 600px; border: 0;"></iframe>
             <br/>
             <%
