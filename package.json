@@ -80,6 +80,7 @@
     "test:echart-vitals-bmi-playwright": "node scripts/echart-vitals-bmi-playwright-checks.js",
     "test:prevention-brand-picker-playwright": "node scripts/prevention-brand-picker-playwright-checks.js",
     "test:form-rourke2017-playwright": "node scripts/form-rourke2017-playwright-checks.js",
+    "test:form-labreq-practitioner-no-playwright": "node scripts/form-labreq-practitioner-no-playwright-checks.js",
     "test:allergy-add-penicillin-playwright": "node scripts/allergy-add-penicillin-playwright-checks.js",
     "test:lab-macro-tickler-playwright": "node scripts/lab-macro-tickler-playwright-checks.js",
     "test:schedule-quick-search-appointment-playwright": "node scripts/schedule-quick-search-appointment-playwright-checks.js",

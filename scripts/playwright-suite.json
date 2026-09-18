@@ -941,6 +941,22 @@
       "timeoutSec": 300
     },
     {
+      "name": "form-labreq-practitioner-no",
+      "script": "scripts/form-labreq-practitioner-no-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LABREQ_DEMOGRAPHIC_NO",
+        "LABREQ_PROVIDER_NO"
+      ]
+    },
+    {
       "name": "form-rourke2017",
       "script": "scripts/form-rourke2017-playwright-checks.js",
       "tiers": [
