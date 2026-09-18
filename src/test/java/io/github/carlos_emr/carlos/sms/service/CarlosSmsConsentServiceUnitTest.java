@@ -39,6 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,7 +78,7 @@ class CarlosSmsConsentServiceUnitTest {
     @DisplayName("evaluate blocks patient messages when the patient has no SMS consent record")
     void shouldBlockAsUnknown_whenPatientHasNoConsentRecord() {
         configureConsentType();
-        when(consentDao.findByDemographicAndConsentTypeId(DEMOGRAPHIC_NO, CONSENT_TYPE_ID)).thenReturn(null);
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of());
 
         SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
 
@@ -92,7 +93,7 @@ class CarlosSmsConsentServiceUnitTest {
         configureConsentType();
         Consent deleted = consent(false);
         deleted.setDeleted(true);
-        when(consentDao.findByDemographicAndConsentTypeId(DEMOGRAPHIC_NO, CONSENT_TYPE_ID)).thenReturn(deleted);
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of(deleted));
 
         SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
 
@@ -104,7 +105,7 @@ class CarlosSmsConsentServiceUnitTest {
     void shouldBlockAsOptedOut_whenPatientOptedOut() {
         configureConsentType();
         Consent optedOut = consent(true);
-        when(consentDao.findByDemographicAndConsentTypeId(DEMOGRAPHIC_NO, CONSENT_TYPE_ID)).thenReturn(optedOut);
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of(optedOut));
 
         SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
 
@@ -118,7 +119,7 @@ class CarlosSmsConsentServiceUnitTest {
     void shouldPermitWithConsentSnapshot_whenPatientConsented() {
         configureConsentType();
         Consent consented = consent(false);
-        when(consentDao.findByDemographicAndConsentTypeId(DEMOGRAPHIC_NO, CONSENT_TYPE_ID)).thenReturn(consented);
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of(consented));
 
         SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
 
@@ -131,10 +132,52 @@ class CarlosSmsConsentServiceUnitTest {
     }
 
     @Test
+    @DisplayName("evaluate fails safe to opted out when duplicate SMS consent records conflict")
+    void shouldBlockAsOptedOut_whenDuplicateConsentRecordsConflict() {
+        configureConsentType();
+        Consent newerOptIn = consent(5000, CONSENT_TYPE_ID, false, EDITED_AT.plusSeconds(3600));
+        Consent olderOptOut = consent(4000, CONSENT_TYPE_ID, true, EDITED_AT);
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of(newerOptIn, olderOptOut));
+
+        SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
+
+        assertBlocked(decision, SmsStatus.OPTOUT_BLOCKED, "SMS_CONSENT_OPTED_OUT", SmsConsentStatus.OPT_OUT);
+        assertThat(decision.consentId()).isEqualTo(4000);
+    }
+
+    @Test
+    @DisplayName("evaluate records the most recently edited record when duplicate opt-ins exist")
+    void shouldRecordMostRecentlyEditedConsent_whenDuplicateOptInsExist() {
+        configureConsentType();
+        Consent undated = consent(3000, CONSENT_TYPE_ID, false, null);
+        Consent older = consent(4000, CONSENT_TYPE_ID, false, EDITED_AT);
+        Consent newer = consent(5000, CONSENT_TYPE_ID, false, EDITED_AT.plusSeconds(3600));
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of(undated, older, newer));
+
+        SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
+
+        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.consentId()).isEqualTo(5000);
+        assertThat(decision.consentLastUpdateDate()).isEqualTo(EDITED_AT.plusSeconds(3600));
+    }
+
+    @Test
+    @DisplayName("evaluate ignores the patient's records for other consent types")
+    void shouldBlockAsUnknown_whenOnlyOtherConsentTypesAreRecorded() {
+        configureConsentType();
+        Consent otherTypeOptIn = consent(6000, CONSENT_TYPE_ID + 1, false, EDITED_AT);
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of(otherTypeOptIn));
+
+        SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
+
+        assertBlocked(decision, SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN", SmsConsentStatus.UNKNOWN);
+    }
+
+    @Test
     @DisplayName("evaluate applies the same patient consent check to appointment reminders")
     void shouldBlockAppointmentReminder_whenPatientHasNoConsentRecord() {
         configureConsentType();
-        when(consentDao.findByDemographicAndConsentTypeId(DEMOGRAPHIC_NO, CONSENT_TYPE_ID)).thenReturn(null);
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of());
 
         SmsConsentDecisionDto decision = service(true)
                 .evaluate(command(DEMOGRAPHIC_NO, SmsMessagePurpose.APPOINTMENT_REMINDER));
@@ -196,18 +239,22 @@ class CarlosSmsConsentServiceUnitTest {
         when(consentTypeResolver.resolve()).thenReturn(Optional.of(consentType));
     }
 
-    /** {@link Consent} exposes no id setter, so a subclass supplies the persisted id the audit snapshot records. */
     private static Consent consent(boolean optedOut) {
+        return consent(CONSENT_ID, CONSENT_TYPE_ID, optedOut, EDITED_AT);
+    }
+
+    /** {@link Consent} exposes no id setter, so a subclass supplies the persisted id the audit snapshot records. */
+    private static Consent consent(int id, int consentTypeId, boolean optedOut, Instant editedAt) {
         Consent consent = new Consent() {
             @Override
             public Integer getId() {
-                return CONSENT_ID;
+                return id;
             }
         };
         consent.setDemographicNo(DEMOGRAPHIC_NO);
-        consent.setConsentTypeId(CONSENT_TYPE_ID);
+        consent.setConsentTypeId(consentTypeId);
         consent.setOptout(optedOut);
-        consent.setEditDate(Date.from(EDITED_AT));
+        consent.setEditDate(editedAt == null ? null : Date.from(editedAt));
         return consent;
     }
 

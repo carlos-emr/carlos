@@ -37,6 +37,7 @@ All adapters implement `send(command, clientReferenceId)`. There is no overload 
   | Patient opted out | `OPTOUT_BLOCKED` | `SMS_CONSENT_OPTED_OUT` | `OPT_OUT` |
   | Patient consented | proceeds | none | `OPT_IN` |
 
+- The `Consent` table has no unique key on patient and consent type, so a patient can hold more than one live record for the SMS type. The check reads all of them: any opt-out blocks the send, and otherwise the most recently edited opt-in is the record relied on. A single-row lookup would pick one arbitrarily.
 - Each `sms_transaction` row keeps the consent it relied on: `consent_status`, `consent_id` and `consent_last_update_date` (the `Consent` row's edit date). The snapshot is written at admission. A dispatch-time block overwrites it; a dispatch-time permit does not rewrite it, so a record re-edited while still consented keeps its admission snapshot.
 - The consent record is read through `ConsentDao`, not `PatientConsentManager.getConsentByDemographicAndConsentType`. That manager method needs a `LoggedInInfo` for its privilege check and access log, and the queue worker rechecks consent on a scheduler thread with no session. Authorizing the sender is the job of the future send action, not of the consent check.
 - Operator messages and reason codes never contain patient identifiers.
