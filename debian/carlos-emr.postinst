@@ -129,6 +129,23 @@ sd_invoke() {
     deb-systemd-invoke "$@"
 }
 
+# The front-door listeners the rendered configuration asks for — CARLOS_BIND_IP
+# on 80 and 443 — are bound. Polled briefly: nginx binds them a moment after the
+# reload signal is delivered, and asking too early would restart a front door
+# that was about to come up on its own. An IPv6 literal shows bracketed in ss.
+front_door_listening() {
+    bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+    [ -n "${bind_ip}" ] || bind_ip=0.0.0.0
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        if ss -ltnH 2>/dev/null | awk -v ip="${bind_ip}" \
+            '($4 == ip ":80" || $4 == "[" ip "]:80") {a=1} ($4 == ip ":443" || $4 == "[" ip "]:443") {b=1} END {exit !(a && b)}'; then
+            return 0
+        fi
+        sleep 0.2
+    done
+    return 1
+}
+
 # Clear carlos-emr.service's start rate-limit counter before a package-driven
 # lifecycle action. The unit carries StartLimitBurst=6/StartLimitIntervalSec=30min
 # to catch a genuine crash loop, but THREE packages (carlos-emr, -drugref,
@@ -1136,8 +1153,22 @@ case "$1" in
         fi
         if nginx -t >/dev/null 2>&1; then
             if [ -d /run/systemd/system ]; then
-                sd_invoke reload nginx.service 2>/dev/null || sd_invoke restart nginx.service || \
-                    echo "carlos-emr: WARNING: nginx did not reload — the front door may be serving stale configuration (systemctl status nginx)" >&2
+                # A successful `reload` proves nothing: it only delivers a
+                # signal, and the master then fails to bind the NEW listen
+                # sockets whenever the old ones block them. On every fresh
+                # install the distribution's nginx is already up on
+                # 0.0.0.0:80 with its default site, and a wildcard listener
+                # in LISTEN state makes bind(127.0.0.1:80) fail with
+                # EADDRINUSE — nginx logs an [emerg], keeps serving the OLD
+                # configuration, and reports success. A tester's install
+                # "succeeded" with nothing answering on 443. So prove the
+                # configured listeners are bound and restart when they are
+                # not (a restart closes every old socket before binding
+                # anew). carlos-ctl init-config does the same.
+                if ! sd_invoke reload nginx.service 2>/dev/null || ! front_door_listening; then
+                    { sd_invoke restart nginx.service && front_door_listening; } || \
+                        echo "carlos-emr: WARNING: nginx is not listening on the configured front-door address — it may be serving stale configuration (systemctl status nginx; journalctl -u nginx)" >&2
+                fi
             fi
         else
             echo "carlos-emr: the nginx configuration test FAILED; the front door was not reloaded." >&2

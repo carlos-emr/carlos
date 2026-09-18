@@ -12,6 +12,7 @@ carlos-ctl init-config" with nothing further to remember.
 import hashlib
 import os
 import re
+import time
 
 from . import util
 from .util import (
@@ -304,26 +305,96 @@ def cmd_init_config(argv) -> int:
     if mode == "selfsigned":
         if run([cert, "selfsigned"]).returncode != 0:
             warn("certificate refresh failed; run 'carlos-ctl cert status'")
-    if os.path.isdir("/run/systemd/system") and \
-            run(["systemctl", "is-active", "--quiet", "nginx.service"]).returncode == 0:
-        if run(["nginx", "-t"], capture_output=True).returncode == 0:
-            if run(["systemctl", "reload", "nginx.service"]).returncode == 0:
-                log("nginx reloaded — front-door changes are live")
-            else:
-                # The config passed its test but the reload job failed (nginx
-                # died in between, ExecReload error). Silence here meant the
-                # operator's front-door change never served, with exit 0.
-                die("nginx reload FAILED — front-door changes are NOT live; "
-                    "run 'systemctl status nginx'")
-        else:
-            warn("the rendered nginx configuration FAILS its test; nginx was NOT reloaded")
-            warn("(the running config keeps serving). Details:")
-            run(["nginx", "-t"])
-            return 1
+    rc = apply_nginx(s.bind_ip)
+    if rc != 0:
+        return rc
     if run(["systemctl", "is-active", "--quiet", "carlos-emr.service"]).returncode == 0:
         log("application-side settings (heap, timezone, database) need: carlos-ctl restart")
     return 0
 
+
+
+def _listeners(port: str) -> list:
+    """Every address bound on exactly this TCP port right now, from ss, with
+    IPv6 brackets stripped so a literal compares as the operator wrote it."""
+    found = []
+    for line in util.out(["ss", "-ltnH"]).splitlines():
+        cols = line.split()
+        if len(cols) >= 4 and cols[3].rsplit(":", 1)[-1] == port:
+            found.append(cols[3].rsplit(":", 1)[0].lstrip("[").rstrip("]"))
+    return found
+
+
+def _front_door_missing(bind_ip: str, wait: float = 3.0) -> list:
+    """The front-door listeners the rendered configuration asks for —
+    CARLOS_BIND_IP on 80 and 443 — that are NOT bound, polled for up to
+    `wait` seconds: nginx binds them a moment after the reload signal is
+    delivered, and asking too early would restart a front door that was
+    about to come up on its own."""
+    deadline = time.monotonic() + wait
+    while True:
+        missing = [f"{bind_ip}:{port}" for port in ("80", "443")
+                   if bind_ip not in _listeners(port)]
+        if not missing or time.monotonic() >= deadline:
+            return missing
+        time.sleep(0.2)
+
+
+def apply_nginx(bind_ip: str) -> int:
+    """Make the rendered front-door configuration the one nginx serves.
+
+    A reload alone is not proof of anything. `systemctl reload nginx` only
+    delivers a signal; the master then tries to bind the NEW listen sockets
+    while its old workers still hold the previous ones, and the job reports
+    success either way. When the listen address narrows from the wildcard to
+    a specific one — every fresh install, because the distribution's nginx is
+    already up on 0.0.0.0:80 with its default site before this package
+    configures it; or an operator narrowing CARLOS_BIND_IP — bind(127.0.0.1:80)
+    fails with EADDRINUSE against the still-listening 0.0.0.0:80, nginx logs
+    an [emerg] and keeps serving the OLD configuration, and both the reload
+    and this verb said everything was fine. A tester's install "succeeded"
+    with the front door answering nothing on 443.
+
+    So: config-test, reload, then PROVE the configured listeners are bound;
+    when they are not, restart (which closes every old socket before binding
+    anew) and prove it again. Returns 1 when the rendered configuration fails
+    its test (the running one keeps serving); dies when nginx cannot be
+    brought to the rendered configuration at all.
+    """
+    if not os.path.isdir("/run/systemd/system"):
+        return 0
+    if run(["systemctl", "is-active", "--quiet", "nginx.service"]).returncode != 0:
+        # The package's own nginx step starts it during configure; an operator
+        # who stopped it on purpose keeps it stopped.
+        log("nginx is not running; the rendered configuration serves when it starts")
+        return 0
+    if run(["nginx", "-t"], capture_output=True).returncode != 0:
+        warn("the rendered nginx configuration FAILS its test; nginx was NOT reloaded")
+        warn("(the running config keeps serving). Details:")
+        run(["nginx", "-t"])
+        return 1
+    if run(["systemctl", "reload", "nginx.service"]).returncode != 0:
+        # The config passed its test but the reload job failed (nginx died in
+        # between, ExecReload error). Silence here meant the operator's
+        # front-door change never served, with exit 0.
+        die("nginx reload FAILED — front-door changes are NOT live; "
+            "run 'systemctl status nginx'")
+    missing = _front_door_missing(bind_ip)
+    if not missing:
+        log("nginx reloaded — front-door changes are live")
+        return 0
+    warn(f"nginx accepted the reload but is not listening on {', '.join(missing)}: "
+         "its previous listeners still hold the port (a wildcard 0.0.0.0 bind "
+         "blocks a specific-address bind on the same port); restarting nginx")
+    if run(["systemctl", "restart", "nginx.service"]).returncode != 0:
+        die("nginx restart FAILED — front-door changes are NOT live; "
+            "run 'systemctl status nginx'")
+    missing = _front_door_missing(bind_ip)
+    if missing:
+        die(f"nginx restarted but is still not listening on {', '.join(missing)}; "
+            "run 'systemctl status nginx' and 'journalctl -u nginx'")
+    log("nginx restarted — front-door changes are live")
+    return 0
 
 
 def _render_browser_endpoint() -> tuple:

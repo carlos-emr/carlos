@@ -37,12 +37,33 @@ Release builds of both packages are attached to every CARLOS GitHub release
 (https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
 workflow, alongside their .sha256 checksums and build-provenance
 attestations. The carlos-emr package on a release ships that release's own
-published WAR byte for byte. Verify, then install:
+published WAR byte for byte.
+
+Fetching them from a shell (a server has no browser; from WSL this is far
+easier than copying files across): on the release page, right-click each
+asset and copy its link address, or build the URLs from the tag. <tag> is the
+release tag as GitHub shows it (2026.08.0-alpha12); <version> is that tag as
+it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha12):
+
+  R=https://github.com/carlos-emr/carlos/releases/download/<tag>
+  wget $R/carlos-emr_<version>_all.deb $R/carlos-emr_<version>_all.deb.sha256 \
+       $R/carlos-emr-drugref_<version>_all.deb $R/carlos-emr-drugref_<version>_all.deb.sha256 \
+       $R/carlos-emr-eform-renderer_<version>_amd64.deb $R/carlos-emr-eform-renderer_<version>_amd64.deb.sha256
+
+Verify, then install:
 
   sha256sum -c carlos-emr_<version>_all.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
+  sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
   sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb \
       ./carlos-emr-eform-renderer_<version>_amd64.deb
+
+On releases up to and including 2026.08.0-alpha12 the .sha256 files name the
+package with the build-time '~' spelling (carlos-emr_2026.08.0~alpha12_all.deb)
+while GitHub stores the asset with a '.', so `sha256sum -c` reports "No such
+file or directory" on an intact download. Compare the digest by eye instead
+(`sha256sum <file>` against `cat <file>.sha256`); later releases record the
+published name.
 
 carlos-emr-eform-renderer is optional but strongly recommended: it carries the
 browser that renders saved eForms to PDF, and eForm print, fax and archive do
@@ -164,9 +185,17 @@ where, certificate validity, the security headers, whether the WAF actually
 blocks a probe attack, schema state, and backup freshness. Start there.
 
 The database migrations seed one administrator account, `carlosdoc`, whose
-password hash is published in the CARLOS source repository. The package
-replaces that password and PIN with random values at install time and writes
-them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
+password hash is published in the CARLOS source repository. When the
+installer's "replace the seeded administrator password" question is accepted
+(the default), the package replaces that password and PIN with random values
+and writes them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
+Declining the question keeps the published credential active — a choice for
+a throwaway machine only; on any other host run
+
+  sudo carlos-ctl bootstrap-admin
+
+before anyone else can reach the server. The verb takes no options: it
+refuses any argument (including --help) rather than running with it ignored.
 
 That account arrives flagged for a FORCED PASSWORD RESET — the state the
 migrations seed it in, which this package deliberately keeps. Your first login

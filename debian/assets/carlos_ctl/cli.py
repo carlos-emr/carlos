@@ -263,6 +263,32 @@ _VERBS = {
 }
 
 
+# Verbs that take no arguments at all. Anything after one of these is a
+# mistake — a typo, or `--help` asked of a verb that has no options — and
+# running the verb anyway is the wrong answer: `carlos-ctl bootstrap-admin
+# --help` reset a tester's freshly set administrator password because the
+# flag was silently discarded. Verbs with their own option parsing (import-o19,
+# destroy-data, backup, db, ...) answer for their arguments themselves.
+_NO_ARGUMENT_VERBS = frozenset({
+    "bootstrap-admin", "cert-renew", "check", "db-apply-settings",
+    "init-config", "rotate", "status",
+})
+
+
+def _verb_usage(verb: str) -> str:
+    """The lines of the usage text that describe one verb: its own line plus
+    the indented continuation lines under it."""
+    lines = []
+    for line in _USAGE.splitlines():
+        if line.startswith(f"  carlos-ctl {verb} ") or line.rstrip() == f"  carlos-ctl {verb}":
+            lines.append(line)
+        elif lines and line.startswith(" " * 34):
+            lines.append(line)
+        elif lines:
+            break
+    return "\n".join(lines) or f"  carlos-ctl {verb}"
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if os.environ.get("CARLOS_CTL_INVOKED_AS") == "carlosctl":
@@ -276,6 +302,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     handler = _VERBS.get(verb)
     if handler is None:
         die(f"unknown command: {verb} (try: carlos-ctl --help)")
+    if verb in _NO_ARGUMENT_VERBS and rest:
+        if rest[0] in ("-h", "--help", "help"):
+            print(f"usage:\n{_verb_usage(verb)}\n\n'{verb}' takes no arguments.")
+            return 0
+        die(f"'{verb}' takes no arguments (got: {' '.join(rest)}); "
+            f"see 'carlos-ctl --help'")
     try:
         return int(handler(rest) or 0)
     except KeyboardInterrupt:
