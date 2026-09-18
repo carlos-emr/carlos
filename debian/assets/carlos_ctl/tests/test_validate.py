@@ -68,7 +68,7 @@ class TestFrontDoorListeners(unittest.TestCase):
             if command == ["ss", "-ltnpH"]:
                 return "\n".join(lines)
             self.fail("front-door probe ran an unexpected command: " + repr(command))
-        with patch.object(validate.config.util, "out", side_effect=output):
+        with patch.object(validate.config.util, "out_checked", side_effect=output):
             return [validate.config._listeners(port) for port in ("80", "443")]
 
     @staticmethod
@@ -100,3 +100,12 @@ class TestFrontDoorListeners(unittest.TestCase):
     def test_an_ipv6_literal_compares_as_the_operator_wrote_it(self):
         found = self.listeners(self._ss("[::1]:80"), self._ss("[::1]:443"))
         self.assertEqual(found, [["::1"], ["::1"]])
+
+    def test_a_probe_that_could_not_run_is_not_an_empty_answer(self):
+        # `check` turns this into a FAIL about the probe; an empty list here
+        # would instead report a healthy front door as down.
+        def failed(command):
+            raise validate.config.util.CommandFailed(command, 2)
+        with patch.object(validate.config.util, "out_checked", side_effect=failed):
+            with self.assertRaises(validate.config.util.CommandFailed):
+                validate.config._front_door_missing("127.0.0.1", wait=0)

@@ -368,9 +368,13 @@ def cmd_init_config(argv) -> int:
 
 def _listeners(port: str) -> list:
     """Every nginx address bound on exactly this TCP port right now, with
-    IPv6 brackets stripped so a literal compares as the operator wrote it."""
+    IPv6 brackets stripped so a literal compares as the operator wrote it.
+
+    Raises util.CommandFailed when `ss` itself could not run: an empty list
+    means "nginx is not bound there", which is a finding, and a probe that
+    never ran must not be reported as one."""
     found = []
-    for line in util.out(["ss", "-ltnpH"]).splitlines():
+    for line in util.out_checked(["ss", "-ltnpH"]).splitlines():
         # A different daemon owning both ports is not a working nginx front
         # door. Missing process visibility must also fail closed (caller is root).
         if not re.search(r'\("nginx",pid=[0-9]+,fd=[0-9]+\)', line):
@@ -395,6 +399,21 @@ def _front_door_missing(bind_ip: str, wait: float = 3.0) -> list:
         if not missing or time.monotonic() >= deadline:
             return missing
         time.sleep(0.2)
+
+
+def _front_door_missing_or_die(bind_ip: str) -> list:
+    """_front_door_missing, with a probe that could not run kept apart from a
+    probe that found nothing.
+
+    Reading a failed `ss` as "no listeners" would restart a healthy nginx and
+    then declare the front door down — and in the postinst that lands an
+    `.install-incomplete` marker blaming nginx for the wrong thing."""
+    try:
+        return _front_door_missing(bind_ip)
+    except util.CommandFailed as exc:
+        die(f"could not check the front-door listeners ({exc}); nginx was not "
+            "restarted. Check that iproute2 is installed and 'ss -ltnp' runs "
+            "as root, then run 'carlos-ctl init-config' again")
 
 
 # The site symlink the package creates in postinst. Its absence means the
@@ -466,7 +485,7 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
         log("the CARLOS site is not enabled in nginx yet; the rendered front "
             "door serves once the package enables it")
         return 0
-    missing = _front_door_missing(bind_ip)
+    missing = _front_door_missing_or_die(bind_ip)
     if not missing:
         log(f"nginx {action} succeeded — front-door listeners are bound")
         return 0
@@ -475,7 +494,7 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
     if run(["systemctl", "restart", "nginx.service"]).returncode != 0:
         die("nginx restart FAILED — front-door changes are NOT live; "
             "run 'systemctl status nginx'")
-    missing = _front_door_missing(bind_ip)
+    missing = _front_door_missing_or_die(bind_ip)
     if missing:
         die(f"nginx restarted but is still not listening on {', '.join(missing)}; "
             "run 'systemctl status nginx' and 'journalctl -u nginx'")

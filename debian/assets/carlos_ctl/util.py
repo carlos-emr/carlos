@@ -88,6 +88,37 @@ def out(cmd: List[str]) -> str:
     return cp.stdout.strip() if cp.returncode == 0 else ""
 
 
+class CommandFailed(RuntimeError):
+    """A command that was asked a question did not run."""
+
+    def __init__(self, cmd: List[str], returncode: int):
+        super().__init__(f"{' '.join(cmd)} exited {returncode}")
+        self.cmd = list(cmd)
+        self.returncode = returncode
+
+
+def out_checked(cmd: List[str]) -> str:
+    """Command stdout, stripped; raises CommandFailed when the command itself
+    failed.
+
+    `out` cannot tell a command that failed from one that printed nothing, and
+    an empty answer reads as "the thing you asked about is absent". For a probe
+    that is a false finding rather than an empty result: an `ss` that could not
+    run would say the front door is unbound, restart a perfectly healthy nginx
+    and then report it as broken. Use this wherever absence is the interesting
+    answer."""
+    try:
+        cp = run(cmd, capture_output=True)
+    except OSError as exc:
+        # The likeliest failure of all: the tool is not installed, or is not
+        # on PATH here. A traceback out of a probe helper is not a diagnosis
+        # either.
+        raise CommandFailed(cmd, exc.errno or 1) from exc
+    if cp.returncode != 0:
+        raise CommandFailed(cmd, cp.returncode)
+    return cp.stdout.strip()
+
+
 def reset_emr_start_limit() -> None:
     """Clear carlos-emr.service's failed state and start-rate counter.
 

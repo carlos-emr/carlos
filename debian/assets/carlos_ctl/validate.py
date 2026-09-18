@@ -174,12 +174,21 @@ def cmd_check(argv) -> int:
     # (443 without 80, or the old wildcard 80) while every worker still serves
     # the previous configuration — and "something is on 443" was green on
     # exactly that broken host.
-    missing = config._front_door_missing(s.bind_ip, wait=0)
-    if not missing:
-        _ok(f"nginx is listening on {s.bind_ip}:80 and {s.bind_ip}:443")
+    #
+    # A probe that could not run is reported as itself, never as a front door
+    # that is down: `check` reports, so a failed `ss` is a failed check here
+    # and never the fatal exit the configuration path takes.
+    try:
+        missing = config._front_door_missing(s.bind_ip, wait=0)
+    except util.CommandFailed as exc:
+        _bad(f"could not check the nginx front door ({exc}) — install iproute2 "
+             "and run 'carlos-ctl check' as root")
     else:
-        _bad(f"nginx is not listening on {', '.join(missing)} — the front door is not "
-             "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
+        if not missing:
+            _ok(f"nginx is listening on {s.bind_ip}:80 and {s.bind_ip}:443")
+        else:
+            _bad(f"nginx is not listening on {', '.join(missing)} — the front door is not "
+                 "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
     # The MariaDB drop-in leans on AppArmor as the file-access control (it is
     # why secure_file_priv is not set there), so this check asserts the
     # profile is actually loaded and enforcing rather than assuming it.

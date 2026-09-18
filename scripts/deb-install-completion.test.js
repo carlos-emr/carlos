@@ -362,16 +362,19 @@ test('postinst records terminal nginx failures and accepts a successful rebind',
   const end = postinst.indexOf('\n        ;;', start);
   assert.ok(end > start);
   const block = postinst.slice(start, end).replaceAll('/run/systemd/system', '/tmp');
+  // bound: 0 bound, 1 not bound, 2 bound only after the restart, 3 the probe
+  // itself could not run (front_door_listening exits 2).
   for (const [syntax, reload, restart, bound, incomplete] of [
     [1, 0, 0, 0, true], [0, 1, 0, 0, true],
     [0, 0, 1, 1, true], [0, 0, 0, 1, true],
     [0, 0, 0, 0, false], [0, 0, 0, 2, false],
+    [0, 0, 0, 3, true],
   ]) {
     const script = `set -eu
 nginx() { return ${syntax}; }
 sd_invoke() { echo "service:$1"; if [ "$1" = reload ]; then return ${reload}; else return ${restart}; fi; }
 calls=0
-front_door_listening() { calls=$((calls + 1)); if [ ${bound} = 2 ]; then [ "$calls" -gt 1 ]; else return ${bound}; fi; }
+front_door_listening() { calls=$((calls + 1)); if [ ${bound} = 2 ]; then [ "$calls" -gt 1 ]; elif [ ${bound} = 3 ]; then return 2; else return ${bound}; fi; }
 mark_incomplete() { echo "incomplete:$1"; }
 ${block}
 `;
@@ -380,6 +383,13 @@ ${block}
     assert.equal(result.stdout.includes('incomplete:'), incomplete, JSON.stringify({ syntax, reload, restart, bound, result }));
     if (syntax || reload) assert.ok(!result.stdout.includes('service:restart'));
     if (bound === 2) assert.ok(result.stdout.includes('service:restart'));
+    if (bound === 3) {
+      // A probe that could not run is not evidence about nginx: it must not
+      // drop the workers of a front door that may well be bound, and it is
+      // recorded as the unverified state it is, not as nginx's failure.
+      assert.ok(!result.stdout.includes('service:restart'), result.stdout);
+      assert.match(result.stdout, /incomplete:the front-door listener probe could not run/);
+    }
   }
 });
 
@@ -413,6 +423,32 @@ ${fn}
 front_door_listening
 `], { encoding: 'utf8' });
       assert.equal(result.status, expected, JSON.stringify({ ip, addresses, owner, result }));
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('postinst listener proof reports a probe that could not run, not absent listeners', () => {
+  // A /bin/sh pipeline carries only the LAST command's status, so `ss | awk`
+  // reported a failed ss exactly like "the listeners are absent" — which the
+  // caller acts on by restarting nginx and recording a failed install.
+  const fn = postinst.match(/front_door_listening\(\) \{[\s\S]*?\n\}/)[0];
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-probe-fail-'));
+  try {
+    const envFile = path.join(root, 'env');
+    fs.writeFileSync(envFile, 'CARLOS_BIND_IP="127.0.0.1"\n');
+    for (const [ss, expected] of [
+      ['ss() { return 127; }', 2],
+      ['ss() { echo "ss: command failed" >&2; return 1; }', 2],
+      ['ss() { :; }', 1],
+    ]) {
+      const result = spawnSync('sh', ['-c', `
+ENV_FILE='${envFile}'
+${ss}
+sleep() { :; }
+${fn}
+front_door_listening
+`], { encoding: 'utf8' });
+      assert.equal(result.status, expected, JSON.stringify({ ss, result }));
     }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

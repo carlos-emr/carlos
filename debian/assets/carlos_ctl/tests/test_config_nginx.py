@@ -37,12 +37,16 @@ class TestApplyNginx(unittest.TestCase):
         self.first_run = True
         patches = [
             mock.patch.object(config.os.path, "isdir", return_value=True),
+            # Path-specific on purpose: a stub that answers every path would
+            # let apply_nginx check the wrong file and still pass these tests.
             mock.patch.object(config.os.path, "exists",
-                              side_effect=lambda _p: self.site_enabled),
+                              side_effect=lambda p: (self.site_enabled
+                                                     if p == config.NGINX_SITE_ENABLED
+                                                     else False)),
             mock.patch.object(config.time, "sleep", lambda *_: None),
             mock.patch.object(config.time, "monotonic", side_effect=self._clock),
             mock.patch.object(config, "run", side_effect=self._run),
-            mock.patch.object(config.util, "out", side_effect=self._out),
+            mock.patch.object(config.util, "out_checked", side_effect=self._out),
         ]
         for p in patches:
             p.start()
@@ -52,6 +56,9 @@ class TestApplyNginx(unittest.TestCase):
         self.reload_rc = 0
         self.test_rc = 0
         self.active_rc = 0
+        # Nonzero makes the ss probe itself fail, which is not an answer about
+        # the front door.
+        self.probe_rc = 0
 
     def _clock(self):
         self._t += 1.0  # each poll costs a "second"; 3s budget -> ~3 polls
@@ -71,6 +78,8 @@ class TestApplyNginx(unittest.TestCase):
 
     def _out(self, cmd):
         assert cmd == ["ss", "-ltnpH"], cmd
+        if self.probe_rc:
+            raise config.util.CommandFailed(cmd, self.probe_rc)
         # What ss shows depends on whether nginx has been restarted yet: the
         # first entry is the state after the reload, the second (if any) the
         # state after a restart.
@@ -148,6 +157,26 @@ class TestApplyNginx(unittest.TestCase):
             self._apply()
         self.assertIn(["systemctl", "reload", "nginx.service"], self.calls)
         self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
+    def test_a_probe_that_cannot_run_never_restarts_nginx(self):
+        # `ss` failing is not an answer about the front door. Reading it as
+        # "no listeners" would drop the workers of an nginx that may well have
+        # bound correctly, and then report it as broken.
+        self.probe_rc = 2
+        with self.assertRaises(SystemExit):
+            self._apply()
+        self.assertIn(["systemctl", "reload", "nginx.service"], self.calls)
+        self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
+    def test_a_probe_that_cannot_run_says_so(self):
+        self.probe_rc = 2
+        err = io.StringIO()
+        with mock.patch.dict(config.os.environ, {"CARLOS_CONFIGURE_FIRST_RUN": "1"}), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(err), \
+                self.assertRaises(SystemExit):
+            config.apply_nginx("127.0.0.1")
+        self.assertIn("could not check the front-door listeners", err.getvalue())
 
     def test_a_missing_site_outside_the_package_configure_is_fatal(self):
         # Preserve any working in-memory configuration when the enabled site
@@ -394,7 +423,7 @@ class TestBindAddressCanonicalisation(unittest.TestCase):
         # The proof sees what ss prints; both spellings must agree with it.
         for raw in ("[::1]", "::1"):
             ip = self._settings(raw).bind_ip
-            with mock.patch.object(config.util, "out", return_value=
+            with mock.patch.object(config.util, "out_checked", return_value=
                                    'LISTEN 0 511 [::1]:80 [::]:* users:(("nginx",pid=1,fd=6))'):
                 self.assertIn(ip, config._listeners("80"), raw)
 
