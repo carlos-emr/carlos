@@ -205,7 +205,7 @@
             return false;
         }
     </script>
-    <script type="text/javascript" src="formScripts.js">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/form/formScripts.js">
     </script>
 
 
