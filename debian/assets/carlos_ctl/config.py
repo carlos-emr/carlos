@@ -340,6 +340,11 @@ def _front_door_missing(bind_ip: str, wait: float = 3.0) -> list:
         time.sleep(0.2)
 
 
+# The site symlink the package creates in postinst. Its absence means the
+# front door is not this package's to prove yet (see apply_nginx).
+NGINX_SITE_ENABLED = "/etc/nginx/sites-enabled/carlos-emr"
+
+
 def apply_nginx(bind_ip: str) -> int:
     """Make the rendered front-door configuration the one nginx serves.
 
@@ -373,6 +378,20 @@ def apply_nginx(bind_ip: str) -> int:
         warn("(the running config keeps serving). Details:")
         run(["nginx", "-t"])
         return 1
+    if not os.path.exists(NGINX_SITE_ENABLED):
+        # First install: postinst runs init-config BEFORE it enables the site
+        # (the symlink comes later, with the certificates), so nginx is still
+        # serving only the distribution's default. Listeners the CARLOS site
+        # asks for cannot be bound by a configuration nginx has not been given
+        # yet; demanding them here would restart the default site and then
+        # fail an install that the postinst nginx step goes on to complete
+        # correctly, leaving .install-incomplete behind on a healthy host.
+        # Reload what is rendered (other fragments this verb wrote are live
+        # immediately) and leave the proof to whoever enables the site.
+        run(["systemctl", "reload", "nginx.service"])
+        log("the CARLOS site is not enabled in nginx yet; the rendered front "
+            "door serves once the package enables it")
+        return 0
     if run(["systemctl", "reload", "nginx.service"]).returncode != 0:
         # The config passed its test but the reload job failed (nginx died in
         # between, ExecReload error). Silence here meant the operator's

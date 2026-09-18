@@ -27,8 +27,13 @@ class TestApplyNginx(unittest.TestCase):
         self.calls = []
         # ss output: [after reload, after restart]; a single entry serves both.
         self.ss_outputs = []
+        # The CARLOS site is enabled by default here: the interesting cases
+        # for the proof all assume nginx has been given this package's site.
+        self.site_enabled = True
         patches = [
             mock.patch.object(config.os.path, "isdir", return_value=True),
+            mock.patch.object(config.os.path, "exists",
+                              side_effect=lambda _p: self.site_enabled),
             mock.patch.object(config.time, "sleep", lambda *_: None),
             mock.patch.object(config.time, "monotonic", side_effect=self._clock),
             mock.patch.object(config, "run", side_effect=self._run),
@@ -119,6 +124,26 @@ class TestApplyNginx(unittest.TestCase):
             self._apply()
         self.assertIn(["systemctl", "reload", "nginx.service"], self.calls)
         self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
+    def test_site_not_enabled_yet_reloads_without_demanding_the_listeners(self):
+        # postinst runs init-config BEFORE it symlinks the site, so on a first
+        # install nginx still serves only the distribution's default. Proving
+        # the CARLOS listeners there would restart the default site and fail
+        # an install the postinst nginx step then completes, leaving
+        # .install-incomplete on a healthy host.
+        self.site_enabled = False
+        self.ss_outputs = [self._ss("0.0.0.0:80")]
+        self.assertEqual(self._apply(), 0)
+        self.assertIn(["systemctl", "reload", "nginx.service"], self.calls)
+        self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
+    def test_site_not_enabled_yet_still_refuses_a_broken_configuration(self):
+        # The config test comes first: a rendered configuration that does not
+        # parse is reported on a first install too, never skipped.
+        self.site_enabled = False
+        self.test_rc = 1
+        self.assertEqual(self._apply(), 1)
+        self.assertNotIn(["systemctl", "reload", "nginx.service"], self.calls)
 
     def test_failed_config_test_never_reloads(self):
         self.test_rc = 1
