@@ -100,6 +100,20 @@ abstract class MessageBannerAuthorizationUnitTestBase extends CarlosWebTestBase 
     }
 
     @Test
+    @DisplayName("should throw SecurityException when edit is requested without admin write")
+    void shouldThrowSecurityException_whenEditRequestedWithoutAdminWrite() throws Exception {
+        // edit is the third administrator-only method on the shared dispatch, alongside save and
+        // the default list. Without this case an unauthorised ?method=edit could regress silently.
+        denyPrivilege("_admin", "w");
+        addRequestParameter("method", "edit");
+
+        assertThatThrownBy(() -> executeAction(bannerAction()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_admin)");
+        verifyNoInteractions(managementCollaborator());
+    }
+
+    @Test
     @DisplayName("should throw SecurityException when the admin list is requested without admin write")
     void shouldThrowSecurityException_whenListRequestedWithoutAdminWrite() throws Exception {
         // No method parameter routes to the administrative list.
