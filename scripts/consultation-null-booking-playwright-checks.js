@@ -32,8 +32,14 @@ async function workflow(s) {
     assert(response && response.status() === 200, 'Legacy referral did not render successfully');
     await assertNotErrorPage(page, 'legacy referral');
     await page.locator('#EctConsultationFormRequest2Form').waitFor({ state: 'visible' });
-    assert(!(await page.locator('input[name="patientWillBook"]').isChecked()),
-      'An unspecified booking flag became an affirmative booking instruction');
+    assert(await page.locator('[name="reasonForConsultation"]').inputValue() === marker,
+      'The saved referral did not retain its clinical reason');
+    // This optional control is rendered only with CONSULTATION_PATIENT_WILL_BOOK.
+    const booking = page.locator('input[name="patientWillBook"]');
+    if (await booking.count()) {
+      assert(!(await booking.isChecked()),
+        'An unspecified booking flag became an affirmative booking instruction');
+    }
     assert(sql.value(`SELECT patientWillBook IS NULL FROM consultationRequests WHERE requestId=${request}`) === '1',
       'Viewing a legacy referral rewrote its booking flag');
     await page.close();

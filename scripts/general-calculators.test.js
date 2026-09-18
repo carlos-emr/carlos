@@ -14,6 +14,8 @@ for (const fragment of ['', '#weight', '#temps']) {
     assert.ok(start >= 0 && end > start);
     const link = { href: 'ViewGeneralCalculators' };
     let destination;
+    // Executes only the checked-in fixture above in a mock VM; no external input or HTML output.
+    // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
     vm.runInNewContext(source.slice(start + '<script>'.length, end), {
       document: { getElementById: () => link },
       window: { location: { hash: fragment, replace: value => { destination = value; } } },
