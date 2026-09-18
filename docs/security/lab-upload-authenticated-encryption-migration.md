@@ -45,7 +45,7 @@ Sender implementations and vendor contacts are not stored in this repository. Ea
 deployment must inventory its own `publicKeys` rows and resolve the optional
 `matchingProfessionalSpecialistId` contact before a cutoff can be scheduled.
 
-Three legacy receiver behaviors are recorded here because version 2 changes them and a
+Two legacy receiver behaviors are recorded here because version 2 changes them and a
 reviewer must not read the change as accidental. Each was reproduced against a running
 receiver; see the verification note below.
 
@@ -58,27 +58,39 @@ receiver; see the verification note below.
   `GetPublicKey2Action` is `_admin`-gated and returns `publicKeys` rows, not the receiver
   key. The exposure is that the key is distributed to third parties by design.)
   **Fixed:** the receiver now stages the decrypted message in an owner-only temporary file,
-  verifies the signature, and only then persists it; the staged copy is always deleted.
-  Version 2 keeps this ordering.
+  verifies the signature, and only then persists it; the staged copy is always deleted. The
+  stored copy is compared byte-for-byte with the verified staged copy before it is parsed,
+  because the storage helpers log a write failure and still return the path. Version 2
+  keeps this ordering.
 - An unrecognized `service` produced an empty client-info list, and the subsequent element
   access threw out of `execute()`. The `lab` Struts package maps `java.lang.Exception` to
   `errorpage.jsp` (`struts-lab.xml`), and that result is a JSP forward, so the sender
   received **HTTP 200 with an HTML error page** and read a misconfigured or retired service
   as a successful delivery — failing silently in the direction that loses labs.
-  **Fixed:** unknown services, unusable stored keys, and undecryptable messages now share
-  one non-specific `rejected` outcome with a rejection status, so a caller cannot probe
-  which services are configured. Version 2 keeps this behavior.
+  **Fixed:** unknown services, unusable stored keys, and undecryptable messages — a failed
+  key unwrap and a failed AES block alike — now share one non-specific `rejected` outcome
+  with status `400`, so a caller cannot probe which services are configured. A
+  receiver-side fault (the key lookup failing, or the receiver's own private key being
+  unavailable) is deliberately *not* folded into that outcome: it stays a `500`, so a sender
+  that treats `4xx` as permanent keeps retrying through a receiver outage. Version 2 keeps
+  this behavior. A signature failure remains `406`, so the legacy path still separates
+  "undecryptable" from "unverified"; version 2 collapses them (see below).
 
-These two fixes are receiver-local. They change no wire format, no field, and no algorithm,
-so senders are unaffected and they did not need the coordination gates below. They do not
+These two fixes are receiver-local. They change no request field, no response body, and no
+algorithm, and the accepted (`200`), duplicate (`409`), and signature-rejected (`406`)
+statuses are unchanged, so conforming senders are unaffected and the fixes did not need the
+coordination gates below. The only observable differences are on failure paths: an unknown
+service is `400` instead of a `200` error page, and an undecryptable message is `400`
+instead of `500` (failed key unwrap) or `406` (failed AES block). They do not
 close alerts 6904 or 5637, which track the ECB cipher itself and close only on removal of
 the legacy path.
 
 ### Verification note
 
-The current-protocol table and the three behaviors above were confirmed against a running
-receiver using an independently written sender built only from this document. Observed
-outcomes, with `use_http_response_code` set: valid signature `200`; invalid signature
+The current-protocol table and the two behaviors above were confirmed against a running
+receiver, **before the fixes above were applied**, using an independently written sender
+built only from this document. Observed pre-fix outcomes, with `use_http_response_code`
+set: valid signature `200`; invalid signature
 `406` with the decrypted file left in `DOCUMENT_DIR`; unknown service `200` with an error
 page; and re-delivery of identical lab content under a freshly generated message key
 `409`, confirming that `FileUploadCheck` deduplicates decrypted content rather than the
@@ -210,11 +222,12 @@ container upload limit.
   cryptographic failure; it must not surface as an unhandled exception.
 - External responses use one generic rejection outcome and do not disclose whether key
   unwrap, signature verification, GCM authentication, or parsing failed. The existing
-  `use_http_response_code` behavior is narrowed for version 2. Measured legacy codes are
-  `200` accepted, `409` already delivered, `406` signature rejected, and `200` for an
-  unknown service via the error-page forward. Version 2 keeps `200` and `409`, because
+  `use_http_response_code` behavior is narrowed for version 2. Legacy codes are
+  `200` accepted, `409` already delivered, `406` signature rejected, and `400` for an
+  unknown service or undecryptable message (measured as `200` via the error-page forward
+  before the receiver fix above). Version 2 keeps `200` and `409`, because
   senders need to distinguish delivery from duplicate, and collapses every rejection —
-  including the unknown-service case that currently returns `200` — onto one status.
+  including the signature failure that the legacy path reports separately — onto one status.
   Confirm that status with the sender owners during approval and record it here.
 - Logs and metrics contain the service identifier, protocol version, and a coarse outcome
   only. They must not contain keys, nonces, signatures, ciphertext, plaintext, or
