@@ -384,8 +384,8 @@ def apply_nginx(bind_ip: str) -> int:
         log("nginx reloaded — front-door changes are live")
         return 0
     warn(f"nginx accepted the reload but is not listening on {', '.join(missing)}: "
-         "its previous listeners still hold the port (a wildcard 0.0.0.0 bind "
-         "blocks a specific-address bind on the same port); restarting nginx")
+         "its previous listeners still hold the ports (a socket already listening "
+         "blocks a new bind of the same port under another address); restarting nginx")
     if run(["systemctl", "restart", "nginx.service"]).returncode != 0:
         die("nginx restart FAILED — front-door changes are NOT live; "
             "run 'systemctl status nginx'")

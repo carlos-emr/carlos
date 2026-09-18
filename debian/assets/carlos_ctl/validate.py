@@ -158,10 +158,19 @@ def cmd_check(argv) -> int:
              "/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf")
     elif addrs:
         _ok(f"MariaDB listens on loopback only ({', '.join(addrs)})")
-    if _listener("443"):
-        _ok("nginx is listening on 443")
+    # The front door must be bound where the configuration says, on BOTH
+    # ports. A reload whose bind failed leaves the master holding a half-set
+    # (443 without 80, or the old wildcard 80) while every worker still serves
+    # the previous configuration — and "something is on 443" was green on
+    # exactly that broken host.
+    missing = [f"{s.bind_ip}:{port}" for port in ("80", "443")
+               if s.bind_ip not in [a.rsplit(":", 1)[0].lstrip("[").rstrip("]")
+                                    for a in _listeners(port)]]
+    if not missing:
+        _ok(f"nginx is listening on {s.bind_ip}:80 and {s.bind_ip}:443")
     else:
-        _bad("nothing is listening on 443")
+        _bad(f"nginx is not listening on {', '.join(missing)} — the front door is not "
+             "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
     # The MariaDB drop-in leans on AppArmor as the file-access control (it is
     # why secure_file_priv is not set there), so this check asserts the
     # profile is actually loaded and enforcing rather than assuming it.
