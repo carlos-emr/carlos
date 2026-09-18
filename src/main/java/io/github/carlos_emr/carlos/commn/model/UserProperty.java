@@ -169,6 +169,9 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
 
     public static final String EMAIL_COMMUNICATION = "email_communication";
 
+    /** Names the consent type outbound SMS is checked against; unset means SMS consent is not configured. */
+    public static final String SMS_COMMUNICATION = "sms_communication";
+
     public static final String SCHEDULE_WEEK_VIEW_WEEKENDS = "schedule.week_view_weekends";
 
 
