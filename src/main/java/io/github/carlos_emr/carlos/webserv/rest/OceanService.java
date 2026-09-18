@@ -80,7 +80,7 @@ public class OceanService extends AbstractServiceImpl {
     @POST
     @Path("/saveSettings")
     public OceanSettingsTo1 saveSettings(OceanSettingsTo1 request) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_admin", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
