@@ -109,10 +109,10 @@ Suggests:
 # docBase the application's own uid cannot write to.
 #
 # The tomcat11 package instead starts a SECOND container as user tomcat that
-# listens on *:8080 — every interface, with no TLS, no WAF, no rate limit and
-# the default manager application — which is a hole straight past every control
-# this package installs, on a host holding patient data. It also competes for
-# the memory the EMR's heap was sized against.
+# listens on *:8080 — every interface, with no TLS, no WAF or rate limit —
+# which is a hole straight past every control this package installs, on a host
+# holding patient data. It also competes for the memory the EMR's heap was
+# sized against.
 #
 # Operators install it by reflex ("CARLOS is a Java webapp, so it needs
 # Tomcat"), and the result is a machine that looks subtly wrong rather than
