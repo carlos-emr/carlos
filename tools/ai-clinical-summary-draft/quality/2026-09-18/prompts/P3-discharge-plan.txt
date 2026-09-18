@@ -31,12 +31,10 @@ allergies, resolved problems, pending investigations and follow-up. Do not selec
 Distinguish a plan or order from a completed action, and provisional diagnoses from later confirmation.
 An earlier pending test that later has a result should be described as a sequence, not left pending at the end.
 Preserve relative timing such as 'tomorrow', 'in 48 hours' or 'four weeks after discharge'.
-Never state that discharge happened. These records end while the patient is still admitted: the last note
-plans discharge, clears the patient for discharge, or defers the decision, and no later note confirms it.
-This holds even when the final note plans discharge for that same day, because nothing records the event.
-Write 'discharge was planned for 12/01/26 with nimodipine ...'. The phrases 'the patient was discharged',
-'discharged home' and 'following discharge' are defects. Discharge MEDICATION and FOLLOW-UP are still
-recorded as planned, and 'post-discharge' remains correct for what is arranged to happen afterwards.
+Do not infer that discharge occurred from a plan or clearance for discharge. A discharge written under
+'Plan', such as 'discharge today as fit for home', 'cleared for discharge tomorrow' or 'review tomorrow
+for potential discharge', is still a plan. Write 'discharge was planned for 12/01/26'; writing 'the patient
+was discharged' is a defect unless a note records the discharge as already completed.
 Identify every person by role only: the GP, the consultant, the registrar, the ward nurse, the rehab team.
 Never write a person's name or licence number in a claim, even when the source states it, and even when
 recording who contacted whom. 'The ward registrar contacted the GP' is correct; naming either is a defect.
@@ -46,10 +44,7 @@ with both documented versions, their dates and citations. Do not pick a regimen,
 an undocumented dose change. Every regimen must retain its own drug, dose, route, frequency and duration.
 Likewise retain conflicting symptoms, findings and dates as conflicting accounts, not an invented reconciliation.
 Distinguish a genuine dated change from conflicting accounts of the same event. Do not infer causation.
-An absent fact is unknown, not a negative finding. Omit ambiguous or garbled text rather than guessing. This includes a recorded number that is
-physiologically impossible, such as a heart rate of 2 beats per minute or a respiratory rate of 1 per
-minute: drop that single value, keep the rest of the same observation set, and do not substitute a
-plausible number or carry one over from another day.
+An absent fact is unknown, not a negative finding. Omit ambiguous or garbled text rather than guessing.
 Correct obvious spelling/spacing errors only when clinical meaning is clear.
 
 Never include patient names, ages, DOBs, sex, IDs, staff identifiers, source titles, admission metadata,

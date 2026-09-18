@@ -72,9 +72,14 @@ def main():
         gateway.prompt = args.prompt.read_text()
     if args.section_prompt:
         gateway.section_prompt = args.section_prompt.read_text()
-    sources = [{'id': f'note-{i + 1}', 'patient_id': 'demographic-3001',
-                'title': f'Signed encounter note (note-{i + 1})', 'date': date, 'text': body}
-               for i, (fixture, date, body) in enumerate(gateway.allowed.notes) if fixture == args.fixture]
+    # Each fixture is its own patient, and its notes number from one within that chart.
+    patient_id = 'demographic-300' + args.fixture[-1]
+    sources = []
+    for date, body in [(date, body) for fixture, date, body in gateway.allowed.notes
+                       if fixture == args.fixture]:
+        source_id = f'note-{len(sources) + 1}'
+        sources.append({'id': source_id, 'patient_id': patient_id,
+                        'title': f'Signed encounter note ({source_id})', 'date': date, 'text': body})
     gateway.allowed.validate(sources)
     report = {'fixture': args.fixture, 'settings': {k: v for k, v in config.items() if k != 'api_key'},
               'prompt_sha256': hashlib.sha256(gateway.prompt.encode()).hexdigest(),
