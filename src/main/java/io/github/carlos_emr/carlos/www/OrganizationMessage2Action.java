@@ -66,17 +66,34 @@ public class OrganizationMessage2Action extends ActionSupport {
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String mtd = request.getParameter("method");
+
+        // "view" renders the read-only facility banner that the provider schedule
+        // (appointmentprovideradminday.jsp) fetches on every load. Facility messages are
+        // administrator-authored notices addressed to everyone working in the facility and hold
+        // no PHI, so the banner is authorized on an authenticated session alone. Requiring
+        // "_admin" write here turned every non-admin clinician's schedule load into a 403 plus a
+        // logged SecurityException (issue #3728). LoginFilter is the canonical session gate; the
+        // null check below is defence-in-depth for direct invocation and filter reordering.
+        // view() itself stays scoped to the session's current facility and the caller's own
+        // program domain.
+        if ("view".equals(mtd)) {
+            if (loggedInInfo == null) {
+                throw new SecurityException("not logged in");
+            }
+            return view();
+        }
+
+        // Everything else is the administrative management UI: listing, editing and saving the
+        // messages themselves stays behind "_admin" write.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        String mtd = request.getParameter("method");
         if ("edit".equals(mtd)) {
             return edit();
         } else if ("save".equals(mtd)) {
             return save();
-        } else if ("view".equals(mtd)) {
-            return view();
         }
         return list();
     }

@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.SystemMessageDao;
 import io.github.carlos_emr.carlos.commn.model.SystemMessage;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.mockito.*;
@@ -167,6 +168,52 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
             assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object");
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when save is requested without admin write")
+        void shouldThrowSecurityException_whenSaveRequestedWithoutAdminWrite() throws Exception {
+            // Given - the management methods stay behind _admin write
+            denyPrivilege("_admin", "w");
+            addRequestParameter("method", "save");
+
+            // When/Then - denial fires before any persistence happens
+            assertThatThrownBy(() -> executeAction(action))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_admin)");
+            verifyNoInteractions(mockSystemMessageDao);
+        }
+
+        @Test
+        @DisplayName("should render the broadcast banner when view is requested without admin write")
+        void shouldRenderBroadcastBanner_whenViewRequestedWithoutAdminWrite() throws Exception {
+            // Given - a clinician with no admin rights loads the provider schedule (issue #3728)
+            denyPrivilege("_admin", "w");
+            denyPrivilege("_admin", "r");
+            when(mockSystemMessageDao.findAll()).thenReturn(java.util.Collections.emptyList());
+            addRequestParameter("method", "view");
+
+            // When
+            String result = executeAction(action);
+
+            // Then - the banner renders and no privilege check rejects the read
+            assertThat(result).isEqualTo("view");
+            verify(mockSystemMessageDao).findAll();
+            verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when view is requested without a logged-in session")
+        void shouldThrowSecurityException_whenViewRequestedWithoutSession() throws Exception {
+            // Given - no LoggedInInfo in session (LoginFilter would normally have rejected this)
+            getMockSession().removeAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY);
+            addRequestParameter("method", "view");
+
+            // When/Then
+            assertThatThrownBy(() -> executeAction(action))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("not logged in");
+            verifyNoInteractions(mockSystemMessageDao);
         }
     }
 }

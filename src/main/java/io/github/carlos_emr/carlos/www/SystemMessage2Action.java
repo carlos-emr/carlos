@@ -56,17 +56,33 @@ public class SystemMessage2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String mtd = request.getParameter("method");
+
+        // "view" renders the read-only broadcast banner that the provider schedule
+        // (appointmentprovideradminday.jsp) fetches on every load. System messages are
+        // administrator-authored notices addressed to all staff and contain no PHI, so the
+        // banner is authorized on an authenticated session alone. Requiring "_admin" write
+        // here made every non-admin clinician's schedule load a 403 plus a logged
+        // SecurityException (issue #3728). LoginFilter is the canonical session gate; the
+        // null check below is defence-in-depth for direct invocation and filter reordering.
+        if ("view".equals(mtd)) {
+            if (loggedInInfo == null) {
+                throw new SecurityException("not logged in");
+            }
+            return view();
+        }
+
+        // Everything else is the administrative management UI: listing, editing and saving
+        // the messages themselves stays behind "_admin" write.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        String mtd = request.getParameter("method");
         if ("edit".equals(mtd)) {
             return edit();
         } else if ("save".equals(mtd)) {
             return save();
-        } else if ("view".equals(mtd)) {
-            return view();
         }
         return list();
     }
