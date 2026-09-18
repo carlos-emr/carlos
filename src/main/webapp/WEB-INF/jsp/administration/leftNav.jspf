@@ -437,6 +437,8 @@ Properties oscarVariables = CarlosProperties.getInstance();
 			<ul>
 				<li><a href='javascript:void(0);'
 					class="xlink" rel="${ctx}/admin/ProviderTemplate"><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/EchartDisplaySettings"><fmt:message key="admin.admin.echartDisplaySettings"/></a></li>
 			</ul>
 			</div>
 			</div>

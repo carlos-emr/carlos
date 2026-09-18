@@ -1,0 +1,56 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import io.github.carlos_emr.carlos.commn.model.OceanSetting;
+import org.springframework.stereotype.Repository;
+
+import java.util.Date;
+import java.util.List;
+
+@Repository
+public class OceanSettingDaoImpl extends AbstractDaoImpl<OceanSetting> implements OceanSettingDao {
+
+    public OceanSettingDaoImpl() {
+        super(OceanSetting.class);
+    }
+
+    @Override
+    public OceanSetting getSettings() {
+        List<OceanSetting> results = findAll(0, 1);
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    @Override
+    public OceanSetting saveSettings(String settings) {
+        OceanSetting existing = getSettings();
+        if (existing == null) {
+            OceanSetting created = new OceanSetting(settings);
+            persist(created);
+            return created;
+        }
+
+        existing.setSettings(settings);
+        existing.setUpdateDate(new Date());
+        merge(existing);
+        return existing;
+    }
+}
