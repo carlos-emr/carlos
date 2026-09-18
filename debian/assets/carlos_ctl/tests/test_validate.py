@@ -3,6 +3,7 @@
 """Deployment ownership must describe CARLOS, including when it is down."""
 import contextlib
 import io
+import subprocess
 import unittest
 from unittest.mock import patch
 from carlos_ctl import validate
@@ -65,11 +66,21 @@ class TestFrontDoorListeners(unittest.TestCase):
 
     def listeners(self, *lines):
         def output(command):
+            if command == ["ps", "-C", "nginx", "-o", "pid=,args="]:
+                return "1 nginx: worker process"
             if command == ["ss", "-ltnpH"]:
                 return "\n".join(lines)
             self.fail("front-door probe ran an unexpected command: " + repr(command))
-        with patch.object(validate.config.util, "out_checked", side_effect=output):
+        with patch.object(validate.config.util, "run", side_effect=lambda cmd, **kw:
+                          subprocess.CompletedProcess(cmd, 0, output(cmd), "")):
             return [validate.config._listeners(port) for port in ("80", "443")]
+
+    def test_probe_failure_is_reported_without_exiting_validation(self):
+        with patch.object(validate.config, "_front_door_missing",
+                          side_effect=validate.config.FrontDoorProbeError("ss failed")), \
+                patch.object(validate, "_bad") as bad:
+            validate._check_front_door("127.0.0.1")
+        bad.assert_called_once_with("cannot verify nginx front-door listeners: ss failed")
 
     @staticmethod
     def _ss(addr, owner="nginx"):
@@ -100,12 +111,3 @@ class TestFrontDoorListeners(unittest.TestCase):
     def test_an_ipv6_literal_compares_as_the_operator_wrote_it(self):
         found = self.listeners(self._ss("[::1]:80"), self._ss("[::1]:443"))
         self.assertEqual(found, [["::1"], ["::1"]])
-
-    def test_a_probe_that_could_not_run_is_not_an_empty_answer(self):
-        # `check` turns this into a FAIL about the probe; an empty list here
-        # would instead report a healthy front door as down.
-        def failed(command):
-            raise validate.config.util.CommandFailed(command, 2)
-        with patch.object(validate.config.util, "out_checked", side_effect=failed):
-            with self.assertRaises(validate.config.util.CommandFailed):
-                validate.config._front_door_missing("127.0.0.1", wait=0)

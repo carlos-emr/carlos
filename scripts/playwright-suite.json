@@ -2013,6 +2013,23 @@
         "APPOINTMENT_NO",
         "APPOINTMENT_DEMOGRAPHIC_NO"
       ]
+    },
+    {
+      "name": "prevention-add-data",
+      "script": "scripts/prevention-add-data-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PREVENTION_DEMOGRAPHIC_NO",
+        "PREVENTION_UNRESOLVED",
+        "PREVENTION_RESOLVED"
+      ]
     }
   ]
 }
