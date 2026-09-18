@@ -1979,6 +1979,23 @@
         "CSRF_XHR_DEMOGRAPHIC_NO",
         "CSRF_XHR_TIMEOUT_MS"
       ]
+    },
+    {
+      "name": "prevention-add-data",
+      "script": "scripts/prevention-add-data-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PREVENTION_DEMOGRAPHIC_NO",
+        "PREVENTION_WITHOUT_NEXTDATE",
+        "PREVENTION_WITH_NEXTDATE"
+      ]
     }
   ]
 }

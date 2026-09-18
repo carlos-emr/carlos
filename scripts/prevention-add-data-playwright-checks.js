@@ -78,20 +78,53 @@ async function inspectPreventionPage(context, recorder, prevention) {
     return null;
   }
 
-  const state = await page.evaluate(() => ({
-    neverWarnPresent: !!document.getElementById('neverWarn'),
-    nextDatePresent: !!document.getElementById('nextDate'),
+  const state = await page.evaluate(() => {
+    const result = {
+      neverWarnPresent: !!document.getElementById('neverWarn'),
+      nextDatePresent: !!document.getElementById('nextDate'),
+      reRunError: null,
+      // null when the page renders no never-warn control; otherwise whether ticking the box
+      // really disables the next-date field, and clearing it re-enables it.
+      togglesNextDate: null,
+    };
+
     // Re-run the exact call body onload makes; it must not throw either way.
-    reRunError: (() => {
+    try {
+      // eslint-disable-next-line no-undef
+      disableifchecked(document.getElementById('neverWarn'), 'nextDate');
+    } catch (error) {
+      result.reRunError = error.message;
+      return result;
+    }
+
+    // Guarding the null case must not have cost the behaviour it guards. Without this, an
+    // unconditional no-op would satisfy every other assertion here while silently breaking
+    // the workflow: "never remind" would stop disabling the date field.
+    const neverWarn = document.getElementById('neverWarn');
+    const nextDate = document.getElementById('nextDate');
+    if (neverWarn && nextDate) {
+      const originalChecked = neverWarn.checked;
       try {
+        neverWarn.checked = true;
         // eslint-disable-next-line no-undef
-        disableifchecked(document.getElementById('neverWarn'), 'nextDate');
-        return null;
+        disableifchecked(neverWarn, 'nextDate');
+        const disabledWhenChecked = nextDate.disabled === true;
+
+        neverWarn.checked = false;
+        // eslint-disable-next-line no-undef
+        disableifchecked(neverWarn, 'nextDate');
+        const enabledWhenCleared = nextDate.disabled === false;
+
+        result.togglesNextDate = disabledWhenChecked && enabledWhenCleared;
       } catch (error) {
-        return error.message;
+        result.reRunError = error.message;
+      } finally {
+        neverWarn.checked = originalChecked;
       }
-    })(),
-  }));
+    }
+
+    return result;
+  });
 
   for (const entry of recorder.pageErrors.filter((e) => e.label === prevention)) {
     failures.push(`${prevention}: uncaught page error — ${entry.text}`);
@@ -121,6 +154,12 @@ async function inspectPreventionPage(context, recorder, prevention) {
     }
     if (withNextDate && !withNextDate.nextDatePresent) {
       failures.push(`${typeWithNextDate} no longer renders a nextDate field; pick another PREVENTION_WITH_NEXTDATE so the wired-up case is still covered`);
+    }
+    if (withNextDate && withNextDate.togglesNextDate === false) {
+      failures.push(`${typeWithNextDate}: ticking neverWarn no longer disables nextDate — the null guard broke the behaviour it was meant to protect`);
+    }
+    if (withNextDate && withNextDate.nextDatePresent && withNextDate.togglesNextDate === null) {
+      failures.push(`${typeWithNextDate}: could not exercise the neverWarn toggle, so a no-op disableifchecked would go undetected`);
     }
 
     await context.close();
