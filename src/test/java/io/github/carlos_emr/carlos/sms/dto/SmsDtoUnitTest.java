@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.dto;
 
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import org.junit.jupiter.api.DisplayName;
@@ -23,7 +24,7 @@ class SmsDtoUnitTest {
     void shouldCreateConsentBlockedResult_whenOperatorMessageIsMissing() {
         SmsConsentDecisionDto decision = SmsConsentDecisionDto.blocked(
                 SmsStatus.CONSENT_BLOCKED,
-                "CONSENT_MODEL_PENDING",
+                "SMS_CONSENT_UNKNOWN",
                 null
         );
 
@@ -32,6 +33,61 @@ class SmsDtoUnitTest {
         assertThat(result)
                 .extracting(SmsSendResultDto::accepted, SmsSendResultDto::status, SmsSendResultDto::messages)
                 .containsExactly(false, SmsStatus.CONSENT_BLOCKED, List.of());
+    }
+
+    @Test
+    @DisplayName("permitted consent decision carries the consent record it relied on")
+    void shouldCarryConsentSnapshot_whenDecisionIsPermitted() {
+        Instant editedAt = Instant.parse("2026-09-01T14:30:00Z");
+
+        SmsConsentDecisionDto decision = SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt);
+
+        assertThat(decision)
+                .extracting(
+                        SmsConsentDecisionDto::allowed,
+                        SmsConsentDecisionDto::blockedStatus,
+                        SmsConsentDecisionDto::consentStatus,
+                        SmsConsentDecisionDto::consentId,
+                        SmsConsentDecisionDto::consentLastUpdateDate
+                )
+                .containsExactly(true, null, SmsConsentStatus.OPT_IN, 4321, editedAt);
+    }
+
+    @Test
+    @DisplayName("blocked consent decision carries the consent record it relied on")
+    void shouldCarryConsentSnapshot_whenDecisionIsBlocked() {
+        Instant editedAt = Instant.parse("2026-09-01T14:30:00Z");
+
+        SmsConsentDecisionDto decision = SmsConsentDecisionDto.blocked(
+                SmsStatus.OPTOUT_BLOCKED,
+                "SMS_CONSENT_OPTED_OUT",
+                "Patient opted out",
+                SmsConsentStatus.OPT_OUT,
+                4321,
+                editedAt
+        );
+
+        assertThat(decision)
+                .extracting(
+                        SmsConsentDecisionDto::allowed,
+                        SmsConsentDecisionDto::blockedStatus,
+                        SmsConsentDecisionDto::consentStatus,
+                        SmsConsentDecisionDto::consentId,
+                        SmsConsentDecisionDto::consentLastUpdateDate
+                )
+                .containsExactly(false, SmsStatus.OPTOUT_BLOCKED, SmsConsentStatus.OPT_OUT, 4321, editedAt);
+    }
+
+    @Test
+    @DisplayName("legacy consent decision factories leave the consent snapshot empty")
+    void shouldLeaveConsentSnapshotEmpty_forLegacyFactories() {
+        assertThat(SmsConsentDecisionDto.permit())
+                .extracting(
+                        SmsConsentDecisionDto::consentStatus,
+                        SmsConsentDecisionDto::consentId,
+                        SmsConsentDecisionDto::consentLastUpdateDate
+                )
+                .containsExactly(null, null, null);
     }
 
     @Test

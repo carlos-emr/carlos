@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -90,6 +91,28 @@ class JpaSmsTransactionServiceUnitTest {
     }
 
     @Test
+    @DisplayName("recordOutboundAttempt stores the consent record a permitted send relied on")
+    void shouldStoreConsentSnapshot_whenRecordingPermittedOutboundAttempt() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        Instant editedAt = Instant.parse("2026-09-01T14:30:00Z");
+
+        SmsTransaction transaction = recorder.recordOutboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB,
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt)
+        );
+
+        assertThat(transaction)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getConsentStatus,
+                        SmsTransaction::getConsentId,
+                        SmsTransaction::getConsentLastUpdateDate
+                )
+                .containsExactly(SmsStatus.QUEUED, SmsConsentStatus.OPT_IN, 4321, Date.from(editedAt));
+    }
+
+    @Test
     @DisplayName("markConsentBlocked merges the blocked transaction state")
     void shouldMergeTransaction_whenConsentIsBlocked() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
@@ -100,14 +123,14 @@ class JpaSmsTransactionServiceUnitTest {
 
         recorder.markConsentBlocked(transaction, SmsConsentDecisionDto.blocked(
                 SmsStatus.CONSENT_BLOCKED,
-                "CONSENT_MODEL_PENDING",
-                "SMS consent integration is pending"
+                "SMS_CONSENT_UNKNOWN",
+                "No SMS consent is recorded for this patient."
         ));
 
         verify(smsTransactionDao).merge(transaction);
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getConsentReasonCode)
-                .containsExactly(SmsStatus.CONSENT_BLOCKED, "CONSENT_MODEL_PENDING");
+                .containsExactly(SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN");
     }
 
     @Test
