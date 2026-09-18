@@ -353,13 +353,19 @@
                 document.getElementById(id).style.display = 'none';
             }
 
-            // The "next date" fieldset and its "never warn" checkbox live inside the
-            // prevHash != null branch, so a request whose prevention type does not resolve
-            // renders "prevention not found" and none of them. body onload calls
-            // disableifchecked on every load regardless, so both helpers below are reached
-            // with nothing to find and every lookup has to tolerate a missing element
-            // instead of throwing out of onload and taking the rest of the handler with
-            // it (#3732).
+            // The "next date" fieldset, its "never warn" checkbox and the legend that
+            // toggles them all live inside the prevHash != null branch, so a request whose
+            // prevention type does not resolve renders "prevention not found" and none of
+            // them.
+            //
+            // disableifchecked is the one #3732 was reported on: body onload calls it on
+            // every load, including that page, where getElementById returns null and the
+            // handler threw before the user touched anything.
+            //
+            // showHideNextDate cannot be reached on that page at all -- its only caller is
+            // the legend's onclick, which is not rendered there. Its guards are defensive:
+            // they keep a future caller, or a layout that renders the legend without the
+            // fieldset, from reintroducing the same class of failure.
             function showHideNextDate(id, nextDate, neverWarn) {
                 var container = document.getElementById(id);
                 if (!container) {

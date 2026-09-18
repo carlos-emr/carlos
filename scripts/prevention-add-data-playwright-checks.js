@@ -8,6 +8,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -51,6 +60,7 @@
 
 const {
   assert,
+  assertNotErrorPage,
   buildFailureDetails,
   createRecorder,
   gotoApp,
@@ -68,7 +78,11 @@ const resolvedType = process.env.PREVENTION_RESOLVED || 'HPV';
 
 const failures = [];
 
-async function openPreventionPage(context, recorder, prevention) {
+/*
+ * A direct request. Reserved for the unresolved key, which by definition has no row on the
+ * Preventions page and therefore no opener a user could click.
+ */
+async function requestPreventionPage(context, recorder, prevention) {
   const page = await context.newPage();
   wirePage(page, prevention, recorder);
   const query = new URLSearchParams({ demographic_no: demographicNo, prevention });
@@ -83,15 +97,55 @@ async function openPreventionPage(context, recorder, prevention) {
   return page;
 }
 
-/** Re-runs, in the page, the two calls whose null paths this fix added. Neither may throw. */
+/*
+ * The route a user takes: Preventions page, then the row's add link, which opens the popup.
+ * The harness requires this over a direct URL (scripts/lib/playwright-harness.js:28-33) --
+ * entering by URL would let this check pass with the Preventions page's add wiring broken.
+ */
+async function openPreventionPopup(context, recorder, prevention) {
+  const index = await context.newPage();
+  wirePage(index, 'preventions', recorder);
+  const response = await gotoApp(index, config.baseUrl,
+    `/prevention/ViewPreventionIndex?demographic_no=${encodeURIComponent(demographicNo)}`, 'networkidle');
+  if (!response || response.status() !== 200) {
+    failures.push(`preventions page returned ${response ? response.status() : 'no response'}`);
+    await index.close();
+    return null;
+  }
+  await assertNotErrorPage(index, 'preventions page');
+
+  const addLink = index.locator(`[onclick*="ViewAddPreventionData"][onclick*="prevention=${prevention}"]`).first();
+  if (await addLink.count() === 0) {
+    failures.push(`the Preventions page has no add link for ${prevention}; `
+      + 'pick a PREVENTION_RESOLVED that appears there, so the popup is reached the way a user reaches it');
+    await index.close();
+    return null;
+  }
+  const pending = context.waitForEvent('page', { timeout: 30000 });
+  pending.catch(() => {});
+  await addLink.click();
+  const popup = await pending;
+  wirePage(popup, prevention, recorder);
+  await popup.waitForURL(/\/prevention\/ViewAddPreventionData\?/, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await assertNotErrorPage(popup, prevention);
+  await index.close();
+  return popup;
+}
+
+/**
+ * Re-runs, in the page, the two calls whose null paths this fix added. Neither may throw.
+ *
+ * Only disableifchecked is reached from body onload; showHideNextDate's only caller is the
+ * legend's onclick, which the unresolved page does not render. It is invoked here anyway so
+ * its defensive guards are covered: nothing else on this page can reach them, and both
+ * branches of it return at the container guard when nextDateDiv is absent.
+ */
 async function reRunOnloadHandlers(page, prevention) {
   const error = await page.evaluate(() => {
     try {
       // eslint-disable-next-line no-undef
       disableifchecked(document.getElementById('neverWarn'), 'nextDate');
-      // eslint-disable-next-line no-undef
-      showHideNextDate('nextDateDiv', 'nextDate', 'neverWarn');
-      // Twice: the second call takes the other branch, which clears the field and the box.
       // eslint-disable-next-line no-undef
       showHideNextDate('nextDateDiv', 'nextDate', 'neverWarn');
       return null;
@@ -115,7 +169,7 @@ function recordPageErrors(recorder, prevention) {
  * the page #3732 was reported on.
  */
 async function checkUnresolvedType(context, recorder) {
-  const page = await openPreventionPage(context, recorder, unresolvedType);
+  const page = await requestPreventionPage(context, recorder, unresolvedType);
   if (!page) {
     return;
   }
@@ -138,7 +192,7 @@ async function checkUnresolvedType(context, recorder) {
  * early for everything would satisfy the page above and silently break this.
  */
 async function checkResolvedType(context, recorder) {
-  const page = await openPreventionPage(context, recorder, resolvedType);
+  const page = await openPreventionPopup(context, recorder, resolvedType);
   if (!page) {
     return;
   }
