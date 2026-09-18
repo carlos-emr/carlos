@@ -97,7 +97,7 @@ Exploded WAR".
     * Password: carlos2026
     * PIN: 2026
     * This account has the receptionist role and synthetic provider number `999996`; use `carlosdoc` for administration itself.
-* Administration seed fixtures include current and deleted patient-independent eForms under **Forms/eForms → Patient-independent eForm**.
+* Administration seed fixtures (`admin_test_data.sql`, labelled `Local Test -`) include current and deleted patient-independent eForms under **Forms/eForms → Patient-independent eForm**. The same file ships with the deb demo dataset (`carlos-ctl demo-data`); only the `locktest` login (`admin_test_account.sql`) is devcontainer-only.
 
 ### Subsequent Compilations
 

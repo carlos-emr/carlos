@@ -24,10 +24,15 @@ class DevelopmentAdminSeedRegressionTest {
 
     private static final Path ADMIN_SEED = Path.of(
             ".devcontainer", "db", "scripts", "admin_test_data.sql");
+    private static final Path ADMIN_ACCOUNT = Path.of(
+            ".devcontainer", "db", "scripts", "admin_test_account.sql");
     private static final Path DB_DOCKERFILE = Path.of(
             ".devcontainer", "db", "Dockerfile");
     private static final Path POPULATE_DB = Path.of(
             ".devcontainer", "db", "scripts", "populate_db.sh");
+    private static final Path DEBIAN_RULES = Path.of("debian", "rules");
+    private static final Path DEB_DBOPS = Path.of(
+            "debian", "assets", "carlos_ctl", "dbops.py");
 
     /**
      * Surefire and IDEs do not agree on the working directory, so source-tree
@@ -43,15 +48,70 @@ class DevelopmentAdminSeedRegressionTest {
         String populate = readProjectFile(POPULATE_DB);
 
         assertThat(dockerfile)
-                .contains("COPY ./.devcontainer/db/scripts/admin_test_data.sql /scripts/admin_test_data.sql");
+                .contains("COPY ./.devcontainer/db/scripts/admin_test_data.sql /scripts/admin_test_data.sql")
+                .contains("COPY ./.devcontainer/db/scripts/admin_test_account.sql /scripts/admin_test_account.sql");
         // Assert the path rather than the full command. populate_db.sh has carried
         // both a "$SQL oscar < ..." form and a literal "mysql -u root -p..." form,
-        // and the load order is what this test actually cares about.
+        // and the load order is what this test actually cares about: the seed's
+        // eForm group references the Rich Text Letter row the RTL chain installs,
+        // and its labels must not be FAKE- prefixed by the name sanitization.
         assertThat(populate)
                 .contains("/scripts/admin_test_data.sql")
                 .satisfies(script -> assertThat(script.indexOf("/scripts/admin_test_data.sql"))
                         .isGreaterThan(script.indexOf("update-2026-03-22-rtl-2026.3.0-modernize.sql"))
-                        .isGreaterThan(script.indexOf("update-2026-03-12-rtl-enable-direct.sql")));
+                        .isGreaterThan(script.indexOf("update-2026-03-12-rtl-enable-direct.sql"))
+                        .isGreaterThan(script.indexOf("update-2026-06-29-rtl-attachment-route-fix.sql"))
+                        .isGreaterThan(script.indexOf("/scripts/demo-name-sanitization-on.sql")));
+        // The login attaches to provider 999996, which the fixture file creates.
+        assertThat(populate)
+                .as("the locktest login must load after the provider row it references")
+                .satisfies(script -> assertThat(script.indexOf("/scripts/admin_test_account.sql"))
+                        .isGreaterThan(script.indexOf("/scripts/admin_test_data.sql")));
+    }
+
+    @Test
+    @DisplayName("should ship the admin fixtures with the deb demo dataset, loaded last")
+    void shouldShipAdminFixtures_withDebDemoData() throws IOException {
+        String rules = readProjectFile(DEBIAN_RULES);
+        String dbops = readProjectFile(DEB_DBOPS);
+
+        assertThat(rules)
+                .as("debian/rules must stage the seed next to the other demo pieces")
+                .contains(".devcontainer/db/scripts/admin_test_data.sql \\");
+        // carlos-ctl demo-data streams its pieces in list order; the seed has the
+        // same ordering constraints as in populate_db.sh (after the RTL chain and
+        // after the name sanitization), and the ON-only supplement is appended
+        // conditionally, so the seed must come after that append too.
+        assertThat(dbops)
+                .contains("os.path.join(DEMO_DIR, \"admin_test_data.sql\")")
+                .satisfies(source -> assertThat(source.indexOf("\"admin_test_data.sql\""))
+                        .isGreaterThan(source.indexOf("\"update-2026-06-29-rtl-attachment-route-fix.sql\""))
+                        .isGreaterThan(source.indexOf("\"demo-name-sanitization.sql\""))
+                        .isGreaterThan(source.indexOf("\"demo-name-sanitization-on.sql\"")));
+    }
+
+    @Test
+    @DisplayName("should keep the locktest login out of the shared fixtures and out of the deb")
+    void shouldKeepLoginCredential_outOfDebDemoData() throws IOException {
+        String seed = readProjectFile(ADMIN_SEED);
+        String account = readProjectFile(ADMIN_ACCOUNT);
+        String rules = readProjectFile(DEBIAN_RULES);
+        String dbops = readProjectFile(DEB_DBOPS);
+
+        // The deb demo load never introduces security rows (demo-additive-exclude
+        // SEC section; the hash is the published dev hash bootstrap-admin removes).
+        assertThat(seed)
+                .as("the shared fixture file must carry no login credential")
+                .doesNotContain("INSERT INTO security")
+                .doesNotContain("INSERT INTO secUserRole")
+                .doesNotContain("{bcrypt}");
+        assertThat(account)
+                .contains("'locktest'")
+                .contains("INSERT INTO security")
+                .contains("INSERT INTO secUserRole")
+                .contains("WHERE NOT EXISTS");
+        assertThat(rules).doesNotContain("admin_test_account.sql");
+        assertThat(dbops).doesNotContain("admin_test_account.sql");
     }
 
     @Test
@@ -60,7 +120,7 @@ class DevelopmentAdminSeedRegressionTest {
         String seed = readProjectFile(ADMIN_SEED);
 
         assertThat(seed).contains(
-                "'locktest'",
+                "'999996'",
                 "INSERT INTO cssStyles",
                 "INSERT INTO incomingLabRules",
                 "INSERT INTO incomingLabRulesType",

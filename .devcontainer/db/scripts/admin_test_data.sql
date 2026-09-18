@@ -1,18 +1,29 @@
--- CARLOS EMR local-development fixtures for the Administration panel.
+-- CARLOS EMR demo/development fixtures for the Administration panel.
 --
--- development.sql already supplies the large clinical/demo dataset. This file
--- fills the admin-only gaps with obviously synthetic records and is loaded last
--- so it can reference the Rich Text Letter eForm installed by populate_db.sh.
--- Every insert is repeatable to make the file safe to run by hand while working
--- on an existing local database. It must never be used for production data.
+-- The demo snapshot already supplies the large clinical dataset. This file
+-- fills the admin-only gaps with obviously synthetic records. It is loaded by
+-- BOTH demo flows, last in each so it can reference the Rich Text Letter eForm
+-- the preceding steps install:
+--   * the devcontainer init script (.devcontainer/db/scripts/populate_db.sh)
+--   * the deb demo loader (carlos-ctl demo-data, debian/assets/carlos_ctl/dbops.py)
+-- Every insert is guarded with WHERE NOT EXISTS, so the file is repeatable
+-- (safe to run by hand against an existing local database) and additive
+-- (nothing Flyway seeds is modified or removed). It must never be used for
+-- production data.
+--
+-- Deliberately NOT here: login credentials. The deb demo load never
+-- introduces security rows (scripts/demo-additive-exclude.txt, SEC), so the
+-- devcontainer-only `locktest` account lives in admin_test_account.sql.
 
 START TRANSACTION;
 
 -- User Management -----------------------------------------------------------
--- A sacrificial account lets developers test login failures and the Unlock
--- Account screen without locking carlosdoc. Account locks live in Tomcat's
--- in-memory LoginList, so deliberately enter the wrong password for `locktest`
--- until it appears in Administration > Unlock Account.
+-- Provider 999996 is the synthetic "Account, Lock Test" provider. In the
+-- devcontainer, admin_test_account.sql attaches the `locktest` login to it so
+-- developers can test login failures and the Unlock Account screen without
+-- locking carlosdoc. The provider row itself is safe to ship everywhere: with
+-- no security row it cannot sign in, and it exists mainly so the inbox
+-- forwarding rule below has a target that no hand-made rule can collide with.
 INSERT INTO provider
     (provider_no, last_name, first_name, provider_type, specialty, sex, status,
      lastUpdateUser, lastUpdateDate)
@@ -21,28 +32,6 @@ SELECT
     '999998', NOW()
 WHERE NOT EXISTS (
     SELECT 1 FROM provider WHERE provider_no = '999996'
-);
-
-INSERT INTO security
-    (user_name, password, provider_no, pin, b_ExpireSet, forcePasswordReset,
-     passwordUpdateDate, pinUpdateDate, lastUpdateUser, lastUpdateDate)
-SELECT
-    'locktest',
-    '{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju',
-    '999996', '2026', 0, 0, NOW(), NOW(), '999998', NOW()
-WHERE NOT EXISTS (
-    SELECT 1 FROM security WHERE user_name = 'locktest'
-);
-
-INSERT INTO secUserRole
-    (provider_no, role_name, orgcd, activeyn, lastUpdateDate)
-SELECT '999996', 'receptionist', 'R0000001', 1, NOW()
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM secUserRole
-    WHERE provider_no = '999996'
-      AND role_name = 'receptionist'
-      AND activeyn = 1
 );
 
 INSERT INTO providersite (provider_no, site_id)

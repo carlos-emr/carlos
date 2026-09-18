@@ -978,6 +978,17 @@ def cmd_demo_data(argv) -> int:
         # formLabReq07/10 exist only in the Ontario schema; the BC load would
         # fail on the missing tables.
         pieces.append(os.path.join(DEMO_DIR, "demo-name-sanitization-on.sql"))
+    # Synthetic Administration fixtures (billing CSS styles, an inbox
+    # forwarding rule, patient-independent eForms, referral doctors, a report
+    # template, query favourites, appointment types, prevention lots) for the
+    # data-backed Administration screens the snapshot leaves empty. Common
+    # schema only, guarded per row, and it carries NO security rows (the
+    # devcontainer keeps its `locktest` login in a separate file that is not
+    # shipped). Last on purpose: its eForm group references the Rich Text
+    # Letter row the RTL chain above installs, and it must follow the name
+    # sanitization so its `Local Test -` labels are not FAKE- prefixed
+    # (populate_db.sh applies the same file in the same position).
+    pieces.append(os.path.join(DEMO_DIR, "admin_test_data.sql"))
     for p in pieces:
         if not os.path.isfile(p):
             die(f"{p} is missing — reinstall carlos-emr")
@@ -1027,7 +1038,7 @@ def cmd_demo_data(argv) -> int:
     _demo_seed_document_files()
 
     log("demonstration dataset loaded: ~3000 FAKE- patients, demo providers, "
-        "and 60 fake referral specialists.")
+        "60 fake referral specialists, and synthetic Administration fixtures.")
     log("this system now holds publicly-known demonstration content and known "
         "development credentials — it must NEVER hold real patient data.")
     return 0
