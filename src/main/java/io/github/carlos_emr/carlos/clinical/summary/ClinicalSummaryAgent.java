@@ -15,5 +15,8 @@ public interface ClinicalSummaryAgent {
      */
     default String cacheIdentity() throws IOException { return null; }
 
+    /** Serialized request budget, including instructions/schema; never a summary-length limit. */
+    default int requestBytes() { return 10000; }
+
     JsonNode generate(JsonNode request) throws IOException;
 }

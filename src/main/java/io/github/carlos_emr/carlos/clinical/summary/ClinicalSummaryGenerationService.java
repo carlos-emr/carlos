@@ -36,7 +36,7 @@ public final class ClinicalSummaryGenerationService {
     private static final Map<String, String> LEXICAL_EXPANSIONS = Map.of(
             "\\bhr\\b", "heart rate", "\\bbp\\b", "blood pressure", "\\brr\\b", "respiratory rate",
             "\\bspo2\\b", "oxygen saturation", "\\bhf\\b", "heart failure", "\\bf/u\\b", "follow up",
-            "\\bwks?\\b", "weeks");
+            "\\bwks?\\b", "weeks", "\\bsmok(?:e|es|ed|ing|er|ers)\\b", "smoking");
     private static final Pattern SOURCE_METADATA = Pattern.compile(
             "(?i)(?:\\b(source (?:note|admission|patient) id|demographic (?:number|id)|"
                     + "recorded gender identity|synthetic nhs test patient|imported development fixture|"
@@ -83,7 +83,8 @@ public final class ClinicalSummaryGenerationService {
             // Eligibility precedes metadata lookup and every cache hit. The action separately
             // reloads authorized evidence before and after this call, including on cache hits.
             String identity = agent.cacheIdentity();
-            String cacheKey = cache == null || identity == null ? null : ClinicalSummaryGenerationCache.key(snapshot, request, identity);
+            String cacheKey = cache == null || identity == null ? null : ClinicalSummaryGenerationCache.key(
+                    snapshot, request, identity + ";request_bytes=" + agent.requestBytes());
             if (cacheKey != null) {
                 ClinicalSummaryArtifact hit = cache.get(cacheKey);
                 if (hit != null) return hit;

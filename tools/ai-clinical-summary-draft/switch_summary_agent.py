@@ -16,15 +16,17 @@ from validate_artifact import require
 PREFIX = "clinical.ai_summary_generation."
 
 
-def settings(agent, port=DEFAULTS["port"], model=DEFAULTS["model"]):
+def settings(agent, port=DEFAULTS["port"], model=DEFAULTS["model"], request_bytes=DEFAULTS["request_bytes"]):
     values = {"clinical.ai_summary_prototype.enabled": "true", PREFIX + "enabled": "true",
               PREFIX + "agent": agent}
     if agent == "openrouter":
         require(re.fullmatch(r"[a-z0-9._-]+/[a-z0-9._-]+", model), "Invalid model ID")
+        require(type(request_bytes) is int and 10000 <= request_bytes <= 50000, "Invalid request budget")
         values.update({PREFIX + "agent": "http", PREFIX + "http.port": str(port),
                        PREFIX + "http.path": "/v1/clinical-summary",
                        PREFIX + "http.name": "OpenRouter / " + model,
-                       PREFIX + "http.timeoutSeconds": "600"})
+                       PREFIX + "http.timeoutSeconds": "600",
+                       PREFIX + "http.requestBytes": "50000"})
     else:
         require(agent == "ollama", "Unknown agent")
         values.update({PREFIX + "ollama.port": "11436", PREFIX + "ollama.model": "qwen3.5:2b",
@@ -70,7 +72,8 @@ def main():
     try:
         require(properties.is_file() and runner.is_file(), "The isolated local runtime must already exist")
         config = read_config(runtime_directory() / "openrouter/config.json") if args.agent == "openrouter" else {}
-        values = settings(args.agent, config.get("port", DEFAULTS["port"]), config.get("model", DEFAULTS["model"]))
+        values = settings(args.agent, config.get("port", DEFAULTS["port"]), config.get("model", DEFAULTS["model"]),
+                          config.get("request_bytes", DEFAULTS["request_bytes"]))
         pids = runtime_processes(base)
         require(len(pids) <= 1, "Multiple matching Tomcat instances; refusing ambiguous restart")
         if args.dry_run:
@@ -81,7 +84,13 @@ def main():
             health = loads(local_get(config["port"], "/health"))
             require(health.get("service") == "carlos-openrouter-synthetic"
                     and health.get("model") == config["model"]
-                    and health.get("provider") == config["provider"], "Start the configured OpenRouter gateway first")
+                    and health.get("provider") == config["provider"]
+                    and health.get("request_bytes") == config["request_bytes"]
+                    and health.get("temperature") == config["temperature"]
+                    and health.get("reasoning_tokens") == config["reasoning_tokens"]
+                    and health.get("section_passes") == config["section_passes"]
+                    and health.get("section_workers") == config["section_workers"],
+                    "Start the configured OpenRouter gateway first")
         else:
             local_get(11436, "/api/tags")
         original = properties.read_text()

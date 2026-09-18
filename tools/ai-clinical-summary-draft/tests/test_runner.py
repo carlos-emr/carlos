@@ -39,6 +39,18 @@ class RunnerTest(unittest.TestCase):
         for key, value in self.bundle.items():
             self.assertEqual(value, self.artifact[key])
 
+    def test_smoking_inflections_have_lexical_support_without_rewriting_claims(self):
+        sources = [{'id': 'note-1', 'title': 'Encounter', 'date': '2026-01-07', 'text': 'No smoking.'}]
+        claim = {'id': 'c1', 'text': 'Patient does not smoke.', 'source_ids': ['note-1']}
+        output = {'claims': [claim], 'sections': [{'id': 'clinical_overview', 'title': 'Clinical overview',
+                                                  'claim_ids': ['c1']}],
+                  'coverage': [{'source_id': 'note-1', 'status': 'cited', 'reason': 'Smoking history reviewed'}]}
+        validate_generated(output, sources)
+        self.assertEqual('Patient does not smoke.', claim['text'])
+        claim['text'] = 'Patient has diabetes.'
+        with self.assertRaises(ValueError):
+            validate_generated(output, sources)
+
     def test_dry_run_never_calls_ollama_or_creates_output(self):
         with patch.object(run, "request_json", side_effect=AssertionError("network")), io.StringIO() as output:
             with contextlib.redirect_stdout(output):

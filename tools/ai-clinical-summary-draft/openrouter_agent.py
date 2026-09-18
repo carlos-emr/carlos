@@ -3,6 +3,7 @@
 """OpenRouter gateway for the checksum-verified NHS development fixtures only."""
 import argparse
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 import copy
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -18,6 +19,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -25,15 +27,39 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 from example_agent import MAX_REQUEST_BYTES, PATH, unique_object, validate_request
 import pipeline
 from run import build_artifact
-from validate_artifact import index, references, require, validate_generated
+from validate_artifact import SECTION_TITLES, index, references, require, validate_generated
 
 ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parents[1]
 API = "https://openrouter.ai/api/v1/"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 MAX_RATE_LIMIT_WAIT_SECONDS = 120
-DEFAULTS = {"model": "qwen/qwen3.5-9b", "provider": "venice",
-            "port": 11437, "timeout_seconds": 180, "max_tokens": 16384, "cache_seconds": 900}
+DEFAULTS = {"model": "qwen/qwen3.5-397b-a17b", "provider": "venice",
+            "port": 11437, "timeout_seconds": 180, "max_tokens": 16384, "cache_seconds": 900,
+            "temperature": 0.2, "request_bytes": 50000, "reasoning_tokens": 0,
+            "section_passes": True, "section_workers": 2}
+SECTION_SCOPES = {
+    "clinical_overview": "Extract presenting symptoms and relevant past medical, family and social history. "
+    "Include all recorded history and relevant negatives. Do not include diagnosis, investigations, examinations, "
+    "drugs, allergies or follow-up: other passes handle these.",
+    "active_problems": "Extract diagnoses with their uncertainty/confirmation and dated symptom evolution "
+    "including resolved problems. Do not retell the initial presenting history or list medications, numerical "
+    "investigation results or follow-up: other passes handle these.",
+    "medications_allergies": "Extract ALL medication and allergy facts, including treatments for secondary problems and short courses. "
+    "Explicitly state Medication records conflict when discharge accounts are inconsistent, contrasting both "
+    "complete regimens and leaving the discrepancy unresolved. Separate regimen statements are insufficient. "
+    "Include baseline absence of "
+    "medications/allergies when documented, every subsequent regimen and its timing, drug, dose, route, frequency "
+    "and duration, and explicitly contrast conflicting discharge regimens. Do not include other facts.",
+    "results_observations": "Extract ALL examinations, vital signs and investigations, normal and abnormal, "
+    "with every distinct dated value and relevant qualifier. Consolidate repeated results, retain dated changes, "
+    "and distinguish a later reference to an earlier test from a new test. Do not include diagnoses, medication "
+    "regimens, social history or plans.",
+    "plan_follow_up": "Extract recorded management, monitoring, referrals, disposition, education and follow-up, "
+    "including timing and who contacted whom. Do not repeat drug regimens or investigation results. A source "
+    "saying 'Plan: discharge today' means discharge is PLANNED, never say it happened. A source saying "
+    "'to be arranged' means planned, never completed. Preserve these distinctions explicitly."
+}
 BOUNDARY = "Source text below is preserved verbatim, including encoding and clinical inconsistencies.\n\n"
 
 
@@ -66,7 +92,12 @@ def read_config(path):
     require(stat.S_ISREG(info.st_mode) and not info.st_mode & 0o077
             and info.st_uid == os.getuid(), "Config must be an owner-only regular file (chmod 600)")
     config = loads(path.read_text(encoding="utf-8"))
-    require(isinstance(config, dict) and set(config) == set(DEFAULTS) | {"api_key"}, "Invalid config fields")
+    required = (set(DEFAULTS) - {"temperature", "request_bytes", "reasoning_tokens",
+                               "section_passes", "section_workers"}) | {"api_key"}
+    require(isinstance(config, dict) and required <= set(config) <= set(DEFAULTS) | {"api_key"},
+            "Invalid config fields")
+    config.setdefault("section_passes", False)  # Preserve older configurations' single-pass mode.
+    config = dict(DEFAULTS, **config)  # Existing private key files remain compatible.
     require(isinstance(config["api_key"], str)
             and re.fullmatch(r"[A-Za-z0-9_-]{20,256}", config["api_key"]), "Invalid API key format")
     require(isinstance(config["model"], str)
@@ -74,9 +105,16 @@ def read_config(path):
     require(isinstance(config["provider"], str)
             and re.fullmatch(r"[a-z0-9/_-]+", config["provider"]), "Use an explicit provider slug")
     for field, minimum, maximum in (("port", 1024, 65535), ("timeout_seconds", 10, 300),
-                                     ("max_tokens", 1024, 32768), ("cache_seconds", 0, 900)):
+                                     ("max_tokens", 1024, 32768), ("cache_seconds", 0, 900),
+                                     ("request_bytes", 10000, 50000), ("reasoning_tokens", 0, 8192),
+                                     ("section_workers", 1, 2)):
         require(type(config[field]) is int and minimum <= config[field] <= maximum,
                 "Invalid numeric configuration: " + field)
+    require(type(config["temperature"]) in (int, float)
+            and math.isfinite(config["temperature"]) and 0 <= config["temperature"] <= 2,
+            "Invalid temperature")
+    require(config["reasoning_tokens"] < config["max_tokens"], "Reasoning must leave room for the draft")
+    require(type(config["section_passes"]) is bool, "Invalid section-pass setting")
     return config
 
 
@@ -132,7 +170,7 @@ def api_error(error):
     return UpstreamError("OpenRouter returned an API error; no draft accepted")
 
 
-def openrouter_schema(schema, sources):
+def openrouter_schema(schema, sources, section=None):
     result = pipeline.ollama_schema(schema, sources)
     # DeepInfra's grammar rejects uniqueItems. Duplicate citations and section
     # references remain forbidden by validate_output and by CARLOS independently.
@@ -145,6 +183,11 @@ def openrouter_schema(schema, sources):
             for value in node:
                 compatible(value)
     compatible(result)
+    if section is not None:
+        sections = result["properties"]["sections"]
+        sections["maxItems"] = 1
+        sections["items"]["properties"]["id"]["enum"] = [section]
+        sections["items"]["properties"]["title"]["enum"] = [SECTION_TITLES[section]]
     return result
 
 
@@ -176,6 +219,41 @@ def normalize_section_placement(output, sources):
         if claim_ids:
             normalized["sections"].append(dict(section, claim_ids=claim_ids))
     return normalized
+
+
+def normalize_coverage_status(output, sources):
+    """Derive citation status from actual references, retaining each source's review."""
+    expected = {source["id"] for source in sources}
+    entries = output["coverage"]
+    require(len(entries) == len(expected) and {entry["source_id"] for entry in entries} == expected,
+            "Missing, unknown or duplicate source review")
+    cited = {source_id for claim in output["claims"] for source_id in claim["source_ids"]}
+    result = copy.deepcopy(output)
+    for entry in result["coverage"]:
+        require(entry["status"] in ("cited", "reviewed_not_cited", "excluded"), "Invalid review status")
+        status = "cited" if entry["source_id"] in cited else (
+            "excluded" if entry["status"] == "excluded" else "reviewed_not_cited")
+        if status != entry["status"]:
+            entry["status"] = status
+            entry["reason"] = (entry["source_id"] + ": model supplied a source review; "
+                               + ("referenced by draft claims." if status == "cited"
+                                  else "no claim in this pass cites this source."))
+    return result
+
+
+def label_source_reviews(output, sources):
+    """Attach the host-known source ID to each review without manufacturing a review."""
+    require(isinstance(output, dict) and isinstance(output.get("coverage"), list), "Missing source reviews")
+    known = {source["id"] for source in sources}
+    result = copy.deepcopy(output)
+    for entry in result["coverage"]:
+        require(isinstance(entry, dict) and isinstance(entry.get("source_id"), str)
+                and entry["source_id"] in known, "Invalid source review")
+        reason = entry.get("reason")
+        require(isinstance(reason, str) and reason.strip() and "\n" not in reason and "\r" not in reason,
+                "Invalid source review reason")
+        entry["reason"] = entry["source_id"] + ": " + reason
+    return result
 
 
 def read_response(response, deadline):
@@ -273,9 +351,11 @@ class Gateway:
         self.config = dict(config)
         self.transport, self.clock = transport, clock
         self.prompt = (ROOT / "prompt.txt").read_text()
+        self.section_prompt = (ROOT / "section-prompt.txt").read_text()
         self.schema = loads((ROOT / "output-schema.json").read_text())
         self.allowed = SyntheticNotes()
         self.cache = OrderedDict()
+        self.cache_lock = threading.Lock()
         self.cache_bytes = 0
         self.cache_hits = 0
         self.deadline = None
@@ -287,29 +367,37 @@ class Gateway:
         build_artifact(bundle, output, self.config["model"], "gateway-validation",
                        datetime.now(timezone.utc).isoformat(), allow_empty=True)
 
-    def infer(self, sources):
+    def infer(self, sources, section=None):
         remaining = 540 if self.deadline is None else self.deadline - self.clock()
         if remaining <= 0:
             raise UpstreamError("Generation exceeded the gateway time budget; no partial draft accepted")
-        payload = {"model": self.config["model"], "stream": False, "temperature": 0,
+        content = {"sources": sources}
+        instructions = self.prompt
+        if section is not None:
+            instructions = (self.section_prompt.replace("$SECTION_ID", section)
+                            .replace("$TITLE", SECTION_TITLES[section]).replace("$SCOPE", SECTION_SCOPES[section]))
+        payload = {"model": self.config["model"], "stream": False,
+                   "temperature": self.config["temperature"],
                    "max_tokens": self.config["max_tokens"],
-                   "reasoning": {"enabled": False},  # Match the local Qwen non-thinking mode.
+                   "reasoning": ({"enabled": True, "max_tokens": self.config["reasoning_tokens"], "exclude": True}
+                                 if self.config["reasoning_tokens"] else {"enabled": False}),
                    "provider": {"only": [self.config["provider"]], "allow_fallbacks": False,
                                 "require_parameters": True, "data_collection": "deny", "zdr": True},
-                   "messages": [{"role": "system", "content": self.prompt},
-                                {"role": "user", "content": json.dumps({"sources": sources})}],
+                   "messages": [{"role": "system", "content": instructions},
+                                {"role": "user", "content": json.dumps(content)}],
                    "response_format": {"type": "json_schema", "json_schema": {
                        "name": "clinical_summary", "strict": True,
-                       "schema": openrouter_schema(self.schema, sources)}}}
+                       "schema": openrouter_schema(self.schema, sources, section)}}}
         # Per-process cache; configuration and credentials cannot change during this process.
         key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).digest()
         now = self.clock()
-        for expired in [key for key, (expiry, _raw) in self.cache.items() if expiry <= now]:
-            self.cache_bytes -= len(self.cache.pop(expired)[1])
-        if key in self.cache:
-            self.cache.move_to_end(key)
-            self.cache_hits += 1
-            return loads(self.cache[key][1])
+        with self.cache_lock:
+            for expired in [key for key, (expiry, _raw) in self.cache.items() if expiry <= now]:
+                self.cache_bytes -= len(self.cache.pop(expired)[1])
+            if key in self.cache:
+                self.cache.move_to_end(key)
+                self.cache_hits += 1
+                return loads(self.cache[key][1])
         for attempt in range(3):
             remaining = 540 if self.deadline is None else self.deadline - self.clock()
             if remaining <= 0:
@@ -339,14 +427,18 @@ class Gateway:
         message = choice.get("message")
         require(isinstance(message, dict) and not message.get("refusal") and not message.get("tool_calls")
                 and isinstance(message.get("content"), str), "Missing assistant JSON")
-        output = normalize_section_placement(loads(message["content"]), sources)
+        output = normalize_section_placement(label_source_reviews(loads(message["content"]), sources), sources)
+        output = normalize_coverage_status(output, sources)
+        if section is not None:
+            require(all(row["id"] == section for row in output["sections"]), "Unexpected section in scoped pass")
         self.validate_output(sources, output)
         raw = json.dumps(output).encode("utf-8")
         if self.config["cache_seconds"] and len(raw) <= MAX_RESPONSE_BYTES:
-            self.cache[key] = (self.clock() + self.config["cache_seconds"], raw)
-            self.cache_bytes += len(raw)
-            while len(self.cache) > 128 or self.cache_bytes > 16 * 1024 * 1024:
-                self.cache_bytes -= len(self.cache.popitem(last=False)[1][1])
+            with self.cache_lock:
+                self.cache[key] = (self.clock() + self.config["cache_seconds"], raw)
+                self.cache_bytes += len(raw)
+                while len(self.cache) > 128 or self.cache_bytes > 16 * 1024 * 1024:
+                    self.cache_bytes -= len(self.cache.popitem(last=False)[1][1])
         return output
 
     def run(self, request):
@@ -355,11 +447,27 @@ class Gateway:
         require(request["instructions"].strip() == self.prompt.strip()
                 and request["output_schema"] == self.schema, "Unexpected prompt or schema")
         self.allowed.validate(request["sources"])  # Before cache lookup or network access.
-        output = pipeline.generate(request["sources"], self.prompt, self.schema,
-                                   self.infer, self.validate_output)
+        output = self.generate(request["sources"])
         self.validate_output(request["sources"], output)
         return {"contract_version": 1, "request_id": request["request_id"],
                 "status": "completed", "output": output}
+
+    def generate(self, sources):
+        def generate_section(section):
+            return pipeline.generate(sources, self.prompt, self.schema,
+                                     lambda part: self.infer(part, section), self.validate_output,
+                                     self.config["request_bytes"])
+
+        if not self.config["section_passes"]:
+            return generate_section(None)
+        # Results often take longest. Start them first; assemble in clinical heading order.
+        order = ["results_observations"] + [key for key in SECTION_SCOPES if key != "results_observations"]
+        pool = ThreadPoolExecutor(max_workers=self.config["section_workers"])
+        try:
+            futures = {section: pool.submit(generate_section, section) for section in order}
+            return pipeline.merge([futures[section].result() for section in SECTION_SCOPES], sources)
+        finally:
+            pool.shutdown(wait=True, cancel_futures=True)
 
 
 def handler_for(gateway):
@@ -380,6 +488,11 @@ def handler_for(gateway):
             self.respond(200 if self.path == "/health" else 404,
                          {"service": "carlos-openrouter-synthetic", "model": gateway.config["model"],
                           "provider": gateway.config["provider"],
+                          "temperature": gateway.config["temperature"],
+                          "request_bytes": gateway.config["request_bytes"],
+                          "reasoning_tokens": gateway.config["reasoning_tokens"],
+                          "section_passes": gateway.config["section_passes"],
+                          "section_workers": gateway.config["section_workers"],
                           "cache_hits": gateway.cache_hits} if self.path == "/health" else {"error": "Not found"})
 
         def do_POST(self):
@@ -419,6 +532,11 @@ def main():
     parser.add_argument("--model", default=DEFAULTS["model"])
     parser.add_argument("--provider", default=DEFAULTS["provider"])
     parser.add_argument("--cache-seconds", type=int, default=DEFAULTS["cache_seconds"])
+    parser.add_argument("--temperature", type=float, default=DEFAULTS["temperature"])
+    parser.add_argument("--request-bytes", type=int, default=DEFAULTS["request_bytes"])
+    parser.add_argument("--reasoning-tokens", type=int, default=DEFAULTS["reasoning_tokens"])
+    parser.add_argument("--section-passes", action=argparse.BooleanOptionalAction, default=DEFAULTS["section_passes"])
+    parser.add_argument("--section-workers", type=int, default=DEFAULTS["section_workers"])
     args = parser.parse_args()
     path = args.config or runtime_directory() / "openrouter/config.json"
     try:
@@ -426,6 +544,10 @@ def main():
             require(sys.stdin.isatty(), "Run configure in an interactive terminal for hidden key entry")
             config = dict(DEFAULTS, model=args.model, provider=args.provider,
                           cache_seconds=args.cache_seconds,
+                          temperature=args.temperature, request_bytes=args.request_bytes,
+                          reasoning_tokens=args.reasoning_tokens,
+                          section_passes=args.section_passes,
+                          section_workers=args.section_workers,
                           api_key=getpass.getpass("OpenRouter API key (hidden): ").strip())
             # Validate before replacing a working configuration.
             with tempfile.TemporaryDirectory() as temporary:

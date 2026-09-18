@@ -32,6 +32,7 @@ LEXICAL_EXPANSIONS = (
     (re.compile(r"\bhf\b", re.IGNORECASE), "heart failure"),
     (re.compile(r"\bf/u\b", re.IGNORECASE), "follow up"),
     (re.compile(r"\bwks?\b", re.IGNORECASE), "weeks"),
+    (re.compile(r"\bsmok(?:e|es|ed|ing|er|ers)\b", re.IGNORECASE), "smoking"),
 )
 
 

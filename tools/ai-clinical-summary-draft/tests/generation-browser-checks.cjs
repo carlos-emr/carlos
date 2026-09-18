@@ -59,6 +59,12 @@ const path = require("node:path");
             agent: await page.locator(".artifact-footer").innerText()};
         fs.writeFileSync(path.join(output, "result.json"), JSON.stringify(result, null, 2), {mode: 0o600});
         console.log("Full-record browser result:", JSON.stringify(result));
+        if (expected === "success" && result.errors.length === 0) {
+            fs.writeFileSync(path.join(output, "draft-text.json"), JSON.stringify({
+                claims: await page.locator(".claim").allTextContents(),
+                sources: await page.locator(".source").allTextContents()
+            }, null, 2), {mode: 0o600});
+        }
         await page.screenshot({path: path.join(output, "returned-view.png")});
         assert.deepEqual(await page.locator(".source").allTextContents(), sourcesBefore);
         if (expected === "error") {

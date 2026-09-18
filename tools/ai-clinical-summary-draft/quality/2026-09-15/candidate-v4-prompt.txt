@@ -61,7 +61,3 @@ that merely repeats an earlier result. A claim about conflicting accounts must q
 
 Use an event date or time only if the source directly attaches it to that event. Do not borrow a nearby time
 from an unrelated test or event. A later note can report an earlier result without a new test being performed.
-
-If medication records conflict, separate regimen statements are insufficient: explicitly state "Medication records
-conflict" and contrast both complete documented regimens with their dates and citations. Keep the discrepancy
-unresolved; never infer which regimen is correct or that one replaced the other.

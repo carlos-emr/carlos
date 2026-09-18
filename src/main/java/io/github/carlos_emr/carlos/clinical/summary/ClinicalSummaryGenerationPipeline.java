@@ -21,11 +21,16 @@ final class ClinicalSummaryGenerationPipeline {
     private final ClinicalSummaryAgent agent;
     private final ClinicalSummaryGenerationCache cache;
     private final String identity;
+    private final int requestBytes;
 
     ClinicalSummaryGenerationPipeline(ClinicalSummaryAgent agent, ClinicalSummaryGenerationCache cache, String identity) {
         this.agent = agent;
         this.cache = cache;
         this.identity = identity;
+        this.requestBytes = agent.requestBytes();
+        if (requestBytes < REQUEST_BYTES || requestBytes > ClinicalSummaryAgentProtocol.MAX_REQUEST_BYTES) {
+            throw new IllegalArgumentException("Invalid agent request budget");
+        }
     }
 
     JsonNode generate(ObjectNode snapshot, ObjectNode request) throws IOException {
@@ -74,7 +79,7 @@ final class ClinicalSummaryGenerationPipeline {
     }
 
     private void partition(ObjectNode request, List<ObjectNode> requests) throws IOException {
-        if (JSON.writeValueAsBytes(request).length <= REQUEST_BYTES) {
+        if (JSON.writeValueAsBytes(request).length <= requestBytes) {
             requests.add(request);
             return;
         }
@@ -93,12 +98,12 @@ final class ClinicalSummaryGenerationPipeline {
             }
             kind = nextKind;
             sources.add(source.deepCopy());
-            if (JSON.writeValueAsBytes(batch).length > REQUEST_BYTES) {
+            if (JSON.writeValueAsBytes(batch).length > requestBytes) {
                 sources.remove(sources.size() - 1);
                 if (!sources.isEmpty()) requests.add(batch.deepCopy());
                 sources.removeAll();
                 sources.add(source.deepCopy());
-                if (JSON.writeValueAsBytes(batch).length > REQUEST_BYTES) {
+                if (JSON.writeValueAsBytes(batch).length > requestBytes) {
                     partition(batch.deepCopy(), requests);
                     sources.removeAll();
                 }

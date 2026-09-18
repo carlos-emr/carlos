@@ -12,9 +12,17 @@ public final class HttpClinicalSummaryAgent implements ClinicalSummaryAgent {
     private final String path;
     private final String name;
     private final int timeoutMs;
+    private final int requestBytes;
 
     public HttpClinicalSummaryAgent(int port, String path, String name, int timeoutMs) {
+        this(port, path, name, timeoutMs, 10000);
+    }
+
+    public HttpClinicalSummaryAgent(int port, String path, String name, int timeoutMs, int requestBytes) {
         validateConnection(port, timeoutMs);
+        if (requestBytes < 10000 || requestBytes > MAX_REQUEST_BYTES) {
+            throw new IllegalArgumentException("Invalid HTTP agent request budget");
+        }
         if (path == null || !path.matches("/[A-Za-z0-9/_-]+") || name == null || name.isBlank()
                 || name.length() > 160 || name.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("Invalid HTTP agent configuration");
@@ -23,10 +31,14 @@ public final class HttpClinicalSummaryAgent implements ClinicalSummaryAgent {
         this.path = path;
         this.name = name;
         this.timeoutMs = timeoutMs;
+        this.requestBytes = requestBytes;
     }
 
     @Override
     public String displayName() { return name + " via agent API v1"; }
+
+    @Override
+    public int requestBytes() { return requestBytes; }
 
     @Override
     public JsonNode generate(JsonNode request) throws IOException {

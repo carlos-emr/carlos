@@ -1,21 +1,32 @@
 # OpenRouter testing for the patient summarizer
 
 The OpenRouter gateway plugs into the existing CARLOS HTTP agent. It processes the
-whole eligible synthetic chart through the existing full-record pipeline, with no
-three-point limit. The default test model is `qwen/qwen3.5-9b`, restricted
-to the `venice` provider. Inference runs remotely and does not need local GPU
-passthrough. Python 3's standard library is sufficient; no package install or
-container rebuild is needed when the current summarizer build is already deployed.
+whole eligible synthetic chart with content-driven length. The current test default
+is `qwen/qwen3.5-397b-a17b` on `venice`, temperature **0.2**, reasoning disabled,
+with a **50,000-byte serialized request budget** and a 16,384-token output allowance.
+This is a larger hosted Qwen model; it does not need your laptop GPU or local model storage.
 
-Qwen 3.5 9B is the smallest Qwen 3.5 model listed in OpenRouter's
-[model catalog](https://openrouter.ai/api/v1/models) as of 2026-09-14; local
-Qwen 3.5 2B is not listed. The selected [Venice endpoint](https://openrouter.ai/api/v1/models/qwen/qwen3.5-9b/endpoints)
-advertises structured outputs and appears in the
-[ZDR endpoint catalog](https://openrouter.ai/api/v1/endpoints/zdr). Comparing this
-hosted 9B model with local 2B changes both model size and inference hardware.
-The catalog identifies Venice's endpoint as FP8. Reasoning is explicitly disabled
-to match the existing local Qwen non-thinking mode; this is a test configuration,
-not an accuracy guarantee.
+The larger source budget lets the tested NHSSYN001 chart fit in one model pass,
+reducing repeated introductions caused by independent small batches. It is the
+amount of record context supplied per pass, not a change to the provider's native
+context window, and not a cap on final summary length. Longer records and exhausted
+outputs still use lossless source splitting. The prompt asks for dated clinical
+progression, distinct facts, explicit medication discrepancies and no identity prose.
+
+These settings are an **experimental readability choice, not a clinical quality gate**.
+Trials of 9B, 27B, 35B-A3B and 397B-A17B, temperatures 0/0.2/0.6/0.7, reasoning,
+and different source budgets showed inconsistent factual retention. The selected
+trial improved presentation and identified the discharge-medication discrepancy,
+but still overstated a planned discharge and omitted some details. See the
+[quality report](QUALITY.md) for observations, rejected experiments and reproduction.
+
+[OpenRouter parameter documentation](https://openrouter.ai/docs/api/reference/parameters)
+explains temperature and output-token settings. The
+[selected endpoint catalog](https://openrouter.ai/api/v1/models/qwen/qwen3.5-397b-a17b/endpoints)
+advertises structured output and context capacity; the gateway continues to require
+ZDR routing, disallow provider fallback, and validate the returned draft locally.
+Python 3's standard library is sufficient. The CARLOS changes in this PR must be
+built/deployed to use the larger HTTP request budget.
 
 Only the three committed NHS development fixtures are supported. CARLOS verifies
 the complete authorized chart; the gateway separately checks outgoing clinical text
@@ -77,7 +88,7 @@ cd /workspace/.git/codex-worktrees/summary-cache
    `carlos2026`, PIN `2026`. Open the **eChart** for `NHSSYN001`, `NHSSYN002` or
    `NHSSYN003`, then **Patient overview → Generate AI draft**. Opening the eChart
    first supplies the program context needed to read the notes. The generated
-   draft identifies `OpenRouter / qwen/qwen3.5-9b` as its configured agent.
+   draft identifies `OpenRouter / qwen/qwen3.5-397b-a17b` as its configured agent.
 
 5. To return to local Qwen, keep the local Ollama server on port 11436 running and use:
 
@@ -100,6 +111,7 @@ clinical.ai_summary_generation.http.port=11437
 clinical.ai_summary_generation.http.path=/v1/clinical-summary
 clinical.ai_summary_generation.http.name=OpenRouter / qwen/qwen3.5-9b
 clinical.ai_summary_generation.http.timeoutSeconds=600
+clinical.ai_summary_generation.http.requestBytes=50000
 ```
 
 ## Speed, caching and output checks
@@ -242,3 +254,33 @@ Run the automated checks without a cloud key:
 ```bash
 python3 -m unittest discover -s tools/ai-clinical-summary-draft/tests -p 'test_*.py'
 ```
+
+## Comparing settings without changing the running app
+
+The comparison command reads the existing private key, disables the local response
+cache and makes paid model calls using only one committed synthetic fixture:
+
+```bash
+python3 tools/ai-clinical-summary-draft/compare_openrouter.py \
+  --fixture NHSSYN001 --temperature 0.2 --request-bytes 50000 \
+  --output /tmp/nhssyn001-quality.json
+```
+
+Optional `--model`, `--provider`, `--reasoning-tokens`, `--temperature` and
+`--request-bytes` override that trial only. The report contains synthetic sources,
+output, settings, prompt hash, elapsed time, token use and provider-reported cost;
+it never includes the API key or reasoning text. A structurally valid result is not
+a clinical pass. Compare omissions and unsupported statements manually.
+
+Saved gateway configurations accept `temperature` (0–2), `request_bytes`
+(10,000–50,000), and `reasoning_tokens` (0 disables reasoning). Old key files remain
+compatible. Restart the gateway after changing its private config; rerun the switch
+helper if changing its model or context settings. `/health` exposes these nonsecret
+settings. A requested reasoning budget is provider-dependent; the total response
+deadline remains enforced independently. Local Ollama retains its 10,000-byte passes.
+
+The host sends up to 50,000 bytes to this gateway, which may partition further using
+its own configured budget. Caches are keyed by the exact source/prompt/schema/model/
+provider/sampling payload. Restarting clears the cache. Coverage citation status is
+derived from actual claim references; a source must still have exactly one valid
+review, and unknown citations or missing reviews remain errors.

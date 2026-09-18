@@ -228,6 +228,26 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     }
 
     @Test
+    void acceptsSmokingInflectionsWithoutChangingTheClaimOrAcceptingUnrelatedText() {
+        ObjectNode output = MAPPER.createObjectNode();
+        ObjectNode claim = output.putArray("claims").addObject().put("id", "c1").put("text", "Patient does not smoke.");
+        claim.putArray("source_ids").add("note-1");
+        output.putArray("sections").addObject().put("id", "clinical_overview").put("title", "Clinical overview")
+                .putArray("claim_ids").add("c1");
+        output.putArray("coverage").addObject().put("source_id", "note-1").put("status", "cited")
+                .put("reason", "Smoking history reviewed");
+        ArrayNode sources = MAPPER.createArrayNode();
+        sources.addObject().put("id", "note-1").put("title", "Encounter").put("date", "2026-01-07")
+                .put("text", "No smoking.");
+        assertThatCode(() -> ClinicalSummaryGenerationService.validateGenerated(output, sources, false))
+                .doesNotThrowAnyException();
+        assertThat(claim.path("text").asText()).isEqualTo("Patient does not smoke.");
+        claim.put("text", "Patient has diabetes.");
+        assertThatThrownBy(() -> ClinicalSummaryGenerationService.validateGenerated(output, sources, false))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void acceptsQuotedClinicalTextButRejectsLineBreaks() throws Exception {
         ObjectNode claim = (ObjectNode) generated.get("claims").get(0);
         String original = claim.get("text").asText();

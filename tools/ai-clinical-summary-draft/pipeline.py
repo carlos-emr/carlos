@@ -43,15 +43,16 @@ def split(sources):
             [dict(source, text=text[max(0, middle - 128):])])
 
 
-def plan(sources, prompt, schema):
+def plan(sources, prompt, schema, request_bytes=REQUEST_BYTES):
     # Match the host request budget rather than a point or character limit on the summary.
     request = {"contract_version": 1, "request_id": "0" * 36, "workflow": "patient-overview",
                "data_classification": "verified-synthetic", "instructions": prompt,
                "sources": sources, "output_schema": schema}
-    if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) <= REQUEST_BYTES:
+    require(type(request_bytes) is int and 10000 <= request_bytes <= 60000, "Invalid request budget")
+    if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) <= request_bytes:
         return [copy.deepcopy(sources)]
     if len(sources) == 1:
-        return [part for half in split(sources) for part in plan(half, prompt, schema)]
+        return [part for half in split(sources) for part in plan(half, prompt, schema, request_bytes)]
     batches, batch, kind = [], [], ""
     for source in sources:
         next_kind = source["id"].split("-", 1)[0]
@@ -61,14 +62,14 @@ def plan(sources, prompt, schema):
         kind = next_kind
         batch.append(copy.deepcopy(source))
         request["sources"] = batch
-        if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > REQUEST_BYTES:
+        if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > request_bytes:
             batch.pop()
             if batch:
                 batches.append(batch)
             batch = [copy.deepcopy(source)]
             request["sources"] = batch
-            if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > REQUEST_BYTES:
-                batches.extend(plan(batch, prompt, schema))
+            if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > request_bytes:
+                batches.extend(plan(batch, prompt, schema, request_bytes))
                 batch = []
     if batch:
         batches.append(batch)
@@ -79,19 +80,27 @@ def merge(outputs, sources):
     if len(outputs) == 1:
         return outputs[0]
     result = {"sections": [], "claims": [], "coverage": []}
-    unique, sections, reviews = {}, {}, {}
+    unique, sections, reviews, owners = {}, {}, {}, {}
     for output in outputs:
         membership = {claim_id: section for section in output["sections"] for claim_id in section["claim_ids"]}
         for claim in output["claims"]:
             key = claim["text"].strip()
+            section = membership[claim["id"]]
             if key in unique:
                 existing = unique[key]
                 existing["source_ids"] = list(dict.fromkeys(existing["source_ids"] + claim["source_ids"]))
+                if owners[key] == "clinical_overview" and section["id"] != "clinical_overview":
+                    sections[owners[key]]["claim_ids"].remove(existing["id"])
+                    if section["id"] not in sections:
+                        sections[section["id"]] = dict(section, claim_ids=[])
+                        result["sections"].append(sections[section["id"]])
+                    sections[section["id"]]["claim_ids"].append(existing["id"])
+                    owners[key] = section["id"]
                 continue
             new = dict(copy.deepcopy(claim), id=f"claim-{len(unique) + 1}")
             unique[key] = new
             result["claims"].append(new)
-            section = membership[claim["id"]]
+            owners[key] = section["id"]
             if section["id"] not in sections:
                 sections[section["id"]] = dict(section, claim_ids=[])
                 result["sections"].append(sections[section["id"]])
@@ -107,11 +116,12 @@ def merge(outputs, sources):
             "excluded" if all(entry["status"] == "excluded" for entry in entries) else "reviewed_not_cited")
         reasons = list(dict.fromkeys(f"{entry['status']}: {entry['reason']}" for entry in entries))
         result["coverage"].append({"source_id": source_id, "status": status,
-                                   "reason": f"{source_id} — all {len(entries)} portions processed. " + "; ".join(reasons)})
+                                   "reason": f"{source_id} — all {len(entries)} passes processed. " + "; ".join(reasons)})
+    result["sections"] = [section for section in result["sections"] if section["claim_ids"]]
     return result
 
 
-def generate(sources, prompt, schema, infer, validate_part):
+def generate(sources, prompt, schema, infer, validate_part, request_bytes=REQUEST_BYTES):
     outputs = []
 
     def run(part):
@@ -124,6 +134,6 @@ def generate(sources, prompt, schema, infer, validate_part):
         validate_part(part, output)
         outputs.append(output)
 
-    for part in plan(sources, prompt, schema):
+    for part in plan(sources, prompt, schema, request_bytes):
         run(part)
     return merge(outputs, sources)
