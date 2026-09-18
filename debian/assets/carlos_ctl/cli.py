@@ -25,9 +25,10 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
                                   provisioning did not run (idempotent; also
                                   runs itself at the next boot)
   carlos-ctl status               systemd status of the EMR and its timers
-  carlos-ctl restart              restart the EMR (applies config changes;
-                                  takes ~2 minutes to redeploy)
-  carlos-ctl start / stop         start or stop the EMR
+  carlos-ctl restart              restart the EMR (carlos-emr.service only;
+                                  applies config changes, ~2 min to redeploy)
+  carlos-ctl start / stop         start or stop the EMR (carlos-emr.service
+                                  only; for other units use systemctl)
 
   carlos-ctl db [args]            SQL shell on the EMR database as root
                                   (interactive with no args; -e/redirects
@@ -114,15 +115,14 @@ def _cmd_status(argv) -> int:
     return rc
 
 
-def _cmd_lifecycle(verb: str, argv) -> int:
+def _cmd_lifecycle(verb: str) -> int:
     # Thin passthroughs so day-two administration has one entry point.
     # `restart` is what applies carlos-emr.env and carlos.properties changes;
-    # expect ~2 minutes for the webapp to redeploy.
-    if argv:
-        # Silently discarding arguments turned 'carlos-ctl restart nginx'
-        # into a restart of the EMR — the opposite of what was asked.
-        die(f"'{verb}' takes no arguments; it manages carlos-emr.service only "
-            f"(for other units use systemctl directly)")
+    # expect ~2 minutes for the webapp to redeploy. These verbs manage
+    # carlos-emr.service only: silently discarding arguments once turned
+    # 'carlos-ctl restart nginx' into a restart of the EMR — the opposite of
+    # what was asked — which is why they sit in _NO_ARGUMENT_VERBS and the
+    # dispatcher refuses anything after them before this runs.
     need_root(verb)
     if verb in ("start", "restart"):
         _refuse_start_during_o19_import(verb)
@@ -257,9 +257,9 @@ _VERBS = {
     "import-o19": _cmd_import_o19,
     "o19-preflight": _cmd_o19_preflight,
     "logs": _cmd_logs,
-    "restart": lambda argv: _cmd_lifecycle("restart", argv),
-    "start": lambda argv: _cmd_lifecycle("start", argv),
-    "stop": lambda argv: _cmd_lifecycle("stop", argv),
+    "restart": lambda argv: _cmd_lifecycle("restart"),
+    "start": lambda argv: _cmd_lifecycle("start"),
+    "stop": lambda argv: _cmd_lifecycle("stop"),
 }
 
 
@@ -271,18 +271,20 @@ _VERBS = {
 # destroy-data, backup, db, ...) answer for their arguments themselves.
 _NO_ARGUMENT_VERBS = frozenset({
     "bootstrap-admin", "cert-renew", "check", "db-apply-settings",
-    "init-config", "rotate", "status",
+    "init-config", "restart", "rotate", "start", "status", "stop",
 })
 
 
 def _verb_usage(verb: str) -> str:
     """The lines of the usage text that describe one verb: its own line plus
-    the indented continuation lines under it."""
+    the indented continuation lines under it. A line that lists alternatives
+    ("carlos-ctl start / stop") describes each of them."""
     lines = []
     for line in _USAGE.splitlines():
-        if line.startswith(f"  carlos-ctl {verb} ") or line.rstrip() == f"  carlos-ctl {verb}":
-            lines.append(line)
-        elif lines and line.startswith(" " * 34):
+        # The verb column ends at the first double space before the description.
+        head = line[len("  carlos-ctl "):].split("  ", 1)[0] if line.startswith("  carlos-ctl ") else ""
+        names_verb = verb in [name.strip() for name in head.split(" / ")]
+        if names_verb or (lines and line.startswith(" " * 34)):
             lines.append(line)
         elif lines:
             break
@@ -303,11 +305,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     if handler is None:
         die(f"unknown command: {verb} (try: carlos-ctl --help)")
     if verb in _NO_ARGUMENT_VERBS and rest:
-        if rest[0] in ("-h", "--help", "help"):
+        # Help only when it is the whole argument list: 'check --help extra'
+        # is a mistake too, and a mistake is never run or waved through.
+        if rest in (["-h"], ["--help"], ["help"]):
             print(f"usage:\n{_verb_usage(verb)}\n\n'{verb}' takes no arguments.")
             return 0
-        die(f"'{verb}' takes no arguments (got: {' '.join(rest)}); "
-            f"see 'carlos-ctl --help'")
+        die(f"'{verb}' takes no arguments (got: {' '.join(rest)})\n"
+            f"usage:\n{_verb_usage(verb)}")
     try:
         return int(handler(rest) or 0)
     except KeyboardInterrupt:

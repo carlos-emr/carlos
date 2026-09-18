@@ -194,8 +194,9 @@ a throwaway machine only; on any other host run
 
   sudo carlos-ctl bootstrap-admin
 
-before anyone else can reach the server. The verb takes no options: it
-refuses any argument (including --help) rather than running with it ignored.
+before anyone else can reach the server. The verb takes no options: exactly
+one of -h, --help or help prints its usage without running it, and any other
+argument (or anything after the help word) is refused rather than ignored.
 
 That account arrives flagged for a FORCED PASSWORD RESET — the state the
 migrations seed it in, which this package deliberately keeps. Your first login

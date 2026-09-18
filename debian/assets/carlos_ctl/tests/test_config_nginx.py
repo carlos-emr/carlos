@@ -109,6 +109,17 @@ class TestApplyNginx(unittest.TestCase):
         self.ss_outputs = [self._ss("[::1]:80", "[::1]:443")]
         self.assertEqual(self._apply("::1"), 0)
 
+    def test_failed_reload_is_fatal_and_never_restarts(self):
+        # A reload that systemd itself reports as failed is not papered over
+        # with a restart: the operator sees the failure, and a listener that
+        # happens to be bound proves nothing about the configuration served.
+        self.reload_rc = 1
+        self.ss_outputs = [self._ss("127.0.0.1:80", "127.0.0.1:443")]
+        with self.assertRaises(SystemExit):
+            self._apply()
+        self.assertIn(["systemctl", "reload", "nginx.service"], self.calls)
+        self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
     def test_failed_config_test_never_reloads(self):
         self.test_rc = 1
         self.assertEqual(self._apply(), 1)
