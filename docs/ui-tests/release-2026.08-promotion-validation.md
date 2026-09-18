@@ -57,28 +57,44 @@ out of command arguments and logs. Then run from the checkout:
 node scripts/run-playwright-suite.js \
   --only registry-ichppc-lifecycle --only about-licence \
   --only pharmacy-search --only admin-report-validation \
+  --only consultation-null-booking \
   --junit release-regressions.xml
 ```
 
-The registry and calculator checks own synthetic patient records; pharmacy search
-owns two pharmacy rows. Cleanup runs after failures too. The administration check
-opens reports and attempts only an invalid submission. Pharmacy search is an
-authenticated endpoint check after UI login; the other three follow UI controls.
+The registry, calculator and nullable-referral checks own synthetic patient
+records; pharmacy search owns two pharmacy rows. Cleanup runs after failures too.
+The administration check opens reports and attempts only an invalid submission.
+Pharmacy search checks an authenticated endpoint after UI login. The nullable
+referral check opens an existing saved-referral URL; it requires reference rows
+in `consultationServices` and `professionalSpecialists`, supplied by the demo
+dataset. The other three checks follow UI controls.
 The suite manifest contains 125 checks after these additions. Listing a check
 does not mean its deployment-specific prerequisites have been satisfied.
 
-## Corrected-package verification in progress
+## Corrected-package verification
 
-- Full corrected Java `clean package`: 12,412 tests, zero failures/errors, 51 skips.
-- Python: 1,587 passed. Node: 694 passed, including all 16 calculator cases.
-- Matched main, DrugRef and renderer `validation3` packages built and installed;
-  all three report `ii`. Clinical counts, administrator credential records and
+- Full corrected Java `clean package`: 12,413 tests, zero failures/errors, 51 skips.
+  The dependency integrity check also passes with all three Bouncy Castle
+  artifacts locked to 1.86.
+- Python: 1,587 passed. Node: 700 passed, including 19 calculator cases and
+  three prescription-fixture parsing cases.
+- Matched main, DrugRef and renderer `validation5` packages built from application
+  revision `d7b8d2ee48` and installed. All three report `ii`. Clinical counts,
+  administrator credential records and
   the initial credential file are unchanged. Installed deployment checks and
   Flyway validation pass.
-- ICHPPC lifecycle, pharmacy search, and administration report navigation passed
-  against `validation3`. The calculator numerical checks passed, then its
-  invalid-input check exposed the focus-clearing defect above; the final repair
-  still requires a rebuilt-package browser pass.
+- ICHPPC lifecycle, pharmacy search, administration report navigation, calculator
+  numerical/validation controls, About/Licence popups, and nullable referral
+  rendering pass against the corrected installed application. Viewing the
+  nullable referral preserves its clinical reason and leaves the database NULL
+  unchanged. Legacy bookmark fragments also pass against the final package.
+  The optional booking checkbox is tested when the deployment enables
+  it; the DAO regression also verifies the public boolean getter and later save.
+- Post-dependency-upgrade browser reruns pass prescription signing, all three Rx
+  fax checks, both consultation-signature checks, document annotation, APCache
+  eForm rendering and lab PDF footers. A missing-stamp negative control confirms
+  the fax test records the specific missing-signature/disabled-button failure
+  and cleans its prescription, drug, signature and fax-configuration fixtures.
 - Fresh ON and BC scratch schemas, using the package's `utf8mb4_general_ci`
   collation, passed installed migration and demo loading. A second demo load left
   a digest of all database row data unchanged. Flyway validation passed; both
@@ -101,6 +117,28 @@ The first complete smoke/core/front-door pass ran 116 checks: 96 passed, 18
 failed, and 2 were skipped (referrals and workflow modules disabled). The raw
 failure count includes absent test prerequisites and shared demo state; it is
 not a count of confirmed application defects.
+
+The [per-check result inventory](release-2026.08-browser-results.csv) accounts
+for all 125 manifest entries: 121 passed across the broad run and targeted
+follow-ups, two disabled-module checks were skipped, and two extended checks
+were not run. Passing checks can still contain the excluded subcases listed
+below. The separate annotation script is additional to this manifest.
+
+All 18 initial failures subsequently passed targeted reruns. This is evidence
+across the broad run and its reruns, not a claim that the initial run was green:
+
+| Initial failing check(s) | Resolution and passing rerun |
+| --- | --- |
+| Consultation signature and signature submit | Supply an owned complete referral and synthetic provider stamp; both passed again after the crypto upgrade |
+| Demographic edit, chart navigation and note editor | Own isolated synthetic patients; avoid pre-existing draft/lock state |
+| Note sign/bill, patient Messenger, consultation signature fallback and CSRF XHR | Separate owned patient for each scenario; all persisted/response assertions passed |
+| Patient-list export | Supply the documented appointment fixture profile; remove owned appointments afterwards |
+| Prescription signature | Supply a verified unsigned demo prescription; cleanup enabled; passed again after the crypto upgrade |
+| Three Rx fax checks | Supply the configured document directory, enabled fax feature and owned signature stamp; all passed again after the crypto upgrade |
+| eDoc surface audit | Targeted repeat passed; initial aborted navigation was not reproduced |
+| Episode lifecycle | Temporarily enable the documented test permission denied by the demo doctor role |
+| Contact lifecycle | Correct the test selector to exclude the hidden input; full create/edit/archive lifecycle passed |
+| Login | Supply the private current password hash required by the reset fixture |
 
 Targeted runs with separately owned patients passed demographic editing (five
 fields plus audit records), eChart navigation, note save/sign/billing, patient
@@ -131,6 +169,11 @@ digests, and dump/restore corruption controls. Its uniquely named scratch schema
 were removed and the global packet setting restored. This is synthetic SQL
 validation, not validation of a real clinic's complete source dataset.
 
+The separate DDL parser oracle checked all 1,337 CREATE and 2,225 ALTER statements
+from the pinned OSCAR source. Its parse agreed with MariaDB for all 1,969
+comparable statements. The server refused the other 1,593 probes; these are
+uncompared, not passes. No probe was unbuildable, and no scratch schema remained.
+
 ## Baseline verification
 
 - Full Java `clean package`: 12,411 tests, zero failures/errors, 51 skips.
@@ -150,21 +193,39 @@ validation, not validation of a real clinic's complete source dataset.
   test had an incorrect menu selector; that test error was corrected before the
   application errors were recorded.
 
-## Resource controls and remaining validation
+## Resource controls and validation limits
 
 Java builds run only while the VM is stopped, with a 6 GiB build cgroup, no
 cgroup swap, one test fork, and a host guard reserving at least 10 GiB available
-memory. Baseline Java build minimum host availability was 16.02 GiB.
+memory. Baseline Java build minimum host availability was 16.02 GiB; the final
+full Java build's minimum was 11.26 GiB. Swap remained unused.
 
 The initial 6 GiB VM browser run reached its guest reserve; the guard paused the
 suite and terminated the browser. This is an incomplete suite run, not a pass.
 The VM was stopped and configured for 8 GiB for the next pass. Host and guest
 memory monitors remain active. No compilation overlaps the running VM.
 
-Rebuilt-package validation, the complete browser result inventory, and final
-repair-test results will be added after that pass. Tests requiring additional
-fixtures or external services must be recorded as unverified/skipped rather
-than counted as passes.
+The referrals and workflow modules are disabled in the standard deployment, so their
+surface checks remain skipped. Individual checks also report unavailable
+subcases: an unbilled Bill link, the Sexual Health label, selective chart/phone
+search fixtures, the library's Signature trick eForm, a clinic RTL template,
+an opt-in eForm fax-preview case, and Inbox partitioning on an empty dataset.
+These subcases are not covered by a check's overall passing result. The separate
+annotation document fax-preview prepare/read/cancel path was exercised.
+
+The three standalone eForm browser checks also pass. The DrugRef update page
+passes live status and intercepted rollback/transport-failure reporting; no
+DrugRef database rebuild was triggered. The next-appointment check also passed
+with `workflow_enhance` temporarily enabled, verifying the real schedule widget
+before, during and after its owned appointment fixture. Original properties and
+episode permissions were restored; the two owned synthetic provider stamps
+were removed, and installed deployment checks passed again.
+
+External fax delivery, external lab sender interoperability, a real clinic's
+OSCAR import and a third-party eForm corpus are not certified. Fresh ON/BC schema
+and repeat-demo-load checks used owned scratch databases; the actual VM package
+installation was an upgrade from alpha12, not a second fresh operating-system
+installation.
 
 ## Promotion checks requiring separate assessment
 
@@ -186,10 +247,25 @@ RSA padding constraint. These findings are not evidence that the release
 introduced the encryption code.
 
 The CodeQL `util.py` alert traces to manifest-selected billing table identifiers,
-not billing row payloads; it requires classification separately from the real
-password-refusal leak fixed here. Path-containment and hash-comparison scanner
-findings are under review; no global scanner suppression has been added.
+not billing row payloads. Inspection of the path-containment and hash-comparison
+alerts did not establish an unsafe release change. Their promotion-gate
+classification remains separate from this repair. No global scanner suppression
+has been added; the new calculator unit test has one rule-specific annotation
+for executing a checked-in fixture in a mock VM, with no external input or HTML
+output.
 
 Promotion DCO flags five historical commits without trailers and its reporting
 step also receives HTTP 403. New repair commits carry DCO sign-off. This report
 makes no assertion that the promotion's existing DCO/security gates are green.
+
+## Repair review
+
+CodeRabbit completed a full follow-up review of `d7b8d2ee48` and reported no
+actionable comments. Earlier valid comments were fixed and their regression
+checks passed; all review threads were answered and resolved. The final report
+and result inventory are documentation-only additions after that reviewed and
+VM-tested application revision. New commits carry DCO sign-off.
+
+Evidence logs, package SHA-256 records, memory samples and protected VM backups
+are retained by the validation operator. Raw deployment logs and database
+backups are not committed to the public repository.
