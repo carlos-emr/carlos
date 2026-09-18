@@ -1165,9 +1165,14 @@ case "$1" in
                 # configured listeners are bound and restart when they are
                 # not (a restart closes every old socket before binding
                 # anew). carlos-ctl init-config does the same.
-                if ! sd_invoke reload nginx.service 2>/dev/null || ! front_door_listening; then
-                    { sd_invoke restart nginx.service && front_door_listening; } || \
+                if ! sd_invoke reload nginx.service 2>/dev/null; then
+                    echo "carlos-emr: WARNING: nginx reload failed — the rendered front-door configuration is not live (systemctl status nginx; journalctl -u nginx)" >&2
+                    mark_incomplete "nginx could not reload the rendered front-door configuration"
+                elif ! front_door_listening; then
+                    if ! sd_invoke restart nginx.service || ! front_door_listening; then
                         echo "carlos-emr: WARNING: nginx is not listening on the configured front-door address — it may be serving stale configuration (systemctl status nginx; journalctl -u nginx)" >&2
+                        mark_incomplete "nginx did not bind the configured front-door listeners"
+                    fi
                 fi
             fi
         else
