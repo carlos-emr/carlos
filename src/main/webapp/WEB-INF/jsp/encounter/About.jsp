@@ -144,7 +144,7 @@
 
             <p class="mb-0">
                 The complete attribution list is maintained at
-                <a href="https://github.com/carlos-emr/carlos/blob/develop/NOTICE.md"
+                <a href="https://github.com/carlos-emr/carlos/blob/main/NOTICE.md"
                    target="_blank" rel="noopener noreferrer">NOTICE.md</a>.
             </p>
         </div>

@@ -91,7 +91,7 @@
                 the Department of Family Medicine at McMaster University, the Centre for
                 Research on Inner City Health at St. Michael's Hospital, and the OpenOSP /
                 OpenO EMR contributors &mdash; is preserved in the source files and listed in
-                <a href="https://github.com/carlos-emr/carlos/blob/develop/NOTICE.md"
+                <a href="https://github.com/carlos-emr/carlos/blob/main/NOTICE.md"
                    target="_blank" rel="noopener noreferrer">NOTICE.md</a>.
                 CARLOS has no organizational affiliation with any of them.
             </p>

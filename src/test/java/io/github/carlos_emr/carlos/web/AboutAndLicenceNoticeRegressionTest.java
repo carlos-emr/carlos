@@ -85,6 +85,8 @@ class AboutAndLicenceNoticeRegressionTest {
                 .contains("CARLOS EMR")
                 .contains("https://github.com/carlos-emr/carlos")
                 .contains("NOTICE.md")
+                .as("a released build must not send readers to unreleased branch docs")
+                .doesNotContain("blob/develop/")
                 .as("the OSCAR-era chrome was removed with the images it referenced")
                 .doesNotContain("about_layout");
     }
@@ -131,7 +133,9 @@ class AboutAndLicenceNoticeRegressionTest {
                 .contains("This software was written for the")
                 .as("the page also points at the wider attribution record")
                 .contains("OpenOSP")
-                .contains("NOTICE.md");
+                .contains("NOTICE.md")
+                .as("a released build must not send readers to unreleased branch docs")
+                .doesNotContain("blob/develop/");
     }
 
     @Test
