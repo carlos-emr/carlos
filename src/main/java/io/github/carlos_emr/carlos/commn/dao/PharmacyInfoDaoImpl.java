@@ -140,6 +140,15 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         return pharmacyList;
     }
 
+    /**
+     * Searches active pharmacies using the legacy LIKE-pattern contract.
+     * Unlike {@link #searchFaxablePharmacies}, {@code %} and {@code _} retain
+     * their wildcard meaning; {@code !} is a literal character.
+     *
+     * @param name name or address pattern, matched as a substring
+     * @param city city pattern, matched as a substring
+     * @return matching active pharmacies ordered by name and address
+     */
     @Override
     @SuppressWarnings("unchecked")
     public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city) {

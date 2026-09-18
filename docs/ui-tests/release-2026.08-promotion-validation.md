@@ -13,8 +13,78 @@ Review baseline: `c181142689` on `release/2026.08`, compared with `origin/main`
 | Legacy pharmacy search loses names containing `!` | Authenticated installed-package search for an owned `FAKE-PW…!` pharmacy returns no match | Restore the existing wildcard-search contract; retain the separate fax picker's literal escaping. New DAO integration and authenticated Playwright endpoint regressions |
 | Report validation depends on administration navigation order | Full admin audit opens 102 items; Visit Report and Overnight Batch produce six JavaScript error signals. eForm fragments reload jQuery and discard the shell's validation plugins | Restore the shell's jQuery instance before the next fragment; new browser workflow visits eForms before both reports and checks invalid submission is blocked |
 | Migration verification tools can echo a password prefix | An attached argument such as `-pSECRET=tail` is split at `=` before being printed in the refusal | Return only constant option names from both argument checks; regression cases cover attached passwords containing `=` and long/short options |
+| Calculator validation clears its own error and the entered value | The browser's `reportValidity()` focuses the invalid field; the legacy focus handler immediately clears the form | Select the source unit on input edits, preserve focused results, and test correction after a visible validation error |
 
 Conversion definitions: [NIST SP 811 Appendix B.8](https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b8).
+
+## Review scope
+
+The review follows the changed application paths, their callers, tests and package
+configuration. It covers login/session handling; recurrence transactions and
+legacy-series matching; contact, episode and scratchpad ownership; document
+annotation, upload, forwarding and fax boundaries; response error handling;
+APCache lookup compatibility; clinical calculator input; printing; and installation
+recovery. Generated OSCAR 19 manifests are checked by the manifest integrity and
+SQL-generation tests, with inspection of import staging, resume ledgers, backup
+ordering, restricted database accounts, archive containment, value parity and
+role reconciliation. This does not certify a real clinic migration or an external
+fax/lab integration.
+
+No published Flyway migration differs from alpha12, and no normalized version
+collision exists in either common + ON or common + BC. The release does not add
+a schema migration. Configuration changes retain existing clinic values during
+the package upgrade; no replacement of the clinic configuration was required.
+
+## Running the added browser checks
+
+Use the isolated demo deployment and environment setup in
+[the DEB validation runbook](deb-install-validation.md). The shared harness needs
+`BASE_URL`, `TEST_USER`, `TEST_PASSWORD`, `TEST_PIN`, and database connection
+settings; use `CHROME_PATH` for the packaged Chromium binary. Keep credentials
+out of command arguments and logs. Then run from the checkout:
+
+```sh
+node scripts/run-playwright-suite.js \
+  --only registry-ichppc-lifecycle --only about-licence \
+  --only pharmacy-search --only admin-report-validation \
+  --junit release-regressions.xml
+```
+
+The registry and calculator checks own synthetic patient records; pharmacy search
+owns two pharmacy rows. Cleanup runs after failures too. The administration check
+opens reports and attempts only an invalid submission. Pharmacy search is an
+authenticated endpoint check after UI login; the other three follow UI controls.
+The suite manifest contains 124 checks after these additions. Listing a check
+does not mean its deployment-specific prerequisites have been satisfied.
+
+## Corrected-package verification in progress
+
+- Full corrected Java `clean package`: 12,412 tests, zero failures/errors, 51 skips.
+- Python: 1,587 passed. Node: 691 passed before the latest edit-state and
+  temperature regressions; all 16 calculator cases pass together.
+- Matched main, DrugRef and renderer `validation3` packages built and installed;
+  all three report `ii`. Clinical counts, administrator credential records and
+  the initial credential file are unchanged. Installed deployment checks and
+  Flyway validation pass.
+- ICHPPC lifecycle, pharmacy search, and administration report navigation passed
+  against `validation3`. The calculator numerical checks passed, then its
+  invalid-input check exposed the focus-clearing defect above; the final repair
+  still requires a rebuilt-package browser pass.
+- Fresh ON and BC scratch schemas, using the package's `utf8mb4_general_ci`
+  collation, passed installed migration and demo loading. A second demo load left
+  a digest of all database row data unchanged. Flyway validation passed; both
+  owned schemas and their temporary grants were removed afterwards.
+
+Validation setup findings: upgrading only the main `validation2` DEB removed
+the two companions because they require the exact main-package version. This
+was corrected by installing all three matching `validation3` DEBs with
+`apt-get --no-remove`; the install guide now documents both requirements.
+The resulting missing-browser failures are not application regressions. The
+first scratch-schema attempt used `utf8mb4_unicode_ci` and hit a collation
+conflict; that was a test setup mismatch with the package's provisioner, not a
+failure of the supported fresh install. The calculator menu intentionally closes
+its opener; the browser helper now supports that behavior while still awaiting
+and checking the new page.
 
 ## Baseline verification
 
@@ -52,6 +122,17 @@ fixtures or external services must be recorded as unverified/skipped rather
 than counted as passes.
 
 ## Promotion checks requiring separate assessment
+
+The installed pinned DrugRef build still throws `UnsupportedOperationException`
+when serializing `java.sql.Date`; CARLOS's inactive-date lookup then returns an
+empty object. The ordinary drug-search browser check passes despite this failure.
+This confirms the already tracked
+[DrugRef issue #13](https://github.com/carlos-emr/drugref2026/issues/13).
+[CARLOS PR #3690](https://github.com/carlos-emr/carlos/pull/3690) and
+[DrugRef PR #14](https://github.com/carlos-emr/drugref2026/pull/14) contain the
+existing repairs but are not merged into the validated release. Their fixes and
+integration validation remain a promotion dependency; this PR does not duplicate
+those open changes or claim the current inactive-date path is correct.
 
 Promotion #3762 reports legacy lab AES encryption findings. Switching the
 algorithm unilaterally would break the external sender's protocol; this repair

@@ -188,7 +188,7 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("legacy pharmacy search preserves literal exclamation marks and wildcard callers")
-        void shouldPreserveLegacySearchPatternSemantics() {
+        void shouldPreserveLegacySearchPatternSemantics_whenUsingLegacySearchPatterns() {
             PharmacyInfo exact = createPharmacy("Release! Pharmacy", "Ottawa", '1');
             createPharmacy("Release Pharmacy", "Ottawa", '1');
             assertThat(pharmacyInfoDao.searchPharmacyByNameAddressCity("Release!", "Ottawa"))

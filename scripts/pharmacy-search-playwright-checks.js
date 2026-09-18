@@ -10,7 +10,11 @@ const { runWorkflow } = require('./lib/workflow-session');
 async function workflow(s) {
   const ids = [];
   s.cleanup(() => {
-    for (const id of ids) s.sql.execute(`DELETE FROM pharmacyInfo WHERE recordID=${id} AND name LIKE ${sqlString(`${s.marker}%`)}`);
+    for (const id of ids) {
+      s.sql.execute(`DELETE FROM pharmacyInfo WHERE recordID=${id} AND name LIKE ${sqlString(`${s.marker}%`)}`);
+      assert(s.sql.value(`SELECT COUNT(*) FROM pharmacyInfo WHERE recordID=${id}`) === '0',
+        'Pharmacy fixture cleanup failed or its ownership changed');
+    }
   });
   for (const suffix of ['! Pharmacy', ' Pharmacy']) {
     const id = s.sql.value(`INSERT INTO pharmacyInfo(name,address,city,province,status)

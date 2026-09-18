@@ -93,9 +93,14 @@
 
             function convertTemperature(input, outputName, toCelsius) {
                 var output = input.form.elements[outputName];
+                if (input.value.trim() === "") {
+                    input.setCustomValidity("");
+                    output.value = "";
+                    return;
+                }
                 var value = Number(input.value);
                 var converted = toCelsius ? (value - 32) * 5 / 9 : value * 9 / 5 + 32;
-                var valid = input.value.trim() !== "" && Number.isFinite(value) && Number.isFinite(converted);
+                var valid = Number.isFinite(value) && Number.isFinite(converted);
                 input.setCustomValidity(valid ? "" : "Enter a finite number.");
                 output.value = valid ? formatvalue(converted, 10) : "";
                 input.reportValidity();

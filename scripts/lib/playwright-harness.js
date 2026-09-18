@@ -843,7 +843,7 @@ async function assertNotErrorPage(page, label, options = {}) {
       await response.dispose();
     }
   }
-  assert(text.trim().length > 0, `${label} rendered a blank page`);
+  assert(text.trim().length > 0, `${label} rendered a blank page (${withoutQueryStrings(page.url())})`);
   return text;
 }
 

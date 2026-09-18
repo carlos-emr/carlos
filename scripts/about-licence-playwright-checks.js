@@ -71,6 +71,12 @@ async function workflow(s) {
     assert(await forms.nth(3).locator('[name="F"]').inputValue() === '', 'Invalid temperature produced a result');
     assert(!await forms.nth(3).locator('[name="C"]').evaluate(input => input.validity.valid),
       'Invalid temperature was silently accepted');
+    await forms.nth(3).locator('[name="C"]').fill('');
+    await forms.nth(3).locator('[name="C"]').press('Tab');
+    assert(await forms.nth(3).locator('[name="C"]').evaluate(input => input.validity.valid),
+      'Clearing the temperature left a stale validation error');
+    assert(await forms.nth(3).locator('[name="F"]').inputValue() === '',
+      'An empty temperature produced a numeric result');
   });
   await s.step('About popup identifies CARLOS and the deployed WAR', async () => {
     const page = await s.popup(index, index.locator('a[href*="ViewAbout"]').first(), 'about-release');

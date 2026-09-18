@@ -324,8 +324,12 @@ move between the two without relearning.
 ### Upgrades
 
 An upgrade is `apt install` of the newer packages — same command as the
-install. Supply all three files from the same release: DrugRef and the renderer
-depend on the matching main-package version. Offering only a newer main package
+install. Supply the main package and each companion that is already installed,
+all from the same release: DrugRef and the renderer depend on the matching
+main-package version. For the standard installation this means all three files.
+If you intentionally omitted companions, supply only the packages you use and
+add `--no-install-recommends` to keep the optional packages absent.
+Offering only a newer main package
 can cause apt to propose removing those companions. Keep `--no-remove` so that
 proposal fails instead of removing prescription lookup and eForm rendering.
 The schema migrates before the service restarts, your configuration

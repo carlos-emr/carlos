@@ -22,7 +22,9 @@ function calculator() {
     return form;
   });
   const context = vm.createContext({ document: { forms } });
-  for (const match of source.matchAll(/<script\b([^>]*?)>([\s\S]*?)<\/script\s*>/gi)) {
+  // Extract trusted repository fixtures, not HTML sanitization. Browsers also
+  // accept whitespace and stray attributes on an end tag.
+  for (const match of source.matchAll(/<script\b([^>]*?)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
     if (/\bsrc\s*=/i.test(match[1])) continue; // External library, not an inline calculator block.
     vm.runInContext(match[2], context);
   }
@@ -88,4 +90,38 @@ test('editing a converted field selects that unit and clears stale outputs and e
   assert.equal(form.val2.value, '12');
   assert.equal(context.convertform(form), true);
   assert.equal(Number(form.val3.value), 1);
+});
+
+test('temperature conversions preserve freezing, boiling and the shared negative point', () => {
+  const { forms, context } = calculator();
+  const input = forms[0].val1;
+  const output = forms[0].val2;
+  forms[0].elements.temperatureOutput = output;
+  for (const [value, toCelsius, expected] of [
+    ['32', true, 0], ['212', true, 100], ['-40', true, -40],
+    ['0', false, 32], ['100', false, 212], ['-40', false, -40],
+  ]) {
+    input.value = value;
+    context.convertTemperature(input, 'temperatureOutput', toCelsius);
+    assert.equal(Number(output.value), expected);
+    assert.equal(input.message, '');
+  }
+});
+
+test('invalid temperatures clear output and an empty field clears the error without calculating', () => {
+  const { forms, context } = calculator();
+  const input = forms[0].val1;
+  const output = forms[0].val2;
+  forms[0].elements.temperatureOutput = output;
+  for (const value of ['invalid', 'Infinity', '1e309']) {
+    input.value = value;
+    output.value = '100';
+    context.convertTemperature(input, 'temperatureOutput', true);
+    assert.notEqual(input.message, '');
+    assert.equal(output.value, '');
+  }
+  input.value = '  ';
+  context.convertTemperature(input, 'temperatureOutput', true);
+  assert.equal(input.message, '');
+  assert.equal(output.value, '');
 });
