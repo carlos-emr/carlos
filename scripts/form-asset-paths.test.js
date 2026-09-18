@@ -56,8 +56,13 @@ function baseprefix(source) {
   if (!tag[0].includes('getContextPath()')) {
     return null;
   }
-  const literals = tag[0].split('getContextPath()').pop().match(/"[^"]*"/g) || [];
-  const prefix = literals.map((literal) => literal.slice(1, -1)).join('').replace('>', '');
+  // Stop at the end of the scriptlet before reading literals. Taking them from the whole
+  // remainder swept up the tag's own closing `">`, which then had to be stripped back out
+  // one character at a time -- and stripping only the first occurrence is exactly the
+  // incomplete-escaping shape CodeQL flags. Cutting at `%>` means there is nothing to strip.
+  const expression = tag[0].split('getContextPath()').pop().split('%>')[0];
+  const literals = expression.match(/"[^"]*"/g) || [];
+  const prefix = literals.map((literal) => literal.slice(1, -1)).join('');
   return prefix.startsWith('/') ? prefix : `/${prefix}`;
 }
 
@@ -94,6 +99,18 @@ test('no form JSP builds an asset path in a scriptlet without the context path',
   }
   assert.deepEqual(offenders, [],
     `these scriptlet-built references carry no context path:\n  ${offenders.join('\n  ')}`);
+});
+
+test('the base parser understands the pages it is meant to cover', () => {
+  // Without this, a parser that quietly stopped recognising <base> would make the
+  // resolution test above pass by covering nothing at all.
+  const parsed = formJsps()
+    .map((name) => baseprefix(fs.readFileSync(path.join(FORM_JSP_DIR, name), 'utf8')))
+    .filter((prefix) => prefix !== null);
+  assert.ok(parsed.length >= 90, `only ${parsed.length} form pages parsed a <base>; the scan has gone blind`);
+  for (const prefix of parsed) {
+    assert.match(prefix, /^\/[A-Za-z0-9_./-]*$/, `unparsable base prefix: ${JSON.stringify(prefix)}`);
+  }
 });
 
 test('the known-absent list names only assets that really are absent', () => {
