@@ -363,11 +363,31 @@ class SmsQueueProcessingServiceUnitTest {
         SmsProviderClientResolver resolver = mock(SmsProviderClientResolver.class);
         SmsSendRateLimitService limiter = mock(SmsSendRateLimitService.class);
         SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, resolver, new SmsRetryCalculator(), limiter,
-                new DeferredSmsConsentService(() -> false));
+                command -> SmsConsentDecisionDto.blocked(SmsStatus.OPTOUT_BLOCKED, "SMS_CONSENT_OPTED_OUT", "blocked"));
 
         assertThat(worker.processDueMessages(1)).isEqualTo(1);
-        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.OPTOUT_BLOCKED);
         assertThat(transaction.toSendCommand().body()).isNull();
+        org.mockito.Mockito.verifyNoInteractions(resolver, limiter);
+    }
+
+    @Test
+    @DisplayName("a consent lookup failure releases the claimed row back to the queue without sending")
+    void shouldReleaseClaim_whenConsentRecheckThrows() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsProviderClientResolver resolver = mock(SmsProviderClientResolver.class);
+        SmsSendRateLimitService limiter = mock(SmsSendRateLimitService.class);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, resolver, new SmsRetryCalculator(), limiter,
+                command -> {
+                    throw new IllegalStateException("consent store unavailable");
+                });
+
+        assertThat(worker.processDueMessages(5)).isZero();
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+        assertThat(transaction.toSendCommand().body()).isNotNull();
         org.mockito.Mockito.verifyNoInteractions(resolver, limiter);
     }
 

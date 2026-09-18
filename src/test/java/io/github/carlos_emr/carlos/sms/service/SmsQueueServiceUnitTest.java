@@ -128,8 +128,8 @@ class SmsQueueServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.blocked(
                         SmsStatus.CONSENT_BLOCKED,
-                        "CONSENT_MODEL_PENDING",
-                        "SMS consent integration is pending"
+                        "SMS_CONSENT_UNKNOWN",
+                        "No SMS consent is recorded for this patient."
                 ),
                 recorder,
                 worker,
@@ -144,7 +144,7 @@ class SmsQueueServiceUnitTest {
         assertThat(result.status()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
         assertThat(recorder.transactions()).singleElement()
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getConsentReasonCode)
-                .containsExactly(SmsStatus.CONSENT_BLOCKED, "CONSENT_MODEL_PENDING");
+                .containsExactly(SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN");
         verify(worker, never()).processDueMessages(anyInt());
     }
 
@@ -157,8 +157,8 @@ class SmsQueueServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.blocked(
                         SmsStatus.CONSENT_BLOCKED,
-                        "CONSENT_MODEL_PENDING",
-                        "SMS consent integration is pending"
+                        "SMS_CONSENT_UNKNOWN",
+                        "No SMS consent is recorded for this patient."
                 ),
                 recorder,
                 worker,

@@ -6,6 +6,8 @@ import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,7 @@ import java.util.Objects;
 @Service
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class SmsQueueProcessingService {
+    private static final Logger LOGGER = MiscUtils.getLogger();
     // Per-run cap for worker calls without an explicit limit; tune with SMS provider throughput and queue volume.
     private static final int DEFAULT_BATCH_SIZE = 60;
     private static final Duration DEFAULT_STALE_SENDING_TIMEOUT = Duration.ofMinutes(5);
@@ -106,9 +109,14 @@ public class SmsQueueProcessingService {
                 shouldContinue = false;
             } else {
                 SmsTransaction claimed = transactions.get(0);
-                SmsConsentDecisionDto decision = Objects.requireNonNull(
-                        consentService.evaluate(claimed.toSendCommand()), "SMS consent decision is required");
-                if (!decision.allowed()) {
+                SmsConsentDecisionDto decision = recheckConsent(claimed);
+                if (decision == null) {
+                    // Consent could not be determined, so nothing may be sent on it. Hand the row back
+                    // unattempted rather than leaving it SENDING for stale recovery (which would treat a
+                    // never-sent row as an uncertain send), and let the next run retry this SMS provider.
+                    transactionRecorder.releaseClaim(claimed, new Date());
+                    shouldContinue = false;
+                } else if (!decision.allowed()) {
                     transactionRecorder.markConsentBlocked(claimed, decision);
                     processed++;
                 } else if (!rateLimiter.tryAcquire(providerType)) {
@@ -121,6 +129,21 @@ public class SmsQueueProcessingService {
             }
         }
         return processed;
+    }
+
+    /**
+     * @return the dispatch-time consent decision, or {@code null} when the consent check failed
+     */
+    private SmsConsentDecisionDto recheckConsent(SmsTransaction claimed) {
+        try {
+            return Objects.requireNonNull(
+                    consentService.evaluate(claimed.toSendCommand()), "SMS consent decision is required");
+        } catch (RuntimeException e) {
+            // Exception class only: consent lookups run against patient records, so messages may carry PHI.
+            LOGGER.warn("SMS consent recheck failed; claim released for retry; exceptionClass={}",
+                    e.getClass().getName());
+            return null;
+        }
     }
 
     private void recoverStaleSending(SmsProviderType providerType, int limit) {
