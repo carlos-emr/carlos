@@ -134,7 +134,7 @@ sd_invoke() {
 # reload signal is delivered, and asking too early would restart a front door
 # that was about to come up on its own. An IPv6 literal shows bracketed in ss.
 front_door_listening() {
-    bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+    bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1)"
     [ -n "${bind_ip}" ] || bind_ip=0.0.0.0
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
         if ss -ltnH 2>/dev/null | awk -v ip="${bind_ip}" \
