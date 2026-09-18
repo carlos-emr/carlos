@@ -128,7 +128,7 @@ runCheck({
       if (!hasTable) {
         throw new SkipCheck('formLabReq07 is an Ontario-only table and this database does not have it');
       }
-      const provider = sql.rows(`SELECT IFNULL(ohip_no,''), IFNULL(comments,'') FROM provider WHERE provider_no='${Number(providerNo)}'`)[0];
+const provider = sql.rows(`SELECT IFNULL(ohip_no,''), IFNULL(comments,'') FROM provider WHERE provider_no='${providerNo}'`)[0];
       assert(provider, `provider ${providerNo} not found`);
       const expected = expectedPractitionerNo(provider[0], provider[1]);
       assert(!expected.includes('--'), `the expectation itself carries an empty segment: "${expected}"`);
