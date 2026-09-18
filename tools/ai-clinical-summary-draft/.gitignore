@@ -1,2 +1,3 @@
 runs/
 __pycache__/
+quality/**/*-raw.json
