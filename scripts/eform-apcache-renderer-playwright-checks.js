@@ -42,8 +42,8 @@
  *      names the key (only the operator log does);
  *   3. optional (APCACHE_JOURNAL_UNIT=carlos-emr, run as root on the packaged
  *      install): the application journal carries the servlet's WARN line
- *      naming the fdid and the rejected key, with no throwable and no other
- *      value on it, and no 500-class "lookup failed" line for that render;
+ *      naming the rejected key and reason only, with no fdid, throwable, or AP
+ *      value, and no 500-class "lookup failed" line for that render;
  *   4. optional (APCACHE_PROBE_URL=http://127.0.0.1:18080/carlos, a loopback
  *      Tomcat base): direct requests without a render grant answer 401, and a
  *      non-GET answers 405 (or 403 from the CSRF guard); the front door (BASE_URL) also refuses.
