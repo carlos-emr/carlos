@@ -64,10 +64,10 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
             // WARN, with the key: the browser only ever sees the fixed 422 text and the render
             // report only counts a failed data resource, so this line is the operator's one
             // pointer to WHICH configured AP the form depends on. The key passed KEY_PATTERN and
-            // the grant allowlist and names configuration, not a patient.
-            logger.warn("Renderer APCache key cannot be executed for this render: fdid={} key={} "
-                    + "reason={}",
-                    LogSafe.sanitize(String.valueOf(grant.fdid())),
+            // the grant allowlist and names configuration, not a patient. No fdid here: the fix is
+            // in apconfig.xml, not in any one record, so the patient-correlating id would add
+            // exposure without adding anything an operator can act on.
+            logger.warn("Renderer APCache key cannot be executed for this render: key={} reason={}",
                     LogSafe.sanitize(e.key()),
                     e.getMessage());
             sendErrorIfUncommitted(response, 422, e.getMessage());
