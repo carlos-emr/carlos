@@ -32,6 +32,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
@@ -72,6 +74,8 @@ class DownloadEFormPdf2ActionUnitTest {
     private LoggedInInfo loggedInInfo;
     @Mock
     private io.github.carlos_emr.carlos.managers.DemographicManager demographicManager;
+    @Mock
+    private EFormDataDao eFormDataDao;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -94,8 +98,12 @@ class DownloadEFormPdf2ActionUnitTest {
         lenient().when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
         lenient().when(demographicManager.getDemographicFormattedName(any(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn("Doe, Jane");
+        EFormData eFormData = new EFormData();
+        eFormData.setDemographicId(123);
+        lenient().when(eFormDataDao.find(42)).thenReturn(eFormData);
         action = new DownloadEFormPdf2Action(
-                securityInfoManager, documentAttachmentManager, renderApprovalService, demographicManager);
+                securityInfoManager, documentAttachmentManager, renderApprovalService,
+                demographicManager, eFormDataDao);
     }
 
     @AfterEach
@@ -149,6 +157,17 @@ class DownloadEFormPdf2ActionUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a patient number that does not match the saved eForm")
+    void shouldRejectMismatchedDemographic_beforePrivilegeOrRendering() {
+        request.setParameter("fdid", "42");
+        request.setParameter("demographicNo", "456");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, renderApprovalService);
+    }
+
+    @Test
     @DisplayName("should consume the download approval and render the already-saved form with it")
     void shouldConsumeDownloadApproval_andRenderSavedFormWithIt() throws Exception {
         request.setParameter("fdid", "42");
@@ -167,10 +186,35 @@ class DownloadEFormPdf2ActionUnitTest {
 
         assertThat(result).isEqualTo("download");
         assertThat(request.getAttribute("eFormPDF")).isEqualTo("QUJD");
+        // No "Submit & PDF" intent on the approval form: the window stays open.
+        assertThat(request.getAttribute("isSuccess_Autoclose")).isNull();
         // The ticket is scoped to DOWNLOAD: a PREVIEW or FAX ticket must not unlock a download.
         verify(renderApprovalService).consume(request, loggedInInfo, 42, "123",
                 EFormRenderApprovalService.Operation.DOWNLOAD, "ticket");
         verify(documentAttachmentManager).renderEFormPacketWithCompleteness(eq(request), any(), eq(approval));
+    }
+
+    @Test
+    @DisplayName("should flag the approved download to auto-close when the approval form carries the Submit & PDF intent")
+    void shouldFlagAutoClose_whenApprovalCarriesSubmitAndPdfIntent() throws Exception {
+        request.setParameter("fdid", "42");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("renderApproval", "ticket");
+        request.setParameter("autoClose", "true");
+        EFormRenderApproval approval = org.mockito.Mockito.mock(EFormRenderApproval.class);
+        when(renderApprovalService.consume(request, loggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.DOWNLOAD, "ticket")).thenReturn(approval);
+        when(documentAttachmentManager.renderEFormPacketWithCompleteness(eq(request), any(), eq(approval)))
+                .thenReturn(new EformDataManager.EformPdfRender(
+                        Path.of("eform-browser-render-1.pdf"),
+                        io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport.complete()));
+        when(documentAttachmentManager.convertPDFToBase64(any())).thenReturn("QUJD");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("download");
+        assertThat(request.getAttribute("isDownload")).isEqualTo("true");
+        assertThat(request.getAttribute("isSuccess_Autoclose")).isEqualTo("true");
     }
 
     @Test

@@ -152,6 +152,11 @@ class FaxProviderClientFactoryTest extends CarlosUnitTestBase {
         }
 
         @Override
+        public FaxJob cancelFax(FaxConfig faxConfig, FaxJob faxJob) {
+            return faxJob;
+        }
+
+        @Override
         public List<FaxJob> listInboundFaxes(FaxConfig faxConfig) {
             return Collections.emptyList();
         }

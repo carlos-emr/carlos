@@ -78,11 +78,12 @@ public interface EformDataManager {
      * Renders an eForm and returns the observed completeness alongside the PDF.
      *
      * <p>Use this where the caller can show the result to a clinician. A render that raises only
-     * advisory conditions — an uncaught exception from the form's own script — produces a PDF and
-     * never blocks, but the reader still needs to know the page reported an error, because a script
-     * that aborted midway leaves no other visible trace. Callers that stream bytes with no room for
-     * a notice (fax, direct download) can keep using {@link #createEformPDF(LoggedInInfo, int,
-     * EFormRenderApproval)}; the condition is recorded in the render log either way.</p>
+     * advisory conditions — suppressed browser interactions or failed legacy timers — produces a
+     * PDF and never blocks, but the reader still needs to know those conditions occurred. A severe
+     * page-script error is blocking because it can leave derived content incomplete, and proceeds
+     * only with an exact approval. Callers that stream bytes with no room for a notice (fax, direct
+     * download) can keep using {@link #createEformPDF(LoggedInInfo, int, EFormRenderApproval)}; the
+     * condition is recorded in the render log either way.</p>
      */
     public EformPdfRender createEformPdfWithCompleteness(
             LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException;
@@ -94,7 +95,21 @@ public interface EformDataManager {
      * @param completeness counts and flags only — never resource URLs or rendered text, which can
      *        carry PHI
      */
-    record EformPdfRender(Path path, EFormRenderCompletenessReport completeness) {
+    record EformPdfRender(Path path, EFormRenderCompletenessReport completeness,
+            Map<Integer, EFormRenderCompletenessReport> formCompleteness,
+            java.util.List<String> severeConsoleDetails) {
+        public EformPdfRender(Path path, EFormRenderCompletenessReport completeness,
+                Map<Integer, EFormRenderCompletenessReport> formCompleteness) {
+            this(path, completeness, formCompleteness, java.util.List.of());
+        }
+        public EformPdfRender(Path path, EFormRenderCompletenessReport completeness) {
+            this(path, completeness, Map.of(), java.util.List.of());
+        }
+        public EformPdfRender {
+            // PHI-safe per-error descriptions for the informed-override screen (display only).
+            severeConsoleDetails = severeConsoleDetails == null
+                    ? java.util.List.of() : java.util.List.copyOf(severeConsoleDetails);
+        }
     }
 
 

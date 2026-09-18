@@ -632,7 +632,7 @@
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.groupCreate"
                                            rights="w" reverse="<%=false%>">
                             <li><a href="#"
-                                   onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup?submit=blank");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+                                   onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
                         </security:oscarSec>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup");return false;'><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
@@ -816,7 +816,7 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.Status"/></h3>
                 <ul>
                     <% if (CarlosProperties.getInstance().isFaxEnabled()) { %>
-                    <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/faxStatus");return false;'><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
+                    <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/ViewManageFaxes");return false;'><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
                     <% } %>
 
                 </ul>

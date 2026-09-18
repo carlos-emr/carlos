@@ -9,6 +9,8 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Clock;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
@@ -62,6 +64,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class HL7CreateFile {
     private Demographic demographic;
+    private final Clock clock;
     String LAB_TYPE = "CML";
     Integer resultCount = 1;
     private static final Logger logger = MiscUtils.getLogger();
@@ -83,7 +86,12 @@ public class HL7CreateFile {
      *                    sex, health insurance number, and contact information
      */
     public HL7CreateFile(Demographic demographic) {
+        this(demographic, Clock.systemDefaultZone());
+    }
+
+    HL7CreateFile(Demographic demographic, Clock clock) {
         this.demographic = demographic;
+        this.clock = clock;
     }
 
     /**
@@ -188,17 +196,9 @@ public class HL7CreateFile {
             }
         }
         String labNameType = LAB_TYPE + "|" + labName;
-        DateTimeFullOrPartial labDateString = lab.getLabRequisitionDateTime() != null ? lab.getLabRequisitionDateTime() : lab.getCollectionDateTime();
-        String requisitionDate = getDateTime(labDateString);
-        if (requisitionDate.isEmpty()) {
-            // MSH-7 is the message date/time — a REQUIRED HL7 envelope field meaning "when this
-            // message was created", which is genuinely now. getDateTime() deliberately returns "" for
-            // an absent/unparseable clinical date (fabricating a collection/requisition timestamp
-            // corrupts the record), and that empty is correct for OBR-6/7 and OBX-14. But an empty
-            // MSH-7 makes strict receivers reject the entire ORU^R01, so for the envelope field —
-            // and only here — fall back to the current time, which is the field's true meaning.
-            requisitionDate = new SimpleDateFormat(FULL_DATE_TIME).format(new Date());
-        }
+        String messageCreationDate = DateTimeFormatter.ofPattern(FULL_DATE_TIME)
+                .withZone(clock.getZone())
+                .format(clock.instant());
         String version = "2.3";
         if (LAB_TYPE.equals("MDS")) {
             labNameType = labName + "|" + LAB_TYPE;
@@ -209,7 +209,7 @@ public class HL7CreateFile {
             version = version + ".1";
         }
 
-        return "MSH|^~\\&|" + labNameType + "|||" + requisitionDate + "||ORU^R01|" + StringUtils.noNull(lab.getAccessionNumber()) + "-" + resultCount + "|P|" + version + "||||";
+        return "MSH|^~\\&|" + labNameType + "|||" + messageCreationDate + "||ORU^R01|" + StringUtils.noNull(lab.getAccessionNumber()) + "-" + resultCount + "|P|" + version + "||||";
     }
 
     private String generateNTE(LaboratoryResultsDocument.LaboratoryResults lab) {

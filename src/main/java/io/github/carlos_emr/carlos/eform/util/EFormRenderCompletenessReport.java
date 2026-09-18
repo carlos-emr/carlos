@@ -23,6 +23,7 @@ public record EFormRenderCompletenessReport(
         int excludedContentElements,
         int severeConsoleErrors,
         int containedInteractions,
+        int decorativeExcludedElements,
         boolean signatureMissing,
         boolean timerCompatibilityFailure,
         boolean stabilizationCapped,
@@ -30,7 +31,9 @@ public record EFormRenderCompletenessReport(
         boolean providerStampMissing) implements Serializable {
 
     // 4L: providerStampMissing was added, which changes both the serialized shape and digest().
-    private static final long serialVersionUID = 4L;
+    // 5L: decorativeExcludedElements was added — off-page elements the renderer excluded as
+    //     non-clinical decoration, ADVISORY (delivered, disclosed) rather than silent.
+    private static final long serialVersionUID = 5L;
 
     /**
      * Counters are grouped ahead of the flags deliberately. All four counts and all five flags are
@@ -39,7 +42,7 @@ public record EFormRenderCompletenessReport(
      */
     public EFormRenderCompletenessReport {
         if (failedContentResources < 0 || excludedContentElements < 0 || severeConsoleErrors < 0
-                || containedInteractions < 0) {
+                || containedInteractions < 0 || decorativeExcludedElements < 0) {
             throw new IllegalArgumentException("Incomplete-render counters must not be negative");
         }
     }
@@ -60,8 +63,25 @@ public record EFormRenderCompletenessReport(
                 stabilizationCapped, labDecisionSupportStubbed, false);
     }
 
+    /**
+     * Reports a render with no off-page decorative exclusions.
+     *
+     * <p>Retained for the pre-existing construction sites (and their transposition-safety
+     * rationale above): none of them concern off-page decoration, which only the geometry
+     * scan produces.</p>
+     */
+    public EFormRenderCompletenessReport(
+            int failedContentResources, int excludedContentElements, int severeConsoleErrors,
+            int containedInteractions, boolean signatureMissing, boolean timerCompatibilityFailure,
+            boolean stabilizationCapped, boolean labDecisionSupportStubbed,
+            boolean providerStampMissing) {
+        this(failedContentResources, excludedContentElements, severeConsoleErrors,
+                containedInteractions, 0, signatureMissing, timerCompatibilityFailure,
+                stabilizationCapped, labDecisionSupportStubbed, providerStampMissing);
+    }
+
     public static EFormRenderCompletenessReport complete() {
-        return new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, false);
+        return new EFormRenderCompletenessReport(0, 0, 0, 0, 0, false, false, false, false, false);
     }
 
     /**
@@ -76,6 +96,7 @@ public record EFormRenderCompletenessReport(
                 && excludedContentElements == 0
                 && severeConsoleErrors == 0
                 && containedInteractions == 0
+                && decorativeExcludedElements == 0
                 && !signatureMissing
                 && !timerCompatibilityFailure
                 && !stabilizationCapped
@@ -86,22 +107,9 @@ public record EFormRenderCompletenessReport(
     /**
      * Whether any condition present is serious enough to withhold the document pending approval.
      *
-     * <p>Three components are advisory and never withhold the document — {@link #severeConsoleErrors},
-     * {@link #containedInteractions} and {@link #timerCompatibilityFailure}. {@link #advisoryIssueCount()}
-     * is the single authority on that set; keep this list in step with it rather than reasoning from
-     * this sentence. Every other component blocks.</p>
-     *
-     * <p>Taking the first of the three: it counts
-     * uncaught exceptions thrown by the <em>form's own</em> script. Across the shared-eForm corpus
-     * that is the single most common condition — decades-old hand-authored forms routinely throw
-     * once during load (a {@code getElementById(...)} returning null for a field the form no longer
-     * has) while rendering every bit of their clinical content correctly. Blocking on it withheld
-     * complete documents far more often than it caught truncated ones.</p>
-     *
-     * <p>It stays in the report rather than being discarded, because a script that aborted midway
-     * through injecting a score, a dose or a letter body leaves no other observable — every
-     * subresource returned 200 and the page divs still measure. Callers that can show it must; see
-     * {@link #advisoryIssueCount()}.</p>
+     * <p>Only contained interactions and timer compatibility failures are advisory. An uncaught
+     * severe page-script error blocks because it can stop a score, dose, signature, or letter body
+     * after every resource has returned successfully, leaving no other observable omission.</p>
      */
     public boolean hasBlockingOmissions() {
         return blockingIssueCount() > 0;
@@ -115,7 +123,7 @@ public record EFormRenderCompletenessReport(
     /**
      * Count of conditions that are reported to the user but never withhold the document.
      *
-     * <p>{@link #timerCompatibilityFailure} joins {@link #severeConsoleErrors} here. It reports that
+     * <p>{@link #timerCompatibilityFailure} reports that
      * one of the form's own legacy string timers threw. That is worth telling the reader, but it is
      * not sound grounds for withholding the document: measured across the shared-form corpus, the
      * overwhelmingly common such timer is {@code setTimeout("SubmitButton.click()", 1800)} — a form
@@ -132,16 +140,32 @@ public record EFormRenderCompletenessReport(
      * messages ("No eGFR in chart"). Blocking on them meant a form that warns the user at print time
      * could never be printed. Some carry clinical decision support, which is why the count is
      * surfaced rather than dropped; the PDF has never recorded a form's dialogs, only its content.</p>
+     *
+     * <p>{@link #decorativeExcludedElements} counts off-page elements the geometry scan excluded
+     * as non-clinical decoration (a license badge, a masthead, a boilerplate disclaimer sitting
+     * before the first or after the last authored page). Delivering past them is deliberate —
+     * blocking on them made whole corpus families unprintable — but the exclusion must never be
+     * silent: advisory means the clinician is told something was removed and can compare the PDF
+     * against the form.</p>
+     *
+     * <p>Classification is OPT-IN, because position cannot prove text is non-clinical. An off-page
+     * element counts as decoration only when the form marks it {@code .carlos-print-decoration} or
+     * {@code [data-carlos-print-decoration]}; unmarked content — plain text included — stays in the
+     * blocking {@link #excludedContentElements} count, and so does anything carrying a form control
+     * or imagery even when marked. The earlier classifier was positional plus a
+     * no-form-controls/no-media check, which silently dropped clinical prose authored outside the
+     * page divs into this advisory bucket. See {@code docs/eform-browser-pdf-renderer.md}.</p>
      */
     public int advisoryIssueCount() {
-        int advisory = Math.addExact(severeConsoleErrors, containedInteractions);
-        return Math.addExact(advisory, timerCompatibilityFailure ? 1 : 0);
+        int advisory = Math.addExact(containedInteractions, timerCompatibilityFailure ? 1 : 0);
+        return Math.addExact(advisory, decorativeExcludedElements);
     }
 
     public int issueCount() {
         int count = Math.addExact(failedContentResources, excludedContentElements);
         count = Math.addExact(count, severeConsoleErrors);
         count = Math.addExact(count, containedInteractions);
+        count = Math.addExact(count, decorativeExcludedElements);
         count = Math.addExact(count, signatureMissing ? 1 : 0);
         count = Math.addExact(count, timerCompatibilityFailure ? 1 : 0);
         count = Math.addExact(count, stabilizationCapped ? 1 : 0);
@@ -167,9 +191,10 @@ public record EFormRenderCompletenessReport(
         StringBuilder description = new StringBuilder();
         appendCount(description, "failedContentResources", failedContentResources);
         appendCount(description, "excludedContentElements", excludedContentElements);
+        appendCount(description, "severeConsoleErrors", severeConsoleErrors);
         if (!blockingOnly) {
-            appendCount(description, "severeConsoleErrors", severeConsoleErrors);
             appendCount(description, "containedInteractions", containedInteractions);
+            appendCount(description, "decorativeExcludedElements", decorativeExcludedElements);
             appendFlag(description, "timerCompatibilityFailure", timerCompatibilityFailure);
         }
         appendFlag(description, "signatureMissing", signatureMissing);
@@ -208,6 +233,7 @@ public record EFormRenderCompletenessReport(
                 Math.addExact(excludedContentElements, other.excludedContentElements),
                 Math.addExact(severeConsoleErrors, other.severeConsoleErrors),
                 Math.addExact(containedInteractions, other.containedInteractions),
+                Math.addExact(decorativeExcludedElements, other.decorativeExcludedElements),
                 signatureMissing || other.signatureMissing,
                 timerCompatibilityFailure || other.timerCompatibilityFailure,
                 stabilizationCapped || other.stabilizationCapped,
@@ -223,6 +249,7 @@ public record EFormRenderCompletenessReport(
                 + excludedContentElements + ":"
                 + severeConsoleErrors + ":"
                 + containedInteractions + ":"
+                + decorativeExcludedElements + ":"
                 + signatureMissing + ":"
                 + timerCompatibilityFailure + ":"
                 + stabilizationCapped + ":"

@@ -79,7 +79,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 
@@ -442,7 +442,7 @@ public class OscarChartPrinter implements java.io.Closeable {
         if (demographicCust != null) {
             phrase.add("Alerts: " + demographicCust.getAlert() + "\n");
             if (demographicCust.getNotes().length() > 0) {
-                phrase.add("Notes: " + SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes") + "\n");
+                phrase.add("Notes: " + DemographicXml.userNotesText(demographicCust.getNotes()) + "\n");
             }
         }
         phrase.add("\n");
@@ -482,7 +482,7 @@ public class OscarChartPrinter implements java.io.Closeable {
      */
     private String getReferralDoctor(String field) {
         if (field != null && field.length() > 0) {
-            return SxmlMisc.getXmlContent(field, "rd");
+            return DemographicXml.referralDoctor(field);
         }
         return "";
     }

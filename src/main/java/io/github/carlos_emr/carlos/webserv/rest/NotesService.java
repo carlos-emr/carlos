@@ -78,6 +78,8 @@ import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementIssueNotesDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -122,6 +124,17 @@ public class NotesService extends AbstractServiceImpl {
     /** Shared, thread-safe ObjectMapper (safe after configuration). */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+    private static final String SEC_OBJECT_ECHART = "_eChart";
+
+    /** Note summary/issue codes shared between {@link #translateCppSummaryCode} and {@link #copyNote2cpp}. */
+    private static final String ISSUECODE_ONGOINGCONCERNS = "ongoingconcerns";
+    private static final String ISSUECODE_MEDHX = "medhx";
+    private static final String ISSUECODE_REMINDERS = "reminders";
+    private static final String ISSUECODE_OTHERMEDS = "othermeds";
+    private static final String ISSUECODE_SOCHX = "sochx";
+    private static final String ISSUECODE_FAMHX = "famhx";
+    private static final String ISSUECODE_RISKFACTORS = "riskfactors";
+
     /**
      * In-memory concurrent editing tracker for clinical notes.
      *
@@ -160,6 +173,9 @@ public class NotesService extends AbstractServiceImpl {
 
     @Autowired
     private SecUserRoleDao secUserRoleDao;
+
+    @Autowired
+    private TicklerDao ticklerDao;
 
 
     @POST
@@ -300,6 +316,16 @@ public class NotesService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Stores the in-progress draft ("autosave") of an encounter note for a patient.
+     *
+     * @param demographicNo patient the draft belongs to
+     * @param note          the draft note; its {@code noteId} names the note being edited
+     * @return the draft that was stored, or {@code null} if it had no text
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} write privilege,
+     *         is not authorized to access this demographicNo, or the draft's {@code noteId}
+     *         references a note that does not belong to this patient
+     */
     @POST
     @Path("/{demographicNo}/tmpSave")
     @Consumes("application/json")
@@ -313,6 +339,14 @@ public class NotesService extends AbstractServiceImpl {
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //  LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProvider().getProviderNo();
 
+        // Ownership check (IDOR hardening, issue #2839 class): this endpoint writes a draft
+        // row keyed by the caller-supplied demographicNo, so gate it the same way the rest
+        // of this class does before any draft is stored.
+        String demoNo = String.valueOf(demographicNo);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)
+                || !isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
 
         String programId = getProgram(loggedInInfo, providerNo);
         String noteStr = note.getNote();
@@ -322,6 +356,13 @@ public class NotesService extends AbstractServiceImpl {
             Integer.parseInt(noteId);
         } catch (Exception e) {
             noteId = null;
+        }
+
+        // The draft carries a noteId that getCurrentNote later restores from. Bind it to
+        // this patient here as well so a draft can never be seeded with another patient's
+        // note id in the first place (defence in depth with the getCurrentNote check).
+        if (noteId != null && Integer.parseInt(noteId) > 0) {
+            requireOwnedNote(noteId, demoNo, "w");
         }
 		
 		/* NOT SURE HOW TO HANDLE LOCKS YET!!
@@ -375,6 +416,16 @@ public class NotesService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Creates a clinical encounter note for a patient from a raw JSON payload.
+     *
+     * @param demographicNo patient the note belongs to
+     * @param jsonNote      the note, either bare or wrapped in an {@code encounterNote} field
+     * @return the persisted note, or {@code null} if it had no text
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} write privilege,
+     *         is not authorized to access this demographicNo, or the payload's {@code uuid}
+     *         names a revision chain belonging to a different patient
+     */
     @POST
     @Path("/{demographicNo}/save")
     @Consumes("application/json")
@@ -401,13 +452,25 @@ public class NotesService extends AbstractServiceImpl {
 
         String demo = "" + demographicNo;
 
+        // Ownership check (IDOR hardening, issue #2839 class): like saveIssueNote, this
+        // endpoint had no privilege or ownership check at all and wrote a note for whatever
+        // demographicNo the caller put in the path.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)
+                || !isNoteAccessAllowed(loggedInInfo, providerNo, demo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
+
         CaseManagementNote caseMangementNote = new CaseManagementNote();
 
         caseMangementNote.setDemographic_no(demo);
         caseMangementNote.setProvider(provider);
         caseMangementNote.setProviderNo(providerNo);
 
+        // A caller-supplied UUID names a revision chain, and the note-history /
+        // getNotesByUUID lookups are UUID-wide rather than demographic-scoped, so an
+        // unchecked UUID here would append this patient's note to another patient's chain.
         if (note.getUuid() != null && !note.getUuid().trim().equals("")) {
+            requireOwnedUuid(note.getUuid(), demo, "w");
             caseMangementNote.setUuid(note.getUuid());
         }
 
@@ -652,6 +715,15 @@ public class NotesService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Creates or updates a clinical encounter note, its issue association, and CPP data.
+     *
+     * @param demographicNo patient the note belongs to
+     * @param noteIssue     the note, its extended fields, and its assigned issues
+     * @return the persisted note's response
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} write privilege
+     *         or is not authorized to access this demographicNo
+     */
     @POST
     @Path("/{demographicNo}/saveIssueNote")
     @Consumes("application/json")
@@ -671,18 +743,33 @@ public class NotesService extends AbstractServiceImpl {
         String demo = "" + demographicNo;
         String noteId = String.valueOf(note.getNoteId());
 
+        // Ownership check (IDOR hardening, issue #2839 class): this endpoint had no
+        // privilege or ownership check at all, letting any authenticated caller create
+        // or update case-management notes/issues/CPP data for an arbitrary demographicNo.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)
+                || !isNoteAccessAllowed(loggedInInfo, providerNo, demo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
+
         String programId = getProgram(loggedInInfo, providerNo);
 
         CaseManagementNote caseMangementNote = new CaseManagementNote();
         boolean newNote = false;
+        CaseManagementNote existingNote = null;
 
         // we don't want to try to remove an issue from a new note so we test here
         if (note.getNoteId() == null || note.getNoteId() == 0) {
             newNote = true;
         } else {
             boolean extChanged = true; //false
+            // The payload's noteId is a *second* caller-supplied identifier, independent of
+            // the demographicNo authorized above: require it to resolve to a note owned by
+            // that same patient (IDOR hardening, issue #2839 class). The note history and
+            // getNotesByUUID lookups are UUID-wide and not scoped by demographic, so an
+            // unbound noteId would let a caller graft a revision into another patient's
+            // UUID chain -- hiding that patient's current note and mixing the two charts.
+            existingNote = requireOwnedNote(noteId, demo, "w");
             // if note has not changed don't save
-            caseManagementMgr.getNote(noteId);
             if (note.getNote().equals(note.getNote()) && issue.isIssueChange() && !extChanged && note.isArchived())
                 return null;
         }
@@ -693,12 +780,12 @@ public class NotesService extends AbstractServiceImpl {
             if (note.isArchived()) {
                 caseMangementNote.setArchived(true);
             }
-            note.setRevision(Integer.parseInt(note.getRevision()) + 1 + "");
-        }
-
-
-        if (note.getUuid() != null && !note.getUuid().trim().equals("")) {
-            caseMangementNote.setUuid(note.getUuid());
+            // Revision and UUID come from the ownership-checked entity, never from the
+            // request body: both identify the revision chain the new row is appended to.
+            // For a genuinely new note the DAO assigns a fresh UUID (CaseManagementNoteDAO
+            // .saveNote), so an unbound caller-supplied UUID is simply not honoured here.
+            note.setRevision(String.valueOf(Integer.parseInt(existingNote.getRevision()) + 1));
+            caseMangementNote.setUuid(existingNote.getUuid());
         }
 
         String noteTxt = note.getNote();
@@ -717,28 +804,7 @@ public class NotesService extends AbstractServiceImpl {
             cpp = copyNote2cpp(cpp, note.getNote(), note.getSummaryCode());
         }
 
-        ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-        AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
-
-        String role = null;
-        String team = null;
-
-        try {
-            role = String.valueOf((programManager.getProgramProvider(providerNo, programId)).getRole().getId());
-        } catch (Exception e) {
-            logger.error("Error", e);
-            role = "0";
-        }
-
-        caseMangementNote.setReporter_caisi_role(role);
-
-        try {
-            team = String.valueOf((admissionManager.getAdmission(programId, demographicNo)).getTeamId());
-        } catch (Exception e) {
-            logger.error("Error", e);
-            team = "0";
-        }
-        caseMangementNote.setReporter_program_team(team);
+        assignReporterRoleAndTeam(caseMangementNote, providerNo, programId, demographicNo);
 
         //Need to check some how that if a note is signed that it must stay signed, currently this is done in the interface where the save button is not available.
         if (note.getIsSigned()) {
@@ -756,92 +822,14 @@ public class NotesService extends AbstractServiceImpl {
         caseMangementNote.setProgram_no(programId);
 
         //this code basically updates the CPP note with which issues were removed
-        if (!newNote) {
-            List<String> removedIssueNames = new ArrayList<String>();
-            for (CaseManagementIssueTo1 cmit : assignedCMIssues) {
-                if (cmit.isUnchecked() && cmit.getId() != null && cmit.getId().longValue() > 0) {
-                    //we want to remove this association, and append to the note
-                    removedIssueNames.add(cmit.getIssue().getDescription());
-                }
-            }
+        appendRemovedIssuesNote(caseMangementNote, newNote, assignedCMIssues);
 
-            if (!removedIssueNames.isEmpty()) {
-                String text = new SimpleDateFormat("dd-MMM-yyyy").format(new Date()) + " " + "Removed following issue(s)" + ":\n" + StringUtils.join(removedIssueNames, ",");
-                caseMangementNote.setNote(caseMangementNote.getNote() + "\n" + text);
-            }
-        }
-
-        //String issue_id = issues.getId().toString();
-        //String ongoing = new String();
-
-        List<CaseManagementIssue> issuelist = new ArrayList<CaseManagementIssue>();
-
-        for (CaseManagementIssueTo1 i : assignedCMIssues) {
-            if (!i.isUnchecked()) {
-                CaseManagementIssue cmi = caseManagementMgr.getIssueByIssueCode(demo, i.getIssue().getCode());
-                if (cmi == null) {
-                    //new one
-                    cmi = new CaseManagementIssue();
-                    Issue is = issueDao.getIssue(i.getIssue().getId());
-                    cmi.setIssue_id(is.getId());
-                    cmi.setIssue(is);
-                    cmi.setProgram_id(programManager2.getCurrentProgramInDomain(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo()).getProgramId().intValue());
-                    cmi.setType(is.getRole());
-                    cmi.setDemographic_no(Integer.valueOf(demo));
-                }
-                cmi.setAcute(i.isAcute());
-                cmi.setCertain(i.isCertain());
-                cmi.setMajor(i.isMajor());
-                cmi.setResolved(i.isResolved());
-
-                issuelist.add(cmi);
-                caseManagementMgr.saveCaseIssue(cmi);
-            }
-        }
-        //	caseMangementNote.setIssues(new HashSet<CaseManagementIssue>(issuelist));
-
+        List<CaseManagementIssue> issuelist = saveAssignedIssues(assignedCMIssues, demo);
 
         //this is actually just the issue for the main note
-        //translate summary codes
-        String issueCode = note.getSummaryCode(); //set temp
-        if ("ongoingconcerns".equals(issueCode)) {
-            issueCode = "Concerns";
-        } else if ("medhx".equals(issueCode)) {
-            issueCode = "MedHistory";
-        } else if ("reminders".equals(issueCode)) {
-            issueCode = "Reminders";
-        } else if ("othermeds".equals(issueCode)) {
-            issueCode = "OMeds";
-        } else if ("sochx".equals(issueCode)) {
-            issueCode = "SocHistory";
-        } else if ("famhx".equals(issueCode)) {
-            issueCode = "FamHistory";
-        } else if ("riskfactors".equals(issueCode)) {
-            issueCode = "RiskFactors";
-        }
-
+        String issueCode = translateCppSummaryCode(note.getSummaryCode());
         Issue cppIssue = caseManagementMgr.getIssueInfoByCode(issueCode);
-
-        CaseManagementIssue cIssue;
-        cIssue = caseManagementMgr.getIssueByIssueCode(demo, issueCode);
-
-        //no issue existing for this type of CPP note..create and save it
-        if (cIssue == null) {
-            Date creationDate = new Date();
-
-            cIssue = new CaseManagementIssue();
-            cIssue.setAcute(false);
-            cIssue.setCertain(false);
-            cIssue.setDemographic_no(Integer.valueOf(demo));
-            cIssue.setIssue_id(cppIssue.getId());
-            cIssue.setMajor(false);
-            cIssue.setProgram_id(Integer.parseInt(programId));
-            cIssue.setResolved(false);
-            cIssue.setType(cppIssue.getRole());
-            cIssue.setUpdate_date(creationDate);
-
-            caseManagementMgr.saveCaseIssue(cIssue);
-        }
+        CaseManagementIssue cIssue = resolveOrCreateCppIssue(issueCode, cppIssue, demo, programId);
 
         //save the associations
         issuelist.add(cIssue);
@@ -879,65 +867,7 @@ public class NotesService extends AbstractServiceImpl {
         }
 
 
-        //update positions
-        /*
-         * There's a few cases to handle, but basically when user is adding, editing, or archiving,
-         * we go and set the positions so it's always 1, 2, .., n across the group note. Archived notes,
-         * and older notes (not the latest based on uuid/id) have positions set to 0
-         */
-        String[] strIssueId = {String.valueOf(cppIssue.getId())};
-        List<CaseManagementNote> curCPPNotes = this.caseManagementMgr.getActiveNotes(demo, strIssueId);
-        Collections.sort(curCPPNotes, CaseManagementNote.getPositionComparator());
-
-
-        if (note.isArchived()) {
-            //this one will basically assign 1, 2, 3, .., n to the group and ignore the one to be archived..setting it's position to 0
-            int positionToAssign = 1;
-            for (int x = 0; x < curCPPNotes.size(); x++) {
-                if (curCPPNotes.get(x).getUuid().equals(note.getUuid())) {
-                    curCPPNotes.get(x).setPosition(0);
-                    caseManagementMgr.updateNote(curCPPNotes.get(x));
-                    continue;
-                }
-                curCPPNotes.get(x).setPosition(positionToAssign);
-                caseManagementMgr.updateNote(curCPPNotes.get(x));
-                positionToAssign++;
-            }
-
-        } else {
-            List<CaseManagementNote> curCPPNotes2 = new ArrayList<CaseManagementNote>();
-            for (CaseManagementNote cn : curCPPNotes) {
-                if (!cn.getUuid().equals(note.getUuid())) {
-                    curCPPNotes2.add(cn);
-                } else {
-                    cn.setPosition(0);
-                    caseManagementMgr.updateNote(cn);
-                }
-            }
-            //we make a fake CaseManagementNoteEntry into curCPPNotes, and insert it into desired location.
-            //we then just set the positions to 1, 2, ..., n ignoring the fake one, but still incrementing the positionToAssign variable
-            //when the new note is saved.it will have the missing position.
-            int positionToAssign = 1;
-            CaseManagementNote xn = new CaseManagementNote();
-            xn.setId(-1L);
-            curCPPNotes2.add(note.getPosition() - 1, xn);
-            for (int x = 0; x < curCPPNotes2.size(); x++) {
-                if (curCPPNotes2.get(x).getId() != -1L) {
-                    //update the note
-                    curCPPNotes2.get(x).setPosition(positionToAssign);
-                    caseManagementMgr.updateNote(curCPPNotes2.get(x));
-                }
-                if (curCPPNotes2.get(x).getId() != -1L && curCPPNotes2.get(x).getUuid().equals(note.getUuid())) {
-                    curCPPNotes2.get(x).setPosition(0);
-                    caseManagementMgr.updateNote(curCPPNotes2.get(x));
-                    positionToAssign--;
-                }
-                positionToAssign++;
-            }
-        }
-        if (!note.isArchived()) {
-            caseMangementNote.setPosition(note.getPosition());
-        }
+        updateNotePositions(note, caseMangementNote, demo, cppIssue);
 
         /*
          *
@@ -949,14 +879,12 @@ public class NotesService extends AbstractServiceImpl {
          *
          */
 
-        //String ongoing = null; // figure out this
-        String lastSavedNoteString = null;
-        String user = loggedInInfo.getLoggedInProvider().getProviderNo();
-        String remoteAddr = ""; // Not sure how to get this
-
+        // The commented-out saveCaseManagementNote(...) call below is the legacy Struts path
+        // kept for reference; its ongoing/verify/user/remoteAddr/lastSavedNoteString locals
+        // were removed because nothing reads them (CodeQL "unread local variable").
         //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote, issuelist, cpp, ongoing, verify, loggedInInfo.getLocale(), now, userName, user, remoteAddr, lastSavedNoteString);
 
-        String savedStr = caseManagementMgr.saveNote(cpp, caseMangementNote, providerNo, userName, null, note.getRoleName());
+        caseManagementMgr.saveNote(cpp, caseMangementNote, providerNo, userName, null, note.getRoleName());
         caseManagementMgr.saveCPP(cpp, providerNo);
 
         caseManagementMgr.getEditors(caseMangementNote);
@@ -988,6 +916,91 @@ public class NotesService extends AbstractServiceImpl {
         }
 
         /* save extra fields */
+        saveNoteExtFields(noteExt, newNoteId);
+
+        noteIssue.setEncounterNote(note);
+        noteIssue.setGroupNoteExt(noteExt);
+
+        return Response.ok().build();
+    }
+
+    /**
+     * Updates the position (1..n, or 0 for archived/superseded) of every CPP note
+     * sharing this note's CPP issue, so the group note stays ordered after an add,
+     * edit, or archive.
+     */
+    private void updateNotePositions(NoteTo1 note, CaseManagementNote caseMangementNote, String demo, Issue cppIssue) {
+        /*
+         * There's a few cases to handle, but basically when user is adding, editing, or archiving,
+         * we go and set the positions so it's always 1, 2, .., n across the group note. Archived notes,
+         * and older notes (not the latest based on uuid/id) have positions set to 0
+         */
+        String[] strIssueId = {String.valueOf(cppIssue.getId())};
+        List<CaseManagementNote> curCPPNotes = this.caseManagementMgr.getActiveNotes(demo, strIssueId);
+        Collections.sort(curCPPNotes, CaseManagementNote.getPositionComparator());
+
+        if (note.isArchived()) {
+            assignArchivedNotePositions(curCPPNotes, note);
+        } else {
+            assignActiveNotePositions(curCPPNotes, note);
+            caseMangementNote.setPosition(note.getPosition());
+        }
+    }
+
+    /** Assigns positions 1..n to every note in the group except the one being archived, which is set to 0. */
+    private void assignArchivedNotePositions(List<CaseManagementNote> curCPPNotes, NoteTo1 note) {
+        int positionToAssign = 1;
+        for (int x = 0; x < curCPPNotes.size(); x++) {
+            if (curCPPNotes.get(x).getUuid().equals(note.getUuid())) {
+                curCPPNotes.get(x).setPosition(0);
+                caseManagementMgr.updateNote(curCPPNotes.get(x));
+                continue;
+            }
+            curCPPNotes.get(x).setPosition(positionToAssign);
+            caseManagementMgr.updateNote(curCPPNotes.get(x));
+            positionToAssign++;
+        }
+    }
+
+    /**
+     * Assigns positions 1..n across the group, inserting a placeholder for the note being
+     * added/edited at its desired position so the rest of the group shifts around it, and
+     * sets that note's own position to 0 (the caller re-assigns its real position afterward).
+     */
+    private void assignActiveNotePositions(List<CaseManagementNote> curCPPNotes, NoteTo1 note) {
+        List<CaseManagementNote> curCPPNotes2 = new ArrayList<CaseManagementNote>();
+        for (CaseManagementNote cn : curCPPNotes) {
+            if (!cn.getUuid().equals(note.getUuid())) {
+                curCPPNotes2.add(cn);
+            } else {
+                cn.setPosition(0);
+                caseManagementMgr.updateNote(cn);
+            }
+        }
+        //we make a fake CaseManagementNoteEntry into curCPPNotes, and insert it into desired location.
+        //we then just set the positions to 1, 2, ..., n ignoring the fake one, but still incrementing the positionToAssign variable
+        //when the new note is saved.it will have the missing position.
+        int positionToAssign = 1;
+        CaseManagementNote xn = new CaseManagementNote();
+        xn.setId(-1L);
+        curCPPNotes2.add(note.getPosition() - 1, xn);
+        for (int x = 0; x < curCPPNotes2.size(); x++) {
+            if (curCPPNotes2.get(x).getId() != -1L) {
+                //update the note
+                curCPPNotes2.get(x).setPosition(positionToAssign);
+                caseManagementMgr.updateNote(curCPPNotes2.get(x));
+            }
+            if (curCPPNotes2.get(x).getId() != -1L && curCPPNotes2.get(x).getUuid().equals(note.getUuid())) {
+                curCPPNotes2.get(x).setPosition(0);
+                caseManagementMgr.updateNote(curCPPNotes2.get(x));
+                positionToAssign--;
+            }
+            positionToAssign++;
+        }
+    }
+
+    /** Saves each populated extended note field (start/resolution/procedure date, treatment, etc.) as its own CaseManagementNoteExt row. */
+    private void saveNoteExtFields(NoteExtTo1 noteExt, long newNoteId) {
         CaseManagementNoteExt cme = new CaseManagementNoteExt();
 
         if (noteExt.getStartDate() != null) {
@@ -1082,12 +1095,6 @@ public class NotesService extends AbstractServiceImpl {
             cme.setValue(noteExt.getProcedure());
             caseManagementMgr.saveNoteExt(cme);
         }
-
-        /* save extra fields */
-        noteIssue.setEncounterNote(note);
-        noteIssue.setGroupNoteExt(noteExt);
-
-        return Response.ok().build();
     }
 
 
@@ -1097,43 +1104,37 @@ public class NotesService extends AbstractServiceImpl {
         Date d = new Date();
         String separator = "\n-----[[" + d + "]]-----\n";
 
-        if (code.equals("othermeds")) {
+        if (code.equals(ISSUECODE_OTHERMEDS) || code.equals(ISSUECODE_FAMHX)) {
             text.append(cpp.getFamilyHistory());
             text.append(separator);
             text.append(note);
             cpp.setFamilyHistory(text.toString());
 
-        } else if (code.equals("sochx")) {
+        } else if (code.equals(ISSUECODE_SOCHX)) {
             text.append(cpp.getSocialHistory());
             text.append(separator);
             text.append(note);
             cpp.setSocialHistory(text.toString());
 
-        } else if (code.equals("medhx")) {
+        } else if (code.equals(ISSUECODE_MEDHX)) {
             text.append(cpp.getMedicalHistory());
             text.append(separator);
             text.append(note);
             cpp.setMedicalHistory(text.toString());
 
-        } else if (code.equals("ongoingconcerns")) {
+        } else if (code.equals(ISSUECODE_ONGOINGCONCERNS)) {
             text.append(cpp.getOngoingConcerns());
             text.append(separator);
             text.append(note);
             cpp.setOngoingConcerns(text.toString());
 
-        } else if (code.equals("reminders")) {
+        } else if (code.equals(ISSUECODE_REMINDERS)) {
             text.append(cpp.getReminders());
             text.append(separator);
             text.append(note);
             cpp.setReminders(text.toString());
 
-        } else if (code.equals("famhx")) {
-            text.append(cpp.getFamilyHistory());
-            text.append(separator);
-            text.append(note);
-            cpp.setFamilyHistory(text.toString());
-
-        } else if (code.equals("riskfactors")) {
+        } else if (code.equals(ISSUECODE_RISKFACTORS)) {
             text.append(cpp.getRiskFactors());
             text.append(separator);
             text.append(note);
@@ -1153,6 +1154,16 @@ public class NotesService extends AbstractServiceImpl {
         return null;
     }
 
+    /**
+     * Fetches the current in-progress or newly created encounter note for a patient.
+     *
+     * @param demographicNo patient the note belongs to
+     * @param jsonobject    note-editing context (temp-save/existing-note/new-note selectors)
+     * @return the current note
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} read privilege,
+     *         is not authorized to access this demographicNo, or the request references an
+     *         existing note (by {@code noteId}) that does not belong to this patient
+     */
     @POST
     @Path("/{demographicNo}/getCurrentNote")
     @Consumes("application/json")
@@ -1174,6 +1185,15 @@ public class NotesService extends AbstractServiceImpl {
         if (!hasSessionAuth && !hasOAuthAuth) {
             logger.error("Unable to authenticate - neither session nor OAuth authentication available");
             return null;
+        }
+
+        // Ownership check (IDOR hardening, issue #2839 class): this endpoint takes
+        // demographicNo directly from the caller, so bind it the same way
+        // getNotesWithFilter/getIssueNote do before touching any note data.
+        String demoNo = String.valueOf(demographicNo);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "r", null)
+                || !isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
         }
 
 //		CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) form;
@@ -1258,7 +1278,11 @@ public class NotesService extends AbstractServiceImpl {
             logger.debug("tempsavenote is NOT NULL == noteId :{}", tmpsavenote.getNoteId());
             if (tmpsavenote.getNoteId() > 0) {
 //				session.setAttribute("newNote", "false");
-                note = caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId()));
+                // The restored draft's noteId originates from a caller-supplied tmpSave
+                // payload, so it is no more trusted than the explicit nId branch below:
+                // check it belongs to this patient before returning the stored note's
+                // uuid/provider/encounter metadata (IDOR hardening, issue #2839 class).
+                note = requireOwnedNote(String.valueOf(tmpsavenote.getNoteId()), demoNo, "r");
                 logger.debug("Restoring {}", note.getId());
             } else {
                 logger.debug("creating new note");
@@ -1284,7 +1308,7 @@ public class NotesService extends AbstractServiceImpl {
         else if (nId != null && Integer.parseInt(nId) > 0) {
             logger.debug("Using nId {} to fetch note", nId);
 //			session.setAttribute("newNote", "false");
-            note = caseManagementMgr.getNote(nId);
+            note = requireOwnedNote(nId, demoNo, "r");
 
             if (note.getHistory() == null || note.getHistory().equals("")) {
                 // old note - we need to save the original in here
@@ -1428,15 +1452,38 @@ public class NotesService extends AbstractServiceImpl {
 
     }
 
+    /**
+     * Fetches a clinical encounter note and its assigned issues by note id.
+     *
+     * @param noteId note identifier
+     * @return the note and its assigned issues
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} read privilege,
+     *         or if the note does not exist or belongs to a patient the caller is not
+     *         authorized to access
+     */
     @POST
     @Path("/getIssueNote/{noteId}")
     @Produces("application/json")
     public NoteIssueTo1 getIssueNote(@PathParam("noteId") Integer noteId) {
 
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "r", null)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
+        }
 
         //get all note values NoteDisplay nd = new NoteDisplayLocal(loggedInInfo, note);
         CaseManagementNote casemgmtNote = null;
         casemgmtNote = caseManagementMgr.getNote(String.valueOf(noteId));
+
+        // Bind the note to a patient the caller is actually authorized to see (see
+        // isNoteAccessAllowed). A missing note and an unauthorized note both reject
+        // identically -- same exception, no note-specific state attached -- so a bare
+        // noteId can't be used to enumerate which ids exist (IDOR, issue #2839).
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        String demoNo = casemgmtNote == null ? null : casemgmtNote.getDemographic_no();
+        if (!isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
+        }
 
         NoteTo1 note = new NoteTo1();
         note.setNoteId(noteId);
@@ -1516,7 +1563,7 @@ public class NotesService extends AbstractServiceImpl {
         NoteIssueTo1 noteIssue = new NoteIssueTo1();
         noteIssue.setEncounterNote(note);
         noteIssue.setGroupNoteExt(noteExt);
-        noteIssue.setAssignedCMIssues(new CaseManagementIssueConverter().getAllAsTransferObjects(getLoggedInInfo(), cmeIssues));
+        noteIssue.setAssignedCMIssues(new CaseManagementIssueConverter().getAllAsTransferObjects(loggedInInfo, cmeIssues));
 
         return noteIssue;
 
@@ -1526,10 +1573,263 @@ public class NotesService extends AbstractServiceImpl {
         return Arrays.asList(cppCodes).contains(cmeIssue.getIssue().getCode());
     }
 
+    /**
+     * Binds note access to a patient the caller is actually authorized to see
+     * (IDOR hardening, issue #2839 class). Combines program-domain membership
+     * (or referral) with the per-patient {@code _eChart}/{@code _demographic}
+     * opt-out override, fetching each provider-programs/admissions list only
+     * once regardless of how many of the two domain checks run.
+     *
+     * <p>isClientInProgramDomain/isClientReferredInProgramDomain allow access
+     * whenever the patient has no PMmodule admissions at all -- this is CARLOS's
+     * existing, intentional model (the identical fail-open check already gates
+     * the real note-list/chart screens in getNotesWithFilter and
+     * CaseManagementView2Action): ordinary, non-program patients are chart-wide
+     * visible to any provider holding the generic _eChart privilege, and
+     * program-domain membership is an additional restriction layered on top for
+     * program-enrolled (e.g. mental health/CAISI) patients.</p>
+     *
+     * @param loggedInInfo the caller's session/OAuth identity
+     * @param providerNo   the caller's provider number, or {@code null} if unavailable
+     * @param demoNo       the patient's demographic number, or {@code null} if unknown
+     * @return {@code true} when the caller may access notes for this patient
+     */
+    private boolean isNoteAccessAllowed(LoggedInInfo loggedInInfo, String providerNo, String demoNo) {
+        if (providerNo == null || demoNo == null) {
+            return false;
+        }
+
+        Integer demographicNo;
+        try {
+            demographicNo = Integer.valueOf(demoNo);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        List<ProgramProvider> providerPrograms = caseManagementMgr.getProgramProviders(providerNo);
+        List<Admission> admissions = caseManagementMgr.getAdmission(demographicNo);
+
+        boolean inDomain = caseManagementMgr.isClientInProgramDomain(providerPrograms, admissions)
+                || caseManagementMgr.isClientReferredInProgramDomain(providerPrograms, demoNo);
+
+        return inDomain && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo);
+    }
+
+    /**
+     * Fetches a note by id and verifies it belongs to the already-authorized
+     * {@code demoNo} (IDOR hardening, issue #2839 class): a caller-supplied noteId
+     * is a separate value from the demographicNo the caller already proved access
+     * to, and must itself resolve to a note owned by that same patient.
+     *
+     * @param noteId note identifier
+     * @param demoNo  the already-authorized patient's demographic number
+     * @param action  privilege action to report on denial ("r" or "w")
+     * @return the note, if found and owned by {@code demoNo}
+     * @throws AccessDeniedException if the note does not exist or belongs to a
+     *         different patient
+     */
+    private CaseManagementNote requireOwnedNote(String noteId, String demoNo, String action) {
+        CaseManagementNote note = caseManagementMgr.getNote(noteId);
+        if (note == null || !demoNo.equals(note.getDemographic_no())) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, action);
+        }
+        return note;
+    }
+
+    /**
+     * Parses an id that upstream code builds with {@code String.valueOf(...)}, which yields
+     * the literal text {@code "null"} (and a NumberFormatException on parse) whenever the
+     * underlying Integer was absent -- {@link #getProgram} and {@link #resolveCurrentProgramNo}
+     * both do this when the provider has no program affiliation and no "OSCAR" program row
+     * exists. Returns {@code null} instead of throwing so callers can fail closed with a
+     * diagnosable message rather than leaking a raw NumberFormatException to the client.
+     *
+     * @param value id text, possibly {@code null} or non-numeric
+     * @return the parsed id, or {@code null} if it is absent or not a number
+     */
+    private static Integer parseIdOrNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Verifies that a caller-supplied note UUID either starts a brand-new revision chain or
+     * belongs to a chain already owned by {@code demoNo} (IDOR hardening, issue #2839 class).
+     *
+     * <p>The UUID is what ties note revisions together, and both the note-history view and
+     * {@code getNotesByUUID} resolve it without any demographic filter. Copying an unchecked
+     * UUID out of a request body would therefore let a caller authorized for one patient
+     * append a revision to a different patient's chain, hiding that patient's current note
+     * and mixing the two clinical histories.</p>
+     *
+     * @param uuid    caller-supplied revision-chain identifier; blank/null is a no-op
+     * @param demoNo  the already-authorized patient's demographic number
+     * @param action  privilege action to report on denial ("r" or "w")
+     * @throws AccessDeniedException if any existing note on that chain belongs to another patient
+     */
+    private void requireOwnedUuid(String uuid, String demoNo, String action) {
+        if (uuid == null || uuid.trim().isEmpty()) {
+            return;
+        }
+        List<CaseManagementNote> chain = caseManagementMgr.getNotesByUUID(uuid);
+        if (chain == null) {
+            return;
+        }
+        for (CaseManagementNote existing : chain) {
+            if (!demoNo.equals(existing.getDemographic_no())) {
+                throw new AccessDeniedException(SEC_OBJECT_ECHART, action);
+            }
+        }
+    }
+
+    /** Resolves and assigns the reporting provider's role and program team for a note, defaulting to "0" on lookup failure. */
+    private void assignReporterRoleAndTeam(CaseManagementNote caseMangementNote, String providerNo, String programId, Integer demographicNo) {
+        ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
+        AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
+
+        String role;
+        try {
+            role = String.valueOf((programManager.getProgramProvider(providerNo, programId)).getRole().getId());
+        } catch (Exception e) {
+            logger.error("Error", e);
+            role = "0";
+        }
+        caseMangementNote.setReporter_caisi_role(role);
+
+        String team;
+        try {
+            team = String.valueOf((admissionManager.getAdmission(programId, demographicNo)).getTeamId());
+        } catch (Exception e) {
+            logger.error("Error", e);
+            team = "0";
+        }
+        caseMangementNote.setReporter_program_team(team);
+    }
+
+    /** Appends a "removed issue(s)" note to an edited (non-new) note listing any unchecked issue associations. */
+    private void appendRemovedIssuesNote(CaseManagementNote caseMangementNote, boolean newNote, List<CaseManagementIssueTo1> assignedCMIssues) {
+        if (newNote) {
+            return;
+        }
+
+        List<String> removedIssueNames = new ArrayList<String>();
+        for (CaseManagementIssueTo1 cmit : assignedCMIssues) {
+            if (cmit.isUnchecked() && cmit.getId() != null && cmit.getId().longValue() > 0) {
+                //we want to remove this association, and append to the note
+                removedIssueNames.add(cmit.getIssue().getDescription());
+            }
+        }
+
+        if (!removedIssueNames.isEmpty()) {
+            String text = new SimpleDateFormat("dd-MMM-yyyy").format(new Date()) + " " + "Removed following issue(s)" + ":\n" + StringUtils.join(removedIssueNames, ",");
+            caseMangementNote.setNote(caseMangementNote.getNote() + "\n" + text);
+        }
+    }
+
+    /** Saves each checked assigned issue (creating a CaseManagementIssue for any that doesn't exist yet) and returns the saved list. */
+    private List<CaseManagementIssue> saveAssignedIssues(List<CaseManagementIssueTo1> assignedCMIssues, String demo) {
+        List<CaseManagementIssue> issuelist = new ArrayList<CaseManagementIssue>();
+
+        for (CaseManagementIssueTo1 i : assignedCMIssues) {
+            if (!i.isUnchecked()) {
+                CaseManagementIssue cmi = caseManagementMgr.getIssueByIssueCode(demo, i.getIssue().getCode());
+                if (cmi == null) {
+                    //new one
+                    cmi = new CaseManagementIssue();
+                    Issue is = issueDao.getIssue(i.getIssue().getId());
+                    cmi.setIssue_id(is.getId());
+                    cmi.setIssue(is);
+                    cmi.setProgram_id(programManager2.getCurrentProgramInDomain(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo()).getProgramId().intValue());
+                    cmi.setType(is.getRole());
+                    Integer demographicId = parseIdOrNull(demo);
+                    if (demographicId == null) {
+                        throw new IllegalStateException("cannot create the case issue: unresolved demographic id");
+                    }
+                    cmi.setDemographic_no(demographicId);
+                }
+                cmi.setAcute(i.isAcute());
+                cmi.setCertain(i.isCertain());
+                cmi.setMajor(i.isMajor());
+                cmi.setResolved(i.isResolved());
+
+                issuelist.add(cmi);
+                caseManagementMgr.saveCaseIssue(cmi);
+            }
+        }
+
+        return issuelist;
+    }
+
+    /** Translates a note's UI summary code (e.g. "ongoingconcerns") to its CPP issue code (e.g. "Concerns"). */
+    private String translateCppSummaryCode(String issueCode) {
+        if (ISSUECODE_ONGOINGCONCERNS.equals(issueCode)) {
+            return "Concerns";
+        } else if (ISSUECODE_MEDHX.equals(issueCode)) {
+            return "MedHistory";
+        } else if (ISSUECODE_REMINDERS.equals(issueCode)) {
+            return "Reminders";
+        } else if (ISSUECODE_OTHERMEDS.equals(issueCode)) {
+            return "OMeds";
+        } else if (ISSUECODE_SOCHX.equals(issueCode)) {
+            return "SocHistory";
+        } else if (ISSUECODE_FAMHX.equals(issueCode)) {
+            return "FamHistory";
+        } else if (ISSUECODE_RISKFACTORS.equals(issueCode)) {
+            return "RiskFactors";
+        }
+        return issueCode;
+    }
+
+    /** Finds the demographic's existing CPP issue for this issue code, creating it if it doesn't exist yet. */
+    private CaseManagementIssue resolveOrCreateCppIssue(String issueCode, Issue cppIssue, String demo, String programId) {
+        CaseManagementIssue cIssue = caseManagementMgr.getIssueByIssueCode(demo, issueCode);
+
+        //no issue existing for this type of CPP note..create and save it
+        if (cIssue == null) {
+            Date creationDate = new Date();
+
+            Integer demographicId = parseIdOrNull(demo);
+            Integer programIdValue = parseIdOrNull(programId);
+            if (demographicId == null || programIdValue == null) {
+                // getProgram() falls back to String.valueOf(<Integer>) and can hand us the
+                // literal "null"; fail with context instead of a bare NumberFormatException.
+                throw new IllegalStateException("cannot create the CPP issue: unresolved demographic or program id");
+            }
+
+            cIssue = new CaseManagementIssue();
+            cIssue.setAcute(false);
+            cIssue.setCertain(false);
+            cIssue.setDemographic_no(demographicId);
+            cIssue.setIssue_id(cppIssue.getId());
+            cIssue.setMajor(false);
+            cIssue.setProgram_id(programIdValue);
+            cIssue.setResolved(false);
+            cIssue.setType(cppIssue.getRole());
+            cIssue.setUpdate_date(creationDate);
+
+            caseManagementMgr.saveCaseIssue(cIssue);
+        }
+
+        return cIssue;
+    }
+
     @POST
     @Path("/getGroupNoteExt/{noteId}")
     @Produces("application/json")
     public NoteExtTo1 getGroupNoteExt(@PathParam("noteId") Long noteId) {
+        // Clinical note extension data (treatment, problem description, exposure
+        // details, etc.) is eChart content; require _eChart read before returning
+        // it. Without this an OAuth/REST caller could read any note's PHI by id,
+        // and because OAuthInterceptor skips credential-less requests the call is
+        // otherwise reachable with no authentication at all (see #2798).
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "r", null)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
 
         List<CaseManagementNoteExt> lcme = new ArrayList<CaseManagementNoteExt>();
         lcme.addAll(caseManagementMgr.getExtByNote(noteId));
@@ -1579,24 +1879,7 @@ public class NotesService extends AbstractServiceImpl {
     @Produces("application/json")
     public IssueTo1 getIssueId(@PathParam("issueCode") String issueCode) {
 
-        //translate summary codes
-        if ("ongoingconcerns".equals(issueCode)) {
-            issueCode = "Concerns";
-        } else if ("medhx".equals(issueCode)) {
-            issueCode = "MedHistory";
-        } else if ("reminders".equals(issueCode)) {
-            issueCode = "Reminders";
-        } else if ("othermeds".equals(issueCode)) {
-            issueCode = "OMeds";
-        } else if ("sochx".equals(issueCode)) {
-            issueCode = "SocHistory";
-        } else if ("famhx".equals(issueCode)) {
-            issueCode = "FamHistory";
-        } else if ("riskfactors".equals(issueCode)) {
-            issueCode = "RiskFactors";
-        }
-
-        Issue issues = caseManagementMgr.getIssueInfoByCode(issueCode);
+        Issue issues = caseManagementMgr.getIssueInfoByCode(translateCppSummaryCode(issueCode));
 
         IssueTo1 issueId = new IssueTo1();
         issueId.setId(issues.getId());
@@ -1616,16 +1899,26 @@ public class NotesService extends AbstractServiceImpl {
         return issueTo;
     }
 
+    /**
+     * Fetches the clinical note linked to a tickler, if any.
+     *
+     * @param ticklerNo tickler identifier
+     * @return the linked note, or an empty response if there is no link, the link's note
+     *         does not exist, or the caller is not authorized to access the linked patient
+     * @throws RuntimeException if the caller lacks the {@code _tickler} or {@code _eChart}
+     *         privilege
+     */
     @GET
     @Path("/ticklerGetNote/{ticklerNo}")
     @Produces("application/json")
     //{"ticklerNote":{"editor":"oscardoc, doctor","note":"note 2","noteId":6,"observationDate":"2014-09-13T13:18:41-04:00","revision":2}}
     public TicklerNoteResponse ticklerGetNote(@PathParam("ticklerNo") Integer ticklerNo) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null)) {
             throw new RuntimeException("Access Denied");
         }
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "r", null)) {
             throw new RuntimeException("Access Denied");
         }
 
@@ -1637,7 +1930,12 @@ public class NotesService extends AbstractServiceImpl {
 
             CaseManagementNote note = caseManagementMgr.getNote(noteId.toString());
 
-            if (note != null) {
+            // Bind the linked note to a patient the caller may access (IDOR hardening,
+            // issue #2839 class): a ticklerNo the caller can reach doesn't by itself
+            // prove they may see the patient the linked note belongs to.
+            String providerNo = loggedInInfo.getLoggedInProviderNo();
+            String demoNo = note == null ? null : note.getDemographic_no();
+            if (note != null && isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
                 TicklerNoteTo1 tNote = new TicklerNoteTo1();
                 tNote.setNoteId(note.getId().intValue());
                 tNote.setNote(note.getNote());
@@ -1650,43 +1948,71 @@ public class NotesService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Creates a clinical note from a tickler and links them together.
+     *
+     * @param json request body containing {@code note}, optional {@code noteId}, and a
+     *             {@code tickler} object with {@code id}/{@code demographicNo}
+     * @return the save result
+     * @throws RuntimeException if the caller lacks the {@code _tickler} or {@code _eChart}
+     *         privilege
+     * @throws AccessDeniedException if the caller is not authorized to access the
+     *         tickler's demographicNo, or {@code noteId} references a note that does not
+     *         belong to that same patient
+     */
     @POST
     @Path("/ticklerSaveNote")
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> ticklerSaveNote(ObjectNode json) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
+        LoggedInInfo loggedInInfo = this.getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "w", null)) {
             throw new RuntimeException("Access Denied");
         }
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)) {
             throw new RuntimeException("Access Denied");
         }
 
-        logger.info("The config " + json.toString());
-
+        // PHI: the request body carries clinical note text plus patient/tickler identifiers.
+        // Nothing from it is logged here -- a rejected request must not leave the caller's
+        // payload in the log, so authorization runs before any of it is written out.
         String strNote = json.get("note") != null ? json.get("note").asText() : null;
         Integer noteId = json.get("noteId") != null ? json.get("noteId").asInt() : null;
 
-        logger.info("want to save note id " + noteId + " with value " + strNote);
-
         ObjectNode tickler = (ObjectNode) json.get("tickler");
-        Integer ticklerId = tickler.get("id") != null ? tickler.get("id").asInt() : null;
-        Integer demographicNo = tickler.get("demographicNo") != null ? tickler.get("demographicNo").asInt() : null;
+        Integer ticklerId = (tickler == null || tickler.get("id") == null) ? null : tickler.get("id").asInt();
+        Integer demographicNo = (tickler == null || tickler.get("demographicNo") == null)
+                ? null : tickler.get("demographicNo").asInt();
 
-        logger.info("tickler id " + ticklerId + ", demographicNo " + demographicNo);
+        Provider loggedInProvider = loggedInInfo.getLoggedInProvider();
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+
+        // Ownership check (IDOR hardening, issue #2839 class): demographicNo is
+        // caller-supplied, so bind it the same way getNotesWithFilter/getIssueNote do
+        // before creating or updating any note for this patient.
+        String demoNo = demographicNo == null ? null : String.valueOf(demographicNo);
+        if (!isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
+
+        // The tickler id is a *second* caller-supplied identifier: being authorized for
+        // demographicNo does not prove the tickler belongs to that same patient. Without
+        // this, a writer for patient A could link A's note to patient B's tickler, and the
+        // legacy CaseManagementEntry2Action.ticklerGetNote -- which resolves the link by
+        // tickler id alone -- would then surface A's clinical text under B's tickler.
+        if (ticklerId == null || ticklerDao.findByTicklerNoDemo(ticklerId, demographicNo).isEmpty()) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
 
         Date creationDate = new Date();
-        LoggedInInfo loggedInInfo = this.getLoggedInInfo();
-        Provider loggedInProvider = loggedInInfo.getLoggedInProvider();
-
 
         String revision = "1";
         String history = strNote;
         String uuid = null;
 
         if (noteId != null && noteId.intValue() > 0) {
-            CaseManagementNote existingNote = caseManagementMgr.getNote(String.valueOf(noteId));
+            CaseManagementNote existingNote = requireOwnedNote(String.valueOf(noteId), demoNo, "w");
 
             revision = String.valueOf(Integer.valueOf(existingNote.getRevision()).intValue() + 1);
             history = strNote + "\n" + existingNote.getHistory();
@@ -1713,15 +2039,9 @@ public class NotesService extends AbstractServiceImpl {
         cmn.setUuid(uuid);
 
 
-        ProgramProvider pp = programManager2.getCurrentProgramInDomain(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo());
-        if (pp != null) {
-            cmn.setProgram_no(String.valueOf(pp.getProgramId()));
-        } else {
-            List<ProgramProvider> ppList = programManager2.getProgramDomain(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo());
-            if (ppList != null && ppList.size() > 0) {
-                cmn.setProgram_no(String.valueOf(ppList.get(0).getProgramId()));
-            }
-
+        String resolvedProgramNo = resolveCurrentProgramNo(loggedInInfo);
+        if (resolvedProgramNo != null) {
+            cmn.setProgram_no(resolvedProgramNo);
         }
 
         //weird place for it, but for now.
@@ -1729,7 +2049,10 @@ public class NotesService extends AbstractServiceImpl {
 
         caseManagementMgr.saveNoteSimple(cmn);
 
-        logger.info("note id is " + cmn.getId());
+        // PHI-correlating identifier: keep it at debug, never alongside note content.
+        if (logger.isDebugEnabled()) {
+            logger.debug("tickler note saved noteId={}", cmn.getId());
+        }
 
 
         //save link, so we know what tickler this note is linked to
@@ -1741,7 +2064,44 @@ public class NotesService extends AbstractServiceImpl {
         CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
         caseManagementNoteLinkDao.save(link);
 
+        CaseManagementIssue cmi = resolveOrCreateTicklerNoteIssue(demographicNo, cmn.getProgram_no(), creationDate);
+        if (cmi == null) {
+            return null;
+        }
 
+        cmn.getIssues().add(cmi);
+        caseManagementMgr.updateNote(cmn);
+
+        return RestResponse.successResponse(null);
+    }
+
+    /**
+     * Resolves the demographic's current program (or, failing that, the first
+     * program in the caller's program domain) to a program_no string, or
+     * {@code null} if the caller has no program affiliation at all.
+     */
+    private String resolveCurrentProgramNo(LoggedInInfo loggedInInfo) {
+        ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
+        if (pp != null) {
+            return String.valueOf(pp.getProgramId());
+        }
+
+        List<ProgramProvider> ppList = programManager2.getProgramDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
+        if (ppList != null && ppList.size() > 0) {
+            return String.valueOf(ppList.get(0).getProgramId());
+        }
+
+        return null;
+    }
+
+    /**
+     * Finds the demographic's existing "TicklerNote" CPP-style issue, creating it
+     * if it doesn't exist yet, so a tickler-originated note always has an issue to
+     * attach to in the eChart. Returns {@code null} (logging a warning) if the
+     * system-defined "TicklerNote" issue type is missing -- the database updates
+     * that create it haven't been run.
+     */
+    private CaseManagementIssue resolveOrCreateTicklerNoteIssue(Integer demographicNo, String programNo, Date creationDate) {
         Issue issue = this.issueDao.findIssueByTypeAndCode("system", "TicklerNote");
         if (issue == null) {
             logger.warn("missing TicklerNote issue, please run all database updates");
@@ -1749,8 +2109,16 @@ public class NotesService extends AbstractServiceImpl {
         }
 
         CaseManagementIssue cmi = caseManagementMgr.getIssueById(demographicNo.toString(), issue.getId().toString());
-
         if (cmi == null) {
+            // programNo comes from resolveCurrentProgramNo(), which returns null when the
+            // caller has no program affiliation at all; bail out the same way the missing
+            // "TicklerNote" issue type does rather than throwing NumberFormatException.
+            Integer programId = parseIdOrNull(programNo);
+            if (programId == null) {
+                logger.warn("cannot create the TicklerNote issue without a resolvable program id");
+                return null;
+            }
+
             //save issue..this will make it a "cpp looking" issue in the eChart
             cmi = new CaseManagementIssue();
             cmi.setAcute(false);
@@ -1758,20 +2126,15 @@ public class NotesService extends AbstractServiceImpl {
             cmi.setDemographic_no(demographicNo);
             cmi.setIssue_id(issue.getId());
             cmi.setMajor(false);
-            cmi.setProgram_id(Integer.parseInt(cmn.getProgram_no()));
+            cmi.setProgram_id(programId);
             cmi.setResolved(false);
             cmi.setType(issue.getRole());
             cmi.setUpdate_date(creationDate);
 
             caseManagementMgr.saveCaseIssue(cmi);
-
         }
 
-        cmn.getIssues().add(cmi);
-        caseManagementMgr.updateNote(cmn);
-
-
-        return RestResponse.successResponse(null);
+        return cmi;
     }
 
 

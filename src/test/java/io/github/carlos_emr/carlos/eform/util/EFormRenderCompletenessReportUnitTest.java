@@ -87,6 +87,10 @@ class EFormRenderCompletenessReportUnitTest {
                 new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, true, false));
         oneComponentFlipped.put("providerStampMissing",
                 new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, true));
+        // The 10th component uses the CANONICAL constructor (decorative sits 5th, between the
+        // other counts and the flags) — the convenience constructors default it to zero.
+        oneComponentFlipped.put("decorativeExcludedElements",
+                new EFormRenderCompletenessReport(0, 0, 0, 0, 1, false, false, false, false, false));
 
         // Derived from the record itself, so adding a tenth component fails here until it is pinned.
         assertThat(oneComponentFlipped)
@@ -146,19 +150,16 @@ class EFormRenderCompletenessReportUnitTest {
     }
 
     @Test
-    @DisplayName("should not block the document for a page-script error alone")
-    void shouldNotBlockDocument_forPageScriptErrorAlone() {
-        // Advisory, not ignored. Legacy corpus forms routinely throw once during load (a
-        // getElementById(...) returning null for a field the form no longer has) while rendering
-        // every bit of their clinical content, so blocking withheld complete documents far more
-        // often than it caught truncated ones. It stays in the report so the reader is told.
+    @DisplayName("should block the document for a severe page-script error alone")
+    void shouldBlockDocument_forSeverePageScriptErrorAlone() {
+        // A severe entry represents an uncaught script exception and can leave derived clinical
+        // content only partially populated. The clinician must see and approve that exact issue.
         EFormRenderCompletenessReport report =
                 new EFormRenderCompletenessReport(0, 0, 1, 0, false, false, false, false);
 
-        assertThat(report.hasBlockingOmissions()).isFalse();
-        assertThat(report.blockingIssueCount()).isZero();
-        assertThat(report.advisoryIssueCount()).isEqualTo(1);
-        // Still reported: approval binds a digest over the COMPLETE issue set.
+        assertThat(report.hasBlockingOmissions()).isTrue();
+        assertThat(report.blockingIssueCount()).isEqualTo(1);
+        assertThat(report.advisoryIssueCount()).isZero();
         assertThat(report.isComplete()).isFalse();
         assertThat(report.issueCount()).isEqualTo(1);
     }
@@ -170,8 +171,8 @@ class EFormRenderCompletenessReportUnitTest {
                 new EFormRenderCompletenessReport(1, 0, 1, 0, false, false, false, false);
 
         assertThat(report.hasBlockingOmissions()).isTrue();
-        assertThat(report.blockingIssueCount()).isEqualTo(1);
-        assertThat(report.advisoryIssueCount()).isEqualTo(1);
+        assertThat(report.blockingIssueCount()).isEqualTo(2);
+        assertThat(report.advisoryIssueCount()).isZero();
         assertThat(report.issueCount()).isEqualTo(2);
     }
 
@@ -181,9 +182,13 @@ class EFormRenderCompletenessReportUnitTest {
         EFormRenderCompletenessReport report =
                 new EFormRenderCompletenessReport(2, 0, 5, 1, false, true, false, false);
 
-        // blockingOnly omits the advisory console count, so the log names exactly what refused.
-        // blockingOnly lists only what actually refused, so the advisory conditions are absent.
-        assertThat(report.describe(true)).isEqualTo("failedContentResources=2");
+        // blockingOnly lists exactly what refused; suppressed dialogs and timer compatibility stay
+        // advisory while severe uncaught script errors are blocking.
+        assertThat(report.describe(true))
+                .contains("failedContentResources=2")
+                .contains("severeConsoleErrors=5")
+                .doesNotContain("containedInteractions")
+                .doesNotContain("timerCompatibilityFailure");
         assertThat(report.describe(false))
                 .contains("severeConsoleErrors=5")
                 .contains("containedInteractions=1")
@@ -227,13 +232,36 @@ class EFormRenderCompletenessReportUnitTest {
     }
 
     @Test
-    @DisplayName("should report every non-console condition as blocking")
-    void shouldReportEveryNonConsoleCondition_asBlocking() {
+    @DisplayName("should not block for off-page decoration exclusions, but still report them")
+    void shouldNotBlock_forDecorativeExclusions() {
+        // The geometry scan excluded off-page elements it classified as non-clinical decoration
+        // (a badge, a masthead, a boilerplate disclaimer). Delivering past them is deliberate —
+        // blocking made whole corpus families unprintable — but the classifier cannot PROVE text
+        // is non-clinical, so the exclusion must never be silent: it is advisory, counted, and
+        // disclosed on every surface like the other advisory conditions.
+        EFormRenderCompletenessReport report =
+                new EFormRenderCompletenessReport(0, 0, 0, 0, 3, false, false, false, false, false);
+
+        assertThat(report.hasBlockingOmissions()).isFalse();
+        assertThat(report.isComplete()).isFalse();
+        assertThat(report.advisoryIssueCount()).isEqualTo(3);
+        assertThat(report.issueCount()).isEqualTo(3);
+        assertThat(report.describe(false)).contains("decorativeExcludedElements=3");
+        assertThat(report.describe(true)).isEqualTo("none");
+        // Merge must carry it: a fax packet whose attachment lost decoration reports the sum.
+        assertThat(report.merge(report).decorativeExcludedElements()).isEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("should report every clinical-omission condition as blocking")
+    void shouldReportEveryClinicalOmissionCondition_asBlocking() {
         // Guards the split itself: if a new component is added to the record and quietly lands on
         // the advisory side, this fails rather than silently weakening the gate.
         assertThat(new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false)
                 .hasBlockingOmissions()).isTrue();
         assertThat(new EFormRenderCompletenessReport(0, 1, 0, 0, false, false, false, false)
+                .hasBlockingOmissions()).isTrue();
+        assertThat(new EFormRenderCompletenessReport(0, 0, 1, 0, false, false, false, false)
                 .hasBlockingOmissions()).isTrue();
         assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, true, false, false, false)
                 .hasBlockingOmissions()).isTrue();
@@ -277,25 +305,76 @@ class EFormRenderCompletenessReportUnitTest {
         List<String> components = Stream.of(EFormRenderCompletenessReport.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName)
                 .toList();
-        assertThat(components).hasSizeGreaterThanOrEqualTo(9);
+        assertThat(components).hasSizeGreaterThanOrEqualTo(10);
 
-        List<String> surfaces = List.of(
-                "src/main/java/io/github/carlos_emr/carlos/eform/actions/AddEForm2Action.java",
-                "src/main/java/io/github/carlos_emr/carlos/fax/action/Fax2Action.java",
+        // OFFER surfaces present the issue set for an approval decision, so every component must
+        // appear as an actual OUTPUT expression, not merely as any substring — a resource-bundle
+        // key line or a comment must not satisfy this test while the value cell is deleted.
+        Map<String, String> surfaceOutputShapes = new LinkedHashMap<>();
+        surfaceOutputShapes.put(
+                "src/main/java/io/github/carlos_emr/carlos/eform/actions/AddEForm2Action.java", "\"%s\"");
+        surfaceOutputShapes.put(
+                "src/main/java/io/github/carlos_emr/carlos/fax/action/Fax2Action.java", "\"%s\"");
+        surfaceOutputShapes.put(
                 "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DocumentPreview2Action.java",
-                "src/main/webapp/WEB-INF/jsp/eform/EFormRenderMissingContent.jsp",
-                "src/main/webapp/WEB-INF/jsp/fax/EFormMissingContent.jsp",
-                // The consumer of DocumentPreview2Action's JSON. Omitting it from this list is why
-                // providerStampMissing was fixed on the producer and stayed missing on the page the
-                // clinician actually reads.
-                "src/main/webapp/WEB-INF/jsp/documentManager/attachDocument.jsp");
+                "\"%s\"");
+        surfaceOutputShapes.put(
+                "src/main/webapp/WEB-INF/jsp/eform/EFormRenderMissingContent.jsp", "${%s}");
+        surfaceOutputShapes.put(
+                "src/main/webapp/WEB-INF/jsp/fax/EFormMissingContent.jsp", "${%s}");
+        // The consumer of DocumentPreview2Action's JSON. Omitting it from this list is why
+        // providerStampMissing was fixed on the producer and stayed missing on the page the
+        // clinician actually reads.
+        surfaceOutputShapes.put(
+                "src/main/webapp/WEB-INF/jsp/documentManager/attachDocument.jsp", "data.%s");
 
-        for (String surface : surfaces) {
-            String source = Files.readString(Path.of(surface), StandardCharsets.UTF_8);
+        for (Map.Entry<String, String> surface : surfaceOutputShapes.entrySet()) {
+            String source = Files.readString(Path.of(surface.getKey()), StandardCharsets.UTF_8);
             assertThat(components)
-                    .describedAs("%s must publish every completeness component; approval binds a "
-                            + "digest over all of them", surface)
-                    .allSatisfy(component -> assertThat(source).contains(component));
+                    .describedAs("%s must publish every completeness component as an output "
+                            + "expression; approval binds a digest over all of them", surface.getKey())
+                    .allSatisfy(component -> assertThat(source)
+                            .contains(surface.getValue().formatted(component)));
+            // The PHI-safe per-error console descriptions are display-only (never a record
+            // component, never in the digest) but ride the same offer surfaces — the clinician
+            // cannot weigh script errors they are not shown.
+            assertThat(source).contains("severeConsoleErrorDetails");
+        }
+
+        // Every consumer of EformContentUnavailableException must be an offer surface above or an
+        // explicitly-listed non-offer consumer. A NEW consumer failing here is the point: the
+        // providerStampMissing gap happened because a surface simply was not on the list.
+        List<String> nonOfferConsumers = List.of(
+                // Approval-REDEMPTION endpoints: they consume an already-issued token and, on a
+                // digest mismatch, produce a terminal generic error — the issue set was disclosed
+                // by the offer surface that issued the token, and these disclose nothing new.
+                "src/main/java/io/github/carlos_emr/carlos/eform/actions/DownloadEFormPdf2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/eform/actions/SaveEFormAsEDoc2Action.java",
+                // Producer, thrower and pass-through — not surfaces.
+                "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserPdfService.java",
+                "src/main/java/io/github/carlos_emr/carlos/utility/EformContentUnavailableException.java",
+                "src/main/java/io/github/carlos_emr/carlos/managers/EformDataManagerImpl.java");
+        try (Stream<Path> files = java.nio.file.Files.walk(Path.of("src/main/java"))) {
+            List<String> consumers = files
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .filter(path -> {
+                        try {
+                            return Files.readString(path, StandardCharsets.UTF_8)
+                                    .contains("EformContentUnavailableException");
+                        } catch (java.io.IOException e) {
+                            throw new java.io.UncheckedIOException(e);
+                        }
+                    })
+                    .map(path -> path.toString().replace(java.io.File.separatorChar, '/'))
+                    .toList();
+            assertThat(consumers)
+                    .describedAs("every consumer of EformContentUnavailableException must be a "
+                            + "disclosure surface in this test or an explicitly-reviewed non-offer "
+                            + "consumer — add it to the right list")
+                    .allSatisfy(consumer -> assertThat(
+                            surfaceOutputShapes.containsKey(consumer) || nonOfferConsumers.contains(consumer))
+                            .describedAs("unlisted consumer: %s", consumer)
+                            .isTrue());
         }
     }
 }

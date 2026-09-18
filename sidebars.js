@@ -19,6 +19,7 @@ const sidebars = {
       type: 'category',
       label: 'Getting Started',
       items: [
+        'install-deb',
         'README-form-resources',
         'resources-directory',
       ],
@@ -55,6 +56,13 @@ const sidebars = {
       items: [
         'dsGuideline',
         'Testing_Exclusion_of_MCEDT_and_HinValidator_tests',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Operations',
+      items: [
+        'email/provider-to-patient-email-operations',
       ],
     },
     {

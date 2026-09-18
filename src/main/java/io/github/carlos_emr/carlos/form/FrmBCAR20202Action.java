@@ -202,13 +202,13 @@ public class FrmBCAR20202Action extends ActionSupport {
             persistRecords.add(rec);
         }
 
-        bcar2020DataDao.batchPersist(persistRecords, 50);
+        bcar2020DataDao.batchPersistAtomically(persistRecords, 50);
 
         for (FormBCAR2020Text rec : addTextRecords) {
             persistTextRecords.add(rec);
         }
 
-        bcar2020TextDao.batchPersist(persistTextRecords, 50);
+        bcar2020TextDao.batchPersistAtomically(persistTextRecords, 50);
 
         String url = "/form/formBCAR2020pg";
         if (forwardTo == 6) {

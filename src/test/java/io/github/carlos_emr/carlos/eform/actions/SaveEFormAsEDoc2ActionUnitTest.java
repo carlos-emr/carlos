@@ -31,6 +31,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
@@ -69,6 +71,8 @@ class SaveEFormAsEDoc2ActionUnitTest {
     private EFormRenderApprovalService renderApprovalService;
     @Mock
     private LoggedInInfo loggedInInfo;
+    @Mock
+    private EFormDataDao eFormDataDao;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -89,8 +93,11 @@ class SaveEFormAsEDoc2ActionUnitTest {
                 .thenReturn(loggedInInfo);
 
         lenient().when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+        EFormData eFormData = new EFormData();
+        eFormData.setDemographicId(123);
+        lenient().when(eFormDataDao.find(42)).thenReturn(eFormData);
         action = new SaveEFormAsEDoc2Action(
-                securityInfoManager, documentAttachmentManager, renderApprovalService);
+                securityInfoManager, documentAttachmentManager, renderApprovalService, eFormDataDao);
     }
 
     @AfterEach
@@ -145,6 +152,41 @@ class SaveEFormAsEDoc2ActionUnitTest {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("should reject a patient number that does not match the saved eForm")
+    void shouldRejectMismatchedDemographic_beforePrivilegeOrArchiving() {
+        request.setParameter("fdid", "42");
+        request.setParameter("demographicNo", "456");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, renderApprovalService);
+    }
+
+    @Test
+    @DisplayName("should require a valid approval before archiving")
+    void shouldRequireApproval_beforeArchiving() {
+        request.setParameter("fdid", "42");
+        request.setParameter("demographicNo", "123");
+
+        assertThat(action.execute()).isEqualTo("error");
+        assertThat(request.getAttribute("errorMessage")).isNotNull();
+        org.mockito.Mockito.verifyNoInteractions(renderApprovalService, documentAttachmentManager);
+    }
+
+    @Test
+    @DisplayName("should reject an invalid or replayed approval before archiving")
+    void shouldRejectInvalidApproval_beforeArchiving() {
+        request.setParameter("fdid", "42");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("renderApproval", "spent-or-invalid-ticket");
+
+        assertThat(action.execute()).isEqualTo("error");
+        verify(renderApprovalService).consume(request, loggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.EDOC, "spent-or-invalid-ticket");
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager);
     }
 
     @Test

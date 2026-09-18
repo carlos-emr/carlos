@@ -18,6 +18,13 @@
         that trigger AJAX POSTs immediately on page load should await
         resolution or handle rejection rather than relying on the fire-
         and-forget DOMContentLoaded bootstrap below.
+      * The bootstrap's promise is published as window.csrfTokenReady so a
+        handler firing before it settles can await it instead of reading a
+        still-empty input. It is null until DOMContentLoaded, and rejects if
+        the fetch failed, so callers must handle both: `if (ready) await
+        ready` inside a try/catch, then re-check the input. A rejection
+        handler is attached here purely to keep an unawaited failure from
+        surfacing as an unhandled rejection; awaiting callers still see it.
       * Include this fragment exactly once per page — duplicate includes
         load csrfTokenFetch.js twice and register two DOMContentLoaded
         handlers (idempotent, but wasteful).
@@ -27,7 +34,10 @@
         src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/csrfTokenFetch.js"></script>
 <input type="hidden" name="CSRF-TOKEN" value="">
 <script>
+    window.csrfTokenReady = null;
     document.addEventListener("DOMContentLoaded", function () {
-        fetchCsrfToken('${carlos:forJavaScript(pageContext.request.contextPath)}');
+        window.csrfTokenReady =
+            fetchCsrfToken('${carlos:forJavaScript(pageContext.request.contextPath)}');
+        window.csrfTokenReady.catch(function () { /* awaiting callers handle it */ });
     });
 </script>
