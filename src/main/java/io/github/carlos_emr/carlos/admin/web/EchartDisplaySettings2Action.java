@@ -51,7 +51,8 @@ public class EchartDisplaySettings2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+        String requiredPrivilege = "POST".equalsIgnoreCase(request.getMethod()) ? "w" : "r";
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", requiredPrivilege, null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
