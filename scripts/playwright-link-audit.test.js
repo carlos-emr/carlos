@@ -737,6 +737,7 @@ test('a broken popup from an unclassified opener is a failure, not a clean host 
 test('a blank popup from an unclassified opener is a failure too', async () => {
   const { auditCatalogue } = require('./lib/playwright-link-audit');
   const popup = fakePopup('   ');
+  popup.page.url = () => 'http://127.0.0.1:8080/carlos/admin/popup?patient=private#fragment';
   const pages = [{}];
   const fake = fakeAuditPage({
     textFor: () => 'Hidden Opener',
@@ -752,7 +753,9 @@ test('a blank popup from an unclassified opener is a failure too', async () => {
     labelPrefix: 'admin',
     timeout: 1000,
   });
-  assert.deepEqual(result.failures, ['Hidden Opener: audit destination rendered a blank page']);
+  assert.deepEqual(result.failures, [
+    'Hidden Opener: audit destination rendered a blank page (http://127.0.0.1:8080/carlos/admin/popup)',
+  ]);
 });
 
 test('the administration shell keeps its route in rel, and that is catalogued', async () => {
