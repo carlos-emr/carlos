@@ -36,32 +36,30 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
-const { chromium } = require('playwright');
 const {
   assert,
   buildFailureDetails,
   createRecorder,
-  getLaunchOptions,
   gotoApp,
+  launchBrowser,
   login,
-  validateBaseUrl,
+  newContext,
+  readConfig,
   wirePage,
-} = require('./eform-local-playwright-utils');
+} = require('./lib/playwright-harness');
 
-const config = {
-  baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
-  chromePath: process.env.CHROME_PATH || '',
-  testUser: process.env.TEST_USER || 'carlosdoc',
-  testPassword: process.env.TEST_PASSWORD || 'carlos2026',
-  testPin: process.env.TEST_PIN || '2026',
-};
+const config = readConfig();
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await launchBrowser(config);
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true });
+    // newContext applies isLocalTlsTarget, so certificate errors are waived only for a
+    // loopback or RFC1918 target. An unconditional ignoreHTTPSErrors here would post
+    // TEST_PASSWORD to a remote host with an invalid certificate under
+    // ALLOW_NON_LOCAL_BASE_URL=true (issue #3598).
+    const context = await newContext(browser, config);
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
 
