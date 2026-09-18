@@ -39,6 +39,16 @@ class TestNoArgumentVerbs(unittest.TestCase):
             self.assertIn("carlos-ctl bootstrap-admin", out)
             self.assertIn("takes no arguments", out)
 
+    def test_all_no_argument_verbs_are_guarded(self):
+        for verb in cli._NO_ARGUMENT_VERBS:
+            for arguments, expected in ((["--help"], 0), (["-h"], 0), (["help"], 0),
+                                        (["--bogus"], 1), (["--help", "extra"], 1)):
+                with self.subTest(verb=verb, arguments=arguments):
+                    rc, handler, out, err = self._dispatch([verb, *arguments])
+                    self.assertEqual(rc, expected)
+                    handler.assert_not_called()
+                    self.assertIn("carlos-ctl", out if expected == 0 else err)
+
     def test_stray_argument_is_refused_not_ignored(self):
         rc, handler, _, err = self._dispatch(["bootstrap-admin", "--force"])
         self.assertNotEqual(rc, 0)

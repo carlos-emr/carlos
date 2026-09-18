@@ -1180,6 +1180,7 @@ case "$1" in
             # Re-run purely to SHOW the failure detail; the || true keeps this
             # diagnostic from aborting configure a second time.
             nginx -t || true
+            mark_incomplete "the nginx configuration test failed"
         fi
         ;;
 

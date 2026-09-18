@@ -137,6 +137,13 @@ class TestApplyNginx(unittest.TestCase):
         self.assertIn(["systemctl", "reload", "nginx.service"], self.calls)
         self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
 
+    def test_site_not_enabled_yet_failed_reload_is_fatal(self):
+        self.site_enabled = False
+        self.reload_rc = 1
+        with self.assertRaises(SystemExit):
+            self._apply()
+        self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
     def test_site_not_enabled_yet_still_refuses_a_broken_configuration(self):
         # The config test comes first: a rendered configuration that does not
         # parse is reported on a first install too, never skipped.
@@ -149,6 +156,35 @@ class TestApplyNginx(unittest.TestCase):
         self.test_rc = 1
         self.assertEqual(self._apply(), 1)
         self.assertNotIn(["systemctl", "reload", "nginx.service"], self.calls)
+        self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
+
+    def test_recovery_starts_inactive_nginx_and_proves_listeners(self):
+        self.active_rc = 3
+        self.ss_outputs = [self._ss("127.0.0.1:80", "127.0.0.1:443")]
+        self.assertEqual(config.apply_nginx("127.0.0.1", start_if_inactive=True), 0)
+        self.assertIn(["systemctl", "start", "nginx.service"], self.calls)
+        self.assertNotIn(["systemctl", "reload", "nginx.service"], self.calls)
+
+    def test_recovery_never_starts_invalid_configuration(self):
+        self.active_rc = 3
+        self.test_rc = 1
+        self.assertEqual(config.apply_nginx("127.0.0.1", start_if_inactive=True), 1)
+        self.assertNotIn(["systemctl", "start", "nginx.service"], self.calls)
+
+    def test_recovery_cannot_complete_without_the_enabled_site(self):
+        self.site_enabled = False
+        with self.assertRaises(SystemExit):
+            config.apply_nginx("127.0.0.1", start_if_inactive=True)
+        self.assertNotIn(["systemctl", "start", "nginx.service"], self.calls)
+
+    def test_failed_start_during_recovery_is_fatal(self):
+        self.active_rc = 3
+        original = self._run
+        def run(cmd, **kwargs):
+            result = original(cmd, **kwargs)
+            return _cp(1) if cmd[:2] == ["systemctl", "start"] else result
+        with mock.patch.object(config, "run", side_effect=run), self.assertRaises(SystemExit):
+            config.apply_nginx("127.0.0.1", start_if_inactive=True)
         self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
 
     def test_inactive_nginx_is_left_alone(self):

@@ -345,7 +345,7 @@ def _front_door_missing(bind_ip: str, wait: float = 3.0) -> list:
 NGINX_SITE_ENABLED = "/etc/nginx/sites-enabled/carlos-emr"
 
 
-def apply_nginx(bind_ip: str) -> int:
+def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
     """Make the rendered front-door configuration the one nginx serves.
 
     A reload alone is not proof of anything. `systemctl reload nginx` only
@@ -364,11 +364,13 @@ def apply_nginx(bind_ip: str) -> int:
     when they are not, restart (which closes every old socket before binding
     anew) and prove it again. Returns 1 when the rendered configuration fails
     its test (the running one keeps serving); dies when nginx cannot be
-    brought to the rendered configuration at all.
+    brought to the rendered configuration at all. Install recovery explicitly
+    requests start_if_inactive; init-config preserves an operator-stopped nginx.
     """
     if not os.path.isdir("/run/systemd/system"):
         return 0
-    if run(["systemctl", "is-active", "--quiet", "nginx.service"]).returncode != 0:
+    active = run(["systemctl", "is-active", "--quiet", "nginx.service"]).returncode == 0
+    if not active and not start_if_inactive:
         # The package's own nginx step starts it during configure; an operator
         # who stopped it on purpose keeps it stopped.
         log("nginx is not running; the rendered configuration serves when it starts")
@@ -378,7 +380,15 @@ def apply_nginx(bind_ip: str) -> int:
         warn("(the running config keeps serving). Details:")
         run(["nginx", "-t"])
         return 1
-    if not os.path.exists(NGINX_SITE_ENABLED):
+    site_enabled = os.path.exists(NGINX_SITE_ENABLED)
+    if start_if_inactive and not site_enabled:
+        die("the CARLOS nginx site is missing; run 'dpkg-reconfigure carlos-emr' "
+            "to restore it before retrying finish-install")
+    action = "reload" if active else "start"
+    if run(["systemctl", action, "nginx.service"]).returncode != 0:
+        die(f"nginx {action} FAILED — front-door changes are NOT live; "
+            "run 'systemctl status nginx'")
+    if not site_enabled:
         # First install: postinst runs init-config BEFORE it enables the site
         # (the symlink comes later, with the certificates), so nginx is still
         # serving only the distribution's default. Listeners the CARLOS site
@@ -388,23 +398,15 @@ def apply_nginx(bind_ip: str) -> int:
         # correctly, leaving .install-incomplete behind on a healthy host.
         # Reload what is rendered (other fragments this verb wrote are live
         # immediately) and leave the proof to whoever enables the site.
-        run(["systemctl", "reload", "nginx.service"])
         log("the CARLOS site is not enabled in nginx yet; the rendered front "
             "door serves once the package enables it")
         return 0
-    if run(["systemctl", "reload", "nginx.service"]).returncode != 0:
-        # The config passed its test but the reload job failed (nginx died in
-        # between, ExecReload error). Silence here meant the operator's
-        # front-door change never served, with exit 0.
-        die("nginx reload FAILED — front-door changes are NOT live; "
-            "run 'systemctl status nginx'")
     missing = _front_door_missing(bind_ip)
     if not missing:
-        log("nginx reloaded — front-door changes are live")
+        log(f"nginx {action} succeeded — front-door listeners are bound")
         return 0
-    warn(f"nginx accepted the reload but is not listening on {', '.join(missing)}: "
-         "its previous listeners still hold the ports (a socket already listening "
-         "blocks a new bind of the same port under another address); restarting nginx")
+    warn(f"nginx {action} succeeded but is not listening on {', '.join(missing)}; "
+         "restarting nginx to release any previous listeners")
     if run(["systemctl", "restart", "nginx.service"]).returncode != 0:
         die("nginx restart FAILED — front-door changes are NOT live; "
             "run 'systemctl status nginx'")
