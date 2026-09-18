@@ -37,99 +37,50 @@
  */
 
 const { chromium } = require('playwright');
+const {
+  assert,
+  buildFailureDetails,
+  createRecorder,
+  getLaunchOptions,
+  gotoApp,
+  login,
+  validateBaseUrl,
+  wirePage,
+} = require('./eform-local-playwright-utils');
 
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
-const chromePath = process.env.CHROME_PATH || '';
-const testUser = process.env.TEST_USER || 'carlosdoc';
-const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
-const testPin = process.env.TEST_PIN || '2026';
+const config = {
+  baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
+  chromePath: process.env.CHROME_PATH || '',
+  testUser: process.env.TEST_USER || 'carlosdoc',
+  testPassword: process.env.TEST_PASSWORD || 'carlos2026',
+  testPin: process.env.TEST_PIN || '2026',
+};
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 
-const pageErrors = [];
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
-
-function appUrl(appPath, query) {
-  const url = new URL(baseUrl.toString());
-  url.pathname = `${baseUrl.pathname}${appPath}`;
-  if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      url.searchParams.set(key, value);
-    }
-  }
-  return url.toString();
-}
-
-async function gotoApp(page, appPath, query = null) {
-  const url = appUrl(appPath, query);
-  // BASE_URL is restricted by validateBaseUrl(), and appUrl() only accepts root-relative app paths.
-  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
-  return page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-}
-
-async function login(page) {
-  await gotoApp(page, '/');
-  await page.locator('#username').fill(testUser);
-  await page.locator('#password').fill(testPassword);
-  await page.locator('#pin').fill(testPin);
-  await Promise.all([
-    page.waitForURL(/providercontrol/, { timeout: 30000 }),
-    page.locator('input[type="submit"], button[type="submit"]').first().click(),
-  ]);
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-}
-
 (async () => {
-  const launchOptions = {
-    headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-  };
-  if (chromePath) {
-    launchOptions.executablePath = chromePath;
-  }
-
-  const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const recorder = createRecorder();
+  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
-    const loginPage = await context.newPage();
-    await login(loginPage);
-    await loginPage.close();
+    const context = await browser.newContext({ ignoreHTTPSErrors: true });
+    const landingPage = await login(context, config, recorder);
+    await landingPage.close();
 
     const page = await context.newPage();
-    page.on('pageerror', (error) => pageErrors.push(error.stack || error.message));
+    wirePage(page, 'tickler-demo-main', recorder);
 
     // Direct navigation: this tab has no opener, which is the #3731 case.
-    const response = await gotoApp(page, '/tickler/ViewTicklerDemoMain', {
-      demoview: demographicNo,
-      ticklerview: 'A',
-    });
-    if (!response || response.status() !== 200) {
-      throw new Error(`Tickler page returned ${response ? response.status() : 'no response'}`);
-    }
+    const query = new URLSearchParams({ demoview: demographicNo, ticklerview: 'A' });
+    const response = await gotoApp(
+      page, config.baseUrl, `/tickler/ViewTicklerDemoMain?${query.toString()}`, 'networkidle',
+    );
+    assert(response && response.status() === 200,
+      `Tickler page returned ${response ? response.status() : 'no response'}`);
 
-    const hasOpener = await page.evaluate(() => window.opener !== null);
-    if (hasOpener) {
-      throw new Error('Expected an opener-less tab; the check would not exercise #3731');
-    }
+    assert(await page.evaluate(() => window.opener === null),
+      'Expected an opener-less tab; the check would not exercise #3731');
 
-    // setup() must have run to completion, not thrown partway through it.
-    const setupCompleted = await page.evaluate(() => {
+    // setup() must run to completion, not throw partway through it.
+    const setupError = await page.evaluate(() => {
       if (typeof window.setup !== 'function') {
         return 'setup() is not defined on the page';
       }
@@ -140,25 +91,20 @@ async function login(page) {
         return error.message;
       }
     });
-    if (setupCompleted) {
-      pageErrors.push(`setup() threw when called without an opener: ${setupCompleted}`);
-    }
+    assert(!setupError, `setup() threw when called without an opener: ${setupError}`);
+
+    const pageErrors = recorder.pageErrors.filter((entry) => entry.label === 'tickler-demo-main');
+    assert(pageErrors.length === 0,
+      `Tickler page reported uncaught errors: ${JSON.stringify(pageErrors)}`);
 
     await page.close();
     await context.close();
 
-    if (pageErrors.length > 0) {
-      console.error('FAIL tickler demo main Playwright check');
-      for (const error of pageErrors) {
-        console.error(`  - ${error}`);
-      }
-      process.exitCode = 1;
-    } else {
-      console.log('PASS tickler demo main loads without an opener and setup() completes');
-    }
+    console.log('PASS tickler demo main loads without an opener and setup() completes');
   } catch (error) {
     console.error('FAIL tickler demo main Playwright check');
     console.error(error.stack || error.message);
+    console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
     await browser.close();
