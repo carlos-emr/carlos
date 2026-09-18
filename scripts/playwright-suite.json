@@ -829,6 +829,24 @@
       "timeoutSec": 300
     },
     {
+      "name": "eform-apcache-renderer",
+      "script": "scripts/eform-apcache-renderer-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "APCACHE_DEMOGRAPHIC_NO",
+        "APCACHE_JOURNAL_UNIT",
+        "APCACHE_PROBE_URL",
+        "APCACHE_SCREENSHOT_DIR"
+      ]
+    },
+    {
       "name": "eform-saved-render",
       "script": "scripts/eform-saved-render-playwright-checks.js",
       "tiers": [
@@ -1978,6 +1996,22 @@
         "CSRF_XHR_SEARCH",
         "CSRF_XHR_DEMOGRAPHIC_NO",
         "CSRF_XHR_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "edit-appointment-direct-link",
+      "script": "scripts/edit-appointment-direct-link-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "APPOINTMENT_NO",
+        "APPOINTMENT_DEMOGRAPHIC_NO"
       ]
     }
   ]
