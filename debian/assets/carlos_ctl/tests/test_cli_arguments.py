@@ -105,8 +105,8 @@ class TestNoArgumentVerbs(unittest.TestCase):
                 continue
             src = inspect.getsource(handler)
             # Strip the leading indentation so nested-def sources parse.
-            tree = ast.parse("\n".join(l[4:] if l.startswith("    ") else l
-                                       for l in src.splitlines()) if src.startswith("    ") else src)
+            tree = ast.parse("\n".join(ln[4:] if ln.startswith("    ") else ln
+                                       for ln in src.splitlines()) if src.startswith("    ") else src)
             fn = tree.body[0]
             reads = [n for n in ast.walk(fn)
                      if isinstance(n, ast.Name) and n.id == "argv"]
