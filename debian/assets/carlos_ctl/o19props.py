@@ -522,10 +522,10 @@ def render_fragment(result: dict) -> str:
     carry, as comments-plus-values for an operator to review and append
     by hand. Never applied automatically."""
     lines = [
-        "# Derived from the clinic's oscar.properties by carlos-ctl "
-        "import-o19 (experimental).",
-        "# REVIEW before applying: append the lines you approve to "
-        "/etc/carlos-emr/carlos.properties",
+        ("# Derived from the clinic's oscar.properties by carlos-ctl "
+         "import-o19 (experimental)."),
+        ("# REVIEW before applying: append the lines you approve to "
+         "/etc/carlos-emr/carlos.properties"),
         "# and run `carlos-ctl restart`. Never applied automatically.",
         "# Generated: " + time.strftime("%Y-%m-%d %H:%M:%S"),
         "# Props manifest: " + o19map_props.PROPS_MAP_VERSION,

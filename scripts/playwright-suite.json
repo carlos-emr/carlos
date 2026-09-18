@@ -2112,6 +2112,22 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "inactive-drug-status",
+      "script": "scripts/inactive-drug-status-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "INACTIVE_DRUG_DIN",
+        "INACTIVE_DRUG_DATE"
+      ]
     }
   ]
 }

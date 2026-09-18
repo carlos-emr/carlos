@@ -493,6 +493,9 @@ class TestRendering(unittest.TestCase):
         self.assertIn("REVIEW before applying", text)
         self.assertIn("clinic_no=9999", text)
         self.assertIn("mcedt.service.pass=fake-mcedt-secret", text)
+        # Header wrapping must not introduce a bare path as an empty-valued key.
+        self.assertEqual(dict(o19props.parse_properties_text(text)),
+                         dict(result["fragment"]))
 
     def test_report_masks_secrets_and_lists_unknown_keys(self):
         result = fixture_result()
