@@ -1993,8 +1993,8 @@
       "timeoutSec": 300,
       "env": [
         "PREVENTION_DEMOGRAPHIC_NO",
-        "PREVENTION_WITHOUT_NEXTDATE",
-        "PREVENTION_WITH_NEXTDATE"
+        "PREVENTION_UNRESOLVED",
+        "PREVENTION_RESOLVED"
       ]
     }
   ]

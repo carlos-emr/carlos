@@ -353,11 +353,13 @@
                 document.getElementById(id).style.display = 'none';
             }
 
-            // The "next date" fieldset and its "never warn" checkbox are rendered only for
-            // the prevention types that schedule a follow-up. Both helpers below are reached
-            // for types that render neither — disableifchecked from body onload on every load —
-            // so every lookup here has to tolerate a missing element instead of throwing
-            // out of onload and taking the rest of the handler with it (#3732).
+            // The "next date" fieldset and its "never warn" checkbox live inside the
+            // prevHash != null branch, so a request whose prevention type does not resolve
+            // renders "prevention not found" and none of them. body onload calls
+            // disableifchecked on every load regardless, so both helpers below are reached
+            // with nothing to find and every lookup has to tolerate a missing element
+            // instead of throwing out of onload and taking the rest of the handler with
+            // it (#3732).
             function showHideNextDate(id, nextDate, neverWarn) {
                 var container = document.getElementById(id);
                 if (!container) {
@@ -383,7 +385,7 @@
                 if (!nextDateField) {
                     return;
                 }
-                // A prevention type with no "never warn" checkbox passes ele === null here;
+                // The unresolved page has no "never warn" checkbox, so ele is null here;
                 // that is the same as unchecked, so the next-date field stays enabled.
                 nextDateField.disabled = !!(ele && ele.checked);
             }
