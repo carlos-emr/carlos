@@ -5,7 +5,7 @@ import json
 
 from validate_artifact import require
 
-REQUEST_BYTES = 10000
+REQUEST_BYTES = 16000  # Mirrors ClinicalSummaryAgent.requestBytes().
 
 
 def ollama_schema(schema, sources):
@@ -32,7 +32,12 @@ def split(sources):
     require(len(sources) == 1, "No sources to split")
     source = sources[0]
     text = source["text"]
-    require(len(text) >= 1024, "A minimal source portion could not be completed; no partial draft was accepted")
+    # Below this floor a source cannot be divided further, so if it still does not fit, the budget is
+    # too small for the prompt rather than the source being too large. Say which, or the caller sees
+    # an unexplained failure on a perfectly ordinary note.
+    require(len(text) >= 1024,
+            "A minimal source portion could not be completed; the request budget leaves too little room "
+            "beside the prompt. Raise the adapter's requestBytes or shorten the prompt.")
     middle = len(text) // 2
     boundary = text.rfind("\n", 0, middle + 1)
     if boundary < middle // 2:

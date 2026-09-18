@@ -16,7 +16,18 @@ public interface ClinicalSummaryAgent {
     default String cacheIdentity() throws IOException { return null; }
 
     /** Serialized request budget, including instructions/schema; never a summary-length limit. */
-    default int requestBytes() { return 10000; }
+    /**
+     * Serialized bytes an adapter accepts per model request, shared by the prompt and the source text.
+     *
+     * <p>The prompt is a fixed cost paid on every pass, so a small budget starves each request of
+     * clinical text. At 10,000 the current generation prompt left too little room for the committed
+     * synthetic charts, and a note too large to fit but below the pipeline's 1024-character split
+     * floor could not be planned at all. 16,000 is about 4,000 tokens, well inside the adapter's
+     * 16,384-token context less its 4,096-token output budget.
+     *
+     * @return the per-request budget, between the pipeline floor and {@code MAX_REQUEST_BYTES}
+     */
+    default int requestBytes() { return 16000; }
 
     JsonNode generate(JsonNode request) throws IOException;
 }

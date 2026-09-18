@@ -19,6 +19,28 @@ class PipelineTest(unittest.TestCase):
         self.prompt = (ROOT / "prompt.txt").read_text()
         self.schema = json.loads((ROOT / "output-schema.json").read_text())
 
+    def test_committed_prompt_leaves_room_for_clinical_text_at_the_minimum_budget(self):
+        """The prompt shares the 10,000-byte request budget with source text, so its size is a hard limit.
+
+        pipeline.split refuses to divide a source under 1024 characters, so a note that is too big to
+        fit alongside the prompt but too small to split cannot be planned at all. That surfaces as a
+        confusing "minimal source portion could not be completed" rather than as a prompt-size problem.
+        The worst real case is NHSSYN003 note-12 at 985 characters, which capped the prompt near 7.3 KB
+        when the budget was 10,000 and forced the budget up rather than the prompt down.
+        Plan every committed fixture at the minimum budget so prompt growth fails loudly here instead.
+        """
+        import openrouter_agent
+        notes = openrouter_agent.SyntheticNotes().notes
+        for fixture in ("NHSSYN001", "NHSSYN002", "NHSSYN003"):
+            sources = []
+            for date, body in [(date, body) for name, date, body in notes if name == fixture]:
+                source_id = f"note-{len(sources) + 1}"
+                sources.append({"id": source_id, "patient_id": "demographic-3001",
+                                "title": f"Signed encounter note ({source_id})",
+                                "date": date, "text": body})
+            with self.subTest(fixture=fixture):
+                self.assertTrue(pipeline.plan(sources, self.prompt, self.schema, pipeline.REQUEST_BYTES))
+
     def test_coverage_and_citations_are_bounded_to_each_pass_without_mutating_schema(self):
         original = copy.deepcopy(self.schema)
         for count in (1, 75):
@@ -72,11 +94,13 @@ class PipelineTest(unittest.TestCase):
     def test_configurable_context_preserves_all_sources_at_both_budgets(self):
         sources = [dict(self.bundle['sources'][0], id=f'note-{i}', text=f'Finding {i}: ' + 'Detail. ' * 100)
                    for i in range(80)]
-        for budget in (10000, 50000):
+        # The committed prompt needs more than the protocol's 10,000 floor; compare the real
+        # default budget against a large one rather than a literal that no longer applies.
+        for budget in (pipeline.REQUEST_BYTES, 50000):
             batches = pipeline.plan(sources, self.prompt, self.schema, budget)
             self.assertEqual(sources, [source for batch in batches for source in batch])
             self.assertGreater(len(batches), 1)
-        self.assertGreater(len(pipeline.plan(sources, self.prompt, self.schema, 10000)),
+        self.assertGreater(len(pipeline.plan(sources, self.prompt, self.schema, pipeline.REQUEST_BYTES)),
                            len(pipeline.plan(sources, self.prompt, self.schema, 50000)))
 
     def test_numeric_punctuation_is_never_erased_when_merging_claims(self):

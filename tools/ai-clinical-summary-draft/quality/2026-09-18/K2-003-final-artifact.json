@@ -1,0 +1,420 @@
+{
+  "fixture": "NHSSYN003",
+  "settings": {
+    "model": "qwen/qwen3.5-27b",
+    "provider": "siliconflow",
+    "port": 11437,
+    "timeout_seconds": 300,
+    "max_tokens": 16384,
+    "cache_seconds": 0,
+    "temperature": 0.0,
+    "request_bytes": 50000,
+    "reasoning_tokens": 0,
+    "section_passes": false,
+    "section_workers": 2
+  },
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "prompt_path": "prompt.txt",
+  "clinical_accuracy": "Unverified; inspect every statement and omission against the sources.",
+  "metrics": {
+    "claims": 29,
+    "fact_recall": 0.95,
+    "critical_recall": 1.0,
+    "missing_critical": [],
+    "date_errors": 0,
+    "name_leaks": 0,
+    "identity_leaks": 0,
+    "forbidden_assertions": 0,
+    "cross_section_duplicates": 0,
+    "mixed_date_formats": false,
+    "gate_pass": true
+  },
+  "output": {
+    "claims": [
+      {
+        "id": "c1",
+        "source_ids": [
+          "note-1",
+          "note-2",
+          "note-5",
+          "note-6"
+        ],
+        "text": "The patient presented to the emergency department on 05/01/26 with sudden severe central chest pain rated 8/10, exacerbated by deep breaths and movement, with onset approximately one hour prior to arrival."
+      },
+      {
+        "id": "c2",
+        "source_ids": [
+          "note-5",
+          "note-6"
+        ],
+        "text": "Associated symptoms included mild shortness of breath; the patient denied haemoptysis, nausea, vomiting, palpitations, syncope, dysphagia, dysuria, haematuria, dizziness, or focal weakness."
+      },
+      {
+        "id": "c3",
+        "source_ids": [
+          "note-1",
+          "note-2",
+          "note-5",
+          "note-6"
+        ],
+        "text": "Past medical history includes asthma and seasonal allergic rhinitis."
+      },
+      {
+        "id": "c4",
+        "source_ids": [
+          "note-1",
+          "note-5",
+          "note-6"
+        ],
+        "text": "The patient has a known allergy to pollen."
+      },
+      {
+        "id": "c5",
+        "source_ids": [
+          "note-1",
+          "note-5",
+          "note-6"
+        ],
+        "text": "The patient reported no current medications at presentation."
+      },
+      {
+        "id": "c6",
+        "source_ids": [
+          "note-6"
+        ],
+        "text": "Social history indicates the patient lives alone, is independent with activities of daily living, works as an IT consultant, and is a non-smoker with no alcohol or recreational drug use."
+      },
+      {
+        "id": "c7",
+        "source_ids": [
+          "note-5",
+          "note-6"
+        ],
+        "text": "Family history is reported as nil significant."
+      },
+      {
+        "id": "c8",
+        "source_ids": [
+          "note-2",
+          "note-5",
+          "note-6",
+          "note-7"
+        ],
+        "text": "Initial observations on 05/01/26 recorded a heart rate of 110 bpm, blood pressure of 135/85 mmHg, respiratory rate of 24/min, temperature of 37.1\u00b0C, and SpO2 of 96% on room air (noted as 95% in one record)."
+      },
+      {
+        "id": "c9",
+        "source_ids": [
+          "note-5",
+          "note-6",
+          "note-7"
+        ],
+        "text": "Physical examination on 05/01/26 revealed mild tenderness over the sternum/anterior chest wall and palpable subcutaneous crepitus in the neck and chest; lung auscultation showed equal air entry with no added sounds."
+      },
+      {
+        "id": "c10",
+        "source_ids": [
+          "note-3",
+          "note-5",
+          "note-6"
+        ],
+        "text": "An ECG performed at 02:30 on 05/01/26 showed sinus tachycardia with no ischaemic changes."
+      },
+      {
+        "id": "c11",
+        "source_ids": [
+          "note-4",
+          "note-5",
+          "note-6",
+          "note-7"
+        ],
+        "text": "A chest X-ray performed on 05/01/26 confirmed spontaneous pneumomediastinum and subcutaneous emphysema, with no evidence of pneumothorax."
+      },
+      {
+        "id": "c12",
+        "source_ids": [
+          "note-5",
+          "note-6",
+          "note-7"
+        ],
+        "text": "The clinical impression was spontaneous pneumomediastinum, likely secondary to a recent coughing episode or straining, with no evidence of haemodynamic instability."
+      },
+      {
+        "id": "c13",
+        "source_ids": [
+          "note-5",
+          "note-6",
+          "note-7",
+          "note-9",
+          "note-10"
+        ],
+        "text": "Management on 05/01/26 included admission to the respiratory high-dependency unit, paracetamol 1g QDS PRN for pain, and ibuprofen 400mg TDS for pain."
+      },
+      {
+        "id": "c14",
+        "source_ids": [
+          "note-6",
+          "note-7",
+          "note-8",
+          "note-12"
+        ],
+        "text": "The patient was advised to avoid straining, heavy lifting, or activities that increase intrathoracic pressure."
+      },
+      {
+        "id": "c15",
+        "source_ids": [
+          "note-8"
+        ],
+        "text": "A physiotherapy session on 05/01/26 at 11:00 focused on diaphragmatic breathing and pursed-lip breathing; observations at that time showed a heart rate of 88 bpm, blood pressure of 120/80 mmHg, respiratory rate of 20/min, and SpO2 of 96% on room air."
+      },
+      {
+        "id": "c16",
+        "source_ids": [
+          "note-9"
+        ],
+        "text": "On 05/01/26, observations showed a heart rate of 88 bpm, blood pressure of 130/80 mmHg, respiratory rate of 18/min, and SpO2 of 97% on room air; examination noted no subcutaneous emphysema on palpation and no respiratory distress."
+      },
+      {
+        "id": "c17",
+        "source_ids": [
+          "note-9"
+        ],
+        "text": "Omeprazole 20mg OD was started on 05/01/26 to prevent gastrointestinal side effects from ibuprofen."
+      },
+      {
+        "id": "c18",
+        "source_ids": [
+          "note-10",
+          "note-11",
+          "note-13"
+        ],
+        "text": "A repeat chest X-ray on 06/01/26 showed a slight reduction in pneumomediastinum compared to initial imaging."
+      },
+      {
+        "id": "c19",
+        "source_ids": [
+          "note-12"
+        ],
+        "text": "A physiotherapy session on 06/01/26 at 12:00 noted subcutaneous emphysema with no evidence of spread; observations included a heart rate of 88 bpm, blood pressure of 130/80 mmHg, respiratory rate of 18/min, and SpO2 of 97% on room air."
+      },
+      {
+        "id": "c20",
+        "source_ids": [
+          "note-13"
+        ],
+        "text": "On 07/01/26, the patient reported no chest pain overnight and mild improvement in breathing comfort; examination showed no palpable subcutaneous crepitus."
+      },
+      {
+        "id": "c21",
+        "source_ids": [
+          "note-13"
+        ],
+        "text": "Regular paracetamol and ibuprofen were stopped on 07/01/26 as the patient was pain-free."
+      },
+      {
+        "id": "c22",
+        "source_ids": [
+          "note-13"
+        ],
+        "text": "A repeat chest X-ray was planned for 48 hours after 07/01/26 to assess further resolution."
+      },
+      {
+        "id": "c23",
+        "source_ids": [
+          "note-14"
+        ],
+        "text": "On 07/01/26, the patient received education regarding signs of pneumomediastinum recurrence and when to seek urgent medical attention post-discharge."
+      },
+      {
+        "id": "c24",
+        "source_ids": [
+          "note-15"
+        ],
+        "text": "On 08/01/26, observations showed a heart rate of 82 bpm, blood pressure of 128/78 mmHg, respiratory rate of 16/min, temperature of 36.8\u00b0C, and SpO2 of 97% on air; examination was normal with no subcutaneous crepitus."
+      },
+      {
+        "id": "c25",
+        "source_ids": [
+          "note-15"
+        ],
+        "text": "A chest X-ray on 08/01/26 showed no complications and stable pneumomediastinum with continued improvement."
+      },
+      {
+        "id": "c26",
+        "source_ids": [
+          "note-15"
+        ],
+        "text": "Discharge planning was initiated on 08/01/26 with a plan for routine outpatient follow-up in the respiratory clinic."
+      },
+      {
+        "id": "c27",
+        "source_ids": [
+          "note-16"
+        ],
+        "text": "The ward nurse contacted the patient's GP on 08/01/26 to inform them of the patient's clinical progress and stability in preparation for discharge."
+      },
+      {
+        "id": "c28",
+        "source_ids": [
+          "note-17"
+        ],
+        "text": "A final chest X-ray reviewed on 09/01/26 showed complete resolution of spontaneous pneumomediastinum with no subcutaneous emphysema or abnormalities."
+      },
+      {
+        "id": "c29",
+        "source_ids": [
+          "note-17"
+        ],
+        "text": "The patient was cleared for discharge on 09/01/26 with no further imaging required."
+      }
+    ],
+    "coverage": [
+      {
+        "reason": "note-1: Source provides triage details, presenting complaint, past medical history, allergy, and initial ED diagnosis.",
+        "source_id": "note-1",
+        "status": "cited"
+      },
+      {
+        "reason": "note-2: Source provides initial vital signs, chief complaint details, and plan for ECG.",
+        "source_id": "note-2",
+        "status": "cited"
+      },
+      {
+        "reason": "note-3: Source documents ECG findings and timing.",
+        "source_id": "note-3",
+        "status": "cited"
+      },
+      {
+        "reason": "note-4: Source documents initial CXR findings and timing.",
+        "source_id": "note-4",
+        "status": "cited"
+      },
+      {
+        "reason": "note-5: Source provides comprehensive history, examination, initial investigations, diagnosis, and admission plan.",
+        "source_id": "note-5",
+        "status": "cited"
+      },
+      {
+        "reason": "note-6: Source provides detailed social history, examination findings, and initial medication plan.",
+        "source_id": "note-6",
+        "status": "cited"
+      },
+      {
+        "reason": "note-7: Source documents ward round review, stable condition, and continuation of pain management.",
+        "source_id": "note-7",
+        "status": "cited"
+      },
+      {
+        "reason": "note-8: Source documents physiotherapy intervention, specific vital signs at 11:00, and breathing exercises.",
+        "source_id": "note-8",
+        "status": "cited"
+      },
+      {
+        "reason": "note-9: Source documents clinical review, improved vitals, resolution of subcutaneous emphysema, and addition of omeprazole.",
+        "source_id": "note-9",
+        "status": "cited"
+      },
+      {
+        "reason": "note-10: Source documents morning review on 06/01/26, planned repeat CXR, and continuation of current regimen.",
+        "source_id": "note-10",
+        "status": "cited"
+      },
+      {
+        "reason": "note-11: Source documents results of repeat CXR on 06/01/26 showing slight reduction.",
+        "source_id": "note-11",
+        "status": "cited"
+      },
+      {
+        "reason": "note-12: Source documents second physiotherapy session, specific vitals, and persistent subcutaneous emphysema.",
+        "source_id": "note-12",
+        "status": "cited"
+      },
+      {
+        "reason": "note-13: Source documents clinical review on 07/01/26, cessation of analgesia, and plan for future imaging.",
+        "source_id": "note-13",
+        "status": "cited"
+      },
+      {
+        "reason": "note-14: Source documents patient education regarding recurrence and discharge preparation.",
+        "source_id": "note-14",
+        "status": "cited"
+      },
+      {
+        "reason": "note-15: Source documents clinical review on 08/01/26, stable vitals, CXR results, and initiation of discharge planning.",
+        "source_id": "note-15",
+        "status": "cited"
+      },
+      {
+        "reason": "note-16: Source documents communication with the GP regarding discharge planning.",
+        "source_id": "note-16",
+        "status": "cited"
+      },
+      {
+        "reason": "note-17: Source documents final CXR results showing complete resolution and clearance for discharge.",
+        "source_id": "note-17",
+        "status": "cited"
+      }
+    ],
+    "sections": [
+      {
+        "claim_ids": [
+          "c1",
+          "c2",
+          "c3",
+          "c4",
+          "c5",
+          "c6",
+          "c7"
+        ],
+        "id": "clinical_overview",
+        "title": "Clinical overview"
+      },
+      {
+        "claim_ids": [
+          "c12",
+          "c18",
+          "c20",
+          "c25",
+          "c28"
+        ],
+        "id": "active_problems",
+        "title": "Active problems"
+      },
+      {
+        "claim_ids": [
+          "c13",
+          "c14",
+          "c17",
+          "c21"
+        ],
+        "id": "medications_allergies",
+        "title": "Medications and allergies"
+      },
+      {
+        "claim_ids": [
+          "c8",
+          "c9",
+          "c10",
+          "c11",
+          "c15",
+          "c16",
+          "c19",
+          "c24"
+        ],
+        "id": "results_observations",
+        "title": "Results and observations"
+      },
+      {
+        "claim_ids": [
+          "c22",
+          "c23",
+          "c26",
+          "c27",
+          "c29"
+        ],
+        "id": "plan_follow_up",
+        "title": "Plan and follow-up"
+      }
+    ]
+  }
+}

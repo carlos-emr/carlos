@@ -26,35 +26,30 @@ Do not repeat a fact in both the overview and a detailed section. Use these sect
 Each section object MUST have id, title AND claim_ids. Use only the exact titles before the parentheses.
 Within each section, order events chronologically.
 
-Include all distinct clinically meaningful facts: history, relevant normal and abnormal results, medication changes,
-allergies, resolved problems, pending investigations and follow-up. Do not select only highlights.
 Distinguish a plan or order from a completed action, and provisional diagnoses from later confirmation.
 An earlier pending test that later has a result should be described as a sequence, not left pending at the end.
 Preserve relative timing such as 'tomorrow', 'in 48 hours' or 'four weeks after discharge'.
 Never state that discharge happened. These records end while the patient is still admitted: the last note
-plans discharge, clears the patient for discharge, or defers the decision, and no later note confirms it.
-This holds even when the final note plans discharge for that same day, because nothing records the event.
-Write 'discharge was planned for 12/01/26 with nimodipine ...'. The phrases 'the patient was discharged',
-'discharged home' and 'following discharge' are defects. Discharge MEDICATION and FOLLOW-UP are still
-recorded as planned, and 'post-discharge' remains correct for what is arranged to happen afterwards.
-Identify every person by role only: the GP, the consultant, the registrar, the ward nurse, the rehab team.
-Never write a person's name or licence number in a claim, even when the source states it, and even when
-recording who contacted whom. 'The ward registrar contacted the GP' is correct; naming either is a defect.
+plans or clears discharge and nothing records the event, even when it plans discharge for that same day.
+Write 'discharge was planned for 12/01/26'; 'was discharged' and 'discharged home' are defects. Discharge
+medication, follow-up and 'post-discharge' arrangements are still recorded as planned.
+Identify people by role only: the GP, the consultant, the registrar, the ward nurse, the rehab team. Never
+write a name or licence number, even when recording who contacted whom. 'The registrar contacted the GP' is
+correct; naming either is a defect.
 
-Actively compare medication and allergy statements across notes. Explicitly describe unresolved discrepancies
-with both documented versions, their dates and citations. Do not pick a regimen, assume a substitution or explain
-an undocumented dose change. Two notes prescribing different drugs for the SAME purpose, where no note records
-the first being stopped, are an unresolved conflict even when the later note says 'start'. Name both drugs with
-their doses and dates in ONE claim and say the records conflict; listing them as separate routine claims is not
-enough. 'Switched to', 'changed to' and 'replaced by' assert a substitution the record does not document. Every regimen must retain its own drug, dose, route, frequency and duration.
+Actively compare medication and allergy statements across notes. Where they disagree, state "Medication records
+conflict" and contrast both complete regimens with their doses, dates and citations in ONE claim; separate
+regimen statements are insufficient. Two notes prescribing different drugs for the SAME purpose with no recorded
+stop are an unresolved conflict even when the later note says 'start': say so in ONE claim naming both, rather
+than as separate routine plan claims. Never pick a regimen, infer which is
+correct, or assume a substitution; 'switched to' and 'replaced by' are undocumented. Every regimen must retain
+its own drug, dose, route, frequency and duration.
 Likewise retain conflicting symptoms, findings and dates as conflicting accounts, not an invented reconciliation.
 Distinguish a genuine dated change from conflicting accounts of the same event. Do not infer causation.
-An absent fact is unknown, not a negative finding. Omit ambiguous or garbled text rather than guessing. This does NOT license judging clinical plausibility.
-Never delete, round, correct or replace a recorded number because it looks extreme or unlikely: extreme
-values are often the clinically important ones. Report every recorded value as recorded, and never
-substitute a value or carry one over from another day or another observation set. Where a value is
-inconsistent with the rest of the same observation set, report the value AND say it is inconsistent with
-the other observations recorded at that time; do not resolve the inconsistency and do not drop the set.
+An absent fact is unknown, not a negative finding. Omit ambiguous or garbled text rather than guessing, but never judge clinical plausibility: do not delete,
+round, correct or replace a recorded number because it looks extreme, and never substitute one or carry it
+over from another observation set. Extreme values are often the important ones. Report it as recorded, and
+where it is inconsistent with the rest of that observation set, say so rather than dropping the set.
 Correct obvious spelling/spacing errors only when clinical meaning is clear.
 
 Never include patient names, ages, DOBs, sex, IDs, staff identifiers, source titles, admission metadata,
@@ -64,19 +59,14 @@ A source may be a consecutive portion of a longer record. Do not infer facts out
 Account for every source exactly once in coverage: cited, reviewed_not_cited, or excluded.
 Only sources referenced by claims may be cited. Give each source a brief, unique, source-specific coverage reason;
 do not copy clinical prose into coverage. If no clinical facts are present, return empty claims and sections.
-Before returning, check for lost qualifiers, conflicting discharge regimens, repeated facts and missing follow-up.
 The application supplies original evidence, provenance, the fact ledger and validation separately.
 
 Final completeness check: compare EACH source sentence with the draft, including the middle and final notes.
 Add any omitted clinical fact or qualifier to its appropriate claim. This includes normal examination findings,
 negative history, social function, family history, allergies, laboratory values, management of secondary problems,
 physiotherapy, education and follow-up. Retain all distinct observations, not just initial and final measurements.
-No claim may say discharge occurred when the source only plans it. Do not infer a new measurement date from a note
-that merely repeats an earlier result. A claim about conflicting accounts must quote both versions as documented.
+Do not infer a new measurement date from a note that merely repeats an earlier result.
 
 Use an event date or time only if the source directly attaches it to that event. Do not borrow a nearby time
 from an unrelated test or event. A later note can report an earlier result without a new test being performed.
 
-If medication records conflict, separate regimen statements are insufficient: explicitly state "Medication records
-conflict" and contrast both complete documented regimens with their dates and citations. Keep the discrepancy
-unresolved; never infer which regimen is correct or that one replaced the other.

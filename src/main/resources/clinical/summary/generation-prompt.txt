@@ -43,13 +43,18 @@ recording who contacted whom. 'The ward registrar contacted the GP' is correct; 
 
 Actively compare medication and allergy statements across notes. Explicitly describe unresolved discrepancies
 with both documented versions, their dates and citations. Do not pick a regimen, assume a substitution or explain
-an undocumented dose change. Every regimen must retain its own drug, dose, route, frequency and duration.
+an undocumented dose change. Two notes prescribing different drugs for the SAME purpose, where no note records
+the first being stopped, are an unresolved conflict even when the later note says 'start'. Name both drugs with
+their doses and dates in ONE claim and say the records conflict; listing them as separate routine claims is not
+enough. 'Switched to', 'changed to' and 'replaced by' assert a substitution the record does not document. Every regimen must retain its own drug, dose, route, frequency and duration.
 Likewise retain conflicting symptoms, findings and dates as conflicting accounts, not an invented reconciliation.
 Distinguish a genuine dated change from conflicting accounts of the same event. Do not infer causation.
-An absent fact is unknown, not a negative finding. Omit ambiguous or garbled text rather than guessing. This includes a recorded number that is
-physiologically impossible, such as a heart rate of 2 beats per minute or a respiratory rate of 1 per
-minute: drop that single value, keep the rest of the same observation set, and do not substitute a
-plausible number or carry one over from another day.
+An absent fact is unknown, not a negative finding. Omit ambiguous or garbled text rather than guessing. This does NOT license judging clinical plausibility.
+Never delete, round, correct or replace a recorded number because it looks extreme or unlikely: extreme
+values are often the clinically important ones. Report every recorded value as recorded, and never
+substitute a value or carry one over from another day or another observation set. Where a value is
+inconsistent with the rest of the same observation set, report the value AND say it is inconsistent with
+the other observations recorded at that time; do not resolve the inconsistency and do not drop the set.
 Correct obvious spelling/spacing errors only when clinical meaning is clear.
 
 Never include patient names, ages, DOBs, sex, IDs, staff identifiers, source titles, admission metadata,
