@@ -835,6 +835,7 @@ npm run test:eform-admin-playwright
 npm run test:eform-render-playwright
 npm run test:eform-saved-render-playwright
 npm run test:eform-test-pattern-playwright
+npm run test:eform-apcache-renderer-playwright
 npm run test:eform-rtl-attachment-routes-playwright
 npm run test:eform-rtl-attachment-types-playwright
 npm run test:eform-rtl-attachment-behavior-playwright
@@ -848,6 +849,16 @@ attachment family: a document, a lab result, an HRM report, another eForm, and a
 are each attached to their own letter and must show on the saved letter and add pages to the PDF
 from both download paths (toolbar Download and the form's `print=true` PDF button). It needs the
 demo document files and the HRM report fixture described in the smoke-test runbook.
+
+`eform-apcache-renderer` is the one that exercises the capability-scoped APCache bridge
+(`EFormApCacheForPdfGenerationServlet`) end to end rather than through the servlet's unit tests. Its
+fixture fills fields through `APCache.js` lookups, so the headless render must fetch the values
+through the bridge: the check asserts the PDF text carries them, and that a form which also looks up
+an AP key the server does not configure is withheld behind the missing-content approval page (with
+a non-zero "Failed content resources" count and no key name) rather than rendered with a blank
+field. On a packaged install, `APCACHE_JOURNAL_UNIT=carlos-emr` additionally pins the servlet's
+WARN line (fdid and key, no throwable, no values) and `APCACHE_PROBE_URL=http://127.0.0.1:18080/carlos`
+probes the servlet without a grant (401 on loopback, 405 on POST, refused through the front door).
 
 ### 3. Look at the PDF
 
