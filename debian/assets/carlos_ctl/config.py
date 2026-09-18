@@ -315,13 +315,25 @@ def cmd_init_config(argv) -> int:
 
 
 def _listeners(port: str) -> list:
-    """Every address bound on exactly this TCP port right now, from ss, with
-    IPv6 brackets stripped so a literal compares as the operator wrote it."""
+    """Every address NGINX has bound on exactly this TCP port right now, from
+    ss, with IPv6 brackets stripped so a literal compares as the operator
+    wrote it.
+
+    Ownership is part of the proof. `ss -ltnH` alone answers "something is
+    listening there", which is the question this whole function exists to
+    stop us asking: another daemon holding 127.0.0.1:80 and :443 would let a
+    failed nginx bind read as a healthy front door — the same false green the
+    tester hit. `-p` adds the owning process, and every caller runs as root
+    (init-config and check both need_root), so it is always populated here.
+    """
     found = []
-    for line in util.out(["ss", "-ltnH"]).splitlines():
+    for line in util.out(["ss", "-ltnHp"]).splitlines():
         cols = line.split()
-        if len(cols) >= 4 and cols[3].rsplit(":", 1)[-1] == port:
-            found.append(cols[3].rsplit(":", 1)[0].lstrip("[").rstrip("]"))
+        if len(cols) < 4 or cols[3].rsplit(":", 1)[-1] != port:
+            continue
+        if '"nginx"' not in line:
+            continue
+        found.append(cols[3].rsplit(":", 1)[0].lstrip("[").rstrip("]"))
     return found
 
 
@@ -388,7 +400,13 @@ def apply_nginx(bind_ip: str) -> int:
         # correctly, leaving .install-incomplete behind on a healthy host.
         # Reload what is rendered (other fragments this verb wrote are live
         # immediately) and leave the proof to whoever enables the site.
-        run(["systemctl", "reload", "nginx.service"])
+        if run(["systemctl", "reload", "nginx.service"]).returncode != 0:
+            # Deferring the listener proof is not the same as ignoring the
+            # reload: nginx may have exited after the is-active check, or
+            # ExecReload may have failed. Silence here would exit 0 and the
+            # postinst could not record the failed apply.
+            die("nginx reload FAILED — front-door changes are NOT live; "
+                "run 'systemctl status nginx'")
         log("the CARLOS site is not enabled in nginx yet; the rendered front "
             "door serves once the package enables it")
         return 0

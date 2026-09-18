@@ -82,6 +82,28 @@ def _check_process_ownership():
             _ok(f"application JVM runs as: {owner}")
 
 
+def _nginx_listeners(port: str) -> list:
+    """Every address NGINX has bound on exactly this TCP port, brackets
+    stripped so an IPv6 literal compares as the operator wrote it.
+
+    Ownership is part of the proof: "something is listening on 443" was green
+    on the very host whose front door was down, and another daemon holding
+    both ports would read the same way. `-p` names the owner, and this verb
+    already needs root, so it is populated. _listeners() stays ownership-blind
+    for the Tomcat and MariaDB probes above, which ask the opposite question —
+    is ANYONE listening where nothing should be.
+    """
+    found = []
+    for line in out(["ss", "-ltnHp"]).splitlines():
+        cols = line.split()
+        if len(cols) < 4 or cols[3].rsplit(":", 1)[-1] != port:
+            continue
+        if '"nginx"' not in line:
+            continue
+        found.append(cols[3].rsplit(":", 1)[0].lstrip("[").rstrip("]"))
+    return found
+
+
 def cmd_check(argv) -> int:
     global _failures
     _failures = 0
@@ -175,8 +197,7 @@ def cmd_check(argv) -> int:
     # the previous configuration — and "something is on 443" was green on
     # exactly that broken host.
     missing = [f"{s.bind_ip}:{port}" for port in ("80", "443")
-               if s.bind_ip not in [a.rsplit(":", 1)[0].lstrip("[").rstrip("]")
-                                    for a in _listeners(port)]]
+               if s.bind_ip not in _nginx_listeners(port)]
     if not missing:
         _ok(f"nginx is listening on {s.bind_ip}:80 and {s.bind_ip}:443")
     else:

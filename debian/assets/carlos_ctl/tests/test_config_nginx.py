@@ -65,7 +65,8 @@ class TestApplyNginx(unittest.TestCase):
         return _cp(0)
 
     def _out(self, cmd):
-        assert cmd == ["ss", "-ltnH"], cmd
+        # -p: the proof is about nginx's own sockets, not anyone's.
+        assert cmd == ["ss", "-ltnHp"], cmd
         # What ss shows depends on whether nginx has been restarted yet: the
         # first entry is the state after the reload, the second (if any) the
         # state after a restart.
@@ -75,8 +76,8 @@ class TestApplyNginx(unittest.TestCase):
         return self.ss_outputs[0] if self.ss_outputs else ""
 
     @staticmethod
-    def _ss(*addrs):
-        return "\n".join(f"LISTEN 0 511 {a} 0.0.0.0:* users:((\"nginx\",pid=1,fd=6))"
+    def _ss(*addrs, owner="nginx"):
+        return "\n".join(f"LISTEN 0 511 {a} 0.0.0.0:* users:((\"{owner}\",pid=1,fd=6))"
                          for a in addrs)
 
     def _apply(self, bind_ip="127.0.0.1"):
@@ -144,6 +145,26 @@ class TestApplyNginx(unittest.TestCase):
         self.test_rc = 1
         self.assertEqual(self._apply(), 1)
         self.assertNotIn(["systemctl", "reload", "nginx.service"], self.calls)
+
+    def test_listeners_owned_by_another_daemon_do_not_count(self):
+        # "something is listening on 80 and 443" is the question that reported
+        # a healthy front door on the tester's broken host. A daemon that is
+        # not nginx holding both ports must not satisfy the proof: nginx is
+        # restarted, and when it still cannot bind, the verb dies.
+        self.ss_outputs = [self._ss("127.0.0.1:80", "127.0.0.1:443", owner="haproxy")]
+        with self.assertRaises(SystemExit):
+            self._apply()
+        self.assertIn(["systemctl", "restart", "nginx.service"], self.calls)
+
+    def test_a_failed_reload_is_fatal_before_the_site_is_enabled_too(self):
+        # Deferring the listener proof is not ignoring the reload: nginx may
+        # have exited after the is-active check, and exiting 0 there would
+        # leave postinst unable to record the failed apply.
+        self.site_enabled = False
+        self.reload_rc = 1
+        with self.assertRaises(SystemExit):
+            self._apply()
+        self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
 
     def test_failed_config_test_never_reloads(self):
         self.test_rc = 1
