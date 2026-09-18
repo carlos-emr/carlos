@@ -45,6 +45,10 @@
     <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <link rel="stylesheet" type="text/css" href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"/>
     <link rel="stylesheet" type="text/css" href="billingON.css"/>
+    <%-- Print CSS: hides the interactive controls marked d-print-none so the
+         printout carries the report only, not the Print button that produced it. --%>
+    <link rel="stylesheet" type="text/css" media="print"
+          href="${pageContext.request.contextPath}/css/print-controls.css"/>
     <title>Billing Reconcilliation</title>
     <style>
         <c:choose>
@@ -55,6 +59,15 @@
             .positionFilter { display: none; }
             </c:otherwise>
         </c:choose>
+        /* The clinic filter and DataTables search box are live controls that
+           DataTables injects outside the table, so they need hiding by their
+           own selectors rather than a d-print-none marker in this page. */
+        @media print {
+            .positionFilter,
+            .dataTables_filter {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 
@@ -64,7 +77,7 @@
     <form action="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/billing/CA/ON/ViewOnGenRASummary" method="post">
         <tr class="myDarkGreen">
             <th align='LEFT'><font color="#FFFFFF"> Billing Reconcilliation - Summary Report</font></th>
-            <th align='RIGHT'>
+            <th align='RIGHT' class="d-print-none">
                 <select id="loadingMsg" class="positionFilter">
                     <option>Loading filters...</option>
                 </select>

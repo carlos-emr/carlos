@@ -42,6 +42,10 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <link rel="stylesheet" type="text/css" href="billingON.css"/>
+    <%-- Print CSS: hides the interactive controls marked d-print-none so the
+         printout carries the report only, not the Print button that produced it. --%>
+    <link rel="stylesheet" type="text/css" media="print"
+          href="${pageContext.request.contextPath}/css/print-controls.css"/>
     <title>Billing Reconcilliation</title>
 </head>
 
@@ -59,7 +63,7 @@
         <tr class="myDarkGreen">
             <th align='LEFT'><font color="#FFFFFF"> Billing
                 Reconcilliation - Error Report</font></th>
-            <th align='RIGHT'><select name="proNo">
+            <th align='RIGHT' class="d-print-none"><select name="proNo">
                 <option value="all" ${onGenRAErrorModel.selectedProviderOhip == 'all' ? 'selected' : ''}>All
                     Providers
                 </option>

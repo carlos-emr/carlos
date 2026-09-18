@@ -45,6 +45,10 @@
     <title><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
+    <%-- Print CSS: hides the interactive controls marked d-print-none so the
+         printout carries the report only, not the Print button that produced it. --%>
+    <link rel="stylesheet" type="text/css" media="print"
+          href="${pageContext.request.contextPath}/css/print-controls.css"/>
 
     <script language="JavaScript">
         <!--
@@ -112,7 +116,7 @@
 </c:if>
 
 <div class="container-fluid card card-body bg-body-tertiary">
-    <button class="btn btn-primary float-end" type='button' name='print' value='Print'
+    <button class="btn btn-primary float-end d-print-none" type='button' name='print' value='Print'
             onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print
     </button>
     <br/><br/>
@@ -125,7 +129,10 @@
             <th>Payable</th>
             <th>Records/Claims</th>
             <th>Total</th>
-            <th>Action</th>
+            <%-- Action holds nothing but navigation links, so it is chrome on
+                 paper. Status stays: it is the only column that says whether
+                 the RA has been settled. --%>
+            <th class="d-print-none">Action</th>
             <th>Status</th>
         </tr>
         </thead>
@@ -137,7 +144,7 @@
                 <td><carlos:encode value="${row.payable}" context="html"/></td>
                 <td align="center"><carlos:encode value="${row.claimsCount}" context="html"/>/<carlos:encode value="${row.recordsCount}" context="html"/></td>
                 <td align="right"><carlos:encode value="${row.total}" context="html"/></td>
-                <td align="center">
+                <td align="center" class="d-print-none">
                     <a href="${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAError?rano=<carlos:encode value='${row.raNo}' context='uriComponent'/>&proNo="
                        target="_blank">Error</a>
                     | <a href="#" onclick="postTo('${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRASummary','<carlos:encode value="${row.raNo}" context="javaScript"/>','_blank');return false;">Summary</a>

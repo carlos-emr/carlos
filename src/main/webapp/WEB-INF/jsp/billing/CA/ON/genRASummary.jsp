@@ -36,6 +36,10 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <link rel="stylesheet" href="billing.css">
+    <%-- Print CSS: hides the interactive controls marked d-print-none so the
+         printout carries the report only, not the Print button that produced it. --%>
+    <link rel="stylesheet" type="text/css" media="print"
+          href="${pageContext.request.contextPath}/css/print-controls.css"/>
     <title>Billing Reconcilliation</title>
 </head>
 
@@ -50,16 +54,16 @@
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
-        <th align='LEFT'><input type='button' name='print' value='Print'
+        <th align='LEFT' class="d-print-none"><input type='button' name='print' value='Print'
                                 onClick='window.print(); return false;'></th>
         <th><font face="Arial, Helvetica, sans-serif" color="#FFFFFF">
             Billing Reconcilliation - Payment Summary</font></th>
-        <th align='RIGHT'><input type='button' name='close' value='Close'
+        <th align='RIGHT' class="d-print-none"><input type='button' name='close' value='Close'
                                  onClick='window.close()'></th>
     </tr>
 </table>
 
-<table border="0" cellspacing="0" cellpadding="0" width="100%">
+<table border="0" cellspacing="0" cellpadding="0" width="100%" class="d-print-none">
     <tr bgcolor="#333333">
         <th align='CENTRE' nowrap>
             <form action="${pageContext.request.contextPath}/billing/CA/ON/ViewGenRASummary" method="post">

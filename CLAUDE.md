@@ -205,6 +205,37 @@ inline blocks actually executed, and the console logged no CSP violation.
 
 Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
 
+### Print CSS on Pages That Print Themselves
+
+A page whose Print control calls `window.print()` reproduces the live page verbatim, so
+every button, picker and submit on it lands on the paper — including the Print button the
+operator just clicked. That was issue #3278 on Admin → Billing → billing reconciliation.
+
+**Rule:** on any page with a `window.print()` control, mark the interactive chrome
+`d-print-none` (the Bootstrap 5 utility spelling; `.noprint` is the legacy CARLOS one) and
+make sure the page actually **defines** that class:
+
+- The page already loads Bootstrap → `d-print-none` works with no extra link.
+- The page does not (most legacy report JSPs) → link the shared stylesheet:
+
+  ```jsp
+  <link rel="stylesheet" type="text/css" media="print"
+        href="${pageContext.request.contextPath}/css/print-controls.css"/>
+  ```
+
+Mark the smallest element that contains only chrome — usually the toolbar `<th>`/`<td>` or
+the toolbar `<table>` — so report content is never hidden with it. Controls a library
+injects outside your markup (DataTables' `.dataTables_filter`, for example) have no place to
+carry the marker and need their own `@media print` rule in the page's `<style>` block.
+
+Marking a control on a page that defines the class nowhere hides nothing and looks exactly
+like a fixed page, so both halves are enforced by `scripts/billing-reconciliation-print.test.js`
+(audit helper: `scripts/lib/print-control-audit.js`), which runs in CI via `npm run test:scripts`
+with no Tomcat and no database.
+
+Reference implementation: the RA/reconciliation family under
+`src/main/webapp/WEB-INF/jsp/billing/CA/ON/onGenRA*.jsp` and `genRA*.jsp`.
+
 ### PathValidationUtils - File Path Security
 
 **ALWAYS use PathValidationUtils** (`io.github.carlos_emr.carlos.utility.PathValidationUtils`) for file operations involving user input. It prevents path traversal attacks consistently across the codebase.

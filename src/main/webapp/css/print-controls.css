@@ -1,0 +1,27 @@
+/*
+ * CARLOS EMR - shared print rules for hiding interactive page chrome.
+ *
+ * Legacy CARLOS report pages print themselves with window.print(), which
+ * reproduces the live page verbatim - including the Print button that was just
+ * clicked, plus Close buttons, provider pickers and Generate/submit controls
+ * that mean nothing on paper (issue #3278).
+ *
+ * Mark those controls with class="d-print-none" and link this file. The class
+ * name matches the Bootstrap 5 utility so pages that already load Bootstrap get
+ * identical behaviour; this file exists for the many legacy pages that do not.
+ * ".noprint" is the older CARLOS spelling (see css/print.css) and is honoured
+ * here so both conventions work on a page that mixes them.
+ *
+ * Deliberately narrow: this file hides marked controls and changes nothing
+ * else. It is safe to link with media="print" on any page without altering how
+ * that page's content is laid out on paper.
+ *
+ * @since 2026-09-18
+ */
+
+@media print {
+    .d-print-none,
+    .noprint {
+        display: none !important;
+    }
+}

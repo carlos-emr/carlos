@@ -38,18 +38,22 @@
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>CARLOS EMR</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/web.css">
+    <%-- Print CSS: hides the interactive controls marked d-print-none so the
+         printout carries the report only, not the Print button that produced it. --%>
+    <link rel="stylesheet" type="text/css" media="print"
+          href="${pageContext.request.contextPath}/css/print-controls.css"/>
 </head>
 
 <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
-        <th align="left">
+        <th align="left" class="d-print-none">
             <form><input type="button" onclick="window.print()"
                          value="Print"></form>
         </th>
         <th align="center"><font face="Helvetica" color="#FFFFFF">
             Reconcillation Report </font></th>
-        <th align="right">
+        <th align="right" class="d-print-none">
             <form><input type="button"
                          onClick="popupPage(700,600,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingClipboard')" value="Clipboard"></form>
         </th>
@@ -135,7 +139,7 @@ Colposcopy Total :
         </tr>
         </c:forEach>
         <tr>
-            <td colspan="5" style="text-align: right"><input type="submit"
+            <td colspan="5" style="text-align: right" class="d-print-none"><input type="submit"
                                                              value="<fmt:message key="oscar.billing.on.genRADesc.submitPremium"/>"/>
             </td>
         </tr>
