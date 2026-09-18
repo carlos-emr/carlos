@@ -332,7 +332,7 @@
     <div id="searchResults" style="margin-bottom:10px;">
 
         <div>
-            <%if (request.getParameter("keyword") != null && request.getParameter("keyword").length() == 0) { %>
+            <%if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) { %>
             <fmt:message key="demographic.demographicsearch2apptresults.msgMostRecentPatients"/>
             <% } else { %>
             <fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/> <%}%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
@@ -421,7 +421,7 @@
                     pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
                     List<String> stati = Arrays.asList(pstatus.split(","));
 
-                    if (request.getParameter("keyword") != null && request.getParameter("keyword").length() == 0) {
+                    if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) {
                         int mostRecentPatientListSize = Integer.parseInt(CarlosProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
                         List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize);
                         demoList = new ArrayList<Demographic>();

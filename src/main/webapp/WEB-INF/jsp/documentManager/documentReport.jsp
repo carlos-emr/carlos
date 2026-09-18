@@ -103,7 +103,14 @@
 // "Module" and "function" is the same thing (old documentManager module)
     String module = "";
     String moduleid = "";
-    if (request.getParameter("function") != null) {
+    // The ViewDocumentReport gate (ViewDocumentReportRead2Action) validates "function" and
+    // forwards the canonical lowercased token as "normalizedFunction". Prefer it so a mixed-case
+    // request param does not skip the case-sensitive "demographic" branch below. Only the gate
+    // sets this attribute; non-gate entry points fall through to the existing param/attribute read.
+    if (request.getAttribute("normalizedFunction") != null) {
+        module = (String) request.getAttribute("normalizedFunction");
+        moduleid = request.getParameter("functionid");
+    } else if (request.getParameter("function") != null) {
         module = request.getParameter("function");
         moduleid = request.getParameter("functionid");
     } else if (request.getAttribute("function") != null) {
@@ -224,6 +231,37 @@
                 }
             }
 
+            /**
+             * Copies the CSRFGuard token the client script injected into this page's own
+             * (combine-PDF) form into a dynamically built one.
+             *
+             * CSRFGuard injects into forms that exist when its script runs; a form created and
+             * submitted in the same tick misses that (its injectIntoDynamicNodes observer has not
+             * fired yet), so the POST arrives with no token and CSRFGuard answers 403 -- which is
+             * what deleting a document from this page did.
+             *
+             * Adapted from MultiPageDocDisplay.jsp's helper of the same name, not identical to
+             * it: that one warns and lets the caller submit regardless, while this one returns
+             * false on a missing or empty token so submitDocAction can abort and tell the user
+             * to reload. Keep the two in mind together if either changes.
+             */
+            function appendCsrfToken(form) {
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (!csrfEl || !csrfEl.value) {
+                    // Fail closed. Submitting anyway only trades a silent no-op for CSRFGuard's
+                    // 403 error page, which is the failure this helper exists to prevent; tell
+                    // the user to reload instead, so the action can actually be retried.
+                    console.warn('CSRF token not found on page; document action not submitted.');
+                    return false;
+                }
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfEl.value;
+                form.appendChild(csrfInput);
+                return true;
+            }
+
             /** Creates a dynamic POST form to submit a document action (delete/undelete) to the appropriate action route. */
             function submitDocAction(paramName, docId, func, funcId, viewStatus) {
                 var form = document.createElement('form');
@@ -252,6 +290,10 @@
                     input.value = fields[key];
                     form.appendChild(input);
                 }
+                if (!appendCsrfToken(form)) {
+                    showListAlert(msgCsrfTokenMissing);
+                    return;
+                }
                 document.body.appendChild(form);
                 form.submit();
             }
@@ -265,7 +307,13 @@
                 }
             }
 
-            var msgNoDocSelected = '<fmt:message key="dms.documentReport.msgNoDocSelected"/>';
+            <fmt:message key="dms.documentReport.msgNoDocSelected" var="noDocSelectedText"/>
+            var msgNoDocSelected = '${carlos:forJavaScript(noDocSelectedText)}';
+            <%-- Emitted through forJavaScript: a translation containing an apostrophe or a
+                 backslash would otherwise terminate this string literal and break the whole
+                 script block, taking the delete/undelete handlers down with it. --%>
+            <fmt:message key="dms.documentReport.msgCsrfTokenMissing" var="csrfTokenMissingText"/>
+            var msgCsrfTokenMissing = '${carlos:forJavaScript(csrfTokenMissingText)}';
 
             /**
              * Displays a dismissable Bootstrap alert-danger in the document list alert container.
@@ -340,10 +388,17 @@
             function setup() {
                 var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
                 var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-                var Url = window.opener.URLs;
 
-                if (update === "true" && !window.opener.closed) {
-                    window.opener.popLeftColumn(Url[parentId], parentId, parentId);
+                if (update === "true"
+                        && window.opener
+                        && !window.opener.closed
+                        && window.opener.URLs
+                        && Object.prototype.hasOwnProperty.call(window.opener.URLs, parentId)) {
+                    window.opener.popLeftColumn(window.opener.URLs[parentId], parentId, parentId);
+                } else if (update === "true") {
+                    // Parent refresh was requested but the opener/URL map is gone or lacks this id;
+                    // skip silently in the UI but leave a console trace for debugging.
+                    console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
                 }
             }
 
@@ -741,7 +796,7 @@
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
                 <input type="button" value="<fmt:message key='dms.documentReport.btnCombinePDF'/>" class="btn btn-secondary"
-                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs"/>');"/>
+                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs" context="javaScriptAttribute"/>');"/>
             </div>
 
         </form>

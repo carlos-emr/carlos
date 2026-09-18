@@ -14,7 +14,11 @@ The current API surface was identified from these files:
   REST server at `/ws/rs`.
 - `src/main/resources/applicationContextREST.xml`: OAuth 1.0a endpoints at
   `/ws/oauth` and OAuth-protected REST services at `/ws/services`.
-- `src/main/axis2/service.wsdl`: OLIS SOAP `OLISRequest` contract.
+- `src/main/axis2/service.wsdl`: the **external** Ontario OLIS `OLISRequest`
+  contract. This is an outbound client contract only. Its `soap:address` points
+  at `https://olis.ssha.ca/SSHA.OLIS.WebServices.ER7/Olis.asmx`, and CARLOS
+  hosts no `OLISRequest` endpoint of its own (`spring_ws.xml` registers nothing
+  under `/ws` for it).
 
 ## Environments
 
@@ -69,10 +73,22 @@ services:
 - `/ws/LabUploadService`
 
 Most SOAP services after login are configured with the WS-Security username
-token interceptor. The OLIS WSDL in `src/main/axis2/service.wsdl` defines
-`OLISRequest` with SOAPAction:
+token interceptor.
+
+The OLIS WSDL in `src/main/axis2/service.wsdl` defines `OLISRequest` with
+SOAPAction:
 
 `http://www.ssha.ca/2005/HIAL/OLIS/OLISRequest`
+
+> **OLIS is out of scope for CARLOS API testing.** That WSDL describes the
+> remote Ontario OLIS service that CARLOS calls as a client; it is not a CARLOS
+> API surface, and there is no CARLOS route that serves `OLISRequest`. Never
+> point an OLIS check at `https://olis.ssha.ca/...` or any other live OLIS
+> environment: sending malformed or unsigned probe traffic to a provincial
+> health-information service is not a CARLOS test and is not authorized here.
+> If OLIS client behaviour must be exercised, rewrite the generated client's
+> endpoint to a controlled local mock first and record the mock URL in the
+> notes column.
 
 ## Appointment Integration Mapping
 
@@ -120,8 +136,8 @@ date-only methods are verified against the full SOAP responses.
 | SOAP-06 | Call a secured SOAP service with invalid credentials. | SOAP fault or auth rejection; no stack trace or sensitive detail. |  |  |  |
 | SOAP-07 | Send malformed SOAP XML. | SOAP fault or controlled 4xx/5xx response. |  |  |  |
 | SOAP-08 | Verify namespace handling for request payloads. | Correct namespace accepted; incorrect namespace rejected cleanly. |  |  |  |
-| SOAP-09 | Validate the OLIS `OLISRequest` WSDL contract with a SOAP client. | Operation and SOAPAction are recognized. |  |  |  |
-| SOAP-10 | Send an OLIS-style request with missing `SignedData`. | Controlled validation failure. |  |  |  |
+| SOAP-09 | **External / N/A for CARLOS.** Parse the OLIS `OLISRequest` WSDL offline only, to confirm the outbound client contract still matches `src/main/axis2/service.wsdl`. | Operation and SOAPAction are recognized by the client tooling; no request is sent. |  |  | Not a CARLOS endpoint. Do not call `https://olis.ssha.ca/...`. Skip unless OLIS client work is in scope. |
+| SOAP-10 | **External / N/A for CARLOS.** Only if OLIS client work is in scope: repoint the generated client at a controlled local mock, then send an OLIS-style request with missing `SignedData`. | Mock returns a controlled validation failure and the CARLOS client handles it without leaking PHI. |  |  | Never send this against a live OLIS environment. Record the mock endpoint used. |
 | SOAP-11 | Load `/ws/ScheduleService?wsdl` and confirm appointment operations are present. | `addAppointment`, `updateAppointment`, `getDayWorkSchedule`, `getAppointmentsForProvider`, `getAppointmentsForPatient`, `getAppointment`, and `getAppointmentTypes` are present. |  |  |  |
 | SOAP-12 | Create a test-only appointment through `ScheduleService.addAppointment`. | Appointment id is returned and the appointment can be read back. |  |  | Use disposable test patient/provider/date data. |
 | SOAP-13 | Update that appointment through `ScheduleService.updateAppointment`. | Editable fields persist and unrelated fields remain intact. |  |  | Covers `update_appointment`. |
@@ -143,7 +159,7 @@ collections only if they do not contain PHI or secrets.
 
 | Date | Area | Endpoint or operation | Request type | Expected | Actual | Status | Evidence | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-06-17 | Source inspection | REST and SOAP configuration | Repository review | API surfaces identified from source | `/ws/rs`, `/ws/oauth`, `/ws/services`, SOAP `/ws/*`, and OLIS WSDL documented | Complete | `spring_ws.xml`, `applicationContextREST.xml`, `service.wsdl` | No live environment calls recorded in this entry. |
+| 2026-06-17 | Source inspection | REST and SOAP configuration | Repository review | API surfaces identified from source | `/ws/rs`, `/ws/oauth`, `/ws/services`, SOAP `/ws/*`, and external OLIS client WSDL documented as out of scope | Complete | `spring_ws.xml`, `applicationContextREST.xml`, `service.wsdl` | No live environment calls recorded in this entry. |
 | 2026-06-18 | CARLOS/OSCAR comparison | SOAP, REST, OAuth, and appointment integration paths | Live test/demo environments | Determine whether CARLOS APIs work and whether CARLOS/OSCAR behave the same | CARLOS SOAP worked for tested appointment flows; CARLOS REST worked for core flows with defects; CARLOS and OSCAR were compatible but not identical | Complete | PR investigation summary/comments | Keep detailed evidence sanitized and outside this checklist if it contains sensitive values. |
 |  | REST |  |  |  |  |  |  |  |
 |  | SOAP |  |  |  |  |  |  |  |

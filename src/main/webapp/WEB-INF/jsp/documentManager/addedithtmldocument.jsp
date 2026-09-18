@@ -284,7 +284,7 @@
 
         var docSubClassList = [
             <% for (int i=0; i<subClasses.size(); i++) { %>
-            "<%=subClasses.get(i)%>"<%=(i<subClasses.size()-1)?",":""%>
+            "<carlos:encode value='<%= subClasses.get(i) %>' context='javaScript'/>"<%=(i<subClasses.size()-1)?",":""%>
             <% } %>
         ];
 
@@ -370,7 +370,7 @@
         </tr>
         <tr>
             <td>Added By:</td>
-            <td><%=EDocUtil.getProviderName(formdata.getDocCreator())%>
+            <td><carlos:encode value='<%= EDocUtil.getProviderName(formdata.getDocCreator()) %>' context='html'/>
             </td>
         </tr>
         <tr>
@@ -401,11 +401,11 @@
         </tr>
         <tr>
             <td>Source Author:</td>
-            <td><input type="text" name="source" size="15" value="<%=formdata.getSource()%>"/></td>
+            <td><input type="text" name="source" size="15" value="<carlos:encode value='<%= formdata.getSource() %>' context='htmlAttribute'/>"/></td>
         </tr>
         <tr>
             <td>Source Facility:</td>
-            <td><input type="text" name="sourceFacility" size="15" value="<%=formdata.getSourceFacility()%>"/></td>
+            <td><input type="text" name="sourceFacility" size="15" value="<carlos:encode value='<%= formdata.getSourceFacility() %>' context='htmlAttribute'/>"/></td>
         </tr>
         <tr>
             <td>Observation Date <font class="comment">(yyyy/mm/dd):</font></td>
@@ -425,7 +425,7 @@
         <tr>
             <td colspan="2">
                 <% if (formdata.getReviewerId() != null && !formdata.getReviewerId().equals("")) { %>
-                Reviewed: &nbsp; <%=EDocUtil.getProviderName(formdata.getReviewerId())%>
+                Reviewed: &nbsp; <carlos:encode value='<%= EDocUtil.getProviderName(formdata.getReviewerId()) %>' context='html'/>
                 &nbsp; [<%=formdata.getReviewDateTime()%>]
                 <% } else { %>
                 <input type="button" value="Reviewed" title="Click to set Reviewed" onclick="reviewed(this);"/>

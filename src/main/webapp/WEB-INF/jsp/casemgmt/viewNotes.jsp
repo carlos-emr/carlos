@@ -28,6 +28,19 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Renders the notes for a case-management issue in both the encounter sidebar
+    and the full CPP panel grid. CaseManagementView2Action primarily supplies Notes,
+    NoteExts, issueIds, addUrl, identUrl, and cppIssue; request parameters supply
+    the issue code, title, command, demographic, appointment, and panel colour.
+
+    The issue heading and permission-aware add control always remain available.
+    When Notes is empty, the list displays a localized explanation instead of an
+    empty panel body.
+
+    @since 2026-08-13
+--%>
+
 
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils"%>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay"%>
@@ -110,6 +123,9 @@
         </c:choose>
 
 <ul>
+<c:if test="${empty Notes}">
+    <li class="cpp-empty-state"><fmt:message key="casemgmt.viewNotes.msgNoNotes"/></li>
+</c:if>
 <%
     List<CaseManagementNoteExt> noteExts = (List<CaseManagementNoteExt>)request.getAttribute("NoteExts");
     List<CaseManagementNote> notes = (List<CaseManagementNote>) request.getAttribute("Notes");

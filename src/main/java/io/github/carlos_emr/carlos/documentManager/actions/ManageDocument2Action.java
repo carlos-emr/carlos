@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import org.openpdf.text.pdf.PdfReader;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -117,6 +118,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2008-09-10
  */
 public class ManageDocument2Action extends ActionSupport {
+    private static final String ALLOW_METHOD_HEADER = "Allow";
+    private static final String POST_REQUIRED_MESSAGE = "POST required";
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -125,16 +128,15 @@ public class ManageDocument2Action extends ActionSupport {
     private final Logger log = MiscUtils.getLogger();
 
     private final DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+    private final QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
     private final CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
     private final ProviderInboxRoutingDao providerInboxRoutingDAO = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
     private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
 
-    // Canonical incoming-document queue subdirectories. Kept in sync with the allowlist
-    // enforced by IncomingDocUtil.getIncomingDocumentFilePath.
-    private static final Set<String> ALLOWED_INCOMING_QUEUE_DIRS = Set.of("Fax", "Mail", "File", "Refile");
     private static final int MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS = 1000;
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
@@ -266,6 +268,16 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
+            } catch (IOException e) {
+                log.error("Unable to send invalid documentUpdateAjax method response", e);
+            }
+            return;
+        }
+
         if (documentId == null || !documentId.matches("\\d{1,9}")) {
             log.warn("documentUpdateAjax: invalid or missing documentId");
             return;
@@ -274,6 +286,7 @@ public class ManageDocument2Action extends ActionSupport {
             log.warn("documentUpdateAjax: invalid or missing demog");
             return;
         }
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
 
@@ -423,6 +436,18 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
+            } catch (IOException e) {
+                log.error("Unable to send invalid removeLinkFromDocument method response", e);
+            }
+            return;
+        }
+
+        assertNotOutboundEmailArchiveDocument(docId);
+
         providerInboxRoutingDAO.removeLinkFromDocument(docType, Integer.parseInt(docId), providerNo);
         HashMap hm = new HashMap();
         hm.put("linkedProviders", providerInboxRoutingDAO.getProvidersWithRoutingForDocument(docType, Integer.parseInt(docId)));
@@ -454,12 +479,73 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
+            } catch (IOException e) {
+                log.error("Unable to send invalid refile method response", e);
+            }
+            return NONE;
+        }
+
+        int parsedDocumentId = parsePositiveInteger(documentId);
+        int parsedQueueId = parsePositiveInteger(queueId);
+        if (parsedDocumentId < 1 || parsedQueueId < 1) {
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid documentId or queueId");
+            } catch (IOException e) {
+                log.error("Unable to send invalid refile request response", e);
+            }
+            return NONE;
+        }
+
+        Document targetDocument = documentDao.find(parsedDocumentId);
+        if (targetDocument == null
+                || targetDocument.getDocfilename() == null
+                || targetDocument.getDocfilename().trim().isEmpty()
+                || queueDao.find(parsedQueueId) == null) {
+            try {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "document or queue not found");
+            } catch (IOException e) {
+                log.error("Unable to send missing refile target response", e);
+            }
+            return NONE;
+        }
+
+        assertNotOutboundEmailArchiveDocument(documentId);
+
         try {
             EDocUtil.refileDocument(documentId, queueId);
+        } catch (SecurityException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to refile document {} to queue {}", LogSafe.sanitize(documentId), LogSafe.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            // Do not log the exception itself: file-system exception messages can include
+            // document filenames or paths. Validated numeric IDs and the type are sufficient.
+            log.error("Failed to refile document {} to queue {} ({})",
+                    LogSafe.sanitize(documentId), LogSafe.sanitize(queueId),
+                    e.getClass().getSimpleName()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                            "Unable to refile document");
+                } catch (IOException ioe) {
+                    log.error("Unable to send refile failure response", ioe);
+                }
+            }
         }
         return NONE;
+    }
+
+    private static int parsePositiveInteger(String value) {
+        if (value == null || !value.matches("[1-9][0-9]*")) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     /**
@@ -483,11 +569,23 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
+            } catch (IOException e) {
+                log.error("Unable to send invalid documentUpdate method response", e);
+            }
+            return NONE;
+        }
+
         if (documentId == null || documentId.trim().isEmpty()) {
             log.error("Document ID is null or empty, cannot process document update");
             addActionError("Document ID is missing. Cannot process document update.");
             return "error";
         }
+
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr());
 
@@ -1128,8 +1226,8 @@ public class ManageDocument2Action extends ActionSupport {
     public String addIncomingDocument() throws Exception {
 
         if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            response.setHeader(ALLOW_METHOD_HEADER, "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
             return NONE;
         }
 
@@ -1163,9 +1261,9 @@ public class ManageDocument2Action extends ActionSupport {
         // Restrict pdfDir to the canonical incoming queue subdirectories. Canonical-path
         // containment alone only bounds the move to the incoming root; without this
         // allowlist an _edoc writer could file documents out of any other single-segment
-        // subdirectory under the queue (e.g. *_deleted/archive dirs). This mirrors the
-        // restriction enforced by IncomingDocUtil.getIncomingDocumentFilePath.
-        if (!ALLOWED_INCOMING_QUEUE_DIRS.contains(pdfDir)) {
+        // subdirectory under the queue (e.g. *_deleted/archive dirs). IncomingDocUtil owns the
+        // allowlist so this guard cannot drift from the one the write paths enforce.
+        if (!IncomingDocUtil.isAllowedIncomingDocFolder(pdfDir)) {
             log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
         }
@@ -1297,6 +1395,10 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid filename");
         }
         rejectIncomingDocumentPathComponents(fileName);
+        if (!fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            log.warn("Incoming document source does not have a PDF extension");
+            throw new SecurityException("Incoming document source must be a PDF");
+        }
         return fileName;
     }
 
@@ -1616,6 +1718,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if path validation, rendering, or I/O fails
      * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive file-extension comparison for content-type routing; Locale.ROOT is deterministic; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive file-extension comparison for content-type routing; Locale.ROOT is deterministic; not a security or authorization decision")
     public void viewIncomingDocPageAsImage() throws Exception {
 
 
@@ -1649,36 +1753,133 @@ public class ManageDocument2Action extends ActionSupport {
             pageNum = "1";
         }
 
+        // Locale.ROOT so the extension check is deterministic regardless of the server
+        // locale (matches createIncomingCacheVersion's .pdf check above).
+        // The IMPROPER_UNICODE suppression for this call sits on the METHOD declaration, not
+        // here: @SuppressFBWarnings has CLASS retention and the class-file format has no place
+        // to record a declaration annotation on a local, so javac silently drops one written at
+        // this site and SpotBugs keeps reporting the bug. Do not move it back down.
+        String lowerName = sanitizedPdfName.toLowerCase(Locale.ROOT);
+        boolean isPdf = lowerName.endsWith(".pdf");
+        boolean isImage = lowerName.endsWith(".png") || lowerName.endsWith(".jpg")
+                || lowerName.endsWith(".jpeg") || lowerName.endsWith(".gif");
+
+        // Anything that is neither a rasterisable PDF nor a directly-viewable image
+        // cannot be previewed here. Previously an unsupported type (e.g. an X-ray
+        // image) threw a SecurityException INSIDE the try below, after the output
+        // stream had been opened, and the blanket catch swallowed it — producing an
+        // empty HTTP 200 that the viewer rendered as a blank iframe. Fail loud instead.
+        if (!isPdf && !isImage) {
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE,
+                    "This document cannot be previewed (only PDF and image files are supported).");
+            }
+            return;
+        }
+
         BufferedInputStream bfis = null;
         ServletOutputStream outs = null;
 
         try {
+            if (isImage) {
+                // The incoming file is already an image (e.g. an X-ray). Stream it
+                // directly with the correct content type rather than routing every file
+                // through the PDF rasteriser, which rejected non-PDFs and blanked the pane.
+                // nosemgrep: java.lang.security.httpservlet-path-traversal -- queueId/pdfDir/pdfName are traversal-screened above and resolveIncomingImageFile validates directory containment via PathValidationUtils.validateExistingPath
+                File imageFile = resolveIncomingImageFile(queueId, pdfDir, sanitizedPdfName);
+                // Check existence BEFORE touching the response: validateExistingPath
+                // enforces containment but not existence, and a missing file must be a
+                // clean 404 rather than a 500 emitted after the output stream was opened.
+                if (!imageFile.isFile()) {
+                    if (!response.isCommitted()) {
+                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "This document is not available.");
+                    }
+                    return;
+                }
+                response.setContentType(imageContentType(lowerName));
+                response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
+                outs = response.getOutputStream();
+                // nosemgrep: java.lang.security.httpservlet-path-traversal -- imageFile was containment-validated by PathValidationUtils.validateExistingPath in resolveIncomingImageFile
+                bfis = new BufferedInputStream(new FileInputStream(imageFile));
+                org.apache.commons.io.IOUtils.copy(bfis, outs);
+                outs.flush();
+                return;
+            }
+
             Integer pn = Integer.parseInt(pageNum);
             File outfile = createIncomingCacheVersion(queueId, pdfDir, sanitizedPdfName, pn);
-            outs = response.getOutputStream();
 
             if (outfile != null) {
                 // Security: Validate the file path before accessing
                 validateFilePath(outfile);
-                bfis = new BufferedInputStream(new FileInputStream(outfile));
-
-
                 response.setContentType("image/png");
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
+                outs = response.getOutputStream();
+                // nosemgrep: java.lang.security.httpservlet-path-traversal -- outfile is the PathValidationUtils-validated cache file from createIncomingCacheVersion and is re-checked by validateFilePath immediately above
+                bfis = new BufferedInputStream(new FileInputStream(outfile));
                 org.apache.commons.io.IOUtils.copy(bfis, outs);
                 outs.flush();
 
             } else {
                 log.info("Unable to retrieve content for {}/{}/{}", LogSafe.sanitize(queueId), LogSafe.sanitize(pdfDir), LogSafe.sanitize(pdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND,
+                        "This document page is not available.");
+                }
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-
+            // Fail loud: a blank iframe hides the failure from the clinician. Emit a
+            // real error status/message when nothing has been written yet.
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "Unable to render this document.");
+            }
         } finally {
             if (bfis != null) {
                 bfis.close();
             }
         }
+    }
+
+    /**
+     * Resolves and path-validates a directly-viewable incoming image file (png/jpg/
+     * jpeg/gif) within the configured incoming-document directory, mirroring the
+     * containment checks {@link #createIncomingCacheVersion} performs for PDFs.
+     *
+     * @param queueId String the incoming document queue identifier (already checked for traversal)
+     * @param pdfDir String the subdirectory type (already checked for traversal)
+     * @param sanitizedPdfName String the filename (already basename-sanitized)
+     * @return File the validated image file within the allowed directory
+     * @throws Exception if the directory is not configured or the path escapes the base directory
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    private File resolveIncomingImageFile(String queueId, String pdfDir, String sanitizedPdfName) throws Exception {
+        String incomingDocPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, pdfDir);
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        if (incomingDocDir == null || incomingDocDir.isEmpty()) {
+            throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
+        }
+        File baseDir = new File(incomingDocDir);
+        File file = new File(new File(incomingDocPath), sanitizedPdfName);
+        return PathValidationUtils.validateExistingPath(file, baseDir);
+    }
+
+    /**
+     * Maps a lower-cased image filename to its inline content type.
+     *
+     * @param lowerName String the lower-cased filename
+     * @return String the image MIME type (defaults to image/jpeg for jpg/jpeg)
+     */
+    private String imageContentType(String lowerName) {
+        if (lowerName.endsWith(".png")) {
+            return "image/png";
+        }
+        if (lowerName.endsWith(".gif")) {
+            return "image/gif";
+        }
+        return "image/jpeg";
     }
 
     /**
@@ -1919,5 +2120,18 @@ public class ManageDocument2Action extends ActionSupport {
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().print(jsonArray.toString());
         response.getWriter().flush();
+    }
+    /**
+     * Refuses document operations on an outbound email archive eDoc.
+     *
+     * <p>These routes edit, re-file and unlink ordinary clinical documents. An archive artifact
+     * is a legal record of what was sent to a patient, and the only sanctioned way to retire one
+     * is {@code OutboundEmailArchiveService.recordControlledDeletion}, which requires
+     * {@code _admin.edocdelete}, a released legal hold, a reason and a tombstone.</p>
+     */
+    private void assertNotOutboundEmailArchiveDocument(String documentId) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentId)) {
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
+        }
     }
 }
