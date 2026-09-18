@@ -94,7 +94,7 @@
 
 </div>
 
-<%-- This leaves the OCEAN toolbar accessible but not taking up prime realestate.
+<%-- This leaves the OCEAN toolbar accessible but not taking up prime real estate.
      Matches OSCAR19's newCaseManagementView.jsp exactly: a static sibling right after
      #notCPP, present from initial page load (no AJAX-load race), gated on the
      echart_show_ocean admin toggle (default "on" when unset, same as OSCAR19's
