@@ -16,6 +16,7 @@ Review baseline: `c181142689` on `release/2026.08`, compared with `origin/main`
 | Calculator validation clears its own error and the entered value | The browser's `reportValidity()` focuses the invalid field; the legacy focus handler immediately clears the form | Select the source unit on input edits, preserve focused results, and test correction after a visible validation error |
 | Legacy referral with a NULL booking flag returns HTTP 500 | Dedicated installed-package browser regression reproduces Hibernate hydration failure; the published SQL column permits NULL | Nullable internal model field with the existing boolean API; DAO verifies reading does not rewrite NULL, and Playwright verifies the saved referral opens |
 | Bouncy Castle dependency has open security advisories | Release pins 1.84; Dependabot alerts #195/#196 include a critical name-constraints bypass | Upgrade to 1.86 and refresh its dependency lock; validate the full build and installed cryptographic workflows |
+| Correcting a temperature through the opposite field leaves a stale error | Entering an invalid Fahrenheit value, then 20 Celsius, produces 68 Fahrenheit but retains `Enter a finite number` on that now-valid result | Clear the destination's old validity before replacing its value; unit and browser regressions cover correction through the opposite field |
 
 Conversion definitions: [NIST SP 811 Appendix B.8](https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b8).
 
@@ -71,7 +72,7 @@ dataset. The other three checks follow UI controls.
 The suite manifest contains 125 checks after these additions. Listing a check
 does not mean its deployment-specific prerequisites have been satisfied.
 
-## Corrected-package verification
+## First corrected-package verification
 
 - Full corrected Java `clean package`: 12,413 tests, zero failures/errors, 51 skips.
   The dependency integrity check also passes with all three Bouncy Castle
@@ -258,14 +259,24 @@ Promotion DCO flags five historical commits without trailers and its reporting
 step also receives HTTP 403. New repair commits carry DCO sign-off. This report
 makes no assertion that the promotion's existing DCO/security gates are green.
 
-## Repair review
+## Initial repair review
 
 CodeRabbit completed a full follow-up review of `d7b8d2ee48` and reported no
 actionable comments. Earlier valid comments were fixed and their regression
-checks passed; all review threads were answered and resolved. The final report
-and result inventory are documentation-only additions after that reviewed and
-VM-tested application revision. New commits carry DCO sign-off.
+checks passed; all review threads were answered and resolved. The original report
+and result inventory commit (`79a94fe05e`) added only documentation after that
+reviewed and VM-tested application revision. New commits carry DCO sign-off.
 
 Evidence logs, package SHA-256 records, memory samples and protected VM backups
 are retained by the validation operator. Raw deployment logs and database
 backups are not committed to the public repository.
+
+## Second review
+
+The second review reproduced the temperature-recovery issue above with the
+actual JSP's JavaScript. The added regression failed against the previous code
+(19 passed, one failed), then the full Node suite passed all 701 cases after the
+fix. The live calculator check now also corrects an invalid Celsius entry by
+entering Fahrenheit and requires both the expected value and cleared validity.
+Subsequent installed-package verification, CI and review outcomes are recorded
+on [repair PR #3764](https://github.com/carlos-emr/carlos/pull/3764).

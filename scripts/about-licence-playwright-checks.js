@@ -71,6 +71,14 @@ async function workflow(s) {
     assert(await forms.nth(3).locator('[name="F"]').inputValue() === '', 'Invalid temperature produced a result');
     assert(!await forms.nth(3).locator('[name="C"]').evaluate(input => input.validity.valid),
       'Invalid temperature was silently accepted');
+    await forms.nth(3).locator('[name="F"]').fill('212');
+    await forms.nth(3).locator('[name="F"]').press('Tab');
+    assert(await forms.nth(3).locator('[name="C"]').inputValue() === '100',
+      'Correcting the opposite temperature field did not recalculate');
+    assert(await forms.nth(3).locator('[name="C"]').evaluate(input => input.validity.valid),
+      'A recalculated temperature retained its old validation error');
+    await forms.nth(3).locator('[name="C"]').fill('invalid');
+    await forms.nth(3).locator('[name="C"]').press('Tab');
     await forms.nth(3).locator('[name="C"]').fill('');
     await forms.nth(3).locator('[name="C"]').press('Tab');
     assert(await forms.nth(3).locator('[name="C"]').evaluate(input => input.validity.valid),

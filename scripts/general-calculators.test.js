@@ -145,3 +145,24 @@ test('invalid temperatures clear output and an empty field clears the error with
   assert.equal(input.message, '');
   assert.equal(output.value, '');
 });
+
+test('correcting temperature through the opposite field clears its stale validation error', () => {
+  const { forms, context } = calculator();
+  const fahrenheit = forms[0].val1;
+  const celsius = forms[0].val2;
+  forms[0].elements.F = fahrenheit;
+  forms[0].elements.C = celsius;
+  fahrenheit.value = 'invalid';
+  context.convertTemperature(fahrenheit, 'C', true);
+  assert.notEqual(fahrenheit.message, '');
+  celsius.value = '20';
+  context.convertTemperature(celsius, 'F', false);
+  assert.equal(fahrenheit.value, '68');
+  assert.equal(fahrenheit.message, '');
+  fahrenheit.value = 'invalid';
+  context.convertTemperature(fahrenheit, 'C', true);
+  celsius.value = '';
+  context.convertTemperature(celsius, 'F', false);
+  assert.equal(fahrenheit.value, '');
+  assert.equal(fahrenheit.message, '');
+});

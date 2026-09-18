@@ -93,6 +93,7 @@
 
             function convertTemperature(input, outputName, toCelsius) {
                 var output = input.form.elements[outputName];
+                output.setCustomValidity("");
                 if (input.value.trim() === "") {
                     input.setCustomValidity("");
                     output.value = "";
