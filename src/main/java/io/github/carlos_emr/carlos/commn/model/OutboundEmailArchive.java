@@ -58,7 +58,32 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     public static final String ARTIFACT_TYPE_API_PAYLOAD = "API_PAYLOAD";
     public static final String STORAGE_TYPE_EDOC = "EDOC";
     public static final String RETENTION_POLICY_PERMANENT = "PERMANENT";
+    /**
+     * Artifact captured; dispatch has not been attempted yet. Also the state a row is left in
+     * when CARLOS could not record an outcome, so it never implies "not sent".
+     */
     public static final String SEND_STATUS_ARCHIVED = "ARCHIVED";
+
+    /**
+     * The artifact was handed to the transport and the outcome is not yet known. A row that stays
+     * here after a send is an unresolved attempt, not a failure: it is the honest state for a
+     * dispatch whose result CARLOS could not observe.
+     */
+    public static final String SEND_STATUS_SEND_ATTEMPTED = "SEND_ATTEMPTED";
+
+    /**
+     * The transport accepted the artifact for delivery.
+     *
+     * <p><strong>This is not proof of delivery.</strong> SMTP acceptance means the relay took
+     * custody; the recipient's provider may still bounce or silently discard the message
+     * afterwards, asynchronously, with nothing reported back to CARLOS. Deliberately named
+     * ACCEPTED rather than SENT so an auditor reading the archive is not told more than the
+     * record actually knows.
+     */
+    public static final String SEND_STATUS_ACCEPTED = "ACCEPTED";
+
+    /** The transport refused the artifact, or failed before it could be handed over. */
+    public static final String SEND_STATUS_SEND_FAILED = "SEND_FAILED";
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "emailLogId", nullable = false)
@@ -304,6 +329,65 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
 
     public boolean isDeleted() {
         return deleted;
+    }
+
+    /**
+     * Records that the artifact has been handed to the transport, outcome not yet known.
+     *
+     * <p>Stamps {@code sendAttemptedAt} so an unresolved attempt can be told apart from an
+     * archive that was never dispatched at all — before this existed, both sat at ARCHIVED.</p>
+     *
+     * @param providerNo provider number responsible for the send
+     */
+    public void recordSendAttempt(String providerNo) {
+        if (SEND_STATUS_ACCEPTED.equals(sendStatus)) {
+            // Acceptance is terminal. A late or duplicated attempt marker must not erase it.
+            return;
+        }
+        this.sendStatus = SEND_STATUS_SEND_ATTEMPTED;
+        this.sendAttemptedAt = new Date();
+        setLastUpdateUser(providerNo);
+    }
+
+    /**
+     * Records that the transport accepted the artifact for delivery.
+     *
+     * <p>See {@link #SEND_STATUS_ACCEPTED}: this states custody was transferred, not that the
+     * recipient received anything. Backfills {@code sendAttemptedAt} when the attempt marker
+     * could not be written, so the pair is never half-recorded.</p>
+     *
+     * @param providerNo provider number responsible for the send
+     */
+    public void recordSendAccepted(String providerNo) {
+        Date acceptedAt = new Date();
+        this.sendStatus = SEND_STATUS_ACCEPTED;
+        if (this.sendAttemptedAt == null) {
+            this.sendAttemptedAt = acceptedAt;
+        }
+        this.sentAt = acceptedAt;
+        setLastUpdateUser(providerNo);
+    }
+
+    /**
+     * Records that the transport refused the artifact or failed before handing it over.
+     *
+     * <p>Leaves {@code sentAt} null: nothing accepted custody. Reserved for failures CARLOS
+     * observed directly — a dispatch whose outcome is genuinely unknown stays at
+     * {@link #SEND_STATUS_SEND_ATTEMPTED} rather than being recorded as a failure it cannot
+     * prove.</p>
+     *
+     * @param providerNo provider number responsible for the send
+     */
+    public void recordSendFailure(String providerNo) {
+        if (SEND_STATUS_ACCEPTED.equals(sendStatus)) {
+            // A post-acceptance bookkeeping fault must not rewrite a recorded acceptance.
+            return;
+        }
+        this.sendStatus = SEND_STATUS_SEND_FAILED;
+        if (this.sendAttemptedAt == null) {
+            this.sendAttemptedAt = new Date();
+        }
+        setLastUpdateUser(providerNo);
     }
 
     public String getSendStatus() {

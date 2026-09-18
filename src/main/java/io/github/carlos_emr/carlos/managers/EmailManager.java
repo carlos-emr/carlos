@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
@@ -38,6 +39,7 @@ import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import io.github.carlos_emr.carlos.managers.OutboundEmailArchiveService.SendOutcome;
 import io.github.carlos_emr.carlos.utility.OutboundEmailArchiveException;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
@@ -233,21 +235,55 @@ public class EmailManager {
 
     private void sendWithArchive(LoggedInInfo loggedInInfo, EmailSender sender, EmailLog log)
             throws EmailSendingException {
+        Integer archiveId = null;
         try {
-            archiveOutboundEmail(loggedInInfo, sender, log);
+            archiveId = archiveOutboundEmail(loggedInInfo, sender, log);
+            recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.ATTEMPTED);
             sender.sendPrepared();
+            recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.ACCEPTED);
         } catch (EmailSendingException e) {
+            // An uncertain outcome stays at ATTEMPTED. Recording FAILED would assert the message
+            // did not go out, which is precisely what this path could not establish.
+            if (!e.isDeliveryOutcomeUncertain()) {
+                recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.FAILED);
+            }
             throw new EmailSendingException(safePersistedFailureMessage(e), e,
                     e.isDeliveryOutcomeUncertain());
         } catch (SecurityException e) {
             // Record the refused attempt, but propagate authorization failure to the caller.
             recordAuthorizationFailure(log, e);
+            recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.FAILED);
             throw e;
         } catch (RuntimeException e) {
+            // Same reasoning as the uncertain branch: the transport confirmed nothing either way,
+            // so the archive keeps whatever ATTEMPTED already recorded.
             throw new EmailSendingException("Email transport did not confirm whether the message was accepted.",
                     e, true);
         } finally {
             discardPreparedQuietly(sender, null);
+        }
+    }
+
+    /**
+     * Advances the archive's send lifecycle without ever changing the send's own outcome.
+     *
+     * <p>Strictly best-effort. By the time the ACCEPTED transition runs the message is already
+     * with the transport, so a bookkeeping fault here must not turn a delivered email into a
+     * reported failure — that would prompt a clinician to send a duplicate. A transition that
+     * cannot be written leaves the row at its previous state, which the lifecycle constants
+     * define as "not known", never as "not sent".</p>
+     */
+    private void recordArchiveSendOutcome(LoggedInInfo loggedInInfo, Integer archiveId, SendOutcome outcome) {
+        if (archiveId == null) {
+            return;
+        }
+        try {
+            outboundEmailArchiveService.recordSendOutcome(loggedInInfo, archiveId, outcome);
+        } catch (RuntimeException e) {
+            // Includes SecurityException, for a privilege revoked mid-send: the artifact is
+            // already archived and possibly already sent, so this is logged, never propagated.
+            logger.warn("Outbound email archive send outcome was not recorded; archiveId={}; outcome={}; causeType={}",
+                    archiveId, outcome, e.getClass().getSimpleName());
         }
     }
 
@@ -378,7 +414,10 @@ public class EmailManager {
         logger.warn("Outbound email preparation failed: {}", failure.getClass().getSimpleName());
     }
 
-    private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
+    /**
+     * @return the persisted archive identifier, so the caller can advance its send lifecycle
+     */
+    private Integer archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
         OutboundEmailArchiveDto archiveRequest;
         try {
             // Message preparation, NOT archive storage. This validates SMTP configuration
@@ -404,7 +443,8 @@ public class EmailManager {
             // Preserve the exact attempted message before transport. ARCHIVED describes successful
             // capture of that immutable artifact; EmailLog remains the source of truth for whether
             // delivery subsequently succeeded or failed, so failed attempts retain their audit record.
-            outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
+            OutboundEmailArchive archive = outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
+            return archive != null ? archive.getId() : null;
         } catch (SecurityException e) {
             // Third and last site subject to the authorization-propagation rule above.
             // OutboundEmailArchiveService.archive throws SecurityException for a missing
@@ -719,8 +759,8 @@ public class EmailManager {
         if (!EmailStatus.PENDING.equals(previousStatus)
                 || !(EmailStatus.SUCCESS.equals(emailStatus) || EmailStatus.FAILED.equals(emailStatus)
                         || EmailStatus.BLOCKED.equals(emailStatus))) {
-            throw new IllegalStateException("Invalid email transport status transition from "
-                    + previousStatus + " to " + emailStatus);
+            throw new IllegalStateException("Invalid email transport status transition: "
+                    + previousStatus + " -> " + emailStatus);
         }
 
         Date newTimestamp = new Date();
