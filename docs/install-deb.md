@@ -81,7 +81,7 @@ sudo apt update
 sha256sum -c carlos-emr_<version>_all.deb.sha256
 sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
 sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
-sudo apt install ./carlos-emr_<version>_all.deb \
+sudo apt install --no-remove ./carlos-emr_<version>_all.deb \
                  ./carlos-emr-drugref_<version>_all.deb \
                  ./carlos-emr-eform-renderer_<version>_amd64.deb
 ```
@@ -324,7 +324,11 @@ move between the two without relearning.
 ### Upgrades
 
 An upgrade is `apt install` of the newer packages — same command as the
-install. The schema migrates before the service restarts, your configuration
+install. Supply all three files from the same release: DrugRef and the renderer
+depend on the matching main-package version. Offering only a newer main package
+can cause apt to propose removing those companions. Keep `--no-remove` so that
+proposal fails instead of removing prescription lookup and eForm rendering.
+The schema migrates before the service restarts, your configuration
 files are never overwritten, and the application refuses to start against a
 schema it was not built for rather than failing mid-consultation. Two habits
 make upgrades boring:
