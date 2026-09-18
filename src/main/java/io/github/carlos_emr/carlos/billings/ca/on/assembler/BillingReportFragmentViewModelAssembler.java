@@ -46,10 +46,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Assembles {@link BillingReportFragmentViewModel} for the four ON billing
- * report JSPF fragments (billed / unsettled / billob / flu). Owns the inline
- * DAO calls and date-range / status / row-color logic the fragments used to
- * compute in scriptlet bodies.
+ * Assembles {@link BillingReportFragmentViewModel} for the five ON billing
+ * report JSPF fragments (billed / unsettled / billob / flu / unbilled). Owns
+ * the inline DAO calls and date-range / status / row-color logic the fragments
+ * used to compute in scriptlet bodies.
  *
  * <p>Pure read: privilege gating is performed by the parent JSP's
  * {@code ViewBillingReportControl2Action}; this assembler runs after the

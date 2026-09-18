@@ -25,9 +25,10 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Immutable view model for the four ON billing-report JSPF fragments
+ * Immutable view model for the five ON billing-report JSPF fragments
  * ({@code billingReport_billed.jspf}, {@code billingReport_unsettled.jspf},
- * {@code billingReport_billob.jspf}, {@code billingReport_flu.jspf}).
+ * {@code billingReport_billob.jspf}, {@code billingReport_flu.jspf},
+ * {@code billingReport_unbilled.jspf}).
  *
  * <p>The fragments are included from the parent
  * {@code billingReportControl.jsp}. The view model captures the per-fragment
@@ -37,10 +38,10 @@ import java.util.List;
  * <p>Each fragment uses only the subset of fields its template renders
  * ({@code billedRows}, {@code unsettledRows}, {@code billobRows} +
  * {@code billobTotal}, {@code fluClinicRows} + {@code fluWalkinRows} +
- * {@code fluTotal1} + {@code fluTotal2}). The other fields stay as empty
- * lists / "0.00" defaults — assembling all four shapes from one model
- * keeps the parent-jsp include order intact without forcing four separate
- * request-attribute keys.</p>
+ * {@code fluTotal1} + {@code fluTotal2}, {@code unbilledRows}). The other
+ * fields stay as empty lists / "0.00" defaults — assembling all five shapes
+ * from one model keeps the parent-jsp include order intact without forcing
+ * five separate request-attribute keys.</p>
  *
  * @since 2026-04-26
  */
