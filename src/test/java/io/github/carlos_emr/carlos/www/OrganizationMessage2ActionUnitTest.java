@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.commn.dao.FacilityMessageDao;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.services.OrganizationMessageManager;
-import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -49,7 +48,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("OrganizationMessage2Action Tests")
 @Tag("unit")
 @Tag("admin")
-class OrganizationMessage2ActionUnitTest extends CarlosWebTestBase {
+class OrganizationMessage2ActionUnitTest extends MessageBannerAuthorizationUnitTestBase {
 
     @Mock
     private OrganizationMessageManager mockOrganizationMessageManager;
@@ -87,70 +86,33 @@ class OrganizationMessage2ActionUnitTest extends CarlosWebTestBase {
     }
 
 
-    @Nested
-    @DisplayName("execute() - Security")
-    class SecurityChecks {
+    @Override
+    protected org.apache.struts2.ActionSupport bannerAction() {
+        return action;
+    }
 
-        @Test
-        @DisplayName("should render the facility banner when view is requested without admin write")
-        void shouldRenderFacilityBanner_whenViewRequestedWithoutAdminWrite() throws Exception {
-            // Given - a clinician with no admin rights loads the provider schedule (issue #3728)
-            denyPrivilege("_admin", "w");
-            denyPrivilege("_admin", "r");
-            when(mockProgramManager2.getCurrentProgramInDomain(any(LoggedInInfo.class), any()))
-                .thenReturn(null);
-            when(mockFacilityMessageDao.getMessagesByFacilityIdOrNullAndProgramIdOrNull(null, null))
-                .thenReturn(java.util.Collections.emptyList());
-            addRequestParameter("method", "view");
+    @Override
+    protected void stubBannerRead() {
+        when(mockProgramManager2.getCurrentProgramInDomain(any(LoggedInInfo.class), any()))
+            .thenReturn(null);
+        when(mockFacilityMessageDao.getMessagesByFacilityIdOrNullAndProgramIdOrNull(null, null))
+            .thenReturn(java.util.Collections.emptyList());
+    }
 
-            // When
-            String result = executeAction(action);
+    @Override
+    protected void verifyBannerRead() {
+        // The facility view still scopes itself to the session's facility and the caller's own
+        // program domain; this asserts it went through that path rather than short-circuiting.
+        verify(mockFacilityMessageDao).getMessagesByFacilityIdOrNullAndProgramIdOrNull(null, null);
+    }
 
-            // Then - the banner renders and no privilege check rejects the read
-            assertThat(result).isEqualTo("view");
-            verify(mockFacilityMessageDao).getMessagesByFacilityIdOrNullAndProgramIdOrNull(null, null);
-            verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
-        }
+    @Override
+    protected Object managementCollaborator() {
+        return mockOrganizationMessageManager;
+    }
 
-        @Test
-        @DisplayName("should throw SecurityException when view is requested without a logged-in session")
-        void shouldThrowSecurityException_whenViewRequestedWithoutSession() throws Exception {
-            // Given - no LoggedInInfo in session (LoginFilter would normally have rejected this)
-            getMockSession().removeAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY);
-            addRequestParameter("method", "view");
-
-            // When/Then
-            assertThatThrownBy(() -> executeAction(action))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("not logged in");
-            verifyNoInteractions(mockFacilityMessageDao);
-        }
-
-        @Test
-        @DisplayName("should throw SecurityException when save is requested without admin write")
-        void shouldThrowSecurityException_whenSaveRequestedWithoutAdminWrite() throws Exception {
-            // Given - the management methods stay behind _admin write
-            denyPrivilege("_admin", "w");
-            addRequestParameter("method", "save");
-
-            // When/Then - denial fires before any persistence happens
-            assertThatThrownBy(() -> executeAction(action))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing required sec object (_admin)");
-            verifyNoInteractions(mockOrganizationMessageManager);
-        }
-
-        @Test
-        @DisplayName("should throw SecurityException when the admin list is requested without admin write")
-        void shouldThrowSecurityException_whenListRequestedWithoutAdminWrite() throws Exception {
-            // Given - no method parameter routes to the administrative list
-            denyPrivilege("_admin", "w");
-
-            // When/Then
-            assertThatThrownBy(() -> executeAction(action))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing required sec object (_admin)");
-            verifyNoInteractions(mockOrganizationMessageManager);
-        }
+    @Override
+    protected Object bannerCollaborator() {
+        return mockFacilityMessageDao;
     }
 }
