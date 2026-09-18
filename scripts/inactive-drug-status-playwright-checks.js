@@ -5,12 +5,15 @@
 // in the deployed reference dataset. This does not create or save a prescription.
 // A temporary status element exercises the page's shipped callback; intercepted
 // responses below test the browser failure display, not a DrugRef outage.
-const { assert, assertNotErrorPage } = require('./lib/playwright-harness');
+const { assert, assertNotErrorPage, SkipCheck } = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
 async function workflow(s) {
   const din = process.env.INACTIVE_DRUG_DIN;
   const date = process.env.INACTIVE_DRUG_DATE;
+  if (!din || !date) {
+    throw new SkipCheck('Set INACTIVE_DRUG_DIN and INACTIVE_DRUG_DATE from the installed reference dataset');
+  }
   assert(/^\d{8}$/.test(din || '') && /^\d{4}-\d{2}-\d{2}$/.test(date || ''),
     'Set INACTIVE_DRUG_DIN and INACTIVE_DRUG_DATE from the installed reference dataset');
   const page = await s.context.newPage();
