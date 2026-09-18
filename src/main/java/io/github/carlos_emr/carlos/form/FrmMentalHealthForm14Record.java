@@ -86,7 +86,7 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
                         String num = Misc.getString(rs, "ohip_no");
                         props.setProperty("reqProvName", Misc.getString(rs, "provName"));
                         props.setProperty("provName", Misc.getString(rs, "provName"));
-                        props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(num, "00"));
+                        props.setProperty("practitionerNo", "0000-" + num + "-00");
                     }
                 }
             } else {
@@ -98,7 +98,7 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
                     if (rs.next()) {
                         num = Misc.getString(rs, "ohip_no");
                         props.setProperty("reqProvName", Misc.getString(rs, "provName"));
-                        props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(num, "00"));
+                        props.setProperty("practitionerNo", "0000-" + num + "-00");
                     }
                 }
 
@@ -108,7 +108,7 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
                     if (rs.next()) {
                         if (num.isEmpty()) {
                             num = Misc.getString(rs, "ohip_no");
-                            props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(num, "00"));
+                            props.setProperty("practitionerNo", "0000-" + num + "-00");
                         }
                         props.setProperty("provName", Misc.getString(rs, "provName"));
 
