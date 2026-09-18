@@ -119,8 +119,8 @@ csrf-xhr-token,PASS,isolated-charts-validation3.log
 edit-appointment-direct-link,PASS,core-validation3.log
 prevention-add-data,PASS,core-validation3.log
 tickler-demo-main,PASS,core-validation3.log
-registry-ichppc-lifecycle,PASS,final-browser-validation5.log
-about-licence,PASS,final-browser-validation5.log
-pharmacy-search,PASS,final-browser-validation5.log
-admin-report-validation,PASS,final-browser-validation5.log
-consultation-null-booking,PASS,final-browser-validation5.log
+registry-ichppc-lifecycle,PASS,recheck-browser-validation6.log
+about-licence,PASS,recheck-browser-validation6.log
+pharmacy-search,PASS,recheck-browser-validation6.log
+admin-report-validation,PASS,recheck-browser-validation6.log
+consultation-null-booking,PASS,recheck-browser-validation6.log

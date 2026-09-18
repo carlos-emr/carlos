@@ -278,5 +278,15 @@ actual JSP's JavaScript. The added regression failed against the previous code
 (19 passed, one failed), then the full Node suite passed all 701 cases after the
 fix. The live calculator check now also corrects an invalid Celsius entry by
 entering Fahrenheit and requires both the expected value and cleared validity.
-Subsequent installed-package verification, CI and review outcomes are recorded
-on [repair PR #3764](https://github.com/carlos-emr/carlos/pull/3764).
+That assertion also failed for the specific stale-validity reason against the
+previous installed `validation5` package. All three `validation6` DEBs were then
+built from `86a1ba377b`, installed with data/credential preservation checks,
+and passed deployment health and Flyway validation. All five added live browser
+checks passed, including the new recovery assertion. Builds ran only with the
+VM stopped; minimum host memory availability was 14.47 GiB for the WAR build and
+12.15 GiB for package assembly. The VM was stopped after validation.
+
+CodeRabbit's full review of `86a1ba377b` requested documentation of the nullable
+booking getter's contract. Its JavaDoc now explicitly states that persisted NULL
+returns false; the implementation is unchanged. Final CI and review outcomes
+are recorded on [repair PR #3764](https://github.com/carlos-emr/carlos/pull/3764).

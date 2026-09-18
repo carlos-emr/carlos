@@ -246,6 +246,12 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
         this.siteName = siteName;
     }
 
+    /**
+     * Reports whether the patient will book the appointment. Legacy requests
+     * with a persisted {@code null} booking flag return {@code false}.
+     *
+     * @return {@code true} only when the stored booking flag is explicitly true
+     */
     public boolean isPatientWillBook() {
         return Boolean.TRUE.equals(patientWillBook);
     }
