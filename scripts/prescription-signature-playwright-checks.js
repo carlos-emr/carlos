@@ -271,28 +271,48 @@ async function openPrescriptionView(page, label) {
  */
 async function waitForPreviewOrExplain(page) {
   const preview = page.locator('#preview');
+  const emptyPrescriptionError = (bodyText) => new Error(
+    `Prescription ${prescriptionScriptId} rendered the print page with no preview frame. `
+    + `This is what /rx/viewScript does when the script has no drugs rows — pick a script `
+    + `that has them (SELECT MAX(p.script_no) FROM prescription p JOIN drugs d `
+    + `ON d.script_no=p.script_no WHERE p.demographic_no=${prescriptionDemographicNo}). `
+    + `Page said: ${JSON.stringify(bodyText)}`,
+  );
+
   try {
     await preview.waitFor({ state: 'attached', timeout: 5000 });
     return;
   } catch (error) {
-    // Fall through: either a slow render or an empty prescription.
+    // Either a slow render or an empty prescription; the next check tells them apart.
   }
 
-  const rendered = await page.evaluate(() => ({
+  // A finished document with no #preview is the definitive empty-prescription signal, so the
+  // diagnosis can be made now. A document still loading is not: concluding from the 5s probe
+  // alone would cut the original 30s tolerance and fail slow environments for the wrong
+  // reason, so those keep the remaining budget.
+  const settled = await page.evaluate(() => ({
     hasPreview: !!document.querySelector('#preview'),
+    complete: document.readyState === 'complete',
     bodyText: (document.body ? document.body.innerText : '').slice(0, 400),
   }));
-  if (!rendered.hasPreview) {
-    throw new Error(
-      `Prescription ${prescriptionScriptId} rendered the print page with no preview frame. `
-      + `This is what /rx/viewScript does when the script has no drugs rows — pick a script `
-      + `that has them (SELECT MAX(p.script_no) FROM prescription p JOIN drugs d `
-      + `ON d.script_no=p.script_no WHERE p.demographic_no=${prescriptionDemographicNo}). `
-      + `Page said: ${JSON.stringify(rendered.bodyText)}`,
-    );
+  if (settled.complete && !settled.hasPreview) {
+    throw emptyPrescriptionError(settled.bodyText);
   }
 
-  await preview.waitFor({ state: 'attached', timeout: 25000 });
+  try {
+    await preview.waitFor({ state: 'attached', timeout: 25000 });
+  } catch (error) {
+    // The full budget is spent. If the frame is still missing the cause is the same one, and
+    // naming it beats re-throwing a bare locator timeout.
+    const final = await page.evaluate(() => ({
+      hasPreview: !!document.querySelector('#preview'),
+      bodyText: (document.body ? document.body.innerText : '').slice(0, 400),
+    }));
+    if (!final.hasPreview) {
+      throw emptyPrescriptionError(final.bodyText);
+    }
+    throw error;
+  }
 }
 
 async function previewFrame(page) {
