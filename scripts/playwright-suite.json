@@ -2032,6 +2032,21 @@
       ]
     },
     {
+      "name": "tickler-demo-main",
+      "script": "scripts/tickler-demo-main-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TICKLER_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
       "name": "form-asset-paths",
       "script": "scripts/form-asset-paths-playwright-checks.js",
       "tiers": [

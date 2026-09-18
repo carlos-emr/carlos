@@ -383,14 +383,29 @@
             function setup() {
 
                 var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-                var Url = window.opener.URLs;
                 var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
 
-                if (update == "true" && parentId != "" && !window.opener.closed) {
-                    window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentId;
-                    window.opener.updateNeeded = true;
-                } else if (update == "true" && parentId == "" && !window.opener.closed)
-                    window.opener.location.reload();
+                // window.opener is null whenever this page is reached by direct navigation, a
+                // bookmark, or a browser that severs the opener (COOP, rel=noopener, popup
+                // blockers). Read it once and bail out before touching it, so the page still
+                // renders instead of throwing out of onload (#3731). The dead `var Url =
+                // window.opener.URLs` that used to sit here was the throw site; nothing read it.
+                var opener = window.opener;
+                if (!opener || opener.closed || update != "true") {
+                    return;
+                }
+
+                if (parentId != "") {
+                    // The opener is a same-origin CARLOS window, but it may have navigated away
+                    // from the encounter page that owns encForm, so the form may not be there.
+                    var encForm = opener.document.forms['encForm'];
+                    if (encForm && encForm.elements['reloadDiv']) {
+                        encForm.elements['reloadDiv'].value = parentId;
+                    }
+                    opener.updateNeeded = true;
+                } else {
+                    opener.location.reload();
+                }
             }
 
 
