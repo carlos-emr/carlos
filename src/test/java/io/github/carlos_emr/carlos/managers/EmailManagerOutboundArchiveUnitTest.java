@@ -259,6 +259,116 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should advance the archive to accepted when the transport takes the message")
+    void shouldAdvanceArchiveToAccepted_whenTransportTakesTheMessage() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(46);
+        stubArchiveWithId(91);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            emailManager.sendEmail(loggedInInfo, emailData());
+
+            // ATTEMPTED must be written before the transport runs, so a crash mid-dispatch leaves
+            // an unresolved attempt rather than a row that looks like it was never sent.
+            org.mockito.InOrder lifecycle = inOrder(outboundEmailArchiveService, smtpSenders.constructed().get(0));
+            lifecycle.verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 91, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+            lifecycle.verify(smtpSenders.constructed().get(0)).sendPrepared();
+            lifecycle.verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 91, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        }
+    }
+
+    @Test
+    @DisplayName("should record an archive send failure when the transport refuses the message")
+    void shouldRecordArchiveSendFailure_whenTransportRefusesTheMessage() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(47);
+        stubArchiveWithId(92);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("relay refused the message"))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 92, OutboundEmailArchiveService.SendOutcome.FAILED);
+        }
+    }
+
+    @Test
+    @DisplayName("should leave the archive at attempted when the delivery outcome is uncertain")
+    void shouldLeaveArchiveAtAttempted_whenDeliveryOutcomeIsUncertain() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(48);
+        stubArchiveWithId(93);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("transport outcome unknown", null, true))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            emailManager.sendEmail(loggedInInfo, emailData());
+
+            // Recording FAILED here would assert the message never went out -- exactly what an
+            // uncertain outcome cannot establish. The row stays at ATTEMPTED, which reads as
+            // "not known" rather than "not sent".
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 93, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+            verify(outboundEmailArchiveService, never())
+                    .recordSendOutcome(loggedInInfo, 93, OutboundEmailArchiveService.SendOutcome.FAILED);
+        }
+    }
+
+    @Test
+    @DisplayName("should still report success when archive lifecycle bookkeeping fails")
+    void shouldStillReportSuccess_whenLifecycleBookkeepingFails() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(49);
+        stubArchiveWithId(94);
+        // The message is already with the transport by the time ACCEPTED is written. Turning a
+        // bookkeeping fault into a failed send would invite a clinician to send a duplicate.
+        doThrow(new IllegalStateException("archive row locked"))
+                .when(outboundEmailArchiveService)
+                .recordSendOutcome(loggedInInfo, 94, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        }
+    }
+
+    private void stubPersistedEmailLogId(int emailLogId) {
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", emailLogId);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+    }
+
+    private void stubArchiveWithId(int archiveId) throws Exception {
+        OutboundEmailArchive archive = new OutboundEmailArchive();
+        archive.setId(archiveId);
+        when(outboundEmailArchiveService.archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class)))
+                .thenReturn(archive);
+    }
+
+    @Test
     @DisplayName("should archive SendGrid payload before sending the prepared request")
     void shouldArchiveSendGridPayload_beforeSendingPreparedRequest() throws Exception {
         EmailConfig emailConfig = sendGridEmailConfig();
