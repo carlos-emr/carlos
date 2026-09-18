@@ -216,10 +216,10 @@
                 document.getElementById('docdisp').innerHTML = '<iframe	src="' + url2 + '"  width="' + (getWidth() - 40) + '" height="' + (getHeight() - 50) + '"></iframe>';
 
                 var url4 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewDocumentDescription&doc_no=' + curdocid;
-                document.getElementById('docextrainfo').innerHTML = '<object data="' + url4 + '"  height=250px width="100%" type="text/html" ></object>';
+                document.getElementById('docextrainfo').innerHTML = '<iframe src="' + url4 + '" style="height:250px;width:100%;border:0;" title="Document details"></iframe>';
 
                 var url5 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewAnnotationAcknowledgementTickler&doc_no=' + curdocid;
-                document.getElementById('docinfo').innerHTML = '<object data="' + url5 + '"  height=100px width="100%" type="text/html" ></object>';
+                document.getElementById('docinfo').innerHTML = '<iframe src="' + url5 + '" style="height:100px;width:100%;border:0;" title="Document details"></iframe>';
 
                 document.getElementById('printnotesbutton').style.visibility = 'hidden';
             } else {
@@ -232,7 +232,7 @@
         showPageCombineImg = function (doclist) {
 
             var url2 = '<%=request.getContextPath()%>' + '/documentManager/combinePDFs?ContentDisposition=inline' + doclist;
-            document.getElementById('docdisp').innerHTML = '<object	data="' + url2 + '" type="application/pdf" width="' + (getWidth() - 40) + '" height="' + (getHeight() - 50) + '"></object>';
+            document.getElementById('docdisp').innerHTML = '<iframe src="' + url2 + '" style="width:' + (getWidth() - 40) + 'px;height:' + (getHeight() - 50) + 'px;border:0;" title="Document preview"></iframe>';
             document.getElementById('docinfo').innerHTML = '';
             document.getElementById('docextrainfo').innerHTML = '';
             document.getElementById('printnotesbutton').style.visibility = 'hidden';

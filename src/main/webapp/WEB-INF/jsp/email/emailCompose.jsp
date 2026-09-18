@@ -556,12 +556,15 @@
                                                  aria-labelledby="emailAttachmentHeader${loop.count}"
                                                  data-bs-parent="#emailAttachmentList">
                                                 <div class="accordion-body">
-                                                    <object id="emailAttachmentPDF${loop.count}"
-                                                            data="${ctx}/previewDocs?method=renderPDF&amp;previewToken=${emailAttachment.previewToken}"
-                                                            type="application/pdf" width="100%" height="500">
+                                                    <%-- iframe, not <object>: the packaged CSP sets object-src 'none',
+                                                         which silently blanks an <object>-based PDF preview. --%>
+                                                    <iframe id="emailAttachmentPDF${loop.count}"
+                                                            title="Attachment preview"
+                                                            src="${ctx}/previewDocs?method=renderPDF&amp;previewToken=${emailAttachment.previewToken}"
+                                                            style="width: 100%; height: 500px; border: 0;">
                                                         <%-- Accessible fallback shown when the browser cannot render the inline PDF preview. --%>
                                                         <p class="text-muted mb-0">${carlos:forHtml(emailAttachment.fileName)}</p>
-                                                    </object>
+                                                    </iframe>
                                                 </div>
                                             </div>
                                         </div>
