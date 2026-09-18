@@ -332,6 +332,22 @@ class TestBindAddressCanonicalisation(unittest.TestCase):
     def test_surrounding_whitespace_is_dropped(self):
         self.assertEqual(self._settings(" 127.0.0.1 ").bind_ip, "127.0.0.1")
 
+    def test_an_expanded_literal_is_compressed_the_way_ss_reports_it(self):
+        # nginx binds 0:0:0:0:0:0:0:1 happily; ss calls it ::1. Comparing the
+        # operator's spelling verbatim declared that healthy front door
+        # missing and restarted nginx.
+        self.assertEqual(self._settings("0:0:0:0:0:0:0:1").bind_ip, "::1")
+        self.assertEqual(self._settings("2001:0db8:0000::5").bind_ip, "2001:db8::5")
+
+    def test_an_ipv4_address_is_left_exactly_as_written(self):
+        for raw in ("0.0.0.0", "127.0.0.1", "192.0.2.8"):
+            self.assertEqual(self._settings(raw).bind_ip, raw)
+
+    def test_a_value_that_is_not_an_ip_literal_is_passed_through(self):
+        # nginx -t is the authority on what the rendered configuration
+        # accepts; this verb has work to do before it gets there.
+        self.assertEqual(self._settings("clinic.invalid").bind_ip, "clinic.invalid")
+
     def test_either_spelling_reaches_the_same_listen_directive(self):
         for raw in ("[::1]", "::1"):
             ip = self._settings(raw).bind_ip

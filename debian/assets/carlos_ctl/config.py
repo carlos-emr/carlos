@@ -10,6 +10,7 @@ carlos-ctl init-config" with nothing further to remember.
 """
 
 import hashlib
+import ipaddress
 import os
 import re
 import time
@@ -56,6 +57,31 @@ def _install_proxy_params(target: str, template: str) -> None:
     os.chmod(target, 0o644)
 
 
+def _canonical_bind_ip(raw: str) -> str:
+    """CARLOS_BIND_IP as everything downstream compares it.
+
+    Unbracketed and in the address family's own canonical spelling, because
+    that is what the proofs see: ss reports a bound IPv6 literal bracketed
+    AND canonicalised, so `0:0:0:0:0:0:0:1` — which nginx binds happily —
+    comes back as `::1`. Comparing the operator's spelling verbatim declared
+    a healthy front door missing, restarted nginx, and recorded the install
+    incomplete; `[::1]`, the spelling nginx itself uses, failed the same way.
+
+    Only the nginx `listen` directive wants brackets, and
+    _listen_directive_address puts them back. A value that is not an IP
+    literal at all is passed through untouched rather than rejected here:
+    `nginx -t` is the authority on what the rendered configuration accepts,
+    and this verb has other work to do before it gets there.
+    """
+    value = raw.strip()
+    if value.startswith("[") and value.endswith("]"):
+        value = value[1:-1]
+    try:
+        return ipaddress.ip_address(value).compressed
+    except ValueError:
+        return value
+
+
 class Settings:
     """The carlos-emr.env values every verb needs, validated once."""
 
@@ -72,9 +98,8 @@ class Settings:
         # writes the bracketed form in carlos-emr.env — the spelling nginx
         # itself uses — otherwise rendered a working front door that every
         # proof then declared missing, restarting nginx and failing.
-        self.bind_ip = (env_get(ENV_FILE, "CARLOS_BIND_IP") or "0.0.0.0").strip()  # nosec B104
-        if self.bind_ip.startswith("[") and self.bind_ip.endswith("]"):
-            self.bind_ip = self.bind_ip[1:-1]
+        self.bind_ip = _canonical_bind_ip(  # nosec B104
+            env_get(ENV_FILE, "CARLOS_BIND_IP") or "0.0.0.0")
         self.province = (env_get(ENV_FILE, "CARLOS_PROVINCE") or "on").lower()
         self.db_host = env_get(ENV_FILE, "CARLOS_DB_HOST") or "127.0.0.1"
         self.db_port = env_get(ENV_FILE, "CARLOS_DB_PORT") or "3306"

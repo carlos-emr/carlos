@@ -602,6 +602,23 @@ case "$1" in
             rm -f "${ENV_FILE}.tmp"
         }
         set_env_key CARLOS_SERVER_NAME "${SERVER_NAME}"
+        # ss reports a bound IPv6 literal bracketed AND canonicalised, so the
+        # equally valid 0:0:0:0:0:0:0:1 comes back as ::1 and a textual proof
+        # would declare a healthy front door missing. Canonicalise the answer
+        # once, here, so the env file every later shell and Python read shares
+        # carries the spelling those proofs will see. python3 is a hard
+        # dependency (carlos-ctl is written in it); if it cannot parse the
+        # value, keep what the operator wrote and let nginx -t judge it.
+        BIND_IP="$(printf '%s' "${BIND_IP}" | python3 -c '
+import ipaddress, sys
+raw = sys.stdin.read().strip()
+if raw.startswith("[") and raw.endswith("]"):
+    raw = raw[1:-1]
+try:
+    sys.stdout.write(ipaddress.ip_address(raw).compressed)
+except ValueError:
+    sys.stdout.write(raw)
+' 2>/dev/null || printf '%s' "${BIND_IP}")"
         set_env_key CARLOS_BIND_IP "${BIND_IP}"
         # The single debconf heap answer round-trips through CARLOS_JAVA_XMX
         # only (the config script seeds the question from Xmx), so Xms has no
