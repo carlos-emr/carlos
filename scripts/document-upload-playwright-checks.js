@@ -154,8 +154,16 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
   // Forward to the logged-in test provider, never to an external destination.
   const recipient = sql(`SELECT provider_no FROM security WHERE user_name='${config.testUser.replace(/'/g, "''")}'`);
   assert(/^\d+$/.test(recipient), 'Expected a numeric recipient provider');
-  const recipientName = sql(`SELECT last_name FROM provider WHERE provider_no='${recipient}'`);
-  assert(recipientName.length >= 3, 'Recipient surname must support provider autocomplete');
+  const [recipientLast, recipientFirst = ''] = sql(
+    `SELECT COALESCE(last_name,''), COALESCE(first_name,'') FROM provider WHERE provider_no='${recipient}'`,
+  ).split('\t');
+  assert(recipientLast, 'Recipient provider must have a surname to search');
+  // Search the "last, first" form the autocomplete itself renders. Its three
+  // character minimum is otherwise unreachable for a one- or two-character
+  // surname, which is valid provider data and would fail this check before the
+  // forwarding flow even starts.
+  const searchTerm = `${recipientLast}, ${recipientFirst}`;
+  assert(searchTerm.length >= 3, 'Provider autocomplete needs at least three characters to search');
   const surname = sql(`SELECT last_name FROM demographic WHERE demographic_no=${demographicNo}`);
   // Track every popup from its creation, including helpers that throw before
   // returning. Keep caller-owned pages, and close each new page independently.
@@ -201,11 +209,17 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
     await dialog.locator('#fwdProviders.input-error').waitFor({ state: 'visible' });
     assert(routes() === before, 'Forward with no recipient changed document routing');
 
-    await dialog.locator('#autocompleteprov').fill(recipientName);
-    const option = viewer.locator('.ui-autocomplete:visible .ui-menu-item')
-      .filter({ hasText: recipientName }).first();
-    await option.waitFor({ state: 'visible' });
-    await option.click();
+    await dialog.locator('#autocompleteprov').fill(searchTerm);
+    // Surnames are not unique, so pick the entry carrying the intended provider
+    // number rather than the first row the search happens to order first.
+    const options = viewer.locator('.ui-autocomplete:visible .ui-menu-item');
+    await options.first().waitFor({ state: 'visible' });
+    const index = await options.evaluateAll((items, providerNo) => items.findIndex(item => {
+      const data = window.jQuery && window.jQuery(item).data('ui-autocomplete-item');
+      return !!data && String(data.providerNo) === providerNo;
+    }), recipient);
+    assert(index >= 0, 'Provider autocomplete offered no entry for the intended recipient');
+    await options.nth(index).click();
     const selected = await dialog.locator('#fwdProviders option').evaluateAll(es => es.map(e => e.value));
     assert(selected.length === 1 && selected[0] === recipient, 'Autocomplete selected a different provider');
     const [response] = await Promise.all([
