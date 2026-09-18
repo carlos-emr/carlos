@@ -49,7 +49,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("OrganizationMessage2Action Tests")
 @Tag("unit")
 @Tag("admin")
-class OrganizationMessage2ActionTest extends CarlosWebTestBase {
+class OrganizationMessage2ActionUnitTest extends CarlosWebTestBase {
 
     @Mock
     private OrganizationMessageManager mockOrganizationMessageManager;
@@ -78,23 +78,14 @@ class OrganizationMessage2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(ProgramManager2.class, mockProgramManager2);
 
         action = new OrganizationMessage2Action();
-        injectField("securityInfoManager", mockSecurityInfoManager);
-        injectField("mgr", mockOrganizationMessageManager);
-        injectField("facilityDao", mockFacilityDao);
-        injectField("facilityMessageDao", mockFacilityMessageDao);
-        injectField("programManager", mockProgramManager);
-        injectField("programManager2", mockProgramManager2);
+        injectField(action, "securityInfoManager", mockSecurityInfoManager);
+        injectField(action, "mgr", mockOrganizationMessageManager);
+        injectField(action, "facilityDao", mockFacilityDao);
+        injectField(action, "facilityMessageDao", mockFacilityMessageDao);
+        injectField(action, "programManager", mockProgramManager);
+        injectField(action, "programManager2", mockProgramManager2);
     }
 
-    private void injectField(String fieldName, Object value) {
-        try {
-            java.lang.reflect.Field f = OrganizationMessage2Action.class.getDeclaredField(fieldName);
-            f.setAccessible(true);
-            f.set(action, value);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to inject " + fieldName, e);
-        }
-    }
 
     @Nested
     @DisplayName("execute() - Security")
