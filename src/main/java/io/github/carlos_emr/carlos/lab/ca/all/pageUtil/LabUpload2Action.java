@@ -71,7 +71,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -121,20 +122,23 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         String audit = "";
         Integer httpCode = 200;
 
-        // getClientInfo() returns an empty list when the service is unknown or its stored key
-        // cannot be parsed. Reading element 0 in that state threw out of execute(), and the lab
-        // package maps java.lang.Exception to errorpage.jsp — a JSP forward, which renders HTTP
-        // 200. Senders using use_http_response_code therefore read a misconfigured or retired
-        // service as a successful delivery and silently drop results. Reject it explicitly.
-        ArrayList<Object> clientInfo = getClientInfo(service);
-        if (clientInfo.size() < 2) {
-            logger.warn("Rejected lab upload: no usable sender public key for the requested service");
-            return respond(OUTCOME_REJECTED, "", HttpServletResponse.SC_BAD_REQUEST);
-        }
-        PublicKey clientKey = (PublicKey) clientInfo.get(0);
-        String type = (String) clientInfo.get(1);
-
         try {
+            // getClientInfo() returns an empty list when the service is unknown or its stored
+            // key cannot be parsed. Reading element 0 in that state threw out of execute(), and
+            // the lab package maps java.lang.Exception to errorpage.jsp — a JSP forward, which
+            // renders HTTP 200. Senders using use_http_response_code therefore read a
+            // misconfigured or retired service as a successful delivery and silently drop
+            // results. Reject it explicitly. The lookup sits inside this try so that a DAO
+            // outage is reported as a receiver fault (500, retryable) rather than as either a
+            // 200 error page or a sender-side rejection.
+            ArrayList<Object> clientInfo = getClientInfo(service);
+            if (clientInfo.size() < 2) {
+                logger.warn("Rejected lab upload: no usable sender public key for the requested service");
+                return respond(OUTCOME_REJECTED, "", HttpServletResponse.SC_BAD_REQUEST);
+            }
+            PublicKey clientKey = (PublicKey) clientInfo.get(0);
+            String type = (String) clientInfo.get(1);
+
             // Validate the uploaded file to prevent path traversal attacks
             if (importFile == null) {
                 logger.error("No file provided for upload");
@@ -149,14 +153,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 return respond(OUTCOME_EXCEPTION, audit, HttpServletResponse.SC_FORBIDDEN);
             }
 
-            InputStream decrypted = decryptMessage(Files.newInputStream(importFile.toPath()), key, clientKey);
-            if (decrypted == null) {
-                // decryptMessage() logs the cause and returns null; do not tell the caller which
-                // stage failed. Previously this NPE'd downstream and surfaced as a 500.
-                logger.warn("Rejected lab upload: message could not be decrypted");
-                return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
-            }
-
             String fileName = importFile.getName();
 
             // Stage the decrypted message OUTSIDE DOCUMENT_DIR until the sender signature
@@ -167,8 +163,27 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // nothing later removed. The staged copy is owner-only: it holds cleartext PHI.
             File staged = PathValidationUtils.createSecureTempFile("LabUploadVerify", ".tmp");
             try {
-                try (InputStream in = decrypted) {
-                    Files.copy(in, staged.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                // The upload stream is owned here so every exit, including a rejected envelope,
+                // closes it; decryptMessage() only wraps it.
+                try (InputStream encrypted = Files.newInputStream(importFile.toPath())) {
+                    InputStream decrypted = decryptMessage(encrypted, key, clientKey);
+                    if (decrypted == null) {
+                        // decryptMessage() logs the cause and returns null; do not tell the
+                        // caller which stage failed. Previously this NPE'd downstream and
+                        // surfaced as a 500.
+                        logger.warn("Rejected lab upload: message could not be decrypted");
+                        return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
+                    }
+                    stageDecrypted(decrypted, staged);
+                } catch (IOException e) {
+                    if (!(e.getCause() instanceof GeneralSecurityException)) {
+                        throw e; // genuine receiver I/O fault: stays a 500 so the sender retries
+                    }
+                    // CipherInputStream reports a bad AES padding/block lazily, as an IOException
+                    // raised mid-copy. It is the same "undecryptable" condition as a failed key
+                    // unwrap and must produce the same outcome, not a distinguishable 500.
+                    logger.warn("Rejected lab upload: message could not be decrypted");
+                    return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
                 }
 
                 if (!validateSignature(clientKey, signature, staged)) {
@@ -179,13 +194,22 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
                 // Verified: only now may the plaintext become a document. fileName is still
                 // derived from the upload, so stored names are unchanged from before this fix.
+                // Buffered because Utilities.savePdfFile() reads one byte per call.
                 String filePath;
-                try (InputStream verified = Files.newInputStream(staged.toPath())) {
+                try (InputStream verified = new BufferedInputStream(Files.newInputStream(staged.toPath()))) {
                     filePath = type.equals("PDFDOC")
                             ? Utilities.savePdfFile(verified, fileName)
                             : Utilities.saveFile(verified, fileName);
                 }
                 File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+
+                // The signature covered the staged bytes, not this second copy, and the
+                // Utilities save helpers log an IOException and still return the path. Without
+                // this check a disk-full or interrupted copy would be parsed as a verified lab.
+                if (Files.mismatch(staged.toPath(), file.toPath()) != -1L) {
+                    Files.deleteIfExists(file.toPath());
+                    throw new IOException("stored lab upload does not match the verified staged copy");
+                }
 
                 MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
 
@@ -197,7 +221,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     OtherId providerOtherId = OtherIdManager.searchTable(OtherIdManager.PROVIDER, "STAR", filterHandler.getClientRef());
                     if (providerOtherId == null) {
                         logger.info("Filtering out this message, as we don't have client ref " + filterHandler.getClientRef() + " in our database (" + file + ")");
-                        return respond("uploaded", audit, HttpServletResponse.SC_OK);
+                        // This path never set the audit attribute, so the view has always
+                        // rendered its "failure" default here; keep that wire behavior.
+                        return respond("uploaded", null, HttpServletResponse.SC_OK);
                     }
                 }
 
@@ -237,13 +263,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      *
      * @param outcome  short outcome token, also sent as the error message when the caller
      *                 requested HTTP status codes
-     * @param audit    handler audit string; null is normalized to empty for the view
+     * @param audit    handler audit string; passed through unchanged, because the view renders
+     *                 a null audit as {@code failure} and senders may read that element
      * @param httpCode status to send when {@code use_http_response_code} is present
      * @return {@link #NONE} once the response has been written, otherwise {@link #SUCCESS}
      */
     private String respond(String outcome, String audit, int httpCode) {
         request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-        request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit == null ? "" : audit);
+        request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
 
         if (request.getParameter("use_http_response_code") != null) {
             try {
@@ -259,16 +286,42 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     public LabUpload2Action() {
     }
 
+    /**
+     * Writes the decrypted message into the already-created owner-only staging file.
+     *
+     * <p>The bytes are written into the existing file on purpose. {@code Files.copy(in, path,
+     * REPLACE_EXISTING)} deletes the target and recreates it with default (umask) permissions,
+     * which would expose the cleartext PHI to other local users for the life of the request.
+     *
+     * @param decrypted decrypted message stream; closed by this method
+     * @param staged    file from {@link PathValidationUtils#createSecureTempFile(String, String)}
+     * @throws IOException on an I/O failure, or wrapping a {@link GeneralSecurityException}
+     *                     when the cipher stream rejects the final block
+     */
+    static void stageDecrypted(InputStream decrypted, File staged) throws IOException {
+        try (InputStream in = decrypted;
+             OutputStream out = Files.newOutputStream(staged.toPath(),
+                     StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            in.transferTo(out);
+        }
+    }
+
     /*
-     * Decrypt the encrypted message and return the original version of the message as an InputStream
+     * Decrypt the encrypted message and return the original version of the message as an InputStream.
+     * Returns null when the sender's envelope cannot be decrypted. Throws IllegalStateException when
+     * the receiver's own private key is unavailable: that is a receiver fault (DB outage, missing
+     * oscarKeys row), and reporting it as a sender rejection would stop senders from retrying.
      */
     public static InputStream decryptMessage(InputStream is, String skey, PublicKey pkey) {
 
+        // retrieve the servers private key
+        PrivateKey key = getServerPrivate();
+        if (key == null) {
+            throw new IllegalStateException("receiver private key is unavailable");
+        }
+
         // Decrypt the secret key and the message
         try {
-
-            // retrieve the servers private key
-            PrivateKey key = getServerPrivate();
 
             // Decrypt the secret key using the servers private key
             // NOTE: PKCS1Padding (PKCS#1 v1.5) is theoretically vulnerable to Bleichenbacher
@@ -344,10 +397,12 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         byte[] publicKey;
         ArrayList<Object> info = new ArrayList<Object>();
 
-        try {
-            PublicKeyDao publicKeyDao = (PublicKeyDao) SpringUtils.getBean(PublicKeyDao.class);
-            io.github.carlos_emr.carlos.commn.model.PublicKey publicKeyObject = publicKeyDao.find(service);
+        // Outside the try on purpose: a DAO failure is a receiver fault and must propagate to
+        // the caller, not be flattened into the "unknown service" empty list.
+        PublicKeyDao publicKeyDao = (PublicKeyDao) SpringUtils.getBean(PublicKeyDao.class);
+        io.github.carlos_emr.carlos.commn.model.PublicKey publicKeyObject = publicKeyDao.find(service);
 
+        try {
             if (publicKeyObject != null) {
                 keyString = publicKeyObject.getBase64EncodedPublicKey();
                 type = publicKeyObject.getType();
@@ -362,7 +417,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             info.add(type);
 
         } catch (Exception e) {
-            logger.error("Could not retrieve private key: ", e);
+            logger.error("Could not parse the stored sender public key: ", e);
         }
         return (info);
     }
