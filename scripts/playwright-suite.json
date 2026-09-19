@@ -2128,6 +2128,19 @@
         "INACTIVE_DRUG_DIN",
         "INACTIVE_DRUG_DATE"
       ]
+    },
+    {
+      "name": "referral-labels",
+      "script": "scripts/referral-labels-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     }
   ]
 }
