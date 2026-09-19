@@ -300,6 +300,9 @@ public class AnnotatedDocumentService {
     }
 
     /** Identifies the bytes shown when annotation starts; a changed source must be reviewed again. */
+    // FindSecBugs PATH_TRAVERSAL_IN: the row's file name is resolved against the configured
+    // document directory and rejected unless it stays inside it, exactly as in pageCountOf.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String sourceDigest(EDoc doc) throws IOException {
         File root = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getDocumentDirectory(), DOCUMENT_DIR_LABEL);
