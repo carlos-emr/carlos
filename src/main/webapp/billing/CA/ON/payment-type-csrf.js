@@ -11,3 +11,16 @@ async function paymentTypeCsrfToken() {
         return null;
     }
 }
+
+function paymentTypeSaveResult(result) {
+    if (result && (result.ret === "0" || result.ret === 0)) {
+        alert("Success");
+        history.back();
+    } else {
+        alert(result && result.reason ? String(result.reason) : "Payment type was not saved.");
+    }
+}
+
+function paymentTypeRequestFailed(request, status, error) {
+    alert(status ? String(status) : error ? String(error) : "Unknown error happened!");
+}

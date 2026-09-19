@@ -72,25 +72,8 @@
                 data: {"CSRF-TOKEN": token, paymentType: document.getElementById("paymentType").value},
                 url: "${pageContext.request.contextPath}/billing/CA/ON/createPaymentType",
                 dataType: "json",
-                success: function (ret) {
-                    if (!ret) {
-                        alert("Failed to create new payment type!");
-                    } else if (ret.ret == "1") {
-                        alert(ret.reason);
-                    } else {
-                        alert("Success");
-                        history.back();
-                    }
-                },
-                error: function (XMLHttpRequest, textStatus, errorThrown) {
-                    if (textStatus) {
-                        alert(String(textStatus));
-                    } else if (errorThrown) {
-                        alert(String(errorThrown));
-                    } else {
-                        alert("Unknown error happened!");
-                    }
-                }
+                success: paymentTypeSaveResult,
+                error: paymentTypeRequestFailed
             });
         }
 
@@ -111,25 +94,8 @@
                 },
                 url: "${pageContext.request.contextPath}/billing/CA/ON/updatePaymentType",
                 dataType: "json",
-                success: function (ret) {
-                    if (!ret) {
-                        alert("Failed to create new payment type!");
-                    } else if (ret.ret == "1") {
-                        alert(ret.reason);
-                    } else {
-                        alert("Success");
-                        history.back();
-                    }
-                },
-                error: function (XMLHttpRequest, textStatus, errorThrown) {
-                    if (textStatus) {
-                        alert(String(textStatus));
-                    } else if (errorThrown) {
-                        alert(String(errorThrown));
-                    } else {
-                        alert("Unknown error happened!");
-                    }
-                }
+                success: paymentTypeSaveResult,
+                error: paymentTypeRequestFailed
             });
         }
     </script>

@@ -59,7 +59,7 @@ for (const rejected of [false, true]) {
     jquery.ajax = request => requests.push(request);
     const context = vm.createContext({ window: { csrfTokenReady: ready }, document: doc, jQuery: jquery, alert: text => alerts.push(text) });
     const source = fs.readFileSync(path.join(root, 'manageBillingPaymentType.jsp'), 'utf8');
-    const code = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(match => match[1]).find(value => value.includes('data-paymentTypeId'));
+    const code = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]).find(value => value.includes('data-paymentTypeId'));
     assert.ok(code, 'the actual delete handler must be executed');
     vm.runInContext(csrfScript, context); vm.runInContext(code, context);
     let prevented = false;
@@ -75,3 +75,23 @@ for (const rejected of [false, true]) {
     }
   });
 }
+
+for (const result of [null, {}, { ret: '1', reason: 'Already exists' }, { ret: '0' }, { ret: 0 }]) {
+  test(`save response ${JSON.stringify(result)} only navigates after explicit success`, () => {
+    const alerts = []; let navigated = 0;
+    const context = vm.createContext({ alert: text => alerts.push(text), history: { back: () => navigated++ } });
+    vm.runInContext(csrfScript, context); context.paymentTypeSaveResult(result);
+    const success = result && (result.ret === '0' || result.ret === 0);
+    assert.equal(navigated, success ? 1 : 0); assert.equal(alerts.length, 1);
+    assert.equal(alerts[0], success ? 'Success' : result?.reason || 'Payment type was not saved.');
+  });
+}
+test('transport failure produces readable text and does not navigate', () => {
+  const alerts = [];
+  const context = vm.createContext({ alert: text => alerts.push(text), history: { back: () => assert.fail('unexpected navigation') } });
+  vm.runInContext(csrfScript, context);
+  context.paymentTypeRequestFailed(null, 'timeout', null);
+  context.paymentTypeRequestFailed(null, '', new Error('synthetic failure'));
+  context.paymentTypeRequestFailed(null, '', '');
+  assert.deepEqual(alerts, ['timeout', 'Error: synthetic failure', 'Unknown error happened!']);
+});
