@@ -120,13 +120,18 @@
                 dataType: 'json',
                 success: function(result) {
                     isSaving = false;
+                    // HTML form serialization uses CRLF, while textarea.value uses LF.
+                    // Normalize only line endings; plus signs, percent escapes, entities
+                    // and leading/trailing whitespace remain literal user text.
+                    const savedText = result && typeof result.text === 'string'
+                        ? result.text.replace(/\r\n?/g, '\n') : null;
                     if (!result || result.success !== true || !/^[1-9]\d*$/.test(String(result.id))
-                            || Number(result.id) < submittedId || result.text !== submittedText) {
+                            || Number(result.id) < submittedId || savedText !== submittedText) {
                         showErrorMessage('The server did not confirm this save. Your unsaved text has been kept; please retry.');
                         return;
                     }
                     document.getElementById('curr_id').value = result.id;
-                    lastSavedText = result.text;
+                    lastSavedText = savedText;
                     saveUnconfirmed = false;
                     setDirty();
                     if (!dirty) {

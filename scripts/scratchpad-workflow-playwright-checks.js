@@ -54,11 +54,11 @@ async function workflow(s) {
   async function acknowledged(page, response, text) {
     h.assert(response.status() === 200, `Scratch save returned HTTP ${response.status()}`);
     const result = await response.json();
-    h.assert(result.success === true && /^[1-9]\d*$/.test(String(result.id)) && result.text === text,
+    h.assert(result.success === true && /^[1-9]\d*$/.test(String(result.id)) && typeof result.text === 'string' && result.text.replace(/\r\n?/g, '\n') === text,
       'Scratchpad save did not acknowledge the exact literal text');
-    owned.set(String(result.id), text);
+    owned.set(String(result.id), result.text);
     await expectValue(s.sql, `SELECT scratch_text FROM scratch_pad WHERE id=${Number(result.id)} AND provider_no=${provider}`,
-      text, 'Scratchpad text was not persisted exactly');
+      result.text, 'Scratchpad JSON text was not persisted exactly');
     await page.locator('#lastSavedTimestamp').filter({ hasText: /^Last saved:/ }).waitFor();
     h.assert(await page.locator('#thetext').inputValue() === text, 'Saving changed the editor text');
     return String(result.id);

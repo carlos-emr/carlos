@@ -129,3 +129,15 @@ test('a failed in-flight save remains dirty even if typing was undone while awai
   f.context.autoSave(); assert.equal(f.requests.length, 2);
   assert.equal(f.requests[1].data, 'original');
 });
+
+test('CRLF form serialization acknowledges the unchanged LF textarea value', () => {
+  const f = fixture();
+  const text = ' A+B %20 &amp; <note>\n  indented line  ';
+  f.edit(text);
+  f.save().success({success: true, id: '8', text: text.replace(/\n/g, '\r\n')});
+  assert.equal(f.nodes.thetext.value, text);
+  assert.equal(f.nodes.dirty.value, 'false');
+  assert.equal(f.nodes.saveError.hidden, true);
+  assert.match(f.nodes.lastSavedTimestamp.textContent, /^Last saved:/);
+  f.context.autoSave(); assert.equal(f.requests.length, 1);
+});
