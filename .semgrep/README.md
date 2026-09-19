@@ -10,14 +10,14 @@ because Semgrep OSS does not support taint-mode with generic JSP matching.
 Semgrep's built-in taint rules flag data flowing from HTTP request parameters to
 logging calls (CRLF injection) or file operations (path traversal) without
 recognizing that the data has been sanitized by project utilities like
-`LogSanitizer.sanitize()`. Custom taint-mode rules declare these utilities as
+`LogSafe.sanitize()`. Custom taint-mode rules declare these utilities as
 `pattern-sanitizers`, allowing Semgrep to correctly model the data flow.
 
 ## Rules
 
 | File | Replaces | Sanitizer Recognized | False Positives Resolved |
 |------|----------|---------------------|------------------------:|
-| `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSanitizer.sanitize()`, `Encode.forJava(...)` | ~128 |
+| `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSafe.sanitize()`, `sanitizeUri()`, `sanitizeObject()`, `sanitizeForDisplay()`, `exceptionTrace()`, `Encode.forJava(...)` | 218 |
 | `jsp-scriptlet-xss-carlos.yml` | Supplements the built-in JSP scriptlet XSS rule | `<carlos:encode>`, `${carlos:forXxx(...)}`, `SafeEncode.forXxx(...)`, `Encode.forXxx(...)`, `URLEncoder.encode(...)` | direct request-output FPs |
 
 ## Built-in Rules to Disable in Semgrep Cloud
