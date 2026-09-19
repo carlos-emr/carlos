@@ -381,6 +381,9 @@
         <% } %>
 
         <!-- Instead of importing cme.js using the CME tag (as done in Oscar19/OscarPro), we are opting to directly import cme.js without utilizing the CME tag. -->
+        <%-- Matches OSCAR19's CustomInterfaceTag: cme_js alone gates the script tag. The
+             echart_show_ocean admin toggle instead gates the #ocean_placeholder div the
+             script looks for (see newCaseManagementView.jsp), same as OSCAR19. --%>
         <% if ("ocean".equals(CarlosProperties.getInstance().get("cme_js"))) {
             int randomNo = new Random().nextInt();%>
         <script id="mainScript"

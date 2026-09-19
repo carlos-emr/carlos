@@ -44,7 +44,7 @@ public class SystemPreferences extends AbstractModel<Integer> {
 
     public enum SCHEDULE_PREFERENCE_KEYS {schedule_display_type, schedule_display_custom_roster_status}
 
-    public enum ECHART_PREFERENCE_KEYS {echart_hide_timer}
+    public enum ECHART_PREFERENCE_KEYS {echart_hide_timer, echart_show_ocean}
 
     public enum MASTER_FILE_PREFERENCE_KEYS {display_former_name, redirect_for_contact}
 
