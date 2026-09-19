@@ -1,3 +1,74 @@
+carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
+
+  * Summarize expected existing-index/column notes during schema creation instead
+    of showing them as duplicate-key/column warnings. Preserve all other warnings
+    and migration errors; published migration SQL and checksums are unchanged.
+    Test the logging boundary against the WAR's Flyway API during package builds.
+  * An installation that could not provision its database no longer looks like
+    a successful one. Every database step in the package's configuration is
+    deliberately non-fatal -- a database that is unreachable must not leave
+    dpkg half-configured and block the other CARLOS packages, or anything else
+    in the same apt transaction -- so the diagnosis went to stderr and apt
+    still reported success. On a front end that never showed that stderr, the
+    result was a host that looked installed and had no clinical schema at all,
+    with nothing that ever retried: a reboot left it exactly as broken.
+    Reported by an alpha tester whose install ended with no tables in the
+    clinical database.
+  * The installer now records what it could not do in
+    /var/lib/carlos-emr/.install-incomplete and raises a critical debconf error
+    for interactive front ends. Unattended installs must check the recorded
+    state and command output.
+  * A new "carlos-ctl finish-install" resumes provisioning where the installer
+    stopped -- the MariaDB settings, the least-privilege accounts, the schema,
+    the seeded administrator credential and the demonstration dataset if the
+    install asked for one -- and then starts the EMR. It is idempotent, and it
+    fails closed the same way the installer does if the published carlosdoc
+    credential cannot be replaced. It also reports a drug reference database
+    that the same failure left unseeded, and names the command that loads it.
+  * Recovery now checks every required/requested step, retains incomplete state
+    on failure, verifies credential containment and re-enablement, and identifies
+    DrugRef datasets without a seed-completion marker. Marker I/O failures are
+    reported explicitly; they do not silently turn failure into completion.
+    Add behavioral failure/retry tests and clearer administrator instructions.
+  * carlos-emr-provision.service runs that once at each boot, ordered before
+    carlos-emr.service, so an install interrupted by a database that went away
+    completes by itself. It is skipped outright when there is no marker, and it
+    refuses to migrate a schema that already has tables: an upgrade migration
+    stays an operator decision taken after a verified backup.
+  * Only one recovery runs at a time. The boot-time provisioner and an operator
+    could previously both pass the schema checks and both generate an
+    administrator credential, leaving the saved credentials file naming the
+    other run's password; finish-install now holds an exclusive lock for the
+    life of the run and refuses a second one. When the credential guard file
+    itself cannot be written -- a full or read-only /var -- the unit is masked
+    rather than only disabled, because disabling does not stop a manual start;
+    a later successful recovery unmasks it. A failure before the credential has
+    been replaced now says so, rather than leaving an operator to assume the
+    published password is already gone.
+  * The package's own configure joins that lock too, with flock(1). Only
+    serializing recovery against recovery left the real race open: an
+    unattended upgrade or a dpkg-reconfigure can overlap the boot-time
+    provisioner. A configure that cannot take the lock within five minutes
+    provisions nothing and records the install as unfinished, and a boot-time
+    recovery that finds the lock held leaves the work to whoever holds it
+    rather than failing its unit.
+  * The DrugRef package's configure takes that lock too: db-users provisions
+    both packages' accounts and rewrites both properties files with the
+    passwords it generates, so an overlapping run could leave the database
+    holding one generated password and a properties file naming the other.
+  * A credential guard that had to fall back to masking the unit is now also
+    detected on a host with no running systemd -- a chroot or golden-image
+    build -- so a retry there cannot clear the recovery marker and ship an
+    image whose EMR is masked for its first real boot.
+  * "carlos-ctl check" reports an unfinished install first, before the dozen
+    unrelated-looking failures it causes, and names the command that fixes it.
+    Its table count no longer reports a query that FAILED as a database with no
+    tables, and DrugRef not answering on loopback while the EMR is stopped is
+    now reported as what it is -- DrugRef shares that application server --
+    instead of pointing at the DrugRef deployment.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 13 Sep 2026 00:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
 
   * Saving a provider's encounter-note template (Administration > Provider
@@ -64,6 +135,14 @@ carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
     removed one by one as the print proceeds, and the log line carries no
     name. The spurious "failed to delete temporary print PDF" warning on
     every chart print is gone with it.
+  * Experimental OSCAR 19 clinic migration: `carlos-ctl import-o19` imports an
+    OSCAR 19 backup into a stock initial deploy (manifest-driven ETL, an
+    archive schema for everything CARLOS no longer models, documents restore
+    with blocking reconciliation, roles and privilege reconciliation, and a
+    reviewed properties fragment), and `carlos-ctl o19-preflight` runs the
+    go/no-go feasibility check on its own. Both are experimental: a
+    migration's output needs a technical review before clinical use. See
+    docs/o19-import-deb.md.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 12 Sep 2026 00:00:00 +0000
 
@@ -188,6 +267,7 @@ carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
     the page. With the firewall no longer reading that note as a
     script attack, the application's own output encoding is what keeps a
     stored "</textarea><script>" from running on the next open of that view.
+
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 06 Sep 2026 00:00:00 +0000
 
 carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium

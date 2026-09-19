@@ -62,7 +62,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -93,8 +92,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
     protected static Logger logger = MiscUtils.getLogger();
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -150,7 +147,18 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             } else {
                 filePath = Utilities.saveFile(is, fileName);
             }
-            File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+            if (filePath == null) {
+                // saveFile/savePdfFile return null when the write failed, and neither closes the
+                // decrypted stream when it fails before opening its output.
+                is.close();
+                // Thrown rather than returned: the shared epilogue below is what honours
+                // use_http_response_code, so returning here would have sent a client that asked for
+                // HTTP status codes a success response despite httpCode being set to 500.
+                throw new IOException("Lab file save returned no path");
+            }
+
+            File file = PathValidationUtils.validateExistingDocumentPath(filePath);
+            filePath = file.getPath();
 
             if (validateSignature(clientKey, signature, file)) {
                 logger.debug("Validated Successfully");

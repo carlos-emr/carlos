@@ -29,6 +29,18 @@
 
 --%>
 
+<%--
+    Displays patient search results for appointment selection and contact pickers.
+    Features: search/pagination, recent patients, appointment return, and the
+    caisi=true callback that fills the opener's patient name and identifier.
+    Parameters: keyword/search_mode control search; appointment context includes
+    provider_no and originalPage. Contact callbacks use formName, elementName,
+    and elementId; URI-encoded result names are decoded once for display fields.
+    Access: requires _search read access. Recent-patient loading excludes missing
+    or merged records in the DAO and skips records removed during rendering.
+    @since 2026.08 (contact workflow corrections and contract documentation)
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -354,7 +366,9 @@
             <%if(caisi) {%>
 
             function addNameCaisi(demographic_no, lastname, firstname, chartno, messageID) {
-                fullname = lastname + "," + firstname;
+                // Result arguments are URI-encoded for the appointment callback.
+                // A contact field needs display text, decoded exactly once.
+                fullname = decodeURIComponent(lastname) + "," + decodeURIComponent(firstname);
                 if (opener.document['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'] != null) {
                     if (opener.document['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'].
                     elements['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("elementName")) %>' context="javaScriptBlock"/>'] != null
@@ -426,7 +440,9 @@
                         List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize);
                         demoList = new ArrayList<Demographic>();
                         for (Integer r : results) {
-                            demoList.add(demographicDao.getDemographicById(r));
+                            // A patient can disappear after the recent-ID query.
+                            Demographic recentPatient = demographicDao.getDemographicById(r);
+                            if (recentPatient != null) demoList.add(recentPatient);
                         }
                     } else {
 
@@ -509,7 +525,7 @@
                 <tr style="background-color: <%=bgColor%>"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="javaScriptAttribute"/>')">
+                    onClick="<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="javaScriptAttribute"/>')">
 
                     <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(demo.getLastName()) %>' context="uriComponent"/></c:set>
                     <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(demo.getFirstName()) %>' context="uriComponent"/></c:set>

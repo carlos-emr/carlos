@@ -82,44 +82,29 @@ public class UtilMisc {
     public static String rhtmlEscape(String S) {
         if (null == S) return S;
 
-        int N = S.length();
-        StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            if (c == '&') {//the read one more char and encode
-                String temp = new String();
-                if (i + 1 < N) temp += S.charAt(i + 1);
-                if (temp.equalsIgnoreCase("a")) {//&amp
-                    sb.append("&");
-                    i += 4;
-                    continue;
-                } else if (temp.equalsIgnoreCase("l")) {//&lt
-                    sb.append("<");
-                    i += 3;
-                    continue;
-                } else if (temp.equalsIgnoreCase("g")) {//&gt
-                    sb.append(">");
-                    i += 3;
-                    continue;
-                } else if (temp.equalsIgnoreCase("q")) {//&quot
-                    sb.append("\"");
-                    i += 5;
-                    continue;
-                } else if (temp.equals("#")) {//&#
-                    if (i + 2 < N) temp += S.charAt(i + 2); //&#?
-                    if (i + 3 < N) temp += S.charAt(i + 3); //&#??
-                    if (i + 4 < N) temp += S.charAt(i + 4); //&#???
-                    if (temp.equals("&#39;")) {//'
-                        sb.append("\'");
-                        i += 5;
-                        continue;
+        String[] entities = {"&amp;", "&lt;", "&gt;", "&quot;", "&#39;"};
+        char[] replacements = {'&', '<', '>', '"', '\''};
+        StringBuilder result = new StringBuilder(S.length());
+        int offset = 0;
+        while (offset < S.length()) {
+            boolean decoded = false;
+            if (S.charAt(offset) == '&') {
+                for (int entity = 0; entity < entities.length; entity++) {
+                    if (S.regionMatches(true, offset, entities[entity], 0, entities[entity].length())) {
+                        result.append(replacements[entity]);
+                        offset += entities[entity].length();
+                        decoded = true;
+                        break;
                     }
                 }
             }
-            sb.append(c);
+            if (!decoded) {
+                result.append(S.charAt(offset++));
+            }
         }
-        return sb.toString();
+        return result.toString();
     }
+
 
     public static String mysqlEscape(String S) {
         if (null == S) {
@@ -167,10 +152,29 @@ public class UtilMisc {
         return sb.toString();
     }
 
+    /**
+     * Formats a person name for display as "Title Case": the input is trimmed, lower-cased, and
+     * the first character plus every character that follows a space or a comma is upper-cased
+     * (so {@code "SMITH, JOHN"} becomes {@code "Smith, John"}).
+     *
+     * <p>The lower-casing deliberately uses the JVM default locale rather than
+     * {@link java.util.Locale#ROOT}: every caller passes patient-facing display text, so the
+     * result must follow the deployment's locale conventions. The per-character upper-casing uses
+     * {@link Character#toUpperCase(char)} and therefore cannot expand one character into two.
+     *
+     * @param S the raw name text; may be {@code null}
+     * @return the title-cased name, {@code ""} for a blank input, or {@code null} when
+     *         {@code S} is {@code null}
+     */
     public static String toUpperLowerCase(String S) {
         if (S == null) {
             return S;
         }
+        // Deliberately default-locale, NOT Locale.ROOT: every caller formats patient names for
+        // display (appointment sheets, group records), so the casing must follow the deployment's
+        // locale. Under a Turkish default locale ROOT turns "I\u015EIK" into "I\u015Fik" instead of the
+        // correct "I\u015F\u0131k". FindSecBugs IMPROPER_UNICODE does not flag this fold because its
+        // result is never fed into an equality comparison, so no suppression is needed here.
         S = S.trim().toLowerCase();
         int N = S.length();
         boolean bUpper = false;

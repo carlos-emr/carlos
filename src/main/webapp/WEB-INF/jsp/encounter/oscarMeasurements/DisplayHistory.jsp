@@ -273,12 +273,13 @@
                                 </c:if>
                             </security:oscarSec>
 
-                            <!-- Plot button (same as before) -->
-                            <c:if test="${not empty data.canPlot}">
+                            <%-- The loop-scoped 'data' variable no longer exists here. All rows
+                                 describe this measurement type; use its first row's plot capability. --%>
+                            <c:if test="${not empty measurementsData.measurementsDataVector and not empty measurementsData.measurementsDataVector[0].canPlot}">
                                 <td>
                                     <input type="button" name="Button" class="btn DoNotPrint"
                                         value="<fmt:message key="encounter.oscarMeasurements.displayHistory.plot"/>"
-                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements?demographic_no=<%=demo%>&type=${type}')">
+                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements?demographic_no=<%=demo%>&type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(type))}')">
                                 </td>
                             </c:if>
                         </tr>

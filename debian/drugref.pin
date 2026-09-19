@@ -3,7 +3,10 @@
 # release build: a branch name makes two builds weeks apart ship different
 # code under one package version.
 #
-# The current pin is the master merge commit of the free-text allergy fix
+# The current pin fixes SQL-date XML-RPC serialization and propagates failed
+# inactive-status/date queries instead of returning a false empty success
+# (issue #13); expanded category-19 search also checks inactive status.
+# It descends from the master merge commit of the free-text allergy fix
 # (carlos-emr/drugref2026#12). It descends from the master merge commit of the
 # database-update fix (carlos-emr/drugref2026#11), so one revision now carries
 # both; they reached this file as two separate branch heads, and each of those
@@ -61,4 +64,4 @@
 # It also carries the earlier EntityManager-leak fix
 # (carlos-emr/drugref2026#8), without which drug searches exhaust the JDBC pool
 # after one or two calls and permanently return "None found".
-ref=728ea7b24987c118cbb17b6cdab3767625a2eef0
+ref=1941e1426a52c2a129c96ec4d32a0f3499974739

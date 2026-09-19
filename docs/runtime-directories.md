@@ -40,9 +40,9 @@ All directory properties are configured in `carlos.properties`. Many have **fall
 
 | Property | Purpose |
 |----------|---------|
-| `hl7_a04_build_dir` | HL7 A04 message build directory |
-| `hl7_a04_sent_dir` | HL7 A04 sent messages |
-| `hl7_a04_fail_dir` | HL7 A04 failed messages |
+| `hl7_a04_build_dir` | HL7 A04 message build directory (`CarlosProperties.getHL7A04BuildDirectory`) |
+| `l7_a04_sent_dir` | HL7 A04 sent messages — **no CARLOS reader**; setting it has no effect |
+| `hl7_a04_fail_dir` | HL7 A04 failed messages — **no CARLOS reader**; setting it has no effect |
 | `spire_download_dir` | Spire integration downloads |
 
 ## Permissions Requirements

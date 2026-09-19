@@ -499,10 +499,11 @@
             }
             if (hrmReport.getFileExtension() != null && ".pdf".equals(hrmReport.getFileExtension())) {
         %>
-            <object data="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>"
-                    width="100%" height="600" type="application/pdf">
-                <p>(Your browser could not display the pdf)</p>
-            </object>
+            <%-- The packaged CSP intentionally blocks object/embed (object-src 'none').
+                 A same-origin frame allows the browser's PDF viewer without weakening it. --%>
+            <iframe title="HRM report"
+                    src="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>&amp;disposition=inline"
+                    style="width: 100%; height: 600px; border: 0;"></iframe>
             <br/>
             <%
                 }

@@ -11,6 +11,21 @@ SHARE=/usr/share/carlos-emr
 DRUGREF_PROPERTIES="${CONF_DIR}/drugref2.properties"
 STATE=/var/lib/carlos-emr
 
+# The provisioning lock carlos-emr.postinst and `carlos-ctl finish-install`
+# take. db-users below provisions BOTH packages' accounts and rewrites both
+# properties files with the passwords it generates, so a concurrent run -- a
+# boot-time carlos-emr-provision.service, or a repair by hand -- could leave
+# the database holding one generated password and a properties file naming the
+# other. Same file, same five-minute wait; a host without flock(1) behaves as
+# it did before the lock existed.
+PROVISION_LOCK="${STATE}/.finish-install.lock"
+acquire_provision_lock() {
+    command -v flock >/dev/null 2>&1 || return 0
+    mkdir -p "${STATE}" 2>/dev/null || return 1
+    exec 9>"${PROVISION_LOCK}" 2>/dev/null || return 1
+    flock -w 300 9
+}
+
 case "$1" in
     configure)
         # Configuration, installed once. It carries a database password, so it
@@ -37,6 +52,18 @@ case "$1" in
             # the password now recorded in drugref2.properties, so a
             # provisioning failure must fail configure loudly rather than
             # continue into grants for an account that was never created.
+            # Loud on failure, like the db-users call itself: everything below
+            # assumes the drugref account exists with the password now recorded
+            # in drugref2.properties, and running that unserialized beside
+            # another provisioning run is how the two disagree.
+            if ! acquire_provision_lock; then
+                echo "carlos-emr-drugref: ERROR: could not take ${PROVISION_LOCK}." >&2
+                echo "carlos-emr-drugref: another CARLOS provisioning run (carlos-ctl finish-install," >&2
+                echo "carlos-emr-drugref: or the boot-time carlos-emr-provision.service) is using the" >&2
+                echo "carlos-emr-drugref: database, or /var is not writable. Wait for it to finish, then:" >&2
+                echo "carlos-emr-drugref:   sudo dpkg-reconfigure carlos-emr-drugref" >&2
+                exit 1
+            fi
             carlos-ctl db-users
             mariadb --protocol=socket --user=root -e \
                 "CREATE DATABASE IF NOT EXISTS \`drugref2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"

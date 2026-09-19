@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
-import io.github.carlos_emr.CarlosProperties;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -125,13 +124,19 @@ public class LabService extends AbstractServiceImpl {
 			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
 		}
 
+		if (filePath == null) {
+			// Utilities.saveFile returns null when the write failed and the partial file was removed.
+			logger.error("Lab file save returned no path; aborting lab import");
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
+		}
+
 		int checkFileUploadedSuccessfully;
         File savedLabFile;
         try {
-            savedLabFile = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+            savedLabFile = PathValidationUtils.validateExistingDocumentPath(filePath);
             // Use the containment-validated path for all downstream consumers (e.g. msgHandler.parse below).
             filePath = savedLabFile.getPath();
-        } catch (SecurityException e) {
+        } catch (IOException | SecurityException e) {
             logger.error("Invalid saved lab file path", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
         }

@@ -79,7 +79,9 @@
 	<bean id="jakarta.xml.ws.WebServiceContext"
 	      class="org.apache.cxf.jaxws.context.WebServiceContextImpl"/>
 	
-	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" autowire="byType" />
+	<!-- Annotated injection avoids autowiring WSS4J's Map<String, Object> setter,
+	     which would instantiate unrelated request actions during startup. -->
+	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" />
 	<bean id="oscarUsernameTokenValidator" class="io.github.carlos_emr.carlos.webserv.OscarUsernameTokenValidator" autowire="byType" />
 	<bean id="loopbackOnlyInInterceptor" class="io.github.carlos_emr.carlos.webserv.LoopbackOnlyInInterceptor" />
 

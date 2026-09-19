@@ -43,6 +43,8 @@ import java.lang.reflect.Method;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -146,6 +148,26 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().remove("BASE_DOCUMENT_DIR");
         } else {
             CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", originalBaseDocumentDir);
+        }
+    }
+
+    @Test
+    @DisplayName("Failed streamed temp copy removes its private directory")
+    void shouldRemoveTempDirectory_whenStreamedCopyFails() throws IOException {
+        Path applicationRoot = Path.of(System.getProperty("java.io.tmpdir"),
+                PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+        Files.createDirectories(applicationRoot);
+        Set<Path> before;
+        try (Stream<Path> entries = Files.list(applicationRoot)) {
+            before = entries.collect(Collectors.toSet());
+        }
+
+        Path missingSource = tempDir.resolve("missing-clinical-document.pdf");
+        assertThatThrownBy(() -> nioFileManager.createTempFileFrom("clinical-document.pdf", missingSource))
+                .isInstanceOf(IOException.class);
+
+        try (Stream<Path> entries = Files.list(applicationRoot)) {
+            assertThat(entries.collect(Collectors.toSet())).isEqualTo(before);
         }
     }
 

@@ -37,12 +37,38 @@ Release builds of both packages are attached to every CARLOS GitHub release
 (https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
 workflow, alongside their .sha256 checksums and build-provenance
 attestations. The carlos-emr package on a release ships that release's own
-published WAR byte for byte. Verify, then install:
+published WAR byte for byte.
+
+Fetching them from a shell (a server has no browser; from WSL this is far
+easier than copying files across): on the release page, right-click each
+asset and copy its link address, or build the URLs from the tag. <tag> is the
+release tag as GitHub shows it (2026.08.0-alpha12); <version> is that tag as
+it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha12):
+
+  R=https://github.com/carlos-emr/carlos/releases/download/<tag>
+  wget $R/carlos-emr_<version>_all.deb $R/carlos-emr_<version>_all.deb.sha256 \
+       $R/carlos-emr-drugref_<version>_all.deb $R/carlos-emr-drugref_<version>_all.deb.sha256 \
+       $R/carlos-emr-eform-renderer_<version>_amd64.deb $R/carlos-emr-eform-renderer_<version>_amd64.deb.sha256
+
+Verify, then install:
 
   sha256sum -c carlos-emr_<version>_all.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
+  sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
   sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb \
       ./carlos-emr-eform-renderer_<version>_amd64.deb
+
+On releases up to and including 2026.08.0-alpha12 the .sha256 files name the
+package with the build-time '~' spelling (carlos-emr_2026.08.0~alpha12_all.deb)
+while GitHub stores the asset with a '.', so `sha256sum -c` reports "No such
+file or directory" on an intact download. For those older releases,
+translate the filename in each downloaded checksum before checking it (the
+digest is unchanged), for example:
+
+  sed 's/~/./g' carlos-emr_2026.08.0.alpha12_all.deb.sha256 | sha256sum -c -
+
+Repeat for drugref and the renderer and require an OK result for every package
+before installing. Later releases record the published name directly.
 
 carlos-emr-eform-renderer is optional but strongly recommended: it carries the
 browser that renders saved eForms to PDF, and eForm print, fax and archive do
@@ -164,9 +190,25 @@ where, certificate validity, the security headers, whether the WAF actually
 blocks a probe attack, schema state, and backup freshness. Start there.
 
 The database migrations seed one administrator account, `carlosdoc`, whose
-password hash is published in the CARLOS source repository. The package
-replaces that password and PIN with random values at install time and writes
-them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
+password hash is published in the CARLOS source repository. When the
+installer's "replace the seeded administrator password" question is accepted
+(the default), the package replaces that password and PIN with random values
+and writes them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
+Declining the question leaves the published credential in the database and
+keeps the EMR stopped and disabled. To complete that installation, run
+
+  sudo dpkg-reconfigure carlos-emr
+
+and accept seeded-password replacement. This also clears the credential
+guard and restores service startup after provisioning succeeds. Running
+bootstrap-admin alone replaces the credential but does not clear that guard
+or restore service startup.
+
+On an already completed installation, `sudo carlos-ctl bootstrap-admin`
+generates a new administrator password and PIN. The verb takes no options:
+exactly one of -h, --help or help prints its usage without running it, and
+any other argument (or anything after the help word) is refused rather than
+ignored.
 
 That account arrives flagged for a FORCED PASSWORD RESET — the state the
 migrations seed it in, which this package deliberately keeps. Your first login
@@ -431,8 +473,13 @@ The demonstration dataset. Answering yes to the carlos-emr/install-demo-data
 debconf question (default: no) loads a fictitious practice into the freshly
 migrated database — about 3000 fake patients whose names all carry a FAKE-
 prefix, demonstration providers, appointments, notes, labs, prescriptions,
-and 60 clearly-fake referral specialists. The postinst runs the same verb an
-administrator can run by hand:
+60 clearly-fake referral specialists, and a small set of synthetic
+Administration fixtures (labelled "Local Test -": billing CSS styles, an
+inbox forwarding rule, patient-independent eForms, referral doctors, a
+report template, query favourites, appointment types and prevention lot
+numbers) so the data-backed Administration screens are not empty. The
+fixtures add no login: the demo load never introduces security rows. The
+postinst runs the same verb an administrator can run by hand:
 
   sudo carlos-ctl demo-data
 
@@ -722,6 +769,96 @@ Which log holds what
   troubleshooting is fine; put it back afterwards, because DEBUG on this
   application can put request parameters — which is to say PHI — into the log.
 
+Schema setup reports that indexes or columns were already present
+  Fresh installs create the baseline schema and then run the same guarded
+  migrations used for upgrades. Some indexes and columns already exist in that
+  baseline. The installer summarizes those successful no-ops in one line:
+
+    schema setup: 7 index(es) and 21 column(s) were already present; kept their existing definitions.
+
+  The counts can differ by schema. This replaces MariaDB's confusing duplicate
+  key-name (1061) and column-name (1060) warning lines. It does not suppress
+  duplicate DATA errors (1062), other warnings or failed SQL statements. A
+  migration that fails still needs investigation; follow its recovery message.
+
+The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silent
+  `carlos-ctl check` reports "this installation never finished", or the database
+  section says the schema has NO tables. Finish the install:
+
+    sudo carlos-ctl finish-install
+
+  Why this can happen with an apt run that reported no error: every provisioning
+  step in the postinst is deliberately non-fatal. A database that is unreachable
+  must not leave dpkg half-configured, because that would block the other CARLOS
+  packages and anything else in the same transaction. So the failure is reported
+  on stderr, the transaction succeeds, and on a front end that never showed you
+  stderr the install simply looks finished.
+
+  When the state directory is writable, the failed install is recorded in
+  /var/lib/carlos-emr/.install-incomplete. Interactive installers also show a
+  critical debconf error; unattended installers must inspect the command output
+  and run carlos-ctl check. If writing the marker fails, fix the filesystem and
+  run finish-install manually: an automatic boot retry is not assured.
+
+  finish-install returns nonzero if configuration, database settings, accounts,
+  migration, credential replacement, requested demo data or nginx recovery fails.
+  Recovery starts nginx if stopped and verifies the configured ports before
+  clearing the pending state; init-config alone leaves a stopped nginx stopped.
+  If the CARLOS site is missing, run dpkg-reconfigure carlos-emr to restore it.
+  CARLOS_BIND_IP must be an IPv4 or IPv6 address (for example 127.0.0.1 or
+  ::1), not a hostname; invalid input is rejected before rendering or reload.
+  It preserves
+  the pending state so you can fix the reported cause and run the same command
+  again. A populated schema that fails validation is NEVER migrated at boot;
+  arrange a verified backup and have the administrator review the Flyway error
+  before running the manual repair. Do not delete clinical databases to retry.
+
+  Check `journalctl -u mariadb` for the database outage's cause. Memory pressure
+  is one possibility, not a diagnosis: `journalctl -k` records kernel OOM kills.
+  An 8 GB allocation alone does not establish why provisioning was interrupted.
+
+  DrugRef is a second webapp in the EMR's Tomcat, so a stopped application server
+  also stops drug lookups. Its dataset is loaded by the separate DrugRef package.
+  If finish-install says that database is empty, run:
+
+    sudo dpkg-reconfigure carlos-emr-drugref
+    sudo carlos-ctl check
+
+  If it reports existing tables WITHOUT _carlos_seed_complete, the dataset may
+  be from an older installation or an interrupted seed. Back it up and ask the
+  administrator to verify it before reloading; reconfigure deliberately leaves
+  populated databases alone. Test a prescribing lookup after recovery.
+
+  A failed seeded-password replacement stops and disables the EMR and leaves a
+  guard that also blocks manual starts. finish-install checks containment and
+  reports an error if it cannot verify it. A successful retry re-enables the
+  service and removes the guard; boot recovery also queues its start.
+
+  That guard is a file under /var/lib/carlos-emr, and disabling a unit does not
+  stop a manual `systemctl start`. So if the guard itself cannot be written —
+  a full or read-only /var — the recovery masks carlos-emr.service instead, and
+  says so: the mask is then the only thing standing between an internet-facing
+  EMR and the administrator password published in the CARLOS source repository.
+  A later successful finish-install unmasks the unit for you. Do not unmask it
+  by hand before that credential has actually been replaced.
+
+  While `carlos-ctl import-o19` is copying an OSCAR 19 database, finish-install
+  refuses and says so; at boot it records that and waits. Nothing is lost —
+  resume the import (`carlos-ctl import-o19 ... --resume`), and the install
+  finishes itself at the next boot.
+
+  Only one provisioning run at a time. The boot-time provisioner, an operator
+  running finish-install, and the package's own configure (an unattended upgrade
+  or a dpkg-reconfigure) all provision with the same commands, and any two of
+  them would otherwise generate an administrator credential each; they share one
+  lock. A second run by hand is refused with a message naming the first — wait
+  for it, then confirm with `carlos-ctl check`. At boot the recovery leaves the
+  work to whoever holds the lock, and a configure that cannot take it — held
+  for five minutes, or a lock file it cannot even open on a read-only or full
+  /var — provisions nothing and records the install as unfinished, so it is
+  completed later rather than racing. A host with no flock(1) provisions as it
+  did before the lock existed.
+
 eForm print, fax or archive fails
   Those three are the only workflows that need a browser, and it runs as its own
   service. Check, in this order:
@@ -759,6 +896,23 @@ eForm print, fax or archive fails
 The application will not start
   Almost always the schema gate or the database. `carlos-ctl db-info` shows the
   migration state; `systemctl status mariadb` shows the database.
+
+  If the unit is dead rather than failing to serve, check whether it exhausted
+  its restart limit: the unit gives up after six failures in thirty minutes
+  (StartLimitBurst) and then stays down until it is started by hand. An
+  out-of-memory exit loops exactly that way, because the JVM is run with
+  -XX:+ExitOnOutOfMemoryError. `journalctl -u carlos-emr` shows the exits and
+  `systemctl reset-failed carlos-emr` clears the limit once the cause is fixed.
+  Give the machine enough memory for the configured heap (CARLOS_JAVA_XMX in
+  /etc/carlos-emr/carlos-emr.env) plus MariaDB's 1 GB buffer pool and the
+  operating system, or lower the heap and run `carlos-ctl restart`.
+
+The check says the JVM runs as `tomcat`, or something answers on port 8080
+  The distribution's tomcat11 SERVICE package is installed. CARLOS does not use
+  it — it runs its own private instance as the `carlos` account on
+  127.0.0.1:18080 — and that second container listens on every interface with
+  no TLS, no WAF and no rate limit. Remove it: `sudo apt purge tomcat11`.
+  Current packages refuse the combination outright (Conflicts: tomcat11).
 
 A page returns 403 and the application log shows nothing
   That is the WAF, not the application. `carlos-ctl waf tail` shows why. If it
