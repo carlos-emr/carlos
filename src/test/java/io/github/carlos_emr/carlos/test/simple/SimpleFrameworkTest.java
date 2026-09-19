@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.test.simple;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import static org.junit.jupiter.api.Assertions.*;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Simple test to verify JUnit 5 framework is working
  */
+@Tag("unit")
 @DisplayName("Simple Framework Test")
 public class SimpleFrameworkTest {
 

@@ -29,7 +29,6 @@ io.github.carlos_emr.carlos.casemgmt.web.ClientImage2ActionTest
 io.github.carlos_emr.carlos.clinical.gate.ViewClinical2ActionTest
 io.github.carlos_emr.carlos.clinical.StrutsClinicalConfigTest
 io.github.carlos_emr.carlos.commn.dao.EFormReportToolDaoImplTest
-io.github.carlos_emr.carlos.commn.model.UserPropertyScheduleNavigationModeTest
 io.github.carlos_emr.carlos.commn.service.BillingInvoiceTemplateCompileTest
 io.github.carlos_emr.carlos.commn.web.Contact2ActionTest
 io.github.carlos_emr.carlos.commn.web.DxresearchReport2ActionTest
