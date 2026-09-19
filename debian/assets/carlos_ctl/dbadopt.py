@@ -79,8 +79,8 @@ BACKUP_PREFIX = "carlos_adopt_backup_"
 # into generated DDL, so they are matched rather than trusted.
 _IDENT = re.compile(r"\A[A-Za-z0-9_]+\Z")
 
-# Prepended to the genesis reconciliation script this module runs, for the same reasons the genesis
-# dump and `dbops` restore stream set them.
+# Prepended by `_run_script` to every script this module runs, for the same
+# reasons the genesis dump and the `dbops` restore stream set them.
 #
 # NAMES: the genesis DDL carries utf8mb4 literals.
 #
@@ -253,10 +253,7 @@ def reconciliation_statements(tables):
       requires the column to become a key in the same breath, and a table that
       has lost its auto-increment primary key is not a table this pass should
       quietly rebuild. They are reported instead."""
-    # The genesis declares foreign keys, and these statements are emitted in
-    # NAME order, so a child table can be created before its parent -- exactly
-    # why the genesis file itself opens with FOREIGN_KEY_CHECKS=0.
-    statements = list(SESSION_PRAGMAS) + ["SET FOREIGN_KEY_CHECKS=0;"]
+    statements = []
     skipped = []
     for name in sorted(tables):
         table = tables[name]
@@ -268,7 +265,6 @@ def reconciliation_statements(tables):
             statements.append(
                 "ALTER TABLE `{0}` ADD COLUMN IF NOT EXISTS `{1}` {2};".format(
                     name, column, definition))
-    statements.append("SET FOREIGN_KEY_CHECKS=1;")
     return statements, skipped
 
 
@@ -332,6 +328,7 @@ def _count_or_die(dbops, db_name, sql, what) -> int:
 
 
 def _run_script(dbops, db_name, script: str, what: str) -> None:
+    script = "\n".join(list(SESSION_PRAGMAS) + [script])
     cp = _client(dbops, db_name, ["-B"], input=script, capture_output=True)
     if cp.returncode != 0:
         # stderr was CAPTURED, so nothing reached the operator's terminal on its
@@ -753,8 +750,14 @@ def cmd_db_baseline(argv) -> int:
         log("stale history renamed to `{0}`".format(parked))
 
     # Structure first: the data preparation below reads columns the genesis
-    # reconciliation may have just added.
-    _run_script(dbops, db_name, "\n".join(statements), "genesis reconciliation")
+    # reconciliation may have just added. FOREIGN_KEY_CHECKS is off for the
+    # duration because the genesis declares foreign keys and these statements
+    # are emitted in NAME order, so a child table can be created before its
+    # parent -- exactly why the genesis file itself opens the same way.
+    _run_script(dbops, db_name,
+                "\n".join(["SET FOREIGN_KEY_CHECKS=0;"] + statements
+                          + ["SET FOREIGN_KEY_CHECKS=1;"]),
+                "genesis reconciliation")
     after = _schema_size(dbops, db_name)
     log("reconciled: {0} table(s) and {1} column(s) added; {2} table(s) "
         "checked".format(after[0] - before[0], after[1] - before[1], len(tables)))

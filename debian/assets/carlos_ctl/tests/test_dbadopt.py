@@ -86,20 +86,31 @@ class TestReconciliationStatements(unittest.TestCase):
                 continue
             self.assertIn("IF NOT EXISTS", statement.upper(), statement[:80])
 
-    def test_foreign_key_checks_are_disabled_around_the_pass(self):
-        # The genesis declares foreign keys and these statements are emitted in
-        # name order, so a child table can precede its parent.
-        self.assertEqual(self.statements[2], "SET FOREIGN_KEY_CHECKS=0;")
-        self.assertEqual(self.statements[-1], "SET FOREIGN_KEY_CHECKS=1;")
+    def test_returns_only_reconciliation_statements(self):
+        # Session pragmas belong to _run_script and the FOREIGN_KEY_CHECKS pair
+        # to the caller, so this list is exactly what the dry-run message counts.
+        for statement in self.statements:
+            self.assertFalse(statement.upper().startswith("SET "), statement)
 
-    def test_session_sql_mode_is_pinned(self):
+    def test_session_sql_mode_is_pinned_for_every_script(self):
         # Seven genesis columns default to '0000-00-00'. Under a sql_mode
         # carrying NO_ZERO_DATE or TRADITIONAL those ADD COLUMNs fail PART WAY
         # THROUGH, leaving a half-reconciled schema. The packaged drop-in sets
         # sql_mode="" but is only read at server start, and db-baseline has no
-        # ordering against db-apply-settings.
-        self.assertEqual(self.statements[0], "SET NAMES utf8mb4;")
-        self.assertEqual(self.statements[1], "SET SESSION sql_mode='';")
+        # ordering against db-apply-settings -- so every script this module
+        # runs pins the session itself, not just the reconciliation.
+        self.assertEqual(dbadopt.SESSION_PRAGMAS,
+                         ("SET NAMES utf8mb4;", "SET SESSION sql_mode='';"))
+        sent = {}
+
+        def fake_client(_dbops, _db, args, **kw):
+            sent["script"] = kw.get("input", "")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(dbadopt, "_client", fake_client):
+            dbadopt._run_script(mock.Mock(), "carlos", "DELETE FROM `x`;", "t")
+        self.assertTrue(sent["script"].startswith(
+            "SET NAMES utf8mb4;\nSET SESSION sql_mode='';\n"), sent["script"])
 
     def test_auto_increment_columns_are_reported_not_added(self):
         # ADD COLUMN ... AUTO_INCREMENT requires the column to become a key in
