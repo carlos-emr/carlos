@@ -20,7 +20,10 @@ Installed-DEB validation: both workflows pass on validation12 (Ubuntu 26.04,
 8 GiB). The pharmacy editor was repeated three times after correcting a test
 race that clicked Close while Bootstrap was still opening the modal. The check
 now observes the real DOM transition before closing and waits for the modal to
-be hidden; it does not invoke application handlers or use a fixed sleep.
+be hidden; it does not invoke application handlers or use a fixed sleep. A second
+broad-run race reloaded the opener during its own deletion refresh. The test now
+waits for that refresh to settle before its independent persistence reload; the
+corrected workflow passed again in the serial follow-up group.
 
 The quick-link check exposed #3771: Add returned HTTP 403 because its dynamic
 form lacked a CSRF token. It passes with the separate fix #3772. Other findings
@@ -32,3 +35,27 @@ The integration build passed 12,458 Java tests (zero failures/errors, 51 skips),
 771 Node tests and 1,587 packaging/CLI tests. Suite-manifest tests passed all
 18 cases. Code review follow-ups and the broad installed suite are tracked in
 #3773; focused live passes alone do not certify every application workflow.
+
+## Incoming PDF workflow (fixed package validation pending)
+
+`npm run test:incoming-pdf-extraction-playwright` requires `INCOMINGDOCUMENT_DIR`
+as seen by the test process, with queue `1/File` already created by the application,
+plus `pdfinfo` and `pdftotext` (Ubuntu `poppler-utils`). Run inside the disposable
+VM as its test administrator, or with permission to create service-owned fixtures.
+The test creates three synthetic PDFs exclusively and assigns the queue service's
+ownership, so a permissions error cannot masquerade as collision protection.
+It preserves and restores the test provider's three incoming-document preferences.
+
+The workflow navigates from the schedule through Inbox, opens its own PDF, checks
+that all nine mutation verbs reject GET and a tokenless POST is rejected, refuses
+whole-document extraction, preserves an existing destination, cancels without
+submission, rejects an out-of-range page, then extracts page 2. Independent PDF
+inspection verifies pages 1 and 3 remain and only page 2 is extracted; an unrelated
+`T<source>` document must survive unchanged. Both outputs are reopened through the UI.
+
+Installed validation12 negative controls confirmed #3775 (source changes on an
+existing-output collision) and #3776 (GET rotation returns 200 and changes a PDF).
+Issue #3777 / fix #3778 covers Cancel and range validation. The complete positive
+workflow needs all three separate fixes and will intentionally fail on the old
+package. Oversized range testing is confined to bounded Node tests, never an
+unfixed browser. No output from these probes is a real patient document.
