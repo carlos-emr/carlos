@@ -40,11 +40,19 @@ KNOWN_UNGUARDED_SEEDS = {
     "V1.0.5__restore_live_legacy_common_tables.sql": {"icd10"},
 }
 
+# The contract checks statement headers, including optional column lists;
+# adoption's narrower parser additionally needs positional key/code tuples.
+_CONTRACT_SEED_INSERT = re.compile(
+    r"^[ \t]*INSERT\s+(?P<ignore>IGNORE\s+)?INTO\s+"
+    r"`?(?P<table>[A-Za-z0-9_]+)`?(?:\s*\([^;)]*\)\s*|\s+)VALUES\s*\(",
+    re.IGNORECASE | re.MULTILINE)
+
+
 def unguarded_seed_tables(sql):
     """Contract detection must not depend on adoption's key/code tuple parser."""
     temporary = {name.lower() for name in dbadopt.parse_temporary_tables(sql)}
     return {match.group("table").lower()
-            for match in dbadopt._SEED_INSERT.finditer(sql)
+            for match in _CONTRACT_SEED_INSERT.finditer(sql)
             if not match.group("ignore")
             and match.group("table").lower() not in temporary}
 
@@ -61,6 +69,22 @@ INSERT IGNORE INTO guarded_seed VALUES (1,2);
 """
         self.assertEqual(unguarded_seed_tables(sql),
                          {"numeric_seed", "string_seed", "keyed_code"})
+
+    def test_column_lists_are_checked_but_select_guarded_and_temporary_are_not(self):
+        sql = """
+INSERT INTO listed_seed(id,code) VALUES (1,'a');
+  insert into `quoted_seed` (`id`, `code`) values (2,'b');
+INSERT INTO multiline_seed
+  (id,
+   code)VALUES(3,'c');
+INSERT IGNORE INTO guarded_seed(id,code) VALUES (4,'d');
+CREATE TEMPORARY TABLE scratch (id int);
+INSERT INTO scratch(id) VALUES (5);
+INSERT INTO selected_seed(id,code) SELECT id,code FROM source_seed;
+INSERT INTO plain_select SELECT * FROM source_seed;
+"""
+        self.assertEqual(unguarded_seed_tables(sql),
+                         {"listed_seed", "quoted_seed", "multiline_seed"})
 
 
 SAMPLE = """
