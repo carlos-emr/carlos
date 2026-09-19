@@ -2250,6 +2250,22 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "admin-login-text",
+      "script": "scripts/admin-login-text-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR",
+        "PLAYWRIGHT_ALLOW_LOGIN_TEXT_WRITE"
+      ]
     }
   ]
 }

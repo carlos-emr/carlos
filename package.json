@@ -142,7 +142,8 @@
     "test:email-compose-send-playwright": "node scripts/email-compose-send-playwright-checks.js",
     "test:form-labreq-practitioner-no-playwright": "node scripts/form-labreq-practitioner-no-playwright-checks.js",
     "test:pharmacy-list-filters-playwright": "node scripts/pharmacy-list-filters-playwright-checks.js",
-    "test:scratchpad-workflow-playwright": "node scripts/scratchpad-workflow-playwright-checks.js"
+    "test:scratchpad-workflow-playwright": "node scripts/scratchpad-workflow-playwright-checks.js",
+    "test:admin-login-text-playwright": "node scripts/admin-login-text-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
