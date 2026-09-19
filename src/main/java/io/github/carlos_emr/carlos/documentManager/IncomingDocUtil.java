@@ -42,6 +42,9 @@ import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.LinkOption;
 import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -723,67 +726,93 @@ public final class IncomingDocUtil {
     // case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public static void extractPage(String queueId, String myPdfDir, String myPdfName, String pageNumbersToExtract) throws Exception {
-        long lastModified;
-        String filePathName, tempFilePathName;
-
-        // Validate myPdfName for temp file
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
-        
-        String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
-        File validatedTempFile = PathValidationUtils.validatePath("T" + myPdfName, new File(basePath));
-        tempFilePathName = validatedTempFile.getPath();
-        filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
-
-        File f = PathValidationUtils.validateExistingPath(new File(filePathName), new File(basePath));
-        filePathName = f.getPath();
-        lastModified = f.lastModified();
-        f.setReadOnly();
-
-        File extractBaseDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentFilePath(queueId, myPdfDir), "incoming extract directory");
-        ArrayList<String> extractList;
-
-        PdfReader reader = null;
-        Document document = null;
-        PdfCopy copy = null;
-        PdfCopy extractCopy = null;
-        FileOutputStream copyFos = null;
-        FileOutputStream extractFos = null;
-        String extractPath = null;
-
+        File base = PathValidationUtils.validateConfiguredDirectory(
+                getIncomingDocumentFilePath(queueId, myPdfDir), "incoming extract directory");
+        Path source = PathValidationUtils.validateExistingPath(
+                new File(getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName)), base).toPath();
+        long lastModified = source.toFile().lastModified();
+        Path remainingTemp = null;
+        Path extractedTemp = null;
+        Throwable failure = null;
         try {
-            reader = new PdfReader(filePathName);
-            String extractFileName = addPdfNameSuffix(myPdfName,
-                    "E" + Integer.toString(reader.getNumberOfPages()));
-            File validatedExtractFile = PathValidationUtils.validatePath(extractFileName, extractBaseDir);
-            extractPath = validatedExtractFile.getPath();
-
-            extractList = buildExtractList(pageNumbersToExtract, reader.getNumberOfPages());
-
-            document = new Document(reader.getPageSizeWithRotation(1));
-            copyFos = new FileOutputStream(validatedTempFile);
-            copy = new PdfCopy(document, copyFos);
-            extractFos = new FileOutputStream(validatedExtractFile);
-            extractCopy = new PdfCopy(document, extractFos);
-            document.open();
-            copyExtractedPages(reader, extractList, copy, extractCopy);
+            Path destination;
+            try (PdfReader reader = new PdfReader(source.toString())) {
+                ArrayList<String> extractList = buildExtractList(pageNumbersToExtract, reader.getNumberOfPages());
+                destination = PathValidationUtils.validatePath(
+                        addPdfNameSuffix(myPdfName, "E" + reader.getNumberOfPages()), base).toPath();
+                if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
+                    throw new FileAlreadyExistsException("An extracted document already exists");
+                }
+                // Unique non-PDF staging names cannot overwrite another queued document or
+                // appear as incomplete PDFs in the incoming-document list.
+                remainingTemp = Files.createTempFile(base.toPath(), ".carlos-extract-remaining-", ".tmp");
+                extractedTemp = Files.createTempFile(base.toPath(), ".carlos-extract-pages-", ".tmp");
+                try (FileOutputStream remainingStream = new FileOutputStream(remainingTemp.toFile());
+                     FileOutputStream extractedStream = new FileOutputStream(extractedTemp.toFile());
+                     Document remainingDocument = new Document(reader.getPageSizeWithRotation(1));
+                     Document extractedDocument = new Document(reader.getPageSizeWithRotation(1));
+                     PdfCopy remainingCopy = new PdfCopy(remainingDocument, remainingStream);
+                     PdfCopy extractedCopy = new PdfCopy(extractedDocument, extractedStream)) {
+                    remainingDocument.open();
+                    extractedDocument.open();
+                    copyExtractedPages(reader, extractList, remainingCopy, extractedCopy);
+                }
+            }
+            var attributes = Files.getFileAttributeView(source, java.nio.file.attribute.PosixFileAttributeView.class);
+            if (attributes != null) {
+                var permissions = attributes.readAttributes().permissions();
+                Files.setPosixFilePermissions(remainingTemp, permissions);
+                Files.setPosixFilePermissions(extractedTemp, permissions);
+            }
+            // Every writer and output stream has finalized successfully before either
+            // result is published. Never replace a previously extracted document.
+            // Link creation is an atomic create-if-absent operation. A plain move
+            // without REPLACE_EXISTING can still race with another destination
+            // creator on Unix. Unsupported filesystems fail with the source intact.
+            Files.createLink(destination, extractedTemp);
+            try {
+                Files.move(remainingTemp, source, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                remainingTemp = null;
+            } catch (IOException | RuntimeException ex) {
+                try {
+                    Files.deleteIfExists(destination);
+                } catch (IOException cleanupFailure) {
+                    ex.addSuppressed(cleanupFailure);
+                }
+                throw ex;
+            }
+            if (!source.toFile().setLastModified(lastModified)) {
+                logger.warn("Could not restore the last modified time of a queued document after extracting pages");
+            }
+            if (!destination.toFile().setLastModified(lastModified)) {
+                logger.warn("Could not restore the last modified time of an extracted document");
+            }
+        } catch (Exception | Error ex) {
+            failure = ex;
+            throw ex;
         } finally {
-            closePageExtractionResources(copy, extractCopy, document, copyFos, extractFos, reader);
+            try {
+                deleteExtractionTemps(remainingTemp, extractedTemp);
+            } catch (IOException cleanupFailure) {
+                if (failure != null) failure.addSuppressed(cleanupFailure);
+                else throw cleanupFailure;
+            }
         }
+    }
 
-        File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-
-        // One move instead of delete-then-rename, for the same reason as deletePage: a failed
-        // rename after an unconditional delete lost the queued document entirely.
-        Files.move(f1.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-        // Both mtime carry-overs are cosmetic and deliberately not fatal.
-        if (!f.setLastModified(lastModified)) {
-            MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after extracting pages");
+    private static void deleteExtractionTemps(Path... paths) throws IOException {
+        IOException failure = null;
+        for (Path path : paths) {
+            if (path == null) continue;
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException ex) {
+                if (failure == null) failure = ex;
+                else failure.addSuppressed(ex);
+            }
         }
-        File f2 = PathValidationUtils.validateExistingPath(new File(extractPath), extractBaseDir);
-        if (!f2.setLastModified(lastModified)) {
-            MiscUtils.getLogger().warn("Could not restore the last modified time of an extracted document");
-        }
+        if (failure != null) throw failure;
     }
 
     private static ArrayList<String> buildExtractList(String pageNumbersToExtract, int pageCount) {
@@ -889,39 +918,13 @@ public final class IncomingDocUtil {
             PdfCopy extractCopy) throws IOException {
         for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
             if ("1".equals(extractList.get(pageNumber))) {
-                extractCopy.addPage(copy.getImportedPage(reader, pageNumber));
+                extractCopy.addPage(extractCopy.getImportedPage(reader, pageNumber));
             } else {
                 copy.addPage(copy.getImportedPage(reader, pageNumber));
             }
         }
     }
 
-    private static void closePageExtractionResources(PdfCopy copy, PdfCopy extractCopy, Document document,
-            FileOutputStream copyFos, FileOutputStream extractFos, PdfReader reader) {
-        closePdfResource(copy, "Error closing copy writer during page extraction");
-        closePdfResource(extractCopy, "Error closing extract writer during page extraction");
-        closePdfResource(document, "Error closing PDF document during page extraction");
-        closePdfResource(copyFos, "Error closing copy output stream during page extraction");
-        closePdfResource(extractFos, "Error closing extract output stream during page extraction");
-        closePdfResource(reader, "Error closing PDF reader during page extraction");
-    }
-
-    // message is always one of the fixed internal cleanup strings passed by closePageExtractionResources().
-    @SuppressFBWarnings(
-            value = "CRLF_INJECTION_LOGS",
-            justification = "message is always one of the fixed internal cleanup strings passed by closePageExtractionResources().")
-    private static void closePdfResource(AutoCloseable resource, String message) {
-        if (resource == null) {
-            return;
-        }
-        try {
-            resource.close();
-        } catch (Exception e) {
-            // exceptionTrace, not the throwable: a close failure here carries the queue or temp PDF
-            // path in its message, and this runs during cleanup of patient documents.
-            MiscUtils.getLogger().error("{}: {}", message, LogSafe.exceptionTrace(e));
-        }
-    }
 
     /**
      * Deletes an entire PDF file. If the INCOMINGDOCUMENT_RECYCLEBIN property is enabled
@@ -1166,8 +1169,10 @@ public final class IncomingDocUtil {
             try {
                 extractPage(queueIdStr, pdfDir, pdfName, pdfExtractPageNumber);
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-                throw e;
+                logger.error("Incoming document extraction failed: {}", LogSafe.exceptionTrace(e));
+                // Filesystem exceptions may contain patient document names. Keep the
+                // visible error localized and the log free of exception messages.
+                throw new Exception(props.getString("dms.incomingDocs.cannotExtractPage"));
             }
         }
     }
