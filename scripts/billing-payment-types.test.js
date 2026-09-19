@@ -112,6 +112,58 @@ function deleteScript(source) {
   return [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)]
     .map(match => match[1]).find(value => value.includes('data-paymentTypeId'));
 }
+
+function deleteFixture() {
+  let handler;
+  const requests = []; const alerts = [];
+  const location = { href: 'payment-list' };
+  function jquery() {
+    return { ready: callback => callback(), on: (_event, _selector, callback) => { handler = callback; } };
+  }
+  jquery.ajax = request => requests.push(request);
+  const context = vm.createContext({
+    window: { csrfTokenReady: Promise.resolve() },
+    document: { querySelector: () => ({ value: 'synthetic-token' }) },
+    jQuery: jquery, alert: text => alerts.push(text), location,
+  });
+  vm.runInContext(csrfScript, context);
+  vm.runInContext(deleteScript(fs.readFileSync(path.join(root, 'manageBillingPaymentType.jsp'), 'utf8')), context);
+  return {
+    requests, alerts, location,
+    click: () => handler({ preventDefault() {}, target: { getAttribute: () => '17' } }),
+  };
+}
+
+for (const result of [null, {}, { ret: 1, reason: 'This payment type has been used in some payment!' },
+  { ret: '1', reason: 'Invalid paymentTypeId' }, { ret: '0invalid' }, { ret: '0' }, { ret: 0 }]) {
+  test(`delete response ${JSON.stringify(result)} only redirects after explicit success`, async () => {
+    const fixture = deleteFixture();
+    await fixture.click();
+    fixture.requests[0].success(result);
+    const success = result && (result.ret === '0' || result.ret === 0);
+    assert.equal(fixture.location.href, success
+      ? '${pageContext.request.contextPath}/billing/CA/ON/managePaymentType' : 'payment-list');
+    assert.equal(fixture.alerts.length, 1);
+    if (result?.reason) assert.equal(fixture.alerts[0], 'Failed to delete the payment type, reason:' + result.reason);
+    if (success) assert.match(fixture.alerts[0], /deleting the payment type/);
+    // jQuery runs complete after the success callback, including application errors.
+    fixture.requests[0].complete();
+    await fixture.click();
+    assert.equal(fixture.requests.length, 2, 'application errors must not leave delete locked');
+  });
+}
+
+test('delete transport failure shows the server reason, stays on the list and permits retry', async () => {
+  const fixture = deleteFixture();
+  await fixture.click();
+  fixture.requests[0].error({ responseJSON: { reason: 'Synthetic delete failure' }, status: 503 }, 'error', 'Unavailable');
+  assert.deepEqual(fixture.alerts, ['Synthetic delete failure']);
+  assert.equal(fixture.location.href, 'payment-list');
+  fixture.requests[0].complete();
+  await fixture.click();
+  assert.equal(fixture.requests.length, 2);
+});
+
 for (const closing of ['</SCRIPT >', '</script data-ignored="fixture">']) {
   test(`script extraction accepts HTML closing tag variation ${closing}`, () => {
     const source = fs.readFileSync(path.join(root, 'manageBillingPaymentType.jsp'), 'utf8');
