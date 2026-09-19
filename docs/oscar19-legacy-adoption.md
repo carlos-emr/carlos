@@ -279,6 +279,13 @@ Move it aside under a new name; it holds rows an earlier run cleared.
 the reconciliation runs, the history is already correct, and the final stamp is
 a no-op Flyway reports rather than an error.
 
+**"`flyway_schema_history` already contains migrations" under `--stamp-only`.**
+Not a regression: that flag is the pre-adoption verb in full, refusal included,
+and it deliberately does not park a stale history — the whole point of the flag
+is that it changes nothing but the stamp. Run `carlos-ctl db-baseline` without
+it; the plain verb parks that history and reconciles the schema, which is what
+the database in front of you needs anyway.
+
 ## See also
 
 * `docs/carlos-ctl.md` — the full verb reference

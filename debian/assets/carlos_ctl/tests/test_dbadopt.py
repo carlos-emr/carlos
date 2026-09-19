@@ -601,6 +601,34 @@ class TestDryRunDrivesTheWholePlan(unittest.TestCase):
 
     @unittest.skipUnless(os.path.isdir(REPO_MIGRATIONS),
                          "runs from a source checkout, not the installed package")
+    def test_stamp_only_warns_that_the_stamp_itself_can_still_refuse(self):
+        """`--stamp-only` is the old verb in full, refusal included.
+
+        It deliberately does NOT park a stale history -- acquiring that would
+        make it something other than the compatibility path it documents. But
+        the operator who reaches for it on a legacy import is precisely the one
+        Flyway is about to refuse, so the warning has to name that and point at
+        the plain verb, or the refusal reads as a bug in the new code."""
+        import contextlib
+        import io
+        stderr = io.StringIO()
+        with mock.patch.object(dbadopt.dbops, "run_flyway",
+                               return_value=0) as flyway, \
+                mock.patch.object(dbadopt, "_stale_history") as stale, \
+                mock.patch.object(dbadopt, "plan_seed_collisions") as seeds, \
+                contextlib.redirect_stderr(stderr):
+            rc = dbadopt.cmd_db_baseline(["--stamp-only"])
+        self.assertEqual(rc, 0)
+        flyway.assert_called_once_with("baseline")
+        stale.assert_not_called()
+        seeds.assert_not_called()
+        self.assertEqual(self.executed, [])
+        warned = stderr.getvalue()
+        self.assertIn("refuse the stamp", warned)
+        self.assertIn("without --stamp-only", warned)
+
+    @unittest.skipUnless(os.path.isdir(REPO_MIGRATIONS),
+                         "runs from a source checkout, not the installed package")
     def test_rejects_an_unknown_option_before_touching_anything(self):
         with self.assertRaises(SystemExit):
             dbadopt.cmd_db_baseline(["--recncile"])

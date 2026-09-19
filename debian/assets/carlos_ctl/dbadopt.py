@@ -890,9 +890,17 @@ def cmd_db_baseline(argv) -> int:
     check_schema_province(schema, settings.schema_province)
 
     if stamp_only:
+        # Deliberately the pre-adoption behaviour, refusal included. This flag
+        # exists for compatibility, so it must NOT quietly acquire the stale
+        # history parking below -- but say what that means, because an operator
+        # reaching for it on a legacy import is the one Flyway is about to
+        # refuse, and the way through is the plain verb.
         _warn("--stamp-only: stamping without reconciling. An adopted OSCAR 19 "
              "datadir will be missing every column added to the genesis since "
-             "it was forked, and the failure surfaces at login, not here.")
+             "it was forked, and the failure surfaces at login, not here. "
+             "This is the old behaviour in full, so a flyway_schema_history "
+             "the installer already populated still makes Flyway refuse the "
+             "stamp; run db-baseline without --stamp-only to park it.")
         return dbops.run_flyway("baseline")
 
     files = genesis_files(settings.schema_province)
