@@ -63,7 +63,7 @@ const paymentTypeContextPath = (function () {
  * @returns {Promise<?string>} the token, or null when no retry is possible or it failed
  */
 async function paymentTypeRefetchToken() {
-    if (!paymentTypeContextPath || typeof fetchCsrfToken !== "function") return null;
+    if (paymentTypeContextPath === null || typeof fetchCsrfToken !== "function") return null;
     try {
         await fetchCsrfToken(paymentTypeContextPath);
     } catch (error) {

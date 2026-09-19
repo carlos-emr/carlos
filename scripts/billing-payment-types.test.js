@@ -220,7 +220,7 @@ test('token retrieval waits for DOMContentLoaded when bootstrap has not installe
 // A rejected window.csrfTokenReady stays rejected for the life of the document, so
 // releasing the in-flight guard alone never makes a failed bootstrap retryable. The
 // helper must refetch, the way efmformmanager.jsp does.
-function csrfRetryContext(fetchCsrfToken) {
+function csrfRetryContext(fetchCsrfToken, scriptSource = 'https://host/carlos/billing/CA/ON/payment-type-csrf.js') {
   const input = { value: '' };
   const alerts = [];
   const context = vm.createContext({
@@ -228,7 +228,7 @@ function csrfRetryContext(fetchCsrfToken) {
     document: {
       readyState: 'complete',
       querySelector: () => input,
-      currentScript: { src: 'https://host/carlos/billing/CA/ON/payment-type-csrf.js' },
+      currentScript: { src: scriptSource },
     },
     fetchCsrfToken,
     alert: text => alerts.push(text),
@@ -255,6 +255,22 @@ test('a refetch that also fails reports the failure and submits nothing', async 
   assert.equal(await context.paymentTypeBeginRequest(), null);
   assert.deepEqual(alerts, ['Security token unavailable. Reload and try again.']);
 });
+
+for (const [source, expectedPrefix] of [
+  ['https://host/billing/CA/ON/payment-type-csrf.js', 'https://host'],
+  ['/billing/CA/ON/payment-type-csrf.js', ''],
+]) {
+  test(`root deployment recovers failed bootstrap with script source ${source}`, async () => {
+    const prefixes = [];
+    const { context, input, alerts } = csrfRetryContext(async prefix => {
+      prefixes.push(prefix);
+      input.value = 'root-token';
+    }, source);
+    assert.equal(await context.paymentTypeBeginRequest(), 'root-token');
+    assert.deepEqual(prefixes, [expectedPrefix]);
+    assert.equal(alerts.length, 0);
+  });
+}
 
 test('no refetch is attempted when the script URL does not reveal a context path', async () => {
   const alerts = [];
