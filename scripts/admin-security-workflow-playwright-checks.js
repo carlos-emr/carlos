@@ -6,7 +6,7 @@ const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 async function workflow(s) {
-  const username = s.marker.slice(0, 26);
+  const username = s.marker.replace(/[^A-Za-z0-9]/g, '').slice(0, 26);
   const renamed = `${username}X`;
   let id;
   s.cleanup(() => {

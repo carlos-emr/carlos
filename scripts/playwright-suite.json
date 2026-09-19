@@ -2263,7 +2263,7 @@
       ],
       "timeoutSec": 240,
       "env": [
-        "DOCUMENT_DIR",
+        "BASE_DOCUMENT_DIR",
         "PLAYWRIGHT_ALLOW_LOGIN_TEXT_WRITE"
       ]
     }

@@ -11,8 +11,8 @@ async function workflow(s) {
   if (process.env.PLAYWRIGHT_ALLOW_LOGIN_TEXT_WRITE !== 'true') {
     throw new h.SkipCheck('Set PLAYWRIGHT_ALLOW_LOGIN_TEXT_WRITE=true on an isolated deployment to exercise agreement upload');
   }
-  h.assert(process.env.DOCUMENT_DIR, 'Set DOCUMENT_DIR to the disposable deployment document directory');
-  const target = path.join(fs.realpathSync(process.env.DOCUMENT_DIR), 'OSCARloginText.txt');
+  h.assert(process.env.BASE_DOCUMENT_DIR, 'Set BASE_DOCUMENT_DIR to the disposable deployment base document directory');
+  const target = path.join(fs.realpathSync(process.env.BASE_DOCUMENT_DIR), 'login', 'AcceptableUseAgreement.txt');
   const stat = fs.existsSync(target) ? fs.lstatSync(target) : null;
   h.assert(!stat || stat.isFile(), 'Agreement fixture refuses a non-regular target');
   const original = stat ? fs.readFileSync(target) : null;
@@ -41,6 +41,7 @@ async function workflow(s) {
   const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
     { context: s.context, recorder: s.recorder, label: 'agreement-admin' });
   const menu = admin.locator('a[rel$="/admin/uploadEntryText"]');
+  if (!await menu.count()) throw new h.SkipCheck('Enable LOGINTEST=yes to expose the agreement administration workflow');
   const panel = menu.locator('xpath=ancestor::div[contains(@class,"accordion-collapse")][1]');
   if (!await panel.isVisible()) await admin.locator(`[data-bs-target="#${await panel.getAttribute('id')}"]`).click();
   async function open() {

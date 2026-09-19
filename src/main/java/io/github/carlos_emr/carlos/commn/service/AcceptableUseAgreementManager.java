@@ -36,21 +36,28 @@ import java.util.GregorianCalendar;
 import java.util.List;
 
 import io.github.carlos_emr.CarlosProperties;
-import org.apache.commons.io.FileUtils;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.charset.StandardCharsets;
 
 public class AcceptableUseAgreementManager {
     private static Logger logger = MiscUtils.getLogger();
 
-    private static boolean loadAttempted = false;
+    private static volatile boolean loadAttempted = false;
 
     private static String auaText;
+    private static AgreementVersion loadedVersion;
+
+    private record AgreementVersion(Path path, FileTime modified, long size, Object fileKey) { }
+
     private boolean auaAvailable;
     private boolean alwaysShow;
     private static Date agreementCutoffDate;
@@ -58,31 +65,55 @@ public class AcceptableUseAgreementManager {
 
     private static PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    private static void loadAUA() {
-        String path = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR") + File.separator + "login" + File.separator + "AcceptableUseAgreement.txt";
+    /**
+     * Returns the canonical agreement used by both upload and login readers.
+     * The directory may be created by an administrator upload.
+     * @return a validated child beneath BASE_DOCUMENT_DIR/login
+     * @since 2026-09-19
+     */
+    public static File getAgreementFile() {
+        File base = PathValidationUtils.validateConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"), "BASE_DOCUMENT_DIR");
+        File directory = PathValidationUtils.validateGeneratedChildPath("login", base);
+        return PathValidationUtils.validateGeneratedChildPath("AcceptableUseAgreement.txt", directory);
+    }
+
+    /**
+     * Discards cached text and validity after a successful administrator change.
+     * Uploading text does not change the show_aua login policy.
+     * @since 2026-09-19
+     */
+    public static synchronized void invalidateCache() {
+        loadAttempted = false;
+        auaText = null;
+        loadedVersion = null;
+        agreementCutoffDate = null;
+    }
+
+    private static synchronized void loadAUA() {
         try {
-            File auaFile = PathValidationUtils.resolveTrustedPath(new File(path));
-            if (!auaFile.exists()) {
-                loadAttempted = true;
-                logger.debug("No AcceptableUseAgreement File present. disabling AcceptableUseAgreement prompt");
-                auaText = null;
-                return; // nothing more to do
-            }
-
-            auaText = FileUtils.readFileToString(auaFile);
-
+            Path path = getAgreementFile().toPath();
+            boolean exists = Files.exists(path);
+            BasicFileAttributes attributes = exists ? Files.readAttributes(path, BasicFileAttributes.class) : null;
+            AgreementVersion version = new AgreementVersion(path,
+                    exists ? attributes.lastModifiedTime() : null,
+                    exists ? attributes.size() : -1,
+                    exists ? attributes.fileKey() : null);
+            if (loadAttempted && version.equals(loadedVersion)) return;
+            // Also notice deployment/restoration changes outside the upload action.
+            // A missing file must never leave an old agreement active in memory.
+            auaText = exists ? Files.readString(path, StandardCharsets.UTF_8) : null;
+            loadedVersion = version;
         } catch (Exception e) {
-            logger.error("ERROR LOADING AcceptableUseAgreement text from path " + path, e);
+            logger.error("Error loading acceptable-use agreement", e);
             auaText = null;
+            loadedVersion = null;
         } finally {
             loadAttempted = true;
         }
-
     }
 
-    public static boolean hasAUA() {
+    public static synchronized boolean hasAUA() {
         String auaProp = CarlosProperties.getInstance().getProperty("show_aua");
 
         if (auaProp == null) {
@@ -93,11 +124,9 @@ public class AcceptableUseAgreementManager {
             return false;
         }
 
-        logger.debug("loadAttempted " + loadAttempted + " auaText " + auaText);
+        logger.debug("Acceptable-use agreement load attempted: {}", loadAttempted);
 
-        if (!loadAttempted) {
-            AcceptableUseAgreementManager.loadAUA();
-        }
+        AcceptableUseAgreementManager.loadAUA();
 
         if (auaText == null) {
             return false;
@@ -119,21 +148,16 @@ public class AcceptableUseAgreementManager {
         return false;
     }
 
-    public static String getAUAText() {
-        if (!loadAttempted) {
-            AcceptableUseAgreementManager.loadAUA();
-        }
+    public static synchronized String getAUAText() {
+        AcceptableUseAgreementManager.loadAUA();
         return auaText;
     }
 
     public String getText() {
-        if (!loadAttempted) {
-            AcceptableUseAgreementManager.loadAUA();
-        }
-        return auaText;
+        return getAUAText();
     }
 
-    public static Date getAgreementCutoffDate() {
+    public static synchronized Date getAgreementCutoffDate() {
 
         if (agreementCutoffDate != null) {
             return agreementCutoffDate;

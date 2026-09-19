@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
@@ -59,7 +58,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
-    private static final String LOGIN_TEXT_FILE_NAME = "OSCARloginText.txt";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -110,6 +108,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
             if (latestProperty == null || !prop.getValue().equals(latestProperty.getValue())) {
                 propertyDao.persist(prop);
+                AcceptableUseAgreementManager.invalidateCache();
             } else {
                 _logger.debug("No need to update. Same AcceptableUse Property as it was before");
             }
@@ -133,10 +132,10 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     }
 
     private void writeLoginTextFile() throws IOException {
-        File documentDir = PathValidationUtils.validateConfiguredDirectory(
-                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        File saveFile = PathValidationUtils.validateGeneratedChildPath(LOGIN_TEXT_FILE_NAME, documentDir);
-        Path tempFile = Files.createTempFile(documentDir.toPath(), "OSCARloginText-", ".tmp");
+        File saveFile = AcceptableUseAgreementManager.getAgreementFile();
+        Path directory = saveFile.getParentFile().toPath();
+        Files.createDirectories(directory);
+        Path tempFile = Files.createTempFile(directory, "agreement-upload-", ".tmp");
         boolean moved = false;
         try {
             try (InputStream fis = Files.newInputStream(importFile.toPath());
@@ -149,6 +148,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             }
             moveLoginTextFile(tempFile, saveFile.toPath());
             moved = true;
+            AcceptableUseAgreementManager.invalidateCache();
         } finally {
             if (!moved) {
                 Files.deleteIfExists(tempFile);
