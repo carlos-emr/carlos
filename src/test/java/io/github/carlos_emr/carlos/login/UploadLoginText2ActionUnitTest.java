@@ -30,6 +30,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
@@ -55,6 +57,7 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUpDocumentDir() {
+        getMockRequest().setMethod("POST");
         originalDocumentDir = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
         CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", documentDir.toString());
         AcceptableUseAgreementManager.invalidateCache();
@@ -182,6 +185,69 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
         assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("A replacement agreement with different content");
         Files.delete(agreement);
         assertThat(AcceptableUseAgreementManager.getAUAText()).isNull();
+    }
+
+    @Test
+    void shouldRenderReadOnlyGet_withoutAgreementMutation() throws Exception {
+        getMockRequest().setMethod("GET");
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isFalse();
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).doesNotExist();
+    }
+
+    @Test
+    void shouldRejectGetWithMutationParameters_beforeChangingAgreement() throws Exception {
+        getMockRequest().setMethod("GET");
+        addValidDurationParameters();
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(405);
+        assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldRejectInvalidValidity_withoutWritingUploadedFile() throws Exception {
+        getMockRequest().setMethod("POST");
+        addRequestParameter("validDurationNumber", "not-a-number");
+        addRequestParameter("validDurationPeriod", "days");
+        Path upload = Files.writeString(uploadDir.resolve("invalid-policy.txt"), "Must not publish", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isTrue();
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).doesNotExist();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "0", "-1", "19", "2147483648"})
+    void shouldRejectOutOfRangeDuration(String duration) throws Exception {
+        addRequestParameter("validDurationNumber", duration);
+        addRequestParameter("validDurationPeriod", "days");
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-date", "2026-02-30 00:00:00", "2026-09-19", "2026-09-19 00:00:00 extra"})
+    void shouldRejectInvalidForeverDate(String date) throws Exception {
+        addRequestParameter("validForever", "forever");
+        addRequestParameter("foreverFrom", date);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isTrue();
+    }
+
+    @Test
+    void shouldAcceptValidForeverDate() throws Exception {
+        addRequestParameter("validForever", "forever");
+        addRequestParameter("foreverFrom", "2026-09-19 00:00:00");
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isFalse();
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
     }
 
     private void addValidDurationParameters() {

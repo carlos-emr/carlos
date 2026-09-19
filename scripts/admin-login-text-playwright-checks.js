@@ -61,6 +61,26 @@ async function workflow(s) {
     h.assert(JSON.stringify(s.sql.rows(`SELECT id,name,value FROM property WHERE ${condition} ORDER BY id`)) === JSON.stringify(before),
       'Rejected upload changed agreement validity');
   });
+  await s.step('reject mutation by GET without changing validity', async () => {
+    const url = new URL(page.url());
+    url.searchParams.set('validDurationNumber', '17');
+    url.searchParams.set('validDurationPeriod', 'days');
+    const response = await s.context.request.get(url.toString());
+    h.assert(response.status() === 405 && response.headers().allow === 'POST', 'Agreement mutation by GET was accepted');
+    h.assert(JSON.stringify(s.sql.rows(`SELECT id,name,value FROM property WHERE ${condition} ORDER BY id`)) === JSON.stringify(before),
+      'Rejected GET changed agreement validity');
+  });
+  await s.step('reject invalid agreement date visibly before writing text or validity', async () => {
+    await page.locator('[name="validForever"]').check();
+    await page.locator('[name="foreverFrom"]').fill('not-a-date');
+    await page.locator('[name="importFile"]').setInputFiles({ name: 'coverage-agreement.txt', mimeType: 'text/plain', buffer: fixture });
+    await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), page.locator('input[type="submit"]').click()]);
+    h.assert((await page.locator('[role="alert"]').innerText()).trim(), 'Invalid agreement date was silently accepted');
+    const current = fs.existsSync(target) ? fs.readFileSync(target) : null;
+    h.assert(original ? current && current.equals(original) : current === null, 'Invalid validity changed agreement text');
+    h.assert(JSON.stringify(s.sql.rows(`SELECT id,name,value FROM property WHERE ${condition} ORDER BY id`)) === JSON.stringify(before),
+      'Invalid date changed agreement validity');
+  });
   await s.step('upload and reopen the exact synthetic agreement', async () => {
     await page.locator('[name="validForever"]').uncheck();
     await page.locator('[name="validDurationNumber"]').selectOption('17');
