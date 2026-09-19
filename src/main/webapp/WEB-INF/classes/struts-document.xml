@@ -162,7 +162,7 @@
         <action name="documentManager/ViewMultiPageDocDisplay" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
             <result name="success">/WEB-INF/jsp/documentManager/MultiPageDocDisplay.jsp</result>
         </action>
-        <action name="documentManager/ViewIncomingDocs" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+        <action name="documentManager/ViewIncomingDocs" class="io.github.carlos_emr.carlos.documentManager.gate.ViewIncomingDocuments2Action">
             <result name="success">/WEB-INF/jsp/documentManager/incomingDocs.jsp</result>
         </action>
 
