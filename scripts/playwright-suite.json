@@ -2224,6 +2224,32 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "facility-selection",
+      "script": "scripts/facility-selection-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "health-care-team",
+      "script": "scripts/health-care-team-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
     }
   ]
 }
