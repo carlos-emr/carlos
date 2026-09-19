@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/billing/CA/ON');
+const csrfScript = fs.readFileSync(path.join(__dirname, '../src/main/webapp/billing/CA/ON/payment-type-csrf.js'), 'utf8');
 const jsp = fs.readFileSync(path.join(root, 'editBillingPaymentType.jsp'), 'utf8');
 const script = jsp.match(/<script type="text\/javascript">\s*([\s\S]*?)<\/script>/)[1].replace(/<carlos:encode[\s\S]*?\/>/g, 'fixture');
 for (const action of ['createType', 'saveType']) {
@@ -18,7 +19,7 @@ for (const action of ['createType', 'saveType']) {
       document: { getElementById: () => ({ value: 'Synthetic' }), querySelector: () => tokenInput },
       $: { ajax: request => requests.push(request) }, alert: () => assert.fail('unexpected alert'),
     });
-    vm.runInContext(script, context);
+    vm.runInContext(csrfScript, context); vm.runInContext(script, context);
     const pending = context[action]();
     await Promise.resolve(); assert.equal(requests.length, 0);
     tokenInput.value = 'synthetic-token'; resolve(); await pending;
@@ -33,7 +34,44 @@ for (const action of ['createType', 'saveType']) {
       document: { getElementById: () => ({ value: 'Synthetic' }), querySelector: () => ({ value: '' }) },
       $: { ajax: () => { sent = true; } }, alert: text => alerts.push(text),
     });
-    vm.runInContext(script, context); await context[action]();
+    vm.runInContext(csrfScript, context); vm.runInContext(script, context); await context[action]();
     assert.equal(sent, false); assert.equal(alerts.length, 1); assert.match(alerts[0], /Reload and try again/);
+  });
+}
+
+for (const tokenInput of [null, { value: '' }]) {
+  test(`missing token fails visibly after bootstrap (${tokenInput === null ? 'absent input' : 'empty input'})`, async () => {
+    const alerts = [];
+    const context = vm.createContext({ window: {}, document: { querySelector: () => tokenInput }, alert: text => alerts.push(text) });
+    vm.runInContext(csrfScript, context);
+    assert.equal(await context.paymentTypeCsrfToken(), null);
+    assert.equal(alerts.length, 1);
+  });
+}
+for (const rejected of [false, true]) {
+  test(`delete ${rejected ? 'rejects failed bootstrap' : 'waits for the token and sends the selected id'}`, async () => {
+    let resolve; let reject; let handler;
+    const ready = new Promise((yes,no) => { resolve = yes; reject = no; });
+    const requests = []; const alerts = [];
+    const tokenInput = { value: '' };
+    const doc = { querySelector: () => tokenInput };
+    function jquery() { return { ready: callback => callback(), on: (_event,_selector,callback) => { handler = callback; }, DataTable: () => {} }; }
+    jquery.ajax = request => requests.push(request);
+    const context = vm.createContext({ window: { csrfTokenReady: ready }, document: doc, jQuery: jquery, alert: text => alerts.push(text) });
+    const source = fs.readFileSync(path.join(root, 'manageBillingPaymentType.jsp'), 'utf8');
+    const code = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(match => match[1]).find(value => value.includes('data-paymentTypeId'));
+    assert.ok(code, 'the actual delete handler must be executed');
+    vm.runInContext(csrfScript, context); vm.runInContext(code, context);
+    let prevented = false;
+    const pending = handler({ preventDefault() { prevented = true; }, target: { getAttribute: () => '17' } });
+    await Promise.resolve(); assert.equal(requests.length, 0); assert.equal(prevented, true);
+    if (rejected) reject(new Error('fixture')); else { tokenInput.value = 'synthetic-token'; resolve(); }
+    await pending;
+    if (rejected) { assert.equal(requests.length, 0); assert.equal(alerts.length, 1); }
+    else {
+      assert.equal(requests.length, 1); assert.equal(requests[0].data.paymentTypeId, '17');
+      assert.equal(requests[0].data['CSRF-TOKEN'], 'synthetic-token'); assert.equal(requests[0].headers, undefined);
+      assert.equal(alerts.length, 0);
+    }
   });
 }

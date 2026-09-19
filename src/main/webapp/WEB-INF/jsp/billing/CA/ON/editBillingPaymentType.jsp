@@ -46,6 +46,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title><carlos:encode value='${paymentTypeModel.title}' context='html'/>
     </title>
+    <script src="${pageContext.request.contextPath}/billing/CA/ON/payment-type-csrf.js"></script>
     <script type="text/javascript"
             src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
             <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
@@ -59,20 +60,12 @@
             return true;
         }
 
-        async function csrfTokenValue() {
-            if (window.csrfTokenReady) await window.csrfTokenReady;
-            var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
-            if (!tokenInput || !tokenInput.value) throw new Error("Security token unavailable. Reload and try again.");
-            return tokenInput.value;
-        }
-
         async function createType() {
             if (!check()) {
                 return;
             }
-            let token;
-            try { token = await csrfTokenValue(); }
-            catch (error) { alert("Security token unavailable. Reload and try again."); return; }
+            const token = await paymentTypeCsrfToken();
+            if (!token) return;
             $.ajax({
                 type: "POST",
                 async: true,
@@ -105,9 +98,8 @@
             if (!check()) {
                 return;
             }
-            let token;
-            try { token = await csrfTokenValue(); }
-            catch (error) { alert("Security token unavailable. Reload and try again."); return; }
+            const token = await paymentTypeCsrfToken();
+            if (!token) return;
             $.ajax({
                 type: "POST",
                 async: true,

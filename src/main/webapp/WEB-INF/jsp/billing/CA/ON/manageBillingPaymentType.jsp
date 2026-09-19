@@ -47,19 +47,13 @@
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <!-- Bootstrap 2.3.1 -->
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+    <script src="${pageContext.request.contextPath}/billing/CA/ON/payment-type-csrf.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
     <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
-        async function csrfTokenValue() {
-            if (window.csrfTokenReady) await window.csrfTokenReady;
-            var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
-            if (!tokenInput || !tokenInput.value) throw new Error("Security token unavailable");
-            return tokenInput.value;
-        }
-
         jQuery(document).ready(function () {
             jQuery('#tblBillType').DataTable({
                 "order": [],
@@ -115,9 +109,8 @@
     jQuery(document).ready(function () {
         jQuery("tr td:nth-child(4)").on("click", "a", async function (event) {
             event.preventDefault();
-            let token;
-            try { token = await csrfTokenValue(); }
-            catch (error) { alert("Security token unavailable. Reload and try again."); return; }
+            const token = await paymentTypeCsrfToken();
+            if (!token) return;
             jQuery.ajax({
                 url: "${pageContext.request.contextPath}/billing/CA/ON/removePaymentType",
                 type: "post",
