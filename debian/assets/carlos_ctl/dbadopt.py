@@ -423,11 +423,11 @@ def plan_seed_collisions(dbops, db_name, schema_province, root=None):
             canonical = dict(rows)
             keys = sorted(canonical)
             key_list = ",".join(str(k) for k in keys)
-            present = _count(dbops, db_name,
-                             "SELECT COUNT(*) FROM `{0}` WHERE `{1}` IN ({2})".format(
-                                 table, pk, key_list))
-            if not present:
-                continue
+            present = _count_or_die(
+                dbops, db_name,
+                "SELECT COUNT(*) FROM `{0}` WHERE `{1}` IN ({2})".format(
+                    table, pk, key_list),
+                "check `{0}` for seed-collision keys".format(table))
 
             columns = _live_column_list(dbops, db_name, table)
             if not columns:
