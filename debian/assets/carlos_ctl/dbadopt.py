@@ -638,6 +638,9 @@ def cmd_db_baseline(argv) -> int:
         else:
             die("unknown option: {0}".format(arg))
 
+    if dry_run and stamp_only:
+        die("--dry-run and --stamp-only are mutually exclusive")
+
     need_root("db-baseline")
     dbops.require_db_root()
     settings = config.load()
