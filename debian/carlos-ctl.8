@@ -75,12 +75,49 @@ Apply pending migrations.
 DDL is not transactional in MariaDB and a failed migration can leave a
 partially\-changed schema.
 .TP
-.B db-baseline
-Adopt an existing pre\-Flyway (OSCAR 19 / OpenO) schema by stamping the history
-at the full genesis, version 1.0.2. Follow it with
+.BR db-baseline " [" \-\-dry\-run "] [" \-\-stamp\-only "]"
+Adopt an existing pre\-Flyway (OSCAR 19 / OpenO) database, then stamp the
+history at the full genesis, version 1.0.2. Follow it with
 .BR db-migrate .
 Never stamp at 1: Flyway would re\-run the province migrations, which DROP and
 recreate province tables.
+.IP
+Stamping at 1.0.2 asserts that common
+.B V1
+and the province
+.BR V1.0.1 / V1.0.2
+are already satisfied. A genuine OSCAR 19 datadir predates most of that, so
+this verb first RECONCILES the live schema up to the genesis DDL carried in the
+deployed WAR \(em every missing table and column is added with
+.B CREATE TABLE IF NOT EXISTS
+and
+.BR "ALTER TABLE ... ADD COLUMN IF NOT EXISTS" ,
+which are no\-ops on anything already present. Without it the install looks
+healthy (db\-migrate succeeds, db\-validate passes) and fails at the first
+login with
+.BR "Unknown column 's1_0.mfaSecret'" .
+.IP
+It then prepares the adopted DATA for the forward migrations: colliding rows
+under an unguarded seed
+.RB ( V1.0.5
+seeds
+.B icd10
+without
+.BR "INSERT IGNORE" )
+are copied aside and cleared, and legacy OHIP/MCEDT billing filenames that
+violate the UNIQUE indexes added by
+.BR V1.0.11 / V1.0.12
+are suffixed rather than deleted \(em none of that is duplicate data. Originals
+are kept in
+.B carlos_adopt_backup_*
+tables.
+.IP
+.B \-\-dry\-run
+prints the whole plan and changes nothing.
+.IP
+.B \-\-stamp\-only
+is the bare Flyway stamp with no reconciliation (the old behaviour); it leaves
+an adopted datadir missing every column added to the genesis since it forked.
 .TP
 .B db-repair
 Repair

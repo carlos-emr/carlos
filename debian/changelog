@@ -1,5 +1,77 @@
 carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
 
+  * Adopting a legacy OSCAR 19 / OpenO database now actually works. `db-baseline`
+    stamps the history at the full genesis, which ASSERTS that common V1 and the
+    province V1.0.1/V1.0.2 are already satisfied -- but Flyway's baseline command
+    only writes that history row, it never executes V1__baseline_schema.sql. On a
+    datadir that forked before those columns existed the assertion was false and
+    nothing caught it: db-migrate reported success, db-validate passed (it
+    compares the history against the WAR, not the live schema against either),
+    and the install failed at the first login with "Unknown column
+    's1_0.mfaSecret'". db-baseline now reconciles the live schema up to the
+    genesis DDL carried in the deployed WAR first, with CREATE TABLE IF NOT
+    EXISTS and ALTER TABLE ... ADD COLUMN IF NOT EXISTS, so the pass is a no-op
+    on anything already present and safe to repeat.
+  * db-baseline also prepares the adopted DATA for the forward migrations, which
+    previously stopped twice on a real clinic import. Rows colliding with the one
+    seed statement in V1.0.5 that is missing INSERT IGNORE are copied aside and
+    cleared so the migration can lay down its canonical icd10 rows (V1.0.5 ships
+    in published tags, so its checksum is unchanged). Legacy OHIP/MCEDT billing
+    filenames that violate the UNIQUE indexes added by V1.0.11/V1.0.12 are
+    suffixed rather than deleted -- they are genuinely distinct submissions
+    sharing a filename that does not encode the year -- with the value actually
+    submitted to the Ministry preserved in a carlos_adopt_backup_* table.
+  * db-baseline no longer refuses when the installer's own db-migrate populated
+    flyway_schema_history before the legacy dump replaced the tables. That
+    history is renamed aside rather than dropped, and only when it provably
+    describes a schema that is gone: no BASELINE marker, and genesis tables or
+    columns missing. Province compatibility is checked before any planning or
+    stamping, including --stamp-only; opposite or mixed province schemas fail.
+  * New db-baseline options: --dry-run prints the whole plan and changes nothing,
+    --stamp-only keeps the previous bare-stamp behaviour. Both appear in the
+    top-level help. The adoption runbook uses OpenSSL's interactive passphrase
+    prompt and keeps the encrypted source archive when removing plaintext.
+  * The billing disambiguation pins each row's `timestamp`. Both billing tables
+    declare it ON UPDATE current_timestamp(), so rewriting the filename would
+    otherwise replace the clinic's record of when it submitted with the adoption
+    date -- and on billing_on_filename that column is the ORDER BY the ranking
+    itself depends on. Nothing backs that column up, so it is preserved in place.
+  * Adoption pins the session sql_mode to empty before reconciling. Seven genesis
+    columns default to '0000-00-00', which a sql_mode carrying NO_ZERO_DATE or
+    TRADITIONAL rejects part way through the pass; the packaged drop-in already
+    sets sql_mode="" but is only read at server start.
+  * A legacy reference row whose code differs from the one the migration will
+    replace it with is now MOVED rather than dropped, where dropping it would
+    lose the code. icd10.id carries no meaning -- dxresearch stores the code
+    string with no foreign key to it, and no application query selects by id --
+    so a code that exists nowhere else is kept by re-homing its row to a fresh
+    id above both the live maximum and every key the seed writes, with
+    AUTO_INCREMENT pushed past them. A code that also lives outside the
+    collision range, or among the canonical replacements, survives the
+    migration anyway and its row is replaced as before. Each move is reported
+    individually (14902->15972) and the original id is recorded in the backup
+    table; there is nothing left for the operator to reconcile.
+  * Reference-row moves require an exact backup of every column, preserving
+    the original-id audit trail when a backup from another import remains.
+    Code-survival checks use MariaDB's collation so case, trailing spaces and
+    batch escaping cannot introduce duplicate lookup results. Reserve the
+    auto-increment range before moving rows so interrupted runs can resume.
+    Include codes restored by INSERT IGNORE at vacant keys when deciding
+    which displaced rows need moving, avoiding duplicate code lookups.
+  * A seed collision is only cleared for a migration Flyway will actually run.
+    Re-running db-baseline against a database that had already been adopted and
+    migrated deleted the 1070 canonical icd10 rows V1.0.5 had laid down, and the
+    db-migrate that followed had nothing pending to restore them -- while
+    db-validate still passed, because it compares the history against the WAR
+    rather than the data. Found by a full install-and-adopt rehearsal in a
+    container, not by review.
+  * The duplicate re-check that gates the UNIQUE indexes now fails the run when
+    the query cannot be answered, instead of reading an unanswerable query as
+    zero and stamping anyway. Seed rows are only cleared when the live primary
+    key really is the single leading integer column the parsed key comes from,
+    the backup copy names its columns rather than binding by position, and a
+    legacy row whose code differs from the canonical replacement is reported
+    before anything is deleted.
   * Summarize expected existing-index/column notes during schema creation instead
     of showing them as duplicate-key/column warnings. Preserve all other warnings
     and migration errors; published migration SQL and checksums are unchanged.
