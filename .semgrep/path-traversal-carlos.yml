@@ -17,10 +17,14 @@ rules:
     message: >
       Detected a request parameter used in a file path operation without
       proper validation via PathValidationUtils. This could allow path
-      traversal attacks. Use PathValidationUtils.validatePath(),
-      validateExistingPath(), or validateUpload() to validate or
-      canonicalize file paths before use. See docs/path-validation-utils.md
-      for usage guidance.
+      traversal attacks. Use a containment-enforcing helper such as
+      PathValidationUtils.validatePath(), validateExistingPath(),
+      validateChildPath(), validateGeneratedChildPath(), validatePathComponent(),
+      validateGeneratedFileName(), validateZipEntryPath(), validateZipEntryName(),
+      or validateUpload() before the value reaches the filesystem. Note that
+      resolveTrustedPath(), resolveConfiguredDirectory() and resolveConfiguredFile()
+      only canonicalize a trusted value and are NOT a security boundary.
+      See docs/path-validation-utils.md for usage guidance.
     severity: ERROR
     languages: [java]
     mode: taint
@@ -53,45 +57,115 @@ rules:
                   regex: (getParameter|getQueryString|getPathInfo|getRequestURI|getHeader)
 
     pattern-sanitizers:
-      # Qualified class references
-      - pattern: PathValidationUtils.validatePath(...)
-      - pattern: PathValidationUtils.validateExistingPath(...)
-      - pattern: PathValidationUtils.validateUpload(...)
-      # Unqualified static-import usage
+      # Containment-enforcing helpers on
+      # io.github.carlos_emr.carlos.utility.PathValidationUtils.
+      #
+      # This list is kept deliberately identical to the CodeQL barrier in
+      # codeql/customizations/Customizations.qll, so Semgrep and CodeQL agree on
+      # what counts as a path-traversal sanitizer in this codebase. Each entry was
+      # verified against the helper's body, not assumed from its name:
+      #
+      #   validatePath              basename-strip + validateWithinDirectory
+      #   validateExistingPath      validateWithinDirectory
+      #   validateChildPath         delegates to validateExistingPath
+      #   validateGeneratedChildPath  rejects / \ . .. NUL, then validateWithinDirectory
+      #   validatePathComponent     rejects separators, prefixes, hidden and traversal
+      #   validateGeneratedFileName normalizes to [a-zA-Z0-9._-], so no separator survives
+      #   validateZipEntryPath      ZIP-slip containment (validateWithinDirectory)
+      #   validateZipEntryName      validateExistingPath + canonical relativization
+      #   validateUpload            containment within the allowed upload directory
+      #
+      # DELIBERATELY EXCLUDED — do not add without re-reading their Javadoc:
+      # resolveTrustedPath, resolveConfiguredDirectory and resolveConfiguredFile
+      # only canonicalize an already-trusted value and state that they are "not a
+      # security boundary". isInAllowedTempDirectory / isInApplicationTempDirectory
+      # return a boolean and sanitize nothing. Modelling any of these as a sanitizer
+      # would hide real CWE-22 flows.
+      - pattern-either:
+          - pattern: PathValidationUtils.validatePath(...)
+          - pattern: PathValidationUtils.validateExistingPath(...)
+          - pattern: PathValidationUtils.validateChildPath(...)
+          - pattern: PathValidationUtils.validateGeneratedChildPath(...)
+          - pattern: PathValidationUtils.validatePathComponent(...)
+          - pattern: PathValidationUtils.validateGeneratedFileName(...)
+          - pattern: PathValidationUtils.validateZipEntryPath(...)
+          - pattern: PathValidationUtils.validateZipEntryName(...)
+          - pattern: PathValidationUtils.validateUpload(...)
+
+      # Fully-qualified class references
+      - pattern-either:
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateChildPath(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateGeneratedChildPath(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePathComponent(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateGeneratedFileName(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateZipEntryPath(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateZipEntryName(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload(...)
+
+      # Wildcard static-import usage
       - patterns:
-          - pattern: validatePath(...)
           - pattern-inside: |
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.*;
               ...
+          - pattern-either:
+              - pattern: validatePath(...)
+              - pattern: validateExistingPath(...)
+              - pattern: validateChildPath(...)
+              - pattern: validateGeneratedChildPath(...)
+              - pattern: validatePathComponent(...)
+              - pattern: validateGeneratedFileName(...)
+              - pattern: validateZipEntryPath(...)
+              - pattern: validateZipEntryName(...)
+              - pattern: validateUpload(...)
+
+      # Single-member static imports
       - patterns:
-          - pattern: validatePath(...)
           - pattern-inside: |
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath;
               ...
+          - pattern: validatePath(...)
       - patterns:
-          - pattern: validateExistingPath(...)
-          - pattern-inside: |
-              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.*;
-              ...
-      - patterns:
-          - pattern: validateExistingPath(...)
           - pattern-inside: |
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath;
               ...
+          - pattern: validateExistingPath(...)
       - patterns:
-          - pattern: validateUpload(...)
           - pattern-inside: |
-              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.*;
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateChildPath;
               ...
+          - pattern: validateChildPath(...)
       - patterns:
-          - pattern: validateUpload(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateGeneratedChildPath;
+              ...
+          - pattern: validateGeneratedChildPath(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePathComponent;
+              ...
+          - pattern: validatePathComponent(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateGeneratedFileName;
+              ...
+          - pattern: validateGeneratedFileName(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateZipEntryPath;
+              ...
+          - pattern: validateZipEntryPath(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateZipEntryName;
+              ...
+          - pattern: validateZipEntryName(...)
+      - patterns:
           - pattern-inside: |
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload;
               ...
-      # Fully-qualified class references
-      - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(...)
-      - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(...)
-      - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload(...)
+          - pattern: validateUpload(...)
 
     pattern-sinks:
       # Unqualified names (standard import usage)

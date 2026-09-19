@@ -58,10 +58,15 @@ jobs:
           semgrep ci \
             --sarif --output semgrep.sarif
 
+      # Runs every rule in .semgrep/, not just the JSP one. The CRLF and path
+      # traversal rules are sanitizer-aware replacements for built-ins that
+      # .semgrep/README.md instructs maintainers to disable in the Semgrep Cloud
+      # policy; while they were not invoked here, disabling those built-ins left
+      # CWE-117 and CWE-22 with no CI coverage at all.
       - name: Run CARLOS custom Semgrep rules
         id: run_semgrep_carlos
         continue-on-error: true
-        run: semgrep scan --config .semgrep/jsp-scriptlet-xss-carlos.yml --sarif --output semgrep-carlos.sarif
+        run: semgrep scan --config .semgrep/ --sarif --output semgrep-carlos.sarif
 
       - name: Filter suppressed Semgrep SARIF results
         if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''

@@ -18,7 +18,16 @@ recognizing that the data has been sanitized by project utilities like
 | File | Replaces | Sanitizer Recognized | False Positives Resolved |
 |------|----------|---------------------|------------------------:|
 | `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSafe.sanitize()`, `sanitizeUri()`, `sanitizeObject()`, `sanitizeForDisplay()`, `exceptionTrace()`, `Encode.forJava(...)` | 218 |
+| `path-traversal-carlos.yml` | 3 built-in path traversal rules | The 9 containment-enforcing `PathValidationUtils` helpers (same list as the CodeQL barrier in `codeql/customizations/Customizations.qll`) | latent — see note below |
 | `jsp-scriptlet-xss-carlos.yml` | Supplements the built-in JSP scriptlet XSS rule | `<carlos:encode>`, `${carlos:forXxx(...)}`, `SafeEncode.forXxx(...)`, `Encode.forXxx(...)`, `URLEncoder.encode(...)` | direct request-output FPs |
+
+> **Note on `path-traversal-carlos.yml`.** Its sanitizer list was completed to
+> match the CodeQL barrier, but doing so removed **no** findings from the current
+> tree: the findings that remain do not flow through the newly-modelled helpers.
+> The value is correctness for future code and parity with CodeQL, not a
+> reduction today. Verified by fixture: a `validatePathComponent()`-guarded sink
+> is now suppressed, while a `resolveTrustedPath()`-guarded sink still reports —
+> that helper's own Javadoc says it is "not a security boundary".
 
 ## Built-in Rules to Disable in Semgrep Cloud
 
@@ -63,9 +72,16 @@ Semgrep Cloud policy. `semgrep ci` does not support `--config`, so local CARLOS
 rules that should run in GitHub Actions must be invoked with a separate
 `semgrep scan --config ...` step and uploaded as their own SARIF file.
 
-For `jsp-scriptlet-xss-carlos.yml`, the workflow keeps the built-in Semgrep
-Cloud rule enabled and uploads the local supplemental CARLOS scan as
-`semgrep-carlos.sarif`.
+The workflow runs `semgrep scan --config .semgrep/`, so **every** rule in this
+directory is executed and uploaded as `semgrep-carlos.sarif` under the
+`semgrep-carlos` Code Scanning category.
+
+Invoke the whole directory, not one file. `crlf-injection-logs-carlos.yml` and
+`path-traversal-carlos.yml` replace built-ins that this README tells maintainers
+to disable in the Semgrep Cloud policy; if those replacements are not themselves
+run in CI, disabling the built-ins leaves CWE-117 and CWE-22 with no coverage at
+all. For `jsp-scriptlet-xss-carlos.yml` the built-in Semgrep Cloud rule stays
+enabled and the CARLOS rule is supplemental.
 
 `nosemgrep` suppressions are honored by Semgrep CI, but Semgrep still writes
 suppressed results into SARIF with `result.suppressions`. GitHub Code Scanning
