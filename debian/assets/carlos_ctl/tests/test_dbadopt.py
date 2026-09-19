@@ -230,7 +230,7 @@ class TestSeedCodeClassification(unittest.TestCase):
     re-homed to a fresh id and stay resolvable. Only a code that survives
     somewhere else is safe to simply replace."""
 
-    def _classify(self, live_rows, surviving_outside=(), canonical=None,
+    def _classify(self, live_rows, surviving_keys=(), canonical=None,
                   live_max="15971"):
         canonical = canonical or {14902: "Y19"}
 
@@ -241,8 +241,8 @@ class TestSeedCodeClassification(unittest.TestCase):
                     sql = args[i + 1]
             if "COALESCE(MAX(" in sql:
                 out = live_max
-            elif "SELECT DISTINCT" in sql:
-                out = "\n".join(surviving_outside)
+            elif "SELECT t.`id`" in sql:
+                out = "\n".join(str(k) for k in surviving_keys)
             else:
                 out = "\n".join("%s\t%s" % row for row in live_rows)
             return mock.Mock(returncode=0, stdout=out, stderr="")
@@ -266,13 +266,14 @@ class TestSeedCodeClassification(unittest.TestCase):
     def test_code_still_present_outside_the_range_is_simply_replaced(self):
         # Nothing is lost by replacing it: the code resolves from the other row.
         diverging, rehome = self._classify([(14902, "Y19LOC")],
-                                           surviving_outside=["Y19LOC"])
+                                           surviving_keys=[14902])
         self.assertEqual((diverging, rehome), (1, {}))
 
     def test_code_among_the_canonical_replacements_is_simply_replaced(self):
         # The seed itself writes this code at another id, so it survives.
         diverging, rehome = self._classify(
-            [(14902, "Y20")], canonical={14902: "Y19", 14903: "Y20"})
+            [(14902, "Y20")], surviving_keys=[14902],
+            canonical={14902: "Y19", 14903: "Y20"})
         self.assertEqual((diverging, rehome), (1, {}))
 
     def test_several_lost_codes_get_consecutive_ids(self):
@@ -294,6 +295,16 @@ class TestSeedCodeClassification(unittest.TestCase):
                     mock.Mock(), "carlos", "icd10", "id", {14902: "Y19"},
                     99, ["id", "icd10"], "V1.0.5.sql")
 
+    def test_untrusted_survivor_results_stop_adoption(self):
+        for returncode, stdout in ((1, ""), (0, "not-a-key"), (0, "500")):
+            with self.subTest(returncode=returncode, stdout=stdout):
+                result = mock.Mock(returncode=returncode, stdout=stdout)
+                with mock.patch.object(dbadopt, "_client", return_value=result):
+                    with self.assertRaises(SystemExit):
+                        dbadopt._seed_keys_with_surviving_codes(
+                            mock.Mock(), "carlos", "icd10", "id", "icd10",
+                            {14902: "Y19"}, "V1.0.5.sql")
+
 
 class TestRehomeScript(unittest.TestCase):
 
@@ -306,14 +317,14 @@ class TestRehomeScript(unittest.TestCase):
         # Moving the row out of the collision range is exactly what keeps the
         # DELETE from reaching it.
         script = self._script({14902: 15972})
-        self.assertLess(script.index("UPDATE `icd10` SET `id` = 15972"),
+        self.assertLess(script.index("SET t.`id` = 15972"),
                         script.index("DELETE t FROM `icd10`"))
 
     def test_the_original_id_is_backed_up_before_the_move(self):
         script = self._script({14902: 15972})
         self.assertLess(
             script.index("INSERT IGNORE INTO `%sicd10`" % dbadopt.BACKUP_PREFIX),
-            script.index("UPDATE `icd10` SET `id` = 15972"))
+            script.index("SET t.`id` = 15972"))
 
     def test_auto_increment_is_pushed_past_the_rehomed_ids(self):
         # InnoDB raises the counter on an explicit INSERT but never on an
@@ -321,6 +332,8 @@ class TestRehomeScript(unittest.TestCase):
         # pointing at a row we just moved.
         script = self._script({14902: 15972, 14903: 15973})
         self.assertIn("ALTER TABLE `icd10` AUTO_INCREMENT = 15974;", script)
+        self.assertLess(script.index("AUTO_INCREMENT = 15974"),
+                        script.index("SET t.`id` = 15972"))
 
     def test_nothing_extra_when_there_is_nothing_to_rehome(self):
         script = self._script({})

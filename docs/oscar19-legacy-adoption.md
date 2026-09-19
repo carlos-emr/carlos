@@ -137,9 +137,8 @@ the same rows* — is an assumption:
 
   New ids are allocated above both the live maximum and every key the seed
   writes, so they collide with neither what is there nor what arrives next, and
-  `AUTO_INCREMENT` is pushed past them (InnoDB raises that counter on an
-  explicit `INSERT` but never on an `UPDATE`, so without this the migration's
-  own inserts would leave it pointing at a row that had just moved).
+  `AUTO_INCREMENT` is reserved past them before the first move, so an
+  interruption cannot leave the next generated key inside the relocated range.
 
   Every move is named individually in the output — `14902->15972` — and the id
   it came from is recorded in `carlos_adopt_backup_icd10`. **This is the one
@@ -149,13 +148,15 @@ the same rows* — is an assumption:
   Everything else in that comparison still fails closed — a missing code
   column, an unanswerable query, an unparseable row, or a collision count that
   moved mid-run all stop adoption, because each means the classification itself
-  cannot be trusted. A code the batch client cannot read back verbatim (one
-  carrying a tab or a newline) simply fails to match and is treated as *not*
-  surviving, which errs toward preserving it.
+  cannot be trusted. Survivor comparisons run in MariaDB using the code
+  column's collation, matching application lookups. A case or trailing-space
+  variant of a canonical code is not moved when the database considers it
+  equivalent. Returning integer keys also avoids misreading codes containing
+  tabs, newlines or backslashes escaped by the batch client.
 
 * A previous adoption attempt may have left a backup table behind. A live row
-  is deleted only when every column matches the backed-up row; otherwise the
-  run stops without stamping. This also protects a later import of a different
+  is moved or deleted only when every column matches the backed-up row;
+  otherwise the run stops without stamping. This also protects a later import of a different
   legacy dump that reuses the same primary keys.
 
 A regression test (`carlos_ctl/tests/test_dbadopt.py`) fails the build if a

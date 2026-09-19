@@ -48,14 +48,11 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     migration anyway and its row is replaced as before. Each move is reported
     individually (14902->15972) and the original id is recorded in the backup
     table; there is nothing left for the operator to reconcile.
-  * A legacy reference row whose code differs from the one the migration will
-    replace it with is REPORTED, not refused. The row is preserved in the
-    backup table either way, and the count is repeated when adoption finishes
-    so it cannot scroll past; refusing blocked the whole adoption on a
-    reference-table discrepancy and left the operator hand-writing SQL against
-    a clinical database at go-live. The rest of that comparison still fails
-    closed: a missing code column, an unanswerable query, an unparseable row or
-    a collision count that moved mid-run all stop adoption.
+  * Reference-row moves require an exact backup of every column, preserving
+    the original-id audit trail when a backup from another import remains.
+    Code-survival checks use MariaDB's collation so case, trailing spaces and
+    batch escaping cannot introduce duplicate lookup results. Reserve the
+    auto-increment range before moving rows so interrupted runs can resume.
   * A seed collision is only cleared for a migration Flyway will actually run.
     Re-running db-baseline against a database that had already been adopted and
     migrated deleted the 1070 canonical icd10 rows V1.0.5 had laid down, and the

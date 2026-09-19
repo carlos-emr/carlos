@@ -519,34 +519,37 @@ def _max_key(dbops, db_name, table, pk) -> int:
         die("could not read the highest `{0}` in `{1}`".format(pk, table))
 
 
-def _codes_surviving_outside(dbops, db_name, table, pk, code_column, keys,
-                             codes, source):
-    """Of `codes`, those a row OUTSIDE the collision range already carries.
+def _seed_keys_with_surviving_codes(dbops, db_name, table, pk, code_column,
+                                    canonical, source):
+    """Collision keys whose code survives in the seed or an untouched row.
 
-    Those rows are untouched by the migration, so a code found here is still
-    resolvable afterwards and the colliding row can simply be replaced.
-
-    A code this cannot read back verbatim -- one carrying a tab or newline,
-    which the batch client escapes -- simply fails to match and is treated as
-    NOT surviving. That errs toward preserving it, which is the direction to
-    err in."""
-    if not codes:
-        return set()
+    Compare in MariaDB using the code column's collation, just as the
+    application's lookups do. Python string equality would treat e.g. `y19`
+    as a new code beside canonical `Y19` under a case-insensitive collation,
+    leaving two lookup results after migration. Return integer keys so batch
+    escaping of tabs, newlines and backslashes cannot change the comparison.
+    """
+    keys = ",".join(str(k) for k in sorted(canonical))
+    codes = ",".join("'{0}'".format(sql_escape(c))
+                     for c in sorted(set(canonical.values())))
     cp = _client(dbops, db_name, [
         "-N", "-B", "-e",
-        # The session pragma travels with the statement: this interpolates
-        # live clinical strings, and NO_BACKSLASH_ESCAPES in the server's
-        # global sql_mode would change what the escaping below means.
-        "SET SESSION sql_mode='';"
-        "SELECT DISTINCT `{0}` FROM `{1}` WHERE `{0}` IN ({2}) "
-        "  AND `{3}` NOT IN ({4})".format(
-            code_column, table,
-            ",".join("'{0}'".format(sql_escape(c)) for c in codes),
-            pk, ",".join(str(k) for k in keys)),
+        "SET NAMES utf8mb4; SET SESSION sql_mode='';"
+        "SELECT t.`{0}` FROM `{1}` t WHERE t.`{0}` IN ({2}) AND ("
+        "t.`{3}` IN ({4}) OR EXISTS ("
+        "SELECT 1 FROM `{1}` survivor WHERE survivor.`{0}` NOT IN ({2}) "
+        "AND survivor.`{3}` = t.`{3}`))".format(
+            pk, table, keys, code_column, codes),
     ], capture_output=True)
     if cp.returncode != 0:
         die("could not check whether `{0}` codes survive {1}".format(table, source))
-    return {line.rstrip("\n") for line in (cp.stdout or "").splitlines() if line}
+    try:
+        surviving = {int(line) for line in (cp.stdout or "").splitlines()}
+    except ValueError:
+        die("could not read surviving `{0}` seed keys for {1}".format(table, source))
+    if not surviving.issubset(canonical):
+        die("unexpected surviving `{0}` seed keys for {1}".format(table, source))
+    return surviving
 
 
 def _classify_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
@@ -608,15 +611,11 @@ def _classify_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
     if not diverged:
         return 0, {}
 
-    # The canonical rows the migration is about to write are themselves
-    # survivors: a legacy code that merely moved id inside the seed range is
-    # still in the table afterwards.
-    survivors = set(canonical.values())
-    survivors |= _codes_surviving_outside(
-        dbops, db_name, table, pk, code_column, sorted(canonical),
-        sorted({c for c in diverged.values() if c not in survivors}), source)
-
-    lost = sorted(k for k, code in diverged.items() if code not in survivors)
+    surviving = _seed_keys_with_surviving_codes(
+        dbops, db_name, table, pk, code_column, canonical, source)
+    lost = sorted(k for k in diverged if k not in surviving)
+    if not lost:
+        return len(diverged), {}
     # Above the live maximum AND above every key the seed will write, so the
     # new ids collide with neither what is there now nor what arrives next.
     start = max(_max_key(dbops, db_name, table, pk), max(canonical)) + 1
@@ -654,21 +653,19 @@ def seed_collision_script(table, pk, keys, columns, rehome=None) -> str:
         "INSERT IGNORE INTO `{0}` ({1}) SELECT {1} FROM `{2}` "
         "WHERE `{3}` IN ({4});".format(backup, column_list, table, pk, key_list),
     ]
-    # Re-home BEFORE the delete: moving these rows out of the collision range
-    # is what keeps the delete below from reaching them. One explicit statement
-    # per row rather than a windowed update -- the mapping is then legible in
-    # the script, reproducible, and reportable afterwards.
-    for old in sorted(rehome):
-        statements.append(
-            "UPDATE `{0}` SET `{1}` = {2} WHERE `{1}` = {3};".format(
-                table, pk, rehome[old], old))
     if rehome:
-        # InnoDB raises its AUTO_INCREMENT counter on an explicit INSERT but
-        # never on an UPDATE, and never lowers it. Setting it past the re-homed
-        # ids now survives the migration's own explicit (lower) inserts; without
-        # this the next generated key could land on a row we just moved.
+        # Reserve ids before moving any row. An interruption after a move must
+        # not leave the next generated key inside the relocated range.
         statements.append("ALTER TABLE `{0}` AUTO_INCREMENT = {1};".format(
             table, max(rehome.values()) + 1))
+    # Moving rows out of the collision range keeps the delete from reaching
+    # them. Require the same complete backup as deletion: INSERT IGNORE can
+    # leave a different row at the original key after another dump is loaded.
+    for old in sorted(rehome):
+        statements.append(
+            "UPDATE `{0}` t JOIN `{1}` b ON b.`{2}` = t.`{2}` "
+            "SET t.`{2}` = {3} WHERE t.`{2}` = {4} AND {5};".format(
+                table, backup, pk, rehome[old], old, copied))
     statements.append(
         "DELETE t FROM `{0}` t JOIN `{1}` b ON b.`{2}` = t.`{2}` "
         "WHERE t.`{2}` IN ({3}) AND {4};".format(
