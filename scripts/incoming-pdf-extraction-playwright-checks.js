@@ -150,7 +150,8 @@ async function workflow(s) {
   });
   await s.step('rotate a page and all pages without losing content', async () => {
     await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
-    await reloadAfter(() => page.locator('#SelectPageList').selectOption('1'));
+    await page.locator('#SelectPageList').selectOption('1');
+    await page.waitForLoadState('networkidle');
     const rotation = number => {
       const info = execFileSync('pdfinfo', ['-f', String(number), '-l', String(number), source], { encoding: 'utf8' });
       return Number(info.match(/(?:Page\s+\d+\s+rot|Page rot):\s+(\d+)/)?.[1]);
@@ -165,7 +166,8 @@ async function workflow(s) {
     h.assert(fs.readFileSync(unrelated).equals(original), 'Rotation changed an unrelated document');
   });
   await s.step('delete a selected page and preserve the other page and extracted document', async () => {
-    await reloadAfter(() => page.locator('#SelectPageList').selectOption('1'));
+    await page.locator('#SelectPageList').selectOption('1');
+    await page.waitForLoadState('networkidle');
     const extracted = fs.readFileSync(destination);
     const dialogs = await h.withExpectedDialogs(page,
       () => reloadAfter(() => page.locator('button[onclick^="deletePagePdf("]').click()));
