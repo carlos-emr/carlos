@@ -32,14 +32,24 @@ The report comes from the completed combined promotion-validation build (`bc6174
 
 ## Reviewable work groups
 
-1. Release audit, test discovery and tier classification (this PR).
-2. DAO persistence and prevention-report behavior, including the release's actual EmailConfig schema.
-3. Pregnancy forms, RH workflow transitions, clinical DTO behavior and inbox dispatch.
-4. Admin/security and email browser tasks with owned fixtures and loopback mail capture.
-5. Demographic tasks and labels, with a route-to-workflow/authorization matrix for remaining gates.
-6. Billing/report and facility-selection coverage for applicable release routes.
+Eight PRs target `release/2026.08`:
 
-The groups may be adjusted within the requested 2–8 PRs as source review and live validation establish which existing tests already cover a task. Completion needs meaningful assertions, negative controls where practical, owned-fixture cleanup, and CI/review convergence. Source presence alone does not close a gap.
+| PR | Scope | Validation evidence |
+| --- | --- | --- |
+| #3781 | Discovery/tier corrections, audit, incoming PDF rotate/delete coverage | 17 unit + 26 integration cases; eight PDF workflow steps on validation13 |
+| #3782 | Email configuration persistence/schema, secure DAO sorts, screening reports | 48 integration cases; migration and future-upgrade-order regressions; migrated MariaDB check |
+| #3783 | BCAR forms, RH workflow/action, clinical DTO, inbox dispatch | 51 focused cases; transition mutation detected |
+| #3787 | BC supplementary billing association CRUD | 54 focused/contract cases; three installed-DEB BC workflow steps |
+| #3788 | Demographic gate authentication, labels and printing | 25 anonymous route checks; six label/print workflow steps |
+| #3789 | ON payment-type CRUD, CSRF readiness and visible errors | 18 executable script cases; four installed-DEB workflow steps |
+| #3790 | Security administration, eForm email/status, agreement upload | Security/email/agreement VM workflows, bounded SMTP-sink checks, 19 agreement Java cases |
+| #3793 | Facility selection/revocation and patient health-care team | Four facility and three team workflow steps on installed DEBs |
+
+Live runs use the Ubuntu 26.04 VM with locally built matched DEBs and owned fixtures. Each group's document identifies configuration prerequisites, cleanup and limitations. Negative controls exposed application defects rather than merely exercising successful paths: BC association writes, payment CSRF, the security stylesheet, agreement file location/request validation and the email schema mismatch. Issues #3784, #3785, #3786, #3792, #3794 and #3795 track them in their corresponding group PRs.
+
+Existing contact-lifecycle tests already cover personal/internal/professional contact CRUD and flags; the demographic group adds authentication-policy checks rather than claiming new CRUD coverage for every gate. The facility group adds the previously missing team workflow. Existing DAO coverage is retained where the audit's class-name matching understated it. Develop-only SMS/archive/encryption-specific behavior remains outside this release branch and remains open on #3774. These PRs do not claim complete line/branch coverage or close that broader develop audit by route-name presence alone.
+
+Completion still requires final changed-head VM checks and CI/review convergence. Rate-limited review requests are not counted as completed reviews.
 
 ## Additional evidence tiers
 
