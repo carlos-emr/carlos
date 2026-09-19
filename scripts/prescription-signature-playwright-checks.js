@@ -249,11 +249,84 @@ async function openPrescriptionView(page, label) {
     viewParams.set('pharmacyId', prescriptionPharmacyId);
   }
   await gotoApp(page, `/rx/viewScript?${viewParams.toString()}`);
-  await page.locator('#preview').waitFor({ state: 'attached', timeout: 30000 });
+  await waitForPreviewOrExplain(page);
   await previewFrame(page);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   visited.push({ label });
   await assertNoErrorPage(page, label);
+}
+
+/**
+ * Wait for the print preview, and say why it never came rather than timing out blind.
+ *
+ * `/rx/viewScript` renders the print page with no `#preview` frame when the script has no
+ * `drugs` rows. More than half the seeded prescriptions for the demo patient are like that,
+ * including the highest script_no, so the obvious operator choice of
+ * `SELECT MAX(script_no) ... WHERE demographic_no=1` used to surface as a 30-second locator
+ * timeout that reads like an application defect (#3734).
+ *
+ * This suite has no database access, so it distinguishes the two cases from the page itself:
+ * a short probe first, and only if the frame is missing does it spend the remaining budget —
+ * a genuinely slow render still passes, an empty prescription fails in seconds with the cause.
+ */
+async function waitForPreviewOrExplain(page) {
+  const preview = page.locator('#preview');
+  const emptyPrescriptionError = () => new Error(
+    `Prescription ${prescriptionScriptId} rendered the print page with no preview frame, and the `
+    + `page reported hasPreview=false. This is what /rx/viewScript does when the script has no `
+    + `drugs rows — pick a script that has them (SELECT MAX(p.script_no) FROM prescription p `
+    + `JOIN drugs d ON d.script_no=p.script_no WHERE p.demographic_no=${prescriptionDemographicNo}).`,
+  );
+
+  /*
+   * Two things are read, and they are not the same thing.
+   *
+   * `frameAttached` is whether #preview is in the DOM. Its absence is ambiguous: a login
+   * redirect, an error page or any other application failure also completes without it, and
+   * reporting those as "this prescription has no drugs" would bury a real defect behind a
+   * fixture complaint.
+   *
+   * `serverFoundDrugs` is the page's own verdict: ViewScript2.jsp:968 emits
+   * `var hasPreview = <%= previewAvailable %>`, so false means the server looked and found
+   * nothing to preview. Anything that is not the print page leaves it undefined, which is
+   * what separates the two cases.
+   *
+   * No page text is captured. The print page carries the patient's name, address and
+   * medication details, and this error reaches CI logs through the top-level catch.
+   */
+  const inspect = () => page.evaluate(() => ({
+    frameAttached: !!document.querySelector('#preview'),
+    complete: document.readyState === 'complete',
+    serverFoundDrugs: typeof window.hasPreview === 'boolean' ? window.hasPreview : null,
+  }));
+
+  try {
+    await preview.waitFor({ state: 'attached', timeout: 5000 });
+    return;
+  } catch (error) {
+    // Either a slow render or an empty prescription; the next check tells them apart.
+  }
+
+  // A finished document that says it has no preview is the definitive empty-prescription
+  // signal, so the diagnosis can be made now. A document still loading is not: concluding
+  // from the 5s probe alone would cut the original 30s tolerance and fail slow environments
+  // for the wrong reason, so those keep the remaining budget.
+  const settled = await inspect();
+  if (settled.complete && !settled.frameAttached && settled.serverFoundDrugs === false) {
+    throw emptyPrescriptionError();
+  }
+
+  try {
+    await preview.waitFor({ state: 'attached', timeout: 25000 });
+  } catch (error) {
+    // The full budget is spent. Name the cause only when the page confirms it; otherwise the
+    // original timeout is the honest failure and must stay visible.
+    const final = await inspect();
+    if (!final.frameAttached && final.serverFoundDrugs === false) {
+      throw emptyPrescriptionError();
+    }
+    throw error;
+  }
 }
 
 async function previewFrame(page) {
