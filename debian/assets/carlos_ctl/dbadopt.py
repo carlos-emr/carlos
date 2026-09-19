@@ -146,6 +146,33 @@ class TableDef:
         self.statement = statement
 
 
+def _warn(message: str) -> None:
+    """`util.warn`, with stdout flushed first.
+
+    `log` writes to stdout and `warn` to stderr, and Python BLOCK-buffers
+    stdout whenever it is a pipe or a file. An operator keeping a transcript of
+    a clinical adoption -- `carlos-ctl db-baseline > adopt.log 2>&1` -- would
+    otherwise get every warning hoisted above progress lines printed before it,
+    which is exactly the wrong order for the one message that has to be acted
+    on. Flushing first keeps the transcript honest."""
+    sys.stdout.flush()
+    warn(message)
+
+
+def _log(message: str) -> None:
+    """`util.log`, flushed.
+
+    The same buffering trap as `_warn`, and here it inverts the one ordering
+    the whole design rests on. This verb shells out to the Flyway runner, whose
+    output goes straight to the inherited descriptor while Python's own stdout
+    sits in a block buffer. Unflushed, an adoption transcript shows "stamped
+    flyway_schema_history" ABOVE the reconciliation lines that in fact came
+    first -- reading as though the schema was stamped before it was
+    reconciled, which is precisely the bug this verb exists to prevent."""
+    log(message)
+    sys.stdout.flush()
+
+
 def _is_constraint(line: str) -> bool:
     upper = line.upper()
     return any(upper.startswith(p) for p in _CONSTRAINT_PREFIXES)
@@ -431,8 +458,8 @@ def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
     pending -- never put back, and db-validate still passed because it compares
     the history against the WAR, not the data.
 
-    Returns `[(table, pk_column, [keys], present, source, columns), ...]` for
-    the collisions actually present in this database."""
+    Returns `[(table, pk_column, [keys], present, source, columns, diverging),
+    ...]` for the collisions actually present in this database."""
     collisions = []
     for path in forward_migration_files(schema_province, root):
         source = os.path.basename(path)
@@ -444,7 +471,7 @@ def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
                 continue
             pk = _single_integer_pk(dbops, db_name, table)
             if pk is None:
-                warn("{0}: {1} carries an unguarded seed INSERT but the live "
+                _warn("{0}: {1} carries an unguarded seed INSERT but the live "
                      "table's primary key is not a single leading integer "
                      "column; leaving it alone -- if the migration fails on a "
                      "duplicate key here, it needs a human".format(source, table))
@@ -475,22 +502,34 @@ def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
                         "`{1}`; move it aside before adopting again (it holds "
                         "rows cleared by an earlier run)".format(backup, table))
 
-            _check_seed_rows(dbops, db_name, table, pk, canonical, present,
-                             columns, source)
-            collisions.append((table, pk, keys, present, source, columns))
+            diverging = _check_seed_rows(dbops, db_name, table, pk, canonical,
+                                         present, columns, source)
+            collisions.append((table, pk, keys, present, source, columns,
+                               diverging))
     return collisions
 
 
 def _check_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
                      source):
-    """Refuse to clear a row whose code differs from its replacement.
+    """Report rows whose code differs from the replacement, and return how many.
 
     The whole premise of clearing these keys is that the migration will lay
     down the SAME reference rows. Where it does not, a code the legacy database
     carried at that id disappears -- and `Icd10DaoImpl` looks this table up by
     CODE, never by id, so a clinical record still referencing it stops
-    resolving. A backup preserves the old row but does not repair those clinical
-    references, so a human must reconcile divergent codes before adoption."""
+    resolving.
+
+    This REPORTS rather than refuses, deliberately. Refusing blocks the whole
+    adoption on a reference-table discrepancy and leaves the operator
+    hand-writing SQL against a clinical database at go-live, which is the more
+    dangerous of the two. The rows are preserved in the backup table, so
+    nothing is destroyed, and the count is repeated once more when adoption
+    finishes so it does not scroll past.
+
+    Everything else here still fails closed: a missing code column, an
+    unanswerable comparison, an unparseable row, or a collision count that
+    moved under us all stop adoption, because those mean the comparison itself
+    cannot be trusted."""
     if len(columns) < 2:
         die("`{0}` has no code column to compare with {1}".format(table, source))
     code_column = columns[1]
@@ -521,10 +560,12 @@ def _check_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
             "row(s) but read {2}; retry adoption".format(
                 table, present, checked))
     if diverging:
-        die("{0}: {1} row(s) hold a different `{2}` than the seed in {3}. "
-            "Refusing to replace a code that clinical records may reference; "
-            "reconcile those rows before adoption".format(
-                table, diverging, code_column, source))
+        _warn("{0}: {1} row(s) hold a different `{2}` than the seed in {3} will "
+             "replace them with. The originals are preserved in `{4}`, but any "
+             "clinical record referencing one of those values will stop "
+             "resolving -- reconcile them before go-live".format(
+                 table, diverging, code_column, source, _backup_table(table)))
+    return diverging
 
 
 def seed_collision_script(table, pk, keys, columns) -> str:
@@ -698,7 +739,7 @@ def cmd_db_baseline(argv) -> int:
     settings = config.load()
 
     if stamp_only:
-        warn("--stamp-only: stamping without reconciling. An adopted OSCAR 19 "
+        _warn("--stamp-only: stamping without reconciling. An adopted OSCAR 19 "
              "datadir will be missing every column added to the genesis since "
              "it was forked, and the failure surfaces at login, not here.")
         return dbops.run_flyway("baseline")
@@ -721,7 +762,7 @@ def cmd_db_baseline(argv) -> int:
 
     statements, skipped = reconciliation_statements(tables)
     total_columns = sum(len(t.columns) for t in tables.values())
-    log("genesis: {0} table(s), {1} column(s) from {2}".format(
+    _log("genesis: {0} table(s), {1} column(s) from {2}".format(
         len(tables), total_columns, ", ".join(os.path.basename(f) for f in files)))
 
     schema = live_schema(dbops, db_name)
@@ -733,20 +774,20 @@ def cmd_db_baseline(argv) -> int:
                                       applied)
     duplicates = plan_billing_duplicates(dbops, db_name)
 
-    for table, pk, keys, present, source, _columns in collisions:
-        log("{0}: {1} row(s) in `{2}` collide with the unguarded seed in {3}; "
+    for table, pk, keys, present, source, _columns, _div in collisions:
+        _log("{0}: {1} row(s) in `{2}` collide with the unguarded seed in {3}; "
             "they will be copied to `{4}` and cleared so the migration can lay "
             "down its canonical rows".format(
                 "PLAN" if dry_run else "preparing", present, table, source,
                 _backup_table(table)))
     for table, column, _order, _suffix, extra, _width in duplicates:
-        log("{0}: {1} row(s) in `{2}`.`{3}` share a filename with an earlier "
+        _log("{0}: {1} row(s) in `{2}`.`{3}` share a filename with an earlier "
             "row; they will be suffixed (originals kept in `{4}`) so the "
             "UNIQUE index can be created without discarding billing "
             "history".format("PLAN" if dry_run else "preparing", extra, table,
                              column, _backup_table(table)))
     if stale:
-        log("{0}: flyway_schema_history describes a schema this database no "
+        _log("{0}: flyway_schema_history describes a schema this database no "
             "longer has -- the installer stamped it before the legacy dump "
             "replaced the tables. It will be renamed aside, not dropped."
             .format("PLAN" if dry_run else "preparing"))
@@ -759,7 +800,7 @@ def cmd_db_baseline(argv) -> int:
                     table, column))
 
     if dry_run:
-        log("PLAN: {0} reconciliation statement(s) would run ({1} genesis "
+        _log("PLAN: {0} reconciliation statement(s) would run ({1} genesis "
             "column(s) are missing today), then 'flyway baseline'. Nothing was "
             "changed.".format(len(statements),
                               len(missing_genesis_columns(tables, schema))))
@@ -772,7 +813,7 @@ def cmd_db_baseline(argv) -> int:
         _run_script(dbops, db_name,
                     "RENAME TABLE `flyway_schema_history` TO `{0}`;".format(parked),
                     "parking the stale migration history")
-        log("stale history renamed to `{0}`".format(parked))
+        _log("stale history renamed to `{0}`".format(parked))
 
     # Structure first: the data preparation below reads columns the genesis
     # reconciliation may have just added. FOREIGN_KEY_CHECKS is off for the
@@ -784,10 +825,10 @@ def cmd_db_baseline(argv) -> int:
                           + ["SET FOREIGN_KEY_CHECKS=1;"]),
                 "genesis reconciliation")
     after = _schema_size(dbops, db_name)
-    log("reconciled: {0} table(s) and {1} column(s) added; {2} table(s) "
+    _log("reconciled: {0} table(s) and {1} column(s) added; {2} table(s) "
         "checked".format(after[0] - before[0], after[1] - before[1], len(tables)))
 
-    for table, pk, keys, _present, _source, columns in collisions:
+    for table, pk, keys, _present, _source, columns, _div in collisions:
         _run_script(dbops, db_name,
                     seed_collision_script(table, pk, keys, columns),
                     "clearing seed collisions in {0}".format(table))
@@ -816,7 +857,18 @@ def cmd_db_baseline(argv) -> int:
 
     rc = dbops.run_flyway("baseline")
     if rc == 0:
-        log("adopted. Now run: carlos-ctl db-migrate")
+        # Repeated here on purpose. The per-table warning was printed before
+        # 10,000 reconciliation statements and a Flyway stamp went past it, and
+        # this one is the operator's last chance to see that a reference code
+        # their records point at is about to stop resolving.
+        _log("adopted. Now run: carlos-ctl db-migrate")
+        diverging = sum(c[6] for c in collisions)
+        if diverging:
+            _warn("{0} reference row(s) did not match the code the migration "
+                  "will replace them with. They are preserved in `{1}*` "
+                  "tables. Reconcile them before go-live: a clinical record "
+                  "pointing at one of those codes will not resolve.".format(
+                      diverging, BACKUP_PREFIX))
     return rc
 
 

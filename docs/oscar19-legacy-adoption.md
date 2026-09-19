@@ -125,8 +125,21 @@ the same rows* — is an assumption:
 * Before deleting, the codes are compared. `Icd10DaoImpl` looks this table up
   by **code string**, never by id, so if a legacy id carried a code the
   canonical seed does not, that code disappears from the lookup while clinical
-  records still reference it. The run stops before clearing those rows and
-  reports the count so the operator can reconcile the codes first.
+  records still reference it. The run **reports** those rows — with the count,
+  the backup table, and again once adoption finishes so it does not scroll past
+  — and carries on.
+
+  That is deliberate. The rows are preserved in `carlos_adopt_backup_icd10`, so
+  nothing is destroyed and the codes can be restored. Refusing outright would
+  block the entire adoption on a reference-table discrepancy and leave the
+  operator hand-writing SQL against a clinical database at go-live, which is
+  the more dangerous of the two. **Reconcile the reported codes before go-live:
+  until you do, a record pointing at one of them will not resolve.**
+
+  Everything else in that comparison still fails closed — a missing code
+  column, an unanswerable query, an unparseable row, or a collision count that
+  moved mid-run all stop adoption, because each means the comparison itself
+  cannot be trusted.
 * A previous adoption attempt may have left a backup table behind. A live row
   is deleted only when every column matches the backed-up row; otherwise the
   run stops without stamping. This also protects a later import of a different

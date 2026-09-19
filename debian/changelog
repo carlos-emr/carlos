@@ -37,6 +37,14 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     columns default to '0000-00-00', which a sql_mode carrying NO_ZERO_DATE or
     TRADITIONAL rejects part way through the pass; the packaged drop-in already
     sets sql_mode="" but is only read at server start.
+  * A legacy reference row whose code differs from the one the migration will
+    replace it with is REPORTED, not refused. The row is preserved in the
+    backup table either way, and the count is repeated when adoption finishes
+    so it cannot scroll past; refusing blocked the whole adoption on a
+    reference-table discrepancy and left the operator hand-writing SQL against
+    a clinical database at go-live. The rest of that comparison still fails
+    closed: a missing code column, an unanswerable query, an unparseable row or
+    a collision count that moved mid-run all stop adoption.
   * A seed collision is only cleared for a migration Flyway will actually run.
     Re-running db-baseline against a database that had already been adopted and
     migrated deleted the 1070 canonical icd10 rows V1.0.5 had laid down, and the

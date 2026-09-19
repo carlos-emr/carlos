@@ -17,6 +17,8 @@ in published release tags its checksum cannot be changed, so it is carried here
 as a named exception rather than fixed in place. The contract exists to stop a
 SECOND one being written."""
 
+import contextlib
+import io
 import os
 import re
 import unittest
@@ -424,14 +426,48 @@ class TestFailClosedDatabaseProbes(unittest.TestCase):
             returncode=0, stderr="", stdout="id\tint\t1\t1\nother\tint\t2\t2\n")
         self.assertIsNone(dbadopt._single_integer_pk(db, "carlos", "icd10"))
 
-    def test_divergent_seed_code_stops_adoption_before_deletion(self):
+    def test_divergent_seed_code_is_reported_without_blocking_adoption(self):
+        # Deliberately a REPORT, not a refusal. The rows survive in the backup
+        # table, so nothing is destroyed; refusing would block the whole
+        # adoption on a reference-table discrepancy and leave the operator
+        # hand-writing SQL against a clinical database at go-live.
         db = mock.Mock()
         db.db_root.return_value = mock.Mock(
             returncode=0, stderr="", stdout="14902\tlegacy-code\n")
-        with self.assertRaises(SystemExit):
-            dbadopt._check_seed_rows(db, "carlos", "icd10", "id",
-                                     {14902: "canonical-code"}, 1,
-                                     ["id", "icd10"], "V1.0.5.sql")
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            diverging = dbadopt._check_seed_rows(
+                db, "carlos", "icd10", "id", {14902: "canonical-code"}, 1,
+                ["id", "icd10"], "V1.0.5.sql")
+        self.assertEqual(diverging, 1)
+        printed = stderr.getvalue()
+        self.assertIn("1 row(s)", printed)
+        self.assertIn(dbadopt.BACKUP_PREFIX + "icd10", printed)
+        self.assertIn("before go-live", printed)
+
+    def test_warnings_flush_stdout_so_a_redirected_transcript_stays_in_order(self):
+        # log() -> stdout (block-buffered when redirected), warn() -> stderr
+        # (unbuffered). Without the flush, `db-baseline > adopt.log 2>&1` hoists
+        # every warning above progress lines printed before it -- the wrong
+        # order for the one message that has to be acted on.
+        flushed = []
+        with mock.patch.object(dbadopt.sys.stdout, "flush",
+                               lambda: flushed.append(True)), \
+                contextlib.redirect_stderr(io.StringIO()):
+            dbadopt._warn("something worth reading")
+        self.assertEqual(flushed, [True])
+
+    def test_matching_seed_code_reports_nothing(self):
+        db = mock.Mock()
+        db.db_root.return_value = mock.Mock(
+            returncode=0, stderr="", stdout="14902\tcanonical-code\n")
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            diverging = dbadopt._check_seed_rows(
+                db, "carlos", "icd10", "id", {14902: "canonical-code"}, 1,
+                ["id", "icd10"], "V1.0.5.sql")
+        self.assertEqual(diverging, 0)
+        self.assertEqual(stderr.getvalue(), "")
 
     def test_unreadable_seed_code_stops_adoption_before_deletion(self):
         db = mock.Mock()
