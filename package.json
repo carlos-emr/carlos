@@ -140,7 +140,8 @@
     "test:scratchpad-workflow-playwright": "node scripts/scratchpad-workflow-playwright-checks.js",
     "test:provider-quick-links-playwright": "node scripts/provider-quick-links-playwright-checks.js",
     "test:pharmacy-editor-workflow-playwright": "node scripts/pharmacy-editor-workflow-playwright-checks.js",
-    "test:incoming-pdf-extraction-playwright": "node scripts/incoming-pdf-extraction-playwright-checks.js"
+    "test:incoming-pdf-extraction-playwright": "node scripts/incoming-pdf-extraction-playwright-checks.js",
+    "test:billing-bc-associations-playwright": "node scripts/billing-bc-associations-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
