@@ -958,11 +958,24 @@ def cmd_db_baseline(argv) -> int:
 
 
 def _schema_size(dbops, db_name):
+    """Live (table count, column count), or stop.
+
+    These two are subtracted to produce the headline "N table(s) and M
+    column(s) added" line of the adoption transcript. `_count` answers an
+    unanswerable query with 0, which here does not read as "none" -- a failed
+    BEFORE probe reports the whole schema as newly added, a failed AFTER probe
+    reports a negative count, and either way the probe failure itself is
+    invisible. A transcript of a clinical adoption should not be able to lie
+    about what it changed, so this fails closed like every other probe."""
     return (
-        _count(dbops, db_name, "SELECT COUNT(*) FROM information_schema.TABLES "
-                               "WHERE TABLE_SCHEMA = DATABASE()"),
-        _count(dbops, db_name, "SELECT COUNT(*) FROM information_schema.COLUMNS "
-                               "WHERE TABLE_SCHEMA = DATABASE()"),
+        _count_or_die(dbops, db_name,
+                      "SELECT COUNT(*) FROM information_schema.TABLES "
+                      "WHERE TABLE_SCHEMA = DATABASE()",
+                      "count the live tables"),
+        _count_or_die(dbops, db_name,
+                      "SELECT COUNT(*) FROM information_schema.COLUMNS "
+                      "WHERE TABLE_SCHEMA = DATABASE()",
+                      "count the live columns"),
     )
 
 

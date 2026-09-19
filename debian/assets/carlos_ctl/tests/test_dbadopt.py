@@ -521,6 +521,18 @@ class TestFailClosedDatabaseProbes(unittest.TestCase):
         with self.assertRaises(SystemExit):
             dbadopt._table_exists(db, "carlos", "icd10")
 
+    def test_schema_size_query_must_succeed(self):
+        # The two counts are subtracted for the transcript's "N table(s) and M
+        # column(s) added" line. Answering an unanswerable query with 0 there
+        # reports the whole schema as newly added, or a negative count, and
+        # hides the probe failure.
+        def fake_client(_dbops, _db, _args, **_kw):
+            return mock.Mock(returncode=1, stdout="", stderr="connection lost")
+
+        with mock.patch.object(dbadopt, "_client", fake_client):
+            with self.assertRaises(SystemExit):
+                dbadopt._schema_size(mock.Mock(), "carlos")
+
     def test_live_schema_query_must_succeed(self):
         db = mock.Mock()
         db.db_root.return_value = mock.Mock(returncode=1, stdout="", stderr="connection lost")
