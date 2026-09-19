@@ -109,28 +109,28 @@
     jQuery(document).ready(function () {
         jQuery("tr td:nth-child(4)").on("click", "a", async function (event) {
             event.preventDefault();
-            const token = await paymentTypeCsrfToken();
+            const token = await paymentTypeBeginRequest();
             if (!token) return;
             jQuery.ajax({
                 url: "${pageContext.request.contextPath}/billing/CA/ON/removePaymentType",
                 type: "post",
                 timeout: 30000,
                 dataType: "json",
+                complete: paymentTypeRequestComplete,
                 data: {"CSRF-TOKEN": token, paymentTypeId: event.target.getAttribute("data-paymentTypeId")},
                 success: function (data) {
                     if (data == null) {
                         alert("Error happened after getting response!");
+                        return;
                     }
-                    if (parseInt(data.ret) == 0) {
+                    if (data.ret === "0" || data.ret === 0) {
                         alert("Successed deleting the payment type!");
                         location.href = "${pageContext.request.contextPath}/billing/CA/ON/managePaymentType";
                     } else {
                         alert("Failed to delete the payment type, reason:" + data.reason);
                     }
                 },
-                error: function () {
-                    alert("Error happened!!");
-                }
+                error: paymentTypeRequestFailed
             });
             return false;
         });

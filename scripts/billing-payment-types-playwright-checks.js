@@ -27,10 +27,13 @@ async function workflow(s) {
   h.assert(page, 'Payment management did not open its iframe');
   const row = value => page.locator('#tblBillType tbody tr').filter({ hasText: value });
   await s.step('empty payment type is rejected without a database write', async () => {
+    const emptyRowsBefore = s.sql.value("SELECT COUNT(*) FROM billing_payment_type WHERE payment_type=''");
     await page.getByRole('link', { name: 'Create a new payment type' }).click();
     await page.locator('#paymentType').fill('');
     const dialogs = await h.withExpectedDialogs(admin, () => page.locator('[name="create"]').click());
     h.assert(dialogs.length === 1 && /can not be empty/.test(dialogs[0].text), 'Empty payment type did not show its validation alert');
+    h.assert(s.sql.value("SELECT COUNT(*) FROM billing_payment_type WHERE payment_type=''") === emptyRowsBefore,
+      'Empty payment type validation wrote to the database');
   });
   await s.step('create a literal payment type and verify it in the list and database', async () => {
     await page.locator('#paymentType').fill(name);

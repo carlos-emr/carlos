@@ -64,14 +64,16 @@
             if (!check()) {
                 return;
             }
-            const token = await paymentTypeCsrfToken();
+            const token = await paymentTypeBeginRequest();
             if (!token) return;
             $.ajax({
                 type: "POST",
                 async: true,
+                timeout: 30000,
                 data: {"CSRF-TOKEN": token, paymentType: document.getElementById("paymentType").value},
                 url: "${pageContext.request.contextPath}/billing/CA/ON/createPaymentType",
                 dataType: "json",
+                complete: paymentTypeRequestComplete,
                 success: paymentTypeSaveResult,
                 error: paymentTypeRequestFailed
             });
@@ -81,11 +83,12 @@
             if (!check()) {
                 return;
             }
-            const token = await paymentTypeCsrfToken();
+            const token = await paymentTypeBeginRequest();
             if (!token) return;
             $.ajax({
                 type: "POST",
                 async: true,
+                timeout: 30000,
                 data: {
                     "CSRF-TOKEN": token,
                     id: "<carlos:encode value='${paymentTypeModel.id}' context='javaScriptBlock'/>",
@@ -94,6 +97,7 @@
                 },
                 url: "${pageContext.request.contextPath}/billing/CA/ON/updatePaymentType",
                 dataType: "json",
+                complete: paymentTypeRequestComplete,
                 success: paymentTypeSaveResult,
                 error: paymentTypeRequestFailed
             });

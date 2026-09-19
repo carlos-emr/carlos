@@ -12,6 +12,18 @@ async function paymentTypeCsrfToken() {
     }
 }
 
+let paymentTypeRequestPending = false;
+async function paymentTypeBeginRequest() {
+    if (paymentTypeRequestPending) return null;
+    paymentTypeRequestPending = true;
+    const token = await paymentTypeCsrfToken();
+    if (!token) paymentTypeRequestPending = false;
+    return token;
+}
+function paymentTypeRequestComplete() {
+    paymentTypeRequestPending = false;
+}
+
 function paymentTypeSaveResult(result) {
     if (result && (result.ret === "0" || result.ret === 0)) {
         alert("Success");
@@ -22,5 +34,7 @@ function paymentTypeSaveResult(result) {
 }
 
 function paymentTypeRequestFailed(request, status, error) {
-    alert(status ? String(status) : error ? String(error) : "Unknown error happened!");
+    const reason = request && request.responseJSON && request.responseJSON.reason;
+    const httpStatus = request && request.status ? "HTTP " + request.status : null;
+    alert(String(reason || error || httpStatus || status || "Unknown error happened!"));
 }
