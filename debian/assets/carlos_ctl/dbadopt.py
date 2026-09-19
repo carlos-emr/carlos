@@ -79,7 +79,7 @@ BACKUP_PREFIX = "carlos_adopt_backup_"
 # into generated DDL, so they are matched rather than trusted.
 _IDENT = re.compile(r"\A[A-Za-z0-9_]+\Z")
 
-# Prepended to every script this module runs, for the same reasons the genesis
+# Prepended to the genesis reconciliation script this module runs, for the same reasons the genesis
 # dump and `dbops` restore stream set them.
 #
 # NAMES: the genesis DDL carries utf8mb4 literals.
