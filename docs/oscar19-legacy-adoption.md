@@ -4,10 +4,10 @@ How to bring an existing clinic database into a `carlos-ctl`-managed CARLOS
 install, in place — the schema is adopted where it stands and brought up to the
 current migration level.
 
-> This is **not** the same thing as `carlos-ctl o19-import`. That verb runs a
+> This is **not** the same thing as `carlos-ctl import-o19`. That verb runs a
 > full ETL from a separate OSCAR 19 estate into a CARLOS database; this page
 > covers taking the clinic's own datadir and making it *be* the CARLOS
-> database. Use `o19-import` when you are transforming and merging; use this
+> database. Use `import-o19` when you are transforming and merging; use this
 > when you are adopting.
 
 ---
