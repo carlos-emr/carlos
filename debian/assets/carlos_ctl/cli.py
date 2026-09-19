@@ -15,7 +15,7 @@ import os
 import sys
 from typing import List, Optional
 
-from . import config, dbops, provision, util, validate, waf
+from . import config, dbadopt, dbops, provision, util, validate, waf
 from .util import LIB, die, need_root
 
 _USAGE = """carlos-ctl — administration for a CARLOS EMR host
@@ -36,7 +36,11 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
   carlos-ctl db-info              show the schema migration state
   carlos-ctl db-validate          verify the schema matches the deployed WAR
   carlos-ctl db-migrate           apply pending migrations (BACK UP FIRST)
-  carlos-ctl db-baseline          adopt an existing pre-Flyway schema
+  carlos-ctl db-baseline          adopt an existing pre-Flyway (OSCAR 19 /
+                                  OpenO) database: reconcile the live schema
+                                  up to the genesis the stamp asserts, prepare
+                                  the adopted data for the forward migrations,
+                                  then stamp (--dry-run to see the plan)
   carlos-ctl db-repair            fix flyway_schema_history after a failure
   carlos-ctl db-apply-settings    restart MariaDB if it is not running the
                                   settings in the CARLOS drop-in
@@ -242,7 +246,7 @@ _VERBS = {
     "db-migrate": dbops.cmd_db_migrate,
     "db-info": dbops.make_flyway_cmd("info"),
     "db-validate": dbops.make_flyway_cmd("validate"),
-    "db-baseline": dbops.make_flyway_cmd("baseline"),
+    "db-baseline": dbadopt.cmd_db_baseline,
     "db-repair": dbops.make_flyway_cmd("repair"),
     "db-apply-settings": dbops.cmd_db_apply_settings,
     "demo-data": dbops.cmd_demo_data,
@@ -271,7 +275,7 @@ _VERBS = {
 # destroy-data, backup, db, ...) answer for their arguments themselves.
 _NO_ARGUMENT_VERBS = frozenset({
     "bootstrap-admin", "cert-renew", "check", "db-apply-settings",
-    "db-baseline", "db-dump", "db-info", "db-migrate", "db-repair",
+    "db-dump", "db-info", "db-migrate", "db-repair",
     "db-validate", "init-config", "restart", "rotate", "start", "status",
     "stop",
 })

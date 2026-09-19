@@ -1,5 +1,33 @@
 carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
 
+  * Adopting a legacy OSCAR 19 / OpenO database now actually works. `db-baseline`
+    stamps the history at the full genesis, which ASSERTS that common V1 and the
+    province V1.0.1/V1.0.2 are already satisfied -- but Flyway's baseline command
+    only writes that history row, it never executes V1__baseline_schema.sql. On a
+    datadir that forked before those columns existed the assertion was false and
+    nothing caught it: db-migrate reported success, db-validate passed (it
+    compares the history against the WAR, not the live schema against either),
+    and the install failed at the first login with "Unknown column
+    's1_0.mfaSecret'". db-baseline now reconciles the live schema up to the
+    genesis DDL carried in the deployed WAR first, with CREATE TABLE IF NOT
+    EXISTS and ALTER TABLE ... ADD COLUMN IF NOT EXISTS, so the pass is a no-op
+    on anything already present and safe to repeat.
+  * db-baseline also prepares the adopted DATA for the forward migrations, which
+    previously stopped twice on a real clinic import. Rows colliding with the one
+    seed statement in V1.0.5 that is missing INSERT IGNORE are copied aside and
+    cleared so the migration can lay down its canonical icd10 rows (V1.0.5 ships
+    in published tags, so its checksum is unchanged). Legacy OHIP/MCEDT billing
+    filenames that violate the UNIQUE indexes added by V1.0.11/V1.0.12 are
+    suffixed rather than deleted -- they are genuinely distinct submissions
+    sharing a filename that does not encode the year -- with the value actually
+    submitted to the Ministry preserved in a carlos_adopt_backup_* table.
+  * db-baseline no longer refuses when the installer's own db-migrate populated
+    flyway_schema_history before the legacy dump replaced the tables. That
+    history is renamed aside rather than dropped, and only when it provably
+    describes a schema that is gone: no BASELINE marker, and genesis columns
+    missing.
+  * New db-baseline options: --dry-run prints the whole plan and changes nothing,
+    --stamp-only keeps the previous bare-stamp behaviour.
   * Summarize expected existing-index/column notes during schema creation instead
     of showing them as duplicate-key/column warnings. Preserve all other warnings
     and migration errors; published migration SQL and checksums are unchanged.

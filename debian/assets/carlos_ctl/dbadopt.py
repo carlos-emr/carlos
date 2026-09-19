@@ -1,0 +1,665 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+"""Adopting a pre-Flyway (OSCAR 19 / OpenO) database into the Flyway history.
+
+`db-baseline` is documented as the verb that adopts an existing pre-Flyway
+schema, but for most of its life it was a bare passthrough to Flyway's
+`baseline` command -- and Flyway `baseline` writes ONE ROW into
+`flyway_schema_history`. It never executes `V1__baseline_schema.sql`.
+
+That is fine for the half of the genesis the forward migrations re-assert
+anyway, and wrong for the rest. Stamping at 1.0.2 is an ASSERTION that common
+`V1` and the province `V1.0.1`/`V1.0.2` are already satisfied by the adopted
+datadir. An authentic OSCAR 19 datadir forked from the CARLOS lineage years
+before those files existed, so the assertion is false in a specific, silent
+way: every column that has been part of the schema since `V1` -- rather than
+being added by a later forward migration -- is simply missing.
+
+Nothing catches it. `db-migrate` reports success, `db-validate` passes (it
+compares the HISTORY against the WAR's migrations, not the live schema against
+either), and the install fails at runtime the first time a clinician logs in:
+
+    Unknown column 's1_0.mfaSecret'           -> login dies
+    ProviderPreference.defaultBillingLocation -> 500 immediately after login
+
+So this module makes the assertion TRUE before it is stamped. It reads the
+genesis DDL out of the deployed WAR -- the same files Flyway would have run --
+and reconciles the live schema up to it with `CREATE TABLE IF NOT EXISTS` and
+`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`. Both are no-ops on anything already
+present, which is what makes the whole pass safe to run unconditionally and
+more than once.
+
+Two further things block a real clinic's forward migrations, and both are
+handled here because they are properties of the ADOPTED DATA, not of the
+migrations:
+
+  * `V1.0.5` seeds `icd10` with two statements and only the first says
+    `INSERT IGNORE`. The second collides with the legacy database's own ICD-10
+    reference rows. `V1.0.5` is present unchanged in published release tags, so
+    it cannot be edited (that would break the checksum for every existing
+    install); the colliding rows are cleared here instead, after being copied
+    aside, and the migration then lays down the canonical seed it intended to.
+
+  * `V1.0.11`/`V1.0.12` add UNIQUE indexes on the OHIP/MCEDT billing
+    filenames. Legacy submission filenames (`HA036013.001`) do not encode the
+    year, so a clinic that bills every January for a decade has ten genuinely
+    DISTINCT, real billing-submission rows sharing one filename string. None of
+    it is duplicate data and none of it is safe to delete, so the rows are
+    disambiguated -- and the value actually submitted to the Ministry is kept
+    in a backup table, because that string is the clinic's record of what it
+    sent.
+
+Everything this module writes is either additive (a column, a table) or
+recorded before it changes (a backup table), and `--dry-run` prints the whole
+plan without touching the database.
+"""
+
+import glob
+import os
+import re
+import time
+
+from . import config, dbops
+from .util import WEBAPP, die, log, need_root, warn
+
+# The migration set the DEPLOYED WAR carries, which is the only set whose
+# checksums the application's boot gate will accept. Reading the genesis from
+# anywhere else (the source tree, a downloaded Flyway CLI) would reconcile the
+# schema up to a different V1 than the one this install was stamped against.
+MIGRATION_ROOT = os.path.join(WEBAPP, "WEB-INF", "classes", "db", "migration")
+
+# Where a value is parked before this module overwrites it. Prefixed rather
+# than named after the table so an operator can find every one of them with a
+# single SHOW TABLES LIKE.
+BACKUP_PREFIX = "carlos_adopt_backup_"
+
+# Identifier shapes accepted out of the packaged SQL. Nothing from the network
+# reaches here -- these files ship inside the WAR -- but they are interpolated
+# into generated DDL, so they are matched rather than trusted.
+_IDENT = re.compile(r"\A[A-Za-z0-9_]+\Z")
+
+_CREATE_TABLE = re.compile(
+    r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`(?P<name>[^`]+)`\s*\((?P<body>.*?)\n\)(?P<tail>[^;]*);",
+    re.DOTALL | re.IGNORECASE)
+
+_CREATE_TEMPORARY = re.compile(
+    r"CREATE\s+TEMPORARY\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?",
+    re.IGNORECASE)
+
+# A seed INSERT with neither IGNORE nor a column list nor a SELECT: the exact
+# shape that aborts a migration when the adopted datadir already holds the key.
+_PLAIN_INSERT = re.compile(
+    r"^INSERT\s+INTO\s+`?(?P<table>[A-Za-z0-9_]+)`?\s+VALUES\s*(?P<rows>.*?);\s*$",
+    re.DOTALL | re.IGNORECASE | re.MULTILINE)
+
+_ROW_LEADING_INT = re.compile(r"\((\s*-?\d+)\s*,")
+
+_CONSTRAINT_PREFIXES = (
+    "PRIMARY KEY", "UNIQUE KEY", "UNIQUE INDEX", "KEY", "INDEX", "CONSTRAINT",
+    "FOREIGN KEY", "FULLTEXT KEY", "FULLTEXT INDEX", "SPATIAL KEY",
+    "SPATIAL INDEX", "CHECK",
+)
+
+# The UNIQUE indexes the forward migrations add over legacy billing filenames,
+# with the column the disambiguation suffix has to stay inside. Ordered by the
+# migration that introduces them so the report reads in migration order.
+BILLING_UNIQUE = (
+    # table, column, order-by deciding which row keeps the original string, and
+    # the suffix's human-readable part (already qualified with the UPDATE alias
+    # `b`). The primary key is appended to whatever this yields, so the result
+    # is unique even when two submissions share the filename AND the year.
+    ("billing_on_diskname", "ohipfilename", "createdatetime", "YEAR(b.`createdatetime`)"),
+    ("billing_on_filename", "htmlfilename", "timestamp", None),
+)
+
+
+class TableDef:
+    """One `CREATE TABLE` out of the genesis DDL.
+
+    `columns` is ordered as the genesis declares them; `statement` is the
+    original text, reused verbatim (bar an injected IF NOT EXISTS) when the
+    table is missing outright."""
+
+    def __init__(self, name, columns, statement):
+        self.name = name
+        self.columns = columns          # [(column_name, definition), ...]
+        self.statement = statement
+
+
+def _is_constraint(line: str) -> bool:
+    upper = line.upper()
+    return any(upper.startswith(p) for p in _CONSTRAINT_PREFIXES)
+
+
+def parse_create_tables(sql: str):
+    """Parse mysqldump-shaped `CREATE TABLE` statements into `TableDef`s.
+
+    The genesis files are mysqldump output, so one column per line and the
+    closing paren on its own line -- which is what makes a regex honest here
+    rather than a half-written SQL parser."""
+    tables = {}
+    for match in _CREATE_TABLE.finditer(sql):
+        name = match.group("name")
+        if not _IDENT.match(name):
+            continue
+        columns = []
+        for raw in match.group("body").splitlines():
+            line = raw.strip()
+            if not line or not line.startswith("`") or _is_constraint(line):
+                continue
+            # Only a TRAILING separator comma goes; a comma inside enum(...)
+            # or a DEFAULT literal is part of the definition.
+            line = line.rstrip().rstrip(",")
+            column = re.match(r"`([^`]+)`\s+(.*)", line, re.DOTALL)
+            if not column or not _IDENT.match(column.group(1)):
+                continue
+            columns.append((column.group(1), column.group(2).strip()))
+        tables[name] = TableDef(name, columns, match.group(0))
+    return tables
+
+
+def parse_temporary_tables(sql: str):
+    """Names created as TEMPORARY, which never collide with adopted data."""
+    return {m.group(1) for m in _CREATE_TEMPORARY.finditer(sql)}
+
+
+def parse_plain_seed_inserts(sql: str):
+    """`table -> [leading integer of each row]` for unguarded seed INSERTs.
+
+    The leading integer is only a CANDIDATE primary key; the caller confirms
+    against the live schema that the table's primary key really is that single
+    first integer column before deleting anything on the strength of it."""
+    temporary = parse_temporary_tables(sql)
+    found = {}
+    for match in _PLAIN_INSERT.finditer(sql):
+        table = match.group("table")
+        if table in temporary or not _IDENT.match(table):
+            continue
+        keys = [int(v) for v in _ROW_LEADING_INT.findall(match.group("rows"))]
+        if keys:
+            found.setdefault(table, []).extend(keys)
+    return found
+
+
+def genesis_files(schema_province: str, root: str = None):
+    """The genesis a `baseline` stamp asserts: common `V1` and the province
+    `V1.0.1` schema.
+
+    `V1.0.2` is province REFERENCE DATA, not structure. It is deliberately not
+    reconciled: the adopted datadir brings its own reference rows and its own
+    provider records, and replaying the seed over them is a data decision, not
+    a schema one."""
+    root = root or MIGRATION_ROOT
+    files = sorted(glob.glob(os.path.join(root, "common", "V1__*.sql")))
+    files += sorted(glob.glob(os.path.join(root, schema_province, "V1.0.1__*.sql")))
+    return files
+
+
+def forward_migration_files(schema_province: str, root: str = None):
+    """Every migration Flyway will actually RUN after a 1.0.2 baseline stamp."""
+    root = root or MIGRATION_ROOT
+    files = []
+    for area in ("common", schema_province):
+        for path in glob.glob(os.path.join(root, area, "V1.0.*__*.sql")):
+            version = re.search(r"V(\d+(?:\.\d+)*)__", os.path.basename(path))
+            if version and _version_tuple(version.group(1)) > (1, 0, 2):
+                files.append(path)
+    return sorted(files, key=lambda p: _version_tuple(
+        re.search(r"V(\d+(?:\.\d+)*)__", os.path.basename(p)).group(1)))
+
+
+def _version_tuple(text: str):
+    return tuple(int(part) for part in text.split("."))
+
+
+def reconciliation_statements(tables):
+    """The DDL that makes a live schema satisfy `tables`.
+
+    Every statement is guarded, so the pass is a no-op against a schema that is
+    already complete and safe to repeat after a partial run.
+
+    Two deliberate omissions:
+
+    * No `AFTER` clause. An added column lands at the end of the table rather
+      than in its genesis position. Column ORDER is not part of any contract
+      CARLOS relies on -- Hibernate binds by name -- and threading `AFTER`
+      through would break the moment a preceding column is one of the
+      AUTO_INCREMENT columns skipped below.
+    * AUTO_INCREMENT columns are never added. `ADD COLUMN ... AUTO_INCREMENT`
+      requires the column to become a key in the same breath, and a table that
+      has lost its auto-increment primary key is not a table this pass should
+      quietly rebuild. They are reported instead."""
+    # The genesis declares foreign keys, and these statements are emitted in
+    # NAME order, so a child table can be created before its parent -- exactly
+    # why the genesis file itself opens with FOREIGN_KEY_CHECKS=0. NAMES is set
+    # for the same reason mysqldump sets it: the DDL carries utf8mb4 literals.
+    statements = ["SET NAMES utf8mb4;", "SET FOREIGN_KEY_CHECKS=0;"]
+    skipped = []
+    for name in sorted(tables):
+        table = tables[name]
+        statements.append(_with_if_not_exists(table.statement))
+        for column, definition in table.columns:
+            if re.search(r"\bAUTO_INCREMENT\b", definition, re.IGNORECASE):
+                skipped.append((name, column))
+                continue
+            statements.append(
+                "ALTER TABLE `{0}` ADD COLUMN IF NOT EXISTS `{1}` {2};".format(
+                    name, column, definition))
+    statements.append("SET FOREIGN_KEY_CHECKS=1;")
+    return statements, skipped
+
+
+def _with_if_not_exists(statement: str) -> str:
+    if re.search(r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS", statement, re.IGNORECASE):
+        return statement
+    return re.sub(r"CREATE\s+TABLE\s+", "CREATE TABLE IF NOT EXISTS ",
+                  statement, count=1, flags=re.IGNORECASE)
+
+
+def _read(path: str) -> str:
+    with open(path, encoding="utf-8") as handle:
+        return handle.read()
+
+
+# --- the database side -----------------------------------------------------
+
+def _client(dbops, db_name, args, **kw):
+    return dbops.db_root(["--database", db_name] + args, **kw)
+
+
+def _scalar(dbops, db_name, sql, default=None):
+    cp = _client(dbops, db_name, ["-N", "-B", "-e", sql], capture_output=True)
+    if cp.returncode != 0:
+        return default
+    text = (cp.stdout or "").strip()
+    return text.splitlines()[-1] if text else default
+
+
+def _count(dbops, db_name, sql) -> int:
+    value = _scalar(dbops, db_name, sql, "0")
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _run_script(dbops, db_name, script: str, what: str) -> None:
+    cp = _client(dbops, db_name, ["-B"], input=script, capture_output=True)
+    if cp.returncode != 0:
+        tail = (cp.stderr or "").strip().splitlines()
+        die("{0} failed: {1}".format(what, tail[-1] if tail else "see the output above"))
+
+
+def _table_exists(dbops, db_name, table) -> bool:
+    return _count(dbops, db_name,
+                  "SELECT COUNT(*) FROM information_schema.TABLES "
+                  "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{0}'".format(table)) > 0
+
+
+def _single_integer_pk(dbops, db_name, table):
+    """The table's primary key when it is ONE integer column, else None.
+
+    This is the gate on the seed-collision clearing below: a compound or
+    non-integer key means the leading integer parsed out of the seed row is
+    not the key, and nothing is deleted."""
+    cp = _client(dbops, db_name, [
+        "-N", "-B", "-e",
+        "SELECT c.COLUMN_NAME, c.DATA_TYPE FROM information_schema.COLUMNS c "
+        "JOIN information_schema.STATISTICS s ON s.TABLE_SCHEMA = c.TABLE_SCHEMA "
+        " AND s.TABLE_NAME = c.TABLE_NAME AND s.COLUMN_NAME = c.COLUMN_NAME "
+        "WHERE c.TABLE_SCHEMA = DATABASE() AND c.TABLE_NAME = '{0}' "
+        "  AND s.INDEX_NAME = 'PRIMARY'".format(table),
+    ], capture_output=True)
+    if cp.returncode != 0:
+        return None
+    rows = [line.split("\t") for line in (cp.stdout or "").strip().splitlines() if line]
+    if len(rows) != 1 or len(rows[0]) != 2:
+        return None
+    column, data_type = rows[0]
+    if data_type.lower() not in ("int", "bigint", "smallint", "mediumint", "tinyint"):
+        return None
+    return column
+
+
+def _backup_table(table: str) -> str:
+    return BACKUP_PREFIX + table
+
+
+# --- plan steps ------------------------------------------------------------
+
+def plan_seed_collisions(dbops, db_name, schema_province, root=None):
+    """Rows an unguarded seed INSERT in a pending migration would collide with.
+
+    Returns `[(table, pk_column, [keys]), ...]` for the collisions that are
+    actually present in this database."""
+    collisions = []
+    for path in forward_migration_files(schema_province, root):
+        for table, keys in sorted(parse_plain_seed_inserts(_read(path)).items()):
+            if not _table_exists(dbops, db_name, table):
+                continue
+            pk = _single_integer_pk(dbops, db_name, table)
+            if pk is None:
+                warn("{0}: {1} carries an unguarded seed INSERT but the live "
+                     "table has no single integer primary key; leaving it "
+                     "alone -- if the migration fails on a duplicate key here, "
+                     "it needs a human".format(os.path.basename(path), table))
+                continue
+            keys = sorted(set(keys))
+            present = _count(dbops, db_name,
+                             "SELECT COUNT(*) FROM `{0}` WHERE `{1}` IN ({2})".format(
+                                 table, pk, ",".join(str(k) for k in keys)))
+            if present:
+                collisions.append((table, pk, keys, present, os.path.basename(path)))
+    return collisions
+
+
+def seed_collision_script(table, pk, keys) -> str:
+    """Copy the colliding rows aside, then clear exactly those keys.
+
+    Only the keys the migration is about to insert are touched: a legacy row
+    the canonical seed does not cover keeps its place."""
+    backup = _backup_table(table)
+    key_list = ",".join(str(k) for k in keys)
+    return "\n".join([
+        "CREATE TABLE IF NOT EXISTS `{0}` LIKE `{1}`;".format(backup, table),
+        "INSERT IGNORE INTO `{0}` SELECT * FROM `{1}` WHERE `{2}` IN ({3});".format(
+            backup, table, pk, key_list),
+        "DELETE FROM `{0}` WHERE `{1}` IN ({2});".format(table, pk, key_list),
+    ])
+
+
+def _column_width(dbops, db_name, table, column, default=50) -> int:
+    """The live CHARACTER_MAXIMUM_LENGTH, so the suffix is kept inside the
+    column this database actually has rather than the one the genesis
+    declared."""
+    value = _scalar(dbops, db_name,
+                    "SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS "
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{0}' "
+                    "  AND COLUMN_NAME = '{1}'".format(table, column))
+    try:
+        width = int(value)
+    except (TypeError, ValueError):
+        return default
+    return width if width > 0 else default
+
+
+def plan_billing_duplicates(dbops, db_name):
+    """Legacy billing filenames that violate the UNIQUE indexes V1.0.11/V1.0.12
+    add. Absent tables (a non-Ontario install) simply yield nothing."""
+    found = []
+    for table, column, order_by, suffix in BILLING_UNIQUE:
+        if not _table_exists(dbops, db_name, table):
+            continue
+        extra = _count(dbops, db_name,
+                       "SELECT COALESCE(SUM(n - 1), 0) FROM (SELECT COUNT(*) AS n "
+                       "FROM `{0}` WHERE `{1}` IS NOT NULL GROUP BY `{1}` "
+                       "HAVING n > 1) d".format(table, column))
+        if extra:
+            found.append((table, column, order_by, suffix, extra,
+                          _column_width(dbops, db_name, table, column)))
+    return found
+
+
+def billing_disambiguation_script(table, column, order_by, suffix, width=50) -> str:
+    """Make every value in `column` unique WITHOUT losing a single row.
+
+    The row that submitted first keeps the filename verbatim; every later row
+    gains a suffix. The suffix always ends in the primary key, so the result is
+    unique by construction even when two submissions share both the filename
+    and the year -- the shape the field-expedient `-YEAR` fix got wrong.
+
+    The original string is copied into a backup table first. For
+    `ohipfilename` that string is the clinic's record of the filename actually
+    sent to the Ministry, and this rewrite is the one part of adoption that
+    changes a value a human may later have to reconcile against an MOH
+    remittance."""
+    backup = _backup_table(table)
+    tag = "CONCAT('-', {0}, '-', b.`id`)".format(
+        "COALESCE({0}, 'x')".format(suffix) if suffix else "'dup'")
+    return "\n".join([
+        "CREATE TABLE IF NOT EXISTS `{0}` ("
+        "  `row_id` bigint NOT NULL,"
+        "  `column_name` varchar(64) NOT NULL,"
+        "  `original_value` varchar(255) DEFAULT NULL,"
+        "  PRIMARY KEY (`row_id`, `column_name`)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;".format(backup),
+        # Ranked once, used twice: the same window decides who is backed up and
+        # who is rewritten, so the backup can never disagree with the change.
+        "CREATE TEMPORARY TABLE `_carlos_adopt_rank` AS "
+        "SELECT `id` AS row_id, ROW_NUMBER() OVER ("
+        "  PARTITION BY `{1}` ORDER BY `{2}`, `id`) AS rn "
+        "FROM `{0}` WHERE `{1}` IS NOT NULL;".format(table, column, order_by),
+        "INSERT IGNORE INTO `{0}` (`row_id`, `column_name`, `original_value`) "
+        "SELECT b.`id`, '{2}', b.`{2}` FROM `{1}` b "
+        "JOIN `_carlos_adopt_rank` r ON r.row_id = b.`id` WHERE r.rn > 1;".format(
+            backup, table, column),
+        # LEFT() keeps the result inside the column, which matters for a long
+        # legacy filename; the post-check below catches the truncation collision
+        # that would imply.
+        "UPDATE `{0}` b JOIN `_carlos_adopt_rank` r ON r.row_id = b.`id` "
+        "SET b.`{1}` = CONCAT("
+        "  LEFT(b.`{1}`, GREATEST(1, {2} - CHAR_LENGTH({3}))), {3}) "
+        "WHERE r.rn > 1;".format(table, column, width, tag),
+        "DROP TEMPORARY TABLE `_carlos_adopt_rank`;",
+    ])
+
+
+def _remaining_duplicates(dbops, db_name, table, column) -> int:
+    return _count(dbops, db_name,
+                  "SELECT COALESCE(SUM(n - 1), 0) FROM (SELECT COUNT(*) AS n "
+                  "FROM `{0}` WHERE `{1}` IS NOT NULL GROUP BY `{1}` "
+                  "HAVING n > 1) d".format(table, column))
+
+
+# --- the verb --------------------------------------------------------------
+
+_USAGE = """usage: carlos-ctl db-baseline [--dry-run] [--stamp-only]
+
+Adopt an existing pre-Flyway (OSCAR 19 / OpenO) database: reconcile the live
+schema up to the genesis this stamp asserts, prepare the adopted data for the
+forward migrations, then stamp flyway_schema_history.
+
+  --dry-run     print the whole plan and change nothing
+  --stamp-only  the bare Flyway baseline stamp, reconciling nothing (this is
+                what db-baseline did before; it leaves an adopted datadir
+                missing every column added to the genesis since the fork)
+"""
+
+
+def cmd_db_baseline(argv) -> int:
+    dry_run = stamp_only = False
+    for arg in argv:
+        if arg in ("-h", "--help", "help"):
+            print(_USAGE, end="")
+            return 0
+        elif arg == "--dry-run":
+            dry_run = True
+        elif arg == "--stamp-only":
+            stamp_only = True
+        else:
+            die("unknown option: {0}".format(arg))
+
+    need_root("db-baseline")
+    dbops.require_db_root()
+    settings = config.load()
+
+    if stamp_only:
+        warn("--stamp-only: stamping without reconciling. An adopted OSCAR 19 "
+             "datadir will be missing every column added to the genesis since "
+             "it was forked, and the failure surfaces at login, not here.")
+        return dbops.run_flyway("baseline")
+
+    if not os.path.isdir(MIGRATION_ROOT):
+        die("{0} does not hold the packaged migrations; is the CARLOS webapp "
+            "deployed?".format(MIGRATION_ROOT))
+
+    db_name = settings.db_name
+    files = genesis_files(settings.schema_province)
+    if not files:
+        die("no genesis migration found under {0} for province '{1}'".format(
+            MIGRATION_ROOT, settings.schema_province))
+
+    tables = {}
+    for path in files:
+        tables.update(parse_create_tables(_read(path)))
+    if not tables:
+        die("parsed no CREATE TABLE out of {0}".format(", ".join(files)))
+
+    statements, skipped = reconciliation_statements(tables)
+    total_columns = sum(len(t.columns) for t in tables.values())
+    log("genesis: {0} table(s), {1} column(s) from {2}".format(
+        len(tables), total_columns, ", ".join(os.path.basename(f) for f in files)))
+
+    collisions = plan_seed_collisions(dbops, db_name, settings.schema_province)
+    duplicates = plan_billing_duplicates(dbops, db_name)
+    schema = live_schema(dbops, db_name)
+    stale = _stale_history(dbops, db_name, tables, schema)
+
+    for table, pk, keys, present, source in collisions:
+        log("{0}: {1} row(s) in `{2}` collide with the unguarded seed in {3}; "
+            "they will be copied to `{4}` and cleared so the migration can lay "
+            "down its canonical rows".format(
+                "PLAN" if dry_run else "preparing", present, table, source,
+                _backup_table(table)))
+    for table, column, _order, _suffix, extra, _width in duplicates:
+        log("{0}: {1} row(s) in `{2}`.`{3}` share a filename with an earlier "
+            "row; they will be suffixed (originals kept in `{4}`) so the "
+            "UNIQUE index can be created without discarding billing "
+            "history".format("PLAN" if dry_run else "preparing", extra, table,
+                             column, _backup_table(table)))
+    if stale:
+        log("{0}: flyway_schema_history describes a schema this database no "
+            "longer has -- the installer stamped it before the legacy dump "
+            "replaced the tables. It will be renamed aside, not dropped."
+            .format("PLAN" if dry_run else "preparing"))
+    for table, column in skipped:
+        live = schema.get(table.lower())
+        if live is not None and column.lower() not in live:
+            warn("`{0}`.`{1}` is AUTO_INCREMENT and absent from an existing "
+                 "live table; not adding it automatically -- a table that has "
+                 "lost its auto-increment key needs a human".format(
+                     table, column))
+
+    if dry_run:
+        log("PLAN: {0} reconciliation statement(s) would run ({1} genesis "
+            "column(s) are missing today), then 'flyway baseline'. Nothing was "
+            "changed.".format(len(statements) - 3,
+                              len(missing_genesis_columns(tables, schema))))
+        return 0
+
+    before = _schema_size(dbops, db_name)
+
+    if stale:
+        parked = "flyway_schema_history_preadopt_{0}".format(int(time.time()))
+        _run_script(dbops, db_name,
+                    "RENAME TABLE `flyway_schema_history` TO `{0}`;".format(parked),
+                    "parking the stale migration history")
+        log("stale history renamed to `{0}`".format(parked))
+
+    # Structure first: the data preparation below reads columns the genesis
+    # reconciliation may have just added.
+    _run_script(dbops, db_name, "\n".join(statements), "genesis reconciliation")
+    after = _schema_size(dbops, db_name)
+    log("reconciled: {0} table(s) and {1} column(s) added; {2} table(s) "
+        "checked".format(after[0] - before[0], after[1] - before[1], len(tables)))
+
+    for table, pk, keys, _present, _source in collisions:
+        _run_script(dbops, db_name, seed_collision_script(table, pk, keys),
+                    "clearing seed collisions in {0}".format(table))
+
+    for table, column, order_by, suffix, _extra, width in duplicates:
+        _run_script(dbops, db_name,
+                    billing_disambiguation_script(table, column, order_by,
+                                                  suffix, width),
+                    "disambiguating {0}.{1}".format(table, column))
+        left = _remaining_duplicates(dbops, db_name, table, column)
+        if left:
+            die("{0}.{1} still has {2} duplicate value(s) after "
+                "disambiguation; the UNIQUE index in V1.0.11/V1.0.12 would "
+                "still fail. Originals are in `{3}`.".format(
+                    table, column, left, _backup_table(table)))
+
+    rc = dbops.run_flyway("baseline")
+    if rc == 0:
+        log("adopted. Now run: carlos-ctl db-migrate")
+    return rc
+
+
+def _schema_size(dbops, db_name):
+    return (
+        _count(dbops, db_name, "SELECT COUNT(*) FROM information_schema.TABLES "
+                               "WHERE TABLE_SCHEMA = DATABASE()"),
+        _count(dbops, db_name, "SELECT COUNT(*) FROM information_schema.COLUMNS "
+                               "WHERE TABLE_SCHEMA = DATABASE()"),
+    )
+
+
+def live_schema(dbops, db_name):
+    """`{table: {column, ...}}` for the whole database, lowercased, in ONE
+    query. Probing 410 tables one information_schema round trip at a time is
+    the difference between an adoption that feels instant and one an operator
+    interrupts."""
+    cp = _client(dbops, db_name, [
+        "-N", "-B", "-e",
+        "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE()",
+    ], capture_output=True)
+    if cp.returncode != 0:
+        return {}
+    schema = {}
+    for line in (cp.stdout or "").splitlines():
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) == 2:
+            schema.setdefault(parts[0].lower(), set()).add(parts[1].lower())
+    return schema
+
+
+def missing_genesis_columns(tables, schema):
+    """Genesis columns absent from a table the live schema DOES have.
+
+    A table missing outright is not counted: that is an ordinary gap the
+    reconciliation fills, whereas a table that exists with FEWER columns than
+    the genesis declares is the fingerprint of a datadir forked before those
+    columns were added."""
+    missing = []
+    for name in sorted(tables):
+        live = schema.get(name.lower())
+        if not live:
+            continue
+        for column, _definition in tables[name].columns:
+            if column.lower() not in live:
+                missing.append((name, column))
+    return missing
+
+
+def _stale_history(dbops, db_name, tables, schema) -> bool:
+    """Whether `flyway_schema_history` is bookkeeping for a schema that is gone.
+
+    The installer runs `db-migrate` on the fresh database it provisions, so the
+    history is already populated by the time an operator loads a legacy dump
+    over it -- and mysqldump's `DROP TABLE IF EXISTS` replaces the data tables
+    but not this one, because an authentic OSCAR 19 dump never contained it.
+    Flyway then refuses to baseline: "flyway_schema_history already contains
+    migrations".
+
+    Two signals together, because either alone is a false positive:
+
+    * NO BASELINE MARKER. A history written by `migrate` against an empty
+      database records `V1`/`V1.0.1`/`V1.0.2` as ordinary applied migrations.
+      A history written by `baseline` carries a BASELINE row. That row is
+      exactly what makes re-running `baseline` a harmless no-op, so a schema
+      that already has one is a previously ADOPTED datadir whose history is
+      correct and must be left alone -- even though it, too, can be short of
+      genesis columns if it was adopted before this reconciliation existed.
+    * GENESIS COLUMNS MISSING. Otherwise this is an ordinary healthy install
+      and nothing here should touch its history at all."""
+    if not _table_exists(dbops, db_name, "flyway_schema_history"):
+        return False
+    if _count(dbops, db_name, "SELECT COUNT(*) FROM `flyway_schema_history`") == 0:
+        return False
+    if _count(dbops, db_name, "SELECT COUNT(*) FROM `flyway_schema_history` "
+                              "WHERE `type` = 'BASELINE'") > 0:
+        return False
+    return bool(missing_genesis_columns(tables, schema))
+
+
