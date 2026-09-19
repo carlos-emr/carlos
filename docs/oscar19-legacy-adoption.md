@@ -16,7 +16,7 @@ current migration level.
 
 ```bash
 # 1. Decrypt and load the clinic dump
-openssl enc -d -aes-256-cbc -pbkdf2 -in dump.tar.gz.enc -out dump.tar.gz -pass stdin
+openssl enc -d -aes-256-cbc -pbkdf2 -in dump.tar.gz.enc -out dump.tar.gz
 tar xzf dump.tar.gz
 sudo carlos-ctl backup full                 # verified rollback point, before anything
 sudo carlos-ctl db < dump.sql
@@ -32,12 +32,21 @@ sudo carlos-ctl db-migrate
 # 4. Verify, then destroy the plaintext dump
 sudo carlos-ctl db-validate
 sudo carlos-ctl check
-shred -u dump.sql dump.tar.gz dump.tar.gz.enc; [ -f myisambackup.sql ] && shred -u myisambackup.sql
+shred -u dump.sql dump.tar.gz
+if [ -f myisambackup.sql ]; then shred -u myisambackup.sql; fi
 ```
 
 **Step 4's `shred` is not optional.** The decrypted dump is the clinic's entire
 clinical record sitting in plaintext on disk. Remove it the moment the adoption
 is verified, and prefer a working directory on encrypted storage until then.
+Keep the encrypted original `dump.tar.gz.enc` as a recovery source under the
+clinic's retention policy. OpenSSL prompts interactively for its passphrase.
+
+Before planning or writing changes, `db-baseline` checks the live schema's
+province-specific tables against the deployed ON and BC genesis files. It
+refuses an opposite or mixed province schema, including with `--stamp-only`;
+correct `CARLOS_PROVINCE` or select the matching database first. A schema with
+only common tables has no province evidence and uses the configured province.
 
 ---
 
@@ -225,8 +234,9 @@ a false positive:
   is a previously *adopted* datadir whose history is correct — even if it is
   also short of genesis columns because it was adopted before this
   reconciliation existed. Its history is left alone.
-* **Genesis columns missing.** Otherwise this is an ordinary healthy install
-  and nothing here should touch its history at all.
+* **Genesis tables or columns missing.** Province compatibility is checked
+  first, so the opposite province's absent tables cannot trigger this repair.
+  Otherwise this is an ordinary healthy install and its history is preserved.
 
 ---
 

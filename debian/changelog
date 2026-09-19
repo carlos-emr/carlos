@@ -24,10 +24,13 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
   * db-baseline no longer refuses when the installer's own db-migrate populated
     flyway_schema_history before the legacy dump replaced the tables. That
     history is renamed aside rather than dropped, and only when it provably
-    describes a schema that is gone: no BASELINE marker, and genesis columns
-    missing.
+    describes a schema that is gone: no BASELINE marker, and genesis tables or
+    columns missing. Province compatibility is checked before any planning or
+    stamping, including --stamp-only; opposite or mixed province schemas fail.
   * New db-baseline options: --dry-run prints the whole plan and changes nothing,
-    --stamp-only keeps the previous bare-stamp behaviour.
+    --stamp-only keeps the previous bare-stamp behaviour. Both appear in the
+    top-level help. The adoption runbook uses OpenSSL's interactive passphrase
+    prompt and keeps the encrypted source archive when removing plaintext.
   * The billing disambiguation pins each row's `timestamp`. Both billing tables
     declare it ON UPDATE current_timestamp(), so rewriting the filename would
     otherwise replace the clinic's record of when it submitted with the adoption

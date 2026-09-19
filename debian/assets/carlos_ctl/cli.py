@@ -40,7 +40,8 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
                                   OpenO) database: reconcile the live schema
                                   up to the genesis the stamp asserts, prepare
                                   the adopted data for the forward migrations,
-                                  then stamp (--dry-run to see the plan)
+                                  then stamp (--dry-run to see the plan;
+                                  --stamp-only to skip reconciliation)
   carlos-ctl db-repair            fix flyway_schema_history after a failure
   carlos-ctl db-apply-settings    restart MariaDB if it is not running the
                                   settings in the CARLOS drop-in

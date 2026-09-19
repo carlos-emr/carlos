@@ -40,6 +40,29 @@ KNOWN_UNGUARDED_SEEDS = {
     "V1.0.5__restore_live_legacy_common_tables.sql": {"icd10"},
 }
 
+def unguarded_seed_tables(sql):
+    """Contract detection must not depend on adoption's key/code tuple parser."""
+    temporary = {name.lower() for name in dbadopt.parse_temporary_tables(sql)}
+    return {match.group("table").lower()
+            for match in dbadopt._SEED_INSERT.finditer(sql)
+            if not match.group("ignore")
+            and match.group("table").lower() not in temporary}
+
+
+class TestUnguardedSeedContract(unittest.TestCase):
+    def test_detects_numeric_and_string_keys_without_a_key_code_tuple(self):
+        sql = """
+INSERT INTO numeric_seed VALUES (1,2,3),(4,5,6);
+INSERT INTO string_seed VALUES ('a','b');
+INSERT INTO keyed_code VALUES (1,'x');
+CREATE TEMPORARY TABLE scratch (id int);
+INSERT INTO scratch VALUES (1,2);
+INSERT IGNORE INTO guarded_seed VALUES (1,2);
+"""
+        self.assertEqual(unguarded_seed_tables(sql),
+                         {"numeric_seed", "string_seed", "keyed_code"})
+
+
 SAMPLE = """
 DROP TABLE IF EXISTS `security`;
 CREATE TABLE `security` (
@@ -431,7 +454,7 @@ class TestPackagedMigrationContract(unittest.TestCase):
             for path in dbadopt.forward_migration_files(province, REPO_MIGRATIONS):
                 name = os.path.basename(path)
                 with open(path, encoding="utf-8") as handle:
-                    found = set(dbadopt.parse_plain_seed_inserts(handle.read()))
+                    found = unguarded_seed_tables(handle.read())
                 self.assertEqual(
                     found, KNOWN_UNGUARDED_SEEDS.get(name, set()),
                     "{0} seeds a non-temporary table with a plain INSERT INTO. "
@@ -453,6 +476,72 @@ class TestPackagedMigrationContract(unittest.TestCase):
                           re.IGNORECASE | re.DOTALL),
                 "no UNIQUE index found over %s.%s" % (table, column))
 
+
+
+@unittest.skipUnless(os.path.isdir(REPO_MIGRATIONS),
+                     "requires the packaged province schemas")
+class TestSchemaProvince(unittest.TestCase):
+    def schema(self, province):
+        tables = {}
+        for path in dbadopt.genesis_files(province, REPO_MIGRATIONS):
+            tables.update(dbadopt.parse_create_tables(dbadopt._read(path)))
+        return {name.lower(): {column.lower() for column, _ in table.columns}
+                for name, table in tables.items()}
+
+    def test_accepts_each_matching_packaged_province(self):
+        for province in ("on", "bc"):
+            with self.subTest(province=province):
+                dbadopt.check_schema_province(self.schema(province), province,
+                                             REPO_MIGRATIONS)
+
+    def test_rejects_each_opposite_province(self):
+        for actual, configured in (("on", "bc"), ("bc", "on")):
+            with self.subTest(actual=actual, configured=configured):
+                with self.assertRaises(SystemExit):
+                    dbadopt.check_schema_province(self.schema(actual), configured,
+                                                 REPO_MIGRATIONS)
+
+    def test_rejects_a_mixed_province_schema(self):
+        schema = self.schema("on")
+        schema.update(self.schema("bc"))
+        with self.assertRaises(SystemExit):
+            dbadopt.check_schema_province(schema, "on", REPO_MIGRATIONS)
+
+    def test_common_tables_do_not_imply_a_province_mismatch(self):
+        for province in ("on", "bc"):
+            dbadopt.check_schema_province({"security": {"security_no"}},
+                                         province, REPO_MIGRATIONS)
+
+
+class TestStaleHistory(unittest.TestCase):
+    def setUp(self):
+        self.tables = dbadopt.parse_create_tables(SAMPLE)
+        self.tables["MissingTable"] = dbadopt.TableDef(
+            "MissingTable", [("id", "int")], "")
+        self.complete = {name.lower(): {column.lower() for column, _ in table.columns}
+                         for name, table in self.tables.items()}
+
+    def stale(self, schema, baseline=False):
+        with mock.patch.object(dbadopt, "_table_exists", return_value=True), \
+                mock.patch.object(dbadopt, "_count_or_die",
+                                  side_effect=[3, int(baseline)]):
+            return dbadopt._stale_history(mock.Mock(), "carlos", self.tables, schema)
+
+    def test_missing_whole_table_identifies_stale_nonbaseline_history(self):
+        schema = dict(self.complete)
+        del schema["missingtable"]
+        self.assertEqual(dbadopt.missing_genesis_columns(self.tables, schema), [])
+        self.assertTrue(self.stale(schema))
+
+    def test_missing_column_still_identifies_stale_history(self):
+        self.complete["security"].remove("mfasecret")
+        self.assertTrue(self.stale(self.complete))
+
+    def test_complete_schema_keeps_its_history(self):
+        self.assertFalse(self.stale(self.complete))
+
+    def test_previously_adopted_history_is_preserved_despite_missing_tables(self):
+        self.assertFalse(self.stale({}, baseline=True))
 
 
 class TestDryRunDrivesTheWholePlan(unittest.TestCase):
@@ -530,6 +619,23 @@ class TestDryRunDrivesTheWholePlan(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 dbadopt.cmd_db_baseline([])
         self.assertEqual(self.executed, [])
+
+    @unittest.skipUnless(os.path.isdir(REPO_MIGRATIONS),
+                         "requires the packaged province schemas")
+    def test_province_mismatch_stops_before_planning_or_stamping_in_every_mode(self):
+        for args in ([], ["--dry-run"], ["--stamp-only"]):
+            with self.subTest(args=args), \
+                    mock.patch.object(dbadopt, "live_schema",
+                                      return_value={"billingmaster": {"id"}}), \
+                    mock.patch.object(dbadopt, "_stale_history") as stale, \
+                    mock.patch.object(dbadopt, "plan_seed_collisions") as seeds, \
+                    mock.patch.object(dbadopt.dbops, "run_flyway") as flyway:
+                with self.assertRaises(SystemExit):
+                    dbadopt.cmd_db_baseline(args)
+                stale.assert_not_called()
+                seeds.assert_not_called()
+                flyway.assert_not_called()
+                self.assertEqual(self.executed, [])
 
 
 class TestFailClosedDatabaseProbes(unittest.TestCase):

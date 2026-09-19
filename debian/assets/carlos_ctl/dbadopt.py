@@ -249,6 +249,47 @@ def genesis_files(schema_province: str, root: str = None):
     return files
 
 
+def check_schema_province(schema, schema_province, root=None):
+    """Reject an opposite or mixed province schema before adoption writes.
+
+    Derive distinguishing tables from the deployed ON and BC genesis files,
+    excluding tables they share. A schema with only common tables provides no
+    province evidence; absent tables can still be reconciled for the configured
+    province. Never infer a province from missing tables alone.
+    """
+    root = root or MIGRATION_ROOT
+    provinces = ("on", "bc")
+    if schema_province not in provinces:
+        die("unsupported schema_province: {0}".format(schema_province))
+    families = {}
+    for province in provinces:
+        if not glob.glob(os.path.join(root, province, "V1.0.1__*.sql")):
+            die("cannot verify schema_province: missing {0} genesis under {1}"
+                .format(province.upper(), root))
+        tables = set()
+        for path in genesis_files(province, root):
+            tables.update(name.lower() for name in parse_create_tables(_read(path)))
+        families[province] = tables
+    observed = {}
+    for province, other in (("on", "bc"), ("bc", "on")):
+        markers = families[province] - families[other]
+        if not markers:
+            die("cannot verify schema_province: no distinguishing {0} genesis "
+                "tables were parsed".format(province.upper()))
+        observed[province] = sorted(markers.intersection(schema))
+    other = "bc" if schema_province == "on" else "on"
+    if observed[other]:
+        if observed[schema_province]:
+            die("live schema contains both ON and BC province tables; cannot "
+                "verify schema_province={0}. Check CARLOS_PROVINCE and the "
+                "imported database before adopting; nothing was changed"
+                .format(schema_province))
+        die("province mismatch: schema_province={0}, but the live schema has "
+            "{1} province tables (including `{2}`). Correct CARLOS_PROVINCE "
+            "or select the matching database before adopting; nothing was "
+            "changed".format(schema_province, other.upper(), observed[other][0]))
+
+
 def forward_migration_files(schema_province: str, root: str = None):
     """Every migration Flyway will actually RUN after a 1.0.2 baseline stamp."""
     root = root or MIGRATION_ROOT
@@ -840,17 +881,20 @@ def cmd_db_baseline(argv) -> int:
     dbops.require_db_root()
     settings = config.load()
 
+    if not os.path.isdir(MIGRATION_ROOT):
+        die("{0} does not hold the packaged migrations; is the CARLOS webapp "
+            "deployed?".format(MIGRATION_ROOT))
+
+    db_name = settings.db_name
+    schema = live_schema(dbops, db_name)
+    check_schema_province(schema, settings.schema_province)
+
     if stamp_only:
         _warn("--stamp-only: stamping without reconciling. An adopted OSCAR 19 "
              "datadir will be missing every column added to the genesis since "
              "it was forked, and the failure surfaces at login, not here.")
         return dbops.run_flyway("baseline")
 
-    if not os.path.isdir(MIGRATION_ROOT):
-        die("{0} does not hold the packaged migrations; is the CARLOS webapp "
-            "deployed?".format(MIGRATION_ROOT))
-
-    db_name = settings.db_name
     files = genesis_files(settings.schema_province)
     if not files:
         die("no genesis migration found under {0} for province '{1}'".format(
@@ -867,7 +911,6 @@ def cmd_db_baseline(argv) -> int:
     _log("genesis: {0} table(s), {1} column(s) from {2}".format(
         len(tables), total_columns, ", ".join(os.path.basename(f) for f in files)))
 
-    schema = live_schema(dbops, db_name)
     stale = _stale_history(dbops, db_name, tables, schema)
     # A stale history is renamed aside below, so nothing it records will be
     # honoured: every forward migration becomes pending again.
@@ -1029,9 +1072,8 @@ def missing_genesis_columns(tables, schema):
     """Genesis columns absent from a table the live schema DOES have.
 
     A table missing outright is not counted: that is an ordinary gap the
-    reconciliation fills, whereas a table that exists with FEWER columns than
-    the genesis declares is the fingerprint of a datadir forked before those
-    columns were added."""
+    reconciliation fills. Stale-history detection checks absent tables
+    separately so these per-column counts remain meaningful."""
     missing = []
     for name in sorted(tables):
         live = schema.get(name.lower())
@@ -1062,7 +1104,9 @@ def _stale_history(dbops, db_name, tables, schema) -> bool:
       that already has one is a previously ADOPTED datadir whose history is
       correct and must be left alone -- even though it, too, can be short of
       genesis columns if it was adopted before this reconciliation existed.
-    * GENESIS COLUMNS MISSING. Otherwise this is an ordinary healthy install
+    * GENESIS TABLES OR COLUMNS MISSING. The caller has already rejected a
+      province mismatch, so missing whole tables also show that the recorded
+      genesis is incomplete. Otherwise this is an ordinary healthy install
       and nothing here should touch its history at all."""
     if not _table_exists(dbops, db_name, "flyway_schema_history"):
         return False
@@ -1075,4 +1119,5 @@ def _stale_history(dbops, db_name, tables, schema) -> bool:
                      "WHERE `type` = 'BASELINE'",
                      "check the migration baseline marker") > 0:
         return False
-    return bool(missing_genesis_columns(tables, schema))
+    return (any(name.lower() not in schema for name in tables)
+            or bool(missing_genesis_columns(tables, schema)))
