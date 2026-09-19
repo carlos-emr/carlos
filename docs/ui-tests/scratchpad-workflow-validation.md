@@ -32,9 +32,19 @@ without advancing the editor revision. The user keeps their draft and can open
 the current scratchpad to compare and combine notes. A save failure retains the
 editor and offers Retry; it does not reload away the unsaved text.
 
-Validation status at PR creation: source-level reproductions confirmed the old
-failures. All 754 Node tests and 61 focused Java action/DAO tests pass. The changed
-Java classes were compiled against the existing validated dependencies with
-512 MiB heaps and outputs on tmpfs, while the VM was stopped. Full Maven/package
-and live Ubuntu 26.04 installed-DEB execution remain pending adequate host disk space. This document
-does not claim a completed live run until those results are recorded in the PR.
+Validated on Ubuntu 26.04 / 8 GiB with the installed validation12 DEBs. All
+seven live steps above passed, including real-interval autosave, lost-response
+retry, stale-window rejection and simultaneous saves. The baseline installed
+DEB reproduced skipped literal edits, false saved status on stale writes and
+editor loss on failure before the fix.
+
+The integration tree containing the isolated release fixes passed 12,458 Java
+tests (zero failures/errors, 51 skips), 771 Node tests and 1,587 packaging/CLI
+tests. Focused coverage includes 61 Java action/DAO tests, 21 editor cases and
+7 browser-helper cases. Form submissions normalize LF to CRLF, so the editor
+normalizes only acknowledgment line endings before comparing textarea text;
+all other whitespace and literal characters remain significant.
+
+All three matched packages installed with Flyway validation and preserved clinic
+counts and credentials. Builds ran with the VM stopped under memory guards;
+browser tests ran serially. CI and reviewer follow-ups are recorded in #3768.
