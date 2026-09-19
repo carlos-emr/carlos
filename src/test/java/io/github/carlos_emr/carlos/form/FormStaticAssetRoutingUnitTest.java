@@ -68,6 +68,9 @@ class FormStaticAssetRoutingUnitTest {
             "/form/graphics/checkmark.gif",
             "/form/graphics/caregiver/scale.png",
             "/form/graphics/functionVisualAid/some.jpg",
+            // bmp and jpeg are the two extensions this change adds; without a case each,
+            // dropping one back out of the alternation would leave the suite green.
+            "/form/graphics/functionVisualAid/some.jpeg",
             "/form/print.css",
             "/form/formScripts.js",
     })
