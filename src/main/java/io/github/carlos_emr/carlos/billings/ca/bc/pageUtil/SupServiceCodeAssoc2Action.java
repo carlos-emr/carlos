@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -103,6 +104,14 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
+        // Associations are shared billing configuration, so mutating them needs the same
+        // billing-admin rights billingSVCTrayAssoc.jsp enforces with its <security:oscarSec>
+        // tag. A successful mutation redirects instead of rendering that JSP, so the check has
+        // to be repeated here: without it a plain "_billing" writer could POST the action
+        // directly and change the configuration the page refuses to show them.
+        if (mutation && !securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_OBJECTS, "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing or _admin)");
+        }
         if (mutation && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -127,6 +136,9 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
             return NONE;
         }
 
+        // The JSP renders errors from this request attribute; getActionErrors() is not visible
+        // to it once Struts forwards, so copy the collection across like the other 2Actions do.
+        request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
         request.setAttribute("list", dao.getServiceCodeAssociactions());
         return SUCCESS;
     }
@@ -167,6 +179,13 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
         }
         return test;
     }
+
+    /**
+     * Security objects that grant the right to change associations, matching the
+     * {@code objectName} the JSP gate uses. {@code SecurityInfoManager} treats the
+     * comma-separated list as "any of these", not "all of these".
+     */
+    private static final String ADMIN_OBJECTS = "_admin.billing,_admin";
 
     /** Action mode constant for edit/create operation */
     public static final String MODE_EDIT = "edit";

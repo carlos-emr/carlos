@@ -23,15 +23,18 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private SupServiceCodeAssocDAO dao;
+    private SecurityInfoManager security;
     private MockedStatic<ServletActionContext> servlet;
     private MockedConstruction<BillingAssociationPersistence> persistence;
     private SupServiceCodeAssoc2Action action;
+    private LoggedInInfo info;
     @BeforeEach void setUp() {
         request = new MockHttpServletRequest("POST", "/billing/CA/BC/supServiceCodeAssocAction");
         request.setContextPath("/carlos"); response = new MockHttpServletResponse();
-        LoggedInInfo info = mock(LoggedInInfo.class); LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
-        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        info = mock(LoggedInInfo.class); LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
+        security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(info, "_billing", "w", null)).thenReturn(true);
+        when(security.hasPrivilege(info, "_admin.billing,_admin", "w", null)).thenReturn(true);
         dao = createAndRegisterMock(SupServiceCodeAssocDAO.class);
         when(dao.getServiceCodeAssociactions()).thenReturn(List.of());
         servlet = mockStatic(ServletActionContext.class);
@@ -91,4 +94,22 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(dao);
     }
 
+    @ParameterizedTest @ValueSource(strings = {"edit", "delete"})
+    void shouldRejectMutation_whenBillingAdminRightsAreMissing(String mode) {
+        when(security.hasPrivilege(info, "_admin.billing,_admin", "w", null)).thenReturn(false);
+        action.setActionMode(mode); action.setPrimaryCode("00100"); action.setSecondaryCode("11000"); action.setId("77");
+        assertThatExceptionOfType(SecurityException.class).isThrownBy(action::execute)
+            .withMessage("missing required sec object (_admin.billing or _admin)");
+        verifyNoInteractions(dao);
+    }
+    @Test void shouldRenderList_forBillingUserWithoutAdminRights() {
+        when(security.hasPrivilege(info, "_admin.billing,_admin", "w", null)).thenReturn(false);
+        request.setMethod("GET"); assertThat(action.execute()).isEqualTo("success");
+        verify(dao).getServiceCodeAssociactions();
+    }
+    @Test void shouldExposeErrors_toTheJspRenderer() {
+        action.setActionMode("edit"); action.setPrimaryCode("invalid"); action.setSecondaryCode("11000");
+        assertThat(action.execute()).isEqualTo("success");
+        assertThat((java.util.List<?>) request.getAttribute("actionErrors")).isNotEmpty();
+    }
 }
