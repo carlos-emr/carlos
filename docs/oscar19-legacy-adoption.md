@@ -212,6 +212,12 @@ rather than letting `db-migrate` discover it later. That re-check is a hard
 gate: a query that cannot be answered fails the run rather than reading as
 zero.
 
+Billing suffixes must fit the live column width without truncating their row
+ID. If a later duplicate's suffix is too long, planning stops before any
+database change; review the legacy column width before retrying. A suffix that
+fits exactly uses the whole field, with the original filename retained in the
+backup. The UPDATE also rejects oversized suffixes if rows change after planning.
+
 ## Stale migration history
 
 The installer runs `carlos-ctl db-migrate` on the database it provisions, so

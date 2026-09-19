@@ -421,7 +421,7 @@ class TestBillingDisambiguation(unittest.TestCase):
         self.assertEqual(self._script().count("r.rn > 1"), 2)
 
     def test_result_is_kept_inside_the_column(self):
-        self.assertIn("LEFT(b.`ohipfilename`, GREATEST(1, 50 - CHAR_LENGTH(",
+        self.assertIn("LEFT(b.`ohipfilename`, GREATEST(0, 50 - CHAR_LENGTH(",
                       self._script())
 
     def test_the_submission_timestamp_is_pinned(self):

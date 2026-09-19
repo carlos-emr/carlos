@@ -772,6 +772,11 @@ def _column_width(dbops, db_name, table, column) -> int:
     return width
 
 
+def _billing_tag(suffix):
+    return "CONCAT('-', {0}, '-', b.`id`)".format(
+        "COALESCE({0}, 'x')".format(suffix) if suffix else "'dup'")
+
+
 def plan_billing_duplicates(dbops, db_name):
     """Legacy billing filenames that violate the UNIQUE indexes V1.0.11/V1.0.12
     add. Absent tables (a non-Ontario install) simply yield nothing."""
@@ -786,8 +791,22 @@ def plan_billing_duplicates(dbops, db_name):
              "HAVING n > 1) d").format(table, column),
             "count duplicates in {0}.{1}".format(table, column))
         if extra:
-            found.append((table, column, order_by, suffix, extra,
-                          _column_width(dbops, db_name, table, column)))
+            width = _column_width(dbops, db_name, table, column)
+            oversized = _count_or_die(
+                dbops, db_name,
+                "SELECT COUNT(*) FROM `{0}` b JOIN ("
+                "SELECT `id`, ROW_NUMBER() OVER (PARTITION BY `{1}` "
+                "ORDER BY `{2}`, `id`) AS rn FROM `{0}` "
+                "WHERE `{1}` IS NOT NULL) r ON r.`id` = b.`id` "
+                "WHERE r.rn > 1 AND CHAR_LENGTH({3}) > {4}".format(
+                    table, column, order_by, _billing_tag(suffix), width),
+                "check billing suffix width for {0}.{1}".format(table, column))
+            if oversized:
+                die("`{0}`.`{1}` is too narrow ({2} characters) for {3} "
+                    "billing suffix(es); refusing adoption before changes. "
+                    "Review the column width before retrying".format(
+                        table, column, width, oversized))
+            found.append((table, column, order_by, suffix, extra, width))
     return found
 
 
@@ -805,8 +824,7 @@ def billing_disambiguation_script(table, column, order_by, suffix, width=50) -> 
     changes a value a human may later have to reconcile against an MOH
     remittance."""
     backup = _backup_table(table)
-    tag = "CONCAT('-', {0}, '-', b.`id`)".format(
-        "COALESCE({0}, 'x')".format(suffix) if suffix else "'dup'")
+    tag = _billing_tag(suffix)
     return "\n".join([
         "CREATE TABLE IF NOT EXISTS `{0}` ("
         "  `row_id` bigint NOT NULL,"
@@ -824,9 +842,10 @@ def billing_disambiguation_script(table, column, order_by, suffix, width=50) -> 
         "SELECT b.`id`, '{2}', b.`{2}` FROM `{1}` b "
         "JOIN `_carlos_adopt_rank` r ON r.row_id = b.`id` WHERE r.rn > 1;".format(
             backup, table, column),
-        # LEFT() keeps the result inside the column, which matters for a long
-        # legacy filename; the post-check below catches the truncation collision
-        # that would imply.
+        # Planning rejects tags wider than the column. Guard again here so a
+        # changed row cannot cause silent truncation between plan and UPDATE.
+        # An exactly fitting tag leaves no filename prefix. Never truncate the
+        # tag itself: it carries the complete primary key.
         # `timestamp` is declared ON UPDATE current_timestamp() on both billing
         # tables, so an UPDATE that touches the row rewrites the clinic's record
         # of WHEN it submitted -- and on billing_on_filename that column is the
@@ -838,9 +857,10 @@ def billing_disambiguation_script(table, column, order_by, suffix, width=50) -> 
         "  AND prior.`column_name` = '{1}' "
         "  AND BINARY prior.`original_value` <=> BINARY b.`{1}` "
         "SET b.`{1}` = CONCAT("
-        "  LEFT(b.`{1}`, GREATEST(1, {2} - CHAR_LENGTH({3}))), {3}), "
+        "  LEFT(b.`{1}`, GREATEST(0, {2} - CHAR_LENGTH({3}))), {3}), "
         "b.`timestamp` = b.`timestamp` "
-        "WHERE r.rn > 1;".format(table, column, width, tag, backup),
+        "WHERE r.rn > 1 AND CHAR_LENGTH({3}) <= {2};".format(
+            table, column, width, tag, backup),
         "DROP TEMPORARY TABLE `_carlos_adopt_rank`;",
     ])
 

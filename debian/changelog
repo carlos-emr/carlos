@@ -21,6 +21,8 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     suffixed rather than deleted -- they are genuinely distinct submissions
     sharing a filename that does not encode the year -- with the value actually
     submitted to the Ministry preserved in a carlos_adopt_backup_* table.
+    Reject suffixes too wide for a legacy column during planning, and guard
+    the UPDATE against truncation while permitting an exactly fitting suffix.
   * db-baseline no longer refuses when the installer's own db-migrate populated
     flyway_schema_history before the legacy dump replaced the tables. That
     history is renamed aside rather than dropped when no BASELINE marker exists

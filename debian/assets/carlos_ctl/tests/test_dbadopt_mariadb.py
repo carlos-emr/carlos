@@ -169,6 +169,39 @@ class TestSeedMovesMariaDB(unittest.TestCase):
                 self.stale()
         self.assertEqual(self.query("SELECT COUNT(*) FROM flyway_schema_history"), "3")
 
+    def test_narrow_billing_column_aborts_planning_and_update_cannot_truncate(self):
+        self.billing_history()
+        self.query("ALTER TABLE billing_on_filename MODIFY htmlfilename VARCHAR(3);"
+                   "INSERT INTO billing_on_filename (id,htmlfilename,timestamp) VALUES "
+                   "(1,'abc','2020-01-01'),(12345,'abc','2021-01-01')")
+        with self.assertRaises(SystemExit):
+            dbadopt.plan_billing_duplicates(self, self.database)
+        self.assertEqual(self.query("SELECT htmlfilename FROM billing_on_filename ORDER BY id"),
+                         "abc\nabc")
+        # Defense in depth: even if live rows change after planning, the
+        # generated UPDATE must never rely on the server truncating a tag.
+        self.run_script(dbadopt.billing_disambiguation_script(
+            "billing_on_filename", "htmlfilename", "timestamp", None, 3))
+        self.assertEqual(self.query("SELECT htmlfilename FROM billing_on_filename ORDER BY id"),
+                         "abc\nabc")
+
+    def test_billing_suffix_fits_exact_width_and_preserves_timestamp(self):
+        self.billing_history()
+        self.query("ALTER TABLE billing_on_filename MODIFY htmlfilename VARCHAR(6);"
+                   "INSERT INTO billing_on_filename (id,htmlfilename,timestamp) VALUES "
+                   "(1,'abcdef','2020-01-01'),(2,'abcdef','2021-01-01')")
+        plan = dbadopt.plan_billing_duplicates(self, self.database)
+        self.assertEqual(len(plan), 1)
+        table, column, order, suffix, extra, width = plan[0]
+        self.assertEqual((extra, width), (1, 6))
+        self.run_script(dbadopt.billing_disambiguation_script(table, column, order, suffix, width))
+        self.assertEqual(self.query("SELECT htmlfilename FROM billing_on_filename ORDER BY id"),
+                         "abcdef\n-dup-2")
+        self.assertEqual(self.query("SELECT timestamp FROM billing_on_filename WHERE id=2"),
+                         "2021-01-01 00:00:00")
+        self.assertEqual(self.query("SELECT original_value FROM carlos_adopt_backup_billing_on_filename"),
+                         "abcdef")
+
     def test_conflicting_backup_does_not_move_or_delete_live_row(self):
         self.query("INSERT INTO icd10 VALUES (14902,'LOCAL','new description');"
                    "CREATE TABLE carlos_adopt_backup_icd10 LIKE icd10;"
