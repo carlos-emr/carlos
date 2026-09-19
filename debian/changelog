@@ -37,6 +37,13 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     columns default to '0000-00-00', which a sql_mode carrying NO_ZERO_DATE or
     TRADITIONAL rejects part way through the pass; the packaged drop-in already
     sets sql_mode="" but is only read at server start.
+  * A seed collision is only cleared for a migration Flyway will actually run.
+    Re-running db-baseline against a database that had already been adopted and
+    migrated deleted the 1070 canonical icd10 rows V1.0.5 had laid down, and the
+    db-migrate that followed had nothing pending to restore them -- while
+    db-validate still passed, because it compares the history against the WAR
+    rather than the data. Found by a full install-and-adopt rehearsal in a
+    container, not by review.
   * The duplicate re-check that gates the UNIQUE indexes now fails the run when
     the query cannot be answered, instead of reading an unanswerable query as
     zero and stamping anyway. Seed rows are only cleared when the live primary

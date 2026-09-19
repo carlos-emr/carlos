@@ -402,14 +402,42 @@ def _live_column_list(dbops, db_name, table):
     return [line.strip() for line in (cp.stdout or "").splitlines() if line.strip()]
 
 
-def plan_seed_collisions(dbops, db_name, schema_province, root=None):
-    """Rows an unguarded seed INSERT in a pending migration would collide with.
+def applied_versions(dbops, db_name):
+    """Versions `flyway_schema_history` records as successfully applied.
+
+    Empty when there is no history yet -- an un-adopted legacy datadir -- which
+    is the same answer as "everything above the baseline is pending"."""
+    if not _table_exists(dbops, db_name, "flyway_schema_history"):
+        return set()
+    cp = _client(dbops, db_name, [
+        "-N", "-B", "-e",
+        "SELECT `version` FROM `flyway_schema_history` "
+        "WHERE `success` = 1 AND `version` IS NOT NULL",
+    ], capture_output=True)
+    if cp.returncode != 0:
+        die("could not read flyway_schema_history")
+    return {line.strip() for line in (cp.stdout or "").splitlines() if line.strip()}
+
+
+def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
+    """Rows an unguarded seed INSERT in a PENDING migration would collide with.
+
+    `applied` is the set of versions Flyway already records as successful; a
+    migration in it will not run again, so its seed rows are the canonical ones
+    that are SUPPOSED to be there. Clearing those is not preparation, it is
+    deletion: re-running db-baseline against an already-adopted database
+    removed 1070 icd10 rows that the following db-migrate -- with nothing
+    pending -- never put back, and db-validate still passed because it compares
+    the history against the WAR, not the data.
 
     Returns `[(table, pk_column, [keys], present, source, columns), ...]` for
     the collisions actually present in this database."""
     collisions = []
     for path in forward_migration_files(schema_province, root):
         source = os.path.basename(path)
+        version = re.search(r"V(\d+(?:\.\d+)*)__", source)
+        if version and version.group(1) in applied:
+            continue
         for table, rows in sorted(parse_plain_seed_inserts(_read(path)).items()):
             if not _table_exists(dbops, db_name, table):
                 continue
@@ -667,10 +695,14 @@ def cmd_db_baseline(argv) -> int:
     log("genesis: {0} table(s), {1} column(s) from {2}".format(
         len(tables), total_columns, ", ".join(os.path.basename(f) for f in files)))
 
-    collisions = plan_seed_collisions(dbops, db_name, settings.schema_province)
-    duplicates = plan_billing_duplicates(dbops, db_name)
     schema = live_schema(dbops, db_name)
     stale = _stale_history(dbops, db_name, tables, schema)
+    # A stale history is renamed aside below, so nothing it records will be
+    # honoured: every forward migration becomes pending again.
+    applied = set() if stale else applied_versions(dbops, db_name)
+    collisions = plan_seed_collisions(dbops, db_name, settings.schema_province,
+                                      applied)
+    duplicates = plan_billing_duplicates(dbops, db_name)
 
     for table, pk, keys, present, source, _columns in collisions:
         log("{0}: {1} row(s) in `{2}` collide with the unguarded seed in {3}; "

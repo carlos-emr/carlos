@@ -152,6 +152,53 @@ INSERT INTO `third` SELECT * FROM `fourth`;
                       "SELECT `id`, `icd10`, `description`", script)
 
 
+class TestPendingOnlySeedClearing(unittest.TestCase):
+    """A seed collision is only cleared for a migration that will actually run.
+
+    Re-running db-baseline against an already-adopted database deleted the 1070
+    canonical icd10 rows V1.0.5 had laid down, and the db-migrate that followed
+    had nothing pending to restore them. db-validate still passed, because it
+    compares the history against the WAR rather than the data -- the exact
+    silent-failure shape this module exists to remove."""
+
+    def _plan(self, applied, history_rows=("1.0.5",)):
+        seen = []
+
+        def fake_client(_dbops, _db, args, **kw):
+            sql = ""
+            for i, a in enumerate(args):
+                if a == "-e":
+                    sql = args[i + 1]
+            seen.append(sql)
+            if "information_schema.TABLES" in sql:
+                return mock.Mock(returncode=0, stdout="1", stderr="")
+            if "flyway_schema_history" in sql:
+                return mock.Mock(returncode=0, stdout="\n".join(history_rows), stderr="")
+            if "INDEX_NAME = 'PRIMARY'" in sql:
+                return mock.Mock(returncode=0, stdout="id\tint", stderr="")
+            if "ORDER BY ORDINAL_POSITION" in sql:
+                return mock.Mock(returncode=0, stdout="id\nicd10\ndescription", stderr="")
+            if sql.startswith("SELECT COUNT(*) FROM `icd10`"):
+                return mock.Mock(returncode=0, stdout="1070", stderr="")
+            return mock.Mock(returncode=0, stdout="0", stderr="")
+
+        with mock.patch.object(dbadopt, "_client", fake_client):
+            return dbadopt.plan_seed_collisions(
+                mock.Mock(), "carlos", "on", applied, REPO_MIGRATIONS)
+
+    @unittest.skipUnless(os.path.isdir(REPO_MIGRATIONS),
+                         "runs from a source checkout, not the installed package")
+    def test_clears_when_the_migration_is_still_pending(self):
+        collisions = self._plan(applied=set())
+        self.assertEqual([c[0] for c in collisions], ["icd10"])
+
+    @unittest.skipUnless(os.path.isdir(REPO_MIGRATIONS),
+                         "runs from a source checkout, not the installed package")
+    def test_leaves_the_rows_alone_once_that_migration_has_applied(self):
+        # V1.0.5 already ran: those rows ARE the canonical ones.
+        self.assertEqual(self._plan(applied={"1.0.5"}), [])
+
+
 class TestBillingDisambiguation(unittest.TestCase):
 
     def _script(self, table="billing_on_diskname", column="ohipfilename",

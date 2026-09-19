@@ -218,6 +218,9 @@ the checksum will not match.
 statement it issues is guarded or idempotent, and the backup tables are written
 with `CREATE TABLE IF NOT EXISTS` / `INSERT IGNORE`, so the *first* recorded
 original is preserved rather than overwritten with an already-rewritten value.
+Re-running it after a *completed* adoption is a no-op as well: a seed collision
+is only cleared for a migration Flyway will actually run, so the canonical rows
+an applied migration already laid down are left where they are.
 
 **"`carlos_adopt_backup_x` already exists with a different shape."** A backup
 from an earlier adoption is still present, and the table it came from has
