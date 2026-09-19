@@ -216,3 +216,55 @@ test('token retrieval waits for DOMContentLoaded when bootstrap has not installe
   assert.equal(await pending, 'synthetic-token');
   assert.equal(alerts.length, 0);
 });
+
+// A rejected window.csrfTokenReady stays rejected for the life of the document, so
+// releasing the in-flight guard alone never makes a failed bootstrap retryable. The
+// helper must refetch, the way efmformmanager.jsp does.
+function csrfRetryContext(fetchCsrfToken) {
+  const input = { value: '' };
+  const alerts = [];
+  const context = vm.createContext({
+    window: { csrfTokenReady: Promise.reject(new Error('fixture bootstrap failure')) },
+    document: {
+      readyState: 'complete',
+      querySelector: () => input,
+      currentScript: { src: 'https://host/carlos/billing/CA/ON/payment-type-csrf.js' },
+    },
+    fetchCsrfToken,
+    alert: text => alerts.push(text),
+  });
+  vm.runInContext(csrfScript, context);
+  return { context, input, alerts };
+}
+
+test('a rejected bootstrap is recovered by refetching the token', async () => {
+  const requested = [];
+  const { context, input, alerts } = csrfRetryContext(async contextPath => {
+    requested.push(contextPath);
+    input.value = 'refetched-token';
+  });
+  assert.equal(await context.paymentTypeBeginRequest(), 'refetched-token');
+  assert.deepEqual(requested, ['https://host/carlos'], 'the context path comes from the script URL');
+  assert.equal(alerts.length, 0, 'a recovered bootstrap is not reported as a failure');
+  context.paymentTypeRequestComplete();
+  assert.equal(await context.paymentTypeBeginRequest(), 'refetched-token', 'the guard still releases');
+});
+
+test('a refetch that also fails reports the failure and submits nothing', async () => {
+  const { context, alerts } = csrfRetryContext(() => Promise.reject(new Error('fixture refetch failure')));
+  assert.equal(await context.paymentTypeBeginRequest(), null);
+  assert.deepEqual(alerts, ['Security token unavailable. Reload and try again.']);
+});
+
+test('no refetch is attempted when the script URL does not reveal a context path', async () => {
+  const alerts = [];
+  const context = vm.createContext({
+    window: { csrfTokenReady: Promise.reject(new Error('fixture bootstrap failure')) },
+    document: { readyState: 'complete', querySelector: () => ({ value: '' }) },
+    fetchCsrfToken: () => assert.fail('refetch needs a context path'),
+    alert: text => alerts.push(text),
+  });
+  vm.runInContext(csrfScript, context);
+  assert.equal(await context.paymentTypeCsrfToken(), null);
+  assert.equal(alerts.length, 1);
+});

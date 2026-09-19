@@ -30,8 +30,51 @@ async function paymentTypeCsrfTokenReady() {
     if (window.csrfTokenReady) await window.csrfTokenReady;
 }
 
+/** @returns {?string} the bootstrapped token, or null while the input is unpopulated. */
+function paymentTypeTokenValue() {
+    const input = document.querySelector("input[name='CSRF-TOKEN']");
+    return input && input.value ? input.value : null;
+}
+
+/*
+ * Where this script was served from, captured at load time. A plain .js file cannot
+ * read request.getContextPath(), but both payment-type pages load this file from
+ * <contextPath>/billing/CA/ON/payment-type-csrf.js, so trimming that suffix off its
+ * own URL yields the prefix fetchCsrfToken needs. document.currentScript is only set
+ * while the script is first executing, hence the capture here rather than at use.
+ */
+const PAYMENT_TYPE_SCRIPT_PATH = "/billing/CA/ON/payment-type-csrf.js";
+const paymentTypeContextPath = (function () {
+    const script = typeof document !== "undefined" && document.currentScript;
+    const source = script && script.src ? String(script.src).split(/[?#]/)[0] : "";
+    return source.endsWith(PAYMENT_TYPE_SCRIPT_PATH)
+        ? source.slice(0, -PAYMENT_TYPE_SCRIPT_PATH.length)
+        : null;
+})();
+
 /**
- * Reads the bootstrapped CSRF token, waiting for the bootstrap first.
+ * Refetches the token after the page bootstrap failed to produce one.
+ *
+ * A rejected window.csrfTokenReady stays rejected for the life of the document, so
+ * awaiting it again on the next click can only re-throw — without this the first
+ * transient bootstrap failure would brick every later save until a reload. This
+ * mirrors the retry in efmformmanager.jsp.
+ *
+ * @returns {Promise<?string>} the token, or null when no retry is possible or it failed
+ */
+async function paymentTypeRefetchToken() {
+    if (!paymentTypeContextPath || typeof fetchCsrfToken !== "function") return null;
+    try {
+        await fetchCsrfToken(paymentTypeContextPath);
+    } catch (error) {
+        return null;
+    }
+    return paymentTypeTokenValue();
+}
+
+/**
+ * Reads the bootstrapped CSRF token, waiting for the bootstrap first and refetching
+ * once if it left no token behind.
  *
  * @returns {Promise<?string>} the token, or null after alerting the user when it
  *                             cannot be obtained — callers must not submit then
@@ -39,13 +82,13 @@ async function paymentTypeCsrfTokenReady() {
 async function paymentTypeCsrfToken() {
     try {
         await paymentTypeCsrfTokenReady();
-        const input = document.querySelector("input[name='CSRF-TOKEN']");
-        if (!input || !input.value) throw new Error("Security token unavailable");
-        return input.value;
     } catch (error) {
-        alert("Security token unavailable. Reload and try again.");
-        return null;
+        // A failed bootstrap is recoverable; the refetch below decides.
     }
+    const token = paymentTypeTokenValue() || await paymentTypeRefetchToken();
+    if (token) return token;
+    alert("Security token unavailable. Reload and try again.");
+    return null;
 }
 
 let paymentTypeRequestPending = false;
