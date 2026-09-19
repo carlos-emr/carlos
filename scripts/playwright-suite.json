@@ -2224,6 +2224,22 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "form-asset-paths",
+      "script": "scripts/form-asset-paths-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FORM_DEMOGRAPHIC_NO",
+        "FORM_PROVIDER_NO"
+      ]
     }
   ]
 }
