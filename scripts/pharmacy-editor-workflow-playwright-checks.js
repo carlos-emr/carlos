@@ -26,6 +26,15 @@ async function workflow(s) {
   const row = () => rx.locator(`tr.pharmacyItem[pharmId="${id}"]`);
   const saveButton = () => frame().locator('input[onclick="savePharmacy();"]');
   const association = () => `SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no=${s.patient} AND pharmacyID=${id} AND status='1'`;
+  async function waitForModalShown() {
+    // Bootstrap ignores hide() while its opening transition is still running.
+    // Observe the real DOM/animations so a fast iframe load cannot race Close.
+    await rx.waitForFunction(() => {
+      const modal = document.getElementById('pharmacyModal');
+      return modal.classList.contains('show')
+        && modal.getAnimations({ subtree: true }).every(animation => animation.playState !== 'running');
+    });
+  }
   async function waitForLoaded(field, value) {
     // Read the real iframe DOM while its AJAX loader runs; do not invoke application handlers.
     await rx.waitForFunction(({ field, value }) => {
@@ -65,7 +74,9 @@ async function workflow(s) {
     await row().locator('a[onclick*="editPharmacy"]').click();
     await waitForLoaded('pharmacyNotes', notes);
     h.assert(await frame().locator('#pharmacyAddress').inputValue() === '456 Updated Lane', 'Reopened address did not persist');
+    await waitForModalShown();
     await rx.locator('#pharmacyModal button[data-bs-dismiss="modal"]').click();
+    await rx.locator('#pharmacyModal').waitFor({ state: 'hidden' });
   });
   await s.step('link, unlink and relink the pharmacy for the owned patient', async () => {
     await row().locator('.pharmacyName').click();
