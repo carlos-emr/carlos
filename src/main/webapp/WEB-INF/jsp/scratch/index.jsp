@@ -287,7 +287,7 @@
 
 	<tr>
 		<td class="MainTableLeftColumn" id="tablelle" >
-            <input type="button" style="margin-bottom: 8px;" class="btn btn-primary" onclick="checkScratch('Save button...')" id="savebutton" value="save" />
+            <button type="button" style="margin-bottom: 8px;" class="btn btn-primary" onclick="checkScratch('Save button...')" id="savebutton">Save</button>
 
 			<select id="scratchVersions" class="form-select" onChange="showVersion(this.options[this.selectedIndex].value)">
 				<option value="showVersion">Select Version to Display</option>

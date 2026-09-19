@@ -45,6 +45,8 @@ import java.util.List;
 @Repository
 public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements ScratchPadDao {
 
+    private static final String PROVIDER_NO_PARAMETER = "providerNo";
+
     public ScratchPadDaoImpl() {
         super(ScratchPad.class);
     }
@@ -58,7 +60,7 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
         Provider owner = entityManager.find(Provider.class, providerNo, LockModeType.PESSIMISTIC_WRITE);
         if (owner == null) throw new IllegalArgumentException("Scratchpad provider does not exist");
         Query latest = createQuery("sp", "sp.providerNo = :providerNo AND sp.status=true order by sp.id DESC");
-        latest.setParameter("providerNo", providerNo);
+        latest.setParameter(PROVIDER_NO_PARAMETER, providerNo);
         // A locking read observes the latest committed revision even when an
         // outer transaction has already established a repeatable-read snapshot.
         latest.setLockMode(LockModeType.PESSIMISTIC_WRITE);
@@ -96,7 +98,7 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
     public ScratchPad findByProviderNo(String providerNo) {
         Query query = createQuery("sp", "sp.providerNo = :providerNo AND sp.status=true order by sp.id DESC");
         query.setMaxResults(1);
-        query.setParameter("providerNo", providerNo);
+        query.setParameter(PROVIDER_NO_PARAMETER, providerNo);
         return getSingleResultOrNull(query);
     }
 
@@ -125,7 +127,7 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
                 "  ) " +
                 "ORDER BY sp.dateTime DESC";
         Query query = entityManager.createQuery(sql);
-        query.setParameter("providerNo", providerNo);
+        query.setParameter(PROVIDER_NO_PARAMETER, providerNo);
         return query.getResultList();
     }
 }

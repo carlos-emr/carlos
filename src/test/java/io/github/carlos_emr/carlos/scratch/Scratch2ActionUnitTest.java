@@ -194,7 +194,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
             createAction(request, response).execute();
             verify(response).setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             assertThat(json.toString()).contains("\"success\":false").doesNotContain("private note", "private database detail");
-            assertThat(capture.messages()).allSatisfy(message ->
+            assertThat(capture.messages()).isNotEmpty().allSatisfy(message ->
                     assertThat(message).doesNotContain("private note", "private database detail"));
         }
     }

@@ -51,6 +51,7 @@ import jakarta.servlet.http.HttpSession;
  */
 public class Scratch2Action extends JSONAction {
 
+    private static final String SUCCESS_FIELD = "success";
     private static final String SESSION_PROVIDER_REQUIRED = "Session provider required";
 
     private final ScratchPadDao scratchPadDao = SpringUtils.getBean(ScratchPadDao.class);
@@ -145,7 +146,7 @@ public class Scratch2Action extends JSONAction {
                         "Another window changed this scratchpad. Your unsaved text has been kept. Open the current version and reconcile your changes before saving.");
             }
             ObjectNode result = objectMapper.createObjectNode();
-            result.put("success", true);
+            result.put(SUCCESS_FIELD, true);
             result.put("id", saved.version().getId().toString());
             // JSON is a data response, not HTML. The editor assigns text to .value;
             // encoding here would corrupt literal entities, plus signs and percent sequences.
@@ -168,7 +169,7 @@ public class Scratch2Action extends JSONAction {
     public String delete() {
         if (sessionProviderNo() == null) return rejectRequest(HttpServletResponse.SC_UNAUTHORIZED, SESSION_PROVIDER_REQUIRED);
         ObjectNode result = objectMapper.createObjectNode();
-        result.put("success", false);
+        result.put(SUCCESS_FIELD, false);
         if (!"POST".equals(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             jsonResponse(result);
@@ -185,7 +186,7 @@ public class Scratch2Action extends JSONAction {
             result.put("id", scratch.getId().toString());
             result.put("version", scratch.getDateTime() != null
                     ? java.time.Instant.ofEpochMilli(scratch.getDateTime().getTime()).toString() : null);
-            result.put("success", true);
+            result.put(SUCCESS_FIELD, true);
         } catch (RuntimeException ex) {
             MiscUtils.getLogger().error("Unable to delete scratchpad version ({})", ex.getClass().getSimpleName());
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -203,7 +204,7 @@ public class Scratch2Action extends JSONAction {
     private String rejectRequest(int status, String message) {
         response.setStatus(status);
         ObjectNode result = objectMapper.createObjectNode();
-        result.put("success", false);
+        result.put(SUCCESS_FIELD, false);
         result.put("message", message);
         jsonResponse(result);
         return NONE;
