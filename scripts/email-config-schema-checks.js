@@ -10,7 +10,7 @@ const h = require('./lib/playwright-harness');
 function check(sql) {
   assert.equal(sql.value("SELECT DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='emailConfig' AND COLUMN_NAME='configDetails'"), 'text',
     'Migrated emailConfig.configDetails must be TEXT, not the legacy VARCHAR(1000)');
-  assert.equal(sql.value("SELECT COUNT(*) FROM flyway_schema_history WHERE version='1.0.26' AND success=1"), '1',
+  assert.equal(sql.value("SELECT COUNT(*) FROM flyway_schema_history WHERE version='1.0.23.1' AND success=1"), '1',
     'The widening migration must be recorded as successful');
   assert.equal(sql.value("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='emailConfig'"), 'InnoDB',
     'Rollback safety requires InnoDB');

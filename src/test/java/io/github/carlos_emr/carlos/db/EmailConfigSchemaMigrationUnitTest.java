@@ -4,6 +4,10 @@ package io.github.carlos_emr.carlos.db;
 import java.nio.charset.StandardCharsets;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import org.junit.jupiter.api.io.TempDir;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -25,7 +29,7 @@ class EmailConfigSchemaMigrationUnitTest {
                 assertThatThrownBy(update::executeUpdate).isInstanceOf(SQLException.class);
                 String migration;
                 try (var input = new ClassPathResource(
-                        "db/migration/common/V1.0.26__widen_email_config_for_encrypted_credentials.sql").getInputStream()) {
+                        "db/migration/common/V1.0.23.1__widen_email_config.sql").getInputStream()) {
                     migration = new String(input.readAllBytes(), StandardCharsets.UTF_8);
                 }
                 statement.execute(migration);
@@ -43,4 +47,27 @@ class EmailConfigSchemaMigrationUnitTest {
             }
         }
     }
+    @Test
+    void shouldAllowLaterDevelopMigrationsAfterReleaseWidening(@TempDir Path migrations) throws Exception {
+        Files.writeString(migrations.resolve("V1__fixture.sql"),
+                "CREATE TABLE emailConfig (id INTEGER PRIMARY KEY, configDetails VARCHAR(1000));");
+        String widening;
+        try (var input = new ClassPathResource(
+                "db/migration/common/V1.0.23.1__widen_email_config.sql").getInputStream()) {
+            widening = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        Files.writeString(migrations.resolve("V1.0.23.1__widen_email_config.sql"), widening);
+        try (var connection = DriverManager.getConnection("jdbc:h2:mem:email_upgrade_order;MODE=MySQL")) {
+            Flyway flyway = Flyway.configure().dataSource("jdbc:h2:mem:email_upgrade_order;MODE=MySQL", "", "")
+                    .locations("filesystem:" + migrations).ignoreMigrationPatterns(new String[0]).load();
+            assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+            // Model versions reserved on develop, without importing its unrelated features.
+            Files.writeString(migrations.resolve("V1.0.24__later_feature.sql"), "CREATE TABLE feature24 (id INT);");
+            Files.writeString(migrations.resolve("V1.0.25__later_feature.sql"), "CREATE TABLE feature25 (id INT);");
+            Files.writeString(migrations.resolve("V1.0.26__later_widening.sql"), widening);
+            assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
+            flyway.validate();
+        }
+    }
+
 }
