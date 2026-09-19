@@ -883,9 +883,9 @@ schema up to the genesis this stamp asserts, prepare the adopted data for the
 forward migrations, then stamp flyway_schema_history.
 
   --dry-run     print the whole plan and change nothing
-  --stamp-only  the bare Flyway baseline stamp, reconciling nothing (this is
-                what db-baseline did before; it leaves an adopted datadir
-                missing every column added to the genesis since the fork)
+  --stamp-only  run only Flyway baseline after province validation; skip
+                stale-history repair, schema reconciliation, and seed/billing
+                data preparation (the previous bare-stamp behaviour)
 """
 
 
