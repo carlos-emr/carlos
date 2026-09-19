@@ -59,20 +59,24 @@
             return true;
         }
 
-        function csrfTokenValue() {
+        async function csrfTokenValue() {
+            if (window.csrfTokenReady) await window.csrfTokenReady;
             var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
-            return tokenInput ? tokenInput.value : "";
+            if (!tokenInput || !tokenInput.value) throw new Error("Security token unavailable. Reload and try again.");
+            return tokenInput.value;
         }
 
-        function createType() {
+        async function createType() {
             if (!check()) {
                 return;
             }
+            let token;
+            try { token = await csrfTokenValue(); }
+            catch (error) { alert("Security token unavailable. Reload and try again."); return; }
             $.ajax({
                 type: "POST",
                 async: true,
-                headers: {"CSRF-TOKEN": csrfTokenValue()},
-                data: {paymentType: document.getElementById("paymentType").value},
+                data: {"CSRF-TOKEN": token, paymentType: document.getElementById("paymentType").value},
                 url: "${pageContext.request.contextPath}/billing/CA/ON/createPaymentType",
                 dataType: "json",
                 success: function (ret) {
@@ -87,9 +91,9 @@
                 },
                 error: function (XMLHttpRequest, textStatus, errorThrown) {
                     if (textStatus) {
-                        alert(JSON.toString(textStatus));
+                        alert(String(textStatus));
                     } else if (errorThrown) {
-                        alert(JSON.toString(errorThrown));
+                        alert(String(errorThrown));
                     } else {
                         alert("Unknown error happened!");
                     }
@@ -97,15 +101,18 @@
             });
         }
 
-        function saveType() {
+        async function saveType() {
             if (!check()) {
                 return;
             }
+            let token;
+            try { token = await csrfTokenValue(); }
+            catch (error) { alert("Security token unavailable. Reload and try again."); return; }
             $.ajax({
                 type: "POST",
                 async: true,
-                headers: {"CSRF-TOKEN": csrfTokenValue()},
                 data: {
+                    "CSRF-TOKEN": token,
                     id: "<carlos:encode value='${paymentTypeModel.id}' context='javaScriptBlock'/>",
                     oldPaymentType: "<carlos:encode value='${paymentTypeModel.type}' context='javaScriptBlock'/>",
                     paymentType: document.getElementById("paymentType").value
@@ -124,9 +131,9 @@
                 },
                 error: function (XMLHttpRequest, textStatus, errorThrown) {
                     if (textStatus) {
-                        alert(JSON.toString(textStatus));
+                        alert(String(textStatus));
                     } else if (errorThrown) {
-                        alert(JSON.toString(errorThrown));
+                        alert(String(errorThrown));
                     } else {
                         alert("Unknown error happened!");
                     }

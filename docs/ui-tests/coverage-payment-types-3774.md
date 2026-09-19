@@ -1,0 +1,5 @@
+# Ontario payment-type CRUD (#3774 / #3786)
+
+Live installed-DEB testing confirmed 403 responses because the payment JSPs set CSRF-TOKEN explicitly and CSRFGuard's XHR wrapper appends a second value. Waiting for bootstrap did not help; a diagnostic counted two header segments without recording token values. The fix waits for bootstrap, sends the token as a protected form parameter, leaves the automatic XHR header to CSRFGuard, reports token failures without submitting, and makes AJAX error text readable. Delete becomes asynchronous instead of blocking the browser.
+
+The owned-fixture Playwright workflow exercises empty validation, create, edit, reopen and delete with database assertions and literal quote/ampersand values within the 25-character schema. Node tests execute production JavaScript and cover delayed and rejected token bootstrap. Four focused Node cases pass. Positive installed-DEB validation of the fix remains pending and will be added before readiness; original 403 evidence is retained.

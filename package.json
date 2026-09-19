@@ -137,7 +137,8 @@
     "test:admin-report-validation-playwright": "node scripts/admin-report-validation-playwright-checks.js",
     "test:inactive-drug-status-playwright": "node scripts/inactive-drug-status-playwright-checks.js",
     "test:referral-labels-playwright": "node scripts/referral-labels-playwright-checks.js",
-    "test:incoming-pdf-extraction-playwright": "node scripts/incoming-pdf-extraction-playwright-checks.js"
+    "test:incoming-pdf-extraction-playwright": "node scripts/incoming-pdf-extraction-playwright-checks.js",
+    "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

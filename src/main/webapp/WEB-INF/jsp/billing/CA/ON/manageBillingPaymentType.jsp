@@ -53,9 +53,11 @@
     <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
-        function csrfTokenValue() {
+        async function csrfTokenValue() {
+            if (window.csrfTokenReady) await window.csrfTokenReady;
             var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
-            return tokenInput ? tokenInput.value : "";
+            if (!tokenInput || !tokenInput.value) throw new Error("Security token unavailable");
+            return tokenInput.value;
         }
 
         jQuery(document).ready(function () {
@@ -111,15 +113,17 @@
 <script type="text/javascript">
 
     jQuery(document).ready(function () {
-        jQuery("tr td:nth-child(4)").on("click", "a", function (event) {
+        jQuery("tr td:nth-child(4)").on("click", "a", async function (event) {
+            event.preventDefault();
+            let token;
+            try { token = await csrfTokenValue(); }
+            catch (error) { alert("Security token unavailable. Reload and try again."); return; }
             jQuery.ajax({
                 url: "${pageContext.request.contextPath}/billing/CA/ON/removePaymentType",
                 type: "post",
-                async: false,
-                headers: {"CSRF-TOKEN": csrfTokenValue()},
                 timeout: 30000,
                 dataType: "json",
-                data: {paymentTypeId: event.target.getAttribute("data-paymentTypeId")},
+                data: {"CSRF-TOKEN": token, paymentTypeId: event.target.getAttribute("data-paymentTypeId")},
                 success: function (data) {
                     if (data == null) {
                         alert("Error happened after getting response!");
