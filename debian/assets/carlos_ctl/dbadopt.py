@@ -347,9 +347,11 @@ def _run_script(dbops, db_name, script: str, what: str) -> None:
 
 
 def _table_exists(dbops, db_name, table) -> bool:
-    return _count(dbops, db_name,
-                  "SELECT COUNT(*) FROM information_schema.TABLES "
-                  "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{0}'".format(table)) > 0
+    return _count_or_die(
+        dbops, db_name,
+        "SELECT COUNT(*) FROM information_schema.TABLES "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{0}'".format(table),
+        "check whether `{0}` exists".format(table)) > 0
 
 
 def _single_integer_pk(dbops, db_name, table):
@@ -360,7 +362,8 @@ def _single_integer_pk(dbops, db_name, table):
     not the key, and nothing is deleted."""
     cp = _client(dbops, db_name, [
         "-N", "-B", "-e",
-        "SELECT c.COLUMN_NAME, c.DATA_TYPE FROM information_schema.COLUMNS c "
+        "SELECT c.COLUMN_NAME, c.DATA_TYPE, s.SEQ_IN_INDEX, c.ORDINAL_POSITION "
+        "FROM information_schema.COLUMNS c "
         "JOIN information_schema.STATISTICS s ON s.TABLE_SCHEMA = c.TABLE_SCHEMA "
         " AND s.TABLE_NAME = c.TABLE_NAME AND s.COLUMN_NAME = c.COLUMN_NAME "
         "WHERE c.TABLE_SCHEMA = DATABASE() AND c.TABLE_NAME = '{0}' "
@@ -370,15 +373,16 @@ def _single_integer_pk(dbops, db_name, table):
         # future seed whose leading field is, say, demographic_no would produce
         # DELETE ... WHERE id IN (<demographic numbers>) -- deleting live rows
         # that were never backed up.
-        "  AND s.SEQ_IN_INDEX = 1 AND c.ORDINAL_POSITION = 1".format(table),
+        "ORDER BY s.SEQ_IN_INDEX".format(table),
     ], capture_output=True)
     if cp.returncode != 0:
-        return None
+        die("could not inspect the primary key of `{0}`".format(table))
     rows = [line.split("\t") for line in (cp.stdout or "").strip().splitlines() if line]
-    if len(rows) != 1 or len(rows[0]) != 2:
+    if len(rows) != 1 or len(rows[0]) != 4:
         return None
-    column, data_type = rows[0]
-    if data_type.lower() not in ("int", "bigint", "smallint", "mediumint", "tinyint"):
+    column, data_type, sequence, position = rows[0]
+    if sequence != "1" or position != "1" or data_type.lower() not in (
+            "int", "bigint", "smallint", "mediumint", "tinyint"):
         return None
     return column
 
@@ -398,7 +402,7 @@ def _live_column_list(dbops, db_name, table):
         "ORDER BY ORDINAL_POSITION".format(table),
     ], capture_output=True)
     if cp.returncode != 0:
-        return []
+        die("could not inspect the columns of `{0}`".format(table))
     return [line.strip() for line in (cp.stdout or "").splitlines() if line.strip()]
 
 
@@ -474,25 +478,24 @@ def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
                         "`{1}`; move it aside before adopting again (it holds "
                         "rows cleared by an earlier run)".format(backup, table))
 
-            _warn_on_diverging_seed_rows(dbops, db_name, table, pk, canonical,
-                                         columns, source)
+            _check_seed_rows(dbops, db_name, table, pk, canonical, present,
+                             columns, source)
             collisions.append((table, pk, keys, present, source, columns))
     return collisions
 
 
-def _warn_on_diverging_seed_rows(dbops, db_name, table, pk, canonical, columns,
-                                 source):
-    """Say so when a row about to be cleared does not match its canonical
-    replacement.
+def _check_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
+                     source):
+    """Refuse to clear a row whose code differs from its replacement.
 
     The whole premise of clearing these keys is that the migration will lay
     down the SAME reference rows. Where it does not, a code the legacy database
     carried at that id disappears -- and `Icd10DaoImpl` looks this table up by
     CODE, never by id, so a clinical record still referencing it stops
-    resolving. The rows are in the backup table either way; this makes sure the
-    operator is told rather than finding out from a clinician."""
+    resolving. A backup preserves the old row but does not repair those clinical
+    references, so a human must reconcile divergent codes before adoption."""
     if len(columns) < 2:
-        return
+        die("`{0}` has no code column to compare with {1}".format(table, source))
     code_column = columns[1]
     cp = _client(dbops, db_name, [
         "-N", "-B", "-e",
@@ -500,25 +503,31 @@ def _warn_on_diverging_seed_rows(dbops, db_name, table, pk, canonical, columns,
             pk, code_column, table, ",".join(str(k) for k in canonical)),
     ], capture_output=True)
     if cp.returncode != 0:
-        return
+        die("could not compare live `{0}` codes with {1}".format(table, source))
     diverging = 0
+    checked = 0
     for line in (cp.stdout or "").splitlines():
         parts = line.rstrip("\n").split("\t")
         if len(parts) != 2:
-            continue
+            die("could not parse a live `{0}` code while checking {1}".format(
+                table, source))
         try:
             key = int(parts[0])
         except ValueError:
-            continue
+            die("could not parse a live `{0}` key while checking {1}".format(
+                table, source))
+        checked += 1
         if canonical.get(key) != parts[1]:
             diverging += 1
+    if checked != present:
+        die("`{0}` changed while checking seed codes: counted {1} collision "
+            "row(s) but read {2}; retry adoption".format(
+                table, present, checked))
     if diverging:
-        warn("{0}: {1} row(s) in `{2}` hold a different `{3}` than the seed in "
-             "{4} will replace them with. They are preserved in `{5}`, but any "
-             "record referencing one of those values will stop resolving -- "
-             "reconcile them before go-live".format(
-                 table, diverging, table, code_column, source,
-                 _backup_table(table)))
+        die("{0}: {1} row(s) hold a different `{2}` than the seed in {3}. "
+            "Refusing to replace a code that clinical records may reference; "
+            "reconcile those rows before adoption".format(
+                table, diverging, code_column, source))
 
 
 def seed_collision_script(table, pk, keys, columns) -> str:
@@ -538,27 +547,40 @@ def seed_collision_script(table, pk, keys, columns) -> str:
     backup = _backup_table(table)
     key_list = ",".join(str(k) for k in keys)
     column_list = ", ".join("`{0}`".format(c) for c in columns)
+    # An old backup can contain the same primary key from another restored
+    # datadir. Only delete a live row when the backup still has every byte of
+    # that row. The post-copy collision re-check then prevents a false stamp.
+    copied = " AND ".join("BINARY b.`{0}` <=> BINARY t.`{0}`".format(c)
+                          for c in columns)
     return "\n".join([
         "CREATE TABLE IF NOT EXISTS `{0}` LIKE `{1}`;".format(backup, table),
         "INSERT IGNORE INTO `{0}` ({1}) SELECT {1} FROM `{2}` "
         "WHERE `{3}` IN ({4});".format(backup, column_list, table, pk, key_list),
-        "DELETE FROM `{0}` WHERE `{1}` IN ({2});".format(table, pk, key_list),
+        "DELETE t FROM `{0}` t JOIN `{1}` b ON b.`{2}` = t.`{2}` "
+        "WHERE t.`{2}` IN ({3}) AND {4};".format(
+            table, backup, pk, key_list, copied),
     ])
 
 
-def _column_width(dbops, db_name, table, column, default=50) -> int:
+def _column_width(dbops, db_name, table, column) -> int:
     """The live CHARACTER_MAXIMUM_LENGTH, so the suffix is kept inside the
     column this database actually has rather than the one the genesis
     declared."""
-    value = _scalar(dbops, db_name,
-                    "SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS "
-                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{0}' "
-                    "  AND COLUMN_NAME = '{1}'".format(table, column))
+    cp = _client(dbops, db_name, [
+        "-N", "-B", "-e",
+        "SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{0}' "
+        "  AND COLUMN_NAME = '{1}'".format(table, column),
+    ], capture_output=True)
+    if cp.returncode != 0:
+        die("could not inspect the width of `{0}`.`{1}`".format(table, column))
     try:
-        width = int(value)
+        width = int((cp.stdout or "").strip())
     except (TypeError, ValueError):
-        return default
-    return width if width > 0 else default
+        die("could not read the width of `{0}`.`{1}`".format(table, column))
+    if width <= 0:
+        die("invalid width for `{0}`.`{1}`: {2}".format(table, column, width))
+    return width
 
 
 def plan_billing_duplicates(dbops, db_name):
@@ -623,10 +645,13 @@ def billing_disambiguation_script(table, column, order_by, suffix, width=50) -> 
         # differently. Assigning it to itself suppresses the auto-update; it is
         # not a no-op and must not be "tidied" away.
         "UPDATE `{0}` b JOIN `_carlos_adopt_rank` r ON r.row_id = b.`id` "
+        "JOIN `{4}` prior ON prior.`row_id` = b.`id` "
+        "  AND prior.`column_name` = '{1}' "
+        "  AND BINARY prior.`original_value` <=> BINARY b.`{1}` "
         "SET b.`{1}` = CONCAT("
         "  LEFT(b.`{1}`, GREATEST(1, {2} - CHAR_LENGTH({3}))), {3}), "
         "b.`timestamp` = b.`timestamp` "
-        "WHERE r.rn > 1;".format(table, column, width, tag),
+        "WHERE r.rn > 1;".format(table, column, width, tag, backup),
         "DROP TEMPORARY TABLE `_carlos_adopt_rank`;",
     ])
 
@@ -731,10 +756,10 @@ def cmd_db_baseline(argv) -> int:
     for table, column in skipped:
         live = schema.get(table.lower())
         if live is not None and column.lower() not in live:
-            warn("`{0}`.`{1}` is AUTO_INCREMENT and absent from an existing "
-                 "live table; not adding it automatically -- a table that has "
-                 "lost its auto-increment key needs a human".format(
-                     table, column))
+            die("`{0}`.`{1}` is AUTO_INCREMENT and absent from an existing "
+                "live table; refusing to stamp an incomplete genesis. A table "
+                "that has lost its auto-increment key needs a human".format(
+                    table, column))
 
     if dry_run:
         log("PLAN: {0} reconciliation statement(s) would run ({1} genesis "
@@ -763,6 +788,16 @@ def cmd_db_baseline(argv) -> int:
         _run_script(dbops, db_name,
                     seed_collision_script(table, pk, keys, columns),
                     "clearing seed collisions in {0}".format(table))
+        left = _count_or_die(
+            dbops, db_name,
+            "SELECT COUNT(*) FROM `{0}` WHERE `{1}` IN ({2})".format(
+                table, pk, ",".join(str(k) for k in keys)),
+            "re-check `{0}` for seed-collision keys".format(table))
+        if left:
+            die("`{0}` still has {1} seed-collision row(s); the backup in "
+                "`{2}` does not match the live rows. Refusing to stamp or "
+                "delete an unpreserved row".format(table, left,
+                                                   _backup_table(table)))
 
     for table, column, order_by, suffix, _extra, width in duplicates:
         _run_script(dbops, db_name,
@@ -802,7 +837,7 @@ def live_schema(dbops, db_name):
         "WHERE TABLE_SCHEMA = DATABASE()",
     ], capture_output=True)
     if cp.returncode != 0:
-        return {}
+        die("could not inspect the live schema")
     schema = {}
     for line in (cp.stdout or "").splitlines():
         parts = line.rstrip("\n").split("\t")
@@ -852,11 +887,13 @@ def _stale_history(dbops, db_name, tables, schema) -> bool:
       and nothing here should touch its history at all."""
     if not _table_exists(dbops, db_name, "flyway_schema_history"):
         return False
-    if _count(dbops, db_name, "SELECT COUNT(*) FROM `flyway_schema_history`") == 0:
+    if _count_or_die(dbops, db_name,
+                     "SELECT COUNT(*) FROM `flyway_schema_history`",
+                     "inspect migration history") == 0:
         return False
-    if _count(dbops, db_name, "SELECT COUNT(*) FROM `flyway_schema_history` "
-                              "WHERE `type` = 'BASELINE'") > 0:
+    if _count_or_die(dbops, db_name,
+                     "SELECT COUNT(*) FROM `flyway_schema_history` "
+                     "WHERE `type` = 'BASELINE'",
+                     "check the migration baseline marker") > 0:
         return False
     return bool(missing_genesis_columns(tables, schema))
-
-

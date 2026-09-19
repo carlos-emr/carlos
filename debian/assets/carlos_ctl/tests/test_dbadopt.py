@@ -135,10 +135,17 @@ INSERT INTO `third` SELECT * FROM `fourth`;
                                                ["id", "icd10", "description"])
         backup = dbadopt.BACKUP_PREFIX + "icd10"
         self.assertLess(script.index("INSERT IGNORE INTO `%s`" % backup),
-                        script.index("DELETE FROM `icd10`"))
+                        script.index("DELETE t FROM `icd10`"))
         # Exactly the keys the migration is about to insert: a legacy row the
         # canonical seed does not cover keeps its place.
-        self.assertIn("DELETE FROM `icd10` WHERE `id` IN (1,2);", script)
+        self.assertIn("DELETE t FROM `icd10` t JOIN `carlos_adopt_backup_icd10` b", script)
+        self.assertIn("WHERE t.`id` IN (1,2)", script)
+
+    def test_seed_rows_are_deleted_only_when_the_backup_matches_every_column(self):
+        script = dbadopt.seed_collision_script("icd10", "id", [1],
+                                               ["id", "icd10", "description"])
+        self.assertIn("BINARY b.`icd10` <=> BINARY t.`icd10`", script)
+        self.assertIn("BINARY b.`description` <=> BINARY t.`description`", script)
 
     def test_backup_copy_names_its_columns(self):
         # `SELECT *` into a column-less INSERT binds by POSITION. A backup left
@@ -175,11 +182,13 @@ class TestPendingOnlySeedClearing(unittest.TestCase):
             if "flyway_schema_history" in sql:
                 return mock.Mock(returncode=0, stdout="\n".join(history_rows), stderr="")
             if "INDEX_NAME = 'PRIMARY'" in sql:
-                return mock.Mock(returncode=0, stdout="id\tint", stderr="")
+                return mock.Mock(returncode=0, stdout="id\tint\t1\t1", stderr="")
             if "ORDER BY ORDINAL_POSITION" in sql:
                 return mock.Mock(returncode=0, stdout="id\nicd10\ndescription", stderr="")
+            if sql.startswith("SELECT `id`, `icd10` FROM `icd10`"):
+                return mock.Mock(returncode=0, stdout="14902\tY19", stderr="")
             if sql.startswith("SELECT COUNT(*) FROM `icd10`"):
-                return mock.Mock(returncode=0, stdout="1070", stderr="")
+                return mock.Mock(returncode=0, stdout="1", stderr="")
             return mock.Mock(returncode=0, stdout="0", stderr="")
 
         with mock.patch.object(dbadopt, "_client", fake_client):
@@ -239,6 +248,11 @@ class TestBillingDisambiguation(unittest.TestCase):
                        self._script("billing_on_filename", "htmlfilename",
                                     "timestamp", None)):
             self.assertIn("b.`timestamp` = b.`timestamp`", script)
+
+    def test_rewrite_requires_the_backup_to_match_the_current_filename(self):
+        script = self._script()
+        self.assertIn("JOIN `carlos_adopt_backup_billing_on_diskname` prior", script)
+        self.assertIn("BINARY prior.`original_value` <=> BINARY b.`ohipfilename`", script)
 
     def test_table_without_a_year_source_still_disambiguates(self):
         script = self._script("billing_on_filename", "htmlfilename", "timestamp", None)
@@ -363,6 +377,58 @@ class TestDryRunDrivesTheWholePlan(unittest.TestCase):
         with self.assertRaises(SystemExit):
             dbadopt.cmd_db_baseline(["--recncile"])
         self.assertEqual(self.executed, [])
+
+    def test_rejects_combined_dry_run_and_stamp_only(self):
+        with self.assertRaises(SystemExit):
+            dbadopt.cmd_db_baseline(["--dry-run", "--stamp-only"])
+        self.assertEqual(self.executed, [])
+
+    @unittest.skipUnless(os.path.isdir(REPO_MIGRATIONS),
+                         "runs from a source checkout, not the installed package")
+    def test_missing_auto_increment_column_prevents_stamping(self):
+        with mock.patch.object(dbadopt, "live_schema",
+                               return_value={"security": {"user_name"}}):
+            with self.assertRaises(SystemExit):
+                dbadopt.cmd_db_baseline([])
+        self.assertEqual(self.executed, [])
+
+
+class TestFailClosedDatabaseProbes(unittest.TestCase):
+
+    def test_table_existence_query_must_succeed(self):
+        db = mock.Mock()
+        db.db_root.return_value = mock.Mock(returncode=1, stdout="", stderr="connection lost")
+        with self.assertRaises(SystemExit):
+            dbadopt._table_exists(db, "carlos", "icd10")
+
+    def test_live_schema_query_must_succeed(self):
+        db = mock.Mock()
+        db.db_root.return_value = mock.Mock(returncode=1, stdout="", stderr="connection lost")
+        with self.assertRaises(SystemExit):
+            dbadopt.live_schema(db, "carlos")
+
+    def test_composite_primary_key_is_not_treated_as_single_column(self):
+        db = mock.Mock()
+        db.db_root.return_value = mock.Mock(
+            returncode=0, stderr="", stdout="id\tint\t1\t1\nother\tint\t2\t2\n")
+        self.assertIsNone(dbadopt._single_integer_pk(db, "carlos", "icd10"))
+
+    def test_divergent_seed_code_stops_adoption_before_deletion(self):
+        db = mock.Mock()
+        db.db_root.return_value = mock.Mock(
+            returncode=0, stderr="", stdout="14902\tlegacy-code\n")
+        with self.assertRaises(SystemExit):
+            dbadopt._check_seed_rows(db, "carlos", "icd10", "id",
+                                     {14902: "canonical-code"}, 1,
+                                     ["id", "icd10"], "V1.0.5.sql")
+
+    def test_unreadable_seed_code_stops_adoption_before_deletion(self):
+        db = mock.Mock()
+        db.db_root.return_value = mock.Mock(returncode=1, stderr="connection lost")
+        with self.assertRaises(SystemExit):
+            dbadopt._check_seed_rows(db, "carlos", "icd10", "id",
+                                     {14902: "canonical-code"}, 1,
+                                     ["id", "icd10"], "V1.0.5.sql")
 
 
 if __name__ == "__main__":

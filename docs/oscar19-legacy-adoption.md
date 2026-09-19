@@ -87,10 +87,11 @@ Two caveats worth knowing:
 * Added columns land at the **end** of the table rather than in their genesis
   position. Column order is not part of any contract CARLOS relies on —
   Hibernate binds by name — but a diff against a fresh install will show it.
-* An **AUTO_INCREMENT** column missing from a table that otherwise exists is
-  reported, not added. `ADD COLUMN ... AUTO_INCREMENT` requires the column to
-  become a key in the same statement, and a table that has lost its
-  auto-increment primary key needs a human, not a generated `ALTER`.
+* An **AUTO_INCREMENT** column missing from a table that otherwise exists
+  stops adoption before any schema change or Flyway stamp. `ADD COLUMN ...
+  AUTO_INCREMENT` requires the column to become a key in the same statement,
+  and a table that has lost its auto-increment primary key needs a human, not
+  a generated `ALTER`.
 
 ## Preparing the adopted data
 
@@ -124,8 +125,12 @@ the same rows* — is an assumption:
 * Before deleting, the codes are compared. `Icd10DaoImpl` looks this table up
   by **code string**, never by id, so if a legacy id carried a code the
   canonical seed does not, that code disappears from the lookup while clinical
-  records still reference it. The run warns with an exact count and names the
-  backup table rather than letting a clinician discover it.
+  records still reference it. The run stops before clearing those rows and
+  reports the count so the operator can reconcile the codes first.
+* A previous adoption attempt may have left a backup table behind. A live row
+  is deleted only when every column matches the backed-up row; otherwise the
+  run stops without stamping. This also protects a later import of a different
+  legacy dump that reuses the same primary keys.
 
 A regression test (`carlos_ctl/tests/test_dbadopt.py`) fails the build if a
 *new* forward migration seeds a non-temporary table without `INSERT IGNORE`.
