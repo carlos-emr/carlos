@@ -132,6 +132,7 @@
     "test:about-licence-playwright": "node scripts/about-licence-playwright-checks.js",
     "test:consultation-null-booking-playwright": "node scripts/consultation-null-booking-playwright-checks.js",
     "test:pharmacy-search-playwright": "node scripts/pharmacy-search-playwright-checks.js",
+    "test:pharmacy-list-filters-playwright": "node scripts/pharmacy-list-filters-playwright-checks.js",
     "test:admin-report-validation-playwright": "node scripts/admin-report-validation-playwright-checks.js",
     "test:inactive-drug-status-playwright": "node scripts/inactive-drug-status-playwright-checks.js",
     "test:referral-labels-playwright": "node scripts/referral-labels-playwright-checks.js"

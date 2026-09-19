@@ -2088,6 +2088,19 @@
       "env": []
     },
     {
+      "name": "pharmacy-list-filters",
+      "script": "scripts/pharmacy-list-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "admin-report-validation",
       "script": "scripts/admin-report-validation-playwright-checks.js",
       "tiers": [
