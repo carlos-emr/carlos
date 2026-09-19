@@ -109,7 +109,7 @@ it. Everything runs with `sudo`.
 | `db-info` | Show the Flyway schema migration state |
 | `db-validate` | Verify the schema matches the deployed WAR |
 | `db-migrate` | Apply pending migrations — **back up first** |
-| `db-baseline` | Adopt an existing pre-Flyway (OSCAR 19 / OpenO) schema |
+| `db-baseline` | Adopt an existing pre-Flyway (OSCAR 19 / OpenO) database: reconcile the live schema up to the genesis, prepare the adopted data for the forward migrations, then stamp (`--dry-run`, `--stamp-only`) — see [OSCAR 19 adoption](oscar19-legacy-adoption.md) |
 | `db-repair` | Fix `flyway_schema_history` after a failed migration |
 | `db-apply-settings` | Restart MariaDB if it is not running the settings in the CARLOS drop-in |
 | `db-dump` | Consistent dump to stdout |
