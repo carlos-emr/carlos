@@ -2213,6 +2213,19 @@
       "env": []
     },
     {
+      "name": "billing-payment-types",
+      "script": "scripts/billing-payment-types-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "scratchpad-workflow",
       "script": "scripts/scratchpad-workflow-playwright-checks.js",
       "tiers": [
