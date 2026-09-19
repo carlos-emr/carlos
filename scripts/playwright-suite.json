@@ -2141,6 +2141,19 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "scratchpad-workflow",
+      "script": "scripts/scratchpad-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
     }
   ]
 }

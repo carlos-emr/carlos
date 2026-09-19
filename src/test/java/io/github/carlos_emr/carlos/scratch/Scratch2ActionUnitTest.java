@@ -36,7 +36,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -44,7 +43,6 @@ import java.io.StringWriter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
@@ -94,22 +92,14 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         when(request.getParameter("scratchpad")).thenReturn("test note");
         when(request.getParameter("windowId")).thenReturn("window-1");
         when(response.getWriter()).thenReturn(new PrintWriter(json));
-        when(scratchPadDao.findByProviderNo("999998")).thenReturn(null);
-        doAnswer(invocation -> {
-            ScratchPad scratchPad = invocation.getArgument(0);
-            scratchPad.setId(1);
-            return null;
-        }).when(scratchPadDao).persist(any(ScratchPad.class));
-
-        Scratch2Action action = createAction(request, response);
-
-        ArgumentCaptor<ScratchPad> scratchPadCaptor = ArgumentCaptor.forClass(ScratchPad.class);
-
-        assertThat(action.execute()).isEqualTo("none");
-        verify(scratchPadDao).persist(scratchPadCaptor.capture());
-        assertThat(scratchPadCaptor.getValue().getProviderNo()).isEqualTo("999998");
-        assertThat(scratchPadCaptor.getValue().getText()).isEqualTo("test note");
-        assertThat(json.toString()).contains("\"id\":\"1\"", "\"text\":\"test note\"", "\"windowId\":\"window-1\"");
+        ScratchPad saved = new ScratchPad();
+        saved.setId(1);
+        saved.setText("test note");
+        when(scratchPadDao.saveIfCurrent("999998", 0, "test note"))
+                .thenReturn(new ScratchPadDao.SaveResult(saved, false));
+        assertThat(createAction(request, response).execute()).isEqualTo("none");
+        verify(scratchPadDao).saveIfCurrent("999998", 0, "test note");
+        assertThat(json.toString()).contains("\"success\":true", "\"id\":\"1\"", "\"text\":\"test note\"");
     }
 
     @Test
@@ -133,23 +123,80 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         when(request.getParameter("id")).thenReturn("7");
         when(request.getParameter("scratchpad")).thenReturn("");
         when(response.getWriter()).thenReturn(new PrintWriter(json));
-        ScratchPad existing = new ScratchPad();
-        existing.setId(7);
-        existing.setProviderNo("999998");
-        existing.setText("Previous scratchpad text");
-        existing.setDateTime(new java.util.Date(0));
-        when(scratchPadDao.findByProviderNo("999998")).thenReturn(existing);
-        doAnswer(invocation -> {
-            ScratchPad saved = invocation.getArgument(0);
-            saved.setId(8);
-            return null;
-        }).when(scratchPadDao).persist(any(ScratchPad.class));
+        ScratchPad saved = new ScratchPad();
+        saved.setId(8);
+        saved.setText("");
+        when(scratchPadDao.saveIfCurrent("999998", 7, ""))
+                .thenReturn(new ScratchPadDao.SaveResult(saved, false));
         assertThat(createAction(request, response).execute()).isEqualTo("none");
-        ArgumentCaptor<ScratchPad> saved = ArgumentCaptor.forClass(ScratchPad.class);
-        verify(scratchPadDao).persist(saved.capture());
-        assertThat(saved.getValue().getText()).isEmpty();
-        assertThat(saved.getValue().getProviderNo()).isEqualTo("999998");
+        verify(scratchPadDao).saveIfCurrent("999998", 7, "");
         assertThat(json.toString()).contains("\"id\":\"8\"", "\"text\":\"\"");
+    }
+
+    @Test
+    void shouldRejectStaleSaveWithoutAcknowledgingAnotherWindowsRevision() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn("local text");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(scratchPadDao.saveIfCurrent("999998", 7, "local text"))
+                .thenReturn(new ScratchPadDao.SaveResult(null, true));
+        createAction(request, response).execute();
+        verify(response).setStatus(HttpServletResponse.SC_CONFLICT);
+        assertThat(json.toString()).contains("\"success\":false").doesNotContain("\"id\":", "local text");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "-1", "abc", "2147483648"})
+    void shouldRejectInvalidRevisionBeforePersistence(String revision) throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter("id")).thenReturn(revision);
+        when(request.getParameter("scratchpad")).thenReturn("local text");
+        when(response.getWriter()).thenReturn(new PrintWriter(new StringWriter()));
+        createAction(request, response).execute();
+        verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(scratchPadDao);
+    }
+
+    @Test
+    void shouldReturnLiteralTextInJsonWithoutHtmlOrUrlEncoding() throws Exception {
+        String text = "  A+B %20 &amp; <note>\n";
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn(text);
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        ScratchPad saved = new ScratchPad();
+        saved.setId(8);
+        saved.setText(text);
+        when(scratchPadDao.saveIfCurrent("999998", 7, text))
+                .thenReturn(new ScratchPadDao.SaveResult(saved, false));
+        createAction(request, response).execute();
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(json.toString()).get("text").asText()).isEqualTo(text);
+    }
+
+    @Test
+    void shouldReportPersistenceFailureWithoutLeakingNoteOrExceptionDetails() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn("private note");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(scratchPadDao.saveIfCurrent("999998", 7, "private note"))
+                .thenThrow(new IllegalStateException("private database detail"));
+        try (LogCapture capture = LogCapture.forLogger(Scratch2Action.class)) {
+            createAction(request, response).execute();
+            verify(response).setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(json.toString()).contains("\"success\":false").doesNotContain("private note", "private database detail");
+            assertThat(capture.messages()).allSatisfy(message ->
+                    assertThat(message).doesNotContain("private note", "private database detail"));
+        }
     }
 
     @Test

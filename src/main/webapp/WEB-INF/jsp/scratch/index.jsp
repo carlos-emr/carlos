@@ -53,7 +53,7 @@
   Map<String, String> hashtable = scratchData.getLatest(user_no);
 
   String text = "";
-  String id = "";
+  String id = "0";
   
   if (hashtable != null){
       text = hashtable.get("text");
@@ -75,274 +75,112 @@
     <script type="text/javascript">
         let dirty = false;
         let isSaving = false;
-        let saveTimeout = null;
-        let currentText = "";
+        let conflictBlocked = false;
         let lastSavedText = "";
         const scratchSaveUrl = "${carlos:forJavaScript(scratchUrl)}";
 
-        function setDirty(){
-            dirty = true;
-            document.getElementById('dirty').value = true;
-            document.getElementById('savebutton').disabled = false;
+        function setDirty() {
+            dirty = document.getElementById('thetext').value !== lastSavedText;
+            document.getElementById('dirty').value = String(dirty);
+            document.getElementById('savebutton').disabled = !dirty || isSaving || conflictBlocked;
+            if (dirty) document.getElementById('lastSavedTimestamp').textContent = 'Unsaved changes';
         }
 
-        function fixHeightOfTheText(){
-            let t = document.getElementById("thetext");
-            let h = window.innerHeight ? window.innerHeight : (t.parentNode ? t.parentNode.offsetHeight : 0);
-            if (t && h > 0) {
-                t.style.height = Math.max(200, (h - t.offsetTop - 80)) + "px";
-            }
+        function fixHeightOfTheText() {
+            const editor = document.getElementById('thetext');
+            if (editor) editor.style.height = Math.max(200, window.innerHeight - editor.offsetTop - 80) + 'px';
         }
-
         window.addEventListener('resize', fixHeightOfTheText);
-
-        let autoSaveInterval = window.setInterval(autoSave, 30000);
-    
-        function autoSave(){
-            if(dirty && !isSaving
-                && isTextDifferent(lastSavedText, document.getElementById("thetext").value)){
-				checkScratch("Auto-saving...");
+        window.addEventListener('beforeunload', function(event) {
+            if (dirty || isSaving) {
+                event.preventDefault();
+                event.returnValue = '';
             }
+        });
+        window.setInterval(autoSave, 30000);
+
+        function autoSave() {
+            if (dirty && !isSaving && !conflictBlocked) checkScratch();
         }
 
-        function checkScratch(action){
-			console.debug('Action: ' + action);
-            if (isSaving) {
-                console.warn('Save already in progress, skipping duplicate request');
-                return;
-            }
+        function checkScratch() {
+            if (isSaving || conflictBlocked) return;
+            const form = document.getElementById('scratch');
+            const submittedText = document.getElementById('thetext').value;
+            const submittedId = Number(document.getElementById('curr_id').value);
             isSaving = true;
-            let scratchForm = document.getElementById('scratch');
-            if (!scratchForm) {
-                isSaving = false;
-                showErrorMessage('Scratchpad form not found. Please refresh the page.');
-                return;
-            }
-            let timeoutId = setTimeout(() => {
-                // Abort ongoing AJAX request if still pending
-                $.ajaxStop();
-            }, 30000); // 30 second timeout
-
+            document.getElementById('savebutton').disabled = true;
+            document.getElementById('saveError').hidden = true;
             $.ajax({
                 url: scratchSaveUrl,
                 type: 'POST',
-                data: $(scratchForm).serialize(),
+                data: $(form).serialize(),
                 timeout: 30000,
                 dataType: 'json',
-                success: function(responseText) {
-                    clearTimeout(timeoutId);
+                success: function(result) {
                     isSaving = false;
+                    if (!result || result.success !== true || !/^[1-9]\d*$/.test(String(result.id))
+                            || Number(result.id) < submittedId || result.text !== submittedText) {
+                        showErrorMessage('The server did not confirm this save. Your unsaved text has been kept; please retry.');
+                        return;
+                    }
+                    document.getElementById('curr_id').value = result.id;
+                    lastSavedText = result.text;
+                    setDirty();
+                    if (!dirty) {
+                        document.getElementById('lastSavedTimestamp').textContent = 'Last saved: ' + new Date().toLocaleString();
+                    }
+                    const versions = document.getElementById('scratchVersions');
+                    if (!Array.from(versions.options).some(option => option.value === String(result.id))) {
+                        versions.add(new Option(new Date().toLocaleString(), result.id), 1);
+                    }
                     try {
-						// console.debug(responseText);
-                        // Parse URL-encoded response
-                        lastSavedText = responseText['text'] || '';
-                        followUp(responseText);
-	                    updateSavedTimestamp();
-                    } catch (e) {
-                        console.error('Error parsing response:', e);
-                        showErrorMessage('Invalid server response received');
+                        if (window.opener && !window.opener.closed
+                                && typeof window.opener.callRefreshTabAlerts === 'function') {
+                            window.opener.callRefreshTabAlerts('oscar_scratch');
+                        }
+                    } catch (error) {
+                        // The schedule may have closed or navigated; the save itself succeeded.
+                        console.warn('Could not refresh the schedule scratchpad indicator');
                     }
                 },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    clearTimeout(timeoutId);
+                error: function(xhr, status) {
                     isSaving = false;
-                    if (textStatus === 'timeout') {
-                        console.error('Save request timed out');
-                        showErrorMessage('Save operation timed out. Please try again.');
-                    } else if (textStatus === 'error') {
-                        console.error('Save failed:', errorThrown);
-                        showErrorMessage('An error occurred and your data could not be saved!');
+                    conflictBlocked = xhr.status === 409;
+                    if (conflictBlocked) {
+                        showErrorMessage('Another window changed this scratchpad. Your unsaved text is still below. Open the current scratchpad, compare both notes, and copy over the changes you want to keep. This window will not overwrite the newer version.');
                     } else {
-                        console.error('Save failed:', textStatus);
-                        showErrorMessage('An error occurred and your data could not be saved!');
+                        showErrorMessage(status === 'timeout'
+                            ? 'Save timed out. Your unsaved text has been kept; please retry.'
+                            : 'Save failed. Your unsaved text has been kept; please retry.');
                     }
                 }
             });
         }
 
         function showErrorMessage(message) {
-	        let mainRight = document.getElementById("mainRight");
-	        if (mainRight) {
-		        mainRight.textContent = "";
-		        let h1 = document.createElement('h1');
-		        h1.style.color = 'red';
-		        h1.textContent = message;
-		        mainRight.appendChild(h1);
-
-		        let h2 = document.createElement('h2');
-		        h2.textContent = 'Please try again or close the window.';
-		        mainRight.appendChild(h2);
-
-		        let retryBtn = document.createElement('button');
-		        retryBtn.textContent = 'Retry';
-		        retryBtn.onclick = () => location.reload();
-		        mainRight.appendChild(retryBtn);
-
-		        let closeBtn = document.createElement('button');
-		        closeBtn.textContent = 'Close';
-		        closeBtn.onclick = () => window.close();
-		        mainRight.appendChild(closeBtn);
-	        }
+            document.getElementById('saveErrorText').textContent = message;
+            document.getElementById('saveError').hidden = false;
+            document.getElementById('openCurrentScratch').hidden = !conflictBlocked;
+            document.getElementById('retryScratch').hidden = conflictBlocked;
+            document.getElementById('lastSavedTimestamp').textContent = 'Not saved';
+            document.getElementById('savebutton').disabled = conflictBlocked;
         }
 
-        function updateSavedTimestamp() {
-	        let now = new Date();
-	        let timeString = now.toLocaleString();
-	        let timestampDiv = document.getElementById('lastSavedTimestamp');
-	        if (timestampDiv) {
-		        timestampDiv.textContent = 'Last saved: ' + timeString;
-	        }
+        function openCurrentScratch() {
+            window.open(scratchSaveUrl, '_blank', 'width=900,height=700,scrollbars=yes');
         }
 
-        function followUp(hash){
-            let latestId = hash['id'] || '';
-            let latestText = hash['text'] || '';
-            let windowId = hash['windowId'] || '';
-            let currDirty = document.getElementById('dirty').value;
-            let currId = document.getElementById('curr_id').value || 0;
-            let latestIdNum = latestId;
-	        // console.debug(hash);
-            console.debug('Response received - dirty: ' + currDirty + ', currId: ' + currId + ', latestId: ' + latestIdNum);
-
-            if (! currDirty) {
-                // No local changes, update if server has newer version
-                if (currId < latestIdNum) {
-	                console.debug('Updating from server version ' + latestIdNum);
-                    document.getElementById('curr_id').value = latestId;
-                    document.getElementById('thetext').value = decodeQueryValue(latestText);
-                }
-                setClean();
-            } else {
-                // Local changes exist, handle concurrency
-                if (currId < latestIdNum) {
-	                console.debug('Conflict detected: local currId < latestId');
-                    if (document.getElementById('windowId').value === windowId) {
-                        document.getElementById('curr_id').value = latestId;
-	                    console.debug('Window IDs match, checking text');
-                        
-                        // let decodedLatestText = decodeQueryValue(latestText);
-                        let currentTextValue = document.getElementById('thetext').value;
-
-	                    // console.debug('currentTextValue: ' + currentTextValue);
-	                    // console.debug('decodedLatestText: ' + latestText);
-
-                        if (! isTextDifferent(latestText, currentTextValue) ){
-	                        console.debug('Local and server text match, marking clean');
-                            setClean();
-                        } else {
-	                        console.debug('Text differs - keeping dirty state for user review');
-                        }
-                    } else {
-                        showErrorMessage('Concurrency conflict detected - another window modified this data.');
-	                    console.debug('Window IDs do not match - potential concurrent edit');
-                    }
-                }
-            }
-        }
-
-        // function log(val){
-        //     let logElement = document.getElementById('log');
-        //     if (logElement) {
-        //         logElement.value = logElement.value + '\n' + new Date().toISOString() + ': ' + val;
-        //     }
-        // }
-
-        function setClean(){
-            document.getElementById('dirty').value = false;
-            dirty = false;
-            document.getElementById('savebutton').disabled = true;
-
-            // Refresh parent window if available
-            if (window.opener && typeof window.opener.callRefreshTabAlerts === 'function') {
-                try {
-                    window.opener.callRefreshTabAlerts("oscar_scratch");
-                } catch (e) {
-                    console.warn('Could not call parent refresh:', e);
-                }
-            }
-        }
-
-        function isTextDifferent(scratchPad, returnText) {
-            // Normalize both values by decoding URL encoding and HTML entities
-            const normalized1 = normalizeText(scratchPad);
-            const normalized2 = normalizeText(returnText);
-            return normalized1 !== normalized2;
-        }
-
-        function normalizeText(text) {
-            if (!text) return "";
-            if (typeof text !== 'string') return "";
-
-            let normalized = text.trim();
-
-            // First, decode URL encoding if present
-            if (normalized.includes('%') || normalized.includes('+')) {
-                try {
-                    normalized = decodeURIComponent(normalized.replace(/\+/g, " "));
-                } catch (e) {
-                    console.warn('Could not decode URL value:', text);
-                }
-            }
-
-            // Then, decode HTML entities without reparsing as HTML
-            normalized = decodeHtmlEntities(normalized);
-
-            return normalized.trim();
-        }
-
-        function decodeHtmlEntities(input) {
-            if (!input) return "";
-            return input.replace(/&(#\d+|#x[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g, function(match, code) {
-                switch (code.toLowerCase()) {
-                    case "amp": return "&";
-                    case "lt": return "<";
-                    case "gt": return ">";
-                    case "quot": return "\"";
-                    case "apos": return "'";
-                    default:
-                        if (code[0] === "#") {
-                            var isHex = code[1].toLowerCase() === "x";
-                            var raw = isHex ? code.slice(2) : code.slice(1);
-                            var cp = parseInt(raw, isHex ? 16 : 10);
-                            return (isFinite(cp) && cp >= 0 && cp <= 0x10FFFF) ? String.fromCodePoint(cp) : match;
-                        }
-                        return match;
-                }
-            });
-        }
-
-        // Modern replacement for deprecated unescape()
-        function decodeQueryValue(str) {
-            if (!str) return "";
-            if (typeof str !== 'string') {
-                console.debug('Warning: decodeQueryValue received non-string: ' + typeof str);
-                return "";
-            }
-            try {
-                // Use decodeURIComponent directly - it handles both %20 and + 
-                // If + should be treated as space, use URLSearchParams instead
-                return decodeURIComponent(str.replace(/\+/g, " "));
-            } catch (e) {
-                console.debug('Error decoding query value: ' + str + ' - ' + e.message);
-                console.error('Error decoding value:', e);
-                return "";  // Return empty string instead of original to be consistent
-            }
+        function scratchpadVersionChanged() {
+            // History windows must never reload an editor containing unsaved text.
+            if (!dirty && !isSaving) window.location.reload();
         }
 
         function showVersion(id) {
-	        if (id === "showVersion") {
-		        return;
-	        }
-	        let numId = parseInt(id, 10);
-	        if (isNaN(numId) || numId <= 0) {
-		        console.warn('showVersion: invalid or non-numeric id, ignoring.');
-		        return;
-	        }
-	        let url = scratchSaveUrl + "?method=showVersion&id=" + numId;
-	        let win = window.open(url, "scratchPadVersion", "width=" +window.innerWidth+ ",height=" +window.innerHeight+ ",toolbar=no, scrollbars=yes");
-	        if (win) {
-		        win.focus();
-	        }
+            if (!/^[1-9]\d*$/.test(id)) return;
+            const win = window.open(scratchSaveUrl + '?method=showVersion&id=' + encodeURIComponent(id),
+                'scratchPadVersion', 'width=' + window.innerWidth + ',height=' + window.innerHeight + ',toolbar=no,scrollbars=yes');
+            if (win) win.focus();
         }
     </script>
     <style>
@@ -440,7 +278,7 @@
 		<td class="MainTableLeftColumn" id="tablelle" >
             <input type="button" style="margin-bottom: 8px;" class="btn btn-primary" onclick="checkScratch('Save button...')" id="savebutton" value="save" />
 
-			<select class="form-select" onChange="showVersion(this.options[this.selectedIndex].value)">
+			<select id="scratchVersions" class="form-select" onChange="showVersion(this.options[this.selectedIndex].value)">
 				<option value="showVersion">Select Version to Display</option>
 				<% 
 				for( ScratchPad scratchPad : dateIdList ) {
@@ -458,7 +296,12 @@
 	    </td>
 
 		<td class="MainTableRightColumn" id="mainRight">
-		<form id="scratch" action="${carlos:forHtmlAttribute(scratchUrl)}" method="post">
+		<div id="saveError" role="alert" hidden>
+            <p id="saveErrorText"></p>
+            <button type="button" id="retryScratch" onclick="checkScratch()">Retry save</button>
+            <button type="button" id="openCurrentScratch" onclick="openCurrentScratch()" hidden>Open current scratchpad</button>
+        </div>
+        <form id="scratch" action="${carlos:forHtmlAttribute(scratchUrl)}" method="post">
             <input type="hidden" name="id" id="curr_id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" />
             <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
             <input type="hidden" name="dirty" value=false id="dirty" />
@@ -472,7 +315,8 @@
 
 <script type="text/javascript">
 fixHeightOfTheText(); // fix it first time in.
-setClean();
+lastSavedText = document.getElementById('thetext').value;
+setDirty();
 </script>
 </div>
 </body>

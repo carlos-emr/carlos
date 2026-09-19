@@ -36,13 +36,9 @@ import io.github.carlos_emr.carlos.commn.model.JSONAction;
 import io.github.carlos_emr.carlos.commn.model.ScratchPad;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.LogSafe;
-import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import java.util.Map;
 
 /**
  * Displays and saves the session provider's scratchpad and manages owned versions.
@@ -110,7 +106,7 @@ public class Scratch2Action extends JSONAction {
      * @return a view result, or {@link #NONE} after a direct response; errors use
      *         HTTP 400 for invalid input, 401 for no session provider, 403 for a
      *         provider mismatch, 404 for a missing/foreign version, 405 for a wrong
-     *         verb, or 500 for invalid stored data or deletion failure
+     *         verb, 409 for a stale save revision, or 500 for invalid stored data or deletion failure
      * @throws Exception if scratchpad storage or response generation fails
      */
     @Override
@@ -129,104 +125,39 @@ public class Scratch2Action extends JSONAction {
                     : SUCCESS;
         }
 
-        String pNo = request.getParameter("providerNo");
-
-        if (isRequestForSessionProvider(providerNo, pNo)){
-        String id = request.getParameter("id");
-        String scratchPad = request.getParameter("scratchpad");
-        if (scratchPad == null) {
-            return rejectRequest(HttpServletResponse.SC_BAD_REQUEST, "Scratchpad text is required");
+        if (!isRequestForSessionProvider(providerNo, request.getParameter("providerNo"))) {
+            MiscUtils.getLogger().error("Scratch pad provider mismatch; request and session provider values omitted from log");
+            return rejectRequest(HttpServletResponse.SC_FORBIDDEN, "Provider mismatch");
         }
-        String windowId = request.getParameter("windowId");
-        String returnId;
-        String returnText;
-        ScratchData scratch = new ScratchData();
-        Map<String, String> h = scratch.getLatest(providerNo);
-
-        if (h == null){  //FIRST TIME USE
-           returnId = scratch.insert(providerNo, scratchPad);
-           returnText = scratchPad;
-
-        }else {
-
-           String textValue = h.get("text");
-           if (textValue == null) {
-               MiscUtils.getLogger().error("ScratchPad text value is null for provider: {}", Encode.forJava(providerNo));
-               response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-               return NONE;
-           }
-           returnText = textValue.trim();
-
-            //Get current Id in scratch table
-           String idValue = h.get("id");
-           if (idValue == null || idValue.trim().isEmpty()) {
-               MiscUtils.getLogger().error("ScratchPad id value is null or empty for provider: {}", Encode.forJava(providerNo));
-               response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-               return NONE;
-           }
-
-           int databaseId;
-           try {
-               databaseId = Integer.parseInt(idValue);
-           } catch (NumberFormatException e) {
-               MiscUtils.getLogger().error("Invalid ScratchPad id format: {}", Encode.forJava(idValue), e);
-               response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-               return NONE;
-           }
-           returnId = ""+databaseId;
-
-           if (id == null || id.trim().isEmpty()) {
-               MiscUtils.getLogger().error("Request id parameter is null or empty");
-               response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-               return NONE;
-           }
-
-           Logger logger = MiscUtils.getLogger();
-           if (logger.isDebugEnabled()) {
-               String safeRequestId = LogSafe.sanitize(id);
-               logger.debug("database Id = {} request id {}", databaseId, safeRequestId);
-           }
-
-           int requestId;
-           try {
-               requestId = Integer.parseInt(id);
-           } catch (NumberFormatException e) {
-               MiscUtils.getLogger().error("Invalid request id format: {}", LogSafe.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-               response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-               return NONE;
-           }
-
-		   if (databaseId > requestId){
-			   //check to see if the id in database is higher than in the request
-              MiscUtils.getLogger().debug(" Database id greater than id");
-
-		   }else if (isTextDifferent(scratchPad, returnText)){
-	           returnId = scratch.insert(providerNo, scratchPad);   //save new record and return new id.
-               returnText = scratchPad;
-               MiscUtils.getLogger().debug("dirty field set");
-           }
+        String text = request.getParameter("scratchpad");
+        if (text == null) return rejectRequest(HttpServletResponse.SC_BAD_REQUEST, "Scratchpad text is required");
+        int expectedId;
+        try {
+            expectedId = Integer.parseInt(request.getParameter("id"));
+            if (expectedId < 0) throw new NumberFormatException();
+        } catch (NumberFormatException ex) {
+            return rejectRequest(HttpServletResponse.SC_BAD_REQUEST, "Valid scratchpad revision required");
         }
-			ObjectNode jsonObject = objectMapper.createObjectNode();
-			jsonObject.put("id", Encode.forHtmlContent(returnId));
-			jsonObject.put("text", Encode.forHtmlContent(returnText));
-			jsonObject.put("windowId", Encode.forHtmlContent(windowId));
-			jsonResponse(jsonObject);
-
-        }else {
-			Logger logger = MiscUtils.getLogger();
-			if (logger.isErrorEnabled()) {
-				logger.error("Scratch pad provider mismatch; request and session provider values omitted from log");
-			}
-			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            ObjectNode jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
-            jsonObject.put("message", "Provider mismatch");
-            jsonResponse(jsonObject);
+        try {
+            ScratchPadDao.SaveResult saved = scratchPadDao.saveIfCurrent(providerNo, expectedId, text);
+            if (saved.conflict()) {
+                return rejectRequest(HttpServletResponse.SC_CONFLICT,
+                        "Another window changed this scratchpad. Your unsaved text has been kept. Open the current version and reconcile your changes before saving.");
+            }
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("success", true);
+            result.put("id", saved.version().getId().toString());
+            // JSON is a data response, not HTML. The editor assigns text to .value;
+            // encoding here would corrupt literal entities, plus signs and percent sequences.
+            result.put("text", saved.version().getText());
+            jsonResponse(result);
+        } catch (RuntimeException ex) {
+            MiscUtils.getLogger().error("Unable to save scratchpad ({})", ex.getClass().getSimpleName());
+            return rejectRequest(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Scratchpad could not be saved. Your unsaved text has been kept; please retry.");
         }
-        
         return NONE;
     }
-    
+
     /**
      * Soft-deletes a session provider's owned version on POST and writes JSON.
      *
@@ -277,12 +208,6 @@ public class Scratch2Action extends JSONAction {
         jsonResponse(result);
         return NONE;
     }
-
-	private boolean isTextDifferent(String scratchPad, String returnText) {
-		String s1 = scratchPad == null ? "" : scratchPad.trim();
-		String s2 = returnText == null ? "" : returnText.trim();
-		return !s1.equals(s2);
-	}
 
 	static boolean isRequestForSessionProvider(String sessionProviderNo, String requestProviderNo) {
 		return sessionProviderNo != null

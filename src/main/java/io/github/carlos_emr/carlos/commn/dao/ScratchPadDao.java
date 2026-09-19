@@ -46,6 +46,15 @@ import java.util.List;
  */
 public interface ScratchPadDao extends AbstractDao<ScratchPad> {
 
+    /** Result of an atomic save; conflicting text is never persisted. */
+    record SaveResult(ScratchPad version, boolean conflict) { }
+
+    /**
+     * Serializes saves for a provider and inserts only when expectedId still names
+     * the current active version (zero for an empty history). Text is literal.
+     */
+    SaveResult saveIfCurrent(String providerNo, int expectedId, String text);
+
     /**
      * Checks if a provider has any non-empty scratch pad content.
      *
