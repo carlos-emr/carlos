@@ -57,6 +57,7 @@ async function workflow(s) {
     h.assert(/^[1-9]\d*$/.test(id), 'Pharmacy add returned no owned ID');
     await row().waitFor();
     h.assert((await row().locator('.address').innerText()).trim() === '123 Fixture Lane', 'Created address is missing from the list');
+    await rx.waitForLoadState('networkidle');
   });
   const notes = `${s.marker} keep A+B, %20, & and 'quotes'`;
   await s.step('edit and reopen the pharmacy without losing field values', async () => {
@@ -89,6 +90,7 @@ async function workflow(s) {
     await row().locator('.pharmacyName').click();
     await expectValue(s.sql, association(), '1', 'Preferred pharmacy was not relinked');
     await rx.locator('#preferredList').filter({ hasText: name }).waitFor();
+    await rx.waitForLoadState('networkidle');
   });
   await s.step('deactivate the pharmacy and remove its active patient association', async () => {
     const dialogs = await h.withExpectedDialogs(rx, async () => {
@@ -98,7 +100,10 @@ async function workflow(s) {
     }, { promptText: 'yes' });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'prompt', 'Clinic-wide pharmacy deletion was not confirmed');
     await expectValue(s.sql, association(), '0', 'Deactivated pharmacy remains active for the patient');
-    await rx.reload();
+    // Let the application's delete-triggered reload finish its preferred-list
+    // request before a deliberate second reload; otherwise the test aborts it.
+    await rx.waitForLoadState('networkidle');
+    await rx.reload({ waitUntil: 'networkidle' });
     h.assert(await row().count() === 0, 'Deactivated pharmacy returned after reload');
     h.assert(!(await rx.locator('#preferredList').innerText()).includes(name), 'Deactivated pharmacy remains in the preferred list');
   });
