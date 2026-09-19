@@ -562,7 +562,10 @@ class TestDryRunDrivesTheWholePlan(unittest.TestCase):
             if kw.get("input"):
                 self.executed.append(kw["input"])
             out = "0"
-            if "information_schema.COLUMNS" in sql and "COLUMN_NAME," in sql:
+            # Match live_schema()'s whole-database probe by its projection, not
+            # by a loose "COLUMN_NAME" -- three other probes read that column
+            # and must keep falling through to the counting default below.
+            if "TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS" in sql:
                 out = "security\tsecurity_no\nsecurity\tuser_name"
             elif "CHARACTER_MAXIMUM_LENGTH" in sql:
                 out = "50"
@@ -598,6 +601,14 @@ class TestDryRunDrivesTheWholePlan(unittest.TestCase):
         printed = stdout.getvalue() + stderr.getvalue()
         self.assertIn("genesis:", printed)
         self.assertIn("Nothing was changed", printed)
+        # The stub serves `security` with 2 of its genesis columns, so a plan
+        # that reports ZERO missing columns means the schema never reached
+        # missing_genesis_columns -- which is what a stub matcher that silently
+        # stops matching looks like from the outside.
+        missing = re.search(r"\((\d+) genesis column\(s\) are missing today\)",
+                            printed)
+        self.assertIsNotNone(missing, printed)
+        self.assertGreater(int(missing.group(1)), 0, printed)
 
     @unittest.skipUnless(os.path.isdir(REPO_MIGRATIONS),
                          "runs from a source checkout, not the installed package")
@@ -609,8 +620,6 @@ class TestDryRunDrivesTheWholePlan(unittest.TestCase):
         the operator who reaches for it on a legacy import is precisely the one
         Flyway is about to refuse, so the warning has to name that and point at
         the plain verb, or the refusal reads as a bug in the new code."""
-        import contextlib
-        import io
         stderr = io.StringIO()
         with mock.patch.object(dbadopt.dbops, "run_flyway",
                                return_value=0) as flyway, \
