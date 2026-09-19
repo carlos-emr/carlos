@@ -74,12 +74,11 @@ async function workflow(s) {
   });
   await s.step('autosave a literal plus edit and deliberately clear the note', async () => {
     await save(editor, `${s.marker} alpha beta`);
-    // Advance the browser clock, not the application handler, to exercise the
-    // actual autosave timer without waiting thirty seconds on every run.
-    await editor.clock.install();
+    // Wait for the real 30-second interval. Installing a fake clock after the
+    // UI opener loaded this page would leave the original interval uncontrolled.
     const text = `${s.marker} alpha+beta`;
     await editor.locator('#thetext').fill(text);
-    const [response] = await Promise.all([editor.waitForResponse(isSave), editor.clock.runFor(31000)]);
+    const response = await editor.waitForResponse(isSave, {timeout: 35000});
     await acknowledged(editor, response, text);
     await save(editor, '');
     await editor.close(); editor = await open(s.schedule);
@@ -114,6 +113,34 @@ async function workflow(s) {
     } finally { await editor.unroute('**/Scratch', handler); }
     await save(editor, text, '#retryScratch');
   });
+  await s.step('Retry acknowledges a committed save whose response was lost', async () => {
+    const text = `${s.marker} committed before response loss`;
+    let committedId;
+    const since = { responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length };
+    const handler = async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const upstream = await route.fetch();
+      h.assert(upstream.status() === 200, 'Lost-response probe did not commit successfully upstream');
+      const result = await upstream.json();
+      h.assert(result.success === true && /^[1-9]\d*$/.test(String(result.id)) && result.text === text,
+        'Lost-response probe received an invalid upstream save');
+      committedId = String(result.id);
+      owned.set(committedId, text);
+      await route.fulfill({status: 503, contentType: 'application/json', body: '{"success":false}'});
+    };
+    await editor.route('**/Scratch', handler);
+    try {
+      await editor.locator('#thetext').fill(text);
+      const [response] = await Promise.all([editor.waitForResponse(isSave), editor.locator('#savebutton').click()]);
+      h.assert(response.status() === 503 && committedId, 'Lost-response probe was not exercised');
+      await editor.locator('#saveError').filter({hasText: 'Save failed'}).waitFor();
+      consumeExpectedFailure(s.recorder, response.url(), 503, since);
+    } finally { await editor.unroute('**/Scratch', handler); }
+    const retryId = await save(editor, text, '#retryScratch');
+    h.assert(retryId === committedId, 'Retry created duplicate history for an already committed save');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM scratch_pad WHERE provider_no=${provider} AND id>${Number(committedId)}`) === '0',
+      'Retry inserted an unexpected later revision');
+  });
   await s.step('a stale second browser cannot overwrite the newer note', async () => {
     secondContext = await h.newContext(s.context.browser(), s.config);
     secondContext.on('page', page => h.wireStrictPage(page, 'scratch-second-browser', s.recorder));
@@ -131,7 +158,8 @@ async function workflow(s) {
     h.assert(await stale.locator('#thetext').inputValue() === localText, 'Conflict discarded the local note');
     h.assert(await stale.locator('#curr_id').inputValue() === staleId, 'Conflict incorrectly advanced the stale revision');
     consumeExpectedFailure(s.recorder, response.url(), 409, since);
-    await stale.clock.install(); await stale.clock.runFor(31000);
+    // Observe a complete real autosave interval before asserting no write.
+    await stale.waitForTimeout(31000);
     h.assert(s.sql.value(`SELECT id FROM scratch_pad WHERE provider_no=${provider} AND status=1 ORDER BY id DESC LIMIT 1`) === latestId,
       'Conflict retry/autosave created a new version');
     current = await s.popup(stale, stale.locator('#openCurrentScratch'), 'scratch-conflict-current');

@@ -7,9 +7,11 @@ synthetic test login, with no other tester editing its scratchpad during the run
 
 The check enters through the schedule Scratch Pad icon. It saves and reopens text
 containing literal plus signs, percent sequences, HTML entities, newlines and
-whitespace; advances the browser clock to exercise autosave; deliberately clears
+whitespace; waits for the real interval to exercise autosave; deliberately clears
 the note; and opens/closes version history with an unsaved draft still present.
-A routed HTTP 503 tests failure display and Retry through the editor. Two actual
+A routed HTTP 503 tests failure display and Retry through the editor. A second
+probe lets the save commit before replacing its response with 503, then checks
+that Retry acknowledges the committed version without inserting a duplicate. Two actual
 logged-in browser contexts test stale-revision rejection, retention of the local
 draft, blocked autosave after conflict, and opening/reconciling the current note. A browser-request barrier also releases
 two UI saves together and requires exactly one committed version and one visible
@@ -31,7 +33,7 @@ the current scratchpad to compare and combine notes. A save failure retains the
 editor and offers Retry; it does not reload away the unsaved text.
 
 Validation status at PR creation: source-level reproductions confirmed the old
-failures. All 754 Node tests and 57 focused Java action/DAO tests pass. The changed
+failures. All 754 Node tests and 61 focused Java action/DAO tests pass. The changed
 Java classes were compiled against the existing validated dependencies with
 512 MiB heaps and outputs on tmpfs, while the VM was stopped. Full Maven/package
 and live Ubuntu 26.04 installed-DEB execution remain pending adequate host disk space. This document

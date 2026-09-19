@@ -84,6 +84,23 @@ class ScratchPadSaveUnitTest {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = {0, 6, 7})
+    void shouldAcknowledgeWithoutDuplicate_whenRetryTextIsAlreadyCurrent(int expectedId) {
+        ScratchPad previous = existing();
+        ScratchPadDao.SaveResult result = dao.saveIfCurrent("999998", expectedId, "saved");
+        assertThat(result.conflict()).isFalse();
+        assertThat(result.version()).isSameAs(previous);
+        verify(dao.entityManager, never()).persist(any());
+    }
+
+    @Test
+    void shouldRejectFutureRevision_whenTextIsAlreadyCurrent() {
+        existing();
+        assertThat(dao.saveIfCurrent("999998", 8, "saved").conflict()).isTrue();
+        verify(dao.entityManager, never()).persist(any());
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"", " saved ", "saved\n", "saved+"})
     void shouldPersistText_whenClearingOrChangingWhitespace(String text) {
         existing();

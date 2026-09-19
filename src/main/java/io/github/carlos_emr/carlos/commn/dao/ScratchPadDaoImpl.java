@@ -64,8 +64,12 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
         latest.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         ScratchPad current = getSingleResultOrNull(latest);
         int currentId = current == null ? 0 : current.getId();
+        // A lost response can be retried with the old revision. If the intended
+        // text is already current, acknowledge it without a duplicate or conflict.
+        if (current != null && currentId >= expectedId && Objects.equals(current.getText(), text)) {
+            return new SaveResult(current, false);
+        }
         if (currentId != expectedId) return new SaveResult(current, true);
-        if (current != null && Objects.equals(current.getText(), text)) return new SaveResult(current, false);
         ScratchPad saved = new ScratchPad();
         saved.setProviderNo(providerNo);
         saved.setText(text);
