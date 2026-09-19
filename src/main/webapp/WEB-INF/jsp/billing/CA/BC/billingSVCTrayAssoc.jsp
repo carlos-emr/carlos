@@ -3,6 +3,7 @@
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib prefix="s" uri="/struts-tags" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -87,7 +88,8 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction" method="post">
+    <s:actionerror escape="true"/>
+    <form id="supServiceCodeAssocActionForm" name="supServiceCodeAssocActionForm" action="${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction" method="post">
         <input type="hidden" name="actionMode" id="actionMode"/>
         <input type="hidden" name="id" id="id"/>
         <fieldset>

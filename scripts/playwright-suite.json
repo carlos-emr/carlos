@@ -2182,6 +2182,19 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "billing-bc-associations",
+      "script": "scripts/billing-bc-associations-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": []
     }
   ]
 }

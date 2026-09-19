@@ -98,23 +98,33 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        boolean mutation = MODE_EDIT.equals(actionMode) || MODE_DELETE.equals(actionMode);
+        if (!mutation && !MODE_VIEW.equals(actionMode)) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (mutation && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         SupServiceCodeAssocDAO dao = SpringUtils.getBean(SupServiceCodeAssocDAO.class);
-        if (!MODE_VIEW.equals(this.getActionMode())) {
-            if (validateForm()) {
-                try {
-                    response.sendRedirect(request.getContextPath() + "/billing/CA/BC/supServiceCodeAssocAction");
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+        if (mutation && validateForm()) {
+            if (MODE_DELETE.equals(actionMode)) {
+                if (id == null || !id.matches("[1-9][0-9]*")) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
                 }
-                return NONE;
+                dao.deleteServiceCodeAssociation(id);
             } else {
-                if (MODE_DELETE.equals(this.getActionMode())) {
-                    dao.deleteServiceCodeAssociation(this.getId());
-                } else if (MODE_EDIT.equals(this.getActionMode())) {
-                    dao.saveOrUpdateServiceCodeAssociation(this.getPrimaryCode(),
-                            this.getSecondaryCode());
-                }
+                dao.saveOrUpdateServiceCodeAssociation(primaryCode, secondaryCode);
             }
+            try {
+                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/supServiceCodeAssocAction");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
         }
 
         request.setAttribute("list", dao.getServiceCodeAssociactions());
