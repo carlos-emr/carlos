@@ -21075,7 +21075,7 @@ CREDENTIAL_TABLES = ['ServiceClient', 'oscarKeys', 'publicKeys']
 # the claim header P7 aggregates by fiscal year, per province: the money check.
 # Keyed by province rather than emitted per profile because the import reads it
 # for the host's province, which it has already asserted against the profile.
-BILLING_TOTALS_TABLE = {
+CLAIM_HEADER_TABLE = {
     'on': 'billing_on_cheader1',
     'bc': 'billing',
 }

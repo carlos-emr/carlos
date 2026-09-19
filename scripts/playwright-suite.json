@@ -2226,6 +2226,32 @@
       "env": []
     },
     {
+      "name": "rh-form-workflow",
+      "script": "scripts/rh-form-workflow-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "billing-bc-associations",
+      "script": "scripts/billing-bc-associations-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "form-asset-paths",
       "script": "scripts/form-asset-paths-playwright-checks.js",
       "tiers": [

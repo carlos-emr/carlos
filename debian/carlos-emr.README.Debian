@@ -462,12 +462,32 @@ validation. Changing province means a fresh database.
 Adopting an existing pre-Flyway (OSCAR 19 / OpenO) database is a two-step
 operation and NOT what `db-migrate` does on its own:
 
-  sudo carlos-ctl db-baseline          stamp the history at the full genesis
+  sudo carlos-ctl db-baseline          adopt the schema and stamp the genesis
   sudo carlos-ctl db-migrate           apply only the forward deltas
 
 The baseline is stamped at 1.0.2, not 1. Stamping at 1 would make Flyway re-run
 the province migrations, and those DROP and recreate province tables — data
 loss.
+
+Stamping at 1.0.2 ASSERTS that common V1 and the province V1.0.1/V1.0.2 are
+already satisfied, and on a genuine OSCAR 19 datadir that assertion is false:
+it forked before most of those columns existed. So db-baseline first reconciles
+the live schema up to the genesis DDL in the deployed WAR (CREATE TABLE IF NOT
+EXISTS / ALTER TABLE ... ADD COLUMN IF NOT EXISTS — no-ops on anything already
+present), then clears the two things that stop a real clinic's forward
+migrations: rows colliding with V1.0.5's unguarded icd10 seed, and legacy
+OHIP/MCEDT billing filenames that violate the UNIQUE indexes V1.0.11/V1.0.12
+add. Nothing is overwritten without being copied to a carlos_adopt_backup_*
+table first. Run it with --dry-run to see the plan, or --stamp-only for the
+bare Flyway stamp and no reconciliation.
+
+Do not skip it. Without the reconciliation the install LOOKS healthy —
+db-migrate reports success and db-validate passes, because validate compares
+the history against the WAR's migrations, not the live schema against either —
+and then fails at the first login with "unable to process login at this time".
+
+The whole procedure, from the encrypted dump onwards, is in
+docs/oscar19-legacy-adoption.md.
 
 The demonstration dataset. Answering yes to the carlos-emr/install-demo-data
 debconf question (default: no) loads a fictitious practice into the freshly

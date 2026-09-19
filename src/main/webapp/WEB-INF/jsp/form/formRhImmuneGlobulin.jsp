@@ -85,7 +85,9 @@
 
 
     String formIdStr = "0";
-    if (request.getParameter("formId") != null) {   ////TEMPORARY
+    if (request.getAttribute("savedRhFormId") != null) {
+        formIdStr = (String) request.getAttribute("savedRhFormId");
+    } else if (request.getParameter("formId") != null) {
         formIdStr = request.getParameter("formId");
     }
 
@@ -173,18 +175,6 @@
     </script>
 
     <script type="text/javascript">
-        function hideExtraName(ele) {
-            //alert(ele);
-            if (ele.options[ele.selectedIndex].value != -1) {
-                hideItem('providerName');
-                //alert('hidding');
-            } else {
-                showItem('providerName');
-                document.getElementById('providerName').focus();
-                //alert('showing');
-            }
-        }
-
         function showHideItem(id) {
             if (document.getElementById(id).style.display == 'none')
                 document.getElementById(id).style.display = '';
@@ -706,7 +696,6 @@
                 singleClick: true,
                 step: 1
             });
-            hideExtraName(document.getElementById('providerDrop'));
         </script>
     </body>
 </html>

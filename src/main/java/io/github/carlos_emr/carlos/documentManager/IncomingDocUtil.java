@@ -193,7 +193,11 @@ public final class IncomingDocUtil {
         FilenameFilter pdfFilter;
 
         pdfFilter = new FilenameFilter() {
+            // The enclosing method's suppression does not reach this filter: SpotBugs analyses
+            // the anonymous class as a class of its own, so the containment guard below has to
+            // be declared here as well.
             @Override
+            @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "candidate is containment-checked against INCOMINGDOCUMENT_DIR by validatePathComponent and validateExistingPath before it is accepted; nothing is read here")
             public boolean accept(File dir, String name) {
                 if (!name.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                     return false;
