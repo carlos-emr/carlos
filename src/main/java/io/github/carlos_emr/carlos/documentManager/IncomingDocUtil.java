@@ -539,6 +539,7 @@ public final class IncomingDocUtil {
         rotatePages(queueId, myPdfDir, myPdfName, null, degrees);
     }
 
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Filename components are validated and validateExistingPath enforces canonical containment before the PDF is opened")
     private static void rotatePages(String queueId, String directory, String name, Integer selectedPage, int degrees) throws Exception {
         name = validatePathComponent(name, "myPdfName");
         File base = PathValidationUtils.validateConfiguredDirectory(
