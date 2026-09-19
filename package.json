@@ -138,7 +138,10 @@
     "test:inactive-drug-status-playwright": "node scripts/inactive-drug-status-playwright-checks.js",
     "test:referral-labels-playwright": "node scripts/referral-labels-playwright-checks.js",
     "test:incoming-pdf-extraction-playwright": "node scripts/incoming-pdf-extraction-playwright-checks.js",
-    "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js"
+    "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js",
+    "test:form-labreq-practitioner-no-playwright": "node scripts/form-labreq-practitioner-no-playwright-checks.js",
+    "test:pharmacy-list-filters-playwright": "node scripts/pharmacy-list-filters-playwright-checks.js",
+    "test:scratchpad-workflow-playwright": "node scripts/scratchpad-workflow-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
