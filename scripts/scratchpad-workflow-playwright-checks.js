@@ -64,6 +64,8 @@ async function workflow(s) {
     return acknowledged(page, response, text);
   }
   let id;
+  let secondContext;
+  let current;
   await s.step('save literal characters and reopen the exact note', async () => {
     const text = `${s.marker} A+B %20 &amp; <note>\n  indented line  `;
     id = await save(editor, text);
@@ -113,7 +115,7 @@ async function workflow(s) {
     await save(editor, text, '#retryScratch');
   });
   await s.step('a stale second browser cannot overwrite the newer note', async () => {
-    const secondContext = await h.newContext(s.context.browser(), s.config);
+    secondContext = await h.newContext(s.context.browser(), s.config);
     secondContext.on('page', page => h.wireStrictPage(page, 'scratch-second-browser', s.recorder));
     const secondSchedule = await h.login(secondContext, s.config, s.recorder);
     const stale = await open(secondSchedule);
@@ -132,9 +134,49 @@ async function workflow(s) {
     await stale.clock.install(); await stale.clock.runFor(31000);
     h.assert(s.sql.value(`SELECT id FROM scratch_pad WHERE provider_no=${provider} AND status=1 ORDER BY id DESC LIMIT 1`) === latestId,
       'Conflict retry/autosave created a new version');
-    const current = await s.popup(stale, stale.locator('#openCurrentScratch'), 'scratch-conflict-current');
+    current = await s.popup(stale, stale.locator('#openCurrentScratch'), 'scratch-conflict-current');
     h.assert(await current.locator('#thetext').inputValue() === serverText, 'Conflict recovery opened the wrong current note');
-    await save(current, `${s.marker} reconciled notes from both browsers`);
+    await save(current, `${serverText}\n${localText}`);
+  });
+  await s.step('simultaneous saves commit one version and visibly reject the other', async () => {
+    await editor.reload();
+    const revision = await editor.locator('#curr_id').inputValue();
+    h.assert(await current.locator('#curr_id').inputValue() === revision, 'Concurrent editors did not start at the same revision');
+    const texts = [`${s.marker} concurrent first`, `${s.marker} concurrent second`];
+    const pages = [editor, current];
+    for (let i = 0; i < pages.length; i++) await pages[i].locator('#thetext').fill(texts[i]);
+    let release;
+    let arrivals = 0;
+    const gate = new Promise(resolve => { release = resolve; });
+    const handler = async route => {
+      if (route.request().method() === 'POST') {
+        arrivals++;
+        if (arrivals === 2) release();
+        await gate;
+      }
+      await route.continue();
+    };
+    const since = { responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length };
+    for (const page of pages) await page.route('**/Scratch', handler);
+    try {
+      const [responses] = await Promise.all([
+        Promise.all(pages.map(page => page.waitForResponse(isSave))),
+        Promise.all(pages.map(page => page.locator('#savebutton').click())),
+      ]);
+      h.assert(arrivals === 2 && responses.map(response => response.status()).sort().join(',') === '200,409',
+        'Simultaneous revision checks did not accept exactly one save and reject the other');
+      const winner = responses.findIndex(response => response.status() === 200);
+      const loser = 1 - winner;
+      await acknowledged(pages[winner], responses[winner], texts[winner]);
+      await pages[loser].locator('#saveError').filter({hasText: 'Another window changed'}).waitFor();
+      h.assert(await pages[loser].locator('#thetext').inputValue() === texts[loser], 'Concurrent conflict discarded its draft');
+      h.assert(s.sql.value(`SELECT COUNT(*) FROM scratch_pad WHERE provider_no=${provider} AND id>${Number(revision)}`) === '1',
+        'Simultaneous saves created more than one history version');
+      consumeExpectedFailure(s.recorder, responses[loser].url(), 409, since);
+    } finally {
+      release();
+      for (const page of pages) await page.unroute('**/Scratch', handler);
+    }
     // Context teardown bypasses beforeunload; the stale note is an owned fixture.
     await secondContext.close();
   });

@@ -134,7 +134,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectStaleSaveWithoutAcknowledgingAnotherWindowsRevision() throws Exception {
+    void shouldRejectSaveWithoutAdvancingRevision_whenEditorIsStale() throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter json = new StringWriter();
@@ -151,7 +151,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"", "-1", "abc", "2147483648"})
-    void shouldRejectInvalidRevisionBeforePersistence(String revision) throws Exception {
+    void shouldRejectRevisionBeforePersistence_whenInvalid(String revision) throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         when(request.getParameter("id")).thenReturn(revision);
@@ -163,7 +163,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnLiteralTextInJsonWithoutHtmlOrUrlEncoding() throws Exception {
+    void shouldReturnLiteralJsonText_whenSavingSpecialCharacters() throws Exception {
         String text = "  A+B %20 &amp; <note>\n";
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
@@ -181,7 +181,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReportPersistenceFailureWithoutLeakingNoteOrExceptionDetails() throws Exception {
+    void shouldReportFailureWithoutPrivateDetails_whenPersistenceFails() throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter json = new StringWriter();

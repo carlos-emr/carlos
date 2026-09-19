@@ -45,7 +45,7 @@ class ScratchPadSaveUnitTest {
     }
 
     @Test
-    void firstSaveLocksOwnerBeforeCheckingHistoryAndPreservesLiteralText() {
+    void shouldLockOwnerAndPreserveLiteralText_whenSavingFirstVersion() {
         String text = " A+B %20 &amp; <note>\n";
         ScratchPadDao.SaveResult result = dao.saveIfCurrent("999998", 0, text);
         assertThat(result.conflict()).isFalse();
@@ -66,7 +66,7 @@ class ScratchPadSaveUnitTest {
 
     @ParameterizedTest
     @ValueSource(ints = {0, 6, 8, Integer.MAX_VALUE})
-    void staleOrFutureRevisionCannotInsert(int expectedId) {
+    void shouldRejectInsert_whenRevisionIsStaleOrFuture(int expectedId) {
         ScratchPad previous = existing();
         ScratchPadDao.SaveResult result = dao.saveIfCurrent("999998", expectedId, "unsaved");
         assertThat(result.conflict()).isTrue();
@@ -75,7 +75,7 @@ class ScratchPadSaveUnitTest {
     }
 
     @Test
-    void unchangedRevisionDoesNotCreateDuplicateHistory() {
+    void shouldReuseVersion_whenTextIsUnchanged() {
         ScratchPad previous = existing();
         ScratchPadDao.SaveResult result = dao.saveIfCurrent("999998", 7, "saved");
         assertThat(result.conflict()).isFalse();
@@ -85,7 +85,7 @@ class ScratchPadSaveUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"", " saved ", "saved\n", "saved+"})
-    void deliberateClearAndWhitespaceChangesPersist(String text) {
+    void shouldPersistText_whenClearingOrChangingWhitespace(String text) {
         existing();
         ScratchPadDao.SaveResult result = dao.saveIfCurrent("999998", 7, text);
         assertThat(result.conflict()).isFalse();
@@ -94,13 +94,13 @@ class ScratchPadSaveUnitTest {
     }
 
     @Test
-    void deletedHistoryDoesNotAllowAnOldEditorToRecreateIt() {
+    void shouldRejectStaleEditor_whenHistoryWasDeleted() {
         assertThat(dao.saveIfCurrent("999998", 7, "stale").conflict()).isTrue();
         verify(dao.entityManager, never()).persist(any());
     }
 
     @Test
-    void missingProviderOrInvalidInputCannotInsert() {
+    void shouldRejectInsert_whenProviderIsMissingOrInputInvalid() {
         when(dao.entityManager.find(Provider.class, "999998", LockModeType.PESSIMISTIC_WRITE)).thenReturn(null);
         assertThatThrownBy(() -> dao.saveIfCurrent("999998", 0, "note")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> dao.saveIfCurrent("999998", -1, "note")).isInstanceOf(IllegalArgumentException.class);

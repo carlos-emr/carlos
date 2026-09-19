@@ -118,3 +118,14 @@ test('history-window updates and navigation cannot silently discard an unsaved n
   f.listeners.beforeunload(event);
   assert.equal(prevented, true); assert.equal(event.returnValue, '');
 });
+
+test('a failed in-flight save remains dirty even if typing was undone while awaiting it', () => {
+  const f = fixture('original');
+  f.edit('submitted'); const request = f.save(); f.edit('original');
+  request.error({status: 0}, 'timeout');
+  assert.equal(f.nodes.thetext.value, 'original');
+  assert.equal(f.nodes.dirty.value, 'true');
+  f.context.scratchpadVersionChanged(); assert.equal(f.reloads(), 0);
+  f.context.autoSave(); assert.equal(f.requests.length, 2);
+  assert.equal(f.requests[1].data, 'original');
+});

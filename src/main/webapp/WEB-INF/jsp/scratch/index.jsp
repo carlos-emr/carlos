@@ -76,11 +76,12 @@
         let dirty = false;
         let isSaving = false;
         let conflictBlocked = false;
+        let saveUnconfirmed = false;
         let lastSavedText = "";
         const scratchSaveUrl = "${carlos:forJavaScript(scratchUrl)}";
 
         function setDirty() {
-            dirty = document.getElementById('thetext').value !== lastSavedText;
+            dirty = saveUnconfirmed || document.getElementById('thetext').value !== lastSavedText;
             document.getElementById('dirty').value = String(dirty);
             document.getElementById('savebutton').disabled = !dirty || isSaving || conflictBlocked;
             if (dirty) document.getElementById('lastSavedTimestamp').textContent = 'Unsaved changes';
@@ -126,6 +127,7 @@
                     }
                     document.getElementById('curr_id').value = result.id;
                     lastSavedText = result.text;
+                    saveUnconfirmed = false;
                     setDirty();
                     if (!dirty) {
                         document.getElementById('lastSavedTimestamp').textContent = 'Last saved: ' + new Date().toLocaleString();
@@ -159,6 +161,10 @@
         }
 
         function showErrorMessage(message) {
+            // A timeout may arrive after the database committed. Even if the user
+            // undid their typing meanwhile, that current text is not confirmed saved.
+            saveUnconfirmed = true;
+            setDirty();
             document.getElementById('saveErrorText').textContent = message;
             document.getElementById('saveError').hidden = false;
             document.getElementById('openCurrentScratch').hidden = !conflictBlocked;

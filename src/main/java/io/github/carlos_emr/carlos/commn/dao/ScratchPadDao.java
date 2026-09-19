@@ -46,12 +46,24 @@ import java.util.List;
  */
 public interface ScratchPadDao extends AbstractDao<ScratchPad> {
 
-    /** Result of an atomic save; conflicting text is never persisted. */
+    /**
+     * Result of an atomic save; conflicting text is never persisted.
+     *
+     * @param version saved or current version; null only for a conflict against empty history
+     * @param conflict whether the expected revision differs from the current revision
+     */
     record SaveResult(ScratchPad version, boolean conflict) { }
 
     /**
      * Serializes saves for a provider and inserts only when expectedId still names
      * the current active version (zero for an empty history). Text is literal.
+     * An unchanged value returns the existing version without inserting a duplicate.
+     *
+     * @param providerNo provider that owns the scratchpad
+     * @param expectedId expected current revision, or zero for empty history
+     * @param text literal text to save, including an intentional empty value
+     * @return saved/current version with the outcome of the revision check
+     * @throws IllegalArgumentException if the revision is negative, text is null, or provider does not exist
      */
     SaveResult saveIfCurrent(String providerNo, int expectedId, String text);
 
