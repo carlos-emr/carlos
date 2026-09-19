@@ -136,3 +136,31 @@ test('failed token bootstrap releases the request guard for retry', async () => 
   input.value = 'synthetic-token';
   assert.equal(await context.paymentTypeBeginRequest(), 'synthetic-token');
 });
+
+// csrf-token.jspf installs window.csrfTokenReady on DOMContentLoaded. A click on an
+// already-rendered button can beat that, and the handler must wait rather than report
+// a bootstrap failure. The listener order below is the hostile one: the token helper
+// registers first, so the fragment's listener only installs the promise afterwards.
+test('token retrieval waits for DOMContentLoaded when bootstrap has not installed its promise', async () => {
+  const alerts = []; const input = { value: '' }; const listeners = [];
+  const window = { csrfTokenReady: null };
+  const document = {
+    readyState: 'loading',
+    querySelector: () => input,
+    addEventListener: (event, callback) => { if (event === 'DOMContentLoaded') listeners.push(callback); },
+  };
+  const context = vm.createContext({ window, document, alert: text => alerts.push(text), Promise });
+  vm.runInContext(csrfScript, context);
+  const pending = context.paymentTypeCsrfToken();
+  await Promise.resolve();
+  assert.equal(listeners.length, 1, 'the helper must wait for the bootstrap event');
+  assert.equal(alerts.length, 0, 'a pending bootstrap is not a failure');
+  listeners.push(() => { // the fragment's own listener, registered after the helper's
+    input.value = 'synthetic-token';
+    window.csrfTokenReady = Promise.resolve();
+  });
+  document.readyState = 'interactive';
+  for (const listener of [...listeners]) listener();
+  assert.equal(await pending, 'synthetic-token');
+  assert.equal(alerts.length, 0);
+});
