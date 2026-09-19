@@ -16,6 +16,19 @@ dialogs are asserted; other browser/network failures remain fatal. They do not
 send prescriptions or faxes, visit the example.invalid quick-link destination,
 or claim appointment-screen token-expansion coverage.
 
-Installed-DEB execution results and any defects discovered during the run are
-recorded in the coverage PR. Source syntax and manifest validation alone are not
-considered proof that these live workflows pass.
+Installed-DEB validation: both workflows pass on validation12 (Ubuntu 26.04,
+8 GiB). The pharmacy editor was repeated three times after correcting a test
+race that clicked Close while Bootstrap was still opening the modal. The check
+now observes the real DOM transition before closing and waits for the modal to
+be hidden; it does not invoke application handlers or use a fixed sleep.
+
+The quick-link check exposed #3771: Add returned HTTP 403 because its dynamic
+form lacked a CSRF token. It passes with the separate fix #3772. Other findings
+from this promotion review are scratchpad integrity (#3767, fix #3768) and
+pharmacy filtering (#3769, fix #3770). These test and fix PRs target
+release/2026.08 independently; use their combined validation tree until merged.
+
+The integration build passed 12,458 Java tests (zero failures/errors, 51 skips),
+771 Node tests and 1,587 packaging/CLI tests. Suite-manifest tests passed all
+18 cases. Code review follow-ups and the broad installed suite are tracked in
+#3773; focused live passes alone do not certify every application workflow.
