@@ -19,7 +19,7 @@
 	<background height="0">
 		</background>
 	<title height="71">
-		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="0" width="220" height="14" key="textField" fontName="SansSerif" fontSize="12.0" bold="true" underline="false" pdfFontName="Helvetica-Bold" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="0" width="220" height="14" key="textField" fontName="SansSerif" fontSize="12.0" bold="true" underline="false" pdfFontName="Helvetica-Bold" textAdjust="ScaleFont" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
 			<box>
 				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -28,7 +28,7 @@
 			</box>
 			<expression><![CDATA[(($F{salutation} == null || $F{salutation}.isEmpty()) ? "" : $F{salutation} + " ") + ($F{fName} == null ? "" : $F{fName}) + " " + ($F{lName} == null ? "" : $F{lName}) ]]></expression>
 		</element>
-		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="16" width="220" height="55" key="textField" hTextAlign="Left" fontName="SansSerif" fontSize="10.0" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="16" width="220" height="55" key="textField" hTextAlign="Left" fontName="SansSerif" fontSize="10.0" textAdjust="ScaleFont" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
 			<box>
 				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />

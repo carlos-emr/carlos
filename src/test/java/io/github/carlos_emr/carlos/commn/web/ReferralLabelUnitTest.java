@@ -49,20 +49,29 @@ class ReferralLabelUnitTest extends CarlosWebTestBase {
     @NullAndEmptySource
     @ValueSource(strings = {"Dr."})
     void shouldRenderNameAndAddress_whenSalutationIsOptional(String salutation) throws Exception {
+        assertLabel(salutation, "TestGiven", "TestFamily");
+    }
+
+    @Test
+    void shouldKeepNameAndAddressOnOneLabel_whenClinicianNameIsLong() throws Exception {
+        assertLabel(null, "LabelOne", "FAKE-PWf5b5452cd8a26196");
+    }
+
+    private void assertLabel(String salutation, String firstName, String lastName) throws Exception {
         try (var template = getClass().getResourceAsStream("/org/oscarehr/common/web/reflabel.xml")) {
             JasperReport report = JasperCompileManager.compileReport(template);
             assertThat(report.getQuery().getText()).contains("$P{billingreferral_no}");
             Map<String, Object> row = new HashMap<>();
             row.put("salutation", salutation);
-            row.put("fName", "TestGiven");
-            row.put("lName", "TestFamily");
+            row.put("fName", firstName);
+            row.put("lName", lastName);
             row.put("address", "123 Fixture Street");
             JasperPrint print = JasperFillManager.fillReport(report, new HashMap<>(),
                     new JRMapCollectionDataSource(List.of(row)));
             try (PdfReader reader = new PdfReader(JasperExportManager.exportReportToPdf(print))) {
                 assertThat(reader.getNumberOfPages()).isEqualTo(1);
                 assertThat(new PdfTextExtractor(reader).getTextFromPage(1))
-                        .contains("TestGiven", "TestFamily", "123 Fixture Street").doesNotContain("null");
+                        .contains(firstName, lastName, "123 Fixture Street").doesNotContain("null");
             }
         }
     }
