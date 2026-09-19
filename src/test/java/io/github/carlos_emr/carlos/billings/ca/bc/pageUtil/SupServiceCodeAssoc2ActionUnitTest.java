@@ -16,6 +16,7 @@ import org.mockito.MockedStatic;
 import org.mockito.MockedConstruction;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -106,6 +107,20 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(info, "_admin.billing,_admin", "w", null)).thenReturn(false);
         request.setMethod("GET"); assertThat(action.execute()).isEqualTo("success");
         verify(dao).getServiceCodeAssociactions();
+    }
+    @Test void shouldStripLegacyBreakTags_fromRenderedErrors() {
+        // Every locale ends these bundle messages with <br/>, and some carry one mid-string.
+        // The JSP encodes what it is handed, so the tags must not survive this far.
+        SupServiceCodeAssoc2Action page = new SupServiceCodeAssoc2Action() {
+            @Override public String getText(String key, String defaultValue) {
+                return "Service code: 42 does not exist<br />in database<br/>";
+            }
+        };
+        page.setActionMode("edit"); page.setPrimaryCode(""); page.setSecondaryCode("11000");
+        assertThat(page.execute()).isEqualTo("success");
+        assertThat(request.getAttribute("actionErrors"))
+            .asInstanceOf(InstanceOfAssertFactories.list(String.class))
+            .containsExactly("Service code: 42 does not exist in database");
     }
     @Test void shouldExposeErrors_toTheJspRenderer() {
         action.setActionMode("edit"); action.setPrimaryCode("invalid"); action.setSecondaryCode("11000");

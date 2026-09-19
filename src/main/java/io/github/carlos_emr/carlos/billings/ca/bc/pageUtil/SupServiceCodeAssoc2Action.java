@@ -41,6 +41,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -138,10 +140,41 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
 
         // The JSP renders errors from this request attribute; getActionErrors() is not visible
         // to it once Struts forwards, so copy the collection across like the other 2Actions do.
-        request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+        List<String> renderedErrors = new ArrayList<>();
+        for (String error : getActionErrors()) {
+            renderedErrors.add(stripBreakTags(error));
+        }
+        request.setAttribute("actionErrors", renderedErrors);
         request.setAttribute("list", dao.getServiceCodeAssociactions());
         return SUCCESS;
     }
+
+    /**
+     * Strips legacy {@code <br>} markup from a validation message.
+     * <p>
+     * Every locale ends these messages with a trailing {@code <br/>}, left over from when BC
+     * billing errors were concatenated into raw HTML. This page renders each message through
+     * {@code <carlos:encode>} in its own {@code <li>}, which already breaks the line and would
+     * otherwise print the tag as literal text. The strip happens here rather than in the resource
+     * bundles because {@code SaveAssoc2Action} and {@code BillingCreateBilling2Action} share these
+     * keys and still render them as markup.
+     * <p>
+     * Note the order: break tags go first and nothing is unescaped, so a message that legitimately
+     * contains the escaped text {@code &lt;br/&gt;} keeps it, and the JSP's encoder remains the
+     * only thing deciding how the result reaches the browser.
+     *
+     * @param message a resolved action error, possibly null
+     * @return the message without break tags, never null
+     */
+    private static String stripBreakTags(String message) {
+        if (message == null) {
+            return "";
+        }
+        return BREAK_TAG.matcher(message).replaceAll(" ").trim();
+    }
+
+    /** Matches {@code <br>}, {@code <br/>} and {@code <br />} in any case. */
+    private static final Pattern BREAK_TAG = Pattern.compile("<br\\s*/?>", Pattern.CASE_INSENSITIVE);
 
     /**
      * Validates the service code association form data.
