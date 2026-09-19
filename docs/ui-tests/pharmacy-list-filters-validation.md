@@ -18,9 +18,14 @@ applied together on every input event. The authenticated pharmacy JSON search
 endpoint retains its existing wildcard behavior; this change is limited to the
 clinic-list UI.
 
-At PR creation, the old JSP handlers reproduced the punctuation exception,
-incorrect address matching and ignored phone criterion in a Node VM. All 740
-Node tests pass, including 12 focused filter regressions. Live installed-DEB
-execution is pending adequate host disk space; it has not yet been claimed as
-passing. This check covers search and patient selection, not clinic-pharmacy
-creation, editing or deletion through the UI.
+The baseline installed DEB reproduced the punctuation exception. Source-level
+negative controls also reproduced incorrect address matching and an ignored
+phone criterion. All 740 branch-local Node tests pass, including 12 focused
+filter regressions. The live workflow passed all four steps on both installed
+validation11 and validation12 DEBs (Ubuntu 26.04 / 8 GiB).
+
+The combined validation12 tree passed 12,458 Java tests (zero failures/errors,
+51 skips), 771 Node tests and 1,587 packaging/CLI tests. The matched package
+upgrade preserved clinical counts and credentials and passed Flyway/deployment
+checks. This check covers search and patient selection; separate pharmacy editor
+coverage in #3773 exercises clinic-pharmacy creation, editing and deletion.
