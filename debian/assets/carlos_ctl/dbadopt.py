@@ -79,7 +79,7 @@ BACKUP_PREFIX = "carlos_adopt_backup_"
 # into generated DDL, so they are matched rather than trusted.
 _IDENT = re.compile(r"\A[A-Za-z0-9_]+\Z")
 
-# Prepended to every script this module runs, for the same reasons the genesis
+# Prepended to the genesis reconciliation script this module runs, for the same reasons the genesis
 # dump and `dbops` restore stream set them.
 #
 # NAMES: the genesis DDL carries utf8mb4 literals.
@@ -451,10 +451,12 @@ def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
             canonical = dict(rows)
             keys = sorted(canonical)
             key_list = ",".join(str(k) for k in keys)
-            present = _count(dbops, db_name,
-                             "SELECT COUNT(*) FROM `{0}` WHERE `{1}` IN ({2})".format(
-                                 table, pk, key_list))
-            if not present:
+            present = _count_or_die(
+                dbops, db_name,
+                "SELECT COUNT(*) FROM `{0}` WHERE `{1}` IN ({2})".format(
+                    table, pk, key_list),
+                "check `{0}` for seed-collision keys".format(table))
+            if present == 0:
                 continue
 
             columns = _live_column_list(dbops, db_name, table)
@@ -566,10 +568,12 @@ def plan_billing_duplicates(dbops, db_name):
     for table, column, order_by, suffix in BILLING_UNIQUE:
         if not _table_exists(dbops, db_name, table):
             continue
-        extra = _count(dbops, db_name,
-                       "SELECT COALESCE(SUM(n - 1), 0) FROM (SELECT COUNT(*) AS n "
-                       "FROM `{0}` WHERE `{1}` IS NOT NULL GROUP BY `{1}` "
-                       "HAVING n > 1) d".format(table, column))
+        extra = _count_or_die(
+            dbops, db_name,
+            ("SELECT COALESCE(SUM(n - 1), 0) FROM (SELECT COUNT(*) AS n "
+             "FROM `{0}` WHERE `{1}` IS NOT NULL GROUP BY `{1}` "
+             "HAVING n > 1) d").format(table, column),
+            "count duplicates in {0}.{1}".format(table, column))
         if extra:
             found.append((table, column, order_by, suffix, extra,
                           _column_width(dbops, db_name, table, column)))
@@ -664,6 +668,9 @@ def cmd_db_baseline(argv) -> int:
         else:
             die("unknown option: {0}".format(arg))
 
+    if dry_run and stamp_only:
+        die("--dry-run and --stamp-only are mutually exclusive")
+
     need_root("db-baseline")
     dbops.require_db_root()
     settings = config.load()
@@ -732,7 +739,7 @@ def cmd_db_baseline(argv) -> int:
     if dry_run:
         log("PLAN: {0} reconciliation statement(s) would run ({1} genesis "
             "column(s) are missing today), then 'flyway baseline'. Nothing was "
-            "changed.".format(len(statements) - 3,
+            "changed.".format(len(statements),
                               len(missing_genesis_columns(tables, schema))))
         return 0
 
