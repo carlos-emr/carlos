@@ -1000,6 +1000,22 @@
       "timeoutSec": 300
     },
     {
+      "name": "form-labreq-practitioner-no",
+      "script": "scripts/form-labreq-practitioner-no-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LABREQ_DEMOGRAPHIC_NO",
+        "LABREQ_PROVIDER_NO"
+      ]
+    },
+    {
       "name": "form-rourke2017",
       "script": "scripts/form-rourke2017-playwright-checks.js",
       "tiers": [
@@ -2129,6 +2145,19 @@
       "env": []
     },
     {
+      "name": "pharmacy-list-filters",
+      "script": "scripts/pharmacy-list-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "admin-report-validation",
       "script": "scripts/admin-report-validation-playwright-checks.js",
       "tiers": [
@@ -2181,6 +2210,19 @@
         "all"
       ],
       "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "scratchpad-workflow",
+      "script": "scripts/scratchpad-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
       "env": []
     }
   ]
