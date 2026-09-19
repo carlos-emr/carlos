@@ -29,6 +29,8 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
     private MockedConstruction<BillingAssociationPersistence> persistence;
     private SupServiceCodeAssoc2Action action;
     private LoggedInInfo info;
+    /** Overrides the resolved bundle text for tests that care about its shape; null falls back to the key. */
+    private String bundleText;
     @BeforeEach void setUp() {
         request = new MockHttpServletRequest("POST", "/billing/CA/BC/supServiceCodeAssocAction");
         request.setContextPath("/carlos"); response = new MockHttpServletResponse();
@@ -45,8 +47,11 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
             when(mock.serviceCodeExists("00100")).thenReturn(true);
             when(mock.serviceCodeExists("11000")).thenReturn(true);
         });
+        bundleText = null;
         action = new SupServiceCodeAssoc2Action() {
-            @Override public String getText(String key, String defaultValue) { return key; }
+            @Override public String getText(String key, String defaultValue) {
+                return bundleText != null ? bundleText : key;
+            }
         };
     }
     @AfterEach void tearDown() { persistence.close(); servlet.close(); }
@@ -111,13 +116,9 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
     @Test void shouldStripLegacyBreakTags_fromRenderedErrors() {
         // Every locale ends these bundle messages with <br/>, and some carry one mid-string.
         // The JSP encodes what it is handed, so the tags must not survive this far.
-        SupServiceCodeAssoc2Action page = new SupServiceCodeAssoc2Action() {
-            @Override public String getText(String key, String defaultValue) {
-                return "Service code: 42 does not exist<br />in database<br/>";
-            }
-        };
-        page.setActionMode("edit"); page.setPrimaryCode(""); page.setSecondaryCode("11000");
-        assertThat(page.execute()).isEqualTo("success");
+        bundleText = "Service code: 42 does not exist<br />in database<br/>";
+        action.setActionMode("edit"); action.setPrimaryCode(""); action.setSecondaryCode("11000");
+        assertThat(action.execute()).isEqualTo("success");
         assertThat(request.getAttribute("actionErrors"))
             .asInstanceOf(InstanceOfAssertFactories.list(String.class))
             .containsExactly("Service code: 42 does not exist in database");
