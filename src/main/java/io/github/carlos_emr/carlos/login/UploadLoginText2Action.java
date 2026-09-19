@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -57,9 +55,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.ResolverStyle;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
-    private static final String LOGIN_TEXT_FILE_NAME = "OSCARloginText.txt";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -73,48 +73,47 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        boolean error = false;
-
-        String validDurationNumber = request.getParameter("validDurationNumber"); // verify it's a number
-        String validDurationPeriod = request.getParameter("validDurationPeriod"); //verify it's one of these year month weeks days
+        String validDurationNumber = request.getParameter("validDurationNumber");
+        String validDurationPeriod = request.getParameter("validDurationPeriod");
         String validForever = request.getParameter("validForever");
         String foreverFrom = request.getParameter("foreverFrom");
-
-        _logger.debug("validDurationNumber={} validDurationPeriod={} validForever={} foreverFrom={}", LogSafe.sanitize(validDurationNumber), LogSafe.sanitize(validDurationPeriod), LogSafe.sanitize(validForever), LogSafe.sanitize(foreverFrom));
-
-        PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
-        Property prop = null;
-
-        if (validForever != null && validForever.equals("forever")) {
-            prop = new Property();
-            prop.setName("aua_valid_from");
-            prop.setValue(foreverFrom);
-        } else { //time period was selected
-            try {
-                Integer.parseInt(validDurationNumber);
-            } catch (Exception e) {
-                _logger.error("Not an Int:{}", LogSafe.sanitize(validDurationNumber), e);
+        boolean mutation = importFile != null || validDurationNumber != null
+                || validDurationPeriod != null || validForever != null || foreverFrom != null;
+        if (!"POST".equals(request.getMethod())) {
+            if ("GET".equals(request.getMethod()) && !mutation) {
+                return SUCCESS;
             }
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
-            if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
-                prop = new Property();
+        Property prop = new Property();
+        try {
+            if ("forever".equals(validForever)) {
+                if (foreverFrom == null) throw new IllegalArgumentException("Missing agreement date");
+                LocalDateTime.parse(foreverFrom, DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss")
+                        .withResolverStyle(ResolverStyle.STRICT));
+                prop.setName("aua_valid_from");
+                prop.setValue(foreverFrom);
+            } else {
+                int duration = Integer.parseInt(validDurationNumber);
+                if (validForever != null || duration < 1 || duration > 18
+                        || validDurationPeriod == null
+                        || !List.of("year", "month", "weeks", "days").contains(validDurationPeriod)) {
+                    throw new IllegalArgumentException("Invalid agreement duration");
+                }
                 prop.setName("aua_valid_duration");
-                prop.setValue(validDurationNumber + " " + validDurationPeriod);
-            } else {
-                _logger.error("Not a valid Period :{}", LogSafe.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                prop.setValue(duration + " " + validDurationPeriod);
             }
+        } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
+            addActionError("Choose a valid agreement duration or a date in yyyy-MM-dd HH:mm:ss format.");
+            request.setAttribute("error", true);
+            return SUCCESS;
         }
 
-        if (prop != null) {
-            //Check to see if prop is still the same as last time.
-            Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
-            if (latestProperty == null || !prop.getValue().equals(latestProperty.getValue())) {
-                propertyDao.persist(prop);
-            } else {
-                _logger.debug("No need to update. Same AcceptableUse Property as it was before");
-            }
-        }
-
+        boolean error = false;
+        PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 
         try {
             if (importFile == null) {
@@ -122,6 +121,12 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             } else if (!importFile.getName().isEmpty()) {
                 writeLoginTextFile();
                 error = false;
+            }
+            Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
+            if (latestProperty == null || !prop.getName().equals(latestProperty.getName())
+                    || !prop.getValue().equals(latestProperty.getValue())) {
+                propertyDao.persist(prop);
+                AcceptableUseAgreementManager.invalidateCache();
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -133,10 +138,10 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     }
 
     private void writeLoginTextFile() throws IOException {
-        File documentDir = PathValidationUtils.validateConfiguredDirectory(
-                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        File saveFile = PathValidationUtils.validateGeneratedChildPath(LOGIN_TEXT_FILE_NAME, documentDir);
-        Path tempFile = Files.createTempFile(documentDir.toPath(), "OSCARloginText-", ".tmp");
+        File saveFile = AcceptableUseAgreementManager.getAgreementFile();
+        Path directory = saveFile.getParentFile().toPath();
+        Files.createDirectories(directory);
+        Path tempFile = Files.createTempFile(directory, "agreement-upload-", ".tmp");
         boolean moved = false;
         try {
             try (InputStream fis = Files.newInputStream(importFile.toPath());
@@ -149,6 +154,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             }
             moveLoginTextFile(tempFile, saveFile.toPath());
             moved = true;
+            AcceptableUseAgreementManager.invalidateCache();
         } finally {
             if (!moved) {
                 Files.deleteIfExists(tempFile);

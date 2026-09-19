@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.AfterEach;
@@ -29,6 +30,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
@@ -54,16 +57,19 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUpDocumentDir() {
-        originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+        getMockRequest().setMethod("POST");
+        originalDocumentDir = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", documentDir.toString());
+        AcceptableUseAgreementManager.invalidateCache();
     }
 
     @AfterEach
     void restoreDocumentDir() {
+        AcceptableUseAgreementManager.invalidateCache();
         if (originalDocumentDir == null) {
-            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            CarlosProperties.getInstance().remove("BASE_DOCUMENT_DIR");
         } else {
-            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", originalDocumentDir);
         }
     }
 
@@ -78,7 +84,7 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
-        assertThat(documentDir.resolve("OSCARloginText.txt")).doesNotExist();
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).doesNotExist();
     }
 
     @Test
@@ -90,12 +96,15 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
         UploadLoginText2Action action = new UploadLoginText2Action();
         action.setImportFile(uploadFile.toFile());
 
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isNull(); // cache the missing-file result
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
-        assertThat(documentDir.resolve("OSCARloginText.txt"))
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt"))
                 .hasContent("updated login text");
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("updated login text");
+        assertThat(documentDir.resolve("OSCARloginText.txt")).doesNotExist();
     }
 
     @Test
@@ -104,7 +113,7 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
         addValidDurationParameters();
         Path invalidDocumentDir = Files.createTempFile(documentDir, "not-a-dir-", ".txt");
         Files.writeString(invalidDocumentDir, "not a directory", StandardCharsets.UTF_8);
-        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", invalidDocumentDir.toString());
+        CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", invalidDocumentDir.toString());
         Path uploadFile = Files.createTempFile(uploadDir, "login-text-", ".txt");
         Files.writeString(uploadFile, "updated login text", StandardCharsets.UTF_8);
         UploadLoginText2Action action = new UploadLoginText2Action();
@@ -121,7 +130,8 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
     @DisplayName("should preserve existing login text when upload read fails")
     void shouldPreserveLoginText_whenUploadReadFails() throws Exception {
         addValidDurationParameters();
-        Path existingLoginText = documentDir.resolve("OSCARloginText.txt");
+        Path existingLoginText = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(existingLoginText.getParent());
         Files.writeString(existingLoginText, "existing login text", StandardCharsets.UTF_8);
         Path uploadFile = Files.createTempFile(uploadDir, "login-text-", ".txt");
         Files.writeString(uploadFile, "updated login text", StandardCharsets.UTF_8);
@@ -134,11 +144,110 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
         assertThat(existingLoginText).hasContent("existing login text");
-        try (Stream<Path> documentFiles = Files.list(documentDir)) {
+        try (Stream<Path> documentFiles = Files.list(existingLoginText.getParent())) {
             assertThat(documentFiles)
                     .extracting(path -> path.getFileName().toString())
-                    .containsExactly("OSCARloginText.txt");
+                    .containsExactly("AcceptableUseAgreement.txt");
         }
+    }
+
+    @Test
+    void shouldRefreshExistingText_withoutEnablingAgreementPolicy() throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Previous agreement", StandardCharsets.UTF_8);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Previous agreement");
+        Path upload = Files.writeString(uploadDir.resolve("replacement.txt"), "Updated café agreement", StandardCharsets.UTF_8);
+        String originalPolicy = CarlosProperties.getInstance().getProperty("show_aua");
+        CarlosProperties.getInstance().setProperty("show_aua", "false");
+        try {
+            UploadLoginText2Action action = new UploadLoginText2Action();
+            action.setImportFile(upload.toFile());
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
+            assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Updated café agreement");
+            assertThat(AcceptableUseAgreementManager.hasAUA()).isFalse();
+            assertThat(CarlosProperties.getInstance().getProperty("show_aua")).isEqualTo("false");
+        } finally {
+            if (originalPolicy == null) CarlosProperties.getInstance().remove("show_aua");
+            else CarlosProperties.getInstance().setProperty("show_aua", originalPolicy);
+        }
+    }
+
+    @Test
+    void shouldNoticeRestoredAndRemovedText_withoutServingStaleAgreement() throws Exception {
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Original agreement", StandardCharsets.UTF_8);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Original agreement");
+        Files.writeString(agreement, "A replacement agreement with different content", StandardCharsets.UTF_8);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("A replacement agreement with different content");
+        Files.delete(agreement);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isNull();
+    }
+
+    @Test
+    void shouldRenderReadOnlyGet_withoutAgreementMutation() throws Exception {
+        getMockRequest().setMethod("GET");
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isFalse();
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).doesNotExist();
+    }
+
+    @Test
+    void shouldRejectGetWithMutationParameters_beforeChangingAgreement() throws Exception {
+        getMockRequest().setMethod("GET");
+        addValidDurationParameters();
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(405);
+        assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldRejectInvalidValidity_withoutWritingUploadedFile() throws Exception {
+        getMockRequest().setMethod("POST");
+        addRequestParameter("validDurationNumber", "not-a-number");
+        addRequestParameter("validDurationPeriod", "days");
+        Path upload = Files.writeString(uploadDir.resolve("invalid-policy.txt"), "Must not publish", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isTrue();
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).doesNotExist();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "0", "-1", "19", "2147483648"})
+    void shouldRejectOutOfRangeDuration(String duration) throws Exception {
+        addRequestParameter("validDurationNumber", duration);
+        addRequestParameter("validDurationPeriod", "days");
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-date", "2026-02-30 00:00:00", "2026-09-19", "2026-09-19 00:00:00 extra"})
+    void shouldRejectInvalidForeverDate(String date) throws Exception {
+        addRequestParameter("validForever", "forever");
+        addRequestParameter("foreverFrom", date);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isTrue();
+    }
+
+    @Test
+    void shouldAcceptValidForeverDate() throws Exception {
+        addRequestParameter("validForever", "forever");
+        addRequestParameter("foreverFrom", "2026-09-19 00:00:00");
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.hasActionErrors()).isFalse();
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
     }
 
     private void addValidDurationParameters() {

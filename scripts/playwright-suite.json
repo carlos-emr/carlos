@@ -1000,22 +1000,6 @@
       "timeoutSec": 300
     },
     {
-      "name": "form-labreq-practitioner-no",
-      "script": "scripts/form-labreq-practitioner-no-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "ON"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "LABREQ_DEMOGRAPHIC_NO",
-        "LABREQ_PROVIDER_NO"
-      ]
-    },
-    {
       "name": "form-rourke2017",
       "script": "scripts/form-rourke2017-playwright-checks.js",
       "tiers": [
@@ -2145,19 +2129,6 @@
       "env": []
     },
     {
-      "name": "pharmacy-list-filters",
-      "script": "scripts/pharmacy-list-filters-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 180,
-      "env": []
-    },
-    {
       "name": "admin-report-validation",
       "script": "scripts/admin-report-validation-playwright-checks.js",
       "tiers": [
@@ -2213,6 +2184,61 @@
       "env": []
     },
     {
+      "name": "admin-security-workflow",
+      "script": "scripts/admin-security-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "email-compose-send",
+      "script": "scripts/email-compose-send-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "form-labreq-practitioner-no",
+      "script": "scripts/form-labreq-practitioner-no-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LABREQ_DEMOGRAPHIC_NO",
+        "LABREQ_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "pharmacy-list-filters",
+      "script": "scripts/pharmacy-list-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "scratchpad-workflow",
       "script": "scripts/scratchpad-workflow-playwright-checks.js",
       "tiers": [
@@ -2224,6 +2250,22 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "admin-login-text",
+      "script": "scripts/admin-login-text-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "BASE_DOCUMENT_DIR",
+        "PLAYWRIGHT_ALLOW_LOGIN_TEXT_WRITE"
+      ]
     }
   ]
 }
