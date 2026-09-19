@@ -214,6 +214,8 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action",
                     "_tickler", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmFormRHPrevention2Action", "_form", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmFormAddRHWorkFlow2Action", "_form", "w"),
             // --- schedule ---
             Arguments.of("io.github.carlos_emr.carlos.schedule.web.ScheduleDateSave2Action",
                     "_appointment", "w"),
