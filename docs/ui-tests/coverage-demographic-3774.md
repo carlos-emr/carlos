@@ -1,0 +1,9 @@
+# Demographic route and label coverage (#3774)
+
+The release policy is explicit: shared view gates get a parameterized unauthenticated route check, and end-user tasks get positive browser workflows. A denied-route result does not claim that an authenticated feature works. The new route check uses a fresh unauthenticated context for each of 25 release routes, rejects HTTP 200/404/500 and off-site/unrelated redirects, and accepts the application's verified login/logout entry points or 401/403. A regression verifies that every listed route exists in release Struts configuration.
+
+Positive coverage already includes master-record tab navigation and demographic add/edit/CRUD scripts. This PR extends Print / Labels from structural PDF validation to independently extracted PDF text for an owned patient: envelope, demographic label, address label, chart label and client lab label. The Print Label workflow selects address labels, requests exactly two copies with a custom left offset, and checks both rendered blocks and their literal patient/address content. Poppler is required, so content validation belongs to the extended tier.
+
+VM validation on the installed validation12 DEB (Ubuntu 26.04): all 25 anonymous route probes and all six label/content/settings steps passed. Tests use a synthetic owned patient and verify cleanup. Negative controls reject wrong patient names, missing addresses, empty output, silent HTTP success and invalid redirects.
+
+Remaining limits: these gate checks cover unauthenticated access, not every role/object authorization combination. Contact/health-team/cohort/First Nations feature-specific CRUD is not implied by route denial; existing task coverage and further additions must be counted separately. The original develop-only constructor-injection/session-guard test mentioned in #3774 is not present on this release.
