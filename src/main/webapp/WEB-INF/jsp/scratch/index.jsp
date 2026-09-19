@@ -289,6 +289,7 @@
 		<td class="MainTableLeftColumn" id="tablelle" >
             <button type="button" style="margin-bottom: 8px;" class="btn btn-primary" onclick="checkScratch('Save button...')" id="savebutton">Save</button>
 
+            <label for="scratchVersions">Select Version to Display</label>
 			<select id="scratchVersions" class="form-select" onChange="showVersion(this.options[this.selectedIndex].value)">
 				<option value="showVersion">Select Version to Display</option>
 				<% 
@@ -316,6 +317,7 @@
             <input type="hidden" name="id" id="curr_id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" />
             <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
             <input type="hidden" name="dirty" value=false id="dirty" />
+            <label for="thetext"><fmt:message key="ScratchPad.title"/></label>
             <textarea name="scratchpad" id="thetext" rows="50"
 			cols="50" oninput="setDirty();" onpaste="setDirty();" ><carlos:encode value='<%= text %>' context="html"/></textarea>
 
