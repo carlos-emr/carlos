@@ -122,24 +122,37 @@ the same rows* — is an assumption:
   field, so without that check a future seed whose leading field is something
   else (a `demographic_no`, say) would delete live rows that were never backed
   up.
-* Before deleting, the codes are compared. `Icd10DaoImpl` looks this table up
-  by **code string**, never by id, so if a legacy id carried a code the
-  canonical seed does not, that code disappears from the lookup while clinical
-  records still reference it. The run **reports** those rows — with the count,
-  the backup table, and again once adoption finishes so it does not scroll past
-  — and carries on.
+* Before deleting, the codes are compared, and a row whose code differs is
+  **moved rather than dropped**.
 
-  That is deliberate. The rows are preserved in `carlos_adopt_backup_icd10`, so
-  nothing is destroyed and the codes can be restored. Refusing outright would
-  block the entire adoption on a reference-table discrepancy and leave the
-  operator hand-writing SQL against a clinical database at go-live, which is
-  the more dangerous of the two. **Reconcile the reported codes before go-live:
-  until you do, a record pointing at one of them will not resolve.**
+  `Icd10DaoImpl` resolves this table by **code string**, never by id, and
+  nothing in the schema references `icd10.id` — `dxresearch` stores the code
+  with no foreign key here. So a code the canonical seed would displace does
+  not need deleting; it needs re-homing. Each diverging row is classified:
+
+  | the live code | what happens |
+  |---|---|
+  | also on a row outside the collision range, or among the canonical replacements | it survives the migration anyway, so the row is replaced and nothing is lost |
+  | found nowhere else | genuinely local to this clinic — the row is **re-homed** to a fresh id and keeps resolving |
+
+  New ids are allocated above both the live maximum and every key the seed
+  writes, so they collide with neither what is there nor what arrives next, and
+  `AUTO_INCREMENT` is pushed past them (InnoDB raises that counter on an
+  explicit `INSERT` but never on an `UPDATE`, so without this the migration's
+  own inserts would leave it pointing at a row that had just moved).
+
+  Every move is named individually in the output — `14902->15972` — and the id
+  it came from is recorded in `carlos_adopt_backup_icd10`. **This is the one
+  thing worth checking afterwards:** the ids are internal and nothing in CARLOS
+  stores them, but a clinic's own custom report or eForm conceivably could.
 
   Everything else in that comparison still fails closed — a missing code
   column, an unanswerable query, an unparseable row, or a collision count that
-  moved mid-run all stop adoption, because each means the comparison itself
-  cannot be trusted.
+  moved mid-run all stop adoption, because each means the classification itself
+  cannot be trusted. A code the batch client cannot read back verbatim (one
+  carrying a tab or a newline) simply fails to match and is treated as *not*
+  surviving, which errs toward preserving it.
+
 * A previous adoption attempt may have left a backup table behind. A live row
   is deleted only when every column matches the backed-up row; otherwise the
   run stops without stamping. This also protects a later import of a different

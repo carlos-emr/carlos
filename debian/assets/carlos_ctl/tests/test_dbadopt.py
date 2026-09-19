@@ -221,6 +221,113 @@ class TestPendingOnlySeedClearing(unittest.TestCase):
         self.assertEqual(self._plan(applied={"1.0.5"}), [])
 
 
+class TestSeedCodeClassification(unittest.TestCase):
+    """A diverging code is moved, not dropped.
+
+    `icd10.id` carries no meaning: `dxresearch` stores the code string with no
+    foreign key here, and no application query selects by id. So a code the
+    canonical seed would displace does not have to be deleted -- the row can be
+    re-homed to a fresh id and stay resolvable. Only a code that survives
+    somewhere else is safe to simply replace."""
+
+    def _classify(self, live_rows, surviving_outside=(), canonical=None,
+                  live_max="15971"):
+        canonical = canonical or {14902: "Y19"}
+
+        def fake_client(_dbops, _db, args, **_kw):
+            sql = ""
+            for i, a in enumerate(args):
+                if a == "-e":
+                    sql = args[i + 1]
+            if "COALESCE(MAX(" in sql:
+                out = live_max
+            elif "SELECT DISTINCT" in sql:
+                out = "\n".join(surviving_outside)
+            else:
+                out = "\n".join("%s\t%s" % row for row in live_rows)
+            return mock.Mock(returncode=0, stdout=out, stderr="")
+
+        with mock.patch.object(dbadopt, "_client", fake_client), \
+                contextlib.redirect_stderr(io.StringIO()):
+            return dbadopt._classify_seed_rows(
+                mock.Mock(), "carlos", "icd10", "id", canonical,
+                len(live_rows), ["id", "icd10"], "V1.0.5.sql")
+
+    def test_matching_code_needs_no_action(self):
+        self.assertEqual(self._classify([(14902, "Y19")]), (0, {}))
+
+    def test_code_found_nowhere_else_is_rehomed_rather_than_dropped(self):
+        diverging, rehome = self._classify([(14902, "Y19LOC")])
+        self.assertEqual(diverging, 1)
+        # Above the live maximum AND above every key the seed writes, so the
+        # new id collides with neither what is there nor what arrives next.
+        self.assertEqual(rehome, {14902: 15972})
+
+    def test_code_still_present_outside_the_range_is_simply_replaced(self):
+        # Nothing is lost by replacing it: the code resolves from the other row.
+        diverging, rehome = self._classify([(14902, "Y19LOC")],
+                                           surviving_outside=["Y19LOC"])
+        self.assertEqual((diverging, rehome), (1, {}))
+
+    def test_code_among_the_canonical_replacements_is_simply_replaced(self):
+        # The seed itself writes this code at another id, so it survives.
+        diverging, rehome = self._classify(
+            [(14902, "Y20")], canonical={14902: "Y19", 14903: "Y20"})
+        self.assertEqual((diverging, rehome), (1, {}))
+
+    def test_several_lost_codes_get_consecutive_ids(self):
+        diverging, rehome = self._classify(
+            [(14902, "LOCAL1"), (14903, "LOCAL2")],
+            canonical={14902: "Y19", 14903: "Y20"})
+        self.assertEqual(diverging, 2)
+        self.assertEqual(rehome, {14902: 15972, 14903: 15973})
+
+    def test_a_collision_count_that_moved_still_stops_adoption(self):
+        # `present` disagreeing with the rows actually read means the table
+        # changed under us, so the classification cannot be trusted.
+        def fake_client(_dbops, _db, _args, **_kw):
+            return mock.Mock(returncode=0, stdout="14902\tY19", stderr="")
+
+        with mock.patch.object(dbadopt, "_client", fake_client):
+            with self.assertRaises(SystemExit):
+                dbadopt._classify_seed_rows(
+                    mock.Mock(), "carlos", "icd10", "id", {14902: "Y19"},
+                    99, ["id", "icd10"], "V1.0.5.sql")
+
+
+class TestRehomeScript(unittest.TestCase):
+
+    def _script(self, rehome):
+        return dbadopt.seed_collision_script(
+            "icd10", "id", [14902, 14903], ["id", "icd10", "description"],
+            rehome)
+
+    def test_rehome_runs_before_the_delete(self):
+        # Moving the row out of the collision range is exactly what keeps the
+        # DELETE from reaching it.
+        script = self._script({14902: 15972})
+        self.assertLess(script.index("UPDATE `icd10` SET `id` = 15972"),
+                        script.index("DELETE t FROM `icd10`"))
+
+    def test_the_original_id_is_backed_up_before_the_move(self):
+        script = self._script({14902: 15972})
+        self.assertLess(
+            script.index("INSERT IGNORE INTO `%sicd10`" % dbadopt.BACKUP_PREFIX),
+            script.index("UPDATE `icd10` SET `id` = 15972"))
+
+    def test_auto_increment_is_pushed_past_the_rehomed_ids(self):
+        # InnoDB raises the counter on an explicit INSERT but never on an
+        # UPDATE, so without this the migration's own inserts would leave it
+        # pointing at a row we just moved.
+        script = self._script({14902: 15972, 14903: 15973})
+        self.assertIn("ALTER TABLE `icd10` AUTO_INCREMENT = 15974;", script)
+
+    def test_nothing_extra_when_there_is_nothing_to_rehome(self):
+        script = self._script({})
+        self.assertNotIn("UPDATE `icd10`", script)
+        self.assertNotIn("AUTO_INCREMENT", script)
+
+
 class TestBillingDisambiguation(unittest.TestCase):
 
     def _script(self, table="billing_on_diskname", column="ohipfilename",
@@ -426,25 +533,6 @@ class TestFailClosedDatabaseProbes(unittest.TestCase):
             returncode=0, stderr="", stdout="id\tint\t1\t1\nother\tint\t2\t2\n")
         self.assertIsNone(dbadopt._single_integer_pk(db, "carlos", "icd10"))
 
-    def test_divergent_seed_code_is_reported_without_blocking_adoption(self):
-        # Deliberately a REPORT, not a refusal. The rows survive in the backup
-        # table, so nothing is destroyed; refusing would block the whole
-        # adoption on a reference-table discrepancy and leave the operator
-        # hand-writing SQL against a clinical database at go-live.
-        db = mock.Mock()
-        db.db_root.return_value = mock.Mock(
-            returncode=0, stderr="", stdout="14902\tlegacy-code\n")
-        stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr):
-            diverging = dbadopt._check_seed_rows(
-                db, "carlos", "icd10", "id", {14902: "canonical-code"}, 1,
-                ["id", "icd10"], "V1.0.5.sql")
-        self.assertEqual(diverging, 1)
-        printed = stderr.getvalue()
-        self.assertIn("1 row(s)", printed)
-        self.assertIn(dbadopt.BACKUP_PREFIX + "icd10", printed)
-        self.assertIn("before go-live", printed)
-
     def test_warnings_flush_stdout_so_a_redirected_transcript_stays_in_order(self):
         # log() -> stdout (block-buffered when redirected), warn() -> stderr
         # (unbuffered). Without the flush, `db-baseline > adopt.log 2>&1` hoists
@@ -457,25 +545,15 @@ class TestFailClosedDatabaseProbes(unittest.TestCase):
             dbadopt._warn("something worth reading")
         self.assertEqual(flushed, [True])
 
-    def test_matching_seed_code_reports_nothing(self):
-        db = mock.Mock()
-        db.db_root.return_value = mock.Mock(
-            returncode=0, stderr="", stdout="14902\tcanonical-code\n")
-        stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr):
-            diverging = dbadopt._check_seed_rows(
-                db, "carlos", "icd10", "id", {14902: "canonical-code"}, 1,
-                ["id", "icd10"], "V1.0.5.sql")
-        self.assertEqual(diverging, 0)
-        self.assertEqual(stderr.getvalue(), "")
-
     def test_unreadable_seed_code_stops_adoption_before_deletion(self):
-        db = mock.Mock()
-        db.db_root.return_value = mock.Mock(returncode=1, stderr="connection lost")
-        with self.assertRaises(SystemExit):
-            dbadopt._check_seed_rows(db, "carlos", "icd10", "id",
-                                     {14902: "canonical-code"}, 1,
-                                     ["id", "icd10"], "V1.0.5.sql")
+        def fake_client(_dbops, _db, _args, **_kw):
+            return mock.Mock(returncode=1, stdout="", stderr="connection lost")
+
+        with mock.patch.object(dbadopt, "_client", fake_client):
+            with self.assertRaises(SystemExit):
+                dbadopt._classify_seed_rows(
+                    mock.Mock(), "carlos", "icd10", "id",
+                    {14902: "canonical-code"}, 1, ["id", "icd10"], "V1.0.5.sql")
 
 
 if __name__ == "__main__":

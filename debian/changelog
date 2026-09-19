@@ -38,6 +38,17 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     TRADITIONAL rejects part way through the pass; the packaged drop-in already
     sets sql_mode="" but is only read at server start.
   * A legacy reference row whose code differs from the one the migration will
+    replace it with is now MOVED rather than dropped, where dropping it would
+    lose the code. icd10.id carries no meaning -- dxresearch stores the code
+    string with no foreign key to it, and no application query selects by id --
+    so a code that exists nowhere else is kept by re-homing its row to a fresh
+    id above both the live maximum and every key the seed writes, with
+    AUTO_INCREMENT pushed past them. A code that also lives outside the
+    collision range, or among the canonical replacements, survives the
+    migration anyway and its row is replaced as before. Each move is reported
+    individually (14902->15972) and the original id is recorded in the backup
+    table; there is nothing left for the operator to reconcile.
+  * A legacy reference row whose code differs from the one the migration will
     replace it with is REPORTED, not refused. The row is preserved in the
     backup table either way, and the count is repeated when adoption finishes
     so it cannot scroll past; refusing blocked the whole adoption on a

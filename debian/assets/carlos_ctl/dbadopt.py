@@ -61,7 +61,7 @@ import sys
 import time
 
 from . import config, dbops
-from .util import WEBAPP, die, log, need_root, warn
+from .util import WEBAPP, die, log, need_root, sql_escape, warn
 
 # The migration set the DEPLOYED WAR carries, which is the only set whose
 # checksums the application's boot gate will accept. Reading the genesis from
@@ -458,8 +458,8 @@ def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
     pending -- never put back, and db-validate still passed because it compares
     the history against the WAR, not the data.
 
-    Returns `[(table, pk_column, [keys], present, source, columns, diverging),
-    ...]` for the collisions actually present in this database."""
+    Returns `[(table, pk_column, [keys], present, source, columns, diverging,
+    rehome), ...]` for the collisions actually present in this database."""
     collisions = []
     for path in forward_migration_files(schema_province, root):
         source = os.path.basename(path)
@@ -502,34 +502,80 @@ def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
                         "`{1}`; move it aside before adopting again (it holds "
                         "rows cleared by an earlier run)".format(backup, table))
 
-            diverging = _check_seed_rows(dbops, db_name, table, pk, canonical,
-                                         present, columns, source)
+            diverging, rehome = _classify_seed_rows(
+                dbops, db_name, table, pk, canonical, present, columns, source)
             collisions.append((table, pk, keys, present, source, columns,
-                               diverging))
+                               diverging, rehome))
     return collisions
 
 
-def _check_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
-                     source):
-    """Report rows whose code differs from the replacement, and return how many.
+def _max_key(dbops, db_name, table, pk) -> int:
+    """The table's current highest primary key, or 0 when it is empty."""
+    value = _scalar(dbops, db_name,
+                    "SELECT COALESCE(MAX(`{0}`), 0) FROM `{1}`".format(pk, table))
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        die("could not read the highest `{0}` in `{1}`".format(pk, table))
 
-    The whole premise of clearing these keys is that the migration will lay
-    down the SAME reference rows. Where it does not, a code the legacy database
-    carried at that id disappears -- and `Icd10DaoImpl` looks this table up by
-    CODE, never by id, so a clinical record still referencing it stops
-    resolving.
 
-    This REPORTS rather than refuses, deliberately. Refusing blocks the whole
-    adoption on a reference-table discrepancy and leaves the operator
-    hand-writing SQL against a clinical database at go-live, which is the more
-    dangerous of the two. The rows are preserved in the backup table, so
-    nothing is destroyed, and the count is repeated once more when adoption
-    finishes so it does not scroll past.
+def _codes_surviving_outside(dbops, db_name, table, pk, code_column, keys,
+                             codes, source):
+    """Of `codes`, those a row OUTSIDE the collision range already carries.
 
-    Everything else here still fails closed: a missing code column, an
-    unanswerable comparison, an unparseable row, or a collision count that
-    moved under us all stop adoption, because those mean the comparison itself
-    cannot be trusted."""
+    Those rows are untouched by the migration, so a code found here is still
+    resolvable afterwards and the colliding row can simply be replaced.
+
+    A code this cannot read back verbatim -- one carrying a tab or newline,
+    which the batch client escapes -- simply fails to match and is treated as
+    NOT surviving. That errs toward preserving it, which is the direction to
+    err in."""
+    if not codes:
+        return set()
+    cp = _client(dbops, db_name, [
+        "-N", "-B", "-e",
+        # The session pragma travels with the statement: this interpolates
+        # live clinical strings, and NO_BACKSLASH_ESCAPES in the server's
+        # global sql_mode would change what the escaping below means.
+        "SET SESSION sql_mode='';"
+        "SELECT DISTINCT `{0}` FROM `{1}` WHERE `{0}` IN ({2}) "
+        "  AND `{3}` NOT IN ({4})".format(
+            code_column, table,
+            ",".join("'{0}'".format(sql_escape(c)) for c in codes),
+            pk, ",".join(str(k) for k in keys)),
+    ], capture_output=True)
+    if cp.returncode != 0:
+        die("could not check whether `{0}` codes survive {1}".format(table, source))
+    return {line.rstrip("\n") for line in (cp.stdout or "").splitlines() if line}
+
+
+def _classify_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
+                        source):
+    """Split the colliding rows into ones safe to replace and ones to re-home.
+
+    The premise of clearing these keys is that the migration lays down the SAME
+    reference rows. Where a live row holds a DIFFERENT code, replacing it drops
+    that code from the table -- and `Icd10DaoImpl` resolves this table by CODE,
+    never by id, so a clinical record still naming it stops resolving.
+
+    But the id carries no meaning of its own. Nothing in the schema references
+    `icd10.id`: `dxresearch` stores the code string and has no foreign key
+    here, and no query in the application selects by id. So a code that would
+    otherwise be lost does not need deleting at all -- it needs MOVING. Each
+    diverging row is therefore classified:
+
+      * its code also appears on a row outside the collision range, or among
+        the canonical replacements -> the code survives the migration anyway,
+        so the row is replaced as before and nothing is lost;
+      * its code appears nowhere else -> it is genuinely local to this clinic,
+        and the row is RE-HOMED to a fresh id above everything, keeping the
+        code resolvable while the migration lays its canonical row at the id.
+
+    Returns `(diverging, {old_key: new_key})`.
+
+    Everything here still fails closed: a missing code column, an unanswerable
+    query, an unparseable row, or a collision count that moved under us all
+    stop adoption, because each means the classification cannot be trusted."""
     if len(columns) < 2:
         die("`{0}` has no code column to compare with {1}".format(table, source))
     code_column = columns[1]
@@ -540,7 +586,7 @@ def _check_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
     ], capture_output=True)
     if cp.returncode != 0:
         die("could not compare live `{0}` codes with {1}".format(table, source))
-    diverging = 0
+    diverged = {}
     checked = 0
     for line in (cp.stdout or "").splitlines():
         parts = line.rstrip("\n").split("\t")
@@ -554,22 +600,31 @@ def _check_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
                 table, source))
         checked += 1
         if canonical.get(key) != parts[1]:
-            diverging += 1
+            diverged[key] = parts[1]
     if checked != present:
         die("`{0}` changed while checking seed codes: counted {1} collision "
             "row(s) but read {2}; retry adoption".format(
                 table, present, checked))
-    if diverging:
-        _warn("{0}: {1} row(s) hold a different `{2}` than the seed in {3} will "
-             "replace them with. The originals are preserved in `{4}`, but any "
-             "clinical record referencing one of those values will stop "
-             "resolving -- reconcile them before go-live".format(
-                 table, diverging, code_column, source, _backup_table(table)))
-    return diverging
+    if not diverged:
+        return 0, {}
+
+    # The canonical rows the migration is about to write are themselves
+    # survivors: a legacy code that merely moved id inside the seed range is
+    # still in the table afterwards.
+    survivors = set(canonical.values())
+    survivors |= _codes_surviving_outside(
+        dbops, db_name, table, pk, code_column, sorted(canonical),
+        sorted({c for c in diverged.values() if c not in survivors}), source)
+
+    lost = sorted(k for k, code in diverged.items() if code not in survivors)
+    # Above the live maximum AND above every key the seed will write, so the
+    # new ids collide with neither what is there now nor what arrives next.
+    start = max(_max_key(dbops, db_name, table, pk), max(canonical)) + 1
+    return len(diverged), {key: start + offset for offset, key in enumerate(lost)}
 
 
-def seed_collision_script(table, pk, keys, columns) -> str:
-    """Copy the colliding rows aside, then clear exactly those keys.
+def seed_collision_script(table, pk, keys, columns, rehome=None) -> str:
+    """Copy the colliding rows aside, re-home what would be lost, clear the rest.
 
     Only the keys the migration is about to insert are touched: a legacy row
     the canonical seed does not cover keeps its place.
@@ -583,6 +638,7 @@ def seed_collision_script(table, pk, keys, columns) -> str:
     caller checks the shapes agree; this makes the statement itself immune to
     column ORDER."""
     backup = _backup_table(table)
+    rehome = rehome or {}
     key_list = ",".join(str(k) for k in keys)
     column_list = ", ".join("`{0}`".format(c) for c in columns)
     # An old backup can contain the same primary key from another restored
@@ -590,14 +646,34 @@ def seed_collision_script(table, pk, keys, columns) -> str:
     # that row. The post-copy collision re-check then prevents a false stamp.
     copied = " AND ".join("BINARY b.`{0}` <=> BINARY t.`{0}`".format(c)
                           for c in columns)
-    return "\n".join([
+    statements = [
         "CREATE TABLE IF NOT EXISTS `{0}` LIKE `{1}`;".format(backup, table),
+        # Every colliding row, re-homed or not. For a re-homed row this is the
+        # record of the id it came from, which is the only audit trail of the
+        # move.
         "INSERT IGNORE INTO `{0}` ({1}) SELECT {1} FROM `{2}` "
         "WHERE `{3}` IN ({4});".format(backup, column_list, table, pk, key_list),
+    ]
+    # Re-home BEFORE the delete: moving these rows out of the collision range
+    # is what keeps the delete below from reaching them. One explicit statement
+    # per row rather than a windowed update -- the mapping is then legible in
+    # the script, reproducible, and reportable afterwards.
+    for old in sorted(rehome):
+        statements.append(
+            "UPDATE `{0}` SET `{1}` = {2} WHERE `{1}` = {3};".format(
+                table, pk, rehome[old], old))
+    if rehome:
+        # InnoDB raises its AUTO_INCREMENT counter on an explicit INSERT but
+        # never on an UPDATE, and never lowers it. Setting it past the re-homed
+        # ids now survives the migration's own explicit (lower) inserts; without
+        # this the next generated key could land on a row we just moved.
+        statements.append("ALTER TABLE `{0}` AUTO_INCREMENT = {1};".format(
+            table, max(rehome.values()) + 1))
+    statements.append(
         "DELETE t FROM `{0}` t JOIN `{1}` b ON b.`{2}` = t.`{2}` "
         "WHERE t.`{2}` IN ({3}) AND {4};".format(
-            table, backup, pk, key_list, copied),
-    ])
+            table, backup, pk, key_list, copied))
+    return "\n".join(statements)
 
 
 def _column_width(dbops, db_name, table, column) -> int:
@@ -774,12 +850,22 @@ def cmd_db_baseline(argv) -> int:
                                       applied)
     duplicates = plan_billing_duplicates(dbops, db_name)
 
-    for table, pk, keys, present, source, _columns, _div in collisions:
+    for table, pk, keys, present, source, _columns, _div, rehome in collisions:
         _log("{0}: {1} row(s) in `{2}` collide with the unguarded seed in {3}; "
             "they will be copied to `{4}` and cleared so the migration can lay "
             "down its canonical rows".format(
                 "PLAN" if dry_run else "preparing", present, table, source,
                 _backup_table(table)))
+        if rehome:
+            # Not a warning. Nothing is lost and nothing is left for the
+            # operator to reconcile -- but the ids DO move, and a clinic's own
+            # report or eForm could conceivably have stored one, so every move
+            # is named rather than summarised.
+            _log("{0}: {1} of those hold a code that exists nowhere else; "
+                 "re-homing to keep it resolvable ({2})".format(
+                     "PLAN" if dry_run else "preparing", len(rehome),
+                     ", ".join("{0}->{1}".format(old, rehome[old])
+                               for old in sorted(rehome))))
     for table, column, _order, _suffix, extra, _width in duplicates:
         _log("{0}: {1} row(s) in `{2}`.`{3}` share a filename with an earlier "
             "row; they will be suffixed (originals kept in `{4}`) so the "
@@ -828,9 +914,9 @@ def cmd_db_baseline(argv) -> int:
     _log("reconciled: {0} table(s) and {1} column(s) added; {2} table(s) "
         "checked".format(after[0] - before[0], after[1] - before[1], len(tables)))
 
-    for table, pk, keys, _present, _source, columns, _div in collisions:
+    for table, pk, keys, _present, _source, columns, _div, rehome in collisions:
         _run_script(dbops, db_name,
-                    seed_collision_script(table, pk, keys, columns),
+                    seed_collision_script(table, pk, keys, columns, rehome),
                     "clearing seed collisions in {0}".format(table))
         left = _count_or_die(
             dbops, db_name,
@@ -857,18 +943,17 @@ def cmd_db_baseline(argv) -> int:
 
     rc = dbops.run_flyway("baseline")
     if rc == 0:
-        # Repeated here on purpose. The per-table warning was printed before
-        # 10,000 reconciliation statements and a Flyway stamp went past it, and
-        # this one is the operator's last chance to see that a reference code
-        # their records point at is about to stop resolving.
         _log("adopted. Now run: carlos-ctl db-migrate")
-        diverging = sum(c[6] for c in collisions)
-        if diverging:
-            _warn("{0} reference row(s) did not match the code the migration "
-                  "will replace them with. They are preserved in `{1}*` "
-                  "tables. Reconcile them before go-live: a clinical record "
-                  "pointing at one of those codes will not resolve.".format(
-                      diverging, BACKUP_PREFIX))
+        # Repeated here on purpose: the per-table line was printed before
+        # 10,000 reconciliation statements and a Flyway stamp scrolled past it.
+        # These are the ids that moved, and the only thing a human might still
+        # want to check afterwards.
+        moved = sum(len(c[7]) for c in collisions)
+        if moved:
+            _log("{0} reference row(s) kept a clinic-local code by moving to a "
+                 "new id; the id they came from is recorded in `{1}*`. Nothing "
+                 "to reconcile -- every code still resolves.".format(
+                     moved, BACKUP_PREFIX))
     return rc
 
 
