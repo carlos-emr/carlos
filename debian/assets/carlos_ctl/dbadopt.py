@@ -105,10 +105,10 @@ _CREATE_TEMPORARY = re.compile(
     r"CREATE\s+TEMPORARY\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?",
     re.IGNORECASE)
 
-# A seed INSERT with neither IGNORE nor a column list nor a SELECT: the exact
-# shape that aborts a migration when the adopted datadir already holds the key.
-_PLAIN_INSERT = re.compile(
-    r"^INSERT\s+INTO\s+`?(?P<table>[A-Za-z0-9_]+)`?\s+VALUES\s*(?P<rows>.*?);\s*$",
+# Seed INSERTs without a column list or SELECT. Unguarded statements need
+# collision clearing; guarded ones can also restore a displaced code.
+_SEED_INSERT = re.compile(
+    r"^INSERT\s+(?P<ignore>IGNORE\s+)?INTO\s+`?(?P<table>[A-Za-z0-9_]+)`?\s+VALUES\s*(?P<rows>.*?);\s*$",
     re.DOTALL | re.IGNORECASE | re.MULTILINE)
 
 # (leading integer, immediately following quoted field) of each VALUES tuple.
@@ -210,9 +210,10 @@ def parse_temporary_tables(sql: str):
     return {m.group(1) for m in _CREATE_TEMPORARY.finditer(sql)}
 
 
-def parse_plain_seed_inserts(sql: str):
+def parse_plain_seed_inserts(sql: str, include_ignored=False):
     """`table -> [(leading integer, next quoted field), ...]` for unguarded
-    seed INSERTs.
+    seed INSERTs. Include guarded INSERT IGNORE seeds when requested so their
+    codes can also be considered as survivors.
 
     The leading integer is only a CANDIDATE primary key; the caller confirms
     against the live schema that the table's primary key really is that single
@@ -221,7 +222,9 @@ def parse_plain_seed_inserts(sql: str):
     it is about to clear really do correspond to the canonical ones."""
     temporary = parse_temporary_tables(sql)
     found = {}
-    for match in _PLAIN_INSERT.finditer(sql):
+    for match in _SEED_INSERT.finditer(sql):
+        if match.group("ignore") and not include_ignored:
+            continue
         table = match.group("table")
         if table in temporary or not _IDENT.match(table):
             continue
@@ -466,7 +469,9 @@ def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
         version = re.search(r"V(\d+(?:\.\d+)*)__", source)
         if version and version.group(1) in applied:
             continue
-        for table, rows in sorted(parse_plain_seed_inserts(_read(path)).items()):
+        sql = _read(path)
+        all_seeds = parse_plain_seed_inserts(sql, include_ignored=True)
+        for table, rows in sorted(parse_plain_seed_inserts(sql).items()):
             if not _table_exists(dbops, db_name, table):
                 continue
             pk = _single_integer_pk(dbops, db_name, table)
@@ -503,7 +508,8 @@ def plan_seed_collisions(dbops, db_name, schema_province, applied, root=None):
                         "rows cleared by an earlier run)".format(backup, table))
 
             diverging, rehome = _classify_seed_rows(
-                dbops, db_name, table, pk, canonical, present, columns, source)
+                dbops, db_name, table, pk, canonical, present, columns, source,
+                all_seeds=dict(all_seeds[table]))
             collisions.append((table, pk, keys, present, source, columns,
                                diverging, rehome))
     return collisions
@@ -519,8 +525,26 @@ def _max_key(dbops, db_name, table, pk) -> int:
         die("could not read the highest `{0}` in `{1}`".format(pk, table))
 
 
+def _codes_at_vacant_seed_keys(dbops, db_name, table, pk, seeds, source):
+    """Codes an INSERT IGNORE seed can restore at currently vacant keys."""
+    if not seeds:
+        return set()
+    cp = _client(dbops, db_name, ["-N", "-B"], capture_output=True,
+                 input="SELECT `{0}` FROM `{1}` WHERE `{0}` IN ({2});".format(
+                     pk, table, ",".join(str(k) for k in sorted(seeds))))
+    if cp.returncode != 0:
+        die("could not check vacant `{0}` seed keys for {1}".format(table, source))
+    try:
+        occupied = {int(line) for line in (cp.stdout or "").splitlines()}
+    except ValueError:
+        die("could not read occupied `{0}` seed keys for {1}".format(table, source))
+    if not occupied.issubset(seeds):
+        die("unexpected occupied `{0}` seed keys for {1}".format(table, source))
+    return {code for key, code in seeds.items() if key not in occupied}
+
+
 def _seed_keys_with_surviving_codes(dbops, db_name, table, pk, code_column,
-                                    canonical, source):
+                                    canonical, source, pending_codes=()):
     """Collision keys whose code survives in the seed or an untouched row.
 
     Compare in MariaDB using the code column's collation, just as the
@@ -531,16 +555,16 @@ def _seed_keys_with_surviving_codes(dbops, db_name, table, pk, code_column,
     """
     keys = ",".join(str(k) for k in sorted(canonical))
     codes = ",".join("'{0}'".format(sql_escape(c))
-                     for c in sorted(set(canonical.values())))
-    cp = _client(dbops, db_name, [
-        "-N", "-B", "-e",
+                     for c in sorted(set(canonical.values()) | set(pending_codes)))
+    # Stream the full seed code set: it can exceed the OS limit for one argv
+    # entry, and no clinical strings need to appear in process arguments.
+    cp = _client(dbops, db_name, ["-N", "-B"], capture_output=True, input=
         "SET NAMES utf8mb4; SET SESSION sql_mode='';"
         "SELECT t.`{0}` FROM `{1}` t WHERE t.`{0}` IN ({2}) AND ("
         "t.`{3}` IN ({4}) OR EXISTS ("
         "SELECT 1 FROM `{1}` survivor WHERE survivor.`{0}` NOT IN ({2}) "
         "AND survivor.`{3}` = t.`{3}`))".format(
-            pk, table, keys, code_column, codes),
-    ], capture_output=True)
+            pk, table, keys, code_column, codes) + ";")
     if cp.returncode != 0:
         die("could not check whether `{0}` codes survive {1}".format(table, source))
     try:
@@ -553,7 +577,7 @@ def _seed_keys_with_surviving_codes(dbops, db_name, table, pk, code_column,
 
 
 def _classify_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
-                        source):
+                        source, all_seeds=None):
     """Split the colliding rows into ones safe to replace and ones to re-home.
 
     The premise of clearing these keys is that the migration lays down the SAME
@@ -611,14 +635,19 @@ def _classify_seed_rows(dbops, db_name, table, pk, canonical, present, columns,
     if not diverged:
         return 0, {}
 
+    all_seeds = all_seeds or canonical
+    pending_codes = _codes_at_vacant_seed_keys(
+        dbops, db_name, table, pk,
+        {key: code for key, code in all_seeds.items() if key not in canonical},
+        source)
     surviving = _seed_keys_with_surviving_codes(
-        dbops, db_name, table, pk, code_column, canonical, source)
+        dbops, db_name, table, pk, code_column, canonical, source, pending_codes)
     lost = sorted(k for k in diverged if k not in surviving)
     if not lost:
         return len(diverged), {}
     # Above the live maximum AND above every key the seed will write, so the
     # new ids collide with neither what is there now nor what arrives next.
-    start = max(_max_key(dbops, db_name, table, pk), max(canonical)) + 1
+    start = max(_max_key(dbops, db_name, table, pk), max(all_seeds)) + 1
     return len(diverged), {key: start + offset for offset, key in enumerate(lost)}
 
 

@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import unittest
 import uuid
+from pathlib import Path
 
 from carlos_ctl import dbadopt
 from carlos_ctl.util import sql_escape
@@ -46,13 +47,13 @@ class TestSeedMovesMariaDB(unittest.TestCase):
         self.assertEqual(cp.returncode, 0, cp.stderr)
         return cp.stdout.strip()
 
-    def classify(self, canonical=None):
+    def classify(self, canonical=None, all_seeds=None):
         canonical = canonical or {14902: "Y19"}
         present = int(self.query("SELECT COUNT(*) FROM icd10 WHERE id IN ({0})".format(
             ",".join(str(k) for k in canonical))))
         return dbadopt._classify_seed_rows(
             self, self.database, "icd10", "id", canonical, present,
-            self.columns, "V1.0.5.sql")[1]
+            self.columns, "V1.0.5.sql", all_seeds=all_seeds)[1]
 
     def script(self, rehome, keys=(14902,)):
         return dbadopt.seed_collision_script(
@@ -109,6 +110,43 @@ class TestSeedMovesMariaDB(unittest.TestCase):
                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;"
                    "INSERT INTO icd10 VALUES (14902,'y19','distinct code')")
         self.assertEqual(self.classify(), {14902: 14903})
+
+    def test_ignore_seed_at_empty_key_restores_displaced_code(self):
+        self.query("INSERT INTO icd10 VALUES (14902,'n/a','displaced')")
+        rehome = self.classify(all_seeds={1: "N/A", 14902: "Y19"})
+        self.assertEqual(rehome, {})
+        self.run_script(self.script(rehome))
+        self.query("INSERT IGNORE INTO icd10 VALUES (1,'N/A','canonical');"
+                   "INSERT INTO icd10 VALUES (14902,'Y19','canonical')")
+        self.assertEqual(self.query("SELECT COUNT(*) FROM icd10 WHERE icd10='N/A'"), "1")
+
+    def test_ignore_seed_at_occupied_key_does_not_restore_displaced_code(self):
+        self.query("INSERT INTO icd10 VALUES (1,'OTHER','occupied'),"
+                   "(14902,'N/A','displaced')")
+        rehome = self.classify(all_seeds={1: "N/A", 14902: "Y19"})
+        self.assertEqual(rehome, {14902: 14903})
+        self.run_script(self.script(rehome))
+        self.query("INSERT IGNORE INTO icd10 VALUES (1,'N/A','canonical');"
+                   "INSERT INTO icd10 VALUES (14902,'Y19','canonical')")
+        self.assertEqual(self.query("SELECT id FROM icd10 WHERE icd10='N/A'"), "14903")
+
+    def test_complete_packaged_seed_does_not_duplicate_displaced_code(self):
+        root = Path(__file__).resolve().parents[4] / "database/mysql/migration"
+        migration = root / "common/V1.0.5__restore_live_legacy_common_tables.sql"
+        if not migration.is_file():
+            self.skipTest("requires the packaged seed from a source checkout")
+        self.query("INSERT INTO icd10 VALUES (14902,'80000','displaced')")
+        collisions = dbadopt.plan_seed_collisions(
+            self, self.database, "on", set(), str(root))
+        self.assertEqual(len(collisions), 1)
+        table, pk, keys, present, source, columns, diverged, rehome = collisions[0]
+        self.assertEqual(rehome, {})
+        self.run_script(dbadopt.seed_collision_script(table, pk, keys, columns, rehome))
+        seed_sql = "\n".join(match.group(0) for match in dbadopt._SEED_INSERT.finditer(
+            migration.read_text(encoding="utf-8")) if match.group("table") == "icd10")
+        self.run_script(seed_sql)
+        self.assertEqual(self.query("SELECT COUNT(*) FROM icd10"), "15971")
+        self.assertEqual(self.query("SELECT COUNT(*) FROM icd10 WHERE icd10='80000'"), "1")
 
     def test_interruption_after_first_move_can_resume(self):
         canonical = {14902: "Y19", 14903: "Y20"}

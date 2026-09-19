@@ -135,6 +135,10 @@ the same rows* — is an assumption:
   | also on a row outside the collision range, or among the canonical replacements | it survives the migration anyway, so the row is replaced and nothing is lost |
   | found nowhere else | genuinely local to this clinic — the row is **re-homed** to a fresh id and keeps resolving |
 
+  A code also survives when the first `INSERT IGNORE` statement will restore
+  it at a vacant key. An occupied key is excluded: `INSERT IGNORE` would skip
+  that row, so it cannot justify clearing the only live copy of the code.
+
   New ids are allocated above both the live maximum and every key the seed
   writes, so they collide with neither what is there nor what arrives next, and
   `AUTO_INCREMENT` is reserved past them before the first move, so an

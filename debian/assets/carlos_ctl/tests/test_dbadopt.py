@@ -142,6 +142,8 @@ INSERT INTO `third` SELECT * FROM `fourth`;
 """
         found = dbadopt.parse_plain_seed_inserts(sql)
         self.assertEqual(found, {"icd10": [(14902, "Y19"), (14903, "Y20")]})
+        self.assertEqual(dbadopt.parse_plain_seed_inserts(sql, include_ignored=True),
+                         {"icd10": [(1, "a"), (2, "b"), (14902, "Y19"), (14903, "Y20")]})
 
     def test_seed_collision_script_backs_up_before_it_deletes(self):
         script = dbadopt.seed_collision_script("icd10", "id", [1, 2],
@@ -235,7 +237,7 @@ class TestSeedCodeClassification(unittest.TestCase):
         canonical = canonical or {14902: "Y19"}
 
         def fake_client(_dbops, _db, args, **_kw):
-            sql = ""
+            sql = _kw.get("input", "")
             for i, a in enumerate(args):
                 if a == "-e":
                     sql = args[i + 1]
@@ -304,6 +306,10 @@ class TestSeedCodeClassification(unittest.TestCase):
                         dbadopt._seed_keys_with_surviving_codes(
                             mock.Mock(), "carlos", "icd10", "id", "icd10",
                             {14902: "Y19"}, "V1.0.5.sql")
+                    with self.assertRaises(SystemExit):
+                        dbadopt._codes_at_vacant_seed_keys(
+                            mock.Mock(), "carlos", "icd10", "id",
+                            {1: "N/A"}, "V1.0.5.sql")
 
 
 class TestRehomeScript(unittest.TestCase):

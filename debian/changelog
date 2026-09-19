@@ -53,6 +53,8 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     Code-survival checks use MariaDB's collation so case, trailing spaces and
     batch escaping cannot introduce duplicate lookup results. Reserve the
     auto-increment range before moving rows so interrupted runs can resume.
+    Include codes restored by INSERT IGNORE at vacant keys when deciding
+    which displaced rows need moving, avoiding duplicate code lookups.
   * A seed collision is only cleared for a migration Flyway will actually run.
     Re-running db-baseline against a database that had already been adopted and
     migrated deleted the 1070 canonical icd10 rows V1.0.5 had laid down, and the
