@@ -700,7 +700,7 @@ def cmd_db_baseline(argv) -> int:
     if dry_run:
         log("PLAN: {0} reconciliation statement(s) would run ({1} genesis "
             "column(s) are missing today), then 'flyway baseline'. Nothing was "
-            "changed.".format(len(statements) - 3,
+            "changed.".format(len(statements),
                               len(missing_genesis_columns(tables, schema))))
         return 0
 
