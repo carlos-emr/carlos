@@ -475,7 +475,7 @@
       "name": "incoming-pdf-extraction",
       "script": "scripts/incoming-pdf-extraction-playwright-checks.js",
       "tiers": [
-        "core"
+        "extended"
       ],
       "assertsDatabase": true,
       "provinces": [

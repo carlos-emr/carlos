@@ -48,3 +48,5 @@ Record manual/agent-driven UI scenarios from `.claude/commands/ui-tests` and `do
 ## Classification validation
 
 JUnit discovery and execution with the `unit` tag selected 17 cases across the audited test classes plus the Surefire include contract; all passed. The `integration` tag selected 26 cases and all passed. The VM was stopped for compilation. The four renamed user-property cases execute under the unit tag and now match the default `*UnitTest` include. Tests that already inherit unit classification remain unchanged.
+
+The incoming-PDF workflow belongs to the extended tier: it needs a local, writable incoming-document queue with service ownership and Poppler tools. Ordinary core runs now exclude it; explicit `--only incoming-pdf-extraction` and extended runs still select it. A runner selection regression covers all three paths (review follow-up from #3773).
