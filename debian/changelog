@@ -23,10 +23,13 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     submitted to the Ministry preserved in a carlos_adopt_backup_* table.
   * db-baseline no longer refuses when the installer's own db-migrate populated
     flyway_schema_history before the legacy dump replaced the tables. That
-    history is renamed aside rather than dropped, and only when it provably
-    describes a schema that is gone: no BASELINE marker, and genesis tables or
-    columns missing. Province compatibility is checked before any planning or
-    stamping, including --stamp-only; opposite or mixed province schemas fail.
+    history is renamed aside rather than dropped when no BASELINE marker exists
+    and genesis tables or columns are missing. A BASELINE history is also parked
+    if it records successful Ontario V1.0.11/V1.0.12 index creation but a required
+    billing UNIQUE constraint is absent. Genesis gaps alone preserve older
+    adoptions; equivalent renamed indexes count and metadata failures abort.
+    Province compatibility is checked before any planning or stamping, including
+    --stamp-only; opposite or mixed province schemas fail.
   * New db-baseline options: --dry-run prints the whole plan and changes nothing,
     --stamp-only keeps the previous bare-stamp behaviour. Both appear in the
     top-level help. The adoption runbook uses OpenSSL's interactive passphrase

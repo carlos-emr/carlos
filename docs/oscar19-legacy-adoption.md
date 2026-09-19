@@ -222,21 +222,41 @@ it. The result is bookkeeping describing a schema that is no longer there, and
 `db-baseline` used to refuse with *"flyway_schema_history already contains
 migrations"*.
 
-It is now detected, and the table is **renamed** to
-`flyway_schema_history_preadopt_<timestamp>` — not dropped — before a fresh
-stamp is written. Detection takes two signals together, because either alone is
-a false positive:
+`db-baseline` detects inconsistent history in either of these cases, after
+checking province compatibility:
 
-* **No `BASELINE` row.** A history written by `migrate` against an empty
-  database records `V1`/`V1.0.1`/`V1.0.2` as ordinary applied migrations; a
-  history written by `baseline` carries a `BASELINE` row. That row is exactly
-  what makes re-running `baseline` a harmless no-op, so a schema that has one
-  is a previously *adopted* datadir whose history is correct — even if it is
-  also short of genesis columns because it was adopted before this
-  reconciliation existed. Its history is left alone.
-* **Genesis tables or columns missing.** Province compatibility is checked
-  first, so the opposite province's absent tables cannot trigger this repair.
-  Otherwise this is an ordinary healthy install and its history is preserved.
+* **No `BASELINE` row, and genesis tables or columns missing.** A history
+  written by `migrate` against an empty database records `V1`/`V1.0.1`/`V1.0.2`
+  as ordinary applied migrations. Missing genesis objects contradict those
+  records. A complete genesis preserves this history.
+* **A `BASELINE` row, and a recorded successful Ontario billing-index migration
+  whose required uniqueness is missing.** The check matches both version and
+  script for `V1.0.11` or `V1.0.12`, then verifies full-column, single-column
+  UNIQUE indexes on `billing_on_diskname.ohipfilename` and
+  `billing_on_filename.htmlfilename`. An equivalent index under another name
+  counts; a nonunique, composite, wrong-column or prefix index does not.
+  Failed or unrelated migrations do not establish this expectation.
+
+Missing genesis objects **alone never invalidate a history with a `BASELINE`**:
+an older legitimate adoption may predate genesis reconciliation. Its recorded
+forward migrations remain authoritative when the index check finds no
+contradiction. A failed metadata query aborts instead of guessing.
+
+When history is stale, its table is **renamed** to
+`flyway_schema_history_preadopt_<timestamp>`, retaining every history row. The
+old applied-version list is disregarded when planning seed and billing
+preparation. After reconciliation and preparation, a fresh baseline at `1.0.2`
+is written; the subsequent `db-migrate` runs forward migrations again. Thus
+parking history changes which migrations run, even though it preserves the
+old bookkeeping. `--dry-run` reports the plan without renaming or changing
+data. `--stamp-only` bypasses history repair.
+
+The index check detects a concrete contradiction, not the origin of the data.
+It can also park a real adoption's history if someone manually removed or
+weakened a required billing index. Conversely, a replacement dump that retains
+both required indexes, or history with no successful record of these Ontario
+migrations, cannot be identified by this discriminator. This is not a general
+detector for every restored database.
 
 ---
 
@@ -247,7 +267,7 @@ a false positive:
 | `carlos_adopt_backup_icd10` | reference rows cleared so `V1.0.5`'s seed could apply |
 | `carlos_adopt_backup_billing_on_diskname` | the `ohipfilename` values actually submitted to MOH |
 | `carlos_adopt_backup_billing_on_filename` | the original `htmlfilename` values |
-| `flyway_schema_history_preadopt_*` | the installer's migration history, parked |
+| `flyway_schema_history_preadopt_*` | inconsistent migration history, parked with all rows retained |
 
 They are small, inert, and deliberately not cleaned up. Drop them only once the
 clinic has signed off on the adopted data.

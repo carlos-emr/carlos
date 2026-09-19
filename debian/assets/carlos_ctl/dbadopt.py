@@ -132,6 +132,14 @@ BILLING_UNIQUE = (
     ("billing_on_filename", "htmlfilename", "timestamp", None),
 )
 
+# Both published Ontario migrations establish the same two index artifacts.
+# Match the recorded version AND script, so a BASELINE at that version or an
+# unrelated migration cannot be mistaken for a successful index migration.
+BILLING_INDEX_MIGRATIONS = {
+    "1.0.11": "V1.0.11__billing_filename_unique_indexes.sql",
+    "1.0.12": "V1.0.12__portable_billing_filename_unique_indexes.sql",
+}
+
 
 class TableDef:
     """One `CREATE TABLE` out of the genesis DDL.
@@ -951,8 +959,8 @@ def cmd_db_baseline(argv) -> int:
                              column, _backup_table(table)))
     if stale:
         _log("{0}: flyway_schema_history describes a schema this database no "
-            "longer has -- the installer stamped it before the legacy dump "
-            "replaced the tables. It will be renamed aside, not dropped."
+            "longer has. It will be renamed aside, not dropped, so forward "
+            "migrations are prepared and run again."
             .format("PLAN" if dry_run else "preparing"))
     for table, column in skipped:
         live = schema.get(table.lower())
@@ -1093,6 +1101,46 @@ def missing_genesis_columns(tables, schema):
     return missing
 
 
+def _missing_recorded_billing_indexes(dbops, db_name) -> bool:
+    """Whether successful billing-index history contradicts the live schema.
+
+    A legacy dump can replace data tables while leaving an earlier adoption's
+    BASELINE and successful migrations behind. Missing genesis columns alone
+    cannot distinguish that from adoption by an older package, but a missing
+    artifact of a migration recorded as successful can.
+    """
+    recorded = " OR ".join(
+        "(`version` = '{0}' AND `script` = '{1}')".format(version, script)
+        for version, script in BILLING_INDEX_MIGRATIONS.items())
+    if not _count_or_die(
+            dbops, db_name,
+            "SELECT COUNT(*) FROM `flyway_schema_history` "
+            "WHERE `type` = 'SQL' AND `success` = 1 AND ({0})".format(recorded),
+            "check recorded billing-index migrations"):
+        return False
+    for table, column, _order, _suffix in BILLING_UNIQUE:
+        # Group all components before testing the shape. A composite,
+        # non-unique, wrong-column or prefix index does not establish the
+        # published constraint. Accept an equivalent index under another name:
+        # a harmless rename is not evidence that the database was replaced.
+        present = _count_or_die(
+            dbops, db_name,
+            "SELECT COUNT(*) FROM (SELECT INDEX_NAME "
+            "FROM information_schema.STATISTICS "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{0}' "
+            "GROUP BY INDEX_NAME "
+            "HAVING COUNT(*) = 1 AND MIN(COLUMN_NAME) = '{1}' "
+            "AND MIN(NON_UNIQUE) = 0 AND MIN(SEQ_IN_INDEX) = 1 "
+            "AND COUNT(SUB_PART) = 0) AS expected_index".format(table, column),
+            "verify recorded billing uniqueness for `{0}`.`{1}`".format(table, column))
+        if not present:
+            _warn("migration history records successful billing-index creation, "
+                  "but `{0}` lacks a full-column UNIQUE index on `{1}`; "
+                  "treating that history as stale".format(table, column))
+            return True
+    return False
+
+
 def _stale_history(dbops, db_name, tables, schema) -> bool:
     """Whether `flyway_schema_history` is bookkeeping for a schema that is gone.
 
@@ -1103,15 +1151,18 @@ def _stale_history(dbops, db_name, tables, schema) -> bool:
     Flyway then refuses to baseline: "flyway_schema_history already contains
     migrations".
 
-    Two signals together, because either alone is a false positive:
+    A BASELINE history is preserved unless a recorded successful billing-index
+    migration is contradicted by the live indexes. This keeps older legitimate
+    adoptions repairable while recognizing a later dump loaded over an adopted
+    database. A metadata query failure aborts instead of guessing.
+
+    Without a BASELINE, two signals together identify stale installer history:
 
     * NO BASELINE MARKER. A history written by `migrate` against an empty
       database records `V1`/`V1.0.1`/`V1.0.2` as ordinary applied migrations.
-      A history written by `baseline` carries a BASELINE row. That row is
-      exactly what makes re-running `baseline` a harmless no-op, so a schema
-      that already has one is a previously ADOPTED datadir whose history is
-      correct and must be left alone -- even though it, too, can be short of
-      genesis columns if it was adopted before this reconciliation existed.
+      A history written by `baseline` carries a BASELINE row and takes the
+      forward-index check above instead; genesis gaps alone cannot invalidate
+      that history because older adoptions may legitimately have those gaps.
     * GENESIS TABLES OR COLUMNS MISSING. The caller has already rejected a
       province mismatch, so missing whole tables also show that the recorded
       genesis is incomplete. Otherwise this is an ordinary healthy install
@@ -1126,6 +1177,6 @@ def _stale_history(dbops, db_name, tables, schema) -> bool:
                      "SELECT COUNT(*) FROM `flyway_schema_history` "
                      "WHERE `type` = 'BASELINE'",
                      "check the migration baseline marker") > 0:
-        return False
+        return _missing_recorded_billing_indexes(dbops, db_name)
     return (any(name.lower() not in schema for name in tables)
             or bool(missing_genesis_columns(tables, schema)))

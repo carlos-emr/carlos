@@ -476,6 +476,17 @@ class TestPackagedMigrationContract(unittest.TestCase):
                           re.IGNORECASE | re.DOTALL),
                 "no UNIQUE index found over %s.%s" % (table, column))
 
+    def test_history_discriminator_matches_both_published_index_migrations(self):
+        for version, script in dbadopt.BILLING_INDEX_MIGRATIONS.items():
+            self.assertTrue(script.startswith("V" + version + "__"))
+            text = dbadopt._read(os.path.join(REPO_MIGRATIONS, "on", script))
+            for table, column, _order, _suffix in dbadopt.BILLING_UNIQUE:
+                index = "{0}_{1}_uq".format(table, column)
+                self.assertRegex(text, re.compile(
+                    r"CREATE\s+UNIQUE\s+INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?"
+                    + re.escape(index) + r"\s+ON\s+" + re.escape(table)
+                    + r"\s*\(\s*" + re.escape(column) + r"\s*\)", re.IGNORECASE))
+
 
 
 @unittest.skipUnless(os.path.isdir(REPO_MIGRATIONS),
@@ -521,10 +532,10 @@ class TestStaleHistory(unittest.TestCase):
         self.complete = {name.lower(): {column.lower() for column, _ in table.columns}
                          for name, table in self.tables.items()}
 
-    def stale(self, schema, baseline=False):
+    def stale(self, schema, baseline=False, index_counts=(0,)):
         with mock.patch.object(dbadopt, "_table_exists", return_value=True), \
                 mock.patch.object(dbadopt, "_count_or_die",
-                                  side_effect=[3, int(baseline)]):
+                                  side_effect=[3, int(baseline)] + list(index_counts)):
             return dbadopt._stale_history(mock.Mock(), "carlos", self.tables, schema)
 
     def test_missing_whole_table_identifies_stale_nonbaseline_history(self):
@@ -542,6 +553,23 @@ class TestStaleHistory(unittest.TestCase):
 
     def test_previously_adopted_history_is_preserved_despite_missing_tables(self):
         self.assertFalse(self.stale({}, baseline=True))
+
+    def test_old_adoption_with_recorded_indexes_keeps_history_despite_genesis_gaps(self):
+        self.assertFalse(self.stale({}, baseline=True, index_counts=(1, 1, 1)))
+
+    def test_missing_either_recorded_index_invalidates_baseline_history(self):
+        for counts in ((1, 0), (1, 1, 0)):
+            with self.subTest(counts=counts):
+                # Even a complete genesis cannot justify skipping forward
+                # migrations when their recorded artifacts have disappeared.
+                self.assertTrue(self.stale(self.complete, baseline=True,
+                                           index_counts=counts))
+
+    def test_failed_discriminator_probe_aborts_instead_of_parking_history(self):
+        cp = mock.Mock(returncode=1, stdout="", stderr="connection lost")
+        with mock.patch.object(dbadopt, "_client", return_value=cp):
+            with self.assertRaises(SystemExit):
+                dbadopt._missing_recorded_billing_indexes(mock.Mock(), "carlos")
 
 
 class TestDryRunDrivesTheWholePlan(unittest.TestCase):

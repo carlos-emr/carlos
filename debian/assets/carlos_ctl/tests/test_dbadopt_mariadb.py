@@ -7,12 +7,15 @@ socket connections. Each test creates and drops its own uniquely named database.
 No existing database is used. Without that setting these tests are skipped.
 """
 
+import contextlib
+import io
 import os
 import shutil
 import subprocess
 import unittest
 import uuid
 from pathlib import Path
+from unittest import mock
 
 from carlos_ctl import dbadopt
 from carlos_ctl.util import sql_escape
@@ -61,6 +64,110 @@ class TestSeedMovesMariaDB(unittest.TestCase):
 
     def run_script(self, script):
         dbadopt._run_script(self, self.database, script, "test seed moves")
+
+    def billing_history(self, version="1.0.11", success=1):
+        self.query("CREATE TABLE flyway_schema_history (version VARCHAR(50), "
+                   "type VARCHAR(20), script VARCHAR(200), success INT);"
+                   "INSERT INTO flyway_schema_history VALUES "
+                   "('1.0.2','BASELINE','baseline',1),"
+                   "('1.0.5','SQL','V1.0.5__restore_live_legacy_common_tables.sql',1),"
+                   "('{0}','SQL','{1}',{2});"
+                   "CREATE TABLE billing_on_diskname (id INT PRIMARY KEY AUTO_INCREMENT, "
+                   "ohipfilename VARCHAR(50), createdatetime DATETIME, timestamp TIMESTAMP);"
+                   "CREATE TABLE billing_on_filename (id INT PRIMARY KEY AUTO_INCREMENT, "
+                   "htmlfilename VARCHAR(50), timestamp TIMESTAMP)".format(
+                       version, dbadopt.BILLING_INDEX_MIGRATIONS[version], success))
+
+    def stale(self):
+        # A genesis gap alone must not invalidate a legitimate older adoption.
+        tables = {"security": dbadopt.TableDef("security", [("mfaSecret", "text")], "")}
+        return dbadopt._stale_history(self, self.database, tables, {})
+
+    def test_recorded_billing_indexes_distinguish_restored_and_old_adopted_schemas(self):
+        self.billing_history()
+        self.assertTrue(self.stale())
+        self.query("CREATE UNIQUE INDEX billing_on_diskname_ohipfilename_uq "
+                   "ON billing_on_diskname (ohipfilename)")
+        self.assertTrue(self.stale())
+        self.query("CREATE UNIQUE INDEX billing_on_filename_htmlfilename_uq "
+                   "ON billing_on_filename (htmlfilename)")
+        self.assertFalse(self.stale())
+        self.query("UPDATE flyway_schema_history SET version='1.0.12', "
+                   "script='V1.0.12__portable_billing_filename_unique_indexes.sql' "
+                   "WHERE version='1.0.11'")
+        self.assertFalse(self.stale())
+        self.query("DROP INDEX billing_on_diskname_ohipfilename_uq ON billing_on_diskname")
+        self.assertTrue(self.stale())
+
+    def test_wrong_index_shape_does_not_validate_recorded_history(self):
+        self.billing_history()
+        self.query("CREATE UNIQUE INDEX billing_on_filename_htmlfilename_uq "
+                   "ON billing_on_filename (htmlfilename)")
+        for kind, columns in (("INDEX", "ohipfilename"),
+                              ("UNIQUE INDEX", "ohipfilename,id"),
+                              ("UNIQUE INDEX", "id"),
+                              ("UNIQUE INDEX", "ohipfilename(8)")):
+            with self.subTest(kind=kind, columns=columns):
+                self.query("CREATE {0} billing_on_diskname_ohipfilename_uq "
+                           "ON billing_on_diskname ({1})".format(kind, columns))
+                self.assertTrue(self.stale())
+                self.query("DROP INDEX billing_on_diskname_ohipfilename_uq "
+                           "ON billing_on_diskname")
+
+    def test_equivalent_renamed_indexes_preserve_real_history(self):
+        self.billing_history()
+        self.query("CREATE UNIQUE INDEX clinic_diskname ON billing_on_diskname (ohipfilename);"
+                   "CREATE UNIQUE INDEX clinic_filename ON billing_on_filename (htmlfilename)")
+        self.assertFalse(self.stale())
+
+    def test_failed_or_unrelated_migration_does_not_claim_billing_indexes(self):
+        self.billing_history(success=0)
+        self.assertFalse(self.stale())
+        self.query("UPDATE flyway_schema_history SET success=1,script='unrelated.sql' "
+                   "WHERE version='1.0.11'")
+        self.assertFalse(self.stale())
+        self.query("UPDATE flyway_schema_history SET type='BASELINE', "
+                   "script='V1.0.11__billing_filename_unique_indexes.sql' "
+                   "WHERE version='1.0.11'")
+        self.assertFalse(self.stale())
+
+    def test_restored_history_reenables_seed_preparation_in_dry_run(self):
+        root = Path(__file__).resolve().parents[4] / "database/mysql/migration"
+        if not root.is_dir():
+            self.skipTest("requires packaged migrations from a source checkout")
+        self.billing_history()
+        self.query("INSERT INTO icd10 VALUES (14902,'Y19','legacy')")
+        output = io.StringIO()
+        with mock.patch.object(dbadopt, "MIGRATION_ROOT", str(root)), \
+                mock.patch.object(dbadopt, "need_root"), \
+                mock.patch.object(dbadopt.dbops, "require_db_root"), \
+                mock.patch.object(dbadopt.config, "load", return_value=mock.Mock(
+                    db_name=self.database, schema_province="on")), \
+                mock.patch.object(dbadopt.dbops, "db_root", self.db_root), \
+                mock.patch.object(dbadopt, "_run_script") as mutate, \
+                mock.patch.object(dbadopt.dbops, "run_flyway") as stamp, \
+                contextlib.redirect_stdout(output):
+            self.assertEqual(dbadopt.cmd_db_baseline(["--dry-run"]), 0)
+            mutate.assert_not_called()
+            stamp.assert_not_called()
+        self.assertIn("1 row(s) in `icd10` collide", output.getvalue())
+        self.assertIn("It will be renamed aside", output.getvalue())
+        self.assertEqual(self.query("SELECT COUNT(*) FROM flyway_schema_history"), "3")
+        self.assertEqual(self.query("SELECT id FROM icd10"), "14902")
+
+    def test_failed_index_metadata_probe_cannot_invalidate_history(self):
+        self.billing_history()
+        original = dbadopt._client
+
+        def fail_index_query(dbops, db_name, args, **kwargs):
+            if any("information_schema.STATISTICS" in arg for arg in args):
+                return mock.Mock(returncode=1, stdout="", stderr="connection lost")
+            return original(dbops, db_name, args, **kwargs)
+
+        with mock.patch.object(dbadopt, "_client", side_effect=fail_index_query):
+            with self.assertRaises(SystemExit):
+                self.stale()
+        self.assertEqual(self.query("SELECT COUNT(*) FROM flyway_schema_history"), "3")
 
     def test_conflicting_backup_does_not_move_or_delete_live_row(self):
         self.query("INSERT INTO icd10 VALUES (14902,'LOCAL','new description');"
