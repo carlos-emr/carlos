@@ -186,8 +186,10 @@ sharing one filename string.
 
 None of that is duplicate data and none of it is safe to delete. The migrations
 are right to refuse to discard it silently. `db-baseline` disambiguates
-instead: the earliest submission keeps its filename verbatim, and every later
-row is suffixed. **The suffix always ends in the row's primary key**, so the
+instead: the earliest known submission keeps its filename verbatim, and every
+later row is suffixed. Unknown dates sort last; equal dates (including groups
+with only unknown dates) use the lowest row ID first.
+**The suffix always ends in the row's primary key**, so the
 result is unique by construction — a `-YEAR` suffix alone collides again the
 moment a clinic submits the same filename twice in one year, which is exactly
 the shape these filenames take.

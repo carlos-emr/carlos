@@ -796,7 +796,7 @@ def plan_billing_duplicates(dbops, db_name):
                 dbops, db_name,
                 "SELECT COUNT(*) FROM `{0}` b JOIN ("
                 "SELECT `id`, ROW_NUMBER() OVER (PARTITION BY `{1}` "
-                "ORDER BY `{2}`, `id`) AS rn FROM `{0}` "
+                "ORDER BY (`{2}` IS NULL), `{2}`, `id`) AS rn FROM `{0}` "
                 "WHERE `{1}` IS NOT NULL) r ON r.`id` = b.`id` "
                 "WHERE r.rn > 1 AND CHAR_LENGTH({3}) > {4}".format(
                     table, column, order_by, _billing_tag(suffix), width),
@@ -813,8 +813,9 @@ def plan_billing_duplicates(dbops, db_name):
 def billing_disambiguation_script(table, column, order_by, suffix, width=50) -> str:
     """Make every value in `column` unique WITHOUT losing a single row.
 
-    The row that submitted first keeps the filename verbatim; every later row
-    gains a suffix. The suffix always ends in the primary key, so the result is
+    The earliest known submission keeps the filename verbatim; unknown dates
+    sort last and equal dates use the primary key. Every later row gains a
+    suffix. The suffix always ends in the primary key, so the result is
     unique by construction even when two submissions share both the filename
     and the year -- the shape the field-expedient `-YEAR` fix got wrong.
 
@@ -836,7 +837,7 @@ def billing_disambiguation_script(table, column, order_by, suffix, width=50) -> 
         # who is rewritten, so the backup can never disagree with the change.
         "CREATE TEMPORARY TABLE `_carlos_adopt_rank` AS "
         "SELECT `id` AS row_id, ROW_NUMBER() OVER ("
-        "  PARTITION BY `{1}` ORDER BY `{2}`, `id`) AS rn "
+        "  PARTITION BY `{1}` ORDER BY (`{2}` IS NULL), `{2}`, `id`) AS rn "
         "FROM `{0}` WHERE `{1}` IS NOT NULL;".format(table, column, order_by),
         "INSERT IGNORE INTO `{0}` (`row_id`, `column_name`, `original_value`) "
         "SELECT b.`id`, '{2}', b.`{2}` FROM `{1}` b "

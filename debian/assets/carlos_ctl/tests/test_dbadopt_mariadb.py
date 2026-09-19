@@ -202,6 +202,21 @@ class TestSeedMovesMariaDB(unittest.TestCase):
         self.assertEqual(self.query("SELECT original_value FROM carlos_adopt_backup_billing_on_filename"),
                          "abcdef")
 
+    def test_known_earliest_submission_keeps_filename_ahead_of_null_dates(self):
+        self.billing_history()
+        self.query("INSERT INTO billing_on_diskname (id,ohipfilename,createdatetime) VALUES "
+                   "(1,'same',NULL),(2,'same','2021-01-01'),(3,'same','2020-01-01'),"
+                   "(4,'unknown',NULL),(5,'unknown',NULL)")
+        plan = dbadopt.plan_billing_duplicates(self, self.database)
+        self.assertEqual(len(plan), 1)
+        table, column, order, suffix, extra, width = plan[0]
+        self.assertEqual(extra, 3)
+        self.run_script(dbadopt.billing_disambiguation_script(table, column, order, suffix, width))
+        self.assertEqual(self.query("SELECT ohipfilename FROM billing_on_diskname ORDER BY id"),
+                         "same-x-1\nsame-2021-2\nsame\nunknown\nunknown-x-5")
+        self.assertEqual(self.query("SELECT row_id FROM carlos_adopt_backup_billing_on_diskname "
+                                    "ORDER BY row_id"), "1\n2\n5")
+
     def test_conflicting_backup_does_not_move_or_delete_live_row(self):
         self.query("INSERT INTO icd10 VALUES (14902,'LOCAL','new description');"
                    "CREATE TABLE carlos_adopt_backup_icd10 LIKE icd10;"
