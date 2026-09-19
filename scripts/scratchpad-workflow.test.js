@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { consumeExpectedFailure, isSave } = require('./scratchpad-workflow-playwright-checks');
+const { consumeExpectedFailure, isSave, popupFrom } = require('./scratchpad-workflow-playwright-checks');
 const url = 'https://localhost/carlos/Scratch';
 const since = { responses: 0, console: 0 };
 function fixture() {
@@ -36,4 +36,24 @@ test('response matching cannot mistake a history deletion or unrelated request f
   assert.equal(isSave(response(url, 'POST', 'method=delete&id=7')), false);
   assert.equal(isSave(response(url, 'GET', null)), false);
   assert.equal(isSave(response(url + '/other', 'POST', 'id=7')), false);
+});
+
+
+test('popup observation follows the opener context for independent browser sessions', async () => {
+  const ui = require('./lib/playwright-ui');
+  const original = ui.clickOpensPopup;
+  const context = {name: 'second browser'};
+  const page = {context: () => context};
+  const locator = {};
+  const recorder = {};
+  try {
+    ui.clickOpensPopup = async (opener, control, options) => {
+      assert.equal(opener, page);
+      assert.equal(control, locator);
+      assert.equal(options.context, context);
+      assert.equal(options.recorder, recorder);
+      return 'popup in second browser';
+    };
+    assert.equal(await popupFrom(page, locator, recorder, 'second'), 'popup in second browser');
+  } finally { ui.clickOpensPopup = original; }
 });

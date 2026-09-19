@@ -4,6 +4,11 @@
 // Positive paths enter through the schedule icon and use the actual editor.
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const ui = require('./lib/playwright-ui');
+
+function popupFrom(page, locator, recorder, label) {
+  return ui.clickOpensPopup(page, locator, {context: page.context(), recorder, label, timeout: 20000});
+}
 
 function isSave(response) {
   return new URL(response.url()).pathname.endsWith('/Scratch')
@@ -44,7 +49,7 @@ async function workflow(s) {
     h.assert(JSON.stringify(s.sql.rows(`SELECT id,SHA2(scratch_text,256),status FROM scratch_pad WHERE provider_no=${provider} ORDER BY id`))
       === JSON.stringify(baseline), 'Scratch cleanup did not restore the original provider history');
   });
-  const open = schedule => s.popup(schedule, schedule.getByTitle(/Scratch\s*Pad/i).first(), 'scratch-editor');
+  const open = schedule => popupFrom(schedule, schedule.getByTitle(/Scratch\s*Pad/i).first(), s.recorder, 'scratch-editor');
   let editor = await open(s.schedule);
   async function acknowledged(page, response, text) {
     h.assert(response.status() === 200, `Scratch save returned HTTP ${response.status()}`);
@@ -162,7 +167,7 @@ async function workflow(s) {
     await stale.waitForTimeout(31000);
     h.assert(s.sql.value(`SELECT id FROM scratch_pad WHERE provider_no=${provider} AND status=1 ORDER BY id DESC LIMIT 1`) === latestId,
       'Conflict retry/autosave created a new version');
-    current = await s.popup(stale, stale.locator('#openCurrentScratch'), 'scratch-conflict-current');
+    current = await popupFrom(stale, stale.locator('#openCurrentScratch'), s.recorder, 'scratch-conflict-current');
     h.assert(await current.locator('#thetext').inputValue() === serverText, 'Conflict recovery opened the wrong current note');
     await save(current, `${serverText}\n${localText}`);
   });
@@ -210,4 +215,4 @@ async function workflow(s) {
   });
 }
 if (require.main === module) runWorkflow('scratchpad-workflow', workflow, { openPatient: false });
-module.exports = { workflow, consumeExpectedFailure, isSave };
+module.exports = { workflow, consumeExpectedFailure, isSave, popupFrom };
