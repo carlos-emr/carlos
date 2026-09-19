@@ -981,6 +981,10 @@ public class Fax2Action extends ActionSupport {
         JSONUtil.jsonResponse(response, jsonObject);
     }
 
+    // PATH_TRAVERSAL_IN: getPageCount's gates live here, so the suppression has to be declared
+    // on this method too. A direct path is only ever used after authorizedPreviewPath, the
+    // temp-containment check and faxManager.resolveAndValidateFilePath have all accepted it.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding")
     private int resolvePageCount(LoggedInInfo loggedInInfo, String jobId, String requestedFaxFilePath) {
         if (jobId != null && !jobId.isEmpty()) {
             try {
@@ -1110,6 +1114,11 @@ public class Fax2Action extends ActionSupport {
      * @throws SecurityException        if the caller may not see the document's patient
      * @throws IllegalArgumentException if the document or its file is missing
      */
+    // PATH_TRAVERSAL_IN: the file name comes from the document row, not the request, and is
+    // resolved against DOCUMENT_DIR by validateExistingPath before it is copied.
+    // IMPROPER_UNICODE: the content-type compare below is a MIME-token check, not an identity
+    // or authorization decision.
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "IMPROPER_UNICODE"}, justification = "path validated for directory containment via PathValidationUtils before use; case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code), not a security or authorization decision")
     private Path stageDocumentForFax(LoggedInInfo loggedInInfo, int documentNo) throws IOException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_edoc)");

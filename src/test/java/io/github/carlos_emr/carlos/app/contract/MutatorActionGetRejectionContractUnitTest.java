@@ -257,6 +257,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // BC supplementary billing: view permits GET; edit/delete require POST.
+        // Covered by SupServiceCodeAssoc2ActionUnitTest.
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2Action",
         // Rx: only method=updateDB mutates (it rebuilds the DrugRef database) and rejects
         // GET; the read-only status methods stay reachable by GET. Covered in detail by
         // RxUpdateDrugref2ActionUnitTest.
