@@ -13,9 +13,19 @@ async function workflow(s) {
   const clickMenu = async selector => {
     const link = admin.locator(selector).first();
     const panel = link.locator('xpath=ancestor::div[contains(@class,"accordion-collapse")][1]');
-    if (await panel.count() && !await panel.isVisible()) {
+    if (await panel.count()) {
       const id = await panel.getAttribute('id');
-      await admin.locator(`[data-bs-target="#${id}"]`).click();
+      assert(id, 'Administration accordion panel has no id');
+      // Opening another accordion panel can leave this one briefly visible
+      // while Bootstrap is closing it. Wait for that transition before deciding
+      // whether to reopen it; otherwise the link becomes permanently hidden.
+      await admin.waitForFunction(panelId => {
+        const element = document.getElementById(panelId);
+        return element && !element.classList.contains('collapsing');
+      }, id);
+      if (!await panel.isVisible()) {
+        await admin.locator(`[data-bs-target="#${id}"]`).click();
+      }
     }
     await link.click();
   };
