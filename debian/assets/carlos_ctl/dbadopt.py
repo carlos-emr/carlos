@@ -428,6 +428,8 @@ def plan_seed_collisions(dbops, db_name, schema_province, root=None):
                 "SELECT COUNT(*) FROM `{0}` WHERE `{1}` IN ({2})".format(
                     table, pk, key_list),
                 "check `{0}` for seed-collision keys".format(table))
+            if present == 0:
+                continue
 
             columns = _live_column_list(dbops, db_name, table)
             if not columns:
