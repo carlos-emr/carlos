@@ -2562,7 +2562,7 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
         FAILED_NEXT_STEPS if problems else NEXT_STEPS)
 
 
-def billing_totals_table(ctx) -> str:
+def claim_header_table(ctx) -> str:
     """The claim-header table P7 aggregates and spot-checks, for this
     host's province.
 
@@ -2574,11 +2574,11 @@ def billing_totals_table(ctx) -> str:
     has already refused anything but a carried profile by the time this
     runs, so an empty lookup means the overlay, not the host."""
     province = ctx.get("province")
-    table = getattr(o19map_schema, "BILLING_TOTALS_TABLE", {}).get(province)
+    table = getattr(o19map_schema, "CLAIM_HEADER_TABLE", {}).get(province)
     if not table:
         die("the manifest names no billing claim header for province "
             "{0!r}, so verification cannot check billing totals; add one "
-            "to BILLING_TOTALS_TABLE in overrides_schema.py and "
+            "to CLAIM_HEADER_TABLE in overrides_schema.py and "
             "regenerate".format(province))
     if not o19etl.IDENTIFIER_RE.match(table):
         # it is interpolated into SQL as a bare identifier
@@ -2664,14 +2664,14 @@ def run_p7(ctx) -> None:
     # the claim header is per province: Ontario's OHIP header, BC's
     # invoice table. Named from the manifest so the BC spot check
     # covers billing instead of skipping an absent Ontario table.
-    billing_table = billing_totals_table(ctx)
+    claim_header = claim_header_table(ctx)
     joins = (("appointment", "demographic_no"),
              ("casemgmt_note", "demographic_no"),
              ("drugs", "demographic_no"),
              ("preventions", "demographic_no"),
              ("measurements", "demographicNo"),
              ("eform_data", "demographic_no"),
-             (billing_table, "demographic_no"))
+             (claim_header, "demographic_no"))
     details: List[str] = []
     checked = 0
     for demo in sample:
@@ -2711,7 +2711,7 @@ def run_p7(ctx) -> None:
     # table name varies.
     agg = ("SELECT IFNULL(YEAR(billing_date),0), COUNT(*), "
            "IFNULL(SUM(CAST(total AS DECIMAL(14,2))),0) FROM "
-           "`{0}`.`" + billing_table + "` GROUP BY 1 ORDER BY 1")
+           "`{0}`.`" + claim_header + "` GROUP BY 1 ORDER BY 1")
 
     def billing_totals(schema):
         """The aggregate, or None when this schema has no such table —
@@ -2733,7 +2733,7 @@ def run_p7(ctx) -> None:
         # ending a completed import on a raw "table doesn't exist"
         s_rows = d_rows = {}
         lines.append("billing totals: {0} absent from both schemas"
-                     .format(billing_table))
+                     .format(claim_header))
     elif s_rows is None or d_rows is None:
         # one-sided: recorded as a failure AND reported as uncompared.
         # Zeroing both sides here would make the equality below hold and
@@ -2743,9 +2743,9 @@ def run_p7(ctx) -> None:
         problems.append(
             "{0} exists in {1} but not in {2} — verification cannot "
             "compare billing totals".format(
-                billing_table, present, src if s_rows is None else dst))
+                claim_header, present, src if s_rows is None else dst))
         lines.append("billing totals: NOT COMPARED ({0} is in {1} "
-                     "only)".format(billing_table, present))
+                     "only)".format(claim_header, present))
         s_rows = d_rows = None
     if s_rows is None:
         pass
