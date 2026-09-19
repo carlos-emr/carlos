@@ -28,6 +28,22 @@ carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
     missing.
   * New db-baseline options: --dry-run prints the whole plan and changes nothing,
     --stamp-only keeps the previous bare-stamp behaviour.
+  * The billing disambiguation pins each row's `timestamp`. Both billing tables
+    declare it ON UPDATE current_timestamp(), so rewriting the filename would
+    otherwise replace the clinic's record of when it submitted with the adoption
+    date -- and on billing_on_filename that column is the ORDER BY the ranking
+    itself depends on. Nothing backs that column up, so it is preserved in place.
+  * Adoption pins the session sql_mode to empty before reconciling. Seven genesis
+    columns default to '0000-00-00', which a sql_mode carrying NO_ZERO_DATE or
+    TRADITIONAL rejects part way through the pass; the packaged drop-in already
+    sets sql_mode="" but is only read at server start.
+  * The duplicate re-check that gates the UNIQUE indexes now fails the run when
+    the query cannot be answered, instead of reading an unanswerable query as
+    zero and stamping anyway. Seed rows are only cleared when the live primary
+    key really is the single leading integer column the parsed key comes from,
+    the backup copy names its columns rather than binding by position, and a
+    legacy row whose code differs from the canonical replacement is reported
+    before anything is deleted.
   * Summarize expected existing-index/column notes during schema creation instead
     of showing them as duplicate-key/column warnings. Preserve all other warnings
     and migration errors; published migration SQL and checksums are unchanged.

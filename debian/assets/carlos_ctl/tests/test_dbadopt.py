@@ -89,9 +89,17 @@ class TestReconciliationStatements(unittest.TestCase):
     def test_foreign_key_checks_are_disabled_around_the_pass(self):
         # The genesis declares foreign keys and these statements are emitted in
         # name order, so a child table can precede its parent.
-        self.assertEqual(self.statements[0], "SET NAMES utf8mb4;")
-        self.assertEqual(self.statements[1], "SET FOREIGN_KEY_CHECKS=0;")
+        self.assertEqual(self.statements[2], "SET FOREIGN_KEY_CHECKS=0;")
         self.assertEqual(self.statements[-1], "SET FOREIGN_KEY_CHECKS=1;")
+
+    def test_session_sql_mode_is_pinned(self):
+        # Seven genesis columns default to '0000-00-00'. Under a sql_mode
+        # carrying NO_ZERO_DATE or TRADITIONAL those ADD COLUMNs fail PART WAY
+        # THROUGH, leaving a half-reconciled schema. The packaged drop-in sets
+        # sql_mode="" but is only read at server start, and db-baseline has no
+        # ordering against db-apply-settings.
+        self.assertEqual(self.statements[0], "SET NAMES utf8mb4;")
+        self.assertEqual(self.statements[1], "SET SESSION sql_mode='';")
 
     def test_auto_increment_columns_are_reported_not_added(self):
         # ADD COLUMN ... AUTO_INCREMENT requires the column to become a key in
@@ -120,16 +128,28 @@ INSERT INTO `other` (`a`, `b`) VALUES (9,'z');
 INSERT INTO `third` SELECT * FROM `fourth`;
 """
         found = dbadopt.parse_plain_seed_inserts(sql)
-        self.assertEqual(found, {"icd10": [14902, 14903]})
+        self.assertEqual(found, {"icd10": [(14902, "Y19"), (14903, "Y20")]})
 
     def test_seed_collision_script_backs_up_before_it_deletes(self):
-        script = dbadopt.seed_collision_script("icd10", "id", [1, 2])
+        script = dbadopt.seed_collision_script("icd10", "id", [1, 2],
+                                               ["id", "icd10", "description"])
         backup = dbadopt.BACKUP_PREFIX + "icd10"
         self.assertLess(script.index("INSERT IGNORE INTO `%s`" % backup),
                         script.index("DELETE FROM `icd10`"))
         # Exactly the keys the migration is about to insert: a legacy row the
         # canonical seed does not cover keeps its place.
         self.assertIn("DELETE FROM `icd10` WHERE `id` IN (1,2);", script)
+
+    def test_backup_copy_names_its_columns(self):
+        # `SELECT *` into a column-less INSERT binds by POSITION. A backup left
+        # by an earlier run, over a table whose shape changed since, would take
+        # the rows into the wrong columns -- and it is the only copy of what the
+        # next statement deletes.
+        script = dbadopt.seed_collision_script("icd10", "id", [1],
+                                               ["id", "icd10", "description"])
+        self.assertNotIn("SELECT *", script)
+        self.assertIn("(`id`, `icd10`, `description`) "
+                      "SELECT `id`, `icd10`, `description`", script)
 
 
 class TestBillingDisambiguation(unittest.TestCase):
@@ -161,6 +181,17 @@ class TestBillingDisambiguation(unittest.TestCase):
     def test_result_is_kept_inside_the_column(self):
         self.assertIn("LEFT(b.`ohipfilename`, GREATEST(1, 50 - CHAR_LENGTH(",
                       self._script())
+
+    def test_the_submission_timestamp_is_pinned(self):
+        # Both billing tables declare `timestamp` ON UPDATE current_timestamp().
+        # Without an explicit self-assignment, disambiguating rewrites the
+        # clinic's record of WHEN it submitted -- and on billing_on_filename
+        # that column is the ORDER BY this very ranking depends on, so a second
+        # run would rank differently. There is no backup of it.
+        for script in (self._script(),
+                       self._script("billing_on_filename", "htmlfilename",
+                                    "timestamp", None)):
+            self.assertIn("b.`timestamp` = b.`timestamp`", script)
 
     def test_table_without_a_year_source_still_disambiguates(self):
         script = self._script("billing_on_filename", "htmlfilename", "timestamp", None)

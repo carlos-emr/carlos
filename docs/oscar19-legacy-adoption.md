@@ -73,7 +73,12 @@ and reconciles the live schema up to it:
 * `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` for every genesis column.
 
 Both are no-ops on anything already present, which is what makes the pass safe
-to run unconditionally and safe to repeat after an interruption. On a real
+to run unconditionally and safe to repeat after an interruption. The session
+pins `sql_mode` to empty first: seven genesis columns default to
+`'0000-00-00'`, and under a `sql_mode` carrying `NO_ZERO_DATE` or `TRADITIONAL`
+those `ADD COLUMN` statements fail *part way through*. The packaged MariaDB
+drop-in already sets `sql_mode = ""`, but it is only read at server start and
+`db-baseline` has no ordering against `db-apply-settings`. On a real
 clinic import it touched 410 tables and 10,139 columns in one pass, of which
 only the genuinely missing handful did any work.
 
@@ -108,6 +113,20 @@ copies any rows already holding those keys into
 lays down the canonical seed it always intended to. A legacy row the canonical
 seed does not cover is left alone.
 
+Two guards sit around this, because the premise — *the migration will lay down
+the same rows* — is an assumption:
+
+* Rows are only cleared when the live table's primary key really is its single
+  leading integer column. The key parsed out of a seed tuple is its **first**
+  field, so without that check a future seed whose leading field is something
+  else (a `demographic_no`, say) would delete live rows that were never backed
+  up.
+* Before deleting, the codes are compared. `Icd10DaoImpl` looks this table up
+  by **code string**, never by id, so if a legacy id carried a code the
+  canonical seed does not, that code disappears from the lookup while clinical
+  records still reference it. The run warns with an exact count and names the
+  backup table rather than letting a clinician discover it.
+
 A regression test (`carlos_ctl/tests/test_dbadopt.py`) fails the build if a
 *new* forward migration seeds a non-temporary table without `INSERT IGNORE`.
 `V1.0.5` is carried there as a named, documented exception.
@@ -135,8 +154,18 @@ the shape these filenames take.
 > `carlos_adopt_backup_billing_on_diskname (row_id, column_name, original_value)`
 > — keep that table.
 
+The row's `timestamp` column is **pinned** during the rewrite. Both billing
+tables declare it `ON UPDATE current_timestamp()`, so an ordinary `UPDATE`
+would silently replace the clinic's record of *when* it submitted with the
+adoption date — and on `billing_on_filename` that column is the very `ORDER BY`
+the ranking depends on, so a second run would rank differently. The generated
+statement assigns the column to itself to suppress the auto-update. That
+self-assignment is not redundant; do not remove it.
+
 Afterwards the pass re-counts duplicates and refuses to continue if any remain,
-rather than letting `db-migrate` discover it later.
+rather than letting `db-migrate` discover it later. That re-check is a hard
+gate: a query that cannot be answered fails the run rather than reading as
+zero.
 
 ## Stale migration history
 
@@ -187,7 +216,14 @@ the checksum will not match.
 
 **An adoption that was interrupted.** Re-run `carlos-ctl db-baseline`. Every
 statement it issues is guarded or idempotent, and the backup tables are written
-with `CREATE TABLE IF NOT EXISTS` / `INSERT IGNORE`.
+with `CREATE TABLE IF NOT EXISTS` / `INSERT IGNORE`, so the *first* recorded
+original is preserved rather than overwritten with an already-rewritten value.
+
+**"`carlos_adopt_backup_x` already exists with a different shape."** A backup
+from an earlier adoption is still present, and the table it came from has
+changed since — usually because a different legacy dump was loaded over the
+database (mysqldump's `DROP TABLE IF EXISTS` does not know about the backup).
+Move it aside under a new name; it holds rows an earlier run cleared.
 
 **A schema that was already adopted with the old `--stamp-only` behaviour**
 (or by an older package) is repaired by running `carlos-ctl db-baseline` again:

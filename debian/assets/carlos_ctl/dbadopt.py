@@ -57,6 +57,7 @@ plan without touching the database.
 import glob
 import os
 import re
+import sys
 import time
 
 from . import config, dbops
@@ -78,6 +79,24 @@ BACKUP_PREFIX = "carlos_adopt_backup_"
 # into generated DDL, so they are matched rather than trusted.
 _IDENT = re.compile(r"\A[A-Za-z0-9_]+\Z")
 
+# Prepended to every script this module runs, for the same reasons the genesis
+# dump and `dbops` restore stream set them.
+#
+# NAMES: the genesis DDL carries utf8mb4 literals.
+#
+# sql_mode: NOT cosmetic. Seven genesis columns are declared
+# DEFAULT '0000-00-00' / '0000-00-00 00:00:00', and under a sql_mode carrying
+# NO_ZERO_DATE or TRADITIONAL those ALTER ... ADD COLUMN statements fail with
+# "Invalid default value" PART WAY THROUGH, leaving a half-reconciled schema.
+# The packaged drop-in sets sql_mode = "" (mariadb/60-carlos-emr.cnf), but that
+# is only read at server start and db-baseline is an operator-invoked verb with
+# no ordering against db-apply-settings -- so the session pins it, exactly as
+# the restore stream in dbops does for the legacy eform seed.
+SESSION_PRAGMAS = (
+    "SET NAMES utf8mb4;",
+    "SET SESSION sql_mode='';",
+)
+
 _CREATE_TABLE = re.compile(
     r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`(?P<name>[^`]+)`\s*\((?P<body>.*?)\n\)(?P<tail>[^;]*);",
     re.DOTALL | re.IGNORECASE)
@@ -92,7 +111,8 @@ _PLAIN_INSERT = re.compile(
     r"^INSERT\s+INTO\s+`?(?P<table>[A-Za-z0-9_]+)`?\s+VALUES\s*(?P<rows>.*?);\s*$",
     re.DOTALL | re.IGNORECASE | re.MULTILINE)
 
-_ROW_LEADING_INT = re.compile(r"\((\s*-?\d+)\s*,")
+# (leading integer, immediately following quoted field) of each VALUES tuple.
+_ROW_KEY_AND_CODE = re.compile(r"\(\s*(-?\d+)\s*,\s*'((?:[^'\\]|\\.)*)'")
 
 _CONSTRAINT_PREFIXES = (
     "PRIMARY KEY", "UNIQUE KEY", "UNIQUE INDEX", "KEY", "INDEX", "CONSTRAINT",
@@ -164,20 +184,24 @@ def parse_temporary_tables(sql: str):
 
 
 def parse_plain_seed_inserts(sql: str):
-    """`table -> [leading integer of each row]` for unguarded seed INSERTs.
+    """`table -> [(leading integer, next quoted field), ...]` for unguarded
+    seed INSERTs.
 
     The leading integer is only a CANDIDATE primary key; the caller confirms
     against the live schema that the table's primary key really is that single
-    first integer column before deleting anything on the strength of it."""
+    first integer column before deleting anything on the strength of it. The
+    quoted field that follows is carried so the caller can check that the rows
+    it is about to clear really do correspond to the canonical ones."""
     temporary = parse_temporary_tables(sql)
     found = {}
     for match in _PLAIN_INSERT.finditer(sql):
         table = match.group("table")
         if table in temporary or not _IDENT.match(table):
             continue
-        keys = [int(v) for v in _ROW_LEADING_INT.findall(match.group("rows"))]
-        if keys:
-            found.setdefault(table, []).extend(keys)
+        rows = [(int(m.group(1)), m.group(2))
+                for m in _ROW_KEY_AND_CODE.finditer(match.group("rows"))]
+        if rows:
+            found.setdefault(table, []).extend(rows)
     return found
 
 
@@ -231,9 +255,8 @@ def reconciliation_statements(tables):
       quietly rebuild. They are reported instead."""
     # The genesis declares foreign keys, and these statements are emitted in
     # NAME order, so a child table can be created before its parent -- exactly
-    # why the genesis file itself opens with FOREIGN_KEY_CHECKS=0. NAMES is set
-    # for the same reason mysqldump sets it: the DDL carries utf8mb4 literals.
-    statements = ["SET NAMES utf8mb4;", "SET FOREIGN_KEY_CHECKS=0;"]
+    # why the genesis file itself opens with FOREIGN_KEY_CHECKS=0.
+    statements = list(SESSION_PRAGMAS) + ["SET FOREIGN_KEY_CHECKS=0;"]
     skipped = []
     for name in sorted(tables):
         table = tables[name]
@@ -276,6 +299,11 @@ def _scalar(dbops, db_name, sql, default=None):
 
 
 def _count(dbops, db_name, sql) -> int:
+    """A count, treating an unanswerable query as zero.
+
+    Only for probes where "cannot tell" and "none" lead to the same safe
+    action -- planning work that simply will not be scheduled. Anything that
+    GATES a destructive step uses `_count_or_die`."""
     value = _scalar(dbops, db_name, sql, "0")
     try:
         return int(value)
@@ -283,11 +311,39 @@ def _count(dbops, db_name, sql) -> int:
         return 0
 
 
+def _count_or_die(dbops, db_name, sql, what) -> int:
+    """A count where silence is not the same answer as zero.
+
+    `_count` cannot distinguish "no rows" from "the query never ran", and the
+    duplicate re-check is the ONLY thing standing between a truncation
+    collision and the CREATE UNIQUE INDEX in V1.0.11/V1.0.12. A dropped
+    connection there would have let the stamp proceed and surfaced the failure
+    inside db-migrate, against a database already marked adopted."""
+    cp = _client(dbops, db_name, ["-N", "-B", "-e", sql], capture_output=True)
+    if cp.returncode != 0:
+        tail = (cp.stderr or "").strip().splitlines()
+        die("could not {0}: mariadb exited {1}{2}".format(
+            what, cp.returncode, " (" + tail[-1] + ")" if tail else ""))
+    text = (cp.stdout or "").strip()
+    try:
+        return int(text.splitlines()[-1])
+    except (IndexError, ValueError):
+        die("could not {0}: mariadb answered {1!r}".format(what, text[:80]))
+
+
 def _run_script(dbops, db_name, script: str, what: str) -> None:
     cp = _client(dbops, db_name, ["-B"], input=script, capture_output=True)
     if cp.returncode != 0:
-        tail = (cp.stderr or "").strip().splitlines()
-        die("{0} failed: {1}".format(what, tail[-1] if tail else "see the output above"))
+        # stderr was CAPTURED, so nothing reached the operator's terminal on its
+        # own; print it rather than reducing a multi-line server error -- and a
+        # 10,000-statement script that dies in the middle needs the line number
+        # MariaDB reports, not a summary.
+        detail = (cp.stderr or "").strip()
+        if detail:
+            sys.stderr.write(detail + "\n")
+        die("{0} failed (mariadb exited {1}); the database is partially "
+            "changed -- re-running db-baseline is safe and resumes from where "
+            "this stopped".format(what, cp.returncode))
 
 
 def _table_exists(dbops, db_name, table) -> bool:
@@ -308,7 +364,13 @@ def _single_integer_pk(dbops, db_name, table):
         "JOIN information_schema.STATISTICS s ON s.TABLE_SCHEMA = c.TABLE_SCHEMA "
         " AND s.TABLE_NAME = c.TABLE_NAME AND s.COLUMN_NAME = c.COLUMN_NAME "
         "WHERE c.TABLE_SCHEMA = DATABASE() AND c.TABLE_NAME = '{0}' "
-        "  AND s.INDEX_NAME = 'PRIMARY'".format(table),
+        "  AND s.INDEX_NAME = 'PRIMARY' "
+        # The parsed value is the FIRST field of each seed tuple, so it is the
+        # key only if the primary key is also the first column. Without this a
+        # future seed whose leading field is, say, demographic_no would produce
+        # DELETE ... WHERE id IN (<demographic numbers>) -- deleting live rows
+        # that were never backed up.
+        "  AND s.SEQ_IN_INDEX = 1 AND c.ORDINAL_POSITION = 1".format(table),
     ], capture_output=True)
     if cp.returncode != 0:
         return None
@@ -327,43 +389,129 @@ def _backup_table(table: str) -> str:
 
 # --- plan steps ------------------------------------------------------------
 
+def _live_column_list(dbops, db_name, table):
+    """The table's columns in ordinal order, as the live database has them."""
+    cp = _client(dbops, db_name, [
+        "-N", "-B", "-e",
+        "SELECT COLUMN_NAME FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{0}' "
+        "ORDER BY ORDINAL_POSITION".format(table),
+    ], capture_output=True)
+    if cp.returncode != 0:
+        return []
+    return [line.strip() for line in (cp.stdout or "").splitlines() if line.strip()]
+
+
 def plan_seed_collisions(dbops, db_name, schema_province, root=None):
     """Rows an unguarded seed INSERT in a pending migration would collide with.
 
-    Returns `[(table, pk_column, [keys]), ...]` for the collisions that are
-    actually present in this database."""
+    Returns `[(table, pk_column, [keys], present, source, columns), ...]` for
+    the collisions actually present in this database."""
     collisions = []
     for path in forward_migration_files(schema_province, root):
-        for table, keys in sorted(parse_plain_seed_inserts(_read(path)).items()):
+        source = os.path.basename(path)
+        for table, rows in sorted(parse_plain_seed_inserts(_read(path)).items()):
             if not _table_exists(dbops, db_name, table):
                 continue
             pk = _single_integer_pk(dbops, db_name, table)
             if pk is None:
                 warn("{0}: {1} carries an unguarded seed INSERT but the live "
-                     "table has no single integer primary key; leaving it "
-                     "alone -- if the migration fails on a duplicate key here, "
-                     "it needs a human".format(os.path.basename(path), table))
+                     "table's primary key is not a single leading integer "
+                     "column; leaving it alone -- if the migration fails on a "
+                     "duplicate key here, it needs a human".format(source, table))
                 continue
-            keys = sorted(set(keys))
+            canonical = dict(rows)
+            keys = sorted(canonical)
+            key_list = ",".join(str(k) for k in keys)
             present = _count(dbops, db_name,
                              "SELECT COUNT(*) FROM `{0}` WHERE `{1}` IN ({2})".format(
-                                 table, pk, ",".join(str(k) for k in keys)))
-            if present:
-                collisions.append((table, pk, keys, present, os.path.basename(path)))
+                                 table, pk, key_list))
+            if not present:
+                continue
+
+            columns = _live_column_list(dbops, db_name, table)
+            if not columns:
+                die("could not read the columns of `{0}`".format(table))
+            backup = _backup_table(table)
+            if _table_exists(dbops, db_name, backup):
+                # CREATE TABLE IF NOT EXISTS is a no-op over a backup left by an
+                # earlier run, and a different legacy dump loaded since then may
+                # have changed the table's shape. Refuse rather than write the
+                # only copy of the rows being deleted into a mismatched table.
+                existing = _live_column_list(dbops, db_name, backup)
+                if set(existing) != set(columns):
+                    die("`{0}` already exists with a different shape than "
+                        "`{1}`; move it aside before adopting again (it holds "
+                        "rows cleared by an earlier run)".format(backup, table))
+
+            _warn_on_diverging_seed_rows(dbops, db_name, table, pk, canonical,
+                                         columns, source)
+            collisions.append((table, pk, keys, present, source, columns))
     return collisions
 
 
-def seed_collision_script(table, pk, keys) -> str:
+def _warn_on_diverging_seed_rows(dbops, db_name, table, pk, canonical, columns,
+                                 source):
+    """Say so when a row about to be cleared does not match its canonical
+    replacement.
+
+    The whole premise of clearing these keys is that the migration will lay
+    down the SAME reference rows. Where it does not, a code the legacy database
+    carried at that id disappears -- and `Icd10DaoImpl` looks this table up by
+    CODE, never by id, so a clinical record still referencing it stops
+    resolving. The rows are in the backup table either way; this makes sure the
+    operator is told rather than finding out from a clinician."""
+    if len(columns) < 2:
+        return
+    code_column = columns[1]
+    cp = _client(dbops, db_name, [
+        "-N", "-B", "-e",
+        "SELECT `{0}`, `{1}` FROM `{2}` WHERE `{0}` IN ({3})".format(
+            pk, code_column, table, ",".join(str(k) for k in canonical)),
+    ], capture_output=True)
+    if cp.returncode != 0:
+        return
+    diverging = 0
+    for line in (cp.stdout or "").splitlines():
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) != 2:
+            continue
+        try:
+            key = int(parts[0])
+        except ValueError:
+            continue
+        if canonical.get(key) != parts[1]:
+            diverging += 1
+    if diverging:
+        warn("{0}: {1} row(s) in `{2}` hold a different `{3}` than the seed in "
+             "{4} will replace them with. They are preserved in `{5}`, but any "
+             "record referencing one of those values will stop resolving -- "
+             "reconcile them before go-live".format(
+                 table, diverging, table, code_column, source,
+                 _backup_table(table)))
+
+
+def seed_collision_script(table, pk, keys, columns) -> str:
     """Copy the colliding rows aside, then clear exactly those keys.
 
     Only the keys the migration is about to insert are touched: a legacy row
-    the canonical seed does not cover keeps its place."""
+    the canonical seed does not cover keeps its place.
+
+    `columns` is the LIVE column list, and it is spelled out on both sides of
+    the copy. `SELECT *` into a column-less INSERT binds by POSITION, and
+    `CREATE TABLE IF NOT EXISTS` is a silent no-op when a backup from an
+    earlier run is already there -- so a backup left behind before a different
+    legacy dump was loaded would take the new rows into the wrong columns, and
+    the only copy of what is about to be DELETEd would be quietly wrong. The
+    caller checks the shapes agree; this makes the statement itself immune to
+    column ORDER."""
     backup = _backup_table(table)
     key_list = ",".join(str(k) for k in keys)
+    column_list = ", ".join("`{0}`".format(c) for c in columns)
     return "\n".join([
         "CREATE TABLE IF NOT EXISTS `{0}` LIKE `{1}`;".format(backup, table),
-        "INSERT IGNORE INTO `{0}` SELECT * FROM `{1}` WHERE `{2}` IN ({3});".format(
-            backup, table, pk, key_list),
+        "INSERT IGNORE INTO `{0}` ({1}) SELECT {1} FROM `{2}` "
+        "WHERE `{3}` IN ({4});".format(backup, column_list, table, pk, key_list),
         "DELETE FROM `{0}` WHERE `{1}` IN ({2});".format(table, pk, key_list),
     ])
 
@@ -436,19 +584,28 @@ def billing_disambiguation_script(table, column, order_by, suffix, width=50) -> 
         # LEFT() keeps the result inside the column, which matters for a long
         # legacy filename; the post-check below catches the truncation collision
         # that would imply.
+        # `timestamp` is declared ON UPDATE current_timestamp() on both billing
+        # tables, so an UPDATE that touches the row rewrites the clinic's record
+        # of WHEN it submitted -- and on billing_on_filename that column is the
+        # very ORDER BY this ranking depends on, so a second run would rank
+        # differently. Assigning it to itself suppresses the auto-update; it is
+        # not a no-op and must not be "tidied" away.
         "UPDATE `{0}` b JOIN `_carlos_adopt_rank` r ON r.row_id = b.`id` "
         "SET b.`{1}` = CONCAT("
-        "  LEFT(b.`{1}`, GREATEST(1, {2} - CHAR_LENGTH({3}))), {3}) "
+        "  LEFT(b.`{1}`, GREATEST(1, {2} - CHAR_LENGTH({3}))), {3}), "
+        "b.`timestamp` = b.`timestamp` "
         "WHERE r.rn > 1;".format(table, column, width, tag),
         "DROP TEMPORARY TABLE `_carlos_adopt_rank`;",
     ])
 
 
 def _remaining_duplicates(dbops, db_name, table, column) -> int:
-    return _count(dbops, db_name,
-                  "SELECT COALESCE(SUM(n - 1), 0) FROM (SELECT COUNT(*) AS n "
-                  "FROM `{0}` WHERE `{1}` IS NOT NULL GROUP BY `{1}` "
-                  "HAVING n > 1) d".format(table, column))
+    return _count_or_die(
+        dbops, db_name,
+        "SELECT COALESCE(SUM(n - 1), 0) FROM (SELECT COUNT(*) AS n "
+        "FROM `{0}` WHERE `{1}` IS NOT NULL GROUP BY `{1}` "
+        "HAVING n > 1) d".format(table, column),
+        "re-check {0}.{1} for duplicates".format(table, column))
 
 
 # --- the verb --------------------------------------------------------------
@@ -515,7 +672,7 @@ def cmd_db_baseline(argv) -> int:
     schema = live_schema(dbops, db_name)
     stale = _stale_history(dbops, db_name, tables, schema)
 
-    for table, pk, keys, present, source in collisions:
+    for table, pk, keys, present, source, _columns in collisions:
         log("{0}: {1} row(s) in `{2}` collide with the unguarded seed in {3}; "
             "they will be copied to `{4}` and cleared so the migration can lay "
             "down its canonical rows".format(
@@ -563,8 +720,9 @@ def cmd_db_baseline(argv) -> int:
     log("reconciled: {0} table(s) and {1} column(s) added; {2} table(s) "
         "checked".format(after[0] - before[0], after[1] - before[1], len(tables)))
 
-    for table, pk, keys, _present, _source in collisions:
-        _run_script(dbops, db_name, seed_collision_script(table, pk, keys),
+    for table, pk, keys, _present, _source, columns in collisions:
+        _run_script(dbops, db_name,
+                    seed_collision_script(table, pk, keys, columns),
                     "clearing seed collisions in {0}".format(table))
 
     for table, column, order_by, suffix, _extra, width in duplicates:
