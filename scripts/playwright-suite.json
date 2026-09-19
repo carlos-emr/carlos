@@ -35,6 +35,32 @@
   ],
   "checks": [
     {
+      "name": "provider-quick-links",
+      "script": "scripts/provider-quick-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "pharmacy-editor-workflow",
+      "script": "scripts/pharmacy-editor-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "add-login-account",
       "script": "scripts/add-login-account-playwright-checks.js",
       "tiers": [
