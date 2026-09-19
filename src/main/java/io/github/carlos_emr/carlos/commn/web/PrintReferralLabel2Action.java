@@ -61,6 +61,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /** Renders complete referral-label batches, preserving the selection if generation fails. */
 public class PrintReferralLabel2Action extends ActionSupport {
+    /** Maximum label count per request, including duplicates, to bound rendering work. */
+    public static final int MAX_LABELS_PER_BATCH = 200;
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -117,6 +119,11 @@ public class PrintReferralLabel2Action extends ActionSupport {
             String list = request.getParameter("ids");
             if (StringUtils.isBlank(list)) list = request.getParameter("billingreferralNo");
             if (StringUtils.isNotBlank(list)) ids.addAll(List.of(list.split(",", -1)));
+        }
+        if (ids.size() > MAX_LABELS_PER_BATCH) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "Select no more than " + MAX_LABELS_PER_BATCH + " referrals per batch.");
+            return NONE;
         }
         if (ids.isEmpty() || ids.stream().anyMatch(id -> !id.matches("[1-9][0-9]{0,9}"))) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Select a referral to print.");

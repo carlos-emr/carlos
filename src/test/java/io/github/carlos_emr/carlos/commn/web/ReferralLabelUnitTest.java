@@ -25,6 +25,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/** Tests referral-label PDF content, atomic failure handling, authorization and request limits.
+ * @since 2026-09-19
+ */
 @Tag("unit")
 class ReferralLabelUnitTest extends CarlosWebTestBase {
     private PrintReferralLabel2Action action() throws Exception {
@@ -129,4 +132,59 @@ class ReferralLabelUnitTest extends CarlosWebTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         verify(action, never()).loadTemplate();
     }
+    @Test
+    void shouldRejectRequest_whenDemographicPrivilegeIsMissing() throws Exception {
+        PrintReferralLabel2Action action = action();
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), isNull())).thenReturn(false);
+        mockRequest.setParameter("billingreferralNo", "1");
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        verify(action, never()).loadTemplate();
+        assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"12345678901", "0", "-1", "invalid"})
+    void shouldRejectInvalidIdentifier_beforeLoadingTemplate(String id) throws Exception {
+        PrintReferralLabel2Action action = action();
+        mockRequest.setParameter("billingreferralNo", id);
+        action.execute();
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(action, never()).loadTemplate();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRejectOversizedBatch_beforeLoadingTemplate(boolean checklist) throws Exception {
+        PrintReferralLabel2Action action = action();
+        List<ProfessionalSpecialist> selected = new ArrayList<>();
+        if (checklist) {
+            ProfessionalSpecialist specialist = mock(ProfessionalSpecialist.class);
+            when(specialist.getId()).thenReturn(1);
+            selected.addAll(java.util.Collections.nCopies(PrintReferralLabel2Action.MAX_LABELS_PER_BATCH + 1, specialist));
+            mockRequest.getSession().setAttribute("billingReferralAdminCheckList", selected);
+            mockRequest.setParameter("useCheckList", "true");
+        } else {
+            mockRequest.setParameter("ids", String.join(",", java.util.Collections.nCopies(
+                    PrintReferralLabel2Action.MAX_LABELS_PER_BATCH + 1, "1")));
+        }
+        action.execute();
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockResponse.getErrorMessage()).contains("200");
+        verify(action, never()).loadTemplate();
+        if (checklist) assertThat(mockRequest.getSession().getAttribute("billingReferralAdminCheckList")).isSameAs(selected);
+    }
+
+    @Test
+    void shouldRenderEveryRequestedCopy_whenBatchIsAtLimit() throws Exception {
+        PrintReferralLabel2Action action = action();
+        mockRequest.setParameter("ids", String.join(",", java.util.Collections.nCopies(
+                PrintReferralLabel2Action.MAX_LABELS_PER_BATCH, "1")));
+        doReturn(pdf("Requested label")).when(action).renderLabel(any(), eq("1"));
+        action.execute();
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        try (PdfReader reader = new PdfReader(mockResponse.getContentAsByteArray())) {
+            assertThat(reader.getNumberOfPages()).isEqualTo(PrintReferralLabel2Action.MAX_LABELS_PER_BATCH);
+        }
+    }
+
 }

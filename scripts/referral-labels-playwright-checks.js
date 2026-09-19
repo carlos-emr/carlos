@@ -41,6 +41,7 @@ async function workflow(s) {
     page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
     page.locator('input[type="submit"][value="Search"]').click(),
   ]);
+  assert(await page.getByText('Print up to 200 labels per batch.', { exact: true }).isVisible(), 'Referral batch limit is not visible');
   await s.step('UI selection yields every requested label, including names without salutations', async () => {
     for (const id of ids) {
       const [response] = await Promise.all([
@@ -59,7 +60,7 @@ async function workflow(s) {
     assert(!(await page.locator('#checked_items_tbl').innerText()).includes(s.marker), 'Successful batch did not clear its selection');
   });
   await s.step('empty and invalid selections are HTTP errors rather than empty PDFs', async () => {
-    for (const query of ['useCheckList=true', 'billingreferralNo=invalid']) {
+    for (const query of ['useCheckList=true', 'billingreferralNo=invalid', 'billingreferralNo=12345678901', `ids=${Array(201).fill(ids[0]).join(',')}`]) {
       const response = await s.context.request.get(`${s.config.baseUrl}/printReferralLabelAction?${query}`);
       assert(response.status() === 400, 'Invalid selection looked successful');
       assert(!(response.headers()['content-type'] || '').includes('application/pdf'), 'Invalid selection was labelled as a PDF');
