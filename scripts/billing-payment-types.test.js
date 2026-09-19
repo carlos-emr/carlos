@@ -59,7 +59,7 @@ for (const rejected of [false, true]) {
     jquery.ajax = request => requests.push(request);
     const context = vm.createContext({ window: { csrfTokenReady: ready }, document: doc, jQuery: jquery, alert: text => alerts.push(text) });
     const source = fs.readFileSync(path.join(root, 'manageBillingPaymentType.jsp'), 'utf8');
-    const code = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]).find(value => value.includes('data-paymentTypeId'));
+    const code = deleteScript(source);
     assert.ok(code, 'the actual delete handler must be executed');
     vm.runInContext(csrfScript, context); vm.runInContext(code, context);
     let prevented = false;
@@ -95,3 +95,14 @@ test('transport failure produces readable text and does not navigate', () => {
   context.paymentTypeRequestFailed(null, '', '');
   assert.deepEqual(alerts, ['timeout', 'Error: synthetic failure', 'Unknown error happened!']);
 });
+
+function deleteScript(source) {
+  return [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)]
+    .map(match => match[1]).find(value => value.includes('data-paymentTypeId'));
+}
+for (const closing of ['</SCRIPT >', '</script data-ignored="fixture">']) {
+  test(`script extraction accepts HTML closing tag variation ${closing}`, () => {
+    const source = fs.readFileSync(path.join(root, 'manageBillingPaymentType.jsp'), 'utf8');
+    assert.equal(deleteScript(source.replaceAll('</script>', closing)), deleteScript(source));
+  });
+}
