@@ -83,6 +83,7 @@
     "test:prevention-brand-picker-playwright": "node scripts/prevention-brand-picker-playwright-checks.js",
     "test:prevention-add-data-playwright": "node scripts/prevention-add-data-playwright-checks.js",
     "test:form-rourke2017-playwright": "node scripts/form-rourke2017-playwright-checks.js",
+    "test:form-labreq-practitioner-no-playwright": "node scripts/form-labreq-practitioner-no-playwright-checks.js",
     "test:form-asset-paths-playwright": "node scripts/form-asset-paths-playwright-checks.js",
     "test:allergy-add-penicillin-playwright": "node scripts/allergy-add-penicillin-playwright-checks.js",
     "test:lab-macro-tickler-playwright": "node scripts/lab-macro-tickler-playwright-checks.js",
@@ -133,9 +134,14 @@
     "test:about-licence-playwright": "node scripts/about-licence-playwright-checks.js",
     "test:consultation-null-booking-playwright": "node scripts/consultation-null-booking-playwright-checks.js",
     "test:pharmacy-search-playwright": "node scripts/pharmacy-search-playwright-checks.js",
+    "test:pharmacy-list-filters-playwright": "node scripts/pharmacy-list-filters-playwright-checks.js",
     "test:admin-report-validation-playwright": "node scripts/admin-report-validation-playwright-checks.js",
     "test:inactive-drug-status-playwright": "node scripts/inactive-drug-status-playwright-checks.js",
-    "test:referral-labels-playwright": "node scripts/referral-labels-playwright-checks.js"
+    "test:referral-labels-playwright": "node scripts/referral-labels-playwright-checks.js",
+    "test:scratchpad-workflow-playwright": "node scripts/scratchpad-workflow-playwright-checks.js",
+    "test:provider-quick-links-playwright": "node scripts/provider-quick-links-playwright-checks.js",
+    "test:pharmacy-editor-workflow-playwright": "node scripts/pharmacy-editor-workflow-playwright-checks.js",
+    "test:incoming-pdf-extraction-playwright": "node scripts/incoming-pdf-extraction-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

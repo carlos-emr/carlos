@@ -1397,6 +1397,14 @@
 
 </form>
 
+<%-- Keep this POST form in the initial DOM so CSRFGuard injects its token before
+     either quick-link action submits. Do not nest it in UPDATEPRE. --%>
+<form id="quickLinkActionForm" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks">
+    <input type="hidden" name="action" value="">
+    <input type="hidden" name="name" value="">
+    <input type="hidden" name="url" value="">
+</form>
+
 <%-- ═══════════════════════════════════════════════════════════════════════
      DX CODE SEARCH MODAL - Inline search for billing diagnostic codes
      Loads billingDigSearch.jsp in an iframe, overrides its CodeAttach()
@@ -1504,19 +1512,10 @@ function checkTypeInAll() {
  * @param {string} url - The quick link URL; omitted from form when falsy (e.g., for 'remove')
  */
 function submitQuickLinkAction(action, name, url) {
-    var form = document.createElement('form');
-    form.method = 'post';
-    form.action = '<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks';
-    var fields = {action: action, name: name};
-    if (url) { fields.url = url; }
-    for (var key in fields) {
-        var input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = fields[key];
-        form.appendChild(input);
-    }
-    document.body.appendChild(form);
+    var form = document.getElementById('quickLinkActionForm');
+    form.elements.namedItem('action').value = action;
+    form.elements.namedItem('name').value = name;
+    form.elements.namedItem('url').value = url || '';
     form.submit();
 }
 

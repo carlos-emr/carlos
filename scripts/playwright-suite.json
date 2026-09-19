@@ -35,6 +35,32 @@
   ],
   "checks": [
     {
+      "name": "provider-quick-links",
+      "script": "scripts/provider-quick-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "pharmacy-editor-workflow",
+      "script": "scripts/pharmacy-editor-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "add-login-account",
       "script": "scripts/add-login-account-playwright-checks.js",
       "tiers": [
@@ -443,6 +469,21 @@
       "timeoutSec": 240,
       "env": [
         "DOCUMENT_PAGINATION_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "incoming-pdf-extraction",
+      "script": "scripts/incoming-pdf-extraction-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "INCOMINGDOCUMENT_DIR"
       ]
     },
     {
@@ -957,6 +998,22 @@
         "ON"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "form-labreq-practitioner-no",
+      "script": "scripts/form-labreq-practitioner-no-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LABREQ_DEMOGRAPHIC_NO",
+        "LABREQ_PROVIDER_NO"
+      ]
     },
     {
       "name": "form-rourke2017",
@@ -2088,6 +2145,19 @@
       "env": []
     },
     {
+      "name": "pharmacy-list-filters",
+      "script": "scripts/pharmacy-list-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "admin-report-validation",
       "script": "scripts/admin-report-validation-playwright-checks.js",
       "tiers": [
@@ -2140,6 +2210,19 @@
         "all"
       ],
       "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "scratchpad-workflow",
+      "script": "scripts/scratchpad-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
       "env": []
     },
     {
