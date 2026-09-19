@@ -2182,6 +2182,32 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "admin-security-workflow",
+      "script": "scripts/admin-security-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "email-compose-send",
+      "script": "scripts/email-compose-send-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
     }
   ]
 }
