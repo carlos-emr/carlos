@@ -538,10 +538,12 @@ def plan_billing_duplicates(dbops, db_name):
     for table, column, order_by, suffix in BILLING_UNIQUE:
         if not _table_exists(dbops, db_name, table):
             continue
-        extra = _count(dbops, db_name,
-                       "SELECT COALESCE(SUM(n - 1), 0) FROM (SELECT COUNT(*) AS n "
-                       "FROM `{0}` WHERE `{1}` IS NOT NULL GROUP BY `{1}` "
-                       "HAVING n > 1) d".format(table, column))
+        extra = _count_or_die(
+            dbops, db_name,
+            ("SELECT COALESCE(SUM(n - 1), 0) FROM (SELECT COUNT(*) AS n "
+             "FROM `{0}` WHERE `{1}` IS NOT NULL GROUP BY `{1}` "
+             "HAVING n > 1) d").format(table, column),
+            "count duplicates in {0}.{1}".format(table, column))
         if extra:
             found.append((table, column, order_by, suffix, extra,
                           _column_width(dbops, db_name, table, column)))
