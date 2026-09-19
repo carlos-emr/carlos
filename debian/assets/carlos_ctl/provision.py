@@ -489,6 +489,12 @@ def cmd_finish_install(argv) -> int:
              "replacement was not requested. Run 'dpkg-reconfigure carlos-emr' and "
              "enable seeded-password replacement to recover.")
         return 1
+    # nginx can be stopped after a failed postinst restart. init-config leaves
+    # an operator-stopped service alone; install recovery must start and prove
+    # it before removing the marker that promises this retry.
+    _required("the nginx front door",
+              lambda _argv: config.apply_nginx(s.bind_ip, start_if_inactive=True), [])
+
     # Clear before a manual start, which also pulls in the provisioner. Otherwise
     # that dependency would repeat this repair. Restore the marker if start fails.
     try:

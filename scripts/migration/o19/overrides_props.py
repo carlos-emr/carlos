@@ -28,7 +28,7 @@ rewrites the ones CARLOS renamed (BUNDLE_PREFIX_RENAMES, below) before
 carrying it.
 """
 
-PROPS_MAP_VERSION = "o19map-2"
+PROPS_MAP_VERSION = "o19map-3"
 
 KEYS = {
     # --- clinic identity / billing (carry) --------------------------------

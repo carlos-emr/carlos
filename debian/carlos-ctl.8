@@ -281,7 +281,14 @@ Replace the seeded
 administrator password and PIN with random values and write them to
 .IR /etc/carlos\-emr/initial\-admin.txt .
 The migrations seed that account with a hash published in the CARLOS source
-repository, so this runs at install time by default. If a failed installation
+repository, so this runs at install time by default. Takes no options:
+exactly one of
+.BR \-h ,
+.B \-\-help
+or
+.B help
+prints its usage without running it; any other argument, or anything after
+the help word, is rejected rather than ignored. If a failed installation
 left a credential guard or disabled service, use
 .B finish-install
 to complete recovery and restore service startup.

@@ -210,7 +210,7 @@ class TestLifecycleRefusal(unittest.TestCase):
                                   side_effect=RuntimeError("execvp")) \
                 as execvp, contextlib.redirect_stderr(err):
             try:
-                cli._cmd_lifecycle(verb, [])
+                cli._cmd_lifecycle(verb)
             except RuntimeError as e:
                 self.assertEqual(str(e), "execvp")
                 outcome = "exec"
@@ -273,7 +273,7 @@ class TestLifecycleRefusal(unittest.TestCase):
                 mock.patch.object(cli.os, "execvp"), \
                 contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit):
-                cli._cmd_lifecycle("restart", [])
+                cli._cmd_lifecycle("restart")
         self.assertEqual(order, ["guard"])
 
 

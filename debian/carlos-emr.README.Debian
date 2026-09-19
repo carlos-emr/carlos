@@ -37,12 +37,38 @@ Release builds of both packages are attached to every CARLOS GitHub release
 (https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
 workflow, alongside their .sha256 checksums and build-provenance
 attestations. The carlos-emr package on a release ships that release's own
-published WAR byte for byte. Verify, then install:
+published WAR byte for byte.
+
+Fetching them from a shell (a server has no browser; from WSL this is far
+easier than copying files across): on the release page, right-click each
+asset and copy its link address, or build the URLs from the tag. <tag> is the
+release tag as GitHub shows it (2026.08.0-alpha12); <version> is that tag as
+it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha12):
+
+  R=https://github.com/carlos-emr/carlos/releases/download/<tag>
+  wget $R/carlos-emr_<version>_all.deb $R/carlos-emr_<version>_all.deb.sha256 \
+       $R/carlos-emr-drugref_<version>_all.deb $R/carlos-emr-drugref_<version>_all.deb.sha256 \
+       $R/carlos-emr-eform-renderer_<version>_amd64.deb $R/carlos-emr-eform-renderer_<version>_amd64.deb.sha256
+
+Verify, then install:
 
   sha256sum -c carlos-emr_<version>_all.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
+  sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
   sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb \
       ./carlos-emr-eform-renderer_<version>_amd64.deb
+
+On releases up to and including 2026.08.0-alpha12 the .sha256 files name the
+package with the build-time '~' spelling (carlos-emr_2026.08.0~alpha12_all.deb)
+while GitHub stores the asset with a '.', so `sha256sum -c` reports "No such
+file or directory" on an intact download. For those older releases,
+translate the filename in each downloaded checksum before checking it (the
+digest is unchanged), for example:
+
+  sed 's/~/./g' carlos-emr_2026.08.0.alpha12_all.deb.sha256 | sha256sum -c -
+
+Repeat for drugref and the renderer and require an OK result for every package
+before installing. Later releases record the published name directly.
 
 carlos-emr-eform-renderer is optional but strongly recommended: it carries the
 browser that renders saved eForms to PDF, and eForm print, fax and archive do
@@ -164,9 +190,25 @@ where, certificate validity, the security headers, whether the WAF actually
 blocks a probe attack, schema state, and backup freshness. Start there.
 
 The database migrations seed one administrator account, `carlosdoc`, whose
-password hash is published in the CARLOS source repository. The package
-replaces that password and PIN with random values at install time and writes
-them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
+password hash is published in the CARLOS source repository. When the
+installer's "replace the seeded administrator password" question is accepted
+(the default), the package replaces that password and PIN with random values
+and writes them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
+Declining the question leaves the published credential in the database and
+keeps the EMR stopped and disabled. To complete that installation, run
+
+  sudo dpkg-reconfigure carlos-emr
+
+and accept seeded-password replacement. This also clears the credential
+guard and restores service startup after provisioning succeeds. Running
+bootstrap-admin alone replaces the credential but does not clear that guard
+or restore service startup.
+
+On an already completed installation, `sudo carlos-ctl bootstrap-admin`
+generates a new administrator password and PIN. The verb takes no options:
+exactly one of -h, --help or help prints its usage without running it, and
+any other argument (or anything after the help word) is refused rather than
+ignored.
 
 That account arrives flagged for a FORCED PASSWORD RESET — the state the
 migrations seed it in, which this package deliberately keeps. Your first login
@@ -759,7 +801,13 @@ The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silen
   run finish-install manually: an automatic boot retry is not assured.
 
   finish-install returns nonzero if configuration, database settings, accounts,
-  migration, credential replacement or requested demo data fails. It preserves
+  migration, credential replacement, requested demo data or nginx recovery fails.
+  Recovery starts nginx if stopped and verifies the configured ports before
+  clearing the pending state; init-config alone leaves a stopped nginx stopped.
+  If the CARLOS site is missing, run dpkg-reconfigure carlos-emr to restore it.
+  CARLOS_BIND_IP must be an IPv4 or IPv6 address (for example 127.0.0.1 or
+  ::1), not a hostname; invalid input is rejected before rendering or reload.
+  It preserves
   the pending state so you can fix the reported cause and run the same command
   again. A populated schema that fails validation is NEVER migrated at boot;
   arrange a verified backup and have the administrator review the Flyway error

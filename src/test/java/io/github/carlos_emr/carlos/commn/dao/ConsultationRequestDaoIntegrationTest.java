@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -60,6 +62,9 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProfessionalSpecialistDao professionalSpecialistDao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     private static final int DEMO_1 = 60001;
     private static final int DEMO_2 = 60002;
 
@@ -92,6 +97,27 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
+
+        @Test
+        @DisplayName("should open a legacy request with a nullable booking flag without rewriting it")
+        void shouldReadLegacyBookingFlag_whenDatabaseValueIsNull() {
+            ConsultationRequest saved = createConsultRequest(DEMO_1, "1", null);
+            entityManager.flush();
+            entityManager.createNativeQuery("UPDATE consultationRequests SET patientWillBook=NULL WHERE requestId=:id")
+                    .setParameter("id", saved.getId()).executeUpdate();
+            entityManager.clear();
+
+            ConsultationRequest found = consultRequestDao.find(saved.getId());
+            assertThat(found.isPatientWillBook()).isFalse();
+            entityManager.flush();
+            assertThat(entityManager.createNativeQuery("SELECT patientWillBook FROM consultationRequests WHERE requestId=:id")
+                    .setParameter("id", saved.getId()).getSingleResult()).isNull();
+
+            found.setPatientWillBook(true);
+            entityManager.flush();
+            entityManager.clear();
+            assertThat(consultRequestDao.find(saved.getId()).isPatientWillBook()).isTrue();
+        }
 
         @Test
         @Tag("create")
