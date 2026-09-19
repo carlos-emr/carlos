@@ -148,6 +148,36 @@ async function workflow(s) {
     h.assert(await page.locator('#SelectPageList option').count() === 2, 'Extracted document did not reopen with one page');
     h.assert((await page.locator('fieldset legend').allTextContents()).some(text => text.includes(path.basename(destination))), 'Extracted PDF cannot be reopened from the queue');
   });
+  await s.step('rotate a page and all pages without losing content', async () => {
+    await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
+    await reloadAfter(() => page.locator('#SelectPageList').selectOption('1'));
+    const rotation = number => {
+      const info = execFileSync('pdfinfo', ['-f', String(number), '-l', String(number), source], { encoding: 'utf8' });
+      return Number(info.match(/(?:Page\s+\d+\s+rot|Page rot):\s+(\d+)/)?.[1]);
+    };
+    await reloadAfter(() => page.locator('button[onclick^="rotatePdf("]').filter({ hasText: '+90' }).click());
+    h.assert(rotation(1) === 90 && rotation(2) === 0, 'Single-page rotation changed the wrong pages');
+    await reloadAfter(() => page.locator('button[onclick^="rotateAllPagePdf("]').filter({ hasText: '180' }).click());
+    h.assert(rotation(1) === 270 && rotation(2) === 180, 'Whole-document rotation did not preserve relative page rotations');
+    const result = inspect(source);
+    h.assert(result.pages === 2 && result.text.includes(`${s.marker} page 1`) && result.text.includes(`${s.marker} page 3`),
+      'Rotation discarded page content');
+    h.assert(fs.readFileSync(unrelated).equals(original), 'Rotation changed an unrelated document');
+  });
+  await s.step('delete a selected page and preserve the other page and extracted document', async () => {
+    await reloadAfter(() => page.locator('#SelectPageList').selectOption('1'));
+    const extracted = fs.readFileSync(destination);
+    const dialogs = await h.withExpectedDialogs(page,
+      () => reloadAfter(() => page.locator('button[onclick^="deletePagePdf("]').click()));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Page deletion omitted its confirmation');
+    const result = inspect(source);
+    h.assert(result.pages === 1 && result.text.includes(`${s.marker} page 3`) && !result.text.includes(`${s.marker} page 1`),
+      'Page deletion retained the wrong page');
+    h.assert(fs.readFileSync(destination).equals(extracted), 'Page deletion changed the extracted document');
+    h.assert(fs.readFileSync(unrelated).equals(original), 'Page deletion changed an unrelated document');
+    await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
+    h.assert(await page.locator('#SelectPageList option').count() === 2, 'Single remaining page did not reopen');
+  });
 }
 if (require.main === module) runWorkflow('incoming-pdf-extraction', workflow, { openPatient: false });
 module.exports = { fixturePdf, inspect, workflow };
