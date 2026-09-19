@@ -32,7 +32,7 @@ sudo carlos-ctl db-migrate
 # 4. Verify, then destroy the plaintext dump
 sudo carlos-ctl db-validate
 sudo carlos-ctl check
-shred -u dump.sql dump.tar.gz dump.tar.gz.enc myisambackup.sql
+shred -u dump.sql dump.tar.gz dump.tar.gz.enc; [ -f myisambackup.sql ] && shred -u myisambackup.sql
 ```
 
 **Step 4's `shred` is not optional.** The decrypted dump is the clinic's entire
