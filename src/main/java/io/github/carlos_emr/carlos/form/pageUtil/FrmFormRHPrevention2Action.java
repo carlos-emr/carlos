@@ -128,13 +128,11 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
                     (String) request.getAttribute("savedRhState"), request.getRemoteAddr());
             return SUCCESS;
         } catch (IllegalArgumentException invalid) {
-            RhFormRequestGuard.reject(response, HttpServletResponse.SC_BAD_REQUEST,
-                    "Invalid RH workflow selection. Reload the patient chart and try again.");
+            RhFormRequestGuard.rejectInvalidWorkflow(response);
             return NONE;
         } catch (RuntimeException failure) {
             MiscUtils.getLogger().error("RH form save failed", failure);
-            RhFormRequestGuard.reject(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "The RH form or workflow was not saved. Reload the patient chart before retrying.");
+            RhFormRequestGuard.rejectSaveFailure(response);
             return NONE;
         }
     }
