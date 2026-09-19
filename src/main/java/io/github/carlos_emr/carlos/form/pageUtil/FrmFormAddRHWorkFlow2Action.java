@@ -58,46 +58,53 @@ public class FrmFormAddRHWorkFlow2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
-        MiscUtils.getLogger().debug("FrmFormRHPrevention Action");
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+        String demographicNo = RhFormRequestGuard.authorize(request, response, securityInfoManager);
+        if (demographicNo == null) return NONE;
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        try {
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+            transaction.executeWithoutResult(status -> saveInTransaction(demographicNo, info.getLoggedInProviderNo()));
+            request.setAttribute("demographic_no", demographicNo);
+            return SUCCESS;
+        } catch (IllegalArgumentException invalid) {
+            RhFormRequestGuard.reject(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid RH workflow selection. Reload the patient chart and try again.");
+            return NONE;
+        } catch (RuntimeException failure) {
+            MiscUtils.getLogger().error("RH workflow save failed", failure);
+            RhFormRequestGuard.reject(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "The RH form or workflow was not saved. Reload the patient chart before retrying.");
+            return NONE;
         }
+    }
 
-        String providerNo = (String) request.getSession().getAttribute("user");
-        String demographicNo = request.getParameter("demographic_no");
-        String dateToParse = request.getParameter("end_date");
-        String state = request.getParameter("state");
+    private void saveInTransaction(String demographicNo, String providerNo) {
         String workflowId = request.getParameter("workflowId");
-
-        WorkFlowState wfs = new WorkFlowState();
-
-
+        String state = request.getParameter("state");
+        WorkFlowState workflows = new WorkFlowState();
         if (workflowId != null) {
-            //LOG CHANGE NOW
-            MiscUtils.getLogger().debug("Changing workflow for  " + demographicNo + " to " + state);
-            wfs.updateWorkFlowState(workflowId, state);
-
+            if (state == null || !java.util.Set.of("1", "2", "3", "4", "5", "C").contains(state)) {
+                throw new IllegalArgumentException("Invalid RH state");
+            }
+            boolean owned = false;
+            for (Object candidate : workflows.getActiveWorkFlowList(WorkFlowState.RHWORKFLOW, demographicNo)) {
+                if (workflowId.equals(((java.util.Hashtable) candidate).get("ID"))) owned = true;
+            }
+            if (!owned) throw new IllegalArgumentException("RH workflow does not belong to this patient's active pregnancy");
+            workflows.updateWorkFlowState(workflowId, state);
         } else {
-            MiscUtils.getLogger().debug("New workflow for " + demographicNo + " EDD " + dateToParse);
-            Date endDate = UtilDateUtilities.StringToDate(dateToParse);
-            wfs.addToWorkFlow(WorkFlowState.RHWORKFLOW, providerNo, demographicNo, endDate, WorkFlowState.INIT_STATE);
+            Date endDate = UtilDateUtilities.StringToDate(request.getParameter("end_date"));
+            if (workflows.addToWorkFlow(WorkFlowState.RHWORKFLOW, providerNo, demographicNo,
+                    endDate, WorkFlowState.INIT_STATE) <= 0) {
+                throw new IllegalStateException("RH workflow was not created");
+            }
         }
-
         String bloodType = request.getParameter("motherABO");
         String rhType = request.getParameter("motherRHtype");
-
-        WriteNewMeasurements measurement = new WriteNewMeasurements();
-
-        if (bloodType != null) {
-            measurement.write("BLDT", bloodType, demographicNo, providerNo, new Date(), "");
-        }
-        if (rhType != null) {
-            measurement.write("RHT", rhType, demographicNo, providerNo, new Date(), "");
-        }
-
-
-        request.setAttribute("demographic_no", demographicNo);
-        return SUCCESS;
+        if (bloodType == null && rhType == null) return;
+        WriteNewMeasurements measurements = new WriteNewMeasurements();
+        if (bloodType != null) measurements.write("BLDT", bloodType, demographicNo, providerNo, new Date(), "");
+        if (rhType != null) measurements.write("RHT", rhType, demographicNo, providerNo, new Date(), "");
     }
 }

@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class FrmFormRHPrevention2ActionUnitTest extends CarlosUnitTestBase {
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
     @Test void shouldRejectDeniedWrite_beforeCreatingWorkflowOrSavingForm() {
         createAndRegisterMock(SecurityInfoManager.class);
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
@@ -40,7 +41,7 @@ class FrmFormRHPrevention2ActionUnitTest extends CarlosUnitTestBase {
         Hashtable<String,String> row = new Hashtable<>(); row.put("ID", "17");
         when(flow.getActiveWorkFlowList("770001")).thenReturn(new ArrayList<>(java.util.List.of(row)));
         when(record.saveFormRecord(any())).thenReturn(32);
-        when(record.createActionURL("success", "save", "770001", "32")).thenReturn("success");
+
         try (MockedStatic<ServletActionContext> servlet = servlet(request);
              MockedConstruction<WorkFlowFactory> workflows = mockConstruction(WorkFlowFactory.class,
                (mock, context) -> when(mock.getWorkFlow("RH")).thenReturn(flow));
@@ -53,6 +54,7 @@ class FrmFormRHPrevention2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(saved.getValue().getProperty("provider_no")).isEqualTo("999998");
             assertThat(saved.getValue().getProperty("demographic_no")).isEqualTo("770001");
             assertThat(saved.getValue().getProperty("workflowId")).isEqualTo("17");
+            assertThat(request.getAttribute("savedRhFormId")).isEqualTo("32");
             verify(states.constructed().get(0)).updateWorkFlowState(eq("17"), eq("2"), any());
             verify(flow, never()).addToWorkFlow(any(),any(),any());
         }
@@ -63,7 +65,7 @@ class FrmFormRHPrevention2ActionUnitTest extends CarlosUnitTestBase {
         when(flow.getActiveWorkFlowList("770001")).thenReturn(new ArrayList<>());
         when(flow.addToWorkFlow(eq("999998"),eq("770001"),any())).thenReturn(18);
         when(record.saveFormRecord(any())).thenReturn(33);
-        when(record.createActionURL("success","save","770001","33")).thenReturn("success");
+
         try (MockedStatic<ServletActionContext> servlet = servlet(request);
              MockedConstruction<WorkFlowFactory> workflows = mockConstruction(WorkFlowFactory.class,
                (mock, context) -> when(mock.getWorkFlow("RH")).thenReturn(flow));
@@ -76,6 +78,82 @@ class FrmFormRHPrevention2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("demographic_no")).isEqualTo("770001");
         }
     }
+    @Test void shouldRejectWorkflowOwnedByAnotherPatient_beforeAnyWrite() throws Exception {
+        MockHttpServletRequest request = request(); request.setParameter("workflowId", "99");
+        request.setParameter("state", "2");
+        WorkFlow flow = mock(WorkFlow.class);
+        Hashtable<String,String> row = new Hashtable<>(); row.put("ID", "17");
+        when(flow.getActiveWorkFlowList("770001")).thenReturn(new ArrayList<>(java.util.List.of(row)));
+        try (MockedStatic<ServletActionContext> servlet = servlet(request);
+             MockedConstruction<WorkFlowFactory> workflows = mockConstruction(WorkFlowFactory.class,
+               (mock, context) -> when(mock.getWorkFlow("RH")).thenReturn(flow));
+             MockedConstruction<WorkFlowState> states = mockConstruction(WorkFlowState.class);
+             MockedConstruction<FrmRecordFactory> records = mockConstruction(FrmRecordFactory.class)) {
+            assertThat(new FrmFormRHPrevention2Action().execute()).isEqualTo("none");
+            assertThat(ServletActionContext.getResponse().getStatus()).isEqualTo(400);
+            assertThat(states.constructed()).isEmpty();
+            assertThat(records.constructed()).isEmpty();
+            verify(flow, never()).addToWorkFlow(any(), any(), any());
+        }
+    }
+
+    @Test void shouldReportSaveFailure_withoutReturningSuccessOrZeroRecordRoute() throws Exception {
+        MockHttpServletRequest request = request(); request.setParameter("workflowId", "17");
+        WorkFlow flow = mock(WorkFlow.class); FrmRecord record = mock(FrmRecord.class);
+        Hashtable<String,String> row = new Hashtable<>(); row.put("ID", "17");
+        when(flow.getActiveWorkFlowList("770001")).thenReturn(new ArrayList<>(java.util.List.of(row)));
+        when(record.saveFormRecord(any())).thenThrow(new java.sql.SQLException("synthetic save failure"));
+        try (MockedStatic<ServletActionContext> servlet = servlet(request);
+             MockedConstruction<WorkFlowFactory> workflows = mockConstruction(WorkFlowFactory.class,
+               (mock, context) -> when(mock.getWorkFlow("RH")).thenReturn(flow));
+             MockedConstruction<WorkFlowState> states = mockConstruction(WorkFlowState.class);
+             MockedConstruction<FrmRecordFactory> records = mockConstruction(FrmRecordFactory.class,
+               (mock, context) -> when(mock.factory("RhImmuneGlobulin")).thenReturn(record))) {
+            assertThat(new FrmFormRHPrevention2Action().execute()).isEqualTo("none");
+            assertThat(ServletActionContext.getResponse().getStatus()).isEqualTo(500);
+            verify(record, never()).createActionURL(any(), any(), any(), any());
+            verify(transactionManager).rollback(any());
+            verify(transactionManager, never()).commit(any());
+        }
+    }
+
+    @Test void shouldRejectGetForBothRhMutations() {
+        MockHttpServletRequest request = request(); request.setMethod("GET");
+        try (MockedStatic<ServletActionContext> servlet = servlet(request)) {
+            assertThat(new FrmFormRHPrevention2Action().execute()).isEqualTo("none");
+            assertThat(ServletActionContext.getResponse().getStatus()).isEqualTo(405);
+            assertThat(new FrmFormAddRHWorkFlow2Action().execute()).isEqualTo("none");
+            assertThat(ServletActionContext.getResponse().getHeader("Allow")).isEqualTo("POST");
+        }
+    }
+
+    @Test void shouldRejectOtherPatientWorkflowInAddAction_beforeMeasurements() {
+        MockHttpServletRequest request = request(); request.setParameter("workflowId", "99");
+        request.setParameter("state", "2");
+        Hashtable<String,String> row = new Hashtable<>(); row.put("ID", "17");
+        try (MockedStatic<ServletActionContext> servlet = servlet(request);
+             MockedConstruction<WorkFlowState> workflows = mockConstruction(WorkFlowState.class,
+               (mock, context) -> when(mock.getActiveWorkFlowList("RH", "770001"))
+                 .thenReturn(new ArrayList<>(java.util.List.of(row))))) {
+            assertThat(new FrmFormAddRHWorkFlow2Action().execute()).isEqualTo("none");
+            assertThat(ServletActionContext.getResponse().getStatus()).isEqualTo(400);
+            verify(workflows.constructed().get(0), never()).updateWorkFlowState(any(), any());
+        }
+    }
+
+    @Test void shouldSaveOwnedAddActionWorkflow() {
+        MockHttpServletRequest request = request(); request.setParameter("workflowId", "17");
+        request.setParameter("state", "2");
+        Hashtable<String,String> row = new Hashtable<>(); row.put("ID", "17");
+        try (MockedStatic<ServletActionContext> servlet = servlet(request);
+             MockedConstruction<WorkFlowState> workflows = mockConstruction(WorkFlowState.class,
+               (mock, context) -> when(mock.getActiveWorkFlowList("RH", "770001"))
+                 .thenReturn(new ArrayList<>(java.util.List.of(row))))) {
+            assertThat(new FrmFormAddRHWorkFlow2Action().execute()).isEqualTo("success");
+            verify(workflows.constructed().get(0)).updateWorkFlowState("17", "2");
+        }
+    }
+
     private MockHttpServletRequest request() {
         MockHttpServletRequest request = new MockHttpServletRequest("POST","/form/RHPrevention");
         request.setParameter("demographic_no","770001"); request.setParameter("edd","2027-01-01");
@@ -84,6 +162,8 @@ class FrmFormRHPrevention2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),info);
         SecurityInfoManager security=createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(info,"_form","w",null)).thenReturn(true);
+        transactionManager = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactionManager.getTransaction(any())).thenAnswer(call -> new org.springframework.transaction.support.SimpleTransactionStatus());
         return request;
     }
     private MockedStatic<ServletActionContext> servlet(MockHttpServletRequest request) {
