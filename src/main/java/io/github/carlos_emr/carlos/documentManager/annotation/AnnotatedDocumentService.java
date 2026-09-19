@@ -45,6 +45,8 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.nio.file.Files;
 import java.util.UUID;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -173,7 +175,13 @@ public class AnnotatedDocumentService {
         int actualPageCount;
         try {
             try (var input = Files.newInputStream(readOnlyCopy)) {
-                if (!org.apache.commons.codec.digest.DigestUtils.sha256Hex(input).equals(expectedDigest)) {
+                // The digest is what authorizes this save against the bytes the provider
+                // actually reviewed, so it is compared in constant time rather than with
+                // String.equals, whose early exit leaks how much of a guess matched.
+                String actualDigest = org.apache.commons.codec.digest.DigestUtils.sha256Hex(input);
+                if (expectedDigest == null || !MessageDigest.isEqual(
+                        actualDigest.getBytes(StandardCharsets.UTF_8),
+                        expectedDigest.getBytes(StandardCharsets.UTF_8))) {
                     throw new IllegalArgumentException("The source document changed. Reopen it and review your annotations before saving.");
                 }
             }
