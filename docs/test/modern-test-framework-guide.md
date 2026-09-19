@@ -162,7 +162,7 @@ public abstract class CarlosUnitTestBase {
 
 #### Maven Configuration (pom.xml)
 ```xml
-<!-- JUnit 5 with Java 21 support -->
+<!-- JUnit 5 with Java 25 support -->
 <dependency>
     <groupId>org.junit.jupiter</groupId>
     <artifactId>junit-jupiter</artifactId>
@@ -170,7 +170,7 @@ public abstract class CarlosUnitTestBase {
     <scope>test</scope>
 </dependency>
 
-<!-- Surefire configuration for ByteBuddy Java 21 compatibility -->
+<!-- Surefire configuration for ByteBuddy Java 25 compatibility -->
 <plugin>
     <artifactId>maven-surefire-plugin</artifactId>
     <configuration>
@@ -333,7 +333,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 - Check Spring context configuration
 - Verify bean is defined in test context
 
-#### ByteBuddy Java 21 errors
+#### ByteBuddy Java 25 errors
 - Verify `-Dnet.bytebuddy.experimental=true` in Maven config
 - Update to Mockito 5.8.0 or later
 

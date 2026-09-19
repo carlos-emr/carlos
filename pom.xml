@@ -1555,8 +1555,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.15.0</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <release>25</release>
                     <!-- Emit MethodParameters attribute into .class files so Spring SpEL can
                          resolve method-argument names like #providerNo in @Cacheable conditions.
                          Without this, Spring 6+ silently fails parameter-name discovery (legacy
@@ -1850,7 +1849,7 @@
                     <failOnError>false</failOnError>
                     <failOnWarnings>false</failOnWarnings>
                     <quiet>true</quiet>
-                    <source>21</source>
+                    <source>25</source>
                     <additionalJOptions>
                         <additionalJOption>-Xdoclint:none</additionalJOption>
                     </additionalJOptions>

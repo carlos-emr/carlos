@@ -392,7 +392,7 @@ test: add TicklerDao integration tests
 
 ## Code Standards
 
-CARLOS is a healthcare EMR built with **Java 21**, Spring 5.3, Struts 6.8, Hibernate 5.x,
+CARLOS is a healthcare EMR built with **Java 25**, Spring 5.3, Struts 6.8, Hibernate 5.x,
 and MariaDB/MySQL. It handles sensitive patient data — security and code quality are not
 optional.
 

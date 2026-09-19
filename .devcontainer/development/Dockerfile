@@ -1,4 +1,4 @@
-FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077
+FROM tomcat:11.0.24-jdk25-temurin@sha256:6d673ad42da6498f05755cae67f85f2128bdfd88943c9bdb22e0965f8d4c3182
 
 # bash with pipefail, not the default /bin/sh (dash), for EVERY RUN below.
 #
@@ -29,7 +29,7 @@ ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
 
 # Copy Tomcat installation from the official Tomcat image
-COPY --from=tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077 /usr/local/tomcat $CATALINA_HOME
+COPY --from=tomcat:11.0.24-jdk25-temurin@sha256:6d673ad42da6498f05755cae67f85f2128bdfd88943c9bdb22e0965f8d4c3182 /usr/local/tomcat $CATALINA_HOME
 
 # Labels
 LABEL author="CARLOS EMR Project" \

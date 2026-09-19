@@ -22,7 +22,7 @@ A comprehensive modern test framework has been successfully implemented for CARL
 ### Technology Stack
 - **Test Framework**: JUnit 5 (Jupiter) 5.10.1
 - **Assertions**: AssertJ 3.24.2 for fluent assertions
-- **Mocking**: Mockito 5.x (Java 21 compatible)
+- **Mocking**: Mockito 5.x (Java 25 compatible)
 - **Database**: H2 in-memory database (MySQL mode)
 - **Spring**: Spring Test with Spring 5.3.39
 - **Transactions**: Full transaction support with rollback
@@ -379,7 +379,7 @@ From actual test execution:
 - ✅ Both test suites (modern JUnit 5 and legacy JUnit 4) run independently
 - ✅ No impact on existing tests
 - ✅ 140 of 141 tests passing (99% pass rate)
-- ✅ Full Java 21 compatibility with ByteBuddy experimental flag
+- ✅ Full Java 25 compatibility with ByteBuddy experimental flag
 - ✅ Manager unit test patterns proven with 117-test DemographicManagerUnitTest
 - ✅ Domain-specific base classes demonstrated (DemographicUnitTestBase, TicklerUnitTestBase)
 
@@ -548,7 +548,7 @@ void performanceTest() {
 
 The modern test framework is fully operational with:
 
-- ✅ JUnit 5 with Java 21 support
+- ✅ JUnit 5 with Java 25 support
 - ✅ Better test organization with @Nested and @DisplayName
 - ✅ AssertJ fluent assertions
 - ✅ Fast execution with H2 in-memory database

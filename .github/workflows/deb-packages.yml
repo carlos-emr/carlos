@@ -93,7 +93,7 @@ jobs:
           # compiled here (see CARLOS_WAR below).
           apt-get install -y --no-install-recommends \
             build-essential debhelper devscripts lintian fakeroot \
-            maven openjdk-21-jdk-headless tomcat11 \
+            maven openjdk-25-jdk-headless tomcat11 \
             git ca-certificates curl xz-utils unzip
           # gh comes from GitHub's own apt repository, NOT the Ubuntu
           # archive: resolute ships gh 2.46.0, and `gh attestation` (which

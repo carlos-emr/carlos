@@ -19,7 +19,7 @@ i18n coverage gaps identified by the audit tooling.
 5. [Message Usage Patterns](#message-usage-patterns)
 6. [Multiline and Parameterized Messages](#multiline-and-parameterized-messages)
 7. [JavaScript i18n Pattern](#javascript-i18n-pattern)
-8. [UTF-8 Encoding Requirements (Java 21)](#utf-8-encoding-requirements-java-21)
+8. [UTF-8 Encoding Requirements (Java 25)](#utf-8-encoding-requirements-java-21)
 9. [CI Validation](#ci-validation)
 10. [Domain Priority Order](#domain-priority-order)
 
@@ -372,11 +372,11 @@ strings into JavaScript. Never use `${someVar}` directly inside `<script>` block
 
 ---
 
-## UTF-8 Encoding Requirements (Java 21)
+## UTF-8 Encoding Requirements (Java 25)
 
 Since Java 9, `ResourceBundle.getBundle()` — the primary mechanism used by JSP
 `<fmt:message>` tags — reads `.properties` files as **UTF-8** by default. CARLOS
-runs on Java 21, so all `oscarResources_*.properties` files must be saved as UTF-8.
+runs on Java 25, so all `oscarResources_*.properties` files must be saved as UTF-8.
 The old `Properties.load()` ISO 8859-1 default no longer applies to
 `ResourceBundle`-based loading.
 

@@ -33,7 +33,7 @@
 # variables above for a fully offline build.
 
 export DH_VERBOSE = 1
-export JAVA_HOME ?= /usr/lib/jvm/java-21-openjdk-$(shell dpkg --print-architecture)
+export JAVA_HOME ?= /usr/lib/jvm/java-25-openjdk-$(shell dpkg --print-architecture)
 export LC_ALL = C.UTF-8
 
 # Maven wants a writable local repository; keep it inside the build tree so a

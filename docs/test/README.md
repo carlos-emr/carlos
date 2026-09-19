@@ -13,7 +13,7 @@ This directory contains comprehensive documentation for the CARLOS EMR modern te
     - TicklerManagerUnitTest: 9 tests
     - TicklerDaoUnitTest: 3 tests
   - Integration Tests: 11/12 passing (1 fails due to lst_gender table dependency)
-- **Java 21 Support**: ✅ Fully compatible with ByteBuddy experimental flag
+- **Java 25 Support**: ✅ Fully compatible with ByteBuddy experimental flag
 
 ## Quick Start Guide
 
@@ -206,7 +206,7 @@ public class MyManagerUnitTest extends CarlosUnitTestBase {
 ### Issue: SpringUtils.getBean() returns null
 **Solution**: Ensure test extends `CarlosTestBase` and Spring context is configured
 
-### Issue: ByteBuddy Java 21 compatibility error
+### Issue: ByteBuddy Java 25 compatibility error
 **Solution**: Verify `-Dnet.bytebuddy.experimental=true` is in Maven configuration
 
 ### Issue: Static initialization failures

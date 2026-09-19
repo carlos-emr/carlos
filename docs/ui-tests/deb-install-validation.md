@@ -225,7 +225,7 @@ and answers a different question**. Every check below goes through `:443`.
   give the VM 8 GiB. Do not run heavy Maven builds while VMs are up on a
   memory-constrained host — the build below is done **before** the VM exists.
 - Build dependencies satisfied on the host: `dpkg-checkbuilddeps` must be clean
-  (OpenJDK 21, Maven, debhelper, tomcat11 packages).
+  (OpenJDK 25, Maven, debhelper, tomcat11 packages).
 
 ## 1. Build the packages
 
