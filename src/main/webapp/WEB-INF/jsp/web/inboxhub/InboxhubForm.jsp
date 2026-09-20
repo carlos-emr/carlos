@@ -592,7 +592,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             const handledInPlace = acknowledgedId
                 ? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows)
                 : false;
-            if (handledInPlace) {
+            if (handledInPlace && !hasMoreData) {
                 // Deliberately NO re-fetch. fetchInboxhubData re-runs the whole search from
                 // page 1 and replaces #inboxhubMode wholesale, which drops the clinician back
                 // at the top of a list they had scrolled into, discards every page after the
@@ -603,9 +603,28 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                     openNextInboxItem();
                 }
             } else {
-                // The item was not on screen. It may have been filtered out, or the inbox may
+                // Two reasons to ask the server instead.
+                //
+                // THE ITEM WAS NOT ON SCREEN: it may have been filtered out, or the inbox may
                 // be listing Acknowledged items, where this acknowledgement ADDS a row rather
-                // than removing one. Only the server can say, so ask it.
+                // than removing one. Only the server can say which.
+                //
+                // OR PAGES REMAIN UNLOADED, and then dropping the item in place is not enough.
+                // The server pages by OFFSET, not by cursor: LabDataController turns the page
+                // number into `page - 1` and the DAOs multiply it out
+                // (HRMDocumentToProviderDao: `setFirstResult(page * pageSize)`). An
+                // acknowledged result leaves the New set, so every later result shifts up by
+                // one and the next page number starts one item too far in -- the result on the
+                // page boundary is never fetched at all. In an inbox that is a lab nobody
+                // looks at, which is the whole failure mode this screen exists to prevent.
+                //
+                // The client cannot compensate for that shift. One page number drives three
+                // windows at two different page sizes (labs at 100 per page, documents and HRM
+                // at pageSize), so no arithmetic on it expresses "everything moved up by one
+                // item". Re-fetching re-syncs all three. Once hasMoreData is false no later
+                // page will ever be asked for, and only then is skipping the re-fetch safe --
+                // which is the state list mode reaches on its own, since it chains
+                // loadMoreListData until the whole result set is loaded.
                 fetchInboxhubData();
                 // When Rapid Review is on, open the next item after the refresh completes
                 if (rapidReviewState) {

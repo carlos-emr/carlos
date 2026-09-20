@@ -51,6 +51,12 @@
  * is run order. Moving it earlier turns inboxhub-filters red for a reason that
  * is not a defect. Run both against a disposable database.
  *
+ * IT SCROLLS TO THE END FIRST, and that is part of the contract rather than setup noise.
+ * While pages remain unloaded the Inbox deliberately re-syncs instead of dropping the item in
+ * place, because the server pages by offset and an acknowledged result shifts every later one
+ * up by a place. The in-place path only applies to a fully loaded list, so the check puts the
+ * page in that state before asserting anything.
+ *
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   INBOX_TIMEOUT_MS=60000        per-step allowance; preview cards are iframes
  */
@@ -112,6 +118,32 @@ async function settleList(page, timeout) {
     button,
     { timeout },
   ).catch(() => {});
+}
+
+/**
+ * Scroll the preview list to the end, so every page is loaded.
+ *
+ * REQUIRED, NOT COSMETIC. An acknowledged result leaves the New set, and the server pages by
+ * OFFSET, so while pages remain unloaded the next page number would start one item too far in
+ * and silently skip the result on the page boundary. The Inbox therefore only drops an item
+ * in place once hasMoreData is false. Reaching that state is what this does, and without it
+ * the check would be asserting against the re-sync path instead.
+ */
+async function loadEveryPreviewPage(page, timeout) {
+  const deadline = Date.now() + timeout;
+  let previous = -1;
+  while (Date.now() < deadline) {
+    const count = await page.locator('#inboxViewItems .document-card').count();
+    const more = await page.evaluate(() => window.hasMoreData !== false);
+    if (!more && count === previous) { return count; }
+    previous = count;
+    await page.evaluate(() => {
+      const container = document.getElementById('inboxViewItems');
+      container.scrollTop = container.scrollHeight;
+    });
+    await page.waitForTimeout(2500);
+  }
+  return previous;
 }
 
 /**
@@ -301,6 +333,14 @@ async function main() {
         + 'unacknowledged results so that acknowledging one leaves another whose iframe must NOT be reloaded',
       );
     }
+    await loadEveryPreviewPage(inbox, timeout);
+    const fullyLoaded = await inbox.evaluate(() => window.hasMoreData === false);
+    if (!fullyLoaded) {
+      throw new SkipCheck(
+        'the preview list never finished paging, so the Inbox is still in its re-sync state and '
+        + 'the in-place path this check covers would not be exercised',
+      );
+    }
     const before = await shownCards(inbox);
 
     const target = await findAcknowledgeable(inbox, before, timeout);
@@ -413,4 +453,4 @@ if (require.main === module) {
   runCheck({ name: 'inbox-preview-acknowledge', run: main });
 }
 
-module.exports = { cardFrame, enterPreviewMode, main, readStamps, settleList, shownCards, stampSurvivors, widenToAnyProvider };
+module.exports = { cardFrame, enterPreviewMode, loadEveryPreviewPage, main, readStamps, settleList, shownCards, stampSurvivors, widenToAnyProvider };

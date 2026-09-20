@@ -38,8 +38,11 @@ const rapidReview = slice('    // Flag set by BroadcastChannel listener',
  * @param {string} mode 'list' (DataTable) or 'preview' (cards in #inboxViewItems)
  * @param {Array} items [segmentId, labType] pairs, in rendered order
  * @param {boolean} shortPreview whether the preview list is too short to scroll
+ * @param {boolean} hasMoreData whether pages remain unloaded. The default is false -- a
+ *        fully loaded list -- because that is the only state in which an item may be dropped
+ *        in place; see the page-boundary tests at the end for why.
  */
-function setup(mode, items, shortPreview = false) {
+function setup(mode, items, shortPreview = false, hasMoreData = false) {
   const state = { fetches: 0, viewFetches: 0, draws: [], opened: null, scrolledTo: null };
   const totals = { totalDocsCount: 5, totalLabsCount: 5, totalHRMCount: 5, totalResultsCount: 15 };
   let rendered = items.map(([segmentId, labType]) => ({
@@ -59,6 +62,11 @@ function setup(mode, items, shortPreview = false) {
         return set(matched.filter(item => item.labType === wanted));
       },
       first() { return set(matched.slice(0, 1)); },
+      attr(name) {
+        if (!matched.length) { return undefined; }
+        return name === 'data-lab-type' ? matched[0].labType : matched[0].segmentId;
+      },
+      each(body) { matched.forEach((item) => body.call(item)); return set(matched); },
       next(selector) {
         assert.equal(selector, '.document-card');
         const at = rendered.indexOf(matched[0]);
@@ -74,14 +82,24 @@ function setup(mode, items, shortPreview = false) {
       row: element => ({
         remove() { drop(element.matched); return { draw(paging) { state.draws.push(paging); } }; },
       }),
+      rows: elements => ({
+        remove() { drop(elements); return { draw(paging) { state.draws.push(paging); } }; },
+      }),
     }),
   };
   const counter = id => ({
     val(value) { if (value === undefined) { return String(totals[id]); } totals[id] = Number(value); },
   });
 
+  const SCAN = '#inboxViewItems .document-card, #inboxhubListModeTableBody tr[data-segment-id]';
   function jQuery(selector) {
     if (selector === undefined) { return set([]); }
+    // dedupeInboxhubItems() hands back the duplicate elements it collected, and wraps each
+    // scanned element with jQuery(this) to read its identity.
+    if (Array.isArray(selector)) { return set(selector); }
+    if (typeof selector === 'object') { return set([selector]); }
+    // Its scan covers both modes in one selector; the fixture renders one at a time.
+    if (selector === SCAN) { return set(rendered); }
     if (selector === '#inbox_table') { return mode === 'list' ? table : set([]); }
     if (selector === '#inboxViewItems') { return mode === 'preview' ? set([{}]) : set([]); }
     if (/^#total\w+Count$/.test(selector)) { return counter(selector.slice(1)); }
@@ -110,7 +128,7 @@ function setup(mode, items, shortPreview = false) {
 
   const context = vm.createContext({
     jQuery, BroadcastChannel, document,
-    hasMoreData: true, isFetchingData: false, rapidReviewState: false,
+    hasMoreData, isFetchingData: false, rapidReviewState: false,
     showInboxhubStats() {},
     fetchInboxhubData() { state.fetches++; },
     fetchInboxhubViewData() { state.viewFetches++; },
@@ -217,8 +235,45 @@ test('Rapid Review opens the next row in list mode', () => {
 test('a preview list too short to scroll pulls in its next page', () => {
   // Preview mode reaches later pages from #inboxViewItems' scroll event; with nothing left
   // to scroll that event never fires again.
-  const inbox = setup('preview', twoLabs, true);
+  const inbox = setup('preview', twoLabs, true, true);
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
-  assert.equal(inbox.state.viewFetches, 1);
-  assert.equal(inbox.state.fetches, 0, 'the next page, not the whole search over again');
+  assert.equal(inbox.state.viewFetches, 1, 'the next page is pulled in');
+});
+
+/*
+ * THE PAGE BOUNDARY.
+ *
+ * The server pages by OFFSET, not by cursor: LabDataController turns the page number into
+ * `page - 1` and the DAOs multiply it out (HRMDocumentToProviderDao:
+ * `setFirstResult(page * pageSize)`). An acknowledged result leaves the New set, so every
+ * later result shifts up by one and the next page number starts one item too far in -- the
+ * result on the page boundary is then never fetched at all.
+ *
+ * The client cannot compensate: one page number drives three windows at two page sizes
+ * (labs at 100 per page, documents and HRM at pageSize), so no arithmetic on it expresses
+ * "everything moved up by one item". So while pages remain unloaded the acknowledgement
+ * must re-sync, however well the item could otherwise have been dropped in place.
+ */
+
+test('an acknowledgement re-syncs while pages remain unloaded', () => {
+  const inbox = setup('list', twoLabs, false, true);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.fetches, 1,
+    'paging on from a shifted result set silently skips the result on the page boundary');
+});
+
+test('the same acknowledgement is dropped in place once everything is loaded', () => {
+  const inbox = setup('list', twoLabs, false, false);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.fetches, 0, 'no later page will be asked for, so no offset can be skipped');
+  assert.deepEqual(inbox.shown(), ['HL7:171']);
+});
+
+test('the re-sync still moves the counters exactly once', () => {
+  // The re-fetch reloads the LIST; the badges are re-read from hidden inputs that only the
+  // in-place bookkeeping moves, so they must not be skipped along with the removal.
+  const inbox = setup('preview', twoLabs, false, true);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.totals.totalLabsCount, 4);
 });
