@@ -80,6 +80,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Flowsheet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Validations" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -155,8 +156,25 @@
         request.setAttribute("errorMessage", "A valid demographic_no is required");
         return;
     }
+    if (demographicNoInt <= 0) {
+        request.setAttribute("errorMessage", "A valid demographic_no is required");
+        return;
+    }
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+    // The checks above are chart-wide; the patient is named in the URL. Without
+    // this one a provider holding _eChart r and _flowsheet r could read any
+    // patient's measurements, preventions and eForms by editing demographic_no --
+    // including a chart their role is explicitly locked out of.
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
+        LogAction.addLog((String) session.getAttribute("user"), LogConst.NORIGHT + LogConst.READ,
+                LogConst.CON_FLOWSHEET, temp, request.getRemoteAddr(), demographic_no);
+        response.sendRedirect(request.getContextPath() + "/noRights.html");
+        return;
+    }
+
     boolean canWriteFlowsheet = securityMgr.hasWriteAccess("_flowsheet." + temp, roleName$);
 
     // Pre-encoded forms of the two values that end up in nearly every URL and
@@ -705,6 +723,8 @@
                                     <label class="form-check-label" for="<%= encField %>-REVIEWED">Reviewed</label>
                                 </div>
                                 <% } else { %>
+                                <label class="visually-hidden" for="<%= encField %>"><carlos:encode
+                                        value='<%= displayName %>' context="html"/></label>
                                 <input type="text" class="form-control form-control-sm entry-input" style="width:170px"
                                        id="<%= encField %>" name="<%= encField %>" autocomplete="off"
                                        placeholder="Enter Data"
@@ -786,7 +806,11 @@
                                 point.put("v", String.valueOf(mdb.getDataField()));
                                 plotPoints.add(point);
                         %>
-                            <div class="history-value" data-bs-toggle="popover" data-bs-html="true"
+                            <%-- Opens the value's detail/delete modal, so it carries the same
+                                 button semantics and keyboard handler as the prevention tiles. --%>
+                            <div class="history-value" role="button" tabindex="0"
+                                 onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }"
+                                 data-bs-toggle="popover" data-bs-html="true"
                                  data-bs-trigger="hover focus"
                                  data-bs-content="<%= SafeEncode.forHtmlAttribute(enteredBy
                                          + (comment.isEmpty() ? "" : "<br>" + SafeEncode.forHtmlContent(comment))) %>"

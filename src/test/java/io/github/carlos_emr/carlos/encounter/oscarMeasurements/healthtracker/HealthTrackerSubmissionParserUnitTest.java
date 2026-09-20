@@ -69,7 +69,28 @@ class HealthTrackerSubmissionParserUnitTest {
     void shouldNameField_byMeasurementType() {
         assertThat(HealthTrackerSubmissionParser.fieldNameFor("WT")).isEqualTo("WT");
         assertThat(HealthTrackerSubmissionParser.fieldNameFor("BP")).isEqualTo("BP");
-        assertThat(HealthTrackerSubmissionParser.fieldNameFor("A1C-2")).isEqualTo("A1C2");
+        assertThat(HealthTrackerSubmissionParser.fieldNameFor("A1C2")).isEqualTo("A1C2");
+    }
+
+    @Test
+    @DisplayName("should escape a type reversibly rather than stripping characters")
+    void shouldEscapeField_forTypeWithPunctuation() {
+        // EctAddMeasurementType2Action accepts ^[\w\s,.?]*$, so an administrator can
+        // create all of these. Stripping would collapse them onto one field name and
+        // one posted parameter; escaping keeps every type distinct.
+        assertThat(HealthTrackerSubmissionParser.fieldNameFor("FOO BAR")).isEqualTo("FOO_0020BAR");
+        assertThat(HealthTrackerSubmissionParser.fieldNameFor("FOO_BAR")).isEqualTo("FOO__BAR");
+        assertThat(HealthTrackerSubmissionParser.fieldNameFor("A1C,2")).isEqualTo("A1C_002C2");
+        assertThat(HealthTrackerSubmissionParser.fieldNameFor("HGB?")).isEqualTo("HGB_003F");
+    }
+
+    @Test
+    @DisplayName("should give every type in an administrator-typable alphabet its own field")
+    void shouldKeepFieldsDistinct_forCollidableTypes() {
+        List<String> types = List.of("FOO BAR", "FOOBAR", "FOO_BAR", "FOO.BAR", "FOO,BAR", "FOO?BAR", "FOO__BAR");
+
+        assertThat(types.stream().map(HealthTrackerSubmissionParser::fieldNameFor).distinct().count())
+                .isEqualTo(types.size());
     }
 
     @Test

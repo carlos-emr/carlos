@@ -55,6 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -158,6 +159,58 @@ class HealthTrackerUpdate2ActionUnitTest {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_measurement)");
 
+        verifyNoInteractions(flowSheetCustomizationDao, submissionService);
+    }
+
+    @Test
+    @DisplayName("should throw when the provider may not open that patient's record")
+    void shouldThrowSecurityException_whenPatientRecordNotAccessible() {
+        // Chart-wide _measurement w is held; this patient's chart is locked to the
+        // role. The demographic number is submitted, so without this check a
+        // hand-built POST could write measurements and a signed note into it.
+        request.setMethod("POST");
+        request.addParameter("demographic_no", "111");
+        request.addParameter("template", "tracker");
+        grantPrivilege(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), anyInt()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_measurement)");
+
+        verifyNoInteractions(flowSheetCustomizationDao, submissionService);
+    }
+
+    @Test
+    @DisplayName("should throw when measurement write is denied for that patient")
+    void shouldThrowSecurityException_whenPatientScopedWriteMissing() {
+        request.setMethod("POST");
+        request.addParameter("demographic_no", "111");
+        request.addParameter("template", "tracker");
+        grantPrivilege(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), eq("111")))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_measurement)");
+
+        verifyNoInteractions(flowSheetCustomizationDao, submissionService);
+    }
+
+    @Test
+    @DisplayName("should answer 400 when demographic_no is not a positive number")
+    void shouldReturnBadRequest_whenDemographicNoNotPositive() throws Exception {
+        request.setMethod("POST");
+        request.addParameter("demographic_no", "0");
+        request.addParameter("template", "tracker");
+        grantPrivilege(true);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         verifyNoInteractions(flowSheetCustomizationDao, submissionService);
     }
 
@@ -284,8 +337,14 @@ class HealthTrackerUpdate2ActionUnitTest {
         verifyNoInteractions(submissionService);
     }
 
+    /**
+     * Grants (or denies) both halves of the gate: the chart-wide privilege and the
+     * patient-scoped one the action applies once it knows which patient is named.
+     */
     private void grantPrivilege(boolean granted) {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(),
                 nullable(String.class))).thenReturn(granted);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), anyInt()))
+                .thenReturn(granted);
     }
 }

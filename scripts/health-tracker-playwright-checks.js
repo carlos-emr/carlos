@@ -9,9 +9,10 @@
 // invisible in the DOM when they break:
 //
 //   * the form field for a measurement is NAMED after the flowsheet item's
-//     display name with non-word characters stripped. The JSP and
-//     HealthTrackerSubmissionParser derive that name independently; if they ever
-//     disagree the page still renders, still submits, and silently saves nothing.
+//     measurement type, escaped so two types can never collide. The JSP and
+//     HealthTrackerSubmissionParser derive that name through one shared method;
+//     if they ever disagree the page still renders, still submits, and silently
+//     saves nothing.
 //   * the delete control posts with fetch(), which CSRFGuard's client script does
 //     NOT hijack, so the page has to send the CSRF-TOKEN header itself. A
 //     regression there fails as an HTML error page parsed as JSON inside a catch

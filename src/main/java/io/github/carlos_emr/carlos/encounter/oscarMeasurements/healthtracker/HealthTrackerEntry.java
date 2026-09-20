@@ -26,15 +26,17 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker;
  * One measurement the clinician typed into the Health Tracker form.
  *
  * <p>The Health Tracker posts a flat form whose field names are derived from the
- * flowsheet item's display name with every non-word character stripped
- * ({@code display_name.replaceAll("\\W","")}). That derived name is
- * {@link #fieldName()}; it is <em>not</em> the measurement type. The record
- * therefore carries both, so nothing downstream has to re-derive the mapping.
+ * flowsheet item's <em>measurement type</em> by
+ * {@link HealthTrackerSubmissionParser#fieldNameFor(String)}, which escapes it
+ * injectively so two types can never share a field. Display names cannot be used
+ * for this: a clinician may rename two items to the same label. The derived name
+ * is {@link #fieldName()}, kept alongside the type so nothing downstream has to
+ * re-derive the mapping.
  *
  * @param measurementType the {@code measurementType.type} code the row is stored
  *        under (e.g. {@code BP}, {@code HT}) — the value written to
  *        {@code measurements.type}
- * @param fieldName the sanitized form-field name the browser submitted under
+ * @param fieldName the escaped form-field name the browser submitted under
  * @param displayName the flowsheet item's human label, used in progress-note text
  *        and in the "these values were rejected" feedback
  * @param measuringInstruction the measurement type's measuring instruction (units

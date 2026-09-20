@@ -67,9 +67,16 @@ public class HealthTrackerSubmissionParser {
      * become {@code AB}) -- either way one posted parameter would answer for both rows
      * and a value could be written under the wrong measurement type.
      *
-     * <p>Non-word characters are still stripped so the name is usable as an element id
-     * on the page. Measurement type codes are already {@code [A-Za-z0-9_]} throughout
-     * the reference data, so this is identity in practice.
+     * <p>The transform is injective, which stripping characters is not.
+     * {@code EctAddMeasurementType2Action} accepts {@code ^[\\w\\s,.?]*$}, so an
+     * administrator can create both {@code FOO BAR} and {@code FOOBAR}; removing the
+     * space would give them one field name, one posted parameter, and a value written
+     * under whichever type was read last. Every character outside {@code [A-Za-z0-9]}
+     * is escaped instead, as {@code _} followed by its four-digit hex code, and a
+     * literal {@code _} doubles. An escape is therefore always distinguishable: after
+     * a {@code _}, another {@code _} is the character itself and anything else begins
+     * a four-digit code. A type made only of letters and digits -- which every type in
+     * the shipped reference data is -- passes through unchanged.
      *
      * <p>Kept public and static because the JSP renders the same transform when it
      * emits the inputs; if the two ever drift the form silently stops saving, so
@@ -77,10 +84,25 @@ public class HealthTrackerSubmissionParser {
      *
      * @param measurementType the flowsheet item's measurement type (its key in
      *        {@code MeasurementFlowSheet#getMeasurementList()})
-     * @return the measurement type with every non-word character removed
+     * @return a field name safe to use as an HTML name and element id, unique to
+     *         this measurement type
      */
     public static String fieldNameFor(String measurementType) {
-        return measurementType == null ? "" : measurementType.replaceAll("\\W", "");
+        if (measurementType == null) {
+            return "";
+        }
+        StringBuilder name = new StringBuilder(measurementType.length());
+        for (int i = 0; i < measurementType.length(); i++) {
+            char c = measurementType.charAt(i);
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+                name.append(c);
+            } else if (c == '_') {
+                name.append("__");
+            } else {
+                name.append('_').append(String.format("%04X", (int) c));
+            }
+        }
+        return name.toString();
     }
 
     /**

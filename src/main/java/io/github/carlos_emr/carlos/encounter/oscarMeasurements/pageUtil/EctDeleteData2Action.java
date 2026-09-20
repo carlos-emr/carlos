@@ -61,7 +61,8 @@ public class EctDeleteData2Action extends ActionSupport {
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "d", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "d", null)) {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
@@ -75,6 +76,14 @@ public class EctDeleteData2Action extends ActionSupport {
 
                 Measurement m = dao.find(ConversionUtils.fromIntString(deleteCheckbox[i]));
                 if (m != null) {
+                    // The id is client-supplied and names the row directly, so the
+                    // privilege check above -- which is chart-wide -- does not say
+                    // whether this caller may touch THIS patient's chart. Take the
+                    // owning demographic from the row itself and ask about them:
+                    // nothing has to be passed in, and every caller is covered.
+                    if (!isAllowedToDelete(loggedInInfo, m.getDemographicId())) {
+                        throw new SecurityException("missing required sec object (_measurement)");
+                    }
                     measurementsDeletedDao.persist(new MeasurementsDeleted(m));
                     measurementDao.remove(Integer.parseInt(deleteCheckbox[i]));
                 }
@@ -89,6 +98,20 @@ public class EctDeleteData2Action extends ActionSupport {
             return NONE;
         }
         return SUCCESS;
+    }
+
+    /**
+     * Whether the logged-in provider may delete a measurement belonging to
+     * {@code demographicNo}.
+     *
+     * <p>Package-private so the contract can be driven directly from a test.
+     */
+    boolean isAllowedToDelete(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (demographicNo == null) {
+            return false;
+        }
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "d", String.valueOf(demographicNo))
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo);
     }
 
     private String[] deleteCheckbox;

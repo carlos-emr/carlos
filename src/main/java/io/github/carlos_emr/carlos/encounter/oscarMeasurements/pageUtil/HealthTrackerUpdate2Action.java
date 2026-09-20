@@ -134,8 +134,8 @@ public class HealthTrackerUpdate2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(
-                LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "w", null)) {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
@@ -151,6 +151,21 @@ public class HealthTrackerUpdate2Action extends ActionSupport {
             // the page always posts the hidden field it rendered.
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
+        }
+        if (demographicNo <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
+        // The privilege check above is chart-wide; this one is about *this* patient.
+        // The demographic number is submitted, so without it a provider holding
+        // _measurement w could post another patient's number and have measurements
+        // and a signed progress note written into a chart they may not open.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "w", String.valueOf(demographicNo))
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            logger.warn("Denied Health Tracker save for a patient record the provider may not access, from {}",
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
+            throw new SecurityException("missing required sec object (_measurement)");
         }
 
         MeasurementFlowSheet flowSheet = resolveFlowSheet(template, providerNo, demographicNo);

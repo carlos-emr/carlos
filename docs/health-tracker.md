@@ -16,7 +16,7 @@ route pair and several sibling pages.
 
 | Route | Class | Purpose |
 | --- | --- | --- |
-| `GET /encounter/oscarMeasurements/ViewHealthTracker` | `ViewClinical2Action` | Renders the page. Same read gate as the other flowsheet views: `_eChart r` at the action, `_flowsheet r` in the JSP, plus `_flowsheet.<template> r` for the flowsheet actually asked for — the same per-flowsheet object the encounter nav entry gates on, so a role denied one flowsheet cannot read it by naming it in `?template=`. Flowsheets the role cannot read are left out of the switcher. |
+| `GET /encounter/oscarMeasurements/ViewHealthTracker` | `ViewClinical2Action` | Renders the page. Same read gate as the other flowsheet views: `_eChart r` at the action, `_flowsheet r` in the JSP, plus `isAllowedAccessToPatientRecord` for the patient in `demographic_no` and `_flowsheet.<template> r` for the flowsheet actually asked for — the same per-flowsheet object the encounter nav entry gates on, so a role denied one flowsheet cannot read it by naming it in `?template=`. Flowsheets the role cannot read are left out of the switcher. |
 | `POST /encounter/oscarMeasurements/HealthTrackerUpdate` | `HealthTrackerUpdate2Action` | Saves the form. POST-only, `_measurement w`. |
 
 Both routes are extensionless and both JSPs live under `/WEB-INF`, so the page
@@ -86,7 +86,13 @@ without a container.
 ### Behaviours worth knowing
 
 - **Field names are derived, not stored.** An input is named after its flowsheet
-  item's *measurement type* — the weight row posts as `WT`. The JSP and the
+  item's *measurement type* — the weight row posts as `WT`. The derivation escapes
+  rather than strips: `EctAddMeasurementType2Action` accepts `^[\w\s,.?]*$`, so
+  `FOO BAR` and `FOOBAR` are both creatable and stripping would give them one
+  field name, one posted parameter, and a value written under the wrong type.
+  Anything outside `[A-Za-z0-9]` becomes `_` plus its four-digit hex code, and a
+  literal `_` doubles, so the transform is injective and a type made of letters
+  and digits is unchanged. The JSP and the
   parser both call `HealthTrackerSubmissionParser.fieldNameFor`, because if the
   two ever drift the form silently stops saving. The type is the key
   `MeasurementFlowSheet` orders its items by, so it is unique within a flowsheet;
@@ -124,6 +130,17 @@ without a container.
   the raw parameter and `MeasurementDao.findMatching` compares comments with
   exact equality, so normalizing an empty comment to `" "` would make the
   duplicate check miss rows the Add Measurement path had written.
+- **Authorization is patient-scoped, not just chart-wide.** Both the page and the
+  save action name their patient in the request, so a chart-wide `_eChart r` or
+  `_measurement w` says nothing about *this* patient. Each parses the demographic
+  number, rejects a non-positive one, and then asks
+  `SecurityInfoManager.isAllowedAccessToPatientRecord` (plus the patient-scoped
+  `_measurement w` on the save path) before any patient-scoped query or write.
+  `EctDeleteData2Action`, which the tracker's delete control posts to, takes the
+  owning demographic from the row it is about to delete and applies the same two
+  checks — the id is client-supplied and names the row directly, so nothing else
+  bounds which chart a delete reaches. That check covers every caller of the
+  endpoint, not only the tracker.
 - **Server-side validation is authoritative.** The `pattern`/`min`/`max`
   attributes the page renders are user feedback only.
 
