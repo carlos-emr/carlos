@@ -968,6 +968,10 @@ def cmd_demo_data(argv) -> int:
         # file in the devcontainer flow; the eform-rtl-attachment-* Playwright
         # checks pin this).
         os.path.join(DEMO_DIR, "update-2026-06-29-rtl-attachment-route-fix.sql"),
+        # Also after the modernize update: adds the hidden user_id / user_ohip_no /
+        # doctor_provider_no inputs editControl2.js reads to stamp a letter with
+        # consult_sig_<provider_no>.png instead of the single shared stamp.png.
+        os.path.join(DEMO_DIR, "update-2026-09-20-rtl-provider-stamp-fields.sql"),
         # The snapshot's HRM rows name report files that never shipped, so
         # every HRM list is empty. Point one demographic-1 report at the
         # fixture _demo_seed_document_files() copies in after the load.
