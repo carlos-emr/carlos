@@ -173,6 +173,39 @@ class EFormRenderPdfHtmlComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should not synthesize a stamp filename when the letter already names one")
+    void shouldNotSynthesizeStampFile_whenLetterAlreadyReferencesOne() {
+        // A non-billing user (resident, nurse, clerical) signs with the patient's MRP signature, so
+        // the stored letter carries consult_sig_<mrp>.png while the SUBMITTING provider is someone
+        // else. Synthesizing from the submitter would test the wrong file, find it absent, and mark
+        // the render as missing its provider stamp — on a letter whose stamp is present and
+        // correctly referenced.
+        EForm eForm = mock(EForm.class);
+        when(eForm.getProviderNo()).thenReturn("999998");
+        String html = "<html><body><img src=\"/carlos/EFormImageViewForPdfGenerationServlet"
+                + "?imagefile=consult_sig_111111.png\"></body></html>";
+
+        assertThat(EFormRenderPdfHtmlComposer.runtimeSignatureStampFiles(html, eForm, List.of()))
+                .as("a literal stamp reference is already granted and checked by the static scan")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("should still synthesize a stamp filename for a script-assembled stamp URL")
+    void shouldStillSynthesizeStampFile_whenOnlyAScriptAssemblesTheUrl() {
+        // The legacy case this method exists for: the prefix appears only inside a script that
+        // concatenates the provider number at runtime, so the static scan cannot see the filename.
+        EForm eForm = mock(EForm.class);
+        when(eForm.getProviderNo()).thenReturn("999998");
+        String html = "<html><body><img id=\"StampSignature\">"
+                + "<script>x = '/x?imagefile=consult_sig_' + ProviderNumber + '.png';</script>"
+                + "</body></html>";
+
+        assertThat(EFormRenderPdfHtmlComposer.runtimeSignatureStampFiles(html, eForm, List.of()))
+                .containsExactly("consult_sig_999998.png");
+    }
+
+    @Test
     @DisplayName("should re-declare the letter template print rules the editor drops at save time")
     void shouldReDeclareTemplatePrintRules_whenWrappingStoredLetter() {
         // editControlContents() stores body.innerHTML only, so the .rtl template's <head> — and

@@ -599,9 +599,50 @@ function doHtml(value) {
 			editorDoc.body.appendChild(editorDoc.createTextNode(value));
 		}
 	}
+	bindStampFallbacks(editorDoc);
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
 	document.getElementById(cfg_editorname).contentWindow.focus();
+}
+
+/**
+ * Attaches the stamps.js / stamp.png fallback to a freshly inserted provider stamp.
+ *
+ * pickStamp() marks a per-provider stamp with data-carlos-stamp-fallback. The handler cannot be an
+ * inline onerror: doHtml() runs every insertion through DOMPurify, which strips event-handler
+ * attributes, so it is bound here instead — after insertion, in the same task, before the image can
+ * finish loading.
+ *
+ * This is what makes the fallback a guarantee rather than a race. probeProviderStamp() usually
+ * answers first and pickStamp() then emits the right URL outright, but on a form_html that predates
+ * the hidden identity inputs the provider number only arrives with the APCache lookup, so the very
+ * first Stamp click can be issued before any probe has completed. Without this the letter would
+ * keep a broken image and the documented fallback would never run.
+ *
+ * The marker attribute is removed as soon as it is read, so it never reaches the stored letter.
+ */
+function bindStampFallbacks(editorDoc) {
+	if (!editorDoc || !editorDoc.querySelectorAll) { return; }
+	var stamps = editorDoc.querySelectorAll('img[data-carlos-stamp-fallback]');
+	for (var index = 0; index < stamps.length; index++) {
+		(function (image) {
+			var fallback = image.getAttribute('data-carlos-stamp-fallback');
+			image.removeAttribute('data-carlos-stamp-fallback');
+			if (!fallback) { return; }
+			// Closure flag, not an attribute: the guard must not leave a marker in the stored
+			// letter, and swapping src can itself fire another error event.
+			var swapped = false;
+			var swap = function () {
+				if (swapped) { return; }
+				swapped = true;
+				console.log('editControl: stored signature unavailable; falling back to ' + fallback);
+				image.src = stampImageSrc(fallback);
+			};
+			image.addEventListener('error', swap);
+			// The image may already have failed from cache before this ran.
+			if (image.complete && image.naturalWidth === 0) { swap(); }
+		})(stamps[index]);
+	}
 }
 
 function block(blockElements) {
@@ -980,24 +1021,35 @@ function submitFaxButton() {
 		values: ["provider_name_first_init", "current_user_fname_lname", "doctor", "current_user",
 			"current_user_id", "current_user_ohip_no", "doctor_provider_no"],	
 		storeInCacheHandler: function (key,value) {		
+			// The identity may only have arrived with this lookup (a form_html predating the hidden
+			// inputs), so re-run the existence probe now that it is known.
+			probeProviderStamp();
 			var imgsrc=pickStamp();
 			var frag = ("<p>Yours Sincerely<p>" + imgsrc + "<p>");
-			var salutation = frag;
-			if (!cache.isEmpty("provider_name_first_init")) {
-					salutation=(frag+cache.get("provider_name_first_init") + ", MD");
-				}
-			// now allow for signing by the current user 
-			if (cache.contains("current_user")) {
+			// The NAME must name whoever the STAMP signed as. Deciding them separately is how a
+			// letter ended up with one clinician's signature above another clinician's name.
+			var signsAsCurrentUser = stampSignerRole() === "user";
+			if (!signsAsCurrentUser && cache.contains("current_user")) {
+				// No provider numbers to go on (a pre-migration form_html with no AP values either):
+				// fall back to the legacy rule, where the current user having a stamps.js entry is
+				// what marks them as the signer.
 				for (i=0; i<ImgArray.length;i++){
 					var ListItemArr =  ImgArray[i].split("|");
 					var UserName = ListItemArr[0];
 					var FileName = ListItemArr[1]; void FileName; // retained for external API consumers
-					if (cache.get('current_user').indexOf(UserName)>=0){
-						console.log('current user has a signature so use it in the closing salutation');					
-							salutation=(frag+cache.get("current_user_fname_lname") + ", MD");
-						}
+					if (UserName && cache.get('current_user').indexOf(UserName)>=0){
+						console.log('current user has a signature so use it in the closing salutation');
+						signsAsCurrentUser = true;
 					}
+				}
 			}
+			var signerName = "";
+			if (signsAsCurrentUser && !cache.isEmpty("current_user_fname_lname")) {
+				signerName = cache.get("current_user_fname_lname");
+			} else if (!cache.isEmpty("provider_name_first_init")) {
+				signerName = cache.get("provider_name_first_init");
+			}
+			var salutation = signerName.length > 0 ? (frag + signerName + ", MD") : frag;
 			cache.put(this.name, salutation);
 		},
 		cacheResponseHandler:function () {
@@ -1017,6 +1069,9 @@ function submitFaxButton() {
 		values: ["stamp_name", "doctor", "current_user",
 			"current_user_id", "current_user_ohip_no", "doctor_provider_no"], 
 		storeInCacheHandler: function(_key,_val) { 
+				// Re-probe: on a form_html without the hidden inputs the identity only becomes known
+				// here, so the probe fired at Start() had no filename to check.
+				probeProviderStamp();
 				var imgsrc=pickStamp();
 				cache.put("stamp",imgsrc);
 		}
@@ -1274,18 +1329,31 @@ function submitFaxButton() {
 	}
 
 	/**
-	 * Provider number whose signature should sign this letter, or "" when it cannot be determined.
+	 * Who signs this letter: "user" (the logged-in provider), "mrp" (the patient's most responsible
+	 * provider), or "" when neither can be determined.
 	 *
 	 * A billing practitioner signs their own letters; anyone else is writing under the direction of
-	 * the patient's most responsible provider and stamps with that provider's signature.
+	 * the MRP and signs with that provider's signature. Both the stamp IMAGE and the typed NAME in
+	 * the closing salutation derive from this single answer — they used to be decided separately,
+	 * and a billing user with a signature file but no stamps.js entry got their own signature
+	 * printed above the MRP's name.
 	 */
-	function stampProviderNumber() {
+	function stampSignerRole() {
 		var userOhipNo = parseInt(stampProviderField(STAMP_PROVIDER_FIELDS.userOhipNo), 10);
-		if (!isNaN(userOhipNo) && userOhipNo > MIN_BILLING_PROVIDER_OHIP_NO) {
-			var userId = stampProviderField(STAMP_PROVIDER_FIELDS.userId);
-			if (userId.length > 0) { return userId; }
+		if (!isNaN(userOhipNo) && userOhipNo > MIN_BILLING_PROVIDER_OHIP_NO
+				&& stampProviderField(STAMP_PROVIDER_FIELDS.userId).length > 0) {
+			return "user";
 		}
-		return stampProviderField(STAMP_PROVIDER_FIELDS.doctorNo);
+		if (stampProviderField(STAMP_PROVIDER_FIELDS.doctorNo).length > 0) { return "mrp"; }
+		return "";
+	}
+
+	/** Provider number whose signature should sign this letter, or "" when it cannot be determined. */
+	function stampProviderNumber() {
+		var role = stampSignerRole();
+		if (role === "user") { return stampProviderField(STAMP_PROVIDER_FIELDS.userId); }
+		if (role === "mrp") { return stampProviderField(STAMP_PROVIDER_FIELDS.doctorNo); }
+		return "";
 	}
 
 	/**
@@ -1372,9 +1440,12 @@ function submitFaxButton() {
 		// was signed with the same stamp.png.
 		var file = providerStampFile();
 		if (file === "" || (carlosProviderStampProbe.file === file && carlosProviderStampProbe.missing)) {
-			file = legacyStampFile();
+			return '<img src="' + stampImageSrc(legacyStampFile()) + '" width="200" height="100" />';
 		}
-		return '<img src="' + stampImageSrc(file) + '" width="200" height="100" />';
+		// The per-provider file is the intended stamp, but the probe may not have answered yet.
+		// bindStampFallbacks() turns the marker into a load-error handler once this is inserted.
+		return '<img src="' + stampImageSrc(file) + '" data-carlos-stamp-fallback="'
+			+ legacyStampFile() + '" width="200" height="100" />';
 	}
 	// Flag read by efmshowform_data and the eForm framework to identify this
 	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag

@@ -52,12 +52,16 @@ function loadStampFunctions() {
   return context;
 }
 
-const stamp = (file) => `<img src="${IMAGE_SRC}${file}" width="200" height="100" />`;
+// A per-provider stamp also carries the fallback marker bindStampFallbacks() consumes; a stamp
+// that has ALREADY fallen back carries none, because there is nothing left to fall back to.
+const stamp = (file, fallback) => fallback === undefined
+  ? `<img src="${IMAGE_SRC}${file}" width="200" height="100" />`
+  : `<img src="${IMAGE_SRC}${file}" data-carlos-stamp-fallback="${fallback}" width="200" height="100" />`;
 
 test('a billing practitioner signs a letter with their own signature', () => {
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: '54321', user_id: '999998', doctor_provider_no: '111111' };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png'));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png', 'stamp.png'));
 });
 
 test('a non-billing account signs with the patient MRP signature', () => {
@@ -66,13 +70,13 @@ test('a non-billing account signs with the patient MRP signature', () => {
   // under one of those logins is written under the MRP's direction.
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: '42', user_id: '999998', doctor_provider_no: '111111' };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_111111.png'));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_111111.png', 'stamp.png'));
 });
 
 test('the billing threshold is exclusive', () => {
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: '1000', user_id: '999998', doctor_provider_no: '111111' };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_111111.png'));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_111111.png', 'stamp.png'));
 });
 
 test('the AP cache supplies the identity when the form carries no hidden inputs', () => {
@@ -83,7 +87,7 @@ test('the AP cache supplies the identity when the form carries no hidden inputs'
   ctx.cacheData = {
     current_user_ohip_no: '54321', current_user_id: '999998', doctor_provider_no: '111111',
   };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png'));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png', 'stamp.png'));
 });
 
 test('a provider with no signature on file falls back to the clinic stamps.js entry', () => {
@@ -114,7 +118,7 @@ test('a padded provider number resolves the same as the server would', () => {
   // file the server is perfectly willing to serve.
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: ' 54321 ', user_id: ' 999998 ' };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png'));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png', 'stamp.png'));
 });
 
 test('a provider number that is not digits never reaches the image URL', () => {
@@ -123,6 +127,48 @@ test('a provider number that is not digits never reaches the image URL', () => {
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: '54321', user_id: '../../etc/passwd' };
   assert.equal(ctx.pickStamp(), stamp('stamp.png'));
+});
+
+test('the stamp carries a fallback marker so a missing signature still degrades', () => {
+  // The probe cannot always answer first: on a form_html predating the hidden identity inputs the
+  // provider number only arrives with the APCache lookup, so the first Stamp click can be issued
+  // before any probe completes. The marker is what bindStampFallbacks() turns into a load-error
+  // handler, making the stamps.js / stamp.png fallback a guarantee rather than a race.
+  const ctx = loadStampFunctions();
+  ctx.inputs = { user_ohip_no: '54321', user_id: '999998' };
+  ctx.cacheData = { current_user: 'Jones, Amy' };
+  ctx.ImgArray = ['Jones|amy_sig.png'];
+  const html = ctx.pickStamp();
+  assert.match(html, /consult_sig_999998\.png/);
+  assert.match(html, /data-carlos-stamp-fallback="amy_sig\.png"/);
+});
+
+test('a stamp that already fell back carries no fallback marker', () => {
+  // Nothing to retry, and the marker must not reach the stored letter.
+  const ctx = loadStampFunctions();
+  ctx.inputs = { user_ohip_no: '54321', user_id: '999998' };
+  ctx.carlosProviderStampProbe = { file: 'consult_sig_999998.png', missing: true };
+  const html = ctx.pickStamp();
+  assert.match(html, /stamp\.png/);
+  assert.ok(!html.includes('data-carlos-stamp-fallback'),
+    'a fallback stamp must not advertise another fallback');
+});
+
+test('the signer role drives both the stamp and the salutation name', () => {
+  // These were decided separately, which printed one clinician's signature above another's name.
+  const ctx = loadStampFunctions();
+  ctx.inputs = { user_ohip_no: '54321', user_id: '999998', doctor_provider_no: '111111' };
+  assert.equal(ctx.stampSignerRole(), 'user');
+  assert.equal(ctx.stampProviderNumber(), '999998');
+
+  ctx.inputs = { user_ohip_no: '42', user_id: '999998', doctor_provider_no: '111111' };
+  assert.equal(ctx.stampSignerRole(), 'mrp');
+  assert.equal(ctx.stampProviderNumber(), '111111');
+
+  ctx.inputs = {};
+  ctx.cacheData = {};
+  assert.equal(ctx.stampSignerRole(), '');
+  assert.equal(ctx.stampProviderNumber(), '');
 });
 
 test('the existence probe asks for the file the stamp will use', () => {
@@ -143,5 +189,6 @@ test('the stamp URL falls back to the extensionless route when cfg_isrc is unset
   ctx.cfg_isrc = '';
   ctx.inputs = { user_ohip_no: '54321', user_id: '999998' };
   assert.equal(ctx.pickStamp(),
-    '<img src="../eform/displayImage?imagefile=consult_sig_999998.png" width="200" height="100" />');
+    '<img src="../eform/displayImage?imagefile=consult_sig_999998.png"'
+    + ' data-carlos-stamp-fallback="stamp.png" width="200" height="100" />');
 });

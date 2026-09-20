@@ -281,6 +281,22 @@ public final class EFormRenderPdfHtmlComposer {
         if (html == null || !html.contains(SIGNATURE_STAMP_PREFIX)) {
             return Set.of();
         }
+        // A document that already references a consult_sig_*.png as a literal image URL needs no
+        // synthesis: referencedImageFiles() has that exact filename, so it is granted and its
+        // existence is judged on the file the page will actually request.
+        //
+        // Synthesizing anyway is wrong, not merely redundant. This method derives the filename from
+        // the SUBMITTING provider, and the Rich Text Letter can legitimately carry another
+        // provider's stamp: a non-billing user (resident, nurse, clerical) signs with the patient's
+        // MRP signature, so the letter stores consult_sig_<mrp>.png while the submitter is someone
+        // else. The existence check would then test the submitter's file, find it absent, and mark
+        // the render as missing its provider stamp -- blocking or warning on a letter whose stamp is
+        // present and correctly referenced.
+        for (String referenced : referencedImageFiles(html)) {
+            if (referenced.startsWith(SIGNATURE_STAMP_PREFIX)) {
+                return Set.of();
+            }
+        }
         String providerNumber = null;
         if (eFormValues != null) {
             for (EFormValue value : eFormValues) {
