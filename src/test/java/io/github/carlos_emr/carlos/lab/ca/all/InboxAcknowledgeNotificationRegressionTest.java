@@ -145,8 +145,11 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(read(SHOW_DOCUMENT_JSP))
                 .contains("segmentID: segmentId,")
                 .contains("labType: labType,");
+        // Matched as separate fragments, the way the three files above are: the point is that the
+        // id and type are named, not how the object literal happens to be wrapped.
         assertThat(read(HRM_ACTIONS_JS))
-                .contains("bc.postMessage({ action: 'refresh', segmentID: String(reportId), labType: 'HRM' });");
+                .contains("segmentID: String(reportId),")
+                .contains("labType: 'HRM',");
     }
 
     @Test

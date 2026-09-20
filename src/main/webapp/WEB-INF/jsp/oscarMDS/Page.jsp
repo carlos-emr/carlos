@@ -269,6 +269,12 @@
                     %>
 
                     <jsp:include page="/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp" flush="true">
+                        <%-- Tells the viewer it is being rendered inline in the inbox rather than in
+                             its own window. It cannot work this out for itself: the
+                             jakarta.servlet.include.* attributes name the INCLUDED resource, not
+                             this page. It uses the flag for the Print button and, after a sign-off,
+                             to hide its own card — there being no window to close here. --%>
+                        <jsp:param name="inboxInline" value="true"/>
                         <jsp:param name="id" value="<%=segmentID %>"/>
                         <jsp:param name="segmentID" value="<%=segmentID %>"/>
                         <jsp:param name="providerNo" value="<%=providerNo %>"/>

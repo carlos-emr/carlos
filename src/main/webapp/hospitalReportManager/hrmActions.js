@@ -28,7 +28,10 @@ function hrmResult(data, fallbackMessage) {
     var message = (data && typeof data.message === 'string' && data.message.length > 0)
         ? data.message
         : fallbackMessage;
-    return {success: success, message: message};
+    // Left undefined when the server did not say. The Inboxhub reads absent as "one row" and
+    // zero as "none", so the two must not be conflated on the way through.
+    var clearedCount = (data && typeof data.clearedCount === 'number') ? data.clearedCount : undefined;
+    return {success: success, message: message, clearedCount: clearedCount};
 }
 
 /**
@@ -105,7 +108,7 @@ function doSignOff(reportId, isSign) {
             return;
         }
 
-        notifyInboxhubAfterHrmSignOff(reportId);
+        notifyInboxhubAfterHrmSignOff(reportId, result.clearedCount);
         closeOrHideHrmReport(reportId);
     });
 }
@@ -142,12 +145,23 @@ function updateSignOffButton(reportId, isSign) {
  * once, and removing a row that has already gone is a no-op.
  *
  * The id and type travel together because segment ids are not unique across report types.
+ *
+ * @param {string} reportId HRM document id that was signed off
+ * @param {number} clearedCount routing rows the SERVER reported taking out of the inbox. The
+ *                 badges count routing rows, so this must not be guessed: zero is a real answer
+ *                 (the report was already signed off, or had no row in this inbox) and moving the
+ *                 badge anyway walks it below the truth until a full page reload.
  */
-function notifyInboxhubAfterHrmSignOff(reportId) {
-    dropFromInboxhubDirectly(reportId);
+function notifyInboxhubAfterHrmSignOff(reportId, clearedCount) {
+    dropFromInboxhubDirectly(reportId, clearedCount);
     try {
         const bc = new BroadcastChannel('inboxhub-refresh');
-        bc.postMessage({action: 'refresh', segmentID: String(reportId), labType: 'HRM'});
+        bc.postMessage({
+            action: 'refresh',
+            segmentID: String(reportId),
+            labType: 'HRM',
+            clearedCount: clearedCount
+        });
         bc.close();
     } catch (e) {
         // BroadcastChannel unsupported; the direct route above is all there is.
@@ -162,7 +176,7 @@ function notifyInboxhubAfterHrmSignOff(reportId) {
  * count, so it drops the row and takes one off the badge — short of exact, and far better than
  * leaving a signed-off report on screen.
  */
-function dropFromInboxhubDirectly(reportId) {
+function dropFromInboxhubDirectly(reportId, clearedCount) {
     var segmentId = String(reportId);
     try {
         var inbox = null;
@@ -185,7 +199,7 @@ function dropFromInboxhubDirectly(reportId) {
         if (legacyInbox) {
             inbox.removeReport(segmentId, 'HRM');
         } else {
-            inbox.dropAcknowledgedInboxhubItem(segmentId, 'HRM');
+            inbox.dropAcknowledgedInboxhubItem(segmentId, 'HRM', clearedCount);
         }
         if (typeof inbox.fetchInboxhubData === 'function') {
             inbox.fetchInboxhubData();
@@ -364,7 +378,9 @@ function updateCategory(reportId) {
             document.getElementById('hrmCategory_' + reportId).textContent = categoryName;
             document.getElementById('chooseCategory_' + reportId).style.display = 'none';
             document.getElementById('showCategory_' + reportId).style.display = '';
-            toggleButtonBar(false, reportId);
+            // Deliberately NOT toggleButtonBar(false, ...): filing a report under a category says
+            // nothing about its patient link, and disabling Msg/Tickler/eChart/Master/Appt History
+            // here took those actions away from a report that was still linked.
         });
 }
 

@@ -12,6 +12,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClass
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -218,9 +219,101 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         // The later report succeeding must not mask the earlier failure: the viewer would then
-        // clear a still-unsigned report out of the inbox.
+        // clear a still-unsigned report out of the inbox. clearedCount still reports the row that
+        // did move — it is the truth, and the viewer ignores it on a failed reply anyway.
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"success\":false,\"message\":\"Error encountered\",\"clearedCount\":1}");
+    }
+
+    @Test
+    @DisplayName("should report one cleared routing row when a sign-off takes")
+    void shouldReportOneClearedRow_whenSignOffTakes() throws Exception {
+        HRMDocumentToProvider mapping = new HRMDocumentToProvider();
+        mapping.setHrmDocumentId(7);
+        mapping.setProviderNo("999998");
+        mapping.setSignedOff(0);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
+                .thenReturn(mapping);
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "1");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"success\":true,\"message\":\"Success\",\"clearedCount\":1}");
+    }
+
+    @Test
+    @DisplayName("should report no cleared row when the report was already signed off")
+    void shouldReportNoClearedRow_whenReportWasAlreadySignedOff() throws Exception {
+        // The inbox badge counts routing rows and is adjusted client-side. Claiming a row was
+        // cleared when it had already left the inbox walks that badge below the truth until the
+        // clinician reloads the page.
+        HRMDocumentToProvider mapping = new HRMDocumentToProvider();
+        mapping.setHrmDocumentId(7);
+        mapping.setProviderNo("999998");
+        mapping.setSignedOff(1);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
+                .thenReturn(mapping);
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "1");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"clearedCount\":0");
+    }
+
+    @Test
+    @DisplayName("should report no cleared row when a sign-off is revoked")
+    void shouldReportNoClearedRow_whenSignOffIsRevoked() throws Exception {
+        HRMDocumentToProvider mapping = new HRMDocumentToProvider();
+        mapping.setHrmDocumentId(7);
+        mapping.setProviderNo("999998");
+        mapping.setSignedOff(1);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
+                .thenReturn(mapping);
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "0");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"clearedCount\":0");
+    }
+
+    @Test
+    @DisplayName("should report failure when the category report cannot be found")
+    void shouldReportFailure_whenCategoryReportCannotBeFound() throws Exception {
+        when(hrmDocumentDao.find(7)).thenReturn(null);
+        request.addParameter("method", "updateCategory");
+        request.addParameter("reportId", "7");
+        request.addParameter("categoryId", "3");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentAsString())
                 .isEqualTo("{\"success\":false,\"message\":\"Error encountered\"}");
+    }
+
+    @Test
+    @DisplayName("should report failure when the category id is not a number")
+    void shouldReportFailure_whenCategoryIdIsNotANumber() throws Exception {
+        request.addParameter("method", "updateCategory");
+        request.addParameter("reportId", "7");
+        request.addParameter("categoryId", "not-a-number");
+
+        new HRMModifyDocument2Action().execute();
+
+        // The old nested catch swallowed this and still answered "Success", so the viewer
+        // relabelled the category for a change the database never took.
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"success\":false,\"message\":\"Error encountered\"}");
+        verifyNoInteractions(hrmDocumentDao);
     }
 
     @Test

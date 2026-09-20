@@ -199,17 +199,17 @@
     // String formId = "0";
 
 
-    // When included from oscarMDS/Page.jsp (the inbox view) via <jsp:include>, the Servlet spec
-    // exposes the included path in the jakarta.servlet.include.servlet_path request attribute.
-    // Page.jsp now lives under /WEB-INF/jsp/oscarMDS/ (gated), so the browser-visible request URI
-    // is /documentManager/inboxManage rather than the old /oscarMDS/Page.jsp — the include-path
-    // attribute is the only reliable signal.
+    // Whether oscarMDS/Page.jsp is rendering this viewer inline, which it says so itself with a
+    // <jsp:param>. This used to read jakarta.servlet.include.servlet_path and look for
+    // "oscarMDS/Page.jsp" in it, which can never match: the Servlet specification sets the
+    // jakarta.servlet.include.* attributes to the path of the resource being INCLUDED — this JSP —
+    // not the page performing the include, so the check was always false and the inline view never
+    // got its JavaScript Print button.
     //
     // Computed up front because the report container below advertises it to hrmActions.js: in the
     // inline shape a signed-off report has no window to close, so its card is hidden instead, and
     // an ordinary top-level report page must not be blanked by mistake.
-    String hrmIncludePath = (String) request.getAttribute("jakarta.servlet.include.servlet_path");
-    boolean hrmFromInboxPage = hrmIncludePath != null && hrmIncludePath.contains("oscarMDS/Page.jsp");
+    boolean hrmFromInboxPage = "true".equals(request.getParameter("inboxInline"));
 
     String btnDisabled = "disabled";
     String demographicNo = "";

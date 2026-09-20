@@ -34,10 +34,11 @@ function setup({elements = {}, windowShape = {}} = {}) {
   const broadcasts = [];
   const closed = [];
 
+  const disabled = [];
   function jQuery(selector) {
     return {
       val: () => (elements[String(selector).replace(/^#/, '')] || {}).value,
-      prop: () => {},
+      prop: (name, value) => { if (name === 'disabled' && value) { disabled.push(String(selector)); } },
       is: () => false,
       autocomplete: () => {},
     };
@@ -68,7 +69,7 @@ function setup({elements = {}, windowShape = {}} = {}) {
     },
   });
   vm.runInContext(source, context);
-  return {context, requests, broadcasts, closed, elements};
+  return {context, requests, broadcasts, closed, elements, disabled};
 }
 
 /** Minimal element stub with the properties the handlers read and write. */
@@ -119,7 +120,7 @@ test('a transport failure reports it instead of leaving the box empty', () => {
 test('sign-off notifies the Inboxhub without needing any listView flag', () => {
   const dropped = [];
   const opener = {
-    dropAcknowledgedInboxhubItem: (id, type) => dropped.push([id, type]),
+    dropAcknowledgedInboxhubItem: (id, type, count) => dropped.push([id, type, count]),
     fetchInboxhubData: () => dropped.push(['refetch']),
   };
   const {context, requests, broadcasts, closed} = setup({
@@ -130,14 +131,32 @@ test('sign-off notifies the Inboxhub without needing any listView flag', () => {
   context.signOffHrm('7');
   assert.match(requests[0].data, /method=signOff&signedOff=1&reportId=7/);
 
-  requests[0].success({success: true, message: 'Success'});
+  requests[0].success({success: true, message: 'Success', clearedCount: 1});
 
   assert.deepEqual(plain(broadcasts), [{
     name: 'inboxhub-refresh',
-    message: {action: 'refresh', segmentID: '7', labType: 'HRM'},
+    message: {action: 'refresh', segmentID: '7', labType: 'HRM', clearedCount: 1},
   }]);
-  assert.deepEqual(dropped, [['7', 'HRM'], ['refetch']]);
+  assert.deepEqual(dropped, [['7', 'HRM', 1], ['refetch']]);
   assert.equal(closed.length, 1, 'a popup closes itself after sign-off');
+});
+
+test('a sign-off that cleared no routing row does not move the inbox badge', () => {
+  // The server reports zero when the report was already signed off, or had no routing row in the
+  // inbox the clinician is looking at. Zero is a real answer: the Inboxhub honours it and leaves
+  // the badge alone. Sending nothing would be read as "one row" and walk the badge below truth.
+  const dropped = [];
+  const opener = {dropAcknowledgedInboxhubItem: (id, type, count) => dropped.push([id, type, count])};
+  const {context, requests, broadcasts} = setup({
+    elements: {signoff7: element()},
+    windowShape: {opener},
+  });
+
+  context.signOffHrm('7');
+  requests[0].success({success: true, message: 'Success', clearedCount: 0});
+
+  assert.equal(plain(broadcasts)[0].message.clearedCount, 0);
+  assert.deepEqual(dropped, [['7', 'HRM', 0]]);
 });
 
 test('the legacy oscarMDS inbox is reached even though it has no broadcast listener', () => {
@@ -151,7 +170,7 @@ test('the legacy oscarMDS inbox is reached even though it has no broadcast liste
   });
 
   context.signOffHrm('7');
-  requests[0].success({success: true, message: 'Success'});
+  requests[0].success({success: true, message: 'Success', clearedCount: 1});
 
   assert.deepEqual(removed, [['7', 'HRM']]);
   assert.equal(broadcasts.length, 1);
@@ -252,7 +271,7 @@ test('the sign-off button rebinds without an inline javascript: attribute', () =
 test('changing a category rewrites only the label, leaving the picker usable', () => {
   const select = {value: '3', selectedIndex: 0, options: [{text: 'Cardiology'}], textContent: 'untouched'};
   const label = element();
-  const {context, requests} = setup({
+  const {context, requests, disabled} = setup({
     elements: {
       selectedCategory_7: select,
       hrmCategory_7: label,
@@ -266,4 +285,27 @@ test('changing a category rewrites only the label, leaving the picker usable', (
 
   assert.equal(label.textContent, 'Cardiology');
   assert.equal(select.textContent, 'untouched');
+  // Filing under a category says nothing about the patient link, so the Msg/Tickler/eChart/
+  // Master/Appt History buttons must not be disabled by it.
+  assert.deepEqual(disabled, []);
+});
+
+test('a failed category update leaves the label and the picker as they were', () => {
+  const select = {value: '3', selectedIndex: 0, options: [{text: 'Cardiology'}], textContent: 'untouched'};
+  const label = element({textContent: 'Radiology'});
+  const chooser = element();
+  const {context, requests} = setup({
+    elements: {
+      selectedCategory_7: select,
+      hrmCategory_7: label,
+      chooseCategory_7: chooser,
+      showCategory_7: element(),
+    },
+  });
+
+  context.updateCategory('7');
+  requests[0].success({success: false, message: 'Error encountered'});
+
+  assert.equal(label.textContent, 'Radiology');
+  assert.equal(chooser.style.display, undefined);
 });
