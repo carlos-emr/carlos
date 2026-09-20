@@ -21,8 +21,9 @@ rules:
       PathValidationUtils.validatePath(), validateUserFilePath(),
       validateExistingPath(), validateChildPath(), validateGeneratedChildPath(),
       validatePathComponent(), validateGeneratedFileName(), validateZipEntryPath(),
-      validateZipEntryName(), or the three-argument validateUpload(source, name,
-      destDir) before the value reaches the filesystem. Note that
+      validateZipEntryName(), validateApplicationTempPath(), or the three-argument
+      validateUpload(source, name, destDir) before the value reaches the
+      filesystem. Note that
       resolveTrustedPath(), resolveConfiguredDirectory() and resolveConfiguredFile()
       only canonicalize a trusted value and are NOT a security boundary, and the
       one-argument validateUpload(source) does not bind its result to a specific
@@ -63,12 +64,13 @@ rules:
       # Containment-enforcing helpers on
       # io.github.carlos_emr.carlos.utility.PathValidationUtils.
       #
-      # This list is kept deliberately identical to the CodeQL barrier
-      # (codeql/customizations/Customizations.qll) plus the Models-as-Data
-      # extension (.github/codeql/extensions/carlos-java-models/models/
-      # path-validation-sanitizers.yml), so Semgrep and CodeQL agree on what
-      # counts as a path-traversal sanitizer in this codebase. Each entry was
-      # verified against the helper's body, not assumed from its name:
+      # This list is kept deliberately as close as possible to the CodeQL
+      # barrier (codeql/customizations/Customizations.qll) plus the
+      # Models-as-Data extension (.github/codeql/extensions/carlos-java-models/
+      # models/path-validation-sanitizers.yml), so Semgrep and CodeQL agree on
+      # what counts as a path-traversal sanitizer in this codebase — with one
+      # documented exception (validateApplicationTempPath, see below). Each
+      # entry was verified against the helper's body, not assumed from its name:
       #
       #   validatePath              basename-strip + validateWithinDirectory
       #   validateUserFilePath      legacy-normalize (validateFileName) + validateWithinDirectory
@@ -80,6 +82,12 @@ rules:
       #   validateZipEntryPath      ZIP-slip containment (validateWithinDirectory)
       #   validateZipEntryName      validateExistingPath + canonical relativization
       #   validateUpload(File,String,File)  destination bounded by the 3rd arg (destDir)
+      #   validateApplicationTempPath  canonicalizes, then requires the first path
+      #                             segment past a registered temp root to be a
+      #                             CARLOS-owned subtree name (e.g. carlos-temp) —
+      #                             NOT yet modelled in CodeQL (neither
+      #                             Customizations.qll nor the MaD extension);
+      #                             tracked as a follow-up for CodeQL parity.
       #
       # DELIBERATELY EXCLUDED — do not add without re-reading their Javadoc:
       # resolveTrustedPath, resolveConfiguredDirectory and resolveConfiguredFile
@@ -111,6 +119,7 @@ rules:
           - pattern: PathValidationUtils.validateGeneratedFileName(...)
           - pattern: PathValidationUtils.validateZipEntryPath(...)
           - pattern: PathValidationUtils.validateZipEntryName(...)
+          - pattern: PathValidationUtils.validateApplicationTempPath(...)
           # Only the 3-argument overload; the 1-argument validateUpload(File)
           # does not bind its result to any endpoint-specific directory. See the
           # rationale comment above this pattern-sanitizers block.
@@ -127,6 +136,7 @@ rules:
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateGeneratedFileName(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateZipEntryPath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateZipEntryName(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateApplicationTempPath(...)
           # Only the 3-argument overload — see rationale comment above.
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload($SRC, $NAME, $DIR)
 
@@ -145,6 +155,7 @@ rules:
               - pattern: validateGeneratedFileName(...)
               - pattern: validateZipEntryPath(...)
               - pattern: validateZipEntryName(...)
+              - pattern: validateApplicationTempPath(...)
               # Only the 3-argument overload — see rationale comment above.
               - pattern: validateUpload($SRC, $NAME, $DIR)
 
@@ -194,6 +205,11 @@ rules:
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateZipEntryName;
               ...
           - pattern: validateZipEntryName(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateApplicationTempPath;
+              ...
+          - pattern: validateApplicationTempPath(...)
       - patterns:
           - pattern-inside: |
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload;
