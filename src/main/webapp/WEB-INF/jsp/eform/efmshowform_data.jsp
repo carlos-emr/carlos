@@ -32,7 +32,6 @@
 
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.util.EFormBrowserRenderPageServlet" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
@@ -211,9 +210,7 @@
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline'",
         "style-src 'self' 'unsafe-inline'",
-        // Licence badges in the interactive viewer only. The PDF renderer embeds its known badge
-        // and does not fetch external images. The redirect between these hosts requires both.
-        "img-src 'self' data: " + EFormBrowserRenderPageServlet.LICENCE_BADGE_IMG_SOURCES,
+        "img-src 'self' data:",
         "font-src 'self' data:",
         "object-src 'none'",
         // blob: frames carry the attachment-preview PDFs (attachDocument.jsp builds a Blob from the

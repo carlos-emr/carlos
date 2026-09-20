@@ -620,28 +620,6 @@ class EFormRenderPdfHtmlComposerUnitTest {
     }
 
     @Test
-    @DisplayName("should embed the known licence badge without changing other authored images")
-    void shouldEmbedKnownLicenceBadge_whenRendering() throws Exception {
-        EForm eForm = mockEformWithHtml("<html><body>"
-                + "<img id=badge src=\"http://i.creativecommons.org/l/by-sa/3.0/80x15.png\">"
-                + "<img id=clinical src=\"https://example.org/clinical-image.png\">"
-                + "</body></html>");
-
-        EFormRenderPdfHtmlComposer.applyRendererViewProfile(eForm, "/carlos", "77");
-        org.jsoup.nodes.Document rendered = org.jsoup.Jsoup.parse(eForm.getFormHtml());
-        String badgeSrc = rendered.selectFirst("#badge").attr("src");
-        assertThat(badgeSrc).startsWith("data:image/png;base64,");
-        byte[] png = java.util.Base64.getDecoder().decode(
-                badgeSrc.substring("data:image/png;base64,".length()));
-        java.awt.image.BufferedImage badge = javax.imageio.ImageIO.read(
-                new java.io.ByteArrayInputStream(png));
-        assertThat(badge.getWidth()).isEqualTo(80);
-        assertThat(badge.getHeight()).isEqualTo(15);
-        assertThat(rendered.selectFirst("#clinical").attr("src"))
-                .isEqualTo("https://example.org/clinical-image.png");
-    }
-
-    @Test
     @DisplayName("should keep the bootstrap grant out of image asset URLs")
     void shouldKeepRenderTokenOutOfAssetUrls_whenBrowserRenderingImageBearingForm() {
         EForm eForm = mock(EForm.class);

@@ -76,13 +76,6 @@ public final class EFormRenderPdfHtmlComposer {
     private static final Pattern IMAGE_ASSET_URL_PATTERN = Pattern.compile(
             Pattern.quote(IMAGE_VIEW_SERVLET_NAME) + "\\?([^\\s\\\"'<>)]*)");
     private static final String SIGNATURE_MARKER = "${oscar_signature_code}";
-    // Published forms in the shared corpus use this exact licence image. The PDF browser is
-    // intentionally unable to fetch off-origin images, so embed the fixed 434-byte PNG instead.
-    // Source: https://licensebuttons.net/l/by-sa/3.0/80x15.png
-    // SHA-256: 4f63cfda6d32f33a6e3d9b3b855826327d5f844fa83aae18df79f97d7afddf20
-    private static final String LICENCE_BADGE_URL = "i.creativecommons.org/l/by-sa/3.0/80x15.png";
-    private static final String LICENCE_BADGE_DATA_URI = "data:image/png;base64,"
-            + "iVBORw0KGgoAAAANSUhEUgAAAFAAAAAPCAMAAABEF7i9AAAABGdBTUEAANbY1E9YMgAAAJZQTFRFAAAARERE7u7ud3d3lJmTDg4OERERZmZmMzMzDQ4NW15bDQ0NfYJ9cnZx3d3dMTMxhoaGJygnZ2tnOz07ISEhOTs5QUJBGRkZQkJCJCUjICAgDQ0MxsrGs7iyh4eHLjAuQ0NDxcbFj5CPS0xLyMzIgICADxAPur+6ys7KmZmZqqqqu7u7VVVVIiIiiIiIzMzMq7Gq////+Wgu+gAAAMdJREFUeNqtlFcOhCAURR+gTu+99+Yovrv/zU1UJPFLM3LCB/XkhkbugVNSIadMSSNH+B7z+0l/YYWer1EgJsyvR0PhbA5LQl3m+62ZsKORxCSkoDiBGDG/r2Z/zSTKMB2oFPbpiziCUoH8hFAd5tclGzfF+mxnhXBAiSQNRG0AUD7zYW8DEcFW84BAzYSiFUj1geqVEpYDoVZC7mmEAbWkoPYQ51NpD816264lXGwdn7K3O6JgvXFwD3lAY+QsV01filPc/zU/cwtNZKnishEAAAAASUVORK5CYII=";
     private static final String RENDER_PROFILE_PROPERTY =
             "eform_pdf_browser_saved_view_profile_enabled";
     private static final Pattern APCACHE_LOOKUP_PATTERN = Pattern.compile(
@@ -662,17 +655,6 @@ public final class EFormRenderPdfHtmlComposer {
                 .escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml)
                 .charset(StandardCharsets.UTF_8)
                 .prettyPrint(false);
-
-        // The render browser uses a dead proxy for every off-origin request. Replace only the
-        // known licence badge with an inline copy; keep every other authored image untouched so
-        // missing clinical content still reaches the normal completeness gate.
-        for (Element image : document.select("img[src]")) {
-            String src = image.attr("src");
-            if (("http://" + LICENCE_BADGE_URL).equalsIgnoreCase(src)
-                    || ("https://" + LICENCE_BADGE_URL).equalsIgnoreCase(src)) {
-                image.attr("src", LICENCE_BADGE_DATA_URI);
-            }
-        }
 
         removeInteractiveEditorContent(document);
 

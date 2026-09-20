@@ -54,26 +54,6 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     /** Render-scoped grant parameter redeemed against {@link EFormRenderTokenService}. */
     static final String RENDER_TOKEN_PARAM = "renderToken";
 
-    /**
-     * External image origins for the interactive saved-form viewer. The PDF renderer embeds the
-     * known Creative Commons badge as data and keeps its image CSP limited to local/data images.
-     *
-     * <p>A large share of clinic-authored eForms carry a Creative Commons licence badge in their
-     * footer. The interactive viewer permits the badge CDN for image loads; the PDF renderer's
-     * off-origin network boundary requires the fixed badge to be embedded locally instead.</p>
-     *
-     * <p>BOTH hosts are required, and that is not redundancy: {@code i.creativecommons.org} answers
-     * the badge with a 301 to {@code licensebuttons.net}, and CSP re-checks the redirect TARGET
-     * against the directive, so allowing only the first still blocks. The forms reference the badge
-     * over plain {@code http://}, which the browser mixed-content-upgrades before the check, so the
-     * {@code https:} origins are the ones that must appear here.</p>
-     *
-     * <p>Scope is images only in the interactive viewer. No script, style, frame or connect
-     * capability is granted to these hosts. Keep this list to licence badges.</p>
-     */
-    public static final String LICENCE_BADGE_IMG_SOURCES =
-            "https://i.creativecommons.org https://licensebuttons.net";
-
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
@@ -256,8 +236,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
             boolean browserRender, HttpServletRequest request) {
         if (!browserRender) {
             return "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; "
-                    + "form-action 'none'; frame-ancestors 'none'; style-src 'self' 'unsafe-inline'; "
-                    + "img-src 'self' data:";
+                    + "form-action 'none'; frame-ancestors 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:";
         }
         String connectSource = "'none'";
         if (request != null
