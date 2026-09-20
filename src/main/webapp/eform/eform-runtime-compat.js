@@ -608,11 +608,14 @@
                 // An unsigned form should show an empty signature pad, which is what the canvas
                 // already is after the plugin initialises. "reset" is the plugin's own supported
                 // way to say that, and it does not go through the base30 decoder.
-                try {
-                    return original.call(this, "reset");
-                } catch (ignored) {
-                    return this;
-                }
+                //
+                // Deliberately unguarded. This wrapper exists to stop ONE known decoder defect
+                // (empty base30 payload) from throwing; a "reset" that fails is a different, real
+                // fault — an uninitialised element, a plugin load failure — which the unwrapped
+                // plugin would also have thrown on. Catching it here would let loadSig() report
+                // success while the pad is left in an unknown state, and would hide the failure
+                // from the page-error reporting the render completeness gate depends on.
+                return original.call(this, "reset");
             }
             return original.apply(this, arguments);
         }
