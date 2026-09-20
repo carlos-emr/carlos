@@ -37,7 +37,7 @@
 // Fixtures: creates and removes its own FAKE-PW patient plus that patient's
 // flowsheet_customization and measurements rows. Local disposable database only.
 
-const { assert, sqlString, gotoApp, assertNotErrorPage } = require('./lib/playwright-harness');
+const { appUrl, assert, sqlString, gotoApp, assertNotErrorPage } = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 // The display name drives the form field name: "Weight kg" -> "Weightkg".
@@ -88,11 +88,19 @@ async function workflow(s) {
 
   // Add one measurement to the tracker for this patient, the way Edit Flowsheet
   // does: an ADD customization whose payload is the flowsheet <item> element.
+  //
+  // measurement is the item to insert AFTER, and it is NULL here on purpose.
+  // MeasurementFlowSheet.addAfter appends at the end only for null; a non-null
+  // name that is not already on the flowsheet resolves to index -1 and throws,
+  // which MeasurementTemplateFlowSheetConfig swallows by falling back to the
+  // un-customized flowsheet. FlowSheetCustom2Action writes null the same way
+  // when the flowsheet is empty (count == 0), which is every first measurement
+  // added to a fresh tracker.
   const payload = `<item measurement_type="${MEASUREMENT_TYPE}" display_name="${DISPLAY_NAME}" `
     + 'guideline="" graphable="yes" value_name="Weight" />';
   sql.execute(`INSERT INTO flowsheet_customization
     (flowsheet, action, measurement, payload, provider_no, demographic_no, create_date, archived)
-    VALUES ('tracker','add',${sqlString(MEASUREMENT_TYPE)},${sqlString(payload)},
+    VALUES ('tracker','add',NULL,${sqlString(payload)},
       ${sqlString(provider)},${sqlString(String(patient))},NOW(),0)`);
 
   await s.step('a customized measurement renders as a tracker card with an entry field', async () => {
@@ -145,22 +153,74 @@ async function workflow(s) {
       + ' Save All would double every value in the chart');
   });
 
-  await s.step('a value the validation rule refuses is reported and writes nothing', async () => {
+  await s.step('a refused value is reported to the clinician and writes nothing', async () => {
+    // Either refusal is acceptable and both are reported: the page's own
+    // pre-flight may stop the submit before a request leaves the browser, or the
+    // save may post and come back with the server's rejection. What is never
+    // acceptable is a row appearing in the chart.
     await page.locator(`#trackerForm input[name="${FIELD}"]`).fill(BAD_VALUE);
-    await Promise.all([
-      page.waitForURL(/HealthTrackerUpdate|ViewHealthTracker/, { timeout: 30000 }),
-      page.locator('button[form="trackerForm"][value="Save All"]').click(),
-    ]);
+    await page.locator(`#trackerForm input[name="${FIELD}"]`).dispatchEvent('blur');
+    await page.locator('button[form="trackerForm"][value="Save All"]').click();
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(page, 'health-tracker after rejected save');
 
     const alert = page.locator('#validation-alert');
     assert(await alert.isVisible(),
       'A refused value produced no validation alert, so the clinician is told nothing was wrong');
-    assert((await alert.innerText()).includes(DISPLAY_NAME),
-      'The validation alert does not name the measurement that was refused');
     assert(measurementRows(s) === 1,
       'An invalid value reached the chart, where it is indistinguishable from a real observation');
+  });
+
+  await s.step('the server refuses the value too, not just the browser', async () => {
+    // The step above may have been satisfied by the page's client-side check,
+    // which is user feedback and not a control: anything that can POST can skip
+    // it. Post the same value from inside the page -- same session, same CSRF
+    // token, the form's own validation bypassed -- and require the server to
+    // refuse it on its own.
+    const before = measurementRows(s);
+    const outcome = await page.evaluate(async ({ field, value, patientId, endpoint }) => {
+      const token = document.querySelector('#trackerForm input[name="CSRF-TOKEN"]').value;
+      const body = new URLSearchParams();
+      body.append('demographic_no', patientId);
+      body.append('template', 'tracker');
+      body.append('date', new Date().toISOString().slice(0, 10));
+      body.append(field, value);
+      body.append('submit', 'Save All');
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        redirect: 'manual',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest',
+          'CSRF-TOKEN': token,
+        },
+        body: body.toString(),
+      });
+      return { status: response.status, type: response.type, text: await response.text() };
+    }, {
+      field: FIELD,
+      value: BAD_VALUE,
+      patientId: String(patient),
+      // Absolute: a relative URL would resolve against the tracker's own path.
+      endpoint: appUrl(s.config.baseUrl, '/encounter/oscarMeasurements/HealthTrackerUpdate'),
+    });
+
+    assert(outcome.status < 500,
+      `The save answered an invalid value with HTTP ${outcome.status};`
+      + ' a refused value must not be a server error');
+    assert(outcome.status !== 403,
+      'The save was rejected as a CSRF failure rather than on its merits, so this step'
+      + ' proved nothing about validation');
+    // The clean path redirects and the rejection path forwards, so an opaque
+    // redirect here would mean the value was taken.
+    assert(outcome.type !== 'opaqueredirect',
+      'The save redirected as if it had accepted an invalid value');
+    assert(outcome.text.includes(DISPLAY_NAME) && outcome.text.includes(BAD_VALUE),
+      'The rejection response does not report which value was refused');
+    assert(measurementRows(s) === before,
+      'An invalid value posted straight at the endpoint reached the chart; the browser-side'
+      + ' check is feedback only and the server has to refuse it independently');
   });
 
   await s.step('deleting an observation from the tracker removes it', async () => {
@@ -182,15 +242,46 @@ async function workflow(s) {
   });
 
   await s.step('the save endpoint refuses GET', async () => {
-    const response = await s.context.request.get(
-      `${s.config.baseUrl}/encounter/oscarMeasurements/HealthTrackerUpdate`
-      + `?demographic_no=${encodeURIComponent(patient)}&template=tracker&${FIELD}=${GOOD_VALUE}`,
-      { maxRedirects: 0, failOnStatusCode: false });
-    assert(response.status() === 405,
-      `A GET to the Health Tracker save endpoint answered ${response.status()}, not 405;`
+    // From inside the page so the request carries the logged-in session: an
+    // unauthenticated GET would be bounced to login and prove nothing about the
+    // endpoint's own method handling. Re-open first -- the delete step above
+    // navigates, which destroys the previous execution context.
+    page = await openTracker(s, 'health-tracker-get');
+    const before = measurementRows(s);
+    const status = await page.evaluate(async ({ field, value, patientId, endpoint }) => {
+      const query = new URLSearchParams({
+        demographic_no: patientId,
+        template: 'tracker',
+        [field]: value,
+        submit: 'Save All',
+      });
+      const response = await fetch(`${endpoint}?${query.toString()}`,
+        { method: 'GET', credentials: 'same-origin', redirect: 'manual' });
+      return response.status;
+    }, {
+      field: FIELD,
+      value: GOOD_VALUE,
+      patientId: String(patient),
+      endpoint: appUrl(s.config.baseUrl, '/encounter/oscarMeasurements/HealthTrackerUpdate'),
+    });
+
+    assert(status === 405,
+      `A GET to the Health Tracker save endpoint answered ${status}, not 405;`
       + ' the endpoint must not be reachable from a link or an image tag');
-    assert(measurementRows(s) === 0,
+    assert(measurementRows(s) === before,
       'A GET to the save endpoint wrote a measurement');
+
+    // The 405 just asserted is also, to the page recorder, a failed request and a
+    // console error. Drop those two entries -- and only those, matched on the
+    // status and the URL this step drove -- so the strict-page assertion still
+    // covers everything else the run touched.
+    const probed = (entry) => entry && typeof entry.url === 'string'
+      && entry.url.includes('/encounter/oscarMeasurements/HealthTrackerUpdate');
+    s.recorder.badResponses = s.recorder.badResponses.filter(
+      (entry) => !(probed(entry) && entry.status === 405));
+    s.recorder.consoleIssues = s.recorder.consoleIssues.filter(
+      (entry) => !(entry && typeof entry.text === 'string' && entry.text.includes('405')
+        && probed(entry.location)));
   });
 }
 

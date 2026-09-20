@@ -90,6 +90,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="java.util.*" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -282,6 +283,11 @@
         .history-value .indicator { height: 6px; border-radius: 2px; margin-top: 2px; }
 
         .prevention-value { flex: 0 0 auto; min-width: 110px; text-align: center; }
+
+        /* Chart.js with maintainAspectRatio:false sizes itself to its container.
+           Without an explicit height here the canvas grows without bound and one
+           measurement's trend takes over the whole page. */
+        .chart-wrap { position: relative; height: 220px; width: 100%; }
 
         .measurement-label { font-weight: 600; }
 
@@ -573,7 +579,7 @@
 
             int shown = 0;
             boolean anyRendered = false;
-            StringBuilder plotPoints = new StringBuilder("[");
+            List<Map<String, String>> plotPoints = new ArrayList<Map<String, String>>();
 %>
                 <div class="card mb-2 measurement-card" id="wrap-<%= encMeasure %>"
                      data-measure="<%= encMeasure %>" style="<%= hidden %>">
@@ -704,12 +710,10 @@
                                         io.github.carlos_emr.carlos.util.StringUtils.noNull(mdb.getProviderFirstName())
                                         + " " + io.github.carlos_emr.carlos.util.StringUtils.noNull(mdb.getProviderLastName()));
 
-                                if (plotPoints.length() > 1) {
-                                    plotPoints.append(',');
-                                }
-                                plotPoints.append("{\"d\":\"").append(SafeEncode.forJavaScript(String.valueOf(observedText)))
-                                        .append("\",\"v\":\"").append(SafeEncode.forJavaScript(String.valueOf(mdb.getDataField())))
-                                        .append("\"}");
+                                Map<String, String> point = new LinkedHashMap<String, String>();
+                                point.put("d", String.valueOf(observedText));
+                                point.put("v", String.valueOf(mdb.getDataField()));
+                                plotPoints.add(point);
                         %>
                             <div class="history-value" data-bs-toggle="popover" data-bs-html="true"
                                  data-bs-trigger="hover focus"
@@ -738,14 +742,13 @@
                         <% } %>
                     </div>
 
-                    <% plotPoints.append(']');
-                       if (graphable) { %>
+                    <% if (graphable) { %>
                     <div class="card-footer graph-view DoNotPrint" style="display:none;"
-                         data-points="<%= SafeEncode.forHtmlAttribute(plotPoints.toString()) %>"
+                         data-points="<%= SafeEncode.forHtmlAttribute(toJson(plotPoints)) %>"
                          data-is-bp="<%= "BP".equals(fieldName) %>"
                          data-title="<carlos:encode value='<%= displayName %>' context="htmlAttribute"/>">
                         <button type="button" class="btn-close float-end closeGraph" aria-label="Close"></button>
-                        <canvas height="200"></canvas>
+                        <div class="chart-wrap"><canvas></canvas></div>
                     </div>
                     <% } %>
                 </div>
@@ -1290,6 +1293,13 @@
                     if (!response.ok) {
                         throw new Error('delete failed: ' + response.status);
                     }
+                    // Drain the body before navigating. Assigning window.location
+                    // with the response still unread aborts the request as far as
+                    // the browser is concerned (net::ERR_ABORTED), which makes a
+                    // successful delete look like a failed one in devtools and
+                    // trips the browser checks' strict-page assertions.
+                    return response.text();
+                }).then(function () {
                     window.location = trackerUrl('&ycoord=' + encodeURIComponent(ycoordValue));
                 }).catch(function (error) {
                     deleteModal.hide();
@@ -1447,6 +1457,32 @@
             return "background: #FFCC24;";
         }
         return "";
+    }
+
+    /** One mapper for the page; ObjectMapper is thread-safe once configured. */
+    private static final ObjectMapper POINTS_MAPPER = new ObjectMapper();
+
+    /**
+     * Serializes the chart's data points as JSON for a {@code data-} attribute.
+     *
+     * <p>Deliberately a real JSON writer rather than string concatenation with
+     * {@code SafeEncode.forJavaScript}. That encoder escapes for a JavaScript
+     * string literal and emits {@code \xHH} sequences, which are not valid JSON
+     * escapes -- a date like {@code 2026-09-01} came out as {@code 2026\x2D09\x2D01}
+     * and every chart threw "Bad escaped character in JSON" on click. The result is
+     * HTML-attribute encoded at the call site.
+     *
+     * @param points the observation points, newest first
+     * @return a JSON array string, or {@code []} if serialization fails
+     */
+    String toJson(List<Map<String, String>> points) {
+        try {
+            return POINTS_MAPPER.writeValueAsString(points);
+        } catch (Exception e) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                    .error("Could not serialize Health Tracker chart points", e);
+            return "[]";
+        }
     }
 
     /**
