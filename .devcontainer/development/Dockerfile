@@ -202,8 +202,12 @@ RUN rm -rf $TOMCAT_PATH/webapps/ROOT/* \
 # Create ROOT folder
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 
-# NOTE: DrugRef2 runs in a separate Java 11 container (see .devcontainer/drugref/)
-# Open-Drugref requires Java 11 while Open-O uses Java 21
+# NOTE: DrugRef2 runs in a separate container (see .devcontainer/drugref/).
+# It is a separate container because it is a separate webapp with its own
+# lifecycle, NOT because it needs a different JDK: since the Java 25 migration
+# both images are built from the same tomcat:11.0.24-jdk25-temurin base.
+# DrugRef's own sources still COMPILE at a Java 21 language level, which is a
+# floor on its pom, not a constraint on the runtime here.
 
 # Copy scripts and config files
 COPY ./scripts /scripts

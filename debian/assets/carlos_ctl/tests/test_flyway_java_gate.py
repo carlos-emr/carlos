@@ -111,9 +111,17 @@ class TestFindJava(unittest.TestCase):
     def test_a_java_25_home_without_an_executable_java_is_skipped(self):
         # A half-removed JDK leaves the release file behind; running it would
         # fail with a permission error far from the cause.
-        broken = _make_jvm(self.tmp, "java-25-openjdk-broken",
+        #
+        # _find_java() SORTS its glob results, so the broken home has to sort
+        # BEFORE the good one or the loop returns without ever reaching it and
+        # this test passes even with the os.access() guard deleted. "aarch64"
+        # sorts before "amd64"; keep it that way if these names are ever
+        # changed. Asserted below rather than left to the reader.
+        broken = _make_jvm(self.tmp, "java-25-openjdk-aarch64",
                            'JAVA_VERSION="25.0.1"', executable=False)
         good = _make_jvm(self.tmp, "java-25-openjdk-amd64", 'JAVA_VERSION="25.0.1"')
+        self.assertEqual(sorted([broken, good])[0], broken,
+                         "broken JVM must sort first or the guard is untested")
         self.assertEqual(self._find([broken, good]),
                          os.path.join(good, "bin", "java"))
 
