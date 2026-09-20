@@ -104,14 +104,20 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().debug("Lab Upload content type = " + importFile.getName());
             // Re-validate at point of use for static analysis visibility
             File validatedImportFile = PathValidationUtils.validateUpload(importFile);
-            InputStream is = Files.newInputStream(validatedImportFile.toPath());
             filename = importFile.getName();
 
-            int check = FileUploadCheck.addFile(filename, is, proNo);
-            is.reset();
+            int check;
+            try (InputStream duplicateCheckStream = Files.newInputStream(validatedImportFile.toPath())) {
+                check = FileUploadCheck.addFile(filename, duplicateCheckStream, proNo);
+            }
             if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
                 Connection connection = new Connection();
-                ArrayList<String> messages = connection.Retrieve(is);
+                ArrayList<String> messages;
+                // FileUploadCheck consumes the first stream. Files.newInputStream does not
+                // support reset, so each independent reader must start from a fresh stream.
+                try (InputStream parserStream = Files.newInputStream(validatedImportFile.toPath())) {
+                    messages = connection.Retrieve(parserStream);
+                }
                 if (messages != null) {
                     try {
                         int size = messages.size();
@@ -140,9 +146,10 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     //connection.Acknowledge(success);
                 }
                 //SAVE FILE TO DISK
-                is.reset();
-                if (!saveFile(is, filename)) {
-                    outcome = OUTCOME_EXCEPTION;
+                try (InputStream archiveStream = Files.newInputStream(validatedImportFile.toPath())) {
+                    if (!saveFile(archiveStream, filename)) {
+                        outcome = OUTCOME_EXCEPTION;
+                    }
                 }
             } else {
                 outcome = "uploadedPreviously";
