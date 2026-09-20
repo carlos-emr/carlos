@@ -370,7 +370,6 @@ Hospital report management and integration.
 | hospitalReportManager/Mapping | io.github.carlos_emr.carlos.hospitalReportManager.HRMMapping2Action | Maps HRM data fields |
 | hospitalReportManager/Modify | io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action | Modifies HRM documents |
 | hospitalReportManager/PrintHRMReport | io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action | Prints HRM reports |
-| hospitalReportManager/Statement | io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action | Modifies HRM statements |
 | hospitalReportManager/UploadLab | io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadLab2Action | Uploads lab results to HRM |
 
 ## Indivica Module
