@@ -135,7 +135,14 @@
         <action name="eform/eFormAttachmentForm" class="io.github.carlos_emr.carlos.eform.upload.UploadEFormAttachment2Action">
         </action>
         <action name="eform/deleteImage" class="io.github.carlos_emr.carlos.eform.actions.DelImage2Action">
-            <result name="success">/eform/efmimagemanager</result>
+            <!-- REDIRECT, not a forward: a forward keeps the POST method, and
+                 the library gate (ViewEFormPage2Action) only permits POST for
+                 efmformmanageredit, so a SUCCESSFUL delete used to land the
+                 operator on a 405 instead of the refreshed Image Library. Same
+                 defect and same fix as eform/delEForm and eform/restoreEForm
+                 above. A redirect also makes this a proper POST/redirect/GET,
+                 so a browser refresh cannot re-submit the delete. -->
+            <result name="success" type="redirect">/eform/efmimagemanager</result>
         </action>
         <action name="eform/restoreEForm" class="io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action">
             <!-- REDIRECT, not a forward, for exactly the reason delEForm above is:

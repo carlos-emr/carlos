@@ -56,19 +56,63 @@
                 Popup = window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no, scrollbars=yes,resizable=yes,width=700,height=600,left=200,top=0');
             }
 
-            function deleteImg(image) {
-                if (confirm("<fmt:message key="eform.uploadimages.imgDelete"/>")) {
-                    var form = document.createElement('form');
-                    form.method = 'post';
-                    form.action = '<%=request.getContextPath()%>/eform/deleteImage';
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'filename';
-                    input.value = image;
-                    form.appendChild(input);
-                    document.body.appendChild(form);
-                    form.submit();
+            // Resolve the CSRF token seeded by /WEB-INF/jspf/csrf-token.jspf.
+            // The bootstrap populates the hidden input from an async fetch, so a
+            // click landing before that settles would read an empty value. Wait on
+            // the bootstrap's promise, and if it never ran or its fetch failed,
+            // retry once here so a single transient failure does not leave the
+            // delete control broken until the operator reloads.
+            // Returns the token, or null if it could not be obtained.
+            async function csrfToken() {
+                try {
+                    if (window.csrfTokenReady) {
+                        await window.csrfTokenReady;
+                    }
+                } catch (e) {
+                    // Bootstrap fetch failed; fall through to the retry below.
                 }
+                var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (csrf && csrf.value) {
+                    return csrf.value;
+                }
+                try {
+                    await fetchCsrfToken('<%=request.getContextPath()%>');
+                } catch (e) {
+                    return null;
+                }
+                csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+                return (csrf && csrf.value) ? csrf.value : null;
+            }
+
+            async function deleteImg(image) {
+                if (!confirm("<fmt:message key="eform.uploadimages.imgDelete"/>")) {
+                    return;
+                }
+                // A form built after page load is never visited by CSRFGuard's
+                // injector, so the token has to be copied in by hand. Posting
+                // without it is rejected by CarlosCsrfGuardFilter with 403 and
+                // the delete silently does nothing, so say so plainly instead
+                // of submitting a doomed request.
+                var token = await csrfToken();
+                if (!token) {
+                    alert("<fmt:message key="eform.uploadimages.deleteTokenUnavailable"/>");
+                    return;
+                }
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%=request.getContextPath()%>/eform/deleteImage';
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'filename';
+                input.value = image;
+                form.appendChild(input);
+                var tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden';
+                tokenInput.name = 'CSRF-TOKEN';
+                tokenInput.value = token;
+                form.appendChild(tokenInput);
+                document.body.appendChild(form);
+                form.submit();
             }
         </script>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
@@ -91,6 +135,15 @@
     </head>
 
     <body topmargin="0" leftmargin="0" rightmargin="0">
+
+    <%-- deleteImg() above builds its POST form in JavaScript at click time,
+         so CSRFGuard's client script never sees a <form> to inject the token
+         into (this page has no other form either). Without this bootstrap the
+         delete POST reaches CarlosCsrfGuardFilter with no token and is
+         rejected with 403 ("Required Token is missing from the Request") —
+         the delete silently does nothing. See docs CLAUDE.md, "CSRF Token
+         Bootstrapping on AJAX JSPs". --%>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 
     <%@ include file="efmTopNav.jspf" %>
 
