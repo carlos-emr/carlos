@@ -21,6 +21,12 @@ recognizing that the data has been sanitized by project utilities like
 | `path-traversal-carlos.yml` | 3 built-in path traversal rules | The 9 containment-enforcing `PathValidationUtils` helpers (same list as the CodeQL barrier in `codeql/customizations/Customizations.qll`) | latent — see note below |
 | `jsp-scriptlet-xss-carlos.yml` | Supplements the built-in JSP scriptlet XSS rule | `<carlos:encode>`, `${carlos:forXxx(...)}`, `SafeEncode.forXxx(...)`, `Encode.forXxx(...)`, `URLEncoder.encode(...)` | direct request-output FPs |
 
+> **Note on `sanitizeForDisplay()`.** That helper neutralizes by deletion, not
+> by escaping. Java's `\p{Cntrl}` is ASCII-only, so `LogSafe` strips U+0085 NEXT
+> LINE explicitly alongside U+2028/U+2029 — otherwise a Unicode-aware log reader
+> would still see a forged line break after sanitization, and modelling the
+> helper as a CWE-117 barrier here would be unsound.
+
 > **Note on `path-traversal-carlos.yml`.** Its sanitizer list was completed to
 > match the CodeQL barrier, but doing so removed **no** findings from the current
 > tree: the findings that remain do not flow through the newly-modelled helpers.
@@ -41,6 +47,12 @@ to avoid duplicate alerts:
 - `java.servlets.security.crlf-injection-logs-deepsemgrep.crlf-injection-logs-deepsemgrep`
 - `java.servlets.security.crlf-injection-logs.crlf-injection-logs`
 - `java.lang.security.audit.crlf-injection-logs.crlf-injection-logs`
+
+### Path Traversal (`path-traversal-carlos.yml`)
+
+- `java.lang.security.httpservlet-path-traversal.httpservlet-path-traversal`
+- `java.servlets.security.httpservlet-path-traversal.httpservlet-path-traversal`
+- `java.servlets.security.httpservlet-path-traversal-deepsemgrep.httpservlet-path-traversal-deepsemgrep`
 
 ### JSP Scriptlet XSS (`jsp-scriptlet-xss-carlos.yml`)
 
