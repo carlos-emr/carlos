@@ -81,6 +81,18 @@ public class HRMModifyDocument2Action extends ActionSupport {
     HRMDocumentCommentDao hrmDocumentCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Routes one viewer control to its handler and answers in JSON.
+     *
+     * <p>Dispatch is by the {@code method} request parameter, not by a Struts method mapping, so
+     * Strict Method Invocation keeps every handler below unreachable from a URL. An unsafe verb is
+     * rejected with 405 first, then {@code _hrm} write rights, then the dispatch; an unrecognised
+     * {@code method} answers 400 rather than a silent success.</p>
+     *
+     * @return {@link #NONE} in every case — the response body is always written directly, so
+     *         Struts must not resolve a result and forward a JSP over the top of it
+     * @throws IOException if the response body cannot be written
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
@@ -137,18 +149,33 @@ public class HRMModifyDocument2Action extends ActionSupport {
      *
      * @param success whether the requested change was persisted
      * @param message short status text rendered beside the control that was used
+     * @param clearedCount routing rows this call actually took out of the inbox, or null when the
+     *        operation does not clear anything. The viewer forwards it to the Inboxhub, whose
+     *        badges count routing rows; see {@link #signOff()} for why guessing is not good enough
      * @return {@link #NONE}, because the response body is already written
      */
-    private String writeResult(boolean success, String message) throws IOException {
+    // FindSecBugs XSS_SERVLET: the body is Jackson-serialised from a boolean, an int and one of
+    // this class's own constant message strings — no request data reaches it — and it is sent as
+    // application/json, which the deployment also serves with X-Content-Type-Options: nosniff.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "JSON body built from a boolean, an int and this class's constant message strings; no request data reaches the writer, and the response is application/json")
+    private String writeResult(boolean success, String message, Integer clearedCount) throws IOException {
         ObjectNode body = OBJECT_MAPPER.createObjectNode();
         body.put("success", success);
         body.put("message", message);
+        if (clearedCount != null) {
+            body.put("clearedCount", clearedCount.intValue());
+        }
 
         response.setContentType("application/json;charset=UTF-8");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().write(body.toString());
+        response.getWriter().write(body.toString()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer, java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss -- constant JSON status body, no request data
         response.getWriter().flush();
         return NONE;
+    }
+
+    /** Writes a status reply that clears nothing from the inbox. */
+    private String writeResult(boolean success, String message) throws IOException {
+        return writeResult(success, message, null);
     }
 
     /** Convenience wrapper for handlers that report the standard success/failure wording. */
@@ -156,6 +183,16 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return writeResult(success, success ? SUCCESS_MESSAGE : FAILURE_MESSAGE);
     }
 
+    /**
+     * Breaks one HRM report out of its similar-report group.
+     *
+     * <p>Reads {@code reportId}. A child report simply loses its parent; a parent hands the group
+     * to its earliest child and re-points the remaining siblings at that new parent, so the
+     * remaining reports stay grouped with each other.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String makeIndependent() throws IOException {
         boolean success = false;
         String reportId = request.getParameter("reportId");
@@ -198,6 +235,24 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return writeResult(success);
     }
 
+    /**
+     * Sets or clears the signed-off flag on the logged-in provider's routing row for one or more
+     * HRM reports.
+     *
+     * <p>Reads {@code reportId} and {@code signedOff} as parallel request parameter arrays; a row
+     * is created for the provider when none exists, and an unclaimed row ({@code providerNo} of
+     * {@code -1}) is claimed rather than duplicated.</p>
+     *
+     * <p>Replies with {@code clearedCount}: how many routing rows this call actually moved INTO
+     * signed-off. The viewer forwards that number to the Inboxhub, whose Documents/Labs/HRMs
+     * badges count routing rows and are adjusted client-side because a list re-fetch does not
+     * recompute them. Reporting a count the server did not clear — for a report already signed
+     * off, or one with no routing row in the inbox the clinician is looking at — walks that badge
+     * below the truth until a full page reload. Zero is a real answer and the Inboxhub honours it.
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String signOff() throws IOException {
         String[] reportIds = request.getParameterValues("reportId");
 
@@ -218,10 +273,11 @@ public class HRMModifyDocument2Action extends ActionSupport {
         // Bulk sign-off is all-or-nothing as far as the caller is concerned: one failed report
         // must not be masked by a later success, or the inbox drops a report still awaiting review.
         boolean success = true;
+        int clearedCount = 0;
         for (int i = 0; i < reportIds.length; i++) {
             try {
                 Integer reportId = Integer.parseInt(reportIds[i]);
-                String signedOff = request.getParameterValues("signedOff")[i];
+                int signedOff = Integer.parseInt(request.getParameterValues("signedOff")[i]);
                 HRMDocumentToProvider providerMapping = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(reportId, providerNo);
                 if (providerMapping == null) {
                     //check for unclaimed record, if that exists..update that one
@@ -231,17 +287,27 @@ public class HRMModifyDocument2Action extends ActionSupport {
                     }
                 }
 
+                // Read the previous state before writing: only a row that was NOT already signed
+                // off leaves the inbox, and that is what the badge is counting.
+                boolean wasSignedOff = providerMapping != null
+                        && providerMapping.getSignedOff() != null
+                        && providerMapping.getSignedOff() == 1;
+
                 if (providerMapping != null) {
-                    providerMapping.setSignedOff(Integer.parseInt(signedOff));
+                    providerMapping.setSignedOff(signedOff);
                     providerMapping.setSignedOffTimestamp(new Date());
                     hrmDocumentToProviderDao.merge(providerMapping);
                 } else {
                     HRMDocumentToProvider hrmDocumentToProvider = new HRMDocumentToProvider();
                     hrmDocumentToProvider.setHrmDocumentId(reportId);
                     hrmDocumentToProvider.setProviderNo(providerNo);
-                    hrmDocumentToProvider.setSignedOff(Integer.parseInt(signedOff));
+                    hrmDocumentToProvider.setSignedOff(signedOff);
                     hrmDocumentToProvider.setSignedOffTimestamp(new Date());
                     hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
+                }
+
+                if (signedOff == 1 && !wasSignedOff) {
+                    clearedCount++;
                 }
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Tried to set signed off status on document but failed.", e);
@@ -250,9 +316,20 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
 
-        return writeResult(success);
+        return writeResult(success, success ? SUCCESS_MESSAGE : FAILURE_MESSAGE, clearedCount);
     }
 
+    /**
+     * Routes one HRM report to a provider.
+     *
+     * <p>Reads {@code reportId} and {@code providerNo}. Also applies that provider's
+     * {@code IncomingLabRules} forwarding rules for HRM, adding a routing row for each forward
+     * target that does not already have one, and drops the unclaimed placeholder row
+     * ({@code providerNo} of {@code -1}) because a manual match supersedes it.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String assignProvider() throws IOException {
         boolean success = false;
         //Gets the Dao for incoming lab rules
@@ -314,6 +391,15 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return writeResult(success);
     }
 
+    /**
+     * Unlinks one HRM report from every patient it is currently attached to.
+     *
+     * <p>Reads {@code reportId}. Removing the link is what re-opens the report for matching, so
+     * the viewer re-enables the patient action buttons only on a successful reply.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String removeDemographic() throws IOException {
         boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
@@ -341,6 +427,16 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
     }
 
+    /**
+     * Links one HRM report to a patient, replacing any existing link.
+     *
+     * <p>Reads {@code reportId} and {@code demographicNo}. Existing links are cleared first so a
+     * report is never attached to two charts; a failure to clear them is deliberately tolerated,
+     * because the new link is the clinically important half of the operation.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String assignDemographic() throws IOException {
         boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
@@ -380,6 +476,16 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return writeResult(success);
     }
 
+    /**
+     * Makes one of a report's sub-classes the active one.
+     *
+     * <p>Reads {@code reportId} and {@code subClassId}, marks every sub-class on the document
+     * inactive, then activates the requested one. The viewer reloads the page afterwards, so this
+     * must not report success unless the switch was persisted.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String makeActiveSubClass() throws IOException {
         boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
@@ -409,6 +515,14 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return writeResult(success);
     }
 
+    /**
+     * Removes one provider's routing row from an HRM report.
+     *
+     * <p>Reads {@code providerMappingId} — the routing row's own id, not a provider number.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String removeProvider() throws IOException {
         boolean success = false;
         String providerMappingId = request.getParameter("providerMappingId");
@@ -429,6 +543,16 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return writeResult(success);
     }
 
+    /**
+     * Files a comment against one HRM report.
+     *
+     * <p>Reads {@code reportId} and {@code comment}, and stamps the comment with the logged-in
+     * provider and the current time. The comment text is stored raw and encoded at render time by
+     * the viewer's {@code <carlos:encode>} output, never here.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String addComment() throws IOException {
         boolean success = false;
         String documentId = request.getParameter("reportId");
@@ -458,6 +582,14 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return writeResult(success);
     }
 
+    /**
+     * Deletes one comment from an HRM report.
+     *
+     * <p>Reads {@code commentId}.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String deleteComment() throws IOException {
         boolean success = false;
         String commentId = request.getParameter("commentId");
@@ -477,6 +609,16 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return writeResult(success);
     }
 
+    /**
+     * Sets the free-text description shown for one HRM report.
+     *
+     * <p>Reads {@code reportId} and {@code description}. A report that cannot be found reports
+     * failure rather than success, so the viewer does not tell the clinician a description was
+     * saved when none was.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String setDescription() throws IOException {
         boolean success = false;
         String documentId = request.getParameter("reportId");
@@ -505,6 +647,17 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return writeResult(success);
     }
 
+    /**
+     * Files one HRM report under a category.
+     *
+     * <p>Reads {@code reportId} and {@code categoryId}. Success means the document was found and
+     * merged — an unparseable id, a missing report or a DAO failure all report failure. The
+     * original code swallowed every one of those in a nested catch and then answered "Success",
+     * so the viewer relabelled the category for a change the database never took.</p>
+     *
+     * @return {@link #NONE}; the JSON status body is written directly
+     * @throws IOException if the response body cannot be written
+     */
     public String updateCategory() throws IOException {
         boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
@@ -514,17 +667,13 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
         try {
-            try {
-                Integer categoryId = Integer.valueOf(request.getParameter("categoryId"));
-                HRMDocument document = hrmDocumentDao.find(Integer.parseInt(hrmDocumentId));
-                if (document != null) {
-                    document.setHrmCategoryId(categoryId);
-                    hrmDocumentDao.merge(document);
-                }
-            } catch (Exception e) {
-                // Do nothing
+            Integer categoryId = Integer.valueOf(request.getParameter("categoryId"));
+            HRMDocument document = hrmDocumentDao.find(Integer.parseInt(hrmDocumentId));
+            if (document != null) {
+                document.setHrmCategoryId(categoryId);
+                hrmDocumentDao.merge(document);
+                success = true;
             }
-            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to assign HRM document to category but failed.", e);
             success = false;
