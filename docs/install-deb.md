@@ -18,7 +18,7 @@ an administration tool — a working, secured EMR from `apt install`.
 
 ## Requirements
 
-- Ubuntu 26.04 LTS (the packages target its Tomcat 11 / OpenJDK 21 / MariaDB
+- Ubuntu 26.04 LTS (the packages target its Tomcat 11 / OpenJDK 25 / MariaDB
   11.8 / nginx stack).
 - One dedicated server or VM. As a starting point: 4+ CPU cores, 8 GB RAM
   (2 GB JVM heap + 1 GB database buffer pool by default — both tunable),
@@ -26,7 +26,7 @@ an administration tool — a working, secured EMR from `apt install`.
 - Root access. The *installation* uses root; the *running system* does not —
   every long-lived component runs as an unprivileged account.
 - The `universe` component enabled and the package lists current. Five of the
-  dependencies (`tomcat11-common`, `libtomcat11-java`, `openjdk-21-jre-headless`,
+  dependencies (`tomcat11-common`, `libtomcat11-java`, `openjdk-25-jre-headless`,
   `modsecurity-crs`, `libnginx-mod-http-modsecurity`) live in `universe`, and
   without it the install stops on unmet dependencies before anything is
   configured. It is enabled by default on Ubuntu Server.
