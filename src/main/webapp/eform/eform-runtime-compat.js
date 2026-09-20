@@ -605,17 +605,18 @@
         function guarded(verb) {
             if (verb === "setData" && isEmptySignatureDataUri(arguments[1])) {
                 signatureStatus.skippedEmptyLoads += 1;
-                // An unsigned form should show an empty signature pad, which is what the canvas
-                // already is after the plugin initialises. "reset" is the plugin's own supported
-                // way to say that, and it does not go through the base30 decoder.
-                //
-                // Deliberately unguarded. This wrapper exists to stop ONE known decoder defect
-                // (empty base30 payload) from throwing; a "reset" that fails is a different, real
-                // fault — an uninitialised element, a plugin load failure — which the unwrapped
-                // plugin would also have thrown on. Catching it here would let loadSig() report
-                // success while the pad is left in an unknown state, and would hide the failure
-                // from the page-error reporting the render completeness gate depends on.
-                return original.call(this, "reset");
+                // On the fast loopback render, a form's body onload can call loadSig() before
+                // jQuery runs its document-ready pad initialiser. There is nothing to reset yet:
+                // the later initialiser creates an empty canvas. Calling the plugin's reset on
+                // the absent canvas throws resetCanvas and withholds an otherwise complete PDF.
+                // Reset every pad that IS already initialised, and let a real reset failure still
+                // reach the page-error gate. A missing pad can only be skipped for this exact
+                // empty signature payload; populated signature data follows the plugin unchanged.
+                var readyCanvases = this.find("canvas.jSignature").add(this.filter("canvas.jSignature"));
+                if (readyCanvases.length > 0) {
+                    original.call(readyCanvases, "reset");
+                }
+                return this;
             }
             return original.apply(this, arguments);
         }

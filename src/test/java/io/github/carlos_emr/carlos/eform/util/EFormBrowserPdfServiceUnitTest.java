@@ -859,6 +859,7 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
         assertThat(scan.failedCriticalSubresources()).isZero();
         assertThat(scan.failedSubresources()).isEqualTo(1);
+        assertThat(scan.duplicateScriptFailureNames()).isEmpty();
     }
 
     @Test
@@ -970,6 +971,31 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.failedCriticalSubresources()).as("the file demonstrably loaded").isZero();
         assertThat(scan.failedSubresources()).as("still reported as advisory").isEqualTo(1);
+        assertThat(scan.duplicateScriptFailureNames()).containsExactly("onBodyLoad_Oct2018.js");
+        String mimeRefusal = "http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet 0:0 "
+                + "Refused to execute script from 'http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js' "
+                + "because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled.";
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(
+                mimeRefusal, scan.duplicateScriptFailureNames())).isTrue();
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(mimeRefusal, java.util.Set.of()))
+                .as("a MIME refusal without a failed duplicate could hide a wrong 200 response")
+                .isFalse();
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(
+                "Refused to execute script from 'data:' because its MIME type ('text/html') "
+                        + "is not executable, and strict MIME type checking is enabled.",
+                scan.duplicateScriptFailureNames())).isFalse();
+        EFormBrowserPdfService.NetworkGateScan imageOnly = EFormBrowserPdfService.scanNetworkEvents(
+                List.of(
+                        responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                        responseReceivedJson("Image",
+                                "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet"
+                                        + "?imagefile=onBodyLoad_Oct2018.js", 200),
+                        responseReceivedJson("Script",
+                                "http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js", 404)),
+                allowedOrigin);
+        assertThat(imageOnly.duplicateScriptFailureNames())
+                .as("an image with the same name does not prove the script executed")
+                .isEmpty();
     }
 
     @Test
@@ -988,6 +1014,7 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.failedCriticalSubresources()).isZero();
         assertThat(scan.failedSubresources()).isEqualTo(1);
+        assertThat(scan.duplicateScriptFailureNames()).isEmpty();
     }
 
     @Test
@@ -1388,6 +1415,34 @@ class EFormBrowserPdfServiceUnitTest {
         assertThatCode(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>()))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should exclude a duplicate-script MIME refusal only after network proof")
+    void shouldCorrelateMimeRefusal_withFailedDuplicateScript() throws Exception {
+        String bareScript = "http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js";
+        String servedScript = "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet"
+                + "?imagefile=onBodyLoad_Oct2018.js";
+        String refusal = "Refused to execute script from '" + bareScript + "' because its MIME type "
+                + "('text/html') is not executable, and strict MIME type checking is enabled.";
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> duplicate = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Script", servedScript, 200)),
+                perfEntry(responseReceivedJson("Script", bareScript, 404)));
+        EFormRenderCompletenessReport complete = service.enforceRenderGates(
+                driverWithConsole(browserConsole(consoleEntry(refusal))),
+                duplicate, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
+        assertThat(complete.severeConsoleErrors()).isZero();
+        assertThat(complete.failedContentResources()).isZero();
+
+        List<LogEntry> wrongMime200 = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Script", bareScript, 200)));
+        EFormRenderCompletenessReport incomplete = service.enforceRenderGates(
+                driverWithConsole(browserConsole(consoleEntry(refusal))),
+                wrongMime200, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
+        assertThat(incomplete.severeConsoleErrors()).isEqualTo(1);
     }
 
     @Test

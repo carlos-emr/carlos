@@ -184,6 +184,10 @@ public class EFormBrowserPdfService {
     private static final java.util.regex.Pattern CONSOLE_LEADING_LOCATION_PATTERN =
             java.util.regex.Pattern.compile(
             "^\\s*(?:\\[redacted-(?:url|path)\\]\\s+)?(\\d{1,7}):(\\d{1,7})\\b");
+    private static final java.util.regex.Pattern SCRIPT_MIME_REFUSAL_PATTERN =
+            java.util.regex.Pattern.compile(
+                    "Refused to execute script from '([^']+)' because its MIME type \\('[^']+'\\) "
+                    + "is not executable, and strict MIME type checking is enabled\\.");
     static final Duration BACKSTOP_TIMEOUT = Duration.ofSeconds(5);
     /**
      * How long the late-session reaper waits for an abandoned session-create to finish. Longer than
@@ -2160,7 +2164,7 @@ public class EFormBrowserPdfService {
         try {
             for (LogEntry entry : driver.manage().logs().get(LogType.BROWSER)) {
                 if (entry.getLevel().intValue() >= Level.SEVERE.intValue()
-                        && !isResourceLoadConsoleEntry(entry.getMessage())
+                        && !isResourceLoadConsoleEntry(entry.getMessage(), scan.duplicateScriptFailureNames())
                         && !isPolicyContainmentConsoleEntry(entry.getMessage())) {
                     severeConsoleEntries++;
                     if (severeConsoleDetailsOut != null && severeConsoleDetailsOut.size() < MAX_CONSOLE_DETAILS
@@ -2257,7 +2261,8 @@ public class EFormBrowserPdfService {
 
     /**
      * True for Chrome console entries reporting a resource load failure ("Failed to load
-     * resource: ..."). Resource failures are gated <em>type-aware</em> by the network scan
+     * resource: ..."), or a MIME refusal for a script whose failed duplicate is verified by the
+     * network scan. Resource failures are gated <em>type-aware</em> by the network scan
      * ({@link NetworkGateScan#failedSubresources()} — render-critical types drive an operator WARN
      * (advisory by default; see the strict-gate switch), speculative loads such as favicons
      * deliberately do not), so counting them in the console
@@ -2267,12 +2272,32 @@ public class EFormBrowserPdfService {
      * pattern is inspected; console text is still never logged.
      */
     static boolean isResourceLoadConsoleEntry(String message) {
+        return isResourceLoadConsoleEntry(message, Set.of());
+    }
+
+    static boolean isResourceLoadConsoleEntry(String message, Set<String> duplicateScriptFailureNames) {
         // Substring match on Chrome's emission (phrase + colon). Residual risk, mirroring the CSP
         // matcher below: a form's own console.error that happens to contain the exact phrase is
         // reclassified as a resource-load entry, suppressing only that form's JS-error signal —
         // resource failures stay gated type-aware by the network scan and egress stays gated by
         // the dead proxy plus event replay, so nothing is bypassed.
-        return message != null && message.contains("Failed to load resource:");
+        if (message == null) {
+            return false;
+        }
+        if (message.contains("Failed to load resource:")) {
+            return true;
+        }
+        // Chrome also logs a SEVERE MIME refusal when a bare duplicate script URL returns the
+        // HTML 404 page. The same script loaded successfully through the eForm asset route, and
+        // the network scan has already classified that exact filename as a duplicate failure.
+        // Correlate with that evidence: a 200 response with a wrong MIME type must still count as
+        // a page error, since the network scan would otherwise see a successful script request.
+        java.util.regex.Matcher mimeRefusal = SCRIPT_MIME_REFUSAL_PATTERN.matcher(message);
+        if (!mimeRefusal.find()) {
+            return false;
+        }
+        String refusedName = resourceBasename(mimeRefusal.group(1));
+        return refusedName != null && duplicateScriptFailureNames.contains(refusedName);
     }
 
     /**
@@ -2338,11 +2363,16 @@ public class EFormBrowserPdfService {
      * and enters the user-approval report.
      * {@code disallowedRequests} (off-origin HTTP, already blocked by the dead proxy) and
      * {@code failedSubresources} contains only known non-content failures and is advisory by
-     * default; strict mode also rejects it.
+     * default; strict mode also rejects it. {@code duplicateScriptFailureNames} records only
+     * script filenames that failed at one URL and loaded at another, to correlate Chrome's
+     * MIME-refusal console message with the already-adjudicated duplicate resource failure.
      */
     record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus, int failedSubresources,
             int parseFailures, int liveChannelAttempts, int failedCriticalSubresources,
-            int nonReadRequests) {
+            int nonReadRequests, Set<String> duplicateScriptFailureNames) {
+        NetworkGateScan {
+            duplicateScriptFailureNames = Set.copyOf(duplicateScriptFailureNames);
+        }
     }
 
     /**
@@ -2432,6 +2462,9 @@ public class EFormBrowserPdfService {
         int nonReadRequests = 0;
         java.util.Map<String, String> requestUrlsById = new java.util.HashMap<>();
         java.util.Set<String> loadedResourceNames = new java.util.HashSet<>();
+        java.util.Set<String> loadedScriptNames = new java.util.HashSet<>();
+        java.util.Set<String> failedScriptNames = new java.util.HashSet<>();
+        java.util.Set<String> duplicateScriptFailureNames = new java.util.HashSet<>();
         List<String> criticalFailureNames = new ArrayList<>();
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
@@ -2478,6 +2511,12 @@ public class EFormBrowserPdfService {
                     mainDocumentUrl = responseUrl;
                 } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
                         && (status >= 400 || isRedirect(status))) {
+                    if ("Script".equals(resourceType)) {
+                        String failedScriptName = resourceBasename(responseUrl);
+                        if (failedScriptName != null && failedScriptNames.size() < MAX_TRACKED_REQUEST_URLS) {
+                            failedScriptNames.add(failedScriptName);
+                        }
+                    }
                     // Every failed content-bearing resource can omit clinical content. Two advisory
                     // exceptions: an empty-src placeholder resolving back to the main document URL
                     // (not a distinct form resource), and a presentation-only asset, whose loss
@@ -2511,6 +2550,9 @@ public class EFormBrowserPdfService {
                     String loadedName = resourceBasename(responseUrl);
                     if (loadedName != null) {
                         loadedResourceNames.add(loadedName);
+                        if ("Script".equals(resourceType)) {
+                            loadedScriptNames.add(loadedName);
+                        }
                     }
                 }
             } else if ("Network.loadingFailed".equals(method)
@@ -2519,6 +2561,12 @@ public class EFormBrowserPdfService {
                 // Same content-vs-presentation split as the HTTP-error leg above, plus the
                 // containment split below.
                 String failedUrl = requestUrlsById.get(params.path("requestId").asText(""));
+                if ("Script".equals(params.path("type").asText(""))) {
+                    String failedScriptName = resourceBasename(failedUrl);
+                    if (failedScriptName != null && failedScriptNames.size() < MAX_TRACKED_REQUEST_URLS) {
+                        failedScriptNames.add(failedScriptName);
+                    }
+                }
                 if (PRESENTATION_RESOURCE_TYPES.contains(params.path("type").asText(""))
                         || isContainmentBlockedResource(failedUrl, allowedOrigin)) {
                     failedSubresources++;
@@ -2535,12 +2583,16 @@ public class EFormBrowserPdfService {
         for (String failedName : criticalFailureNames) {
             if (failedName != null && loadedResourceNames.contains(failedName)) {
                 failedSubresources++;
+                if (failedScriptNames.contains(failedName) && loadedScriptNames.contains(failedName)) {
+                    duplicateScriptFailureNames.add(failedName);
+                }
             } else {
                 failedCriticalSubresources++;
             }
         }
         return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources,
-                parseFailures, liveChannelAttempts, failedCriticalSubresources, nonReadRequests);
+                parseFailures, liveChannelAttempts, failedCriticalSubresources, nonReadRequests,
+                duplicateScriptFailureNames);
     }
 
     /**
