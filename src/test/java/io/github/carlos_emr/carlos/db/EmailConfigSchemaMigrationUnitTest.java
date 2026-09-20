@@ -14,11 +14,15 @@ import org.springframework.core.io.ClassPathResource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Migration regression; scripts/email-config-schema-checks.js verifies MariaDB. */
+/**
+ * Migration regression; scripts/email-config-schema-checks.js verifies MariaDB.
+ *
+ * @since 2026-09-19
+ */
 @Tag("unit")
 class EmailConfigSchemaMigrationUnitTest {
     @Test
-    void shouldWidenLegacyColumnWithoutLosingExistingOrNullValues() throws Exception {
+    void shouldPreserveExistingAndNullValues_whenEmailConfigColumnWidens() throws Exception {
         try (var connection = DriverManager.getConnection("jdbc:h2:mem:email_schema;MODE=MySQL");
              var statement = connection.createStatement()) {
             statement.execute("CREATE TABLE emailConfig (id INTEGER PRIMARY KEY, configDetails VARCHAR(1000))");
@@ -48,7 +52,7 @@ class EmailConfigSchemaMigrationUnitTest {
         }
     }
     @Test
-    void shouldAllowLaterDevelopMigrationsAfterReleaseWidening(@TempDir Path migrations) throws Exception {
+    void shouldAllowDevelopMigrations_whenReleaseWideningRunsFirst(@TempDir Path migrations) throws Exception {
         Files.writeString(migrations.resolve("V1__fixture.sql"),
                 "CREATE TABLE emailConfig (id INTEGER PRIMARY KEY, configDetails VARCHAR(1000));");
         String widening;
