@@ -148,10 +148,10 @@ Suppresses known false positives:
 
 **Maven profile**: `spotbugs` (defined in `pom.xml`)
 
-- SpotBugs Maven Plugin: 4.9.3.0
-- SpotBugs Engine: 4.9.3
+- SpotBugs Maven Plugin: 4.10.4.1
+- SpotBugs Engine: 4.10.4
 - Find Security Bugs: 1.14.0
-- `spotbugs-annotations` 4.9.3 (`provided` scope, in `pom.xml`) — supplies
+- `spotbugs-annotations` 4.10.4 (`provided` scope, in `pom.xml`) — supplies
   `edu.umd.cs.findbugs.annotations.SuppressFBWarnings` for per-site suppression
 - Effort: `Max` (deepest analysis)
 - Threshold: `Low` (report everything, filter via exclude file)
