@@ -32,7 +32,7 @@ healthcare application handling PHI.
 Semgrep runs two scans in `.github/workflows/semgrep.yml`:
 
 - `semgrep ci --sarif --output semgrep.sarif` runs the Semgrep Cloud policy, including Semgrep Pro rules when `SEMGREP_APP_TOKEN` is configured.
-- `semgrep scan --config .semgrep/jsp-scriptlet-xss-carlos.yml --sarif --output semgrep-carlos.sarif` runs CARLOS sanitizer-aware JSP checks that recognize project encoders.
+- `semgrep scan --config .semgrep/ --sarif --output semgrep-carlos.sarif` runs every CARLOS sanitizer-aware rule under `.semgrep/` — JSP scriptlet XSS, CRLF log injection, and path traversal — recognizing project encoders and `PathValidationUtils`/`LogSafe` sanitizers. See `.semgrep/README.md` for the full rule list and the built-in Semgrep Cloud rules each one replaces.
 
 ### False-positive handling
 
