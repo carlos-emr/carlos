@@ -45,7 +45,6 @@
     HRMSubClassDao hrmSubClassDao = (HRMSubClassDao) SpringUtils.getBean(HRMSubClassDao.class);
     HRMCategoryDao hrmCategoryDao = (HRMCategoryDao) SpringUtils.getBean(HRMCategoryDao.class);
     HRMDocumentCommentDao hrmDocumentCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
-    HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
 %>
 
 <%@page import="io.github.carlos_emr.carlos.hospitalReportManager.*, io.github.carlos_emr.carlos.hospitalReportManager.model.*, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -90,7 +89,6 @@
     List<HRMDocument> allDocumentsWithRelationship = null;
     List<HRMDocument> children = null;
     List<HRMDocumentComment> documentComments = null;
-    String confidentialityStatement = null;
 
 
     if (document != null) {
@@ -156,9 +154,6 @@
             request.setAttribute("children", children);
 
             documentComments = hrmDocumentCommentDao.getCommentsForDocument(hrmReportId);
-
-
-            confidentialityStatement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
 
 
             String duplicateLabIdsString = StringUtils.trimToNull(request.getParameter("duplicateLabIds"));
@@ -528,14 +523,6 @@
             %>
             <%= SafeEncode.forHtml(hrmReport.getFirstReportTextContent()).replaceAll("\n", "<br />") %>
 
-            <% } %>
-
-            <%
-                if (confidentialityStatement != null && confidentialityStatement.trim().length() > 0) {
-            %>
-            <hr/>
-            <em><strong>Provider Confidentiality Statement</strong><br/><carlos:encode value='<%= confidentialityStatement %>' context="html"/>
-            </em>
             <% } %>
         </div>
 
