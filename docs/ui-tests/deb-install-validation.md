@@ -225,7 +225,7 @@ and answers a different question**. Every check below goes through `:443`.
   give the VM 8 GiB. Do not run heavy Maven builds while VMs are up on a
   memory-constrained host — the build below is done **before** the VM exists.
 - Build dependencies satisfied on the host: `dpkg-checkbuilddeps` must be clean
-  (OpenJDK 21, Maven, debhelper, tomcat11 packages).
+  (OpenJDK 25, Maven, debhelper, tomcat11 packages).
 
 ## 1. Build the packages
 
@@ -258,7 +258,7 @@ release artifact and cannot satisfy the exact About-page assertion below.
 Then, from that packaging worktree:
 
 ```bash
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64
 export MAVEN_OPTS="-Xmx3g"
 env -u DRUGREF_WAR -u DRUGREF_SRC -u DRUGREF_REF dpkg-buildpackage -us -uc -b
 ```
