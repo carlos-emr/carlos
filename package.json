@@ -143,7 +143,10 @@
     "test:incoming-pdf-extraction-playwright": "node scripts/incoming-pdf-extraction-playwright-checks.js",
     "test:rh-form-workflow-playwright": "node scripts/rh-form-workflow-playwright-checks.js",
     "test:billing-bc-associations-playwright": "node scripts/billing-bc-associations-playwright-checks.js",
-    "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js"
+    "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js",
+    "test:admin-security-workflow-playwright": "node scripts/admin-security-workflow-playwright-checks.js",
+    "test:email-compose-send-playwright": "node scripts/email-compose-send-playwright-checks.js",
+    "test:admin-login-text-playwright": "node scripts/admin-login-text-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
