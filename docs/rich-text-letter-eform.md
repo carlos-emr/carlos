@@ -73,6 +73,13 @@ administrator to upload. Every one of them declares the same print block:
 See [Print and PDF](#print-and-pdf) for how that `@page` rule survives to the PDF — the editor does
 not store it.
 
+**Authoring rule for templates.** `populateTemplate()` in `editControl2.js` falls back to a browser
+`prompt()` for any `##placeholder##` whose cached value is empty, so a template may only use
+placeholders that are *always* populated for a real patient. `##_ReferringBlock##` is the trap — it
+is empty for any patient with no referring doctor on file, which is most of them, and a template
+carrying it pops a dialog on every new letter. Conditional content belongs on a sidebar button, not
+in a template. `RichTextLetterTemplateRegressionTest` pins the allowed set.
+
 **Not auto-deployed**: `stamps.js` (clinic-specific doctor signature mappings) is intentionally
 excluded. Clinics create this file themselves; see [Signature stamps](#signature-stamps).
 
