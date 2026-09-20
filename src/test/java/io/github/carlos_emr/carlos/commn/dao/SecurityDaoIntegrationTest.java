@@ -241,4 +241,21 @@ public class SecurityDaoIntegrationTest extends CarlosTestBase {
             assertThat(results.get(1).getUserName()).isEqualTo("zuser");
         }
     }
+    @Test
+    void shouldOrderByProviderNumber_whenAllowlistedPropertyRequested() {
+        createSecurity("977002", "coverageOrderA", "synthetic");
+        createSecurity("977001", "coverageOrderZ", "synthetic");
+        List<String> providers = securityDao.findAllOrderBy("providerNo").stream()
+                .map(Security::getProviderNo).filter(p -> p.startsWith("977")).toList();
+        assertThat(providers).containsExactly("977001", "977002");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"password", "userName desc", "providerNo; delete from security", "unknown"})
+    void shouldRejectSortExpression_whenNotAnAllowlistedProperty(String property) {
+        assertThatThrownBy(() -> securityDao.findAllOrderBy(property))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
 }
