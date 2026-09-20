@@ -713,25 +713,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             nextInboxhubPreviewCard = following.length > 0 ? following : null;
             card.remove();
             markInboxhubItemHandled(segmentId, labType, rowEl);
-            loadMoreInboxhubViewDataIfShort();
+            // Nothing is topped up from the server here, and that is deliberate. A removal
+            // can shorten the list past the point where #inboxViewItems scrolls, which is how
+            // preview mode asks for its next page -- but an item is only ever removed in place
+            // when the inbox ALREADY holds the whole result set (see
+            // dropAcknowledgedInboxhubItem), so there is no next page to ask for. While pages
+            // do remain, the acknowledgement re-syncs instead and that re-fetch repopulates
+            // the list. A top-up call here could therefore only ever fire in the case its own
+            // hasMoreData guard rejects, or start a request the re-sync immediately aborts.
             return true;
         }
         return false;
-    }
-
-    /**
-     * Fetches the next preview page when removing cards left the list too short to scroll.
-     *
-     * Preview mode reaches its later pages from #inboxViewItems' own scroll event. Take
-     * enough cards out of a short list and there is nothing left to scroll, so that event
-     * never fires again and the rest of the inbox becomes unreachable without the full
-     * refresh this change exists to avoid.
-     */
-    function loadMoreInboxhubViewDataIfShort() {
-        const container = document.getElementById('inboxViewItems');
-        if (!container || !hasMoreData || isFetchingData) { return; }
-        if (container.scrollHeight > container.clientHeight) { return; }
-        fetchInboxhubViewData();
     }
 
     /**

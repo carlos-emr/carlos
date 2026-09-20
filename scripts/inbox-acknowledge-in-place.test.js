@@ -232,12 +232,17 @@ test('Rapid Review opens the next row in list mode', () => {
   assert.equal(inbox.state.opened, '171');
 });
 
-test('a preview list too short to scroll pulls in its next page', () => {
-  // Preview mode reaches later pages from #inboxViewItems' scroll event; with nothing left
-  // to scroll that event never fires again.
-  const inbox = setup('preview', twoLabs, true, true);
+test('dropping a card in place asks the server for nothing at all', () => {
+  // A removal can shorten the list past the point where #inboxViewItems scrolls, which is how
+  // preview mode asks for its next page. Topping up from the server here would be wasted work
+  // in every case: an item is only removed in place when the whole result set is already
+  // loaded, and while pages remain the acknowledgement re-syncs instead and that re-fetch
+  // repopulates the list. So neither request may be made.
+  const inbox = setup('preview', twoLabs, true, false);
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
-  assert.equal(inbox.state.viewFetches, 1, 'the next page is pulled in');
+  assert.equal(inbox.state.viewFetches, 0, 'there is no next page to ask for');
+  assert.equal(inbox.state.fetches, 0, 'and nothing needs re-running');
+  assert.deepEqual(inbox.shown(), ['HL7:171']);
 });
 
 /*
