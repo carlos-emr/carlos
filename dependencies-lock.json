@@ -306,11 +306,11 @@
   }, {
     "groupId" : "com.github.spotbugs",
     "artifactId" : "spotbugs-annotations",
-    "version" : "4.10.4",
+    "version" : "4.10.2",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:NgSVZSzJJEehIVqUo4xgcOTPxPubdJpxD4U0HII7HfyyXvHVNvOBOQcfON+Bp8S1hBWdViU4XfTxwz/V8Dzaag=="
+    "integrity" : "sha512:Rv23i2CcXZCWd8HZk0fOCT07hC/wA9fSganc4lHb1QY6gvAJDgTAdi1/1vtZ1LtQ9ce/em9Q2ehWwiOShz9ycg=="
   }, {
     "groupId" : "com.github.virtuald",
     "artifactId" : "curvesapi",

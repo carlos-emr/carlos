@@ -1423,12 +1423,13 @@
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational
              IMPROPER_UNICODE case-folding detector). CLASS retention, compile-only; provided scope
-             keeps it out of the WAR. Version tracks the spotbugs engine (plugin 4.10.4.1).
+             keeps it out of the WAR. Version tracks the spotbugs engine (plugin 4.10.2.0;
+             see the hold rationale on the spotbugs-maven-plugin declaration).
              See docs/static-analysis-workflows.md. -->
         <dependency>
             <groupId>com.github.spotbugs</groupId>
             <artifactId>spotbugs-annotations</artifactId>
-            <version>4.10.4</version>
+            <version>4.10.2</version>
             <scope>provided</scope>
         </dependency>
 
