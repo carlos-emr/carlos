@@ -334,25 +334,32 @@ class CaseManagementCppSaveRegressionTest {
      * the chained rule continues below it.</p>
      */
     @Test
-    @DisplayName("the note route should allocate a note extension per key, not reuse one (#3739)")
-    void shouldAllocateNoteExtensionPerKey_inIssueNoteSave() throws IOException {
-        // saveNoteExt() is a JPA persist(). Re-persisting an instance that the first call
-        // already made managed is a no-op, so hoisting the entity out of the loop collapsed
-        // every extension of the note into one row and kept only the key written last: a CPP
-        // item saved with both a start date and a resolution date lost the start date. The
-        // allocation has to sit inside the loop. CaseManagementCppExtPersistenceIntegrationTest
-        // pins the persistence behaviour this depends on.
+    @DisplayName("the note route should upsert one note extension per key (#3739)")
+    void shouldUpsertOneNoteExtensionPerKey_inIssueNoteSave() throws IOException {
+        // Two regressions have to stay shut here, and only one of them is about allocation.
+        // (1) saveNoteExt() is a JPA persist(), so reusing one entity across the keys collapses
+        //     them into the row the first call created and only the last key survives.
+        // (2) saveNote() merges an existing note instead of revising it under a fresh id, so a
+        //     blind persist() per save adds a second row for a key that already has one; with
+        //     getExtByNote() ordered id desc and consumers assigning from every row, the oldest
+        //     wins and an edited value reads back as the one it replaced.
+        // CaseManagementCppExtPersistenceIntegrationTest pins the persistence behaviour behind
+        // both; this guard pins the shape of the write so neither can quietly come back.
         String action = read(Path.of("src", "main", "java", "io", "github", "carlos_emr", "carlos",
                 "casemgmt", "web", "CaseManagementEntry2Action.java"));
 
-        int loopStart = action.indexOf("/* save extra fields */");
-        assertThat(loopStart).as("the extension save block is present").isGreaterThan(0);
-        int loopEnd = action.indexOf("caseManagementMgr.getEditors(note);", loopStart);
-        assertThat(loopEnd).as("the extension save block is bounded").isGreaterThan(loopStart);
-        String block = action.substring(loopStart, loopEnd);
+        int blockStart = action.indexOf("/* save extra fields */");
+        assertThat(blockStart).as("the extension save block is present").isGreaterThan(0);
+        int blockEnd = action.indexOf("caseManagementMgr.getEditors(note);", blockStart);
+        assertThat(blockEnd).as("the extension save block is bounded").isGreaterThan(blockStart);
+        String block = action.substring(blockStart, blockEnd);
 
-        int allocation = block.indexOf("new CaseManagementNoteExt()");
-        assertThat(allocation).as("the block allocates a note extension").isGreaterThan(0);
+        assertThat(block)
+                .as("the block indexes the rows the note already has before writing")
+                .contains("caseManagementNoteExtDao.getExtByNote(note.getId())")
+                .as("an existing key is updated in place rather than inserted again")
+                .contains("caseManagementMgr.updateNoteExt(");
+
         int forStatement = block.indexOf("for (int i = 0; i < extNames.length; i++)");
         assertThat(forStatement).as("the block loops over the extension keys").isGreaterThan(0);
 
@@ -376,6 +383,10 @@ class CaseManagementCppSaveRegressionTest {
         }
         assertThat(bodyEnd).as("the loop body closes inside the extension save block").isGreaterThan(bodyStart);
 
+        // Every entity the write loop creates is created inside it: a hoisted allocation is the
+        // shape that collapsed the keys into one row.
+        int allocation = block.indexOf("new CaseManagementNoteExt()", forStatement);
+        assertThat(allocation).as("the write loop allocates a note extension").isGreaterThan(forStatement);
         assertThat(allocation)
                 .as("the entity is allocated inside the loop body, so each key gets its own row")
                 .isBetween(bodyStart, bodyEnd);

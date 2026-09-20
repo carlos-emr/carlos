@@ -22,7 +22,9 @@
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.persistence.EntityManager;
@@ -54,6 +56,13 @@ import static org.assertj.core.api.Assertions.tuple;
  * start date and resolution date together therefore kept the resolution date and silently
  * dropped the start date.
  *
+ * <p>Allocating per key is only half of it. {@code saveNote()} merges an existing note rather
+ * than revising it under a fresh id, so a note keeps its id across edits and a blind
+ * {@code persist()} per save would pile a second row onto every key. {@code getExtByNote()}
+ * orders {@code id desc} while consumers such as {@code NotesService.getNote()} assign from
+ * every row they walk, so the oldest row wins and an edited value reads back as the one it
+ * replaced. The write therefore has to update the row a key already has.
+ *
  * @since 2026-09-20
  */
 @DisplayName("CPP note extension persistence")
@@ -65,6 +74,7 @@ public class CaseManagementCppExtPersistenceIntegrationTest extends CarlosTestBa
 
     private static final String START = "2020-01-01";
     private static final String RESOLUTION = "2021-02-02";
+    private static final String EDITED_START = "2022-03-03";
 
     @Autowired
     @Qualifier("CaseManagementNoteExtDAO")
@@ -125,6 +135,33 @@ public class CaseManagementCppExtPersistenceIntegrationTest extends CarlosTestBa
                 .extracting(CaseManagementNoteExt::getKeyVal, CaseManagementNoteExt::getDateValueStr)
                 .containsExactlyInAnyOrder(
                         tuple(CaseManagementNoteExt.STARTDATE, START),
+                        tuple(CaseManagementNoteExt.RESOLUTIONDATE, RESOLUTION));
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should keep one row per key when the same note is saved again (#3739)")
+    void shouldKeepOneRowPerKey_whenTheSameNoteIsSavedAgain() {
+        caseManagementNoteExtDAO.save(newExtension(CaseManagementNoteExt.STARTDATE, START));
+        caseManagementNoteExtDAO.save(newExtension(CaseManagementNoteExt.RESOLUTIONDATE, RESOLUTION));
+        entityManager.flush();
+
+        // The second save of the same note, the way the action performs it: index the rows the
+        // note already has by key, newest first, then update in place instead of persisting.
+        Map<String, CaseManagementNoteExt> extByKey = new HashMap<>();
+        for (CaseManagementNoteExt existing : caseManagementNoteExtDAO.getExtByNote(noteId)) {
+            extByKey.putIfAbsent(existing.getKeyVal(), existing);
+        }
+        CaseManagementNoteExt start = extByKey.get(CaseManagementNoteExt.STARTDATE);
+        assertThat(start).as("the start date row from the first save is found by key").isNotNull();
+        start.setDateValue(EDITED_START);
+        caseManagementNoteExtDAO.update(start);
+
+        assertThat(storedExtensions())
+                .as("the edit replaces the start date rather than adding a second row for the key")
+                .extracting(CaseManagementNoteExt::getKeyVal, CaseManagementNoteExt::getDateValueStr)
+                .containsExactlyInAnyOrder(
+                        tuple(CaseManagementNoteExt.STARTDATE, EDITED_START),
                         tuple(CaseManagementNoteExt.RESOLUTIONDATE, RESOLUTION));
     }
 

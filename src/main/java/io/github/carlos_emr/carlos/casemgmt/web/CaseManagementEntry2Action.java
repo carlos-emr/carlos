@@ -1305,28 +1305,51 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         /* save extra fields */
-        // One row per extension key, so each field needs its own entity. saveNoteExt() is a
-        // JPA persist(): the first call makes the instance managed and assigns it an id, and a
-        // second persist() of that same instance is a no-op, so a reused instance collapses
-        // every field of the note into the single row the first call created -- whichever key
-        // was written last wins. Setting a CPP item's start date and resolution date together
-        // therefore stored only the resolution date. The read path
-        // (caseManagementNoteExtDao.getExtByNote, above) matches rows by key_val and expects a
-        // distinct row per key, so a shared instance silently loses fields.
+        // Exactly one casemgmt_note_ext row per extension key of this note, updated in place.
+        //
+        // Two traps sit here. saveNoteExt() is a JPA persist(), so reusing one entity across the
+        // keys collapses them into the single row the first call created -- whichever key was
+        // written last wins, which is how a CPP item saved with both a start date and a
+        // resolution date used to keep only the resolution date. Allocating per key is not
+        // enough on its own though: saveNote() merges an existing note rather than revising it
+        // under a fresh id, so a note keeps its id across edits and a plain persist() per save
+        // piles a second row onto every key. getExtByNote() orders id desc while consumers such
+        // as NotesService.getNote() assign from every row they walk, so the OLDEST row is the
+        // one that survives -- an edited start date would read back as the value it replaced.
+        //
+        // So: update the row a key already has, and insert only when it has none.
+        Map<String, CaseManagementNoteExt> extByKey = new HashMap<>();
+        for (CaseManagementNoteExt existing : caseManagementNoteExtDao.getExtByNote(note.getId())) {
+            // Newest first, so the first entry seen for a key is the one consumers read today.
+            extByKey.putIfAbsent(existing.getKeyVal(), existing);
+        }
         for (int i = 0; i < extNames.length; i++) {
             String val = request.getParameter(extNames[i]);
-            if (filled(val)) {
-                CaseManagementNoteExt cme = new CaseManagementNoteExt();
+            if (!filled(val)) continue;
+
+            // Resolve the new state on a detached carrier first. A malformed date has to leave
+            // the stored row exactly as it was, and mutating a managed entity before knowing
+            // that would blank it through dirty checking even though nothing is saved.
+            CaseManagementNoteExt resolved = new CaseManagementNoteExt();
+            if (i <= 2) {
+                if (!writePartialDate(val, resolved)) continue;
+            } else {
+                resolved.setValue(val);
+            }
+
+            CaseManagementNoteExt cme = extByKey.get(extKeys[i]);
+            if (cme == null) {
+                cme = new CaseManagementNoteExt();
                 cme.setNoteId(note.getId());
                 cme.setKeyVal(extKeys[i]);
-                cme.setDateValue((Date) null);
-                cme.setValue(null);
-                if (i <= 2) {
-                    if (writePartialDate(val, cme)) caseManagementMgr.saveNoteExt(cme);
-                } else {
-                    cme.setValue(val);
-                    caseManagementMgr.saveNoteExt(cme);
-                }
+                cme.setValue(resolved.getValue());
+                cme.setDateValue(resolved.getDateValue());
+                caseManagementMgr.saveNoteExt(cme);
+                extByKey.put(extKeys[i], cme);
+            } else {
+                cme.setValue(resolved.getValue());
+                cme.setDateValue(resolved.getDateValue());
+                caseManagementMgr.updateNoteExt(cme);
             }
         }
 
