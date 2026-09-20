@@ -1988,6 +1988,24 @@
       ]
     },
     {
+      "name": "health-tracker",
+      "script": "scripts/health-tracker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only."
+    },
+    {
       "name": "measurement-history",
       "script": "scripts/measurement-history-playwright-checks.js",
       "tiers": [
