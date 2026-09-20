@@ -586,17 +586,31 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             // one routing row PER VERSION but shown as one collapsed inbox row, so
             // acknowledging a three-version lab clears three of the rows the counters count.
             const acknowledgedRows = (event && event.data) ? event.data.clearedCount : null;
-            if (acknowledgedId) {
-                // The list re-fetch below reflects the acknowledgement, but the counters do
-                // not: they are rendered by displayInboxForm and re-read from hidden inputs
-                // on every list draw. Drop the item from the stored totals first so the badge
-                // stops counting something the clinician has already dealt with.
-                dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows);
-            }
-            fetchInboxhubData();
-            // When Rapid Review is on, open the next item after the refresh completes
-            if (rapidReviewState) {
-                pendingRapidReviewOpen = true;
+            // Take the item off screen and off the stored totals first. When it was on
+            // screen that is the whole job: the badges are re-read from hidden inputs on
+            // every draw, so the totals have to move whether or not anything is re-fetched.
+            const handledInPlace = acknowledgedId
+                ? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows)
+                : false;
+            if (handledInPlace) {
+                // Deliberately NO re-fetch. fetchInboxhubData re-runs the whole search from
+                // page 1 and replaces #inboxhubMode wholesale, which drops the clinician back
+                // at the top of a list they had scrolled into, discards every page after the
+                // first, and in preview mode reloads every card's iframe — one full lab
+                // render each. Acknowledging one item changes no other item, so nothing left
+                // on screen needs re-reading.
+                if (rapidReviewState) {
+                    openNextInboxItem();
+                }
+            } else {
+                // The item was not on screen. It may have been filtered out, or the inbox may
+                // be listing Acknowledged items, where this acknowledgement ADDS a row rather
+                // than removing one. Only the server can say, so ask it.
+                fetchInboxhubData();
+                // When Rapid Review is on, open the next item after the refresh completes
+                if (rapidReviewState) {
+                    pendingRapidReviewOpen = true;
+                }
             }
         };
     } catch (e) {
@@ -641,25 +655,63 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     /**
-     * Drops one item's row from the inbox table, without touching any counter.
+     * Drops one item from whichever inbox view is on screen, without touching any counter.
      *
      * Counting is deliberately separate: a lab's older versions have no row of their own
      * (the inbox collapses a version chain to one row) yet each still holds a routing row
      * that the counters count, so "row removed" and "total moved" are different questions.
      *
      * Popups call in through window.opener and cannot know which mode the inbox is showing,
-     * so the DataTable is touched only when the table is actually on the page: preview mode
-     * renders cards and no #inbox_table, and reaching for the DataTable API there would
-     * throw and take the rest of the update down with it.
+     * so the mode is decided here, from what is actually on the page. List mode has a
+     * DataTable and the row must go through its API or the table's own row bookkeeping keeps
+     * the row alive across the next draw; preview mode has cards and no #inbox_table at all,
+     * where reaching for the DataTable API would throw and take the rest of the update down
+     * with it.
+     *
+     * Returning whether the item was found is what lets the caller skip the full re-fetch:
+     * an acknowledgement dealt with here needs no round trip, and one that found nothing may
+     * still need one (see the BroadcastChannel listener).
      *
      * @param {string} segmentId segment id of the item
      * @param {string} labType its report type
+     * @return {boolean} true when the item's row or card was found and taken off screen
      */
     function removeInboxhubRow(segmentId, labType) {
-        if (jQuery('#inbox_table').length === 0) { return; }
         const rowEl = inboxhubItemElement(segmentId, labType);
-        if (rowEl.length === 0) { return; }
-        jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
+        if (rowEl.length === 0) { return false; }
+        if (jQuery('#inbox_table').length > 0) {
+            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
+            markInboxhubItemHandled(segmentId, labType, rowEl);
+            return true;
+        }
+        if (jQuery('#inboxViewItems').length > 0) {
+            // Remember the card that moves up into the acknowledged one's place BEFORE it
+            // goes — afterwards there is nothing left to ask — so Rapid Review can advance to
+            // the next result instead of scrolling back to the top of the list.
+            const card = rowEl.first();
+            const following = card.next('.document-card');
+            nextInboxhubPreviewCard = following.length > 0 ? following : null;
+            card.remove();
+            markInboxhubItemHandled(segmentId, labType, rowEl);
+            loadMoreInboxhubViewDataIfShort();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Fetches the next preview page when removing cards left the list too short to scroll.
+     *
+     * Preview mode reaches its later pages from #inboxViewItems' own scroll event. Take
+     * enough cards out of a short list and there is nothing left to scroll, so that event
+     * never fires again and the rest of the inbox becomes unreachable without the full
+     * refresh this change exists to avoid.
+     */
+    function loadMoreInboxhubViewDataIfShort() {
+        const container = document.getElementById('inboxViewItems');
+        if (!container || !hasMoreData || isFetchingData) { return; }
+        if (container.scrollHeight > container.clientHeight) { return; }
+        fetchInboxhubViewData();
     }
 
     /**
@@ -715,6 +767,61 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     var countedAcknowledgedItems = Object.create(null);
 
     /**
+     * Items this window has already taken off screen, keyed as countedAcknowledgedItems is.
+     *
+     * One acknowledgement can reach the inbox twice — a popup whose window.opener survived
+     * calls removeInboxhubRow directly, and the broadcast lands moments later — and by the
+     * second arrival the row is already gone. Without this record that arrival cannot tell
+     * "already dealt with" from "never on screen", and would fall back to the full re-fetch
+     * that costs the clinician their place in the list. Reset only by a full page load.
+     */
+    var handledInboxhubItems = Object.create(null);
+
+    /**
+     * The card that took an acknowledged one's place, captured before its removal.
+     *
+     * Preview mode only; consumed by openNextInboxItem and cleared as it is read.
+     */
+    var nextInboxhubPreviewCard = null;
+
+    /**
+     * The per-item bookkeeping key, or null when the message did not name a usable item.
+     *
+     * Type-qualified because segment ids are NOT unique across report types: documents, HRM
+     * reports and HL7 labs come from independent key sequences, so an id on its own can name
+     * another type's item.
+     */
+    function inboxhubItemKey(segmentId, labType) {
+        if (!isInboxhubItemToken(segmentId) || !isInboxhubItemToken(labType)) { return null; }
+        return labType + ':' + segmentId;
+    }
+
+    /**
+     * Records that this window has already taken an item off screen.
+     *
+     * The type can be absent when a popup running a cached older script calls in with an id
+     * alone; the rendered element is then the one place it can come from, which is why the
+     * element found by the caller is passed in rather than looked up a second time.
+     *
+     * @param {string} segmentId segment id of the item
+     * @param {string} labType its report type, or null when the caller did not say
+     * @param {Object} itemEl the element that was removed, used to recover a missing type
+     */
+    function markInboxhubItemHandled(segmentId, labType, itemEl) {
+        const resolvedType = labType || (itemEl && itemEl.length > 0 ? itemEl.data('labType') : null);
+        const key = inboxhubItemKey(segmentId, resolvedType);
+        if (key !== null) { handledInboxhubItems[key] = true; }
+    }
+
+    /**
+     * Whether this window has already taken the named item off screen.
+     */
+    function isInboxhubItemHandled(segmentId, labType) {
+        const key = inboxhubItemKey(segmentId, labType);
+        return key !== null && handledInboxhubItems[key] === true;
+    }
+
+    /**
      * Takes an acknowledged item off the stored totals, at most once per item.
      *
      * The totals count ROUTING rows, not the rows drawn in the list: a lab is stored as one
@@ -729,8 +836,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      *                 and a popup running a cached older script sends nothing)
      */
     function countAcknowledgedInboxhubItem(segmentId, labType, clearedCount) {
-        if (!isInboxhubItemToken(segmentId) || !isInboxhubItemToken(labType)) { return; }
-        const key = labType + ':' + segmentId;
+        const key = inboxhubItemKey(segmentId, labType);
+        if (key === null) { return; }
         if (countedAcknowledgedItems[key]) { return; }
         countedAcknowledgedItems[key] = true;
         decrementInboxhubStatFor(labType, clearedRowsFrom(clearedCount));
@@ -762,6 +869,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * @param {string} segmentId segment id of the acknowledged lab, document or HRM report
      * @param {string} labType its report type; older senders may not supply one
      * @param {number} clearedCount routing rows the acknowledgement cleared; see above
+     * @return {boolean} true when the item was on screen and has been dealt with here, so no
+     *                   re-fetch is needed; false when the server must be asked
      */
     function dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount) {
         const itemEl = inboxhubItemElement(segmentId, labType);
@@ -773,6 +882,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         // a filter while the popup was open. Row removal and counting are separate for that
         // reason, and the per-item key keeps this and removeReport from counting it twice.
         countAcknowledgedInboxhubItem(segmentId, resolvedType, clearedCount);
+        // Not "did THIS call remove something": the popup's direct window.opener route may
+        // have removed it already, and that is just as much a reason to skip the re-fetch.
+        return isInboxhubItemHandled(segmentId, resolvedType);
     }
 
     /**
@@ -789,12 +901,36 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     var pendingRapidReviewOpen = false;
 
     /**
-     * Rapid Review auto-advance: opens the first item in the inbox table.
-     * Called after an acknowledge refreshes the list, so the previously-acknowledged
-     * item is gone and the "first" item is effectively the next one to review.
-     * Waits for the DataTable draw event so the next row is rendered before clicking.
+     * Rapid Review auto-advance, after the acknowledged item was dropped in place.
+     *
+     * Nothing is being re-fetched on this route, so the next item is already rendered and
+     * can be reached at once: the list opens its first row, and preview mode — where every
+     * card is rendered and there is no link to open — brings the card that took the
+     * acknowledged one's place into view. Scrolling to that card rather than to the first
+     * one is the point: the clinician stays where they were working.
      */
     function openNextInboxItem() {
+        const nextLink = document.querySelector('#inbox_table tbody tr a');
+        if (nextLink) {
+            nextLink.click();
+            return;
+        }
+        const nextCard = nextInboxhubPreviewCard;
+        nextInboxhubPreviewCard = null;
+        if (nextCard && nextCard.length > 0) {
+            nextCard[0].scrollIntoView({ block: 'start' });
+        }
+    }
+
+    /**
+     * Rapid Review auto-advance on the re-fetch route: opens the first item in the table.
+     *
+     * Only for the path that could not drop the item in place and asked the server for a
+     * fresh list. The acknowledged item is gone from that list, so its "first" row is
+     * effectively the next one to review. Waits for the DataTable draw event so the row is
+     * rendered, and in its final order, before clicking.
+     */
+    function openNextInboxItemAfterDraw() {
         jQuery('#inbox_table').one('draw.dt', function() {
             var nextLink = document.querySelector('#inbox_table tbody tr a');
             if (nextLink) {
@@ -944,7 +1080,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             // Rapid Review auto-open: after acknowledging an item, open the next one
             if (pendingRapidReviewOpen) {
                 pendingRapidReviewOpen = false;
-                openNextInboxItem();
+                openNextInboxItemAfterDraw();
             }
             jQuery('#inbox_table').DataTable().draw(false); // `draw(false)` prevents resetting the scroll position
             showInboxhubStats();
