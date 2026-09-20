@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
+import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import org.apache.struts2.ActionSupport;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -40,6 +43,11 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 
 @DisplayName("UploadLoginText2Action")
 @Tag("unit")
@@ -148,6 +156,78 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
             assertThat(documentFiles)
                     .extracting(path -> path.getFileName().toString())
                     .containsExactly("AcceptableUseAgreement.txt");
+        }
+    }
+
+    @Test
+    void shouldRejectMalformedUtf8_beforeReplacingActiveAgreement() throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Existing agreement", StandardCharsets.UTF_8);
+        String originalPolicy = CarlosProperties.getInstance().getProperty("show_aua");
+        CarlosProperties.getInstance().setProperty("show_aua", "true");
+        try {
+            assertThat(AcceptableUseAgreementManager.hasAUA()).isTrue();
+            Path upload = Files.write(uploadDir.resolve("malformed.txt"), new byte[] {(byte) 0xC3, 0x28});
+            UploadLoginText2Action action = new UploadLoginText2Action();
+            action.setImportFile(upload.toFile());
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+            assertThat(agreement).hasContent("Existing agreement");
+            assertThat(AcceptableUseAgreementManager.hasAUA()).isTrue();
+            assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Existing agreement");
+            try (Stream<Path> files = Files.list(agreement.getParent())) {
+                assertThat(files.map(path -> path.getFileName().toString()))
+                        .containsExactly("AcceptableUseAgreement.txt");
+            }
+        } finally {
+            if (originalPolicy == null) CarlosProperties.getInstance().remove("show_aua");
+            else CarlosProperties.getInstance().setProperty("show_aua", originalPolicy);
+        }
+    }
+
+    @Test
+    void shouldRestorePreviousAgreement_whenValidityLookupFails() throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Existing agreement", StandardCharsets.UTF_8);
+        Path upload = Files.writeString(uploadDir.resolve("replacement.txt"), "Replacement agreement", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
+
+        try (MockedStatic<AcceptableUseAgreementManager> manager =
+                mockStatic(AcceptableUseAgreementManager.class, CALLS_REAL_METHODS)) {
+            manager.when(AcceptableUseAgreementManager::findLatestProperty)
+                    .thenThrow(new IllegalStateException("Synthetic property lookup outage"));
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+            assertThat(agreement).hasContent("Existing agreement");
+            assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Existing agreement");
+        }
+    }
+
+    @Test
+    void shouldRemoveNewAgreement_whenValidityPersistenceFailsWithoutPreviousFile() throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Path upload = Files.writeString(uploadDir.resolve("new.txt"), "New agreement", StandardCharsets.UTF_8);
+        PropertyDao failingDao = mock(PropertyDao.class);
+        doThrow(new IllegalStateException("Synthetic property write outage"))
+                .when(failingDao).persist(any(Property.class));
+        replaceSpringUtilsBean(PropertyDao.class, failingDao);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
+
+        try (MockedStatic<AcceptableUseAgreementManager> manager =
+                mockStatic(AcceptableUseAgreementManager.class, CALLS_REAL_METHODS)) {
+            manager.when(AcceptableUseAgreementManager::findLatestProperty).thenReturn(null);
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+            assertThat(agreement).doesNotExist();
+            assertThat(AcceptableUseAgreementManager.getAUAText()).isNull();
         }
     }
 

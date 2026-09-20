@@ -49,7 +49,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Reader;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -115,34 +119,58 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
         boolean error = false;
         PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 
-        try {
-            if (importFile == null) {
-                _logger.warn("No file uploaded; skipping login text write");
-            } else if (!importFile.getName().isEmpty()) {
-                writeLoginTextFile();
-                error = false;
+        // The agreement readers synchronize on this class while loading text.
+        // Keep them from seeing a replacement before its validity property commits.
+        synchronized (AcceptableUseAgreementManager.class) {
+            PublishedLoginText published = null;
+            boolean restored = false;
+            try {
+                if (importFile == null) {
+                    _logger.warn("No file uploaded; skipping login text write");
+                } else if (!importFile.getName().isEmpty()) {
+                    published = writeLoginTextFile();
+                }
+                Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
+                if (latestProperty == null || !prop.getName().equals(latestProperty.getName())
+                        || !prop.getValue().equals(latestProperty.getValue())) {
+                    propertyDao.persist(prop);
+                    AcceptableUseAgreementManager.invalidateCache();
+                }
+            } catch (Exception e) {
+                if (published != null) {
+                    try {
+                        restoreLoginTextFile(published);
+                        restored = true;
+                    } catch (IOException restoreError) {
+                        e.addSuppressed(restoreError);
+                    }
+                }
+                MiscUtils.getLogger().error("Error", e);
+                error = true;
+            } finally {
+                if (published != null && (!error || restored) && published.backup() != null) {
+                    try {
+                        Files.deleteIfExists(published.backup());
+                    } catch (IOException cleanupError) {
+                        _logger.warn("Could not remove agreement backup after update", cleanupError);
+                    }
+                }
             }
-            Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
-            if (latestProperty == null || !prop.getName().equals(latestProperty.getName())
-                    || !prop.getValue().equals(latestProperty.getValue())) {
-                propertyDao.persist(prop);
-                AcceptableUseAgreementManager.invalidateCache();
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            error = true;
         }
 
         request.setAttribute("error", error);
         return SUCCESS;
     }
 
-    private void writeLoginTextFile() throws IOException {
+    private record PublishedLoginText(Path destination, Path backup) { }
+
+    private PublishedLoginText writeLoginTextFile() throws IOException {
         File saveFile = AcceptableUseAgreementManager.getAgreementFile();
         Path directory = saveFile.getParentFile().toPath();
         Files.createDirectories(directory);
         Path tempFile = Files.createTempFile(directory, "agreement-upload-", ".tmp");
-        boolean moved = false;
+        Path backup = null;
+        boolean published = false;
         try {
             try (InputStream fis = Files.newInputStream(importFile.toPath());
                  OutputStream fos = Files.newOutputStream(tempFile)) {
@@ -152,14 +180,42 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
                     fos.write(buf, 0, i);
                 }
             }
+            validateUtf8(tempFile);
+            if (Files.exists(saveFile.toPath())) {
+                backup = Files.createTempFile(directory, "agreement-backup-", ".tmp");
+                Files.copy(saveFile.toPath(), backup,
+                        StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+            }
             moveLoginTextFile(tempFile, saveFile.toPath());
-            moved = true;
+            published = true;
             AcceptableUseAgreementManager.invalidateCache();
+            return new PublishedLoginText(saveFile.toPath(), backup);
         } finally {
-            if (!moved) {
+            if (!published) {
                 Files.deleteIfExists(tempFile);
+                if (backup != null) Files.deleteIfExists(backup);
             }
         }
+    }
+
+    private void validateUtf8(Path file) throws IOException {
+        try (Reader reader = new InputStreamReader(Files.newInputStream(file), StandardCharsets.UTF_8
+                .newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT))) {
+            char[] chars = new char[8192];
+            while (reader.read(chars) != -1) {
+                // Validate the entire staged file before publishing any of it.
+            }
+        }
+    }
+
+    private void restoreLoginTextFile(PublishedLoginText published) throws IOException {
+        if (published.backup() == null) {
+            Files.deleteIfExists(published.destination());
+        } else {
+            moveLoginTextFile(published.backup(), published.destination());
+        }
+        AcceptableUseAgreementManager.invalidateCache();
     }
 
     private void moveLoginTextFile(Path tempFile, Path saveFile) throws IOException {
