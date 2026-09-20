@@ -19,7 +19,7 @@
 
 | Category | Technology | Version |
 |----------|-----------|---------|
-| Language | Java | 21 |
+| Language | Java | 25 |
 | Framework | Spring Framework | 7.0.6 |
 | Security | Spring Security | 7.0.4 |
 | Web | Struts | 7.1.1 |

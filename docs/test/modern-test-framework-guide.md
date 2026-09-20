@@ -162,11 +162,11 @@ public abstract class CarlosUnitTestBase {
 
 #### Maven Configuration (pom.xml)
 ```xml
-<!-- JUnit 5 with Java 25 support -->
+<!-- JUnit 6 with Java 25 support -->
 <dependency>
     <groupId>org.junit.jupiter</groupId>
     <artifactId>junit-jupiter</artifactId>
-    <version>5.10.1</version>
+    <version>6.0.3</version>
     <scope>test</scope>
 </dependency>
 

@@ -19,7 +19,7 @@ i18n coverage gaps identified by the audit tooling.
 5. [Message Usage Patterns](#message-usage-patterns)
 6. [Multiline and Parameterized Messages](#multiline-and-parameterized-messages)
 7. [JavaScript i18n Pattern](#javascript-i18n-pattern)
-8. [UTF-8 Encoding Requirements (Java 25)](#utf-8-encoding-requirements-java-21)
+8. [UTF-8 Encoding Requirements (Java 25)](#utf-8-encoding-requirements-java-25)
 9. [CI Validation](#ci-validation)
 10. [Domain Priority Order](#domain-priority-order)
 
