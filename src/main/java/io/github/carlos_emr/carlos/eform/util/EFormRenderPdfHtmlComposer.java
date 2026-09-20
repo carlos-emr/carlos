@@ -677,7 +677,11 @@ public final class EFormRenderPdfHtmlComposer {
         Element signatureCompatibility = new Element(Tag.valueOf(SCRIPT_TAG), "");
         signatureCompatibility.append(
                 "window.signatureControl=window.signatureControl||{};"
-                + "window.signatureControl.initialize=function initialize(){};");
+                + "window.signatureControl.initialize=function initialize(){};"
+                // The interactive toolbar already defines this as a no-op after removing the
+                // legacy fax control. It has no print content, but forms still call it from
+                // delayed setFaxNo() callbacks after the toolbar is removed for PDF rendering.
+                + "window.AddOtherFax=window.AddOtherFax||function AddOtherFax(){return false;};");
         dependencies.add(signatureCompatibility);
 
         int insertionIndex = 0;

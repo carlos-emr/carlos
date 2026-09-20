@@ -568,6 +568,7 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 .doesNotContain("signatureControl.jsp")
                 .doesNotContain("signature.js")
                 .contains("signatureControl.initialize=function initialize(){}")
+                .contains("window.AddOtherFax=window.AddOtherFax||function AddOtherFax(){return false;};")
                 .contains("name=\"fdid\" id=\"fdid\" value=\"77\"")
                 .contains("name=\"demographicNo\" id=\"demographicNo\" value=\"123\"")
                 .contains("window.__carlosEformPdfRender=true;")
@@ -577,6 +578,8 @@ class EFormRenderPdfHtmlComposerUnitTest {
         assertThat(html.indexOf("/library/jquery/jquery-ui-1.14.2.min.js"))
                 .isLessThan(html.indexOf("/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
         assertThat(html.indexOf("/eform/eform-runtime-compat.js"))
+                .isLessThan(html.indexOf("/clinic.js"));
+        assertThat(html.indexOf("window.AddOtherFax="))
                 .isLessThan(html.indexOf("/clinic.js"));
         assertThat(html.indexOf("window.__carlosEformPdfRender=true;"))
                 .isLessThan(html.indexOf("/eform/eform-runtime-compat.js"));
