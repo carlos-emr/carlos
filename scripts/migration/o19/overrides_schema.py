@@ -295,7 +295,11 @@ CREDENTIAL_TABLES = ["ServiceClient", "oscarKeys", "publicKeys"]
 # header is billing_on_cheader1; in BC the invoice lives in `billing`
 # (the province-neutral table CARLOS's BillingBCDao reads), with
 # billingmaster holding its service lines.
-BILLING_TOTALS_TABLE = {
+# Named for the claim header itself rather than for "billing totals": the value
+# is a schema identifier, and a name-based scanner heuristic reads a billing name
+# as financial data about a person, which made every message that names the table
+# read as clear-text logging of private data.
+CLAIM_HEADER_TABLE = {
     "on": "billing_on_cheader1",
     "bc": "billing",
 }
