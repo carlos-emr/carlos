@@ -1956,7 +1956,11 @@
                     <plugin>
                         <groupId>com.github.spotbugs</groupId>
                         <artifactId>spotbugs-maven-plugin</artifactId>
-                        <version>4.9.3.0</version>
+                        <!-- 4.10.x for Java 25: 4.9.3 bundles an ASM that cannot read
+                             class file version 69 and aborts every class with
+                             "Unsupported class file major version 69", producing no
+                             report at all. 4.10.4 carries ASM 9.10.1, which reads it. -->
+                        <version>4.10.4.1</version>
                         <configuration>
                             <effort>Max</effort>
                             <threshold>Low</threshold>
@@ -1966,6 +1970,14 @@
                             <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
                             <fork>true</fork>
                             <maxHeap>${spotbugs.maxHeapMb}</maxHeap>
+                            <!-- The forked analyzer's default cap is 10 minutes. Until
+                                 4.10 this never mattered, because on Java 25 bytecode the
+                                 old analyzer aborted immediately on every class instead of
+                                 analysing anything. A real effort=Max pass over the whole
+                                 tree needs more room than that on a loaded runner, and the
+                                 failure mode is an opaque "execution timed out" with no
+                                 report, so give it an explicit ceiling. -->
+                            <timeout>2400000</timeout>
                             <plugins>
                                 <plugin>
                                     <groupId>com.h3xstream.findsecbugs</groupId>
