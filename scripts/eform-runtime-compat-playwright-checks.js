@@ -39,6 +39,8 @@ const { chromium } = require('playwright');
 const { assert, getLaunchOptions } = require('./eform-local-playwright-utils');
 
 const SHIM_PATH = path.join(__dirname, '..', 'src', 'main', 'webapp', 'eform', 'eform-runtime-compat.js');
+const JQUERY_PATH = path.join(__dirname, '..', 'src', 'main', 'webapp', 'library', 'jquery', 'jquery-3.7.1.min.js');
+const JSIGNATURE_PATH = path.join(__dirname, '..', 'src', 'main', 'webapp', 'library', 'jquery', 'jSignature.min.js');
 const PAYLOAD_ELEMENT_ID = 'carlos-legacy-measurement-history';
 const LEGACY_URL = '/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=';
 
@@ -124,13 +126,66 @@ function page(withPayload) {
     + `<script>${FORM_SCRIPT}</script></body></html>`;
 }
 
+function signaturePage() {
+  return `<!doctype html><html><body><div id="pad"></div><div id="not-ready"></div>
+    <script src="/eform-runtime-compat.js"></script>
+    <script src="/jquery.js"></script><script src="/jSignature.js"></script>
+    <script>
+      var calls = [];
+      var original = jQuery.fn.jSignature;
+      jQuery.fn.jSignature = function () {
+        calls.push({verb: arguments[0], data: arguments[1]});
+        return original.apply(this, arguments);
+      };
+      window.addEventListener('load', function () {
+        var pad = jQuery('#pad').jSignature();
+        calls.length = 0;
+        var errors = [];
+        function attempt(value, target, mayReject) {
+          try { target.jSignature('setData', value); }
+          catch (error) { if (!mayReject) { errors.push(String(error)); } }
+        }
+        attempt('data:image/jsignature;base30,', pad);
+        var resetAfterEmpty = calls.filter(function (call) { return call.verb === 'reset'; }).length;
+        var setDataAfterEmpty = calls.filter(function (call) { return call.verb === 'setData'; }).length;
+        attempt('data:IMAGE/JSIGNATURE;BASE30,', pad);
+        attempt('data:image/jsignature;base30,', jQuery('#not-ready'));
+        var resetAfterNotReady = calls.filter(function (call) { return call.verb === 'reset'; }).length;
+        attempt('data:image/jsignature;base30,0A_0A', pad, true);
+        attempt('data:text/jsignature-foo,', pad, true);
+        window.__signatureResult = {
+          resetAfterEmpty: resetAfterEmpty,
+          setDataAfterEmpty: setDataAfterEmpty,
+          resetAfterNotReady: resetAfterNotReady,
+          delegated: calls.filter(function (call) { return call.verb === 'setData'; })
+            .map(function (call) { return call.data; }),
+          skipped: window.__carlosEformSignatureCompat.skippedEmptyLoads,
+          installed: window.__carlosEformSignatureCompat.installed,
+          errors: errors
+        };
+      });
+    </script></body></html>`;
+}
+
 async function main() {
   const shim = fs.readFileSync(SHIM_PATH, 'utf8');
+  const jquery = fs.readFileSync(JQUERY_PATH, 'utf8');
+  const jsignature = fs.readFileSync(JSIGNATURE_PATH, 'utf8');
   const networkHits = [];
   const server = http.createServer((request, response) => {
     if (request.url === '/eform-runtime-compat.js') {
       response.writeHead(200, { 'Content-Type': 'application/javascript' });
       response.end(shim);
+      return;
+    }
+    if (request.url === '/jquery.js' || request.url === '/jSignature.js') {
+      response.writeHead(200, { 'Content-Type': 'application/javascript' });
+      response.end(request.url === '/jquery.js' ? jquery : jsignature);
+      return;
+    }
+    if (request.url === '/signature') {
+      response.writeHead(200, { 'Content-Type': 'text/html' });
+      response.end(signaturePage());
       return;
     }
     if (request.url.startsWith('/embedded')) {
@@ -196,6 +251,23 @@ async function main() {
     } catch (error) {
       failures.push(`absent payload: ${error.message}`);
     }
+
+    await tab.goto(`${base}/signature`);
+    const signature = await tab.evaluate('window.__signatureResult');
+    try {
+      assert(signature && signature.installed, 'jSignature guard was not installed before window load');
+      assert(signature.errors.length === 0, `jSignature fixture threw: ${signature.errors.join('; ')}`);
+      assert(signature.resetAfterEmpty === 1 && signature.setDataAfterEmpty === 0,
+        `empty base30 was not reset without decoding: ${JSON.stringify(signature)}`);
+      assert(signature.resetAfterNotReady === 2,
+        'empty data on an uninitialised pad should wait for its normal initialiser');
+      assert(signature.skipped === 3, `expected three empty base30 loads, got ${signature.skipped}`);
+      assert(JSON.stringify(signature.delegated) === JSON.stringify([
+        'data:image/jsignature;base30,0A_0A', 'data:text/jsignature-foo,',
+      ]), `populated and unsupported data did not reach the bundled plugin: ${JSON.stringify(signature.delegated)}`);
+    } catch (error) {
+      failures.push(`jSignature compatibility: ${error.message}`);
+    }
   } finally {
     if (browser) {
       await browser.close();
@@ -208,8 +280,8 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log('PASS eForm runtime compatibility shim: synchronous delivery, aligned arrays, '
-    + 'listener delivery, and visible failure when no payload is embedded.');
+  console.log('PASS eForm runtime compatibility: synchronous delivery, aligned arrays, '
+    + 'visible missing-payload failure, and bundled jSignature empty base30 handling.');
 }
 
 main().catch((error) => {

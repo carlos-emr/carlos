@@ -564,7 +564,7 @@
  * byte-identical and upgradable, and the callers cannot be fixed — loadSig() is authored inside
  * each clinic's own form HTML, not shipped by CARLOS.
  *
- * Scope is deliberately one shape: a data: URI whose media type is a jSignature vector format AND
+ * Scope is deliberately one shape: a data: URI whose media type is jSignature base30 AND
  * whose payload is empty. A populated signature, any other media type, and every other jSignature
  * verb go to the plugin untouched, so a real decode failure still surfaces as a real error.
  */
@@ -578,8 +578,8 @@
     var signatureStatus = {installed: false, skippedEmptyLoads: 0};
     window.__carlosEformSignatureCompat = signatureStatus;
 
-    // "data:image/jsignature;base30," and friends — media type naming a jSignature vector format,
-    // nothing after the comma. A bare "data:" (no comma) is NOT matched: the plugin handles that
+    // "data:image/jsignature;base30," only, with nothing after the comma. A bare "data:" (no comma)
+    // is NOT matched: the plugin handles that
     // one itself, and claiming it here would hide a genuine malformed-input path.
     function isEmptySignatureDataUri(value) {
         if (typeof value !== "string" || value.lastIndexOf("data:", 0) !== 0) {
@@ -589,7 +589,7 @@
         if (comma === -1) {
             return false;
         }
-        if (!/jsignature/i.test(value.slice("data:".length, comma))) {
+        if (!/^image\/jsignature;base30$/i.test(value.slice("data:".length, comma))) {
             return false;
         }
         return value.slice(comma + 1).trim() === "";

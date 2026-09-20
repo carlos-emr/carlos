@@ -294,6 +294,28 @@ class ClinicalProseWafExclusionRegressionTest {
     }
 
     @Test
+    @DisplayName("legacy eForm label exclusion should apply only to POST saves and the exact label argument")
+    void shouldLimitLegacyEformLabelExclusion() throws IOException {
+        String rule = readExclusionRule("1046");
+        assertThat(rule)
+                .contains("SecRule REQUEST_URI \"@rx ^/carlos/eform/addEForm(?:[;?]|$)\"")
+                .contains("\"id:1046,phase:1,pass,nolog,chain\"")
+                .contains("SecRule REQUEST_METHOD \"@streq POST\"")
+                .doesNotContain("ctl:ruleRemoveById=")
+                .doesNotContain("ctl:ruleRemoveByTag=");
+
+        List<String> targets = Stream.of(rule.split("\\n"))
+                .map(String::trim)
+                .filter(line -> line.startsWith("ctl:"))
+                .map(line -> line.replaceAll("[,\\\\]+$", "").replace("\"", ""))
+                .toList();
+        assertThat(targets).containsExactlyInAnyOrder(
+                "ctl:ruleRemoveTargetByTag=attack-injection-php;ARGS:label",
+                "ctl:ruleRemoveTargetByTag=attack-rce;ARGS:label",
+                "ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:label");
+    }
+
+    @Test
     @DisplayName("per-row prose fields should be exempted by anchored regex patterns, and nothing broader")
     void shouldExemptPerRowFields_byAnchoredPatternOnly() throws IOException {
         // A regex target is rejected inside a ctl action but accepted by a config-time
