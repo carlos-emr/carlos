@@ -78,7 +78,6 @@ public class HRMPDFCreator extends PdfPageEventHelper {
     private HRMDocument hrmDocument;
     private HRMReport hrmReport;
     private Document document;
-    private LoggedInInfo loggedInInfo;
 
 
     /**
@@ -98,7 +97,6 @@ public class HRMPDFCreator extends PdfPageEventHelper {
         HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);
         //Stores the output stream and hrmId
         this.outputStream = outputStream;
-        this.loggedInInfo = loggedInInfo;
 
         try {
             //Gets the HRMDocument by the provided Id
