@@ -29,14 +29,25 @@ const BASE_TAG = /<base\b[^>]*?>/i;
 const RELATIVE_REF = /(?:src|href)\s*=\s*"([A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:js|css|gif|png|jpe?g|bmp))"/gi;
 
 /*
+ * The other half of the same question. RELATIVE_REF deliberately starts at an
+ * alphanumeric, so it matches only references the sweep has NOT rewritten --
+ * which means every path this change produced was invisible to it. A typo in
+ * one of the ~1,150 rewritten references would have stayed green here, and the
+ * browser check samples four forms. These resolve against the webapp root.
+ */
+const CONTEXT_ROOTED_REF =
+  /(?:src|href)\s*=\s*"(?:<%=\s*request\.getContextPath\(\)\s*%>|\$\{pageContext\.request\.contextPath\})(\/[A-Za-z0-9_./-]*\.(?:js|css|gif|png|jpe?g|bmp))"/gi;
+
+/*
  * Two stylesheets are referenced by forms but ship nowhere in the webapp:
  * formalpha's alphaStyle.css (the Alpha form is not in FrmRecordFactory's
- * allow-list either, so the page is unreachable) and the Style1.css that the
- * counsellor and reception assessments ask for. Context-rooting a reference to
+ * allow-list either, so the page is unreachable), the Style1.css that the
+ * counsellor and reception assessments ask for, and formPositionHazard's
+ * positionHazardStyle.css, which exists nowhere in the repository. Context-rooting a reference to
  * a file that does not exist would only move the 404, so they are recorded here
  * rather than silently skipped.
  */
-const KNOWN_ABSENT_ASSETS = new Set(['alphaStyle.css', 'Style1.css']);
+const KNOWN_ABSENT_ASSETS = new Set(['alphaStyle.css', 'Style1.css', 'positionHazardStyle.css']);
 
 function formJsps() {
   return fs.readdirSync(FORM_JSP_DIR).filter((name) => name.endsWith('.jsp')).sort();
@@ -85,6 +96,38 @@ test('every relative asset reference in a form JSP resolves to a file that exist
   }
   assert.deepEqual(unresolved, [],
     `these references resolve against the page's <base> to somewhere no file exists:\n  ${unresolved.join('\n  ')}`);
+});
+
+test('every context-rooted asset reference in a form JSP resolves to a file that exists', () => {
+  // Guards the output of the sweep itself: a mistyped segment in a rewritten path
+  // produces a reference no relative-reference scan can see, because it no longer
+  // starts relative.
+  const unresolved = [];
+  for (const name of formJsps()) {
+    const source = fs.readFileSync(path.join(FORM_JSP_DIR, name), 'utf8');
+    for (const [, ref] of source.matchAll(CONTEXT_ROOTED_REF)) {
+      if (KNOWN_ABSENT_ASSETS.has(path.basename(ref))) {
+        continue;
+      }
+      if (!fs.existsSync(path.join(WEBAPP, ref.replace(/^\//, '')))) {
+        unresolved.push(`${name}: "${ref}" resolves to ${ref}`);
+      }
+    }
+  }
+  assert.deepEqual(unresolved, [],
+    `these context-rooted references point at somewhere no file exists:\n  ${unresolved.join('\n  ')}`);
+});
+
+test('the context-rooted scan actually covers the sweep', () => {
+  // Without this, a regex that stopped matching would make the test above pass
+  // by checking nothing -- the same blindness the <base> parser guard prevents.
+  let found = 0;
+  for (const name of formJsps()) {
+    const source = fs.readFileSync(path.join(FORM_JSP_DIR, name), 'utf8');
+    found += [...source.matchAll(CONTEXT_ROOTED_REF)].length;
+  }
+  assert.ok(found >= 1000,
+    `only ${found} context-rooted references matched; the sweep rewrote far more than that`);
 });
 
 test('no form JSP builds an asset path in a scriptlet without the context path', () => {
