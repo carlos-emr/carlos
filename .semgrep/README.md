@@ -18,7 +18,7 @@ recognizing that the data has been sanitized by project utilities like
 | File | Replaces | Sanitizer Recognized | False Positives Resolved |
 |------|----------|---------------------|------------------------:|
 | `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSafe.sanitize()`, `sanitizeUri()`, `sanitizeObject()`, `sanitizeForDisplay()`, `exceptionTrace()`, `Encode.forJava(...)` | 218 |
-| `path-traversal-carlos.yml` | 3 built-in path traversal rules | The 9 containment-enforcing `PathValidationUtils` helpers (same list as the CodeQL barrier in `codeql/customizations/Customizations.qll`) | latent — see note below |
+| `path-traversal-carlos.yml` | 3 built-in path traversal rules | The 9 containment-enforcing `PathValidationUtils` helpers modeled as a barrier in the CodeQL `Customizations.qll`, plus `validateUserFilePath` (modeled as a sanitizing taint summary in the Models-as-Data extension `.github/codeql/extensions/carlos-java-models/models/path-validation-sanitizers.yml`) | latent — see note below |
 | `jsp-scriptlet-xss-carlos.yml` | Supplements the built-in JSP scriptlet XSS rule | `<carlos:encode>`, `${carlos:forXxx(...)}`, `SafeEncode.forXxx(...)`, `Encode.forXxx(...)`, `URLEncoder.encode(...)` | direct request-output FPs |
 
 > **Note on `sanitizeForDisplay()`.** That helper neutralizes by deletion, not
@@ -33,7 +33,15 @@ recognizing that the data has been sanitized by project utilities like
 > The value is correctness for future code and parity with CodeQL, not a
 > reduction today. Verified by fixture: a `validatePathComponent()`-guarded sink
 > is now suppressed, while a `resolveTrustedPath()`-guarded sink still reports —
-> that helper's own Javadoc says it is "not a security boundary".
+> that helper's own Javadoc says it is "not a security boundary". `validateUserFilePath()`
+> was folded into the same sanitizer set for the same reason: it applies the legacy
+> `validateFileName()` normalization and then `validateWithinDirectory()`, and is already
+> registered as a manual summary model in CodeQL's Models-as-Data extension
+> (`.github/codeql/extensions/carlos-java-models/models/path-validation-sanitizers.yml`).
+> It is called from `DocumentManagerImpl`, `ManageDocument2Action`, and
+> `DemographicExportAction42Action` — none of those call sites are among the current 19
+> findings, so this addition is the same latent correctness fix as the rest of this rule's
+> sanitizer list: parity with CodeQL for future code, not a reduction today.
 
 ## Built-in Rules to Disable in Semgrep Cloud
 

@@ -18,10 +18,11 @@ rules:
       Detected a request parameter used in a file path operation without
       proper validation via PathValidationUtils. This could allow path
       traversal attacks. Use a containment-enforcing helper such as
-      PathValidationUtils.validatePath(), validateExistingPath(),
-      validateChildPath(), validateGeneratedChildPath(), validatePathComponent(),
-      validateGeneratedFileName(), validateZipEntryPath(), validateZipEntryName(),
-      or validateUpload() before the value reaches the filesystem. Note that
+      PathValidationUtils.validatePath(), validateUserFilePath(),
+      validateExistingPath(), validateChildPath(), validateGeneratedChildPath(),
+      validatePathComponent(), validateGeneratedFileName(), validateZipEntryPath(),
+      validateZipEntryName(), or validateUpload() before the value reaches the
+      filesystem. Note that
       resolveTrustedPath(), resolveConfiguredDirectory() and resolveConfiguredFile()
       only canonicalize a trusted value and are NOT a security boundary.
       See docs/path-validation-utils.md for usage guidance.
@@ -60,12 +61,15 @@ rules:
       # Containment-enforcing helpers on
       # io.github.carlos_emr.carlos.utility.PathValidationUtils.
       #
-      # This list is kept deliberately identical to the CodeQL barrier in
-      # codeql/customizations/Customizations.qll, so Semgrep and CodeQL agree on
-      # what counts as a path-traversal sanitizer in this codebase. Each entry was
+      # This list is kept deliberately identical to the CodeQL barrier
+      # (codeql/customizations/Customizations.qll) plus the Models-as-Data
+      # extension (.github/codeql/extensions/carlos-java-models/models/
+      # path-validation-sanitizers.yml), so Semgrep and CodeQL agree on what
+      # counts as a path-traversal sanitizer in this codebase. Each entry was
       # verified against the helper's body, not assumed from its name:
       #
       #   validatePath              basename-strip + validateWithinDirectory
+      #   validateUserFilePath      legacy-normalize (validateFileName) + validateWithinDirectory
       #   validateExistingPath      validateWithinDirectory
       #   validateChildPath         delegates to validateExistingPath
       #   validateGeneratedChildPath  rejects / \ . .. NUL, then validateWithinDirectory
@@ -83,6 +87,7 @@ rules:
       # would hide real CWE-22 flows.
       - pattern-either:
           - pattern: PathValidationUtils.validatePath(...)
+          - pattern: PathValidationUtils.validateUserFilePath(...)
           - pattern: PathValidationUtils.validateExistingPath(...)
           - pattern: PathValidationUtils.validateChildPath(...)
           - pattern: PathValidationUtils.validateGeneratedChildPath(...)
@@ -95,6 +100,7 @@ rules:
       # Fully-qualified class references
       - pattern-either:
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUserFilePath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateChildPath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateGeneratedChildPath(...)
@@ -111,6 +117,7 @@ rules:
               ...
           - pattern-either:
               - pattern: validatePath(...)
+              - pattern: validateUserFilePath(...)
               - pattern: validateExistingPath(...)
               - pattern: validateChildPath(...)
               - pattern: validateGeneratedChildPath(...)
@@ -126,6 +133,11 @@ rules:
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath;
               ...
           - pattern: validatePath(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUserFilePath;
+              ...
+          - pattern: validateUserFilePath(...)
       - patterns:
           - pattern-inside: |
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath;
