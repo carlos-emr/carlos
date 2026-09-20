@@ -114,12 +114,12 @@ class TestFindJava(unittest.TestCase):
         #
         # _find_java() SORTS its glob results, so the broken home has to sort
         # BEFORE the good one or the loop returns without ever reaching it and
-        # this test passes even with the os.access() guard deleted. "aarch64"
-        # sorts before "amd64"; keep it that way if these names are ever
-        # changed. Asserted below rather than left to the reader.
-        broken = _make_jvm(self.tmp, "java-25-openjdk-aarch64",
+        # this test passes even with the os.access() guard deleted. The "a-" /
+        # "z-" prefixes exist solely to pin that order; keep them if these
+        # names are ever changed. Asserted below rather than left to the reader.
+        broken = _make_jvm(self.tmp, "java-25-openjdk-a-broken",
                            'JAVA_VERSION="25.0.1"', executable=False)
-        good = _make_jvm(self.tmp, "java-25-openjdk-amd64", 'JAVA_VERSION="25.0.1"')
+        good = _make_jvm(self.tmp, "java-25-openjdk-z-good", 'JAVA_VERSION="25.0.1"')
         self.assertEqual(sorted([broken, good])[0], broken,
                          "broken JVM must sort first or the guard is untested")
         self.assertEqual(self._find([broken, good]),
