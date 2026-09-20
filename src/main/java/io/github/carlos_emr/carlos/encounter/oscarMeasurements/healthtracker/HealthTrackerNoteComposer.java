@@ -71,7 +71,7 @@ public class HealthTrackerNoteComposer {
             body.append("\n\n ");
         }
 
-        if (body.length() == 0) {
+        if (body.isEmpty()) {
             return "";
         }
 

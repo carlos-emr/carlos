@@ -127,7 +127,9 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                 String dispname = getText("encounter.LeftNavBar.Tracker");
 
                 winName = "viewTracker" + bean.demographicNo;
-                hash = Math.abs(winName.hashCode());
+                // Mask the sign bit rather than Math.abs: hashCode() can return
+                // Integer.MIN_VALUE, which survives Math.abs as a negative number.
+                hash = winName.hashCode() & Integer.MAX_VALUE;
                 url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath()
                         + "/encounter/oscarMeasurements/ViewHealthTracker?demographic_no="
                         + Encode.forUriComponent(bean.demographicNo) + "&template=tracker');return false;";

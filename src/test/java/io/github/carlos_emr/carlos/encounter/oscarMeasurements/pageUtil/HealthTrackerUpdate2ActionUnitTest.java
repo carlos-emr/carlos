@@ -200,7 +200,7 @@ class HealthTrackerUpdate2ActionUnitTest {
                 .thenReturn(new HealthTrackerSubmissionResult(
                         1,
                         List.of("Weight (kg): 9999"),
-                        List.of(new ValidationFailure("errors.range", new String[]{"Weight (kg)", "0.0", "500.0"})),
+                        List.of(new ValidationFailure("errors.range", List.of("Weight (kg)", "0.0", "500.0"))),
                         ""));
 
         String result = action.execute();

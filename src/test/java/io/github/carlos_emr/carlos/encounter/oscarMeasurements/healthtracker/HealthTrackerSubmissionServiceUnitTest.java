@@ -114,7 +114,7 @@ class HealthTrackerSubmissionServiceUnitTest {
                 .thenReturn(new EntryOutcome(true, List.of()));
         when(persister.persist(eqEntry(bad), anyInt(), anyString(), anyInt()))
                 .thenReturn(new EntryOutcome(false,
-                        List.of(new ValidationFailure("errors.invalid", new String[]{"Heightcm"}))));
+                        List.of(new ValidationFailure("errors.invalid", List.of("Heightcm")))));
 
         HealthTrackerSubmissionResult result = submit();
 
@@ -206,7 +206,7 @@ class HealthTrackerSubmissionServiceUnitTest {
         givenParsed(bad);
         when(persister.persist(any(), anyInt(), anyString(), anyInt()))
                 .thenReturn(new EntryOutcome(false,
-                        List.of(new ValidationFailure("errors.invalid", new String[]{"Heightcm"}))));
+                        List.of(new ValidationFailure("errors.invalid", List.of("Heightcm")))));
 
         HealthTrackerSubmissionResult result = submit();
 

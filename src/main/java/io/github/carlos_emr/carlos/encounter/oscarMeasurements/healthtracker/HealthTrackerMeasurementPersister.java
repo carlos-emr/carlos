@@ -56,7 +56,11 @@ public class HealthTrackerMeasurementPersister {
      * @param messageKey the {@code oscarResources} key (e.g. {@code errors.range})
      * @param arguments substitution arguments for that key
      */
-    public record ValidationFailure(String messageKey, String[] arguments) {
+    public record ValidationFailure(String messageKey, List<String> arguments) {
+
+        public ValidationFailure {
+            arguments = List.copyOf(arguments);
+        }
     }
 
     /**
@@ -184,31 +188,31 @@ public class HealthTrackerMeasurementPersister {
 
         if (!validation.isInRange(maxValue, minValue, value)) {
             failures.add(new ValidationFailure("errors.range",
-                    new String[]{label, Double.toString(minValue), Double.toString(maxValue)}));
+                    List.of(label, Double.toString(minValue), Double.toString(maxValue))));
         }
         if (!validation.maxLength(maxLength, value)) {
             failures.add(new ValidationFailure("errors.maxlength",
-                    new String[]{label, Integer.toString(maxLength)}));
+                    List.of(label, Integer.toString(maxLength))));
         }
         if (!validation.minLength(minLength, value)) {
             failures.add(new ValidationFailure("errors.minlength",
-                    new String[]{label, Integer.toString(minLength)}));
+                    List.of(label, Integer.toString(minLength))));
         }
         if (!validation.matchRegExp(regExp, value)) {
-            failures.add(new ValidationFailure("errors.invalid", new String[]{label}));
+            failures.add(new ValidationFailure("errors.invalid", List.of(label)));
         }
         if (!validation.isValidBloodPressure(regExp, value)) {
-            failures.add(new ValidationFailure("error.bloodPressure", new String[0]));
+            failures.add(new ValidationFailure("error.bloodPressure", List.of()));
         }
         if (!validation.isNumeric(numeric, value)) {
-            failures.add(new ValidationFailure("errors.numeric", new String[]{label}));
+            failures.add(new ValidationFailure("errors.numeric", List.of(label)));
         }
         if (!validation.isDate(entry.dateObserved())) {
-            failures.add(new ValidationFailure("errors.invalidDate", new String[]{label}));
+            failures.add(new ValidationFailure("errors.invalidDate", List.of(label)));
         }
         if (entry.comment().length() > MAX_COMMENT_LENGTH) {
             failures.add(new ValidationFailure("errors.maxlength",
-                    new String[]{label + " comment", String.valueOf(MAX_COMMENT_LENGTH)}));
+                    List.of(label + " comment", String.valueOf(MAX_COMMENT_LENGTH))));
         }
         return failures;
     }

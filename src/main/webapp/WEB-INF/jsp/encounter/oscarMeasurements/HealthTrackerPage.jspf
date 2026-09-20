@@ -389,7 +389,7 @@
             MeasurementFlowSheet fsMeta = MeasurementTemplateFlowSheetConfig.getInstance().getFlowSheet(name); %>
         <a href="<%= trackerRoute %>?demographic_no=<%= safeDemoNoUri %>&template=<carlos:encode value='<%= name %>' context="uriComponent"/>"
            class="btn btn-sm <%= name.equals(temp) ? "btn-primary active" : "btn-outline-secondary" %>"
-           title="Diagnosed" id="group-btn-<carlos:encode value='<%= name %>' context="htmlAttribute"/>">
+           title="Diagnosed">
             <carlos:encode value='<%= fsMeta.getDisplayName() %>' context="html"/>
         </a>
         <% } %>
@@ -409,7 +409,6 @@
                     MeasurementFlowSheet fsMeta = MeasurementTemplateFlowSheetConfig.getInstance().getFlowSheet(name); %>
                 <li>
                     <a class="dropdown-item <%= name.equals(temp) ? "active" : "" %>"
-                       id="group-btn-<carlos:encode value='<%= name %>' context="htmlAttribute"/>"
                        href="<%= trackerRoute %>?demographic_no=<%= safeDemoNoUri %>&template=<carlos:encode value='<%= name %>' context="uriComponent"/>">
                         <carlos:encode value='<%= fsMeta.getDisplayName() %>' context="html"/>
                     </a>
@@ -605,7 +604,10 @@
 
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
                             <div class="col-lg-7 d-flex justify-content-end gap-2 DoNotPrint entry-controls">
+                                <label class="visually-hidden" for="<%= encField %>_date">Observation date for <carlos:encode
+                                        value='<%= displayName %>' context="html"/></label>
                                 <input type="date" class="form-control form-control-sm" style="width:auto"
+                                       id="<%= encField %>_date"
                                        name="<%= encField %>_date" value="<%= today %>">
                                 <% if (yesNo) { %>
                                 <div id="options-<%= encField %>" class="d-flex align-items-center gap-2">
@@ -790,7 +792,8 @@
                                 Map<String, String> hExt = PreventionData.getPreventionKeyValues(String.valueOf(hdata.get("id")));
                                 String presult = hExt == null ? null : hExt.get("result");
                                 String refusedLabel = refused(hdata.get("refused")); %>
-                            <div class="prevention-value" role="button"
+                            <div class="prevention-value" role="button" tabindex="0"
+                                 onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }"
                                  onclick="fsPopup(465,635,'<%= SafeEncode.forJavaScriptAttribute(
                                          request.getContextPath() + "/prevention/AddPrevention?id="
                                          + SafeEncode.forUriComponent(String.valueOf(hdata.get("id")))
