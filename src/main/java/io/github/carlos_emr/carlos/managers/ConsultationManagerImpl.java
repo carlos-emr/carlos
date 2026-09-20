@@ -98,6 +98,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseSea
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -234,22 +235,44 @@ public class ConsultationManagerImpl implements ConsultationManager {
         return outstanding;
     }
 
+    /**
+     * Loads a request with associations initialized for detached detail rendering.
+     * Audits the read only when the request exists.
+     *
+     * @param loggedInInfo authenticated caller whose consultation read privilege is checked
+     * @param id consultation request identifier
+     * @return the populated request, or {@code null} when absent
+     * @throws SecurityException if the caller lacks consultation read privilege
+     */
     @Override
     public ConsultationRequest getRequest(LoggedInInfo loggedInInfo, Integer id) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
-        ConsultationRequest request = consultationRequestDao.find(id);
-        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getRequest", "id=" + request.getId());
+        ConsultationRequest request = consultationRequestDao.findWithAssociations(id);
+        if (request != null) {
+            LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getRequest", "id=" + request.getId());
+        }
 
         return request;
     }
 
+    /**
+     * Retrieves a consultation response and audits the read when the response exists.
+     *
+     * @param loggedInInfo current authenticated session information
+     * @param id consultation response identifier
+     * @return the consultation response, or {@code null} when it does not exist; missing responses
+     * are not recorded as successful reads
+     * @since 2026-01-24
+     */
     @Override
     public ConsultationResponse getResponse(LoggedInInfo loggedInInfo, Integer id) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         ConsultationResponse response = consultationResponseDao.find(id);
-        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getResponse", "id=" + response.getId());
+        if (response != null) {
+            LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getResponse", "id=" + response.getId());
+        }
 
         return response;
     }
@@ -278,6 +301,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
     }
 
     @Override
+    @Transactional
     public void saveConsultationRequest(LoggedInInfo loggedInInfo, ConsultationRequest request) {
         if (request.getId() == null) { //new consultation request
             checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -450,6 +474,8 @@ public class ConsultationManagerImpl implements ConsultationManager {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR_OF_DAY, -1);
         EReferAttachment eReferAttachment = eReferAttachmentDao.getRecentByDemographic(demographicNo, calendar.getTime());
+        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getEReferAttachments",
+                "demographicNo=" + demographicNo);
         if (eReferAttachment == null) {
             return Collections.emptyList();
         }
@@ -739,8 +765,9 @@ public class ConsultationManagerImpl implements ConsultationManager {
     }
 
     @Override
+    @Transactional
     public void archiveConsultationRequest(Integer requestId) {
-        ConsultationRequest c = consultationRequestDao.find(requestId);
+        ConsultationRequest c = consultationRequestDao.findWithAssociations(requestId);
         if (c != null) {
             List<ConsultationRequestExt> exts = consultationRequestExtDao.getConsultationRequestExts(requestId);
 

@@ -491,7 +491,7 @@
                         <h2><fmt:message key="SelectPharmacy.title"/>
                             <span style="font-size: small;">
 						<fmt:message key="SearchDrug.nameText"/>
-                        <%=surname%>, <%=firstName%>
+                        <carlos:encode value='<%= surname %>' context="html"/>, <carlos:encode value='<%= firstName %>' context="html"/>
                     </span>
                             <input type=button class="btn btn-secondary float-end" onclick="returnToRx();"
                                    value="Return to RX"/>

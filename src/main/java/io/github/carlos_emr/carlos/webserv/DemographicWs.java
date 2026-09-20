@@ -57,7 +57,8 @@ import org.springframework.stereotype.Component;
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class DemographicWs extends AbstractWs {
-    private static Logger logger = MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
+    private static final String DEMOGRAPHIC_OBJECT = "_demographic";
 
     @Autowired
     private DemographicManager demographicManager;
@@ -66,19 +67,22 @@ public class DemographicWs extends AbstractWs {
     private PatientConsentManager patientConsentManager;
 
     public DemographicTransfer getDemographic(Integer demographicId) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         Demographic demographic = demographicManager.getDemographicWithExt(getLoggedInInfo(), demographicId);
         return (DemographicTransfer.toTransfer(demographic));
     }
 
     public DemographicTransfer2 getDemographic2(Integer demographicId) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         Demographic demographic = demographicManager.getDemographic(getLoggedInInfo(), demographicId);
         return (DemographicTransfer2.toTransfer(demographic));
     }
 
 
     public DemographicTransfer[] searchDemographicByName(String searchString, int startIndex, int itemsToReturn) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         List<Demographic> demographics = demographicManager.searchDemographicByName(getLoggedInInfo(), searchString, startIndex, itemsToReturn);
-        return (DemographicTransfer.toTransfers(demographics));
+        return (DemographicTransfer.toTransfers(filterReadableDemographics(demographics)));
     }
 
 
@@ -87,14 +91,16 @@ public class DemographicWs extends AbstractWs {
      * Searches demographics by various attributes. See DemographicManager for parameter details.
      */
     public DemographicTransfer[] searchDemographicsByAttributes(String hin, String firstName, String lastName, Gender gender, Calendar dateOfBirth, String city, String province, String phone, String email, String alias, int startIndex, int itemsToReturn) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         List<Demographic> demographics = demographicManager.searchDemographicsByAttributes(getLoggedInInfo(), hin, firstName, lastName, gender, dateOfBirth, city, province, phone, email, alias, startIndex, itemsToReturn);
-        return (DemographicTransfer.toTransfers(demographics));
+        return (DemographicTransfer.toTransfers(filterReadableDemographics(demographics)));
     }
 
     /**
      * @programId can be null for all / any program
      */
     public Integer[] getAdmittedDemographicIdsByProgramProvider(Integer programId, String providerNo) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         logger.debug("programId=" + programId + ", providerNo=" + providerNo);
         List<Integer> results = demographicManager.getAdmittedDemographicIdsByProgramAndProvider(getLoggedInInfo(), programId, providerNo);
         return (results.toArray(new Integer[0]));
@@ -107,13 +113,24 @@ public class DemographicWs extends AbstractWs {
             ids.add(i);
         }
 
+        requireReadPrivilege(ids);
         List<Demographic> demographics = demographicManager.getDemographics(getLoggedInInfo(), ids);
         return (DemographicTransfer.toTransfers(demographics));
     }
 
+    /**
+     * Bulk export, filtered per patient like the search endpoints.
+     *
+     * <p>The unscoped check alone was not enough: {@code getActiveDemographicAfter} returns every
+     * matching patient, and a {@code _demographic$<id>} NORIGHTS override takes precedence over the
+     * general privilege only when the scoped check is actually made. Without the filter a caller
+     * holding general read plus a per-patient denial still received that patient's full record.</p>
+     */
     public DemographicTransfer[] getActiveDemographicsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "fields") String fields) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         Date afterDateExclusive = lastUpdate != null ? lastUpdate.getTime() : null;
-        List<Demographic> demographics = demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive);
+        List<Demographic> demographics = filterReadableDemographics(
+                demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive));
 
         List<DemographicTransfer> result = new ArrayList<DemographicTransfer>();
         if (demographics != null) {
@@ -132,9 +149,12 @@ public class DemographicWs extends AbstractWs {
         return result.toArray(new DemographicTransfer[0]);
     }
 
+    /** Version-2 shape of {@link #getActiveDemographicsAfter}, filtered per patient identically. */
     public DemographicTransfer2[] getActiveDemographicsAfter2(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "fields") String fields) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         Date afterDateExclusive = lastUpdate != null ? lastUpdate.getTime() : null;
-        List<Demographic> demographics = demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive);
+        List<Demographic> demographics = filterReadableDemographics(
+                demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive));
 
         List<DemographicTransfer2> result = new ArrayList<DemographicTransfer2>();
         if (demographics != null) {
@@ -154,7 +174,51 @@ public class DemographicWs extends AbstractWs {
     }
 
 
+    /**
+     * Drops search hits the caller may not read, rather than failing the whole search.
+     *
+     * <p>Throwing on the first restricted hit would itself leak: "your search matched a patient you
+     * cannot see" is exactly what a {@code _demographic$<id>} override exists to hide. Callers reach
+     * this only after the coarse {@code _demographic r} check at the endpoint, so a caller with no
+     * demographic rights at all still gets a fault rather than a silently empty result list.</p>
+     *
+     * <p>Known limit: {@code SecurityInfoManagerImpl.hasPrivilege} catches its own infrastructure
+     * exceptions and returns false, so a transient database failure during one patient's check is
+     * indistinguishable here from a deliberate deny, and that patient drops out of the results.
+     * Only the manager can tell those two apart; fixing it belongs there, not in this loop.</p>
+     */
+    private List<Demographic> filterReadableDemographics(List<Demographic> demographics) {
+        List<Demographic> readableDemographics = new ArrayList<Demographic>();
+        if (demographics == null) {
+            return readableDemographics;
+        }
+
+        for (Demographic demographic : demographics) {
+            Integer demographicId = demographic != null ? demographic.getDemographicNo() : null;
+            if (hasReadPrivilege(demographicId)) {
+                readableDemographics.add(demographic);
+            }
+        }
+
+        return readableDemographics;
+    }
+
+    private void requireReadPrivilege(List<Integer> demographicIds) {
+        for (Integer demographicId : demographicIds) {
+            requireReadPrivilege(demographicId);
+        }
+    }
+
+    private void requireReadPrivilege(Integer demographicId) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
+    }
+
+    private boolean hasReadPrivilege(Integer demographicId) {
+        return hasPrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId);
+    }
+
     public Integer[] getConsentedDemographicIdsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
         List<Consent> consents = patientConsentManager.getConsentsByTypeAndEditDate(loggedInInfo, consentType, lastUpdate.getTime());

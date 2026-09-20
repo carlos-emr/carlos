@@ -35,6 +35,21 @@
   ],
   "checks": [
     {
+      "name": "email-recovery",
+      "script": "scripts/email-recovery-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EMAIL_RECOVERY_DEMO_NO"
+      ]
+    },
+    {
       "name": "provider-quick-links",
       "script": "scripts/provider-quick-links-playwright-checks.js",
       "tiers": [

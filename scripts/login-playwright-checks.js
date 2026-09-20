@@ -28,7 +28,7 @@
  *   TEST_PASSWORD_HASH='<known hash for TEST_PASSWORD>'
  *
  * Optional environment:
- *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   BASE_URL=https://127.0.0.1:8443/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc
  *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=carlos
@@ -41,7 +41,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'https://127.0.0.1:8443/carlos');
 const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
@@ -76,12 +76,12 @@ function validateBaseUrl(rawBaseUrl) {
   if (parsed.username || parsed.password) {
     throw new Error('BASE_URL must not embed a username or password');
   }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  if (parsed.protocol !== 'https:') {
+    throw new Error('BASE_URL must use HTTPS because CARLOS session cookies are Secure (devcontainer: https://127.0.0.1:8443/carlos)');
   }
 
   const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0', 'host.docker.internal', 'carlos']);
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
@@ -229,7 +229,7 @@ async function assertResponseNotBlank(response, label, minBytes = 100) {
 }
 
 async function newBrowserContext(browser) {
-  return browser.newContext({ ignoreHTTPSErrors: true });
+  return browser.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
 }
 
 async function login(page, password = testPassword) {
@@ -311,7 +311,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('public login entry route rejects POST and allows GET', async () => {
-      const api = await request.newContext({ ignoreHTTPSErrors: true });
+      const api = await request.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
       const post = await api.post(appUrl('/index'), { form: { anything: 'x' } });
       assert(post.status() === 405, `POST /index expected 405, got ${post.status()}`);
       assert((post.headers().allow || '').includes('GET'), `POST /index missing Allow GET header`);
@@ -337,7 +337,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('unauthenticated structured and download routes return 401', async () => {
-      const api = await request.newContext({ ignoreHTTPSErrors: true });
+      const api = await request.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
       const ajax = await api.get(appUrl('/billing/CA/ON/ViewSearchRefDocAjax'), {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       });
@@ -510,7 +510,7 @@ async function expectSchedulePage(page, label) {
 
     await record('legacy /login forced-reset POST cannot change password without reset cache token', async () => {
       setForcedResetBaseline(1);
-      const api = await request.newContext({ ignoreHTTPSErrors: true });
+      const api = await request.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
       const res = await api.post(appUrl('/login'), {
         form: {
           forcedpasswordchange: 'true',

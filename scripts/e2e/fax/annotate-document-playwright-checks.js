@@ -106,9 +106,9 @@ function check(label, condition, detail) {
 const FORBIDDEN_ASSET = /\.mjs(\?|$)|pdf\.worker|pdfjs|\/webjars\//i;
 
 async function login(page) {
-  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
   // baseUrl comes from validateBaseUrl(): protocol allow-listed, credentials refused, host local
   // unless ALLOW_NON_LOCAL_BASE_URL is set deliberately.
+  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
   await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
@@ -219,8 +219,8 @@ async function main() {
     check('save endpoint refuses GET with 405', getSave === 405, `status ${getSave}`);
 
     // ---- the viewer renders ----
-    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
     // Same validated baseUrl; docId is a positive integer parsed from the environment.
+    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
     const viewerResponse = await page.goto(
       `${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`,
       { waitUntil: 'domcontentloaded' });
@@ -390,6 +390,8 @@ async function main() {
     async function openViewer() {
       const dismiss = dialog => dialog.accept();
       page.on('dialog', dismiss);
+      // Operator-approved base URL and validated numeric fixture ID, as above.
+      // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
       await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`);
       page.off('dialog', dismiss);
       await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
@@ -520,6 +522,8 @@ async function main() {
     // A failed page image is visible and cannot be annotated as an empty sheet.
     await page.route('**/ManageDocument?method=showPage&**', route => route.fulfill({ status: 500, body: '' }));
     page.once('dialog', dialog => dialog.accept());
+    // Operator-approved base URL and validated numeric fixture ID, as above.
+    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
     await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`);
     await page.waitForFunction(() => document.querySelector('.page.load-failed'));
     check('failed page images report a visible error and do not enable saving',

@@ -50,7 +50,7 @@ async function searchDrug(p, base, demo, term) {
     // "failed" is a genuine service problem (DrugRef unavailable / error page),
     // kept separate from a valid empty result so the negative case can require
     // the lookup to have COMPLETED and merely returned nothing.
-const failed = /unavailable|error contacting|could not|exception|service is unavailable|failed|interrupted/i.test(text);
+    const failed = /unavailable|error contacting|could not|exception|service is unavailable|failed|interrupted/i.test(text);
     return { count: hits.length, sample: hits.slice(0, 3), failed };
   }, term);
 }

@@ -71,6 +71,7 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
     @Override
     protected Object getServiceBean() {
         ws = new DemographicWs();
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_demographic"));
         return ws;
     }
 

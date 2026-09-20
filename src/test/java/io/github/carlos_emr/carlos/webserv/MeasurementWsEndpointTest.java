@@ -70,6 +70,7 @@ class MeasurementWsEndpointTest extends CarlosSoapTestBase {
     @Override
     protected Object getServiceBean() {
         ws = new MeasurementWs();
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_measurement"));
         return ws;
     }
 

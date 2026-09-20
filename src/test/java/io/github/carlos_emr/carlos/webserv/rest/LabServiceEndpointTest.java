@@ -76,8 +76,7 @@ class LabServiceEndpointTest extends CarlosRestTestBase {
 
     @BeforeEach
     void setUpSecurity() {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
-            .thenReturn(true);
+        grantEndpointPrivileges(mockSecurityInfoManager, "r", "_lab");
     }
 
     private Hl7TextMessage createTestHl7Message() {

@@ -70,6 +70,7 @@ class PrescriptionWsEndpointTest extends CarlosSoapTestBase {
     @Override
     protected Object getServiceBean() {
         ws = new PrescriptionWs();
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_rx"));
         return ws;
     }
 

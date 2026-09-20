@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.fax.action;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -102,6 +103,7 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
+        createAndRegisterMock(OutboundEmailArchiveDao.class);
         registerMock(DocumentAttachmentManager.class, mock(DocumentAttachmentManager.class));
         registerMock(SecurityInfoManager.class, securityInfoManager);
         // queue() re-derives the document's patient from the row before promoting it, so the

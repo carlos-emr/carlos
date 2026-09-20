@@ -36,6 +36,20 @@ All directory properties are configured in `carlos.properties`. Many have **fall
 | `TMP_DIR` | `{BASE}/carlos/export/` | Temporary export files |
 | `INTEGRATOR_OUTPUT_DIR` | `/var/lib/bc-integrator/export` | BC Integrator export files |
 
+Incoming documents are filed under `{INCOMINGDOCUMENT_DIR}/{queue id}/{folder}`. The folder names
+are an allowlist — `Fax`, `Mail`, `File`, `Refile` unless `ALLOWED_INCOMING_DOC_FOLDERS` overrides
+them — because the folder arrives as a request parameter on upload and refile. A configured list
+replaces the shipped one, drives the folder buttons on **Incoming Documents** and the uploader's
+folder picker, and its first entry is what those screens select by default, so create the matching
+subdirectory under every queue id before changing it. Names that are not a single path component
+are ignored, and a list with nothing usable falls back to the shipped four. Keep `Refile` in the
+list if document refiling is used: `EDocUtil.refileDocument` always writes into the queue's
+`Refile` folder.
+
+```properties
+#ALLOWED_INCOMING_DOC_FOLDERS=Fax,Mail,File,Refile
+```
+
 ### HL7 Directories (Optional)
 
 | Property | Purpose |

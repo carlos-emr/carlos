@@ -258,8 +258,8 @@
                                             <td colspan=2><b>Favorite Name:</b><input type=hidden
                                                                                       name="fldFavoriteId<%= i%>"
                                                                                       value="<%= f.getFavoriteId() %>"/>
-                                                <input type=text size="50" name="fldFavoriteName<%= i%>"
-                                                       class=tblRow size=80 value="<%= f.getFavoriteName() %>"/>&nbsp;&nbsp;&nbsp;
+                                                <input type="text" size="50" name="fldFavoriteName<%= i%>"
+                                                       class="tblRow" value="<%= SafeEncode.forHtmlAttribute(f.getFavoriteName()) %>"/>&nbsp;&nbsp;&nbsp;
                                             </td>
                                             <td>
                                                 <a id="saveSuccess_<%=i%>" style="display:none;color:red">Changes
@@ -281,10 +281,10 @@
                                         </tr>
                                         <% } else { %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line2">
-                                            <td colspan=7><b>Custom Drug Name:</b> <input type=text
+                                            <td colspan=7><b>Custom Drug Name:</b> <input type="text"
                                                                                           size="50"
                                                                                           name="fldCustomName<%= i%>"
-                                                                                          class=tblRow size=80
+                                                                                          class="tblRow"
                                                                                           value="<%= SafeEncode.forHtmlAttribute(f.getCustomName()) %>"/>
                                             </td>
                                         </tr>

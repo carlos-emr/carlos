@@ -17,8 +17,18 @@ The two checks added since, `echart-print-playwright-checks.js` and
 `clinical-freetext-playwright-checks.js`, were run on 2026-09-12 against a
 2026.09.0~snapshot22 package built from the #3623 branch (DrugRef and the eForm
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
-through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
-has not been re-run on a later snapshot.
+through the packaged front door, with `EXPECT_FRONT_DOOR=true`. On 2026-09-16, PR #2545 validation ran against an installed snapshot22 package
+in an Ubuntu 26.04 VM through nginx/WAF: 76 distinct browser scripts passed
+across the broad run and targeted retests, including the isolated login phase.
+The first eChart print attempt exposed an initialization race in the harness;
+waiting for chart lock initialization to complete fixed it, and two reruns
+passed all 15 PDF cases. The external eForm corpus was unavailable; the stored
+"Signature trick" template and one unbilled-report link were absent from the
+dataset, and the DrugRef database rebuild was deliberately disabled.
+Logs also exposed an outstanding DrugRef dependency defect: XML-RPC serialization
+of `java.sql.Date` throws from `Date.toInstant()`, so inactive-drug dates can be
+silently omitted despite a passing drug-search check. These results are not an
+all-clear for that separate dependency.
 
 That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
@@ -188,7 +198,7 @@ made `setParameters()` build `waitingListBean[undefined].*` selectors, so
 every row update fell through to a reposition and the edit was lost. Verified
 on the packaged install: a note holding `& < > 2+2` and a new date persist as
 a new `waitingList` row with the old one marked history
-(`WLMutation2ActionsTest` pins the page's field names against the action's
+(`WLMutation2ActionsUnitTest` pins the page's field names against the action's
 selector contract). The action also refuses `update=Y` without a usable
 `waitingListId` (missing, non-numeric or non-positive) with a 400: the
 legacy null check around the mutation never fired, because the parsed id
@@ -467,6 +477,40 @@ records the application's explicit completeness refusal and its issue report;
 it does not approve omitted content to obtain a PDF.
 
 ## 6. Run the suite
+
+The nullable-consultation check stages a specialist whose ID differs from the
+request ID, then verifies contact details in the form, extracted PDF text, and
+REST response. It also checks missing-request HTTP 404 and a request with no
+specialist. Run it with health-care-team mode both enabled and disabled when
+validating changes to consultation associations; restart the application after
+changing that property. The script restores the request and removes its owned
+specialist and any unreferenced health-care-team contact it created, including on
+cancellation. A referenced contact is retained and causes cleanup to fail visibly.
+The health-care-team run also covers installations without an `other` specialty
+entry; the form must render with an unspecified role instead of failing.
+
+`email-recovery-playwright-checks.js` creates two synthetic email logs for demo
+patient 1 (`EMAIL_RECOVERY_DEMO_NO` overrides this). It checks the in-flight-send
+recovery guard, stale-delivery warning and resolution, fresh compose passphrases,
+and server-acknowledged cancellation. It does not send email and removes only its
+owned logs. With no sender configured, it also requires an explicit warning and
+disabled Send button. Both checks require a disposable local database and reject
+non-loopback `MYSQL_HOST` values. Email recovery also requires a loopback
+`BASE_URL`, even when the shared remote-target opt-in is set, because its
+fixtures belong to the local database.
+
+For a 6 GiB validation guest, set `CARLOS_JAVA_XMS="2g"` and
+`CARLOS_JAVA_XMX="2g"` in the VM environment file before starting the browser
+suite, then restart the application. Monitor guest available memory as well as
+host memory; a 4 GiB fixed heap leaves too little room for MariaDB and Chromium
+in that guest. Stop the VM before compiling on the host.
+
+Before staging fixtures, verify that `MYSQL_DATABASE` matches `CARLOS_DB_NAME`
+in `/etc/carlos-emr/carlos-emr.env` and the generated application's `db_name`
+property. A browser session against one database cannot validate fixtures staged
+in another. Install all three matching package versions together; upgrading only
+the main package can remove older DrugRef and renderer packages because their
+dependencies require an exact version match.
 
 > **A runner now exists, and is not yet the documented procedure.**
 > `scripts/run-playwright-suite.js` reads `scripts/playwright-suite.json` and does

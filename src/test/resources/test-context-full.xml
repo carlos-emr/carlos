@@ -621,6 +621,18 @@
          Its @Autowired FaxDocumentManager/FaxSchedulerJob dependencies are mocked below (a real
          FaxSchedulerJob would start a Timer in the test JVM). -->
     <bean id="faxManager" class="io.github.carlos_emr.carlos.managers.FaxManagerImpl" autowire="byName" />
+    <!-- Real EmailManager so EmailManagerTransactionIntegrationTest exercises its @Transactional
+         boundary through a Spring proxy. Unrelated document/provider dependencies are mocked below. -->
+    <bean id="emailManager" class="io.github.carlos_emr.carlos.managers.EmailManager" autowire="byName">
+        <constructor-arg><bean class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+            <property name="mockType" value="io.github.carlos_emr.carlos.email.core.EmailConsentResolver" />
+        </bean></constructor-arg>
+        <constructor-arg><bean class="io.github.carlos_emr.carlos.email.core.EmailSenderFactory" /></constructor-arg>
+        <constructor-arg ref="securityInfoManager" />
+        <constructor-arg><bean class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+            <property name="mockType" value="io.github.carlos_emr.carlos.managers.OutboundEmailArchiveService" />
+        </bean></constructor-arg>
+    </bean>
     <bean id="clientRestrictionManager" class="io.github.carlos_emr.carlos.PMmodule.service.ClientRestrictionManagerImpl" autowire="byName" />
     <bean id="admissionManager" class="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManagerImpl" autowire="byType" />
     <bean id="oscarSuperManager" class="io.github.carlos_emr.carlos.service.OscarSuperManagerImpl" autowire="byName" />
@@ -661,6 +673,12 @@
     <bean id="faxSchedulerJob" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
         <property name="mockType" value="io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob" />
     </bean>
+    <bean id="documentAttachmentManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager" />
+    </bean>
+    <bean id="providerManager2" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.managers.ProviderManager2" />
+    </bean>
 
     <bean id="caseManagementManager" class="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl" autowire="byName">
         <property name="caseManagementNoteDAO" ref="CaseManagementNoteDAO" />
@@ -679,4 +697,6 @@
         <property name="programAccessDAO" ref="programAccessDAO" />
     </bean>
 
+    <!-- Real transaction boundary for archive read audit integration tests. -->
+    <bean class="io.github.carlos_emr.carlos.managers.OutboundEmailArchiveReadAuditService" autowire="constructor" />
 </beans>

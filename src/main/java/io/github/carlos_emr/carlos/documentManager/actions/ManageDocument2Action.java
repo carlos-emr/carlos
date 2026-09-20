@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import org.openpdf.text.pdf.PdfReader;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -117,6 +118,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2008-09-10
  */
 public class ManageDocument2Action extends ActionSupport {
+    private static final String ALLOW_METHOD_HEADER = "Allow";
+    private static final String POST_REQUIRED_MESSAGE = "POST required";
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -127,6 +130,7 @@ public class ManageDocument2Action extends ActionSupport {
     private final DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
     private final QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
     private final CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
     private final ProviderInboxRoutingDao providerInboxRoutingDAO = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -150,9 +154,6 @@ public class ManageDocument2Action extends ActionSupport {
     private static final long MAX_RENDER_MEGAPIXELS = 30L;
     private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
 
-    // Canonical incoming-document queue subdirectories. Kept in sync with the allowlist
-    // enforced by IncomingDocUtil.getIncomingDocumentFilePath.
-    private static final Set<String> ALLOWED_INCOMING_QUEUE_DIRS = Set.of("Fax", "Mail", "File", "Refile");
     private static final int MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS = 1000;
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
@@ -284,6 +285,16 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
+            } catch (IOException e) {
+                log.error("Unable to send invalid documentUpdateAjax method response", e);
+            }
+            return;
+        }
+
         if (documentId == null || !documentId.matches("\\d{1,9}")) {
             log.warn("documentUpdateAjax: invalid or missing documentId");
             return;
@@ -292,6 +303,7 @@ public class ManageDocument2Action extends ActionSupport {
             log.warn("documentUpdateAjax: invalid or missing demog");
             return;
         }
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
 
@@ -441,6 +453,18 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
+            } catch (IOException e) {
+                log.error("Unable to send invalid removeLinkFromDocument method response", e);
+            }
+            return;
+        }
+
+        assertNotOutboundEmailArchiveDocument(docId);
+
         providerInboxRoutingDAO.removeLinkFromDocument(docType, Integer.parseInt(docId), providerNo);
         HashMap hm = new HashMap();
         hm.put("linkedProviders", providerInboxRoutingDAO.getProvidersWithRoutingForDocument(docType, Integer.parseInt(docId)));
@@ -474,8 +498,8 @@ public class ManageDocument2Action extends ActionSupport {
 
         if (!"POST".equals(request.getMethod())) {
             try {
-                response.setHeader("Allow", "POST");
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
             } catch (IOException e) {
                 log.error("Unable to send invalid refile method response", e);
             }
@@ -505,6 +529,8 @@ public class ManageDocument2Action extends ActionSupport {
             }
             return NONE;
         }
+
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         try {
             EDocUtil.refileDocument(documentId, queueId);
@@ -560,11 +586,23 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader(ALLOW_METHOD_HEADER, "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
+            } catch (IOException e) {
+                log.error("Unable to send invalid documentUpdate method response", e);
+            }
+            return NONE;
+        }
+
         if (documentId == null || documentId.trim().isEmpty()) {
             log.error("Document ID is null or empty, cannot process document update");
             addActionError("Document ID is missing. Cannot process document update.");
             return "error";
         }
+
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr());
 
@@ -1344,8 +1382,8 @@ public class ManageDocument2Action extends ActionSupport {
     public String addIncomingDocument() throws Exception {
 
         if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            response.setHeader(ALLOW_METHOD_HEADER, "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
             return NONE;
         }
 
@@ -1379,9 +1417,9 @@ public class ManageDocument2Action extends ActionSupport {
         // Restrict pdfDir to the canonical incoming queue subdirectories. Canonical-path
         // containment alone only bounds the move to the incoming root; without this
         // allowlist an _edoc writer could file documents out of any other single-segment
-        // subdirectory under the queue (e.g. *_deleted/archive dirs). This mirrors the
-        // restriction enforced by IncomingDocUtil.getIncomingDocumentFilePath.
-        if (!ALLOWED_INCOMING_QUEUE_DIRS.contains(pdfDir)) {
+        // subdirectory under the queue (e.g. *_deleted/archive dirs). IncomingDocUtil owns the
+        // allowlist so this guard cannot drift from the one the write paths enforce.
+        if (!IncomingDocUtil.isAllowedIncomingDocFolder(pdfDir)) {
             log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
         }
@@ -2238,5 +2276,18 @@ public class ManageDocument2Action extends ActionSupport {
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().print(jsonArray.toString());
         response.getWriter().flush();
+    }
+    /**
+     * Refuses document operations on an outbound email archive eDoc.
+     *
+     * <p>These routes edit, re-file and unlink ordinary clinical documents. An archive artifact
+     * is a legal record of what was sent to a patient, and the only sanctioned way to retire one
+     * is {@code OutboundEmailArchiveService.recordControlledDeletion}, which requires
+     * {@code _admin.edocdelete}, a released legal hold, a reason and a tombstone.</p>
+     */
+    private void assertNotOutboundEmailArchiveDocument(String documentId) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentId)) {
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
+        }
     }
 }

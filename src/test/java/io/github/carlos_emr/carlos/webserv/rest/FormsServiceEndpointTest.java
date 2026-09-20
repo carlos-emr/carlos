@@ -76,6 +76,7 @@ class FormsServiceEndpointTest extends CarlosRestTestBase {
         FormsService service = new FormsService();
         injectDependency(service, "formsManager", mockFormsManager);
         injectDependency(service, "appDefinitionDao", mockAppDefinitionDao);
+        injectDependency(service, "securityInfoManager", authorizeEndpoint("r", "_eform", "_newCasemgmt.forms"));
         return service;
     }
 

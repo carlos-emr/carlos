@@ -130,17 +130,27 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
 
-                File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
-                File destinationFile = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
-                WriteToIncomingDocsResult writeResult = writeToIncomingDocs(docFile, destinationFile);
-                if (writeResult == WriteToIncomingDocsResult.ALREADY_EXISTS) {
-                    map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
-                } else if (writeResult == WriteToIncomingDocsResult.FAILED) {
-                    map.put("error", "Failed to write file. Please contact administrator");
-                    MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                // Answer an unusable destination through the uploader's JSON contract. Letting an
+                // off-allowlist folder reach the path builders turned a bad request into an
+                // errorpage.jsp 500 the XHR handler could only report as "(HTTP 500)"; letting a
+                // MISSING one through was quieter and worse, filing the scan in the queue root
+                // where no incoming-docs folder lists it.
+                if (!IncomingDocUtil.isAllowedIncomingDocFolder(destFolder)) {
+                    map.put("error", props.getString("dms.documentUpload.invalidFolder"));
+                    logger.warn("Rejected incoming document upload destination folder: {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 } else {
-                    map.put("name", docFile.getName());
-                    map.put("size", docFile.length());
+                    File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
+                    File destinationFile = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
+                    WriteToIncomingDocsResult writeResult = writeToIncomingDocs(docFile, destinationFile);
+                    if (writeResult == WriteToIncomingDocsResult.ALREADY_EXISTS) {
+                        map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                    } else if (writeResult == WriteToIncomingDocsResult.FAILED) {
+                        map.put("error", "Failed to write file. Please contact administrator");
+                        logger.error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    } else {
+                        map.put("name", docFile.getName());
+                        map.put("size", docFile.length());
+                    }
                 }
 
                 if (queueId != null) {
@@ -472,18 +482,25 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
         String user_no = (String) request.getSession().getAttribute("user");
         String destFolder = request.getParameter("destFolder");
-        UserPropertyDAO pref = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty up = pref.getProp(user_no, UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
+        // This preference is read back as the upload destination folder, so only a folder the
+        // write path would accept is worth storing. Persisting an arbitrary value just parked
+        // request-controlled text in the database for a later path build to reject.
+        if (IncomingDocUtil.isAllowedIncomingDocFolder(destFolder)) {
+            UserPropertyDAO pref = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+            UserProperty up = pref.getProp(user_no, UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
 
-        if (up == null) {
-            up = new UserProperty();
-            up.setName(UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
-            up.setProviderNo(user_no);
-        }
+            if (up == null) {
+                up = new UserProperty();
+                up.setName(UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
+                up.setProviderNo(user_no);
+            }
 
-        if (up.getValue() == null || !(up.getValue().equals(destFolder))) {
-            up.setValue(destFolder);
-            pref.saveProp(up);
+            if (up.getValue() == null || !(up.getValue().equals(destFolder))) {
+                up.setValue(destFolder);
+                pref.saveProp(up);
+            }
+        } else {
+            logger.warn("Rejected incoming document folder preference: {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         }
         return null;
     }

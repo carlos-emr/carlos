@@ -92,6 +92,11 @@ Exploded WAR".
     * Password: carlos2026
     * PIN     : 2026
     * **Note**: On first login, you will be forced to change the password. Use the same credentials above to complete the password reset process.
+* JavaMelody monitoring is available at `https://localhost:8443/carlos/monitoring`.
+    * The development image uses a self-signed certificate, so your browser will show a local certificate warning.
+    * Monitoring credentials are `oscar` / `oscar`.
+    * These credentials enable sensitive runtime inspection and system actions. Use them only for local development; do not reuse them in a deployed environment.
+    * Application, monitoring, and debugger ports bind to host loopback only.
 * Administration test account (safe to intentionally lock while testing the Unlock Account screen):
     * Username: locktest
     * Password: carlos2026
@@ -162,6 +167,13 @@ CARLOS logs are sent to the console and can be viewed using Docker commands. The
 - **DEBUG Level**: Available but commented out (very verbose, useful for deep troubleshooting)  
 - **SQL Logging**: Available but commented out by default (can be enabled in `local.env`)
 - **Hot Reload Logging**: Console only (viewable via `/tmp/webapp-watcher.log`)
+
+### Email Testing
+
+For local email testing, see [`docs/postfix-mail-server.md`](../docs/postfix-mail-server.md).
+The devcontainer captures outbound email to `/var/log/carlos-mail-capture/messages.eml`
+instead of sending it externally. Start the local mail server with `mail start`
+and inspect captured messages with `mail list` and `mail read`.
 
 ## Manual Container Management (Without VS Code)
 

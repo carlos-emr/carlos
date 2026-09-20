@@ -72,6 +72,7 @@ class ScheduleWsEndpointTest extends CarlosSoapTestBase {
     @Override
     protected Object getServiceBean() {
         ws = new ScheduleWs();
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_appointment"));
         return ws;
     }
 

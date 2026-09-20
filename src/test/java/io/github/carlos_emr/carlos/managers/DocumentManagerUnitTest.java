@@ -63,6 +63,7 @@ import static org.mockito.Mockito.*;
 class DocumentManagerUnitTest extends CarlosUnitTestBase {
 
     @Mock private DocumentDao mockDocumentDao;
+    @Mock private OutboundEmailArchiveDao mockOutboundEmailArchiveDao;
     @Mock private CtlDocumentDao mockCtlDocumentDao;
     @Mock private NioFileManager mockNioFileManager;
     @Mock private SecurityInfoManager mockSecurityInfoManager;
@@ -78,6 +79,7 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         registerMock(DocumentDao.class, mockDocumentDao);
+        registerMock(OutboundEmailArchiveDao.class, mockOutboundEmailArchiveDao);
         registerMock(CtlDocumentDao.class, mockCtlDocumentDao);
         registerMock(NioFileManager.class, mockNioFileManager);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
@@ -89,6 +91,7 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
 
         manager = new DocumentManagerImpl();
         injectDependency(manager, "documentDao", mockDocumentDao);
+        injectDependency(manager, "outboundEmailArchiveDao", mockOutboundEmailArchiveDao);
         injectDependency(manager, "ctlDocumentDao", mockCtlDocumentDao);
         injectDependency(manager, "nioFileManager", mockNioFileManager);
         injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);

@@ -77,6 +77,7 @@ class BookingWsEndpointTest extends CarlosSoapTestBase {
     @Override
     protected Object getServiceBean() {
         ws = new BookingWs();
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_appointment"));
         return ws;
     }
 

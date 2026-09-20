@@ -80,6 +80,7 @@ class LabUploadWsEndpointTest extends CarlosSoapTestBase {
     @Override
     protected Object getServiceBean() {
         ws = new LabUploadWs();
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("w", "_lab"));
         return ws;
     }
 

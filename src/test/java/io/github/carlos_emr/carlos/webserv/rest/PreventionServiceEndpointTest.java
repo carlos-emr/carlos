@@ -61,6 +61,7 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
     protected Object getServiceBean() {
         PreventionService service = new PreventionService();
         injectDependency(service, "preventionManager", mockPreventionManager);
+        injectDependency(service, "securityInfoManager", authorizeEndpoint("r", "_prevention"));
         return service;
     }
 

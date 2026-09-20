@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
@@ -111,8 +112,8 @@ import static org.mockito.Mockito.when;
  *       {@code submit=Save}, presence of {@code statement}, etc.). These must
  *       have their own focused {@code @Tag("unit")} test covering the
  *       mutation-intent GET-rejection path — see e.g.
- *       {@code WLMutation2ActionsTest}, {@code ViewAppointmentSelfPost2ActionTest},
- *       {@code ViewDecision2ActionTest}.</li>
+ *       {@code WLMutation2ActionsUnitTest}, {@code ViewAppointmentSelfPost2ActionUnitTest},
+ *       {@code ViewDecision2ActionUnitTest}.</li>
  *   <li>{@link #NON_MUTATOR_GATES} — read-scope gates (e.g.
  *       {@code ViewAppointment2Action}) that happen to include a
  *       {@code SC_METHOD_NOT_ALLOWED} branch for truly unsupported methods
@@ -177,6 +178,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_form", "w"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.AddEForm2Action",
                     "_eform", "w"),
+            // The complete email send/cancel action is POST-only. Send dispatches transmit email
+            // and persist EmailLog; cancel consumes session-scoped attachment state.
+            Arguments.of("io.github.carlos_emr.carlos.email.action.EmailSend2Action",
+                    "_email", "w"),
             // --- encounter / consultation ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
                     "_con", "w"),
@@ -271,6 +276,11 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action",
         // Login gate: GET renders the selector, but selectedFacilityId is mutation intent.
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
+        // Login text upload: admin/uploadEntryText is dual-purpose. A GET/HEAD renders
+        // uploadEntryText.jsp (both the admin menu and the administration left-nav open it that
+        // way); only a POST -- or a GET/HEAD carrying an acceptable-use-agreement parameter -- is
+        // gated (see UploadLoginText2ActionUnitTest for the focused GET-rejection coverage).
+        "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         // Ontario billing: dual-purpose pages reject GET only when mutation-intent params exist.
         "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
@@ -289,6 +299,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action",
         // Admin API clients: list methods permit GET; add/delete are POST-only.
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
+        // Provider roles: GET renders the provider/role roster; only the add/delete,
+        // role-update and primary-role-update intents are gated (see
+        // ProviderRole2ActionUnitTest for the focused GET-rejection coverage).
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
         // Schedule: all below reject GET on Save/Delete/mutation-intent params.
         "io.github.carlos_emr.carlos.schedule.web.ScheduleCreateDate2Action",
         "io.github.carlos_emr.carlos.schedule.web.ScheduleEditTemplate2Action",
@@ -319,7 +333,11 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
         // Appointment types: a bare GET (and oper=edit) renders the list/edit form; only
         // oper=save and oper=del are POST-only (see AppointmentType2ActionUnitTest).
-        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action"
+        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
+        // Facility admin: list/edit/add render on a GET (method=add only builds a transient
+        // Facility for the form); only method=delete and method=save are POST-only
+        // (see FacilityManager2ActionUnitTest).
+        "io.github.carlos_emr.carlos.facility.FacilityManager2Action"
     );
 
     /**
@@ -391,6 +409,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
@@ -402,10 +421,14 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
+        // email slice: only EmailSend2Action is registered (issue #3111); the broader email
+        // production-readiness audit that surfaced it is tracked via PR #3096.
+        "io.github.carlos_emr.carlos.email.action.EmailSend2Action",
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
+        "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
         // eform slice: only these are registered; broader slice audit tracked in issue #2828.
@@ -427,7 +450,11 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
         // demographic slice: AddDemographicRelationship2Action is the only migrated mutator gated so
         // far; the demographic package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
-        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action"
+        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
+        // facility slice: FacilityManager2Action is the first gated mutator there; the facility
+        // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional
+        // mutator). The sibling PMmodule/FacilityManager action is not gated on POST yet.
+        "io.github.carlos_emr.carlos.facility.FacilityManager2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
@@ -455,16 +482,26 @@ class MutatorActionGetRejectionContractUnitTest {
                 Map.of("method", method));
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"GET", "HEAD"})
-    @DisplayName("ManageDocument2Action should reject unsafe methods for addIncomingDocument")
-    void shouldRejectUnsafeMethod_forManageDocumentAddIncomingDocumentDispatch(String httpMethod) throws Exception {
+    @ParameterizedTest(name = "{0} rejects {1}")
+    @CsvSource({
+        "GET, addIncomingDocument",
+        "HEAD, addIncomingDocument",
+        "GET, documentUpdate",
+        "HEAD, documentUpdate",
+        "GET, documentUpdateAjax",
+        "HEAD, documentUpdateAjax",
+        "GET, removeLinkFromDocument",
+        "HEAD, removeLinkFromDocument"
+    })
+    @DisplayName("ManageDocument2Action mutation dispatches should reject unsafe methods")
+    void shouldRejectUnsafeMethod_forManageDocumentMutationDispatch(
+            String httpMethod, String actionMethod) throws Exception {
         assertRejectsUnsafeMethod(
                 "io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action",
                 "_edoc",
                 "w",
                 httpMethod,
-                Map.of("method", "addIncomingDocument"));
+                Map.of("method", actionMethod));
     }
 
     private static void assertRejectsUnsafeMethod(

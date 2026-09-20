@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 
 /**
  * Immutable referral-doctor triple shared across the ON billing view models.
@@ -71,8 +71,8 @@ public record BillingReferralDoctor(
             return new BillingReferralDoctor("N/A", "000000", "");
         }
         return new BillingReferralDoctor(
-                SxmlMisc.getXmlContent(familyDoctorXml, "rd"),
-                SxmlMisc.getXmlContent(familyDoctorXml, "rdohip"),
+                DemographicXml.referralDoctor(familyDoctorXml),
+                DemographicXml.referralDoctorOhip(familyDoctorXml),
                 "");
     }
 }

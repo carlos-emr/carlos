@@ -39,7 +39,7 @@
 		   <async-supported>true</async-supported>
 		   <init-param>
 				<param-name>system-actions-enabled</param-name>
-				<param-value>true</param-value>
+				<param-value>false</param-value>
 			</init-param>
 			<init-param>
 				<param-name>disabled</param-name>
@@ -621,6 +621,13 @@
 
   <session-config>
     <session-timeout>120</session-timeout>
+    <!-- Browser sessions require HTTPS, including local development at
+         https://localhost:8443/carlos. TLS-terminating proxies must expose only
+         HTTPS to clients and configure Tomcat's trusted proxy handling. -->
+    <cookie-config>
+      <http-only>true</http-only>
+      <secure>true</secure>
+    </cookie-config>
     <tracking-mode>COOKIE</tracking-mode>
   </session-config>
 

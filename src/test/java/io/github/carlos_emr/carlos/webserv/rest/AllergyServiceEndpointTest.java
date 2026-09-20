@@ -61,11 +61,25 @@ class AllergyServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private AllergyManager mockAllergyManager;
 
+    private io.github.carlos_emr.carlos.managers.SecurityInfoManager endpointSecurity;
+
     @Override
     protected Object getServiceBean() {
         AllergyService service = new AllergyService();
         injectDependency(service, "allergyManager", mockAllergyManager);
+        endpointSecurity = authorizeEndpoint("r", "_allergy");
+        injectDependency(service, "securityInfoManager", endpointSecurity);
         return service;
+    }
+
+    @Test
+    void shouldRejectPatientRead_beforeManagerLookup_whenPermissionDenied() {
+        when(endpointSecurity.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("r"), eq(123)))
+                .thenReturn(false);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> request().path("/allergies/active")
+                .query("demographicNo", 123).get())
+                .hasRootCauseInstanceOf(io.github.carlos_emr.carlos.commn.exception.AccessDeniedException.class);
+        org.mockito.Mockito.verifyNoInteractions(mockAllergyManager);
     }
 
     private Allergy createTestAllergy(int id, String description) {

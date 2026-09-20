@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
+import io.github.carlos_emr.carlos.commn.interfaces.Immunization.ImmunizationProperty;
 import io.github.carlos_emr.carlos.managers.DHIRSubmissionManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -282,6 +283,19 @@ public class PreventionData {
         return getPreventionData(loggedInInfo, null, demoNo);
     }
 
+    /**
+     * Returns the value of a single prevention extension key, or {@code null} when absent.
+     * Used where a detached Prevention needs one extension without initializing the lazy
+     * {@code preventionExts} collection.
+     */
+    private static String getPreventionExtValue(Integer preventionId, String key) {
+        List<PreventionExt> preventionExts = preventionExtDao.findByPreventionIdAndKey(preventionId, key);
+        if (preventionExts == null || preventionExts.isEmpty()) {
+            return null;
+        }
+        return preventionExts.get(0).getVal();
+    }
+
     public static List<Prevention> getPrevention(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
         return preventionDao.findByTypeAndDemoNo(preventionType, demographicId);
     }
@@ -310,8 +324,10 @@ public class PreventionData {
                 h.put("provider_no", prevention.getProviderNo());
                 if (!StringUtils.isEmpty(prevention.getProviderNo())) {
                     if ("-1".equals(prevention.getProviderNo())) {
-                        prevention.setPreventionExtendedProperties();
-                        h.put("provider_name", prevention.getPreventionExtendedProperties().get("providerName"));
+                        // External provider: the name lives in PreventionExt. A targeted lookup is
+                        // used because this entity is detached and its preventionExts collection is lazy.
+                        h.put("provider_name", getPreventionExtValue(prevention.getId(),
+                                ImmunizationProperty.providerName.name()));
                     } else {
                         h.put("provider_name", ProviderData.getProviderName(prevention.getProviderNo()));
                     }

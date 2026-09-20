@@ -165,6 +165,13 @@ public final class Login2Action extends ActionSupport {
      * and runbooks are migrated at the same time.</p>
      */
     private static final String LOG_PRE = "Login!@#$: ";
+    /**
+     * Audit reason for login attempts that failed because the authentication provider itself threw.
+     *
+     * <p>Deliberately distinct from a credential verdict: no password check completed, so an
+     * authentication or database outage must not be reported to auditors as bad-password traffic.</p>
+     */
+    private static final String AUDIT_REASON_AUTH_PROVIDER_ERROR = "auth_provider_error";
     /** Default for {@code password_min_length} when the property is absent or malformed. */
     private static final int DEFAULT_POLICY_MIN_LENGTH = 8;
     /** Default for {@code password_min_groups} when the property is absent or malformed. */
@@ -631,7 +638,8 @@ public final class Login2Action extends ActionSupport {
                 return beginPendingMfaChallenge(strAuth, security, ip);
             }
 
-            return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+            return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse,
+                    cl::upgradeValidatedPinIfNeeded);
 
         }
         // Authentication failure handling.
@@ -640,6 +648,10 @@ public final class Login2Action extends ActionSupport {
             logger.warn("Expired password: user={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip));
             cl.updateLoginList(ip, userName);
+            // No audit row is written here: LoginCheckLoginBean.cleanNullObjExpire() has already
+            // persisted the durable "expired" login row synchronously before auth() returned the
+            // ["expired"] marker. Adding a second row here would double-count the attempt and
+            // misreport an expiry as a credential failure.
             String expiredMessage = message("login.errorAccountExpired");
             String newURL = loginFailedRedirectUrl(expiredMessage);
 
@@ -658,6 +670,10 @@ public final class Login2Action extends ActionSupport {
             logger.debug("go to normal directory");
 
             cl.updateLoginList(ip, userName);
+            // No audit row is written here: every credential verdict that lands in this branch
+            // (bad password, bad/missing PIN, unknown user) already passed through
+            // LoginCheckLoginBean.cleanNullObj(), which persists the durable "failed" login row
+            // synchronously. A second row here would inflate failed-attempt audit counts.
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
@@ -821,7 +837,7 @@ public final class Login2Action extends ActionSupport {
 
         boolean validCode;
         try {
-            validCode = isValidTotpCode(mfaSecret, this.code);
+            validCode = isValidTotpCode(mfaSecret, this.code, security.getSecurityNo());
         } catch (InvalidKeyException e) {
             logger.error("Unable to validate MFA code: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(security.getProviderNo()),
@@ -887,7 +903,8 @@ public final class Login2Action extends ActionSupport {
         // Success audit follows registration persistence so operators do not see a false success row
         // when the OTP was correct but the new secret could not be stored.
         LogAction.addLog(security.getProviderNo(), "login", "mfa_success", "mfa", ip);
-        return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+        return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse,
+                null);
     }
 
     /**
@@ -911,18 +928,27 @@ public final class Login2Action extends ActionSupport {
     /**
      * Validates an RFC 6238 TOTP code with one time-step of clock skew tolerance.
      *
-     * <p>Authenticator apps and server clocks can differ briefly. Accepting the current, previous,
-     * or next time step preserves the usual +/- one-step tolerance without accepting an unbounded
-     * replay window.</p>
+     * <p>Authenticator apps and server clocks can differ briefly. Accepting the steps within
+     * {@link TotpWindow#STEP_TOLERANCE} of the current one preserves the usual +/- one-step
+     * tolerance without accepting an unbounded replay window.</p>
+     *
+     * <p>An accepted code is recorded in {@link MfaUsedCodeCache} for {@link TotpWindow#ACCEPTANCE},
+     * the same span this method accepts it over. A code that has already authenticated within that
+     * window is rejected (RFC 6238 §5.2), preventing a code observed for one pending-MFA session
+     * from being replayed against another.</p>
      *
      * @param mfaSecret Base32-encoded MFA secret
      * @param submittedCode user-submitted TOTP code; length validation is performed by the TOTP
      *        comparison rather than this helper
-     * @return true when the submitted code matches the current, previous, or next time step
+     * @param securityNo security record id the code is being validated for; used to scope used-code
+     *        tracking so a code accepted for one account does not block others
+     * @return true when the submitted code matches an accepted time step and has not already been
+     *         accepted within the validity window
      * @throws InvalidKeyException when the Base32 secret is null, empty, malformed, or cannot
      *         create a valid TOTP key
      */
-    private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws InvalidKeyException {
+    private boolean isValidTotpCode(String mfaSecret, String submittedCode, Integer securityNo)
+            throws InvalidKeyException {
         TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
         SecretKeySpec key;
         try {
@@ -937,9 +963,22 @@ public final class Login2Action extends ActionSupport {
         java.time.Instant now = java.time.Instant.now();
         java.time.Duration timeStep = totpGenerator.getTimeStep();
 
-        return constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now), submittedCode)
-                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)), submittedCode)
-                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)), submittedCode);
+        // Every tolerated step is compared even after a match so the number of comparisons does not
+        // reveal which step matched. TotpWindow also sizes the replay cache's TTL from this
+        // tolerance, keeping "still accepted" and "still remembered" the same span.
+        boolean matchesTimeStep = false;
+        for (int step = -TotpWindow.STEP_TOLERANCE; step <= TotpWindow.STEP_TOLERANCE; step++) {
+            java.time.Instant candidateInstant = now.plus(timeStep.multipliedBy(step));
+            if (constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, candidateInstant), submittedCode)) {
+                matchesTimeStep = true;
+            }
+        }
+        if (!matchesTimeStep) {
+            return false;
+        }
+        // Reject a code that already authenticated within its validity window so an observed code
+        // cannot be replayed against a separate pending-MFA session (RFC 6238 §5.2).
+        return MfaUsedCodeCache.getInstance().recordIfUnused(securityNo, submittedCode);
     }
 
     private static boolean constantTimeEquals(String expected, String actual) {
@@ -1096,7 +1135,7 @@ public final class Login2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
                                               boolean isMobileOptimized, String submitType,
-                                              boolean ajaxResponse) throws IOException {
+                                              boolean ajaxResponse, Runnable deferredPinUpgrade) throws IOException {
         HttpSession session = request.getSession(false);
         Map<String, String> oauthAuthorizationNonces =
                 OAuthAuthorizationSessionState.snapshotNonces(session);
@@ -1212,6 +1251,7 @@ public final class Login2Action extends ActionSupport {
             String newURL = request.getContextPath() + facilityPath + SafeEncode.forUriComponent(where);
 
             response.sendRedirect(newURL);
+            runDeferredPinUpgrade(deferredPinUpgrade);
             return NONE;
         } else if (facilityIds.size() == 1) {
             Facility facility = facilityDao.find(facilityIds.get(0));
@@ -1235,25 +1275,37 @@ public final class Login2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
         LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
 
-        String oauthBindingResult = bindOauthTokenForAuthenticatedSession(provider, ajaxResponse, where, providerNo, ip);
+        String oauthBindingResult = bindOauthTokenForAuthenticatedSession(provider, ajaxResponse, where, providerNo, ip,
+                deferredPinUpgrade);
         if (oauthBindingResult != null) {
             return oauthBindingResult;
         }
 
         if (UserRoleUtils.hasRole(request, "Patient Intake")) {
+            runDeferredPinUpgrade(deferredPinUpgrade);
             return "patientIntake";
         }
 
         if ("provider".equals(where)) {
             response.sendRedirect(buildDefaultProviderSchedulePath());
+            runDeferredPinUpgrade(deferredPinUpgrade);
             return NONE;
         }
 
-        return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+        String postAuthenticationResult = buildPostAuthenticationResponse(provider, ajaxResponse, where);
+        runDeferredPinUpgrade(deferredPinUpgrade);
+        return postAuthenticationResult;
+    }
+
+    private void runDeferredPinUpgrade(Runnable deferredPinUpgrade) {
+        if (deferredPinUpgrade != null) {
+            deferredPinUpgrade.run();
+        }
     }
 
     private String bindOauthTokenForAuthenticatedSession(Provider provider, boolean ajaxResponse,
-                                                        String where, String providerNo, String ip)
+                                                        String where, String providerNo, String ip,
+                                                        Runnable deferredPinUpgrade)
             throws IOException {
         String oauthToken = request.getParameter("oauth_token");
         if (oauthToken == null) {
@@ -1263,7 +1315,9 @@ public final class Login2Action extends ActionSupport {
             logger.warn("Rejected malformed oauth_token during login completion: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
             LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN, "invalid_oauth_token", ip);
-            return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+            String postAuthenticationResult = buildPostAuthenticationResponse(provider, ajaxResponse, where);
+            runDeferredPinUpgrade(deferredPinUpgrade);
+            return postAuthenticationResult;
         }
         logger.debug("checking oauth_token");
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(oauthToken);
@@ -1701,6 +1755,15 @@ public final class Login2Action extends ActionSupport {
     /**
      * Counts authentication-provider exceptions as failed attempts so exception-triggering probes do
      * not bypass the same lockout path as ordinary credential failures.
+     *
+     * <p>This path also writes the durable audit row itself. Every other failure verdict is audited
+     * inside {@link LoginCheckLoginBean}, but an exception aborts {@code auth()} before that write
+     * happens, leaving the attempt invisible to the {@code log} table. The row carries
+     * {@link #AUDIT_REASON_AUTH_PROVIDER_ERROR} rather than a credential reason.</p>
+     *
+     * @param cl login-check facade holding the in-memory rate-limiter state
+     * @param ip remote address of the failed attempt
+     * @param userName submitted login name, recorded for audit correlation
      */
     private void recordAuthenticationExceptionFailure(LoginCheckLogin cl, String ip, String userName) {
         try {
@@ -1709,6 +1772,11 @@ public final class Login2Action extends ActionSupport {
             logger.warn("Unable to update login-failure counter after authentication exception: user={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip), updateFailure);
         }
+        // The provider threw before reaching a credential verdict, so LoginCheckLoginBean never ran
+        // its own audit write. This is the one failed-login path with no durable record, and it is
+        // logged under a distinct reason so an authentication/database outage is not reported as a
+        // wave of bad-password attempts.
+        LogAction.addLog(userName, "login", "failed", AUDIT_REASON_AUTH_PROVIDER_ERROR, ip);
     }
 
     /**
