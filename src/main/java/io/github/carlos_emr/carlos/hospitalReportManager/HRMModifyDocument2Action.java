@@ -14,8 +14,12 @@
 
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
+import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,9 +45,34 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * POST-only JSON endpoint behind the HRM report viewer's inline controls (comments,
+ * description, sign-off, demographic/provider matching, category and sub-class).
+ *
+ * <p><strong>Why JSON and not a JSP.</strong> Every handler used to forward to a tiny
+ * {@code text/html} JSP fragment that said "Success", and {@code hrmActions.js} wrote the
+ * response body straight into the page. Anything the response-decorating filter chain adds to a
+ * {@code text/html} response therefore ended up on screen: a clinician adding a comment saw the
+ * {@link io.github.carlos_emr.carlos.app.LogoutBroadcastFilter} heartbeat script rendered as
+ * literal JavaScript next to the comment box, while the comment itself saved correctly. Replying
+ * with {@code application/json} written directly to the response — and returning {@link #NONE}
+ * per the direct-response contract in CLAUDE.md — keeps those filters out of the body for good,
+ * since each of them bails on a non-HTML content type.</p>
+ *
+ * <p><strong>Why POST-only.</strong> CSRFGuard protects POST/PUT/DELETE/PATCH, and
+ * {@code HttpMethodGuardFilter} does not recognise this route's {@code method} values as
+ * mutations, so a GET reached the DAOs with no CSRF token at all. The gate runs before
+ * authorization and before any handler so no side effect can fire on an unsafe verb.</p>
+ */
 public class HRMModifyDocument2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+
+    /** Body text the viewer shows beside the control that was used. */
+    private static final String SUCCESS_MESSAGE = "Success";
+    private static final String FAILURE_MESSAGE = "Error encountered";
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
     HRMDocumentToDemographicDao hrmDocumentToDemographicDao = (HRMDocumentToDemographicDao) SpringUtils.getBean(HRMDocumentToDemographicDao.class);
@@ -54,7 +83,15 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
+        // Unsafe verbs are rejected before authorization and before any handler runs, so no DAO
+        // write can be reached by a crafted link.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         String method = request.getParameter("method");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
@@ -86,10 +123,41 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 return updateCategory();
         }
 
-        return "ajax";
+        // An unrecognised dispatch is a client bug, not a silent success.
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        return writeResult(false, "Unsupported HRM modify method");
     }
 
-    public String makeIndependent() {
+    /**
+     * Writes the single JSON shape every handler replies with and ends Struts processing.
+     *
+     * <p>{@code message} is display text for the viewer, never an exception string: HRM bodies and
+     * the identifiers around them are PHI-correlating, so failures are logged server-side and the
+     * clinician is told only that the action did not take.</p>
+     *
+     * @param success whether the requested change was persisted
+     * @param message short status text rendered beside the control that was used
+     * @return {@link #NONE}, because the response body is already written
+     */
+    private String writeResult(boolean success, String message) throws IOException {
+        ObjectNode body = OBJECT_MAPPER.createObjectNode();
+        body.put("success", success);
+        body.put("message", message);
+
+        response.setContentType("application/json;charset=UTF-8");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(body.toString());
+        response.getWriter().flush();
+        return NONE;
+    }
+
+    /** Convenience wrapper for handlers that report the standard success/failure wording. */
+    private String writeResult(boolean success) throws IOException {
+        return writeResult(success, success ? SUCCESS_MESSAGE : FAILURE_MESSAGE);
+    }
+
+    public String makeIndependent() throws IOException {
+        boolean success = false;
         String reportId = request.getParameter("reportId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
@@ -121,25 +189,35 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 }
             }
 
-            request.setAttribute("success", true);
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to set make document independent but failed.", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
-        return "ajax";
+        return writeResult(success);
     }
 
-    public String signOff() {
+    public String signOff() throws IOException {
         String[] reportIds = request.getParameterValues("reportId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
         }
 
+        // A sign-off with no report named is a malformed request, not an empty success: reporting
+        // "Success" would tell the viewer to clear the report out of the inbox having filed nothing.
+        if (reportIds == null || reportIds.length == 0) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return writeResult(false, FAILURE_MESSAGE);
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        // Bulk sign-off is all-or-nothing as far as the caller is concerned: one failed report
+        // must not be masked by a later success, or the inbox drops a report still awaiting review.
+        boolean success = true;
         for (int i = 0; i < reportIds.length; i++) {
             try {
                 Integer reportId = Integer.parseInt(reportIds[i]);
@@ -165,19 +243,18 @@ public class HRMModifyDocument2Action extends ActionSupport {
                     hrmDocumentToProvider.setSignedOffTimestamp(new Date());
                     hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
                 }
-
-                request.setAttribute("success", true);
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Tried to set signed off status on document but failed.", e);
-                request.setAttribute("success", false);
+                success = false;
             }
         }
 
 
-        return "ajax";
+        return writeResult(success);
     }
 
-    public String assignProvider() {
+    public String assignProvider() throws IOException {
+        boolean success = false;
         //Gets the Dao for incoming lab rules
         IncomingLabRulesDao incomingLabRulesDao = SpringUtils.getBean(IncomingLabRulesDao.class);
         String providerNo = request.getParameter("providerNo");
@@ -228,16 +305,17 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 hrmDocumentToProviderDao.remove(existingUnmatched.getId());
             }
 
-            request.setAttribute("success", true);
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to assign HRM document to providers but failed.", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
-        return "ajax";
+        return writeResult(success);
     }
 
-    public String removeDemographic() {
+    public String removeDemographic() throws IOException {
+        boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
@@ -253,17 +331,18 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 }
             }
 
-            request.setAttribute("success", true);
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to remove HRM document from demographic but failed.", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
-        return "ajax";
+        return writeResult(success);
 
     }
 
-    public String assignDemographic() {
+    public String assignDemographic() throws IOException {
+        boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
         String demographicNo = request.getParameter("demographicNo");
 
@@ -292,16 +371,17 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
             hrmDocumentToDemographicDao.merge(demographicMapping);
 
-            request.setAttribute("success", true);
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to assign HRM document to demographic but failed.", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
-        return "ajax";
+        return writeResult(success);
     }
 
-    public String makeActiveSubClass() {
+    public String makeActiveSubClass() throws IOException {
+        boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
         String subClassId = request.getParameter("subClassId");
 
@@ -318,18 +398,19 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 hrmDocumentSubClassDao.merge(newActiveSubClass);
             }
 
-            request.setAttribute("success", true);
+            success = true;
 
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to change active subclass but failed.", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
 
-        return "ajax";
+        return writeResult(success);
     }
 
-    public String removeProvider() {
+    public String removeProvider() throws IOException {
+        boolean success = false;
         String providerMappingId = request.getParameter("providerMappingId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
@@ -339,16 +420,17 @@ public class HRMModifyDocument2Action extends ActionSupport {
         try {
             hrmDocumentToProviderDao.remove(Integer.parseInt(providerMappingId));
 
-            request.setAttribute("success", true);
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to remove providers from HRM document but failed.", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
-        return "ajax";
+        return writeResult(success);
     }
 
-    public String addComment() {
+    public String addComment() throws IOException {
+        boolean success = false;
         String documentId = request.getParameter("reportId");
         String commentString = request.getParameter("comment");
 
@@ -367,16 +449,17 @@ public class HRMModifyDocument2Action extends ActionSupport {
             comment.setProviderNo(loggedInInfo.getLoggedInProviderNo());
 
             hrmDocumentCommentDao.merge(comment);
-            request.setAttribute("success", true);
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Couldn't add a comment for HRM document", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
-        return "ajax";
+        return writeResult(success);
     }
 
-    public String deleteComment() {
+    public String deleteComment() throws IOException {
+        boolean success = false;
         String commentId = request.getParameter("commentId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
@@ -385,16 +468,17 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
         try {
             hrmDocumentCommentDao.deleteComment(Integer.parseInt(commentId));
-            request.setAttribute("success", true);
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Couldn't delete comment on HRM document", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
-        return "ajax";
+        return writeResult(success);
     }
 
-    public String setDescription() {
+    public String setDescription() throws IOException {
+        boolean success = false;
         String documentId = request.getParameter("reportId");
         String descriptionString = request.getParameter("description");
 
@@ -412,16 +496,17 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 hrmDocumentDao.merge(document);
                 updated = true;
             }
-            request.setAttribute("success", updated);
+            success = updated;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Couldn't set description for HRM document", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
-        return "ajax";
+        return writeResult(success);
     }
 
-    public String updateCategory() {
+    public String updateCategory() throws IOException {
+        boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
@@ -439,12 +524,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
             } catch (Exception e) {
                 // Do nothing
             }
-            request.setAttribute("success", true);
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to assign HRM document to category but failed.", e);
-            request.setAttribute("success", false);
+            success = false;
         }
 
-        return "ajax";
+        return writeResult(success);
     }
 }
