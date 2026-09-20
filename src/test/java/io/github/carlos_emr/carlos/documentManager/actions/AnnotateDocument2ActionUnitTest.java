@@ -136,7 +136,7 @@ class AnnotateDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldExposePageCountAndDigest_whenUnlinkedPdfIsValid() throws Exception {
+    void shouldExposePageCountAndDigest_whenUnlinkedPdfIsValid() {
         EDoc document = document("application/pdf");
         document.setModule("provider");
         document.setModuleId("770001");
@@ -160,7 +160,7 @@ class AnnotateDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldExplainEmptyDocument_whenPageCountIsZero() throws Exception {
+    void shouldExplainEmptyDocument_whenPageCountIsZero() {
         EDoc document = document("application/pdf");
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
              MockedStatic<AnnotatedDocumentService> annotations = mockStatic(AnnotatedDocumentService.class)) {
@@ -172,7 +172,7 @@ class AnnotateDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldExplainOversizedDocument_whenPageCeilingExceeded() throws Exception {
+    void shouldExplainOversizedDocument_whenPageCeilingExceeded() {
         EDoc document = document("application/pdf");
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
              MockedStatic<AnnotatedDocumentService> annotations = mockStatic(AnnotatedDocumentService.class)) {
@@ -185,7 +185,7 @@ class AnnotateDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldExplainUnreadableDocument_whenDigestReadFails() throws Exception {
+    void shouldExplainUnreadableDocument_whenDigestReadFails() {
         EDoc document = document("application/pdf");
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
              MockedStatic<AnnotatedDocumentService> annotations = mockStatic(AnnotatedDocumentService.class)) {
