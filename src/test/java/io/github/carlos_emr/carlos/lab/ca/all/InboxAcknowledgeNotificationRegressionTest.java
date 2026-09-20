@@ -482,8 +482,21 @@ class InboxAcknowledgeNotificationRegressionTest {
         // Popups call removeReport through window.opener and cannot know which mode the
         // inbox is showing; preview mode has cards and no #inbox_table, and reaching for the
         // DataTable API there would throw and take the counter update down with it.
+        //
+        // The guard used to be an early bail -- no table, do nothing -- which kept the API
+        // safe but left the acknowledged CARD on screen, so only the full re-fetch cleared it.
+        // It is now a branch per mode, and the guarantee is the stronger one: the DataTable
+        // API is reached ONLY inside the branch that has already established the table is on
+        // the page, and preview mode removes its own card instead of being skipped.
         assertThat(read(INBOXHUB_FORM_JSP))
-                .contains("if (jQuery('#inbox_table').length === 0) { return; }");
+                .as("the DataTable API is only ever touched once the table is known to be there")
+                .contains("if (jQuery('#inbox_table').length > 0) {\n"
+                        + "            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);")
+                .as("and preview mode removes its card rather than bailing out and leaving it")
+                .contains("if (jQuery('#inboxViewItems').length > 0) {")
+                .as("with nothing at all done when neither mode is on screen")
+                .contains("        return false;\n"
+                        + "    }");
     }
 
     @Test
