@@ -608,7 +608,7 @@ function doHtml(value) {
 /**
  * Attaches the stamps.js / stamp.png fallback to a freshly inserted provider stamp.
  *
- * pickStamp() marks a per-provider stamp with data-carlos-stamp-fallback. The handler cannot be an
+ * pickStamp() marks a per-provider stamp with STAMP_MARKER_ATTRIBUTE. The handler cannot be an
  * inline onerror: doHtml() runs every insertion through DOMPurify, which strips event-handler
  * attributes, so it is bound here instead — after insertion, in the same task, before the image can
  * finish loading.
@@ -619,16 +619,26 @@ function doHtml(value) {
  * first Stamp click can be issued before any probe has completed. Without this the letter would
  * keep a broken image and the documented fallback would never run.
  *
- * The marker attribute is removed as soon as it is read, so it never reaches the stored letter.
+ * SECURITY: the marker carries no data. The fallback FILENAME is held in carlosPendingStampFallback
+ * and never round-trips through the DOM, because this scans the whole editor document — which after
+ * a reopen holds the restored saved letter, i.e. stored, user-authored HTML. DOMPurify permits
+ * data-* attributes, so a filename read back out of an attribute would be attacker-influenced DOM
+ * text flowing into an image URL (CodeQL js/html-constructed-from-input). Keeping the value in
+ * module state means the URL is only ever built from legacyStampFile(), the same trusted
+ * ImgArray/APCache source pickStamp() has always used. The marker is removed as it is consumed, so
+ * it never reaches the stored letter either.
  */
 function bindStampFallbacks(editorDoc) {
 	if (!editorDoc || !editorDoc.querySelectorAll) { return; }
-	var stamps = editorDoc.querySelectorAll('img[data-carlos-stamp-fallback]');
+	var fallback = carlosPendingStampFallback;
+	carlosPendingStampFallback = "";
+	var stamps = editorDoc.querySelectorAll('img[' + STAMP_MARKER_ATTRIBUTE + ']');
 	for (var index = 0; index < stamps.length; index++) {
 		(function (image) {
-			var fallback = image.getAttribute('data-carlos-stamp-fallback');
-			image.removeAttribute('data-carlos-stamp-fallback');
-			if (!fallback) { return; }
+			image.removeAttribute(STAMP_MARKER_ATTRIBUTE);
+			// Defence in depth: a stray marker on restored content has no pending fallback, and a
+			// filename is a plain basename or it is not used.
+			if (!/^[\w.\- ]+$/.test(fallback)) { return; }
 			// Closure flag, not an attribute: the guard must not leave a marker in the stored
 			// letter, and swapping src can itself fire another error event.
 			var swapped = false;
@@ -1383,6 +1393,15 @@ function submitFaxButton() {
 	}
 
 	/**
+	 * Valueless marker pickStamp() puts on a per-provider stamp, and the fallback filename that goes
+	 * with it. The filename lives here rather than in the markup on purpose — see
+	 * {@link bindStampFallbacks}, which scans the whole editor document including restored saved
+	 * letters, so anything read back out of an attribute is attacker-influenced DOM text.
+	 */
+	var STAMP_MARKER_ATTRIBUTE = "data-carlos-stamp";
+	var carlosPendingStampFallback = "";
+
+	/**
 	 * Records whether the per-provider signature file actually exists, so a provider who has not
 	 * uploaded one still gets the clinic's stamps.js / stamp.png fallback instead of a broken image.
 	 *
@@ -1444,8 +1463,10 @@ function submitFaxButton() {
 		}
 		// The per-provider file is the intended stamp, but the probe may not have answered yet.
 		// bindStampFallbacks() turns the marker into a load-error handler once this is inserted.
-		return '<img src="' + stampImageSrc(file) + '" data-carlos-stamp-fallback="'
-			+ legacyStampFile() + '" width="200" height="100" />';
+		// The fallback filename rides module state, not the markup: see bindStampFallbacks().
+		carlosPendingStampFallback = legacyStampFile();
+		return '<img src="' + stampImageSrc(file) + '" ' + STAMP_MARKER_ATTRIBUTE
+			+ '="1" width="200" height="100" />';
 	}
 	// Flag read by efmshowform_data and the eForm framework to identify this
 	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag
