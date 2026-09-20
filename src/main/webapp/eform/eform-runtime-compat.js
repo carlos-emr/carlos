@@ -531,3 +531,109 @@
 
     status.installed = true;
 }(window, document));
+
+/*
+ * Signature round-trip for UNSIGNED forms.
+ *
+ * jSignature's base30 export of an EMPTY canvas is the media type with no payload:
+ *
+ *     $sig.jSignature("getData", "base30")   ->   "image/jsignature;base30,"
+ *
+ * Stored eForms persist exactly that string, and the signature boilerplate almost every
+ * third-party form carries feeds it straight back on load:
+ *
+ *     data = document.getElementById("StoreSignature1").value;   // "image/jsignature;base30,"
+ *     $sig.jSignature("setData", "data:" + data);                // from <body onload="...loadSig()">
+ *
+ * The bundled decoder cannot read its own export back. Its base30 importer splits the payload
+ * on "_" and then walks half the resulting length:
+ *
+ *     u = function (e) { var h = [], e = e.split("_"), a = e.length / 2, f = 0;
+ *                        for (; f < a; f++) h.push({x: v(e[2 * f]), y: v(e[2 * f + 1])}); ... }
+ *
+ * On an empty payload "".split("_") is [""], so a is 0.5 — the loop still runs once, e[1] is
+ * undefined, and v(undefined) does undefined.split("") and throws
+ * "Cannot read properties of undefined (reading 'split')".
+ *
+ * That throw is an UNCAUGHT page error on every open of an unsigned form, which the PDF render
+ * completeness gate counts as a severe page script error and refuses to print over — so an
+ * unsigned form could not be rendered, faxed or archived at all. Measured against a 179-package
+ * corpus of real published eForms: 79 carry this boilerplate and 75 of them failed to render.
+ *
+ * Fixing it here rather than in the vendored minified plugin keeps the third-party bundle
+ * byte-identical and upgradable, and the callers cannot be fixed — loadSig() is authored inside
+ * each clinic's own form HTML, not shipped by CARLOS.
+ *
+ * Scope is deliberately one shape: a data: URI whose media type is a jSignature vector format AND
+ * whose payload is empty. A populated signature, any other media type, and every other jSignature
+ * verb go to the plugin untouched, so a real decode failure still surfaces as a real error.
+ */
+(function installCarlosEformSignatureCompatibility(window, document) {
+    "use strict";
+
+    if (window.__carlosEformSignatureCompat && window.__carlosEformSignatureCompat.installed) {
+        return;
+    }
+
+    var signatureStatus = {installed: false, skippedEmptyLoads: 0};
+    window.__carlosEformSignatureCompat = signatureStatus;
+
+    // "data:image/jsignature;base30," and friends — media type naming a jSignature vector format,
+    // nothing after the comma. A bare "data:" (no comma) is NOT matched: the plugin handles that
+    // one itself, and claiming it here would hide a genuine malformed-input path.
+    function isEmptySignatureDataUri(value) {
+        if (typeof value !== "string" || value.lastIndexOf("data:", 0) !== 0) {
+            return false;
+        }
+        var comma = value.indexOf(",");
+        if (comma === -1) {
+            return false;
+        }
+        if (!/jsignature/i.test(value.slice("data:".length, comma))) {
+            return false;
+        }
+        return value.slice(comma + 1).trim() === "";
+    }
+
+    function installSignatureGuard() {
+        var $ = window.jQuery || window.$;
+        if (!$ || !$.fn || typeof $.fn.jSignature !== "function" || $.fn.jSignature.__carlosEmptyDataGuard) {
+            return;
+        }
+        var original = $.fn.jSignature;
+
+        function guarded(verb) {
+            if (verb === "setData" && isEmptySignatureDataUri(arguments[1])) {
+                signatureStatus.skippedEmptyLoads += 1;
+                // An unsigned form should show an empty signature pad, which is what the canvas
+                // already is after the plugin initialises. "reset" is the plugin's own supported
+                // way to say that, and it does not go through the base30 decoder.
+                try {
+                    return original.call(this, "reset");
+                } catch (ignored) {
+                    return this;
+                }
+            }
+            return original.apply(this, arguments);
+        }
+
+        // Plugins hang their own properties off the function; carry them over so the wrapper is
+        // indistinguishable from the original to anything that reads them.
+        Object.keys(original).forEach(function (key) {
+            guarded[key] = original[key];
+        });
+        guarded.__carlosEmptyDataGuard = true;
+
+        $.fn.jSignature = guarded;
+        signatureStatus.installed = true;
+    }
+
+    // This file is loaded before jQuery and before the jSignature plugin, so the wrapper cannot be
+    // applied at parse time. DOMContentLoaded always precedes the window load event that fires
+    // <body onload="...loadSig()">, which is the only caller that matters here.
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", installSignatureGuard);
+    } else {
+        installSignatureGuard();
+    }
+}(window, document));
