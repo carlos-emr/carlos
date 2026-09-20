@@ -46,6 +46,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -71,22 +73,32 @@ public class EctDeleteData2Action extends ActionSupport {
         if (deleteCheckbox != null) {
 
             MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
+
+            // Authorize every row before removing any of them. The ids are
+            // client-supplied and name rows directly, so the chart-wide privilege
+            // above does not say whether this caller may touch THESE patients'
+            // charts; the owning demographic comes off each row itself, which means
+            // nothing has to be passed in and every caller of this endpoint is
+            // covered. Checking inside the delete loop would let a batch that mixes
+            // an authorized id with another patient's delete the first and then
+            // refuse the second, which is a partial delete nobody asked for.
+            List<Measurement> authorized = new ArrayList<>();
             for (int i = 0; i < deleteCheckbox.length; i++) {
                 MiscUtils.getLogger().debug(deleteCheckbox[i]);
 
                 Measurement m = dao.find(ConversionUtils.fromIntString(deleteCheckbox[i]));
-                if (m != null) {
-                    // The id is client-supplied and names the row directly, so the
-                    // privilege check above -- which is chart-wide -- does not say
-                    // whether this caller may touch THIS patient's chart. Take the
-                    // owning demographic from the row itself and ask about them:
-                    // nothing has to be passed in, and every caller is covered.
-                    if (!isAllowedToDelete(loggedInInfo, m.getDemographicId())) {
-                        throw new SecurityException("missing required sec object (_measurement)");
-                    }
-                    measurementsDeletedDao.persist(new MeasurementsDeleted(m));
-                    measurementDao.remove(Integer.parseInt(deleteCheckbox[i]));
+                if (m == null) {
+                    continue;
                 }
+                if (!isAllowedToDelete(loggedInInfo, m.getDemographicId())) {
+                    throw new SecurityException("missing required sec object (_measurement)");
+                }
+                authorized.add(m);
+            }
+
+            for (Measurement m : authorized) {
+                measurementsDeletedDao.persist(new MeasurementsDeleted(m));
+                measurementDao.remove(m.getId());
             }
         }
 
