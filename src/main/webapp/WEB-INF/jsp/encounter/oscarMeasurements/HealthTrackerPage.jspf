@@ -294,6 +294,11 @@
         .history-value .value { font-size: 18px; line-height: 1.1; margin: 0; }
         .history-value .observed { font-size: 10px; line-height: 1.2; }
         .history-value .indicator { height: 6px; border-radius: 2px; margin-top: 2px; }
+        /* The indicator bar's meaning in words: colour alone is not readable by
+           everyone, and this is a clinical out-of-range flag. */
+        .history-value .indicator-label { font-size: 9px; font-weight: 600; letter-spacing: .5px; }
+
+        .sparkline { vertical-align: middle; }
 
         .prevention-value { flex: 0 0 auto; min-width: 110px; text-align: center; }
 
@@ -591,6 +596,45 @@
             }
 
             boolean graphable = "yes".equals(h2.get("graphable"));
+
+            // At-a-glance trend beside the label, the way the pre-removal page and
+            // o19 both show one. alist is newest-first, so walk it backwards.
+            List<List<Double>> sparkSeries = new ArrayList<List<Double>>();
+            if (graphable && alist.size() > 1) {
+                boolean bloodPressure = "BP".equals(measure);
+                List<Double> systolic = new ArrayList<Double>();
+                List<Double> diastolic = new ArrayList<Double>();
+                for (int x = alist.size() - 1; x >= 0; x--) {
+                    String data = alist.get(x).getDataField();
+                    if (bloodPressure) {
+                        String[] parts = data == null ? new String[0] : data.split("/");
+                        systolic.add(parts.length > 0 ? numeric(parts[0]) : null);
+                        diastolic.add(parts.length > 1 ? numeric(parts[1]) : null);
+                    } else {
+                        systolic.add(numeric(data));
+                    }
+                }
+                sparkSeries.add(systolic);
+                if (bloodPressure) {
+                    sparkSeries.add(diastolic);
+                }
+            }
+            String sparkMarkup = sparkline(sparkSeries);
+
+            // The most recent answer to a Yes/No measurement, shown as a tick or a
+            // cross so the card says what it is without opening anything.
+            String yesNoGlyph = "";
+            if (yesNo && !alist.isEmpty()) {
+                String latest = alist.get(0).getDataField();
+                if ("Yes".equalsIgnoreCase(latest)) {
+                    yesNoGlyph = "<i class=\"fa-solid fa-check text-success ms-1\""
+                            + " title=\"Most recent answer: Yes\"></i>";
+                } else if ("No".equalsIgnoreCase(latest)) {
+                    yesNoGlyph = "<i class=\"fa-solid fa-xmark text-danger ms-1\""
+                            + " title=\"Most recent answer: No\"></i>";
+                }
+            }
+
             String recommendation = mi.getRecommendation(measure);
             String popoverBody = (recommendation != null
                     ? "<span style='color:red'>" + SafeEncode.forHtmlContent(recommendation) + "</span><br>" : "")
@@ -610,10 +654,15 @@
                                       data-bs-title="<carlos:encode value='<%= displayName %>' context="htmlAttribute"/>"
                                       data-bs-content="<%= SafeEncode.forHtmlAttribute(popoverBody) %>"><carlos:encode
                                         value='<%= displayName %>' context="html"/></span>
+                                <%= yesNoGlyph %>
                                 <% if (graphable && alist.size() > 1) { %>
+                                <%-- The sparkline is the click target when there is one, as it
+                                     was before the removal; the icon stands in when every value
+                                     is non-numeric and no line could be drawn. --%>
                                 <a href="javascript:void(0)" class="graphClick ms-1"
                                    data-measure="<%= encMeasure %>"
-                                   title="Show trend"><i class="fa-solid fa-chart-line"></i></a>
+                                   title="Show trend"><%= sparkMarkup.isEmpty()
+                                        ? "<i class=\"fa-solid fa-chart-line\"></i>" : sparkMarkup %></a>
                                 <a href="javascript:void(0)" class="ms-1" title="Open the full graph"
                                    onclick="window.open('<%= SafeEncode.forJavaScriptAttribute(request.getContextPath()
                                            + "/encounter/GraphMeasurements?demographic_no=" + safeDemoNoUri
@@ -755,6 +804,8 @@
                                 </span>
                                 <% if (!indicatorColour.isEmpty()) { %>
                                 <div class="indicator" style="background-color:<%= indicatorColour %>"></div>
+                                <span class="indicator-label" style="color:<%= indicatorColour %>"><carlos:encode
+                                        value='<%= indicatorLabel(mdb.getIndicationColour()) %>' context="html"/></span>
                                 <% } %>
                             </div>
                         <%  } %>
@@ -1545,6 +1596,121 @@
         }
         String trimmed = colour.trim();
         return trimmed.matches("#[0-9A-Fa-f]{3,8}|[A-Za-z]{1,32}") ? trimmed : "";
+    }
+
+    /** Sparkline geometry, in CSS pixels. */
+    private static final int SPARK_WIDTH = 56;
+    private static final int SPARK_HEIGHT = 18;
+
+    /** Series colours: systolic/primary first, diastolic second. */
+    private static final String[] SPARK_COLOURS = {"#0d6efd", "#198754"};
+
+    /**
+     * Parses a stored measurement value as a number, or {@code null} when it is
+     * not one. Measurement values are free text: "Yes", "trace" and "" all live
+     * in the same column as "82.5".
+     */
+    Double numeric(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        try {
+            return Double.valueOf(trimmed);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * The card header's at-a-glance trend, rendered server-side as inline SVG.
+     *
+     * <p>The pre-removal page and o19 both drew this with jQuery Sparkline onto a
+     * canvas. SVG needs no library, and unlike a canvas it survives this page's own
+     * Print action. Nothing but numbers reaches the markup, so there is no encoding
+     * question.
+     *
+     * <p>Non-numeric points are skipped rather than breaking the line: a flowsheet
+     * item can hold "trace" or "" beside real values, and a gap is less misleading
+     * than an axis distorted to fit a zero.
+     *
+     * @param series one series per line to draw, each oldest-first; blood pressure
+     *        passes systolic and diastolic
+     * @return the {@code <svg>} markup, or {@code ""} when fewer than two numeric
+     *         points exist and there is no trend to show
+     */
+    String sparkline(List<List<Double>> series) {
+        double min = Double.MAX_VALUE;
+        double max = -Double.MAX_VALUE;
+        int points = 0;
+        for (List<Double> line : series) {
+            for (Double value : line) {
+                if (value == null) {
+                    continue;
+                }
+                min = Math.min(min, value.doubleValue());
+                max = Math.max(max, value.doubleValue());
+                points++;
+            }
+        }
+        if (points < 2 || min > max) {
+            return "";
+        }
+        double span = max - min;
+        if (span == 0) {
+            span = 1;
+        }
+
+        StringBuilder svg = new StringBuilder();
+        svg.append("<svg class=\"sparkline\" width=\"").append(SPARK_WIDTH)
+                .append("\" height=\"").append(SPARK_HEIGHT)
+                .append("\" viewBox=\"0 0 ").append(SPARK_WIDTH).append(' ').append(SPARK_HEIGHT)
+                .append("\" aria-hidden=\"true\" focusable=\"false\">");
+        for (int i = 0; i < series.size(); i++) {
+            List<Double> line = series.get(i);
+            StringBuilder path = new StringBuilder();
+            for (int x = 0; x < line.size(); x++) {
+                Double value = line.get(x);
+                if (value == null) {
+                    continue;
+                }
+                double px = line.size() < 2 ? SPARK_WIDTH : (double) x * SPARK_WIDTH / (line.size() - 1);
+                double py = SPARK_HEIGHT - 1 - ((value.doubleValue() - min) / span) * (SPARK_HEIGHT - 2);
+                if (path.length() > 0) {
+                    path.append(' ');
+                }
+                path.append(Math.round(px * 10) / 10.0).append(',').append(Math.round(py * 10) / 10.0);
+            }
+            if (path.length() == 0) {
+                continue;
+            }
+            svg.append("<polyline fill=\"none\" stroke=\"")
+                    .append(SPARK_COLOURS[i % SPARK_COLOURS.length])
+                    .append("\" stroke-width=\"1.5\" stroke-linejoin=\"round\" points=\"")
+                    .append(path).append("\"/>");
+        }
+        svg.append("</svg>");
+        return svg.toString();
+    }
+
+    /**
+     * Short label for a value's decision-support indicator.
+     *
+     * <p>The key is the flowsheet's own (`<indicator key="LOW" .../>`), so the first
+     * word of it is the severity: "HIGH 1" and "HIGH" are both rendered "HIGH", which
+     * is what the pre-removal page showed. Colour alone would carry this meaning
+     * otherwise, which is not something every clinician can see.
+     */
+    String indicatorLabel(String indicationKey) {
+        if (indicationKey == null) {
+            return "";
+        }
+        String trimmed = indicationKey.trim();
+        int space = trimmed.indexOf(' ');
+        return space < 0 ? trimmed : trimmed.substring(0, space);
     }
 
     /**

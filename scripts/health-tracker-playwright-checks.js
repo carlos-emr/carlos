@@ -45,6 +45,9 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 // non-word characters produces a field the action cannot read back.
 const DISPLAY_NAME = 'Weight kg';
 const MEASUREMENT_TYPE = 'WT';
+// A Yes/No measurement, for the tick-or-cross the card header shows.
+const YES_NO_TYPE = 'AACP';
+const YES_NO_DISPLAY_NAME = 'Asthma Action Plan';
 // The tracker names its inputs after the measurement type, which is unique within
 // a flowsheet -- display names are not, and two of them can sanitize to one name.
 const FIELD = MEASUREMENT_TYPE;
@@ -241,6 +244,35 @@ async function workflow(s) {
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE id=${Number(id)}`, '0',
       'The tracker delete did not remove the observation; the fetch() CSRF header is the usual cause');
+  });
+
+  await s.step('a trend and a latest Yes/No answer are readable without opening anything', async () => {
+    // The pre-removal page and the o19 source both put an at-a-glance summary in
+    // the card header: a sparkline over the values, and a tick or cross for the
+    // most recent answer to a Yes/No measurement. Both are drawn server-side here,
+    // so a card that shows neither means the header lost them.
+    sql.execute(`INSERT INTO measurements
+      (type, demographicNo, providerNo, dataField, measuringInstruction, comments, dateObserved, dateEntered)
+      VALUES (${sqlString(MEASUREMENT_TYPE)}, ${patient}, ${sqlString(provider)},
+        '81.0', 'kg', '', '2026-08-01 00:00:00', NOW()),
+        (${sqlString(MEASUREMENT_TYPE)}, ${patient}, ${sqlString(provider)},
+        '82.5', 'kg', '', '2026-09-01 00:00:00', NOW()),
+        (${sqlString(YES_NO_TYPE)}, ${patient}, ${sqlString(provider)},
+        'Yes', 'Yes/No', '', '2026-09-01 00:00:00', NOW())`);
+    const yesNoPayload = `<item measurement_type="${YES_NO_TYPE}" display_name="${YES_NO_DISPLAY_NAME}" `
+      + 'guideline="" graphable="no" value_name="Answer" />';
+    sql.execute(`INSERT INTO flowsheet_customization
+      (flowsheet, action, measurement, payload, provider_no, demographic_no, create_date, archived)
+      VALUES ('tracker','add',NULL,${sqlString(yesNoPayload)},
+        ${sqlString(provider)},${sqlString(String(patient))},NOW(),0)`);
+
+    page = await openTracker(s, 'health-tracker-trend');
+    assert(await page.locator(`#wrap-${MEASUREMENT_TYPE} svg.sparkline polyline`).count() === 1,
+      'Two observations produced no inline sparkline, so the card no longer shows a trend'
+      + ' without the clinician opening the chart');
+    assert(await page.locator(`#wrap-${YES_NO_TYPE} i.fa-check`).count() === 1,
+      'A Yes/No measurement whose latest answer is Yes shows no tick in its header');
+    await page.close();
   });
 
   await s.step('the save endpoint refuses GET', async () => {

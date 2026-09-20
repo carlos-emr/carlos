@@ -147,8 +147,44 @@ longer vendored:
 | Was | Now |
 | --- | --- |
 | Bootstrap 3 carousel paging through history values | horizontally scrolling history strip — every value stays reachable and there is no hidden paging state to get out of sync with the filters |
-| jqPlot inline chart + jQuery Sparkline inline trend | Chart.js chart in the card footer, plus the existing `GraphMeasurements` popup for the full graph |
+| jqPlot inline chart | Chart.js chart in the card footer, plus the existing `GraphMeasurements` popup for the full graph |
+| jQuery Sparkline inline trend (canvas) | inline SVG drawn server-side by the page's own `sparkline()` — no library, and unlike a canvas it survives the page's Print action |
 | `bootstrap-datepicker` | native `<input type="date">` |
+
+### Checked against the o19 source, not only this repository's history
+
+The pre-removal file in CARLOS' history and the o19 page (`oscarEncounter/
+oscarMeasurements/HealthTrackerPage.jspf`) are the same file bar the package
+rename, so a feature inventory was taken from o19 directly and walked against
+the restoration. What that turned up, and what was decided:
+
+**Restored after the first pass had lost them**
+
+- The at-a-glance **sparkline** in each card header (blood pressure draws
+  systolic and diastolic as two lines), which is also the click target for the
+  full trend — the icon only stands in when no value is numeric.
+- The **tick or cross** for the most recent answer to a `Yes/No` measurement.
+- The **indicator's meaning in words** (`LOW`, `HIGH`) beside its colour bar.
+  o19 derived the word from the colour; this takes the first word of the
+  flowsheet's own `<indicator key="...">`, which generalizes and does not
+  depend on a colour comparison.
+
+**Deliberately not restored**
+
+- **Integrator / remote measurements** (`CachedMeasurement`,
+  `EctMeasurementsDataBeanHandler.addRemoteMeasurements`, "from facility"
+  labels). Nothing in CARLOS implements that path any more — the method does
+  not exist in this tree.
+- **`?tracker=slim`**. The stripped-down mode's only entry point was
+  `HealthTrackerSlim.jspf`, deleted upstream in 2014; in o19 the flag is only
+  ever propagated, never set.
+- **Dead code carried in o19**: `?id=` and `?measurement=` are read and then
+  immediately overwritten with constants; `FlowSheetDrugDao` and
+  `FlowSheetDxDao` are looked up and never called; `eform()` is a hardcoded
+  test function. None of it does anything.
+- **`Add Renal`**, which is a second button bound to the same handler as
+  `Add overdue` and shown for the same ORN pilot templates. The overdue control
+  it duplicates is restored; the renal panel and its resources are too.
 
 CSRF: the page's single `<form method="post" action="...">` is what makes
 CSRFGuard inject the hidden `CSRF-TOKEN` input. The delete call uses `fetch`,
