@@ -20,7 +20,7 @@ A comprehensive modern test framework has been successfully implemented for CARL
 ## Architecture Overview
 
 ### Technology Stack
-- **Test Framework**: JUnit 5 (Jupiter) 5.10.1
+- **Test Framework**: JUnit 6 (Jupiter) 6.0.3
 - **Assertions**: AssertJ 3.24.2 for fluent assertions
 - **Mocking**: Mockito 5.x (Java 25 compatible)
 - **Database**: H2 in-memory database (MySQL mode)
@@ -548,11 +548,10 @@ void performanceTest() {
 
 The modern test framework is fully operational with:
 
-- ✅ JUnit 5 with Java 25 support
+- ✅ JUnit 6 with Java 25 support
 - ✅ Better test organization with @Nested and @DisplayName
 - ✅ AssertJ fluent assertions
 - ✅ Fast execution with H2 in-memory database
-- ✅ No impact on existing JUnit 4 tests
 - ✅ Handles complex domain objects and database operations
 - ✅ Full Spring dependency injection support
 - ✅ Transaction management with automatic rollback

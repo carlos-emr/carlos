@@ -1698,8 +1698,12 @@
                 <artifactId>maven-pmd-plugin</artifactId>
                 <version>3.28.0</version>
                 <configuration>
-                    <!-- Target JDK version -->
-                    <targetJdk>21</targetJdk>
+                    <!-- PMD parses sources at this language level. It must track the
+                         compiler <release> above: left at 21 while javac emits 25,
+                         PMD silently reports parse errors (or mis-analyses) on any
+                         Java 22-25 syntax instead of applying the ruleset. PMD 7.22
+                         pinned below recognises Java 25. -->
+                    <targetJdk>25</targetJdk>
 
                     <!-- Custom ruleset -->
                     <rulesets>
