@@ -119,11 +119,10 @@ public class FaxDocument2Action extends ActionSupport {
         }
 
         EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
-        // EDocUtil.getDoc never returns null — it allocates an EDoc and returns it whether or not
-        // the query matched — so testing for null alone left "Document not found." unreachable and
-        // sent an unknown docId into the content-type test instead, which reported it as a
-        // non-PDF. Resolvability is tested on the filename, as Fax2Action does.
-        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
+        // EDocUtil.getDoc allocates an empty EDoc even for an unknown ID. Check the linked
+        // patient's access before the filename, then use the filename to distinguish an
+        // unresolved document without disclosing its file state to an unauthorized caller.
+        if (doc == null) {
             return refuse(request, "Document not found.");
         }
 
@@ -131,6 +130,10 @@ public class FaxDocument2Action extends ActionSupport {
         if (demographicNo > 0
                 && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("Unauthorized access to patient record");
+        }
+
+        if (StringUtils.isBlank(doc.getFileName())) {
+            return refuse(request, "Document not found.");
         }
 
         String problem = faxabilityProblem(doc, docId);

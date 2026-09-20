@@ -212,6 +212,22 @@ class FaxDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldCheckPatientAccessBeforeMissingFilename_whenLinkedPatientIsDenied() {
+        EDoc document = new EDoc();
+        document.setModule("demographic");
+        document.setModuleId("770001");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            documents.when(() -> EDocUtil.getDoc("42")).thenReturn(document);
+
+            assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("patient record");
+
+            assertThat(request.getAttribute("message")).isNull();
+            verify(security).isAllowedAccessToPatientRecord(info, 770001);
+        }
+    }
+
+    @Test
     void shouldCheckPatientAccessBeforeRevealingFileType_whenLinkedPatientIsDenied() {
         EDoc document = document("text/plain", "/private/patient-document.txt");
         document.setModule("demographic");
