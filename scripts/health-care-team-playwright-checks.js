@@ -31,9 +31,17 @@ async function workflow(s) {
     await page.locator('#listHealthCareTeam input[value="remove"]').waitFor();
   });
   await s.step('reopen the team in both display and edit views', async () => {
+    const associationId = s.sql.value(`SELECT id FROM DemographicContact WHERE ${ownedAssociation} AND deleted=0`);
+    h.assert(/^[1-9]\d*$/.test(associationId), 'Saved team membership has no valid identity');
+    const providerName = s.sql.rows(`SELECT first_name,last_name FROM provider WHERE provider_no=${h.sqlString(s.provider)}`)[0];
+    h.assert(providerName && providerName.every(Boolean), 'Selected provider has no display name');
     const display = await s.context.newPage();
     await h.gotoApp(display, s.config.baseUrl, `/demographic/ViewDisplayHealthCareTeam?view=detached&demographicNo=${s.patient}`);
     h.assert((await display.locator('body').innerText()).includes(s.marker), 'Team display opened the wrong patient');
+    const member = display.locator(`#healthCareTeam li[id="${associationId}"] .info`);
+    h.assert(await member.count() === 1, 'Team display omitted the saved provider row');
+    const displayedName = await member.innerText();
+    h.assert(providerName.every(part => displayedName.includes(part)), 'Team display showed the wrong provider');
     await h.gotoApp(page, s.config.baseUrl, route);
     h.assert(await page.locator('#listHealthCareTeam input[value="remove"]').count() === 1, 'Reopened team lost or duplicated the provider');
     await display.close();
