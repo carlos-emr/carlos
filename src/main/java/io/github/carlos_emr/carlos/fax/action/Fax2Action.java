@@ -561,7 +561,10 @@ public class Fax2Action extends ActionSupport {
      */
     // Direct reads require an active session/eForm/patient/provider claim plus temp containment;
     // stored documents require an authorized job binding.
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding")
+    // PT_RELATIVE_PATH_TRAVERSAL fires on the new File(requestedFaxFilePath) that is itself the argument to the
+    // isInApplicationTempDirectory() guard rejecting non-temp paths, and is reached only after
+    // authorizedPreviewPath() has matched the path against this session's own staged previews.
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "PT_RELATIVE_PATH_TRAVERSAL"}, justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding. PT_RELATIVE_PATH_TRAVERSAL flags the File passed into the temp-containment guard itself, after the session claim check")
     @SuppressWarnings("unused")
     public void getPreview() {
 
