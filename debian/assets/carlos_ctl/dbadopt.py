@@ -491,7 +491,7 @@ def applied_versions(dbops, db_name):
         return set()
     cp = _client(dbops, db_name, [
         "-N", "-B", "-e",
-        "SELECT `version` FROM `flyway_schema_history` "
+        "SELECT `version` FROM `flyway_schema_history` " +
         "WHERE `success` = 1 AND `version` IS NOT NULL",
     ], capture_output=True)
     if cp.returncode != 0:
@@ -1092,7 +1092,7 @@ def live_schema(dbops, db_name):
     interrupts."""
     cp = _client(dbops, db_name, [
         "-N", "-B", "-e",
-        "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS "
+        "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS " +
         "WHERE TABLE_SCHEMA = DATABASE()",
     ], capture_output=True)
     if cp.returncode != 0:

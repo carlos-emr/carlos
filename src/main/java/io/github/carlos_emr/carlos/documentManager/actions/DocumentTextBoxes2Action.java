@@ -140,7 +140,7 @@ public class DocumentTextBoxes2Action extends ActionSupport {
         }
 
         EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
-        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
+        if (doc == null) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
@@ -149,6 +149,21 @@ public class DocumentTextBoxes2Action extends ActionSupport {
         if (linkedDemographicNo > 0
                 && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, linkedDemographicNo)) {
             throw new SecurityException("Unauthorized access to patient record");
+        }
+
+        if (StringUtils.isBlank(doc.getFileName())) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
+        // HEAD has the same access and document checks as GET, but no response body and no
+        // PDF extraction. Sending JSON bytes on HEAD violates HTTP semantics and wastes a
+        // bounded worker for every metadata probe.
+        if ("HEAD".equalsIgnoreCase(method)) {
+            response.setStatus(HttpServletResponse.SC_OK);
+            response.setContentType("application/json");
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            return NONE;
         }
 
         ArrayNode words = objectMapper.createArrayNode();

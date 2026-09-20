@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("UserProperty schedule navigation mode")
-class UserPropertyScheduleNavigationModeTest extends CarlosUnitTestBase {
+class UserPropertyScheduleNavigationModeUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should use saved mode when valid")
