@@ -1,7 +1,7 @@
 /*
  * Runtime compatibility for stored eForms written against pre-migration CARLOS.
  *
- * Two adaptations live here:
+ * Compatibility paths here:
  *
  *  - Timer callbacks. Modern CSP blocks native string callbacks such as setTimeout("code", delay),
  *    so those are executed through an injected script while every one-shot timeout is tracked for the
@@ -10,6 +10,8 @@
  *  - Obsolete clinical-data fetches. Some forms XHR a route that has since been renamed and that the
  *    render surface could not use even under its new name; those are answered from data the server
  *    embedded in the page. See installCarlosEformLegacyFetchCompatibility below.
+ *  - Legacy jQuery shortcuts on the PDF surface, including forms that load another jQuery copy.
+ *  - Empty jSignature base30 exports, which the bundled decoder cannot read back.
  */
 (function installCarlosEformTimerCompatibility(window, document) {
     "use strict";
@@ -384,6 +386,61 @@
         });
     }
     status.installed = true;
+}(window, document));
+
+/*
+ * Saved-PDF renderer aliases for forms written against older jQuery. Clinic forms can load their
+ * own jQuery after this shim and call .size() or .error() in the very next inline script. Ready and
+ * load listeners are too late for that caller, so patch each replacement as it is assigned.
+ */
+(function installCarlosLegacyJqueryAliases(window, document) {
+    "use strict";
+
+    if (!window.__carlosEformPdfRender) {
+        return;
+    }
+
+    function patch(jq) {
+        if (!jq || !jq.fn) {
+            return;
+        }
+        if (!jq.fn.size) {
+            jq.fn.size = function size() { return this.length; };
+        }
+        if (!jq.fn.error) {
+            jq.fn.error = function error(handler) {
+                return arguments.length ? this.on("error", handler) : this.trigger("error");
+            };
+        }
+    }
+
+    function watch(name) {
+        var descriptor = Object.getOwnPropertyDescriptor(window, name);
+        if (descriptor && !descriptor.configurable) {
+            patch(window[name]);
+            return;
+        }
+        var current = window[name];
+        Object.defineProperty(window, name, {
+            configurable: true,
+            enumerable: descriptor ? descriptor.enumerable : true,
+            get: function () { return current; },
+            set: function (next) {
+                current = next;
+                patch(next);
+            }
+        });
+        patch(current);
+    }
+
+    watch("jQuery");
+    watch("$");
+    window.__carlosInstallLegacyJqueryAliases = function () {
+        patch(window.jQuery);
+        patch(window.$);
+    };
+    document.addEventListener("DOMContentLoaded", window.__carlosInstallLegacyJqueryAliases);
+    window.addEventListener("load", window.__carlosInstallLegacyJqueryAliases);
 }(window, document));
 
 /*

@@ -678,17 +678,6 @@ public final class EFormRenderPdfHtmlComposer {
         signatureCompatibility.append(
                 "window.signatureControl=window.signatureControl||{};"
                 + "window.signatureControl.initialize=function initialize(){};"
-                // The passive renderer supplies jQuery 3, while published forms still call
-                // the removed size() and error() shortcuts. A form may load its own jQuery
-                // after this shim, so reapply the aliases before its ready/onload callbacks.
-                + "window.__carlosInstallLegacyJqueryAliases=function(){var jq=window.jQuery;"
-                + "if(!jq||!jq.fn)return;"
-                + "if(!jq.fn.size)jq.fn.size=function size(){return this.length;};"
-                + "if(!jq.fn.error)jq.fn.error=function error(handler){"
-                + "return arguments.length?this.on('error',handler):this.trigger('error');};};"
-                + "window.__carlosInstallLegacyJqueryAliases();"
-                + "document.addEventListener('DOMContentLoaded',window.__carlosInstallLegacyJqueryAliases);"
-                + "window.addEventListener('load',window.__carlosInstallLegacyJqueryAliases);"
                 // The interactive toolbar already defines this as a no-op after removing the
                 // legacy fax control. It has no print content, but forms still call it from
                 // delayed setFaxNo() callbacks after the toolbar is removed for PDF rendering.

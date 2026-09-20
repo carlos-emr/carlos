@@ -167,6 +167,25 @@ function signaturePage() {
     </script></body></html>`;
 }
 
+function jqueryAliasesPage(withPreloadedJquery) {
+  const preload = withPreloadedJquery ? '<script src="/jquery.js"></script>' : '';
+  return `<!doctype html><html><body>
+    <script>window.__carlosEformPdfRender = true;</script>
+    ${preload}<script src="/eform-runtime-compat.js"></script>
+    <script>window.__jqueryBeforeForm = window.jQuery;</script>
+    <script src="/jquery.js"></script>
+    <script>
+      var jq = window.jQuery;
+      window.__aliasesResult = {
+        size: jq('body').size(),
+        dollarSize: window.$('body').size(),
+        hasErrorShortcut: typeof jq.fn.error === 'function',
+        replaced: window.__jqueryBeforeForm !== jq,
+        readyState: document.readyState
+      };
+    </script></body></html>`;
+}
+
 async function main() {
   const shim = fs.readFileSync(SHIM_PATH, 'utf8');
   const jquery = fs.readFileSync(JQUERY_PATH, 'utf8');
@@ -186,6 +205,11 @@ async function main() {
     if (request.url === '/signature') {
       response.writeHead(200, { 'Content-Type': 'text/html' });
       response.end(signaturePage());
+      return;
+    }
+    if (request.url === '/aliases-no-preload' || request.url === '/aliases-with-preload') {
+      response.writeHead(200, { 'Content-Type': 'text/html' });
+      response.end(jqueryAliasesPage(request.url === '/aliases-with-preload'));
       return;
     }
     if (request.url.startsWith('/embedded')) {
@@ -268,6 +292,21 @@ async function main() {
     } catch (error) {
       failures.push(`jSignature compatibility: ${error.message}`);
     }
+
+    for (const preloaded of [false, true]) {
+      const label = preloaded ? 'with preloaded jQuery' : 'without preloaded jQuery';
+      await tab.goto(`${base}/aliases-${preloaded ? 'with' : 'no'}-preload`);
+      const aliases = await tab.evaluate('window.__aliasesResult');
+      try {
+        assert(aliases && aliases.readyState === 'loading',
+          `${label}: aliases were not exercised by the immediate inline consumer`);
+        assert(aliases.size === 1 && aliases.dollarSize === 1 && aliases.hasErrorShortcut,
+          `${label}: legacy aliases missing after the form loaded jQuery: ${JSON.stringify(aliases)}`);
+        assert(aliases.replaced, `${label}: fixture did not replace the jQuery instance`);
+      } catch (error) {
+        failures.push(`jQuery aliases ${label}: ${error.message}`);
+      }
+    }
   } finally {
     if (browser) {
       await browser.close();
@@ -281,7 +320,8 @@ async function main() {
     return;
   }
   console.log('PASS eForm runtime compatibility: synchronous delivery, aligned arrays, '
-    + 'visible missing-payload failure, and bundled jSignature empty base30 handling.');
+    + 'visible missing-payload failure, bundled jSignature empty base30 handling, '
+    + 'and immediate jQuery aliases after replacement.');
 }
 
 main().catch((error) => {

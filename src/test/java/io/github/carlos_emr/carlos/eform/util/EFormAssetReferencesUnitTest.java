@@ -46,7 +46,8 @@ class EFormAssetReferencesUnitTest {
 
     /** Assets the fake eForm asset directory can serve. */
     private static final Predicate<String> PRESENT =
-            Set.of("jSignature.min.js", "onBodyLoad_Oct2018.js", "logo.png", "scan (1).png")::contains;
+            Set.of("jSignature.min.js", "onBodyLoad_Oct2018.js", "logo.png", "scan (1).png",
+                    "instructions.html", "styles.css")::contains;
 
     /** Nothing is servable — the shape every "left as authored" assertion needs. */
     private static final Predicate<String> ABSENT = name -> false;
@@ -83,6 +84,20 @@ class EFormAssetReferencesUnitTest {
             String result = EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT);
 
             assertThat(result).contains("src = \"${oscar_image_path}logo.png\"");
+        }
+
+        @Test
+        @DisplayName("should rewrite a stylesheet link but leave navigation links alone")
+        void shouldRewriteStylesheetLink_withoutChangingNavigation() {
+            String html = "<link rel=\"stylesheet\" href=\"styles.css\">"
+                    + "<a href=\"instructions.html\">Instructions</a>"
+                    + "<form action=\"instructions.html\"></form>";
+
+            String result = EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT);
+
+            assertThat(result).isEqualTo("<link rel=\"stylesheet\" href=\"${oscar_image_path}styles.css\">"
+                    + "<a href=\"instructions.html\">Instructions</a>"
+                    + "<form action=\"instructions.html\"></form>");
         }
 
         @Test

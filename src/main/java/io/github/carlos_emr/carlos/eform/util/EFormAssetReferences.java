@@ -96,7 +96,7 @@ public final class EFormAssetReferences {
     static final String IMAGE_PATH_MARKER = "${oscar_image_path}";
 
     /**
-     * Matches an {@code src}/{@code href} assignment and captures its quoted value.
+     * Matches an {@code src} assignment and captures its quoted value.
      *
      * <p>Deliberately not an HTML parse. Re-serializing two decades of hand-authored clinic markup
      * through a parser to change one attribute risks changing everything else on the page, and
@@ -104,8 +104,16 @@ public final class EFormAssetReferences {
      * intentionally matches a JavaScript assignment ({@code img.src = "stamp.png"}) as well as an
      * HTML attribute: legacy forms build asset URLs both ways and both need the same rewrite.</p>
      */
-    private static final Pattern ASSET_REFERENCE = Pattern.compile(
-            "\\b(src|href)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
+    private static final Pattern SRC_REFERENCE = Pattern.compile(
+            "\\b(src)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
+            Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Only a link element's href loads an asset. An anchor href is navigation, even if a file of
+     * the same name happens to exist in the shared asset directory.
+     */
+    private static final Pattern LINK_HREF_REFERENCE = Pattern.compile(
+            "(<link\\b[^>]{0,4096}?\\bhref)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -131,7 +139,8 @@ public final class EFormAssetReferences {
     }
 
     /**
-     * Rewrites bare-filename {@code src}/{@code href} references onto the eForm asset marker.
+     * Rewrites bare-filename {@code src} references and {@code link[href]} assets onto the eForm
+     * asset marker. Navigation hrefs remain as authored.
      *
      * @param html stored eForm HTML, before marker substitution; null or blank is returned as-is
      * @return the HTML with servable bare references rewritten, otherwise unchanged
@@ -152,7 +161,13 @@ public final class EFormAssetReferences {
         }
 
         Map<String, Boolean> resolved = new HashMap<>();
-        Matcher matcher = ASSET_REFERENCE.matcher(html);
+        return rewriteReferences(rewriteReferences(html, SRC_REFERENCE, resolved, assetExists),
+                LINK_HREF_REFERENCE, resolved, assetExists);
+    }
+
+    private static String rewriteReferences(String html, Pattern reference, Map<String, Boolean> resolved,
+            Predicate<String> assetExists) {
+        Matcher matcher = reference.matcher(html);
         StringBuilder rewritten = new StringBuilder(html.length());
         boolean changed = false;
 
