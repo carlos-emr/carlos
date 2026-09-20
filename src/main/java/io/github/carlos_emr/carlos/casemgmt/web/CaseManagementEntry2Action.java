@@ -1307,29 +1307,31 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /* save extra fields */
         // Exactly one casemgmt_note_ext row per extension key of this note, updated in place.
         //
-        // Two traps sit here. saveNoteExt() is a JPA persist(), so reusing one entity across the
-        // keys collapses them into the single row the first call created -- whichever key was
-        // written last wins, which is how a CPP item saved with both a start date and a
-        // resolution date used to keep only the resolution date. Allocating per key is not
-        // enough on its own though: saveNote() merges an existing note rather than revising it
-        // under a fresh id, so a note keeps its id across edits and a plain persist() per save
-        // piles a second row onto every key. getExtByNote() orders id desc while consumers such
-        // as NotesService.getNote() assign from every row they walk, so the OLDEST row is the
-        // one that survives -- an edited start date would read back as the value it replaced.
+        // saveNoteExt() is a JPA persist(), so reusing one entity across the keys collapses them
+        // into the row the first call created -- whichever key was written last wins, which is
+        // how a CPP item saved with both a start date and a resolution date used to keep only
+        // the resolution date. Allocating per key is not enough on its own either: saveNote()
+        // merges an existing note rather than revising it under a fresh id, so a note keeps its
+        // id across edits and a plain persist() per save piles a second row onto every key.
         //
-        // So: update the row a key already has, and insert only when it has none.
-        Map<String, CaseManagementNoteExt> extByKey = new HashMap<>();
+        // Notes saved before that was fixed can already carry several rows for one key, and the
+        // readers disagree about which of them counts: getExtByNote() orders id desc, the
+        // change-detection loop above breaks on the first match so it sees the NEWEST, while
+        // NotesService.getNote() assigns from every row it walks so it ends on the OLDEST.
+        // Updating just one of a duplicate set would leave the other readers on a stale value,
+        // so every row for the key is written. That is deliberately not a delete: pruning the
+        // extras is a data migration, and a note save is no place to drop clinical history.
+        Map<String, List<CaseManagementNoteExt>> extByKey = new HashMap<>();
         for (CaseManagementNoteExt existing : caseManagementNoteExtDao.getExtByNote(note.getId())) {
-            // Newest first, so the first entry seen for a key is the one consumers read today.
-            extByKey.putIfAbsent(existing.getKeyVal(), existing);
+            extByKey.computeIfAbsent(existing.getKeyVal(), k -> new ArrayList<>()).add(existing);
         }
         for (int i = 0; i < extNames.length; i++) {
             String val = request.getParameter(extNames[i]);
             if (filled(val)) {
                 // Resolve the new state on a detached carrier first. A malformed date has to
-                // leave the stored row exactly as it was, and mutating a managed entity before
-                // knowing that would blank it through dirty checking even though nothing is
-                // saved.
+                // leave the stored rows exactly as they were, and mutating a managed entity
+                // before knowing that would blank it through dirty checking even though nothing
+                // is saved.
                 CaseManagementNoteExt resolved = new CaseManagementNoteExt();
                 if (i <= 2) {
                     if (!writePartialDate(val, resolved)) continue;
@@ -1337,19 +1339,21 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     resolved.setValue(val);
                 }
 
-                CaseManagementNoteExt cme = extByKey.get(extKeys[i]);
-                if (cme == null) {
-                    cme = new CaseManagementNoteExt();
+                List<CaseManagementNoteExt> rows = extByKey.get(extKeys[i]);
+                if (rows == null || rows.isEmpty()) {
+                    CaseManagementNoteExt cme = new CaseManagementNoteExt();
                     cme.setNoteId(note.getId());
                     cme.setKeyVal(extKeys[i]);
                     cme.setValue(resolved.getValue());
                     cme.setDateValue(resolved.getDateValue());
                     caseManagementMgr.saveNoteExt(cme);
-                    extByKey.put(extKeys[i], cme);
+                    extByKey.put(extKeys[i], new ArrayList<>(List.of(cme)));
                 } else {
-                    cme.setValue(resolved.getValue());
-                    cme.setDateValue(resolved.getDateValue());
-                    caseManagementMgr.updateNoteExt(cme);
+                    for (CaseManagementNoteExt cme : rows) {
+                        cme.setValue(resolved.getValue());
+                        cme.setDateValue(resolved.getDateValue());
+                        caseManagementMgr.updateNoteExt(cme);
+                    }
                 }
             }
         }

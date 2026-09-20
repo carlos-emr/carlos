@@ -358,7 +358,15 @@ class CaseManagementCppSaveRegressionTest {
                 .as("the block indexes the rows the note already has before writing")
                 .contains("caseManagementNoteExtDao.getExtByNote(note.getId())")
                 .as("an existing key is updated in place rather than inserted again")
-                .contains("caseManagementMgr.updateNoteExt(");
+                .contains("caseManagementMgr.updateNoteExt(")
+                // A note from before the per-key fix can hold several rows for one key, and the
+                // readers disagree on which wins (change detection takes the newest,
+                // NotesService the oldest), so refreshing one of them is not enough.
+                .as("a key's rows are collected as a set, not reduced to a single row")
+                .contains("extByKey.computeIfAbsent(")
+                .doesNotContain("extByKey.putIfAbsent(")
+                .as("every row a key already has is refreshed")
+                .contains("for (CaseManagementNoteExt cme : rows)");
 
         int forStatement = block.indexOf("for (int i = 0; i < extNames.length; i++)");
         assertThat(forStatement).as("the block loops over the extension keys").isGreaterThan(0);

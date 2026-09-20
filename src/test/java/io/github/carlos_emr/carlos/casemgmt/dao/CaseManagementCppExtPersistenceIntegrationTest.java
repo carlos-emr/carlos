@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -163,6 +164,40 @@ public class CaseManagementCppExtPersistenceIntegrationTest extends CarlosTestBa
                 .containsExactlyInAnyOrder(
                         tuple(CaseManagementNoteExt.STARTDATE, EDITED_START),
                         tuple(CaseManagementNoteExt.RESOLUTIONDATE, RESOLUTION));
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should refresh every duplicate row when a key already has more than one (#3739)")
+    void shouldRefreshEveryDuplicateRow_whenAKeyAlreadyHasMoreThanOne() {
+        // A note saved before the per-key fix can carry several rows for one key, and the
+        // readers disagree about which one counts: getExtByNote() orders id desc, the note
+        // route's change-detection loop breaks on the first match so it sees the newest, and
+        // NotesService.getNote() assigns from every row it walks so it ends on the oldest.
+        // Refreshing only one of them would leave the other reader on the value it replaced.
+        caseManagementNoteExtDAO.save(newExtension(CaseManagementNoteExt.STARTDATE, START));
+        caseManagementNoteExtDAO.save(newExtension(CaseManagementNoteExt.STARTDATE, RESOLUTION));
+        entityManager.flush();
+
+        List<CaseManagementNoteExt> existing = caseManagementNoteExtDAO.getExtByNote(noteId);
+        assertThat(existing).as("the note starts out with two rows for the one key").hasSize(2);
+
+        Map<String, List<CaseManagementNoteExt>> extByKey = new HashMap<>();
+        for (CaseManagementNoteExt row : existing) {
+            extByKey.computeIfAbsent(row.getKeyVal(), k -> new ArrayList<>()).add(row);
+        }
+        for (CaseManagementNoteExt row : extByKey.get(CaseManagementNoteExt.STARTDATE)) {
+            row.setDateValue(EDITED_START);
+            caseManagementNoteExtDAO.update(row);
+        }
+
+        assertThat(storedExtensions())
+                .as("every duplicate carries the edit, so the effective value is right "
+                        + "whichever row a reader lands on")
+                .extracting(CaseManagementNoteExt::getKeyVal, CaseManagementNoteExt::getDateValueStr)
+                .containsExactlyInAnyOrder(
+                        tuple(CaseManagementNoteExt.STARTDATE, EDITED_START),
+                        tuple(CaseManagementNoteExt.STARTDATE, EDITED_START));
     }
 
     @Test
