@@ -127,15 +127,15 @@ public class FaxDocument2Action extends ActionSupport {
             return refuse(request, "Document not found.");
         }
 
-        String problem = faxabilityProblem(doc, docId);
-        if (problem != null) {
-            return refuse(request, problem);
-        }
-
         int demographicNo = resolveDemographicNo(doc, docId);
         if (demographicNo > 0
                 && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("Unauthorized access to patient record");
+        }
+
+        String problem = faxabilityProblem(doc, docId);
+        if (problem != null) {
+            return refuse(request, problem);
         }
 
         return prepareFaxHandoff(request, response, docId, demographicNo);
