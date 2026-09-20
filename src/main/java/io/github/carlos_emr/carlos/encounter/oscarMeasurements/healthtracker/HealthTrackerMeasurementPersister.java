@@ -78,6 +78,15 @@ public class HealthTrackerMeasurementPersister {
         }
     }
 
+    /**
+     * Length of {@code measurements.comments}. A longer comment is refused here
+     * rather than left to the database: under strict SQL modes the insert throws,
+     * and because a Health Tracker save is deliberately partial-success, that
+     * exception would surface after earlier rows in the same submission had
+     * already been committed.
+     */
+    private static final int MAX_COMMENT_LENGTH = 255;
+
     private final MeasurementDao measurementDao;
     private final EctValidation validation;
 
@@ -123,8 +132,16 @@ public class HealthTrackerMeasurementPersister {
         measurement.setDateObserved(ConversionUtils.fromDateString(entry.dateObserved()));
         measurement.setAppointmentNo(appointmentNo);
 
-        // Re-submitting the page (browser refresh, double click on Save All) must
-        // not create a second identical row.
+        // Re-submitting the page (browser refresh, back button, a second Save All
+        // after the first returned) must not create a second identical row.
+        //
+        // This is a read-then-write and therefore covers SEQUENTIAL re-submits, not
+        // two saves genuinely in flight at once: measurements has no unique index
+        // over (demographic, type, value, date, instruction, comment), so there is
+        // nothing to serialize on. Closing that window properly needs a constraint
+        // and a migration that first has to reckon with the duplicate rows already
+        // in deployed charts. The page meanwhile disables Save All on submit, which
+        // removes the double-click that makes the race reachable in practice.
         if (!measurementDao.findMatching(measurement).isEmpty()) {
             return new EntryOutcome(false, List.of());
         }
@@ -188,6 +205,10 @@ public class HealthTrackerMeasurementPersister {
         }
         if (!validation.isDate(entry.dateObserved())) {
             failures.add(new ValidationFailure("errors.invalidDate", new String[]{label}));
+        }
+        if (entry.comment().length() > MAX_COMMENT_LENGTH) {
+            failures.add(new ValidationFailure("errors.maxlength",
+                    new String[]{label + " comment", String.valueOf(MAX_COMMENT_LENGTH)}));
         }
         return failures;
     }

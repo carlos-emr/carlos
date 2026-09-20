@@ -164,6 +164,34 @@ class HealthTrackerMeasurementPersisterUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a comment longer than the measurements column")
+    void shouldRejectEntry_whenCommentExceedsColumnLength() {
+        // measurements.comments is varchar(255). Left to the database this throws
+        // under strict SQL modes, and because a Health Tracker save is deliberately
+        // partial-success that would land after earlier rows were already committed.
+        String tooLong = "x".repeat(256);
+
+        EntryOutcome outcome = persister.persist(entry("82.5", tooLong, "2026-09-01"), 111, "999998", 0);
+
+        assertThat(outcome.valid()).isFalse();
+        assertThat(outcome.failures()).extracting(
+                HealthTrackerMeasurementPersister.ValidationFailure::messageKey).contains("errors.maxlength");
+        verify(measurementDao, never()).persist(any(Measurement.class));
+    }
+
+    @Test
+    @DisplayName("should accept a comment exactly at the column length")
+    void shouldPersistMeasurement_whenCommentAtColumnLength() {
+        when(measurementDao.findMatching(any(Measurement.class))).thenReturn(List.of());
+        String atLimit = "x".repeat(255);
+
+        EntryOutcome outcome = persister.persist(entry("82.5", atLimit, "2026-09-01"), 111, "999998", 0);
+
+        assertThat(outcome.valid()).isTrue();
+        assertThat(outcome.persisted()).isTrue();
+    }
+
+    @Test
     @DisplayName("should tolerate a Validations row whose numeric bounds are null")
     void shouldNotThrow_whenValidationBoundsNull() {
         Validations sparse = new Validations();

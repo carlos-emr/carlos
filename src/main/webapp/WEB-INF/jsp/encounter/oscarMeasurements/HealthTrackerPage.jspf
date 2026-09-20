@@ -1422,6 +1422,19 @@
                 event.preventDefault();
                 showValidationAlert('<strong>Error!</strong> There was an error saving your data, please review and '
                         + 'correct. Total errors: ' + errors);
+                return;
+            }
+            // One submit per click. Duplicate suppression on the server is a
+            // read-then-write and so only covers sequential re-submits; disabling
+            // the button here removes the double-click that would otherwise put two
+            // identical saves in flight at the same time.
+            var save = document.querySelector('button[form="trackerForm"][value="Save All"]');
+            if (save) {
+                save.disabled = true;
+                // Re-enable if the navigation never happens (a rejected save forwards
+                // back to a freshly rendered page, so this only matters when the
+                // request itself fails).
+                window.setTimeout(function () { save.disabled = false; }, 10000);
             }
         });
     });

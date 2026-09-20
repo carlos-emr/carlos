@@ -106,9 +106,13 @@ public class HealthTrackerSubmissionService {
         for (HealthTrackerEntry entry : entries) {
             EntryOutcome outcome = persister.persist(entry, demographicNo, providerNo, appointmentNo);
             if (outcome.valid()) {
-                accepted.add(entry);
+                // Only a row that was actually written earns a note. A duplicate is
+                // valid but wrote nothing, and noting it again would file a second
+                // signed note into the chart every time a clinician refreshes or
+                // re-submits -- clinical record noise with no measurement behind it.
                 if (outcome.persisted()) {
                     persistedCount++;
+                    accepted.add(entry);
                 }
             } else {
                 rejected.add(entry.displayName() + ": " + entry.value());

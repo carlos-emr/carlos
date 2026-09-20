@@ -94,10 +94,23 @@ without a container.
   rejected; the rejected ones come back in the page's validation alert.
 - **Duplicates are suppressed.** An entry matching an existing row (same
   demographic, type, value, date, instruction and comment) is accepted but not
-  written again, so a refresh or a double-clicked Save All cannot double a value.
-- **Notes are opt-in and best effort.** A save with nothing flagged writes no
-  note at all. If note filing fails, the measurements are already committed, so
-  the failure is logged rather than turned into an error page.
+  written again, so a refresh or a re-submitted Save All cannot double a value.
+  This is a read-then-write, so it covers *sequential* re-submits; the
+  `measurements` table has no unique index to serialize two saves genuinely in
+  flight at once. The page disables Save All on submit, which removes the
+  double-click that makes that race reachable. Closing it properly needs a
+  constraint plus a migration that first has to reckon with duplicate rows
+  already sitting in deployed charts.
+- **Notes are opt-in, best effort, and follow the write.** A save with nothing
+  flagged writes no note at all, and an entry suppressed as a duplicate gets no
+  note either — it wrote nothing, so noting it again would put clinical content
+  in the chart with no measurement behind it. If note filing fails, the
+  measurements are already committed, so the failure is logged rather than
+  turned into an error page.
+- **Comments are length-checked against the column.** `measurements.comments` is
+  `varchar(255)`; a longer comment is refused with `errors.maxlength` rather than
+  left to throw from the database, which under strict SQL modes would surface
+  after earlier rows in the same partial-success submission had been committed.
 - **Server-side validation is authoritative.** The `pattern`/`min`/`max`
   attributes the page renders are user feedback only.
 

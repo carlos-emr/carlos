@@ -162,6 +162,44 @@ class HealthTrackerSubmissionServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should not note an entry that was suppressed as a duplicate")
+    void shouldNotWriteNote_whenEntrySuppressedAsDuplicate() {
+        // A refresh or a re-submit re-sends a value that is already in the chart.
+        // It is valid, so it is not reported as an error -- but nothing was written,
+        // and filing a second signed note for it would add clinical content with no
+        // measurement behind it.
+        HealthTrackerEntry entry = entry("Weightkg", "82.5", true);
+        givenParsed(entry);
+        when(persister.persist(any(), anyInt(), anyString(), anyInt()))
+                .thenReturn(new EntryOutcome(false, List.of()));
+
+        HealthTrackerSubmissionResult result = submit();
+
+        assertThat(result.persistedCount()).isZero();
+        assertThat(result.hasRejections()).isFalse();
+        assertThat(result.noteText()).isEmpty();
+        verify(caseManagementManager, never()).saveNoteSimple(any(CaseManagementNote.class));
+    }
+
+    @Test
+    @DisplayName("should note only the newly written entry when a sibling is a duplicate")
+    void shouldNoteOnlyPersistedEntry_whenSiblingIsDuplicate() {
+        HealthTrackerEntry fresh = entry("Weightkg", "82.5", true);
+        HealthTrackerEntry duplicate = entry("Heightcm", "180", true);
+        givenParsed(fresh, duplicate);
+        when(persister.persist(eqEntry(fresh), anyInt(), anyString(), anyInt()))
+                .thenReturn(new EntryOutcome(true, List.of()));
+        when(persister.persist(eqEntry(duplicate), anyInt(), anyString(), anyInt()))
+                .thenReturn(new EntryOutcome(false, List.of()));
+
+        HealthTrackerSubmissionResult result = submit();
+
+        assertThat(result.persistedCount()).isEqualTo(1);
+        assertThat(result.noteText()).contains("Weightkg: 82.5");
+        assertThat(result.noteText()).doesNotContain("Heightcm");
+    }
+
+    @Test
     @DisplayName("should not reject a rejected entry's value into the note")
     void shouldExcludeRejectedEntry_fromNote() {
         HealthTrackerEntry bad = entry("Heightcm", "nonsense", true);

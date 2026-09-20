@@ -117,8 +117,9 @@ public class HealthTrackerUpdate2Action extends ActionSupport {
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT",
-            justification = "UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (the HTTP method name); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "IMPROPER_UNICODE"},
+            justification = "UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL. IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (the HTTP method name); not a security or authorization decision")
     @Override
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
