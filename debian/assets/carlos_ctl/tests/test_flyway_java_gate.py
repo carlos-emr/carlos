@@ -111,9 +111,9 @@ class TestFindJava(unittest.TestCase):
     def test_a_java_25_home_without_an_executable_java_is_skipped(self):
         # A half-removed JDK leaves the release file behind; running it would
         # fail with a permission error far from the cause.
-        broken = _make_jvm(self.tmp, "java-25-openjdk-broken",
+        broken = _make_jvm(self.tmp, "java-25-openjdk-a-broken",
                            'JAVA_VERSION="25.0.1"', executable=False)
-        good = _make_jvm(self.tmp, "java-25-openjdk-amd64", 'JAVA_VERSION="25.0.1"')
+        good = _make_jvm(self.tmp, "java-25-openjdk-z-good", 'JAVA_VERSION="25.0.1"')
         self.assertEqual(self._find([broken, good]),
                          os.path.join(good, "bin", "java"))
 
