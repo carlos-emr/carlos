@@ -27,7 +27,7 @@ Build-Depends:
 # overridden.
  groff-base,
  maven,
- openjdk-21-jdk-headless,
+ openjdk-25-jdk-headless,
  tomcat11,
  ca-certificates,
  git,
@@ -47,7 +47,7 @@ Package: carlos-emr
 Architecture: all
 Depends:
  ${misc:Depends},
- openjdk-21-jre-headless | openjdk-21-jdk-headless,
+ openjdk-25-jre-headless | openjdk-25-jdk-headless,
  tomcat11-common (>= 11.0),
  libtomcat11-java (>= 11.0),
  mariadb-server (>= 1:11.4),
