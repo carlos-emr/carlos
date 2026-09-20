@@ -42,6 +42,30 @@ recognizing that the data has been sanitized by project utilities like
 > `DemographicExportAction42Action` — none of those call sites are among the current 19
 > findings, so this addition is the same latent correctness fix as the rest of this rule's
 > sanitizer list: parity with CodeQL for future code, not a reduction today.
+>
+> **`validateUpload` is arity-specific, not name-matched.** `validateUpload` has two
+> overloads with opposite sanitizer status: the three-argument form
+> `validateUpload(source, name, destDir)` bounds its return value to `destDir`
+> (Argument[2]) and is a real sanitizer, but the one-argument form
+> `validateUpload(source)` only confirms the file is an existing regular file inside
+> a *shared* system temp root (`java.io.tmpdir`, Tomcat work dirs) — it does not bind
+> the result to any endpoint-specific directory, and CodeQL's own Models-as-Data model
+> deliberately keeps taint flowing from `Argument[0]` to `ReturnValue` for that reason.
+> The rule therefore matches `validateUpload($SRC, $NAME, $DIR)` (exactly three
+> arguments) rather than a bare `validateUpload(...)`, so the one-argument overload is
+> never treated as clearing taint. Verified by fixture: a request-driven value through
+> the one-argument overload is still flagged; the three-argument overload still
+> suppresses. Full-repo count is unaffected (19 before and after) because no current
+> call site reaches the one-argument overload directly from this rule's modeled
+> request sources.
+>
+> Note for maintainers: `codeql/customizations/Customizations.qll`'s
+> `isContainmentValidator` predicate matches `validateUpload` by name only
+> (`m.hasName([...])`, no arity check), so it may have the same gap for the
+> `java/path-injection` CodeQL query — the Models-as-Data summary above only controls
+> what taint *summary* CodeQL infers for the method body, not whether the explicit QL
+> barrier class also treats the call as sanitizing. Out of scope for this PR (only
+> `.semgrep/` was touched here); worth a follow-up CodeQL-side check.
 
 ## Built-in Rules to Disable in Semgrep Cloud
 

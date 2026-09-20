@@ -21,10 +21,12 @@ rules:
       PathValidationUtils.validatePath(), validateUserFilePath(),
       validateExistingPath(), validateChildPath(), validateGeneratedChildPath(),
       validatePathComponent(), validateGeneratedFileName(), validateZipEntryPath(),
-      validateZipEntryName(), or validateUpload() before the value reaches the
-      filesystem. Note that
+      validateZipEntryName(), or the three-argument validateUpload(source, name,
+      destDir) before the value reaches the filesystem. Note that
       resolveTrustedPath(), resolveConfiguredDirectory() and resolveConfiguredFile()
-      only canonicalize a trusted value and are NOT a security boundary.
+      only canonicalize a trusted value and are NOT a security boundary, and the
+      one-argument validateUpload(source) does not bind its result to a specific
+      directory either.
       See docs/path-validation-utils.md for usage guidance.
     severity: ERROR
     languages: [java]
@@ -77,7 +79,7 @@ rules:
       #   validateGeneratedFileName normalizes to [a-zA-Z0-9._-], so no separator survives
       #   validateZipEntryPath      ZIP-slip containment (validateWithinDirectory)
       #   validateZipEntryName      validateExistingPath + canonical relativization
-      #   validateUpload            containment within the allowed upload directory
+      #   validateUpload(File,String,File)  destination bounded by the 3rd arg (destDir)
       #
       # DELIBERATELY EXCLUDED — do not add without re-reading their Javadoc:
       # resolveTrustedPath, resolveConfiguredDirectory and resolveConfiguredFile
@@ -85,6 +87,20 @@ rules:
       # security boundary". isInAllowedTempDirectory / isInApplicationTempDirectory
       # return a boolean and sanitize nothing. Modelling any of these as a sanitizer
       # would hide real CWE-22 flows.
+      #
+      # validateUpload(File) — the ONE-ARGUMENT overload — is intentionally NOT
+      # modelled here. It calls validateSource(sourceFile, null), which (with no
+      # expectedBaseDir) only confirms the file is an existing regular file inside
+      # one of a handful of *shared* system temp roots (java.io.tmpdir, Tomcat
+      # work dirs) — it does not bind the result to any endpoint- or
+      # request-specific directory. CodeQL's own Models-as-Data model for this
+      # overload (path-validation-sanitizers.yml) deliberately keeps taint
+      # flowing from Argument[0] to ReturnValue for the same reason. Modelling
+      # the 1-arg form here would suppress a real
+      # request-parameter -> new File(...) -> validateUpload(file) -> sink flow.
+      # Only the 3-argument overload (which bounds its return value to the 3rd
+      # argument, destDir) is a sanitizer; it is matched by explicit 3-arity
+      # patterns below, not by a bare validateUpload(...) wildcard.
       - pattern-either:
           - pattern: PathValidationUtils.validatePath(...)
           - pattern: PathValidationUtils.validateUserFilePath(...)
@@ -95,7 +111,10 @@ rules:
           - pattern: PathValidationUtils.validateGeneratedFileName(...)
           - pattern: PathValidationUtils.validateZipEntryPath(...)
           - pattern: PathValidationUtils.validateZipEntryName(...)
-          - pattern: PathValidationUtils.validateUpload(...)
+          # Only the 3-argument overload; the 1-argument validateUpload(File)
+          # does not bind its result to any endpoint-specific directory. See the
+          # rationale comment above this pattern-sanitizers block.
+          - pattern: PathValidationUtils.validateUpload($SRC, $NAME, $DIR)
 
       # Fully-qualified class references
       - pattern-either:
@@ -108,7 +127,8 @@ rules:
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateGeneratedFileName(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateZipEntryPath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateZipEntryName(...)
-          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload(...)
+          # Only the 3-argument overload — see rationale comment above.
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload($SRC, $NAME, $DIR)
 
       # Wildcard static-import usage
       - patterns:
@@ -125,7 +145,8 @@ rules:
               - pattern: validateGeneratedFileName(...)
               - pattern: validateZipEntryPath(...)
               - pattern: validateZipEntryName(...)
-              - pattern: validateUpload(...)
+              # Only the 3-argument overload — see rationale comment above.
+              - pattern: validateUpload($SRC, $NAME, $DIR)
 
       # Single-member static imports
       - patterns:
@@ -177,7 +198,10 @@ rules:
           - pattern-inside: |
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload;
               ...
-          - pattern: validateUpload(...)
+          # Only the 3-argument overload — see rationale comment above. A
+          # single-member static import of an overloaded method name brings in
+          # every overload, so arity is the only way to tell them apart here.
+          - pattern: validateUpload($SRC, $NAME, $DIR)
 
     pattern-sinks:
       # Unqualified names (standard import usage)
