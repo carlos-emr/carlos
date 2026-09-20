@@ -475,7 +475,7 @@
       "name": "incoming-pdf-extraction",
       "script": "scripts/incoming-pdf-extraction-playwright-checks.js",
       "tiers": [
-        "core"
+        "extended"
       ],
       "assertsDatabase": true,
       "provinces": [
@@ -2213,6 +2213,19 @@
       "env": []
     },
     {
+      "name": "billing-payment-types",
+      "script": "scripts/billing-payment-types-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "scratchpad-workflow",
       "script": "scripts/scratchpad-workflow-playwright-checks.js",
       "tiers": [
@@ -2247,6 +2260,32 @@
       "assertsDatabase": true,
       "provinces": [
         "BC"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "facility-selection",
+      "script": "scripts/facility-selection-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "health-care-team",
+      "script": "scripts/health-care-team-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
       ],
       "timeoutSec": 240,
       "env": []
