@@ -167,11 +167,17 @@ test('a sign-off that cleared no routing row does not move the inbox badge', () 
   assert.deepEqual(dropped, [['7', 'HRM', 0]]);
 });
 
-test('the legacy oscarMDS inbox is reached even though it has no broadcast listener', () => {
-  // The legacy inbox exposes only window.removeReport and never hears the broadcast, so the
-  // direct call has to happen regardless of whether BroadcastChannel worked.
+test('the legacy oscarMDS inbox is refreshed, never asked to remove a row by bare id', () => {
+  // Its removeReport() takes one id, ignores the type, and deletes "#labdoc_<id>" — an id
+  // Page.jsp reuses for document, HL7 and HRM rows from independent key sequences. A collision
+  // would take another patient's report off the screen as though it had been dealt with. Counts
+  // still refresh, and the server filters the signed-off report out of the next list load.
+  const refreshed = [];
   const removed = [];
-  const opener = {removeReport: (id, type) => removed.push([id, type])};
+  const opener = {
+    refreshCategoryList: () => refreshed.push(true),
+    removeReport: (id, type) => removed.push([id, type]),
+  };
   const {context, requests, broadcasts} = setup({
     elements: {signoff7: element()},
     windowShape: {opener},
@@ -180,7 +186,8 @@ test('the legacy oscarMDS inbox is reached even though it has no broadcast liste
   context.signOffHrm('7');
   requests[0].success({success: true, message: 'Success', clearedCount: 1});
 
-  assert.deepEqual(removed, [['7', 'HRM']]);
+  assert.deepEqual(refreshed, [true]);
+  assert.deepEqual(removed, [], 'no bare-id row removal on the legacy inbox');
   assert.equal(broadcasts.length, 1);
 });
 
@@ -253,19 +260,18 @@ test('the legacy inline inbox is refreshed even though it is this very window', 
   // oscarMDS/Page.jsp <jsp:include>s the viewer into the inbox page itself: no opener, and
   // window.parent is this window. Without a current-window fallback the card was hidden but the
   // legacy category list and counts kept counting a report already signed off.
-  const removed = [];
   const refreshed = [];
   const card = element({attrs: {'data-inbox-inline': 'true', 'data-inbox-window': 'false'}});
   const {context, requests} = setup({
     elements: {signoff7: element(), hrmdoc_7: card},
   });
-  context.window.removeReport = (id, type) => removed.push([id, type]);
-  context.window.fetchInboxhubData = () => refreshed.push(true);
+  context.window.refreshCategoryList = () => refreshed.push(true);
 
   context.signOffHrm('7');
   requests[0].success({success: true, message: 'Success', clearedCount: 1});
 
-  assert.deepEqual(removed, [['7', 'HRM']]);
+  assert.deepEqual(refreshed, [true], 'the legacy counts must refresh');
+  // The card this viewer owns is keyed by hrmdoc_<id>, which is unambiguous, so hiding it is safe.
   assert.equal(card.style.display, 'none');
 });
 

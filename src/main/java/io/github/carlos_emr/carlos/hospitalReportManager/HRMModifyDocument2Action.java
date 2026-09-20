@@ -238,10 +238,11 @@ public class HRMModifyDocument2Action extends ActionSupport {
     /**
      * Sets or clears the signed-off flag on the logged-in provider's routing row for ONE HRM report.
      *
-     * <p>Reads exactly one {@code reportId} and one {@code signedOff}; anything else is answered
-     * with 400, because a single success flag cannot honestly describe a partly-applied batch. A
-     * routing row is created for the provider when none exists, and an unclaimed row
-     * ({@code providerNo} of {@code -1}) is claimed rather than duplicated.</p>
+     * <p>Reads exactly one {@code reportId} and one {@code signedOff}, the latter being 0 or 1 and
+     * nothing else; anything else is answered with 400, because a single success flag cannot
+     * honestly describe a partly-applied batch and because any other state value hides the report
+     * from every inbox view. A routing row is created for the provider when none exists, and an
+     * unclaimed row ({@code providerNo} of {@code -1}) is claimed rather than duplicated.</p>
      *
      * <p>Replies with {@code clearedCount}: how many routing rows this call actually moved INTO
      * signed-off. The viewer forwards that number to the Inboxhub, whose Documents/Labs/HRMs
@@ -279,6 +280,22 @@ public class HRMModifyDocument2Action extends ActionSupport {
             return writeResult(false, FAILURE_MESSAGE);
         }
 
+        // signedOff is a binary state, and the only two values the inbox can see. Its DAO uses 2
+        // as an "any" sentinel (HRMDocumentToProviderDao appends "AND x.signedOff = :signedOff"
+        // only when the filter is not 2), so a row persisted as 2 matches neither the unsigned
+        // (=0) nor the signed-off (=1) query: the report drops out of every inbox view at once.
+        // Parse and range-check before anything is looked up or written.
+        int signedOffValue;
+        try {
+            signedOffValue = Integer.parseInt(signedOffValues[0].trim());
+        } catch (NumberFormatException e) {
+            signedOffValue = -1;
+        }
+        if (signedOffValue != 0 && signedOffValue != 1) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return writeResult(false, FAILURE_MESSAGE);
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -286,7 +303,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         int clearedCount = 0;
         try {
             Integer reportId = Integer.parseInt(reportIds[0]);
-            int signedOff = Integer.parseInt(signedOffValues[0]);
+            int signedOff = signedOffValue;
             HRMDocumentToProvider providerMapping = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(reportId, providerNo);
             if (providerMapping == null) {
                 //check for unclaimed record, if that exists..update that one
@@ -296,15 +313,17 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 }
             }
 
-            // Read the previous state before writing. Only a routing row that ALREADY EXISTED and
-            // was not yet signed off leaves the inbox, and that is what the badge counts. A row
-            // created here never sat in anyone's inbox, so counting it would decrement a badge for
-            // an item it had never counted — signing off a standalone report, or one viewed
-            // through another provider's inbox, does exactly that.
-            boolean hadRoutingRow = providerMapping != null;
-            boolean wasSignedOff = hadRoutingRow
-                    && providerMapping.getSignedOff() != null
-                    && providerMapping.getSignedOff() == 1;
+            // Read the previous state before writing. The inbox badge counts routing rows whose
+            // signedOff is EXACTLY 0 (HRMDocumentToProviderDao: "signedOff=0"), so only such a row
+            // can leave it. Two things are deliberately NOT counted:
+            //   - no row at all: sign-off creates one, and a row that never sat in anyone's inbox
+            //     is not a row that left it (a standalone report, or one viewed through another
+            //     provider's inbox);
+            //   - a row whose signedOff is NULL: the column is nullable (int(11) DEFAULT NULL) and
+            //     "signedOff = 0" does not match NULL in SQL, so legacy rows were never counted
+            //     either. Treating NULL as unsigned would walk the badge below the server's figure.
+            boolean previouslyUnsigned = providerMapping != null
+                    && Integer.valueOf(0).equals(providerMapping.getSignedOff());
 
             if (providerMapping != null) {
                 providerMapping.setSignedOff(signedOff);
@@ -319,7 +338,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
             }
 
-            if (signedOff == 1 && hadRoutingRow && !wasSignedOff) {
+            if (signedOff == 1 && previouslyUnsigned) {
                 clearedCount++;
             }
             success = true;

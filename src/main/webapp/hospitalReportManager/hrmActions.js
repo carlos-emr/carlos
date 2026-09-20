@@ -171,14 +171,22 @@ function notifyInboxhubAfterHrmSignOff(reportId, clearedCount) {
 /**
  * Reaches the inbox window directly.
  *
- * The inbox is either the window that opened this popup or, for the inline/preview shape, the
- * window this document sits inside. An older inbox has only removeReport() and cannot be told a
- * count, so it drops the row and takes one off the badge — short of exact, and far better than
- * leaving a signed-off report on screen.
+ * The inbox is either the window that opened this popup, the window this document is framed in,
+ * or — for the legacy inline preview — this very window.
+ *
+ * The legacy oscarMDS inbox is refreshed, never asked to remove a row. Its removeReport() takes a
+ * single id, ignores any type argument, and deletes "#labdoc_<id>"; Page.jsp reuses that
+ * unqualified id for document, HL7 and HRM rows alike, and those key sequences are independent, so
+ * a colliding id removes whichever row comes first in the document. Taking another patient's
+ * report off a clinician's screen as though it had been dealt with is far worse than leaving this
+ * one visible until the list reloads — the server already filters signed-off reports out of it.
+ * refreshCategoryList() re-fetches the counts, which is the part that cannot wait.
  */
 function dropFromInboxhubDirectly(reportId, clearedCount) {
     var segmentId = String(reportId);
     try {
+        // The Inboxhub can be told exactly which item and how many rows; it is preferred wherever
+        // it is reachable. The legacy inbox can only be refreshed (see above).
         var inbox = null;
         var legacyInbox = false;
         if (self.opener && typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {
@@ -186,17 +194,18 @@ function dropFromInboxhubDirectly(reportId, clearedCount) {
         } else if (window.parent !== window
                 && typeof window.parent.dropAcknowledgedInboxhubItem === 'function') {
             inbox = window.parent;
-        } else if (self.opener && typeof self.opener.removeReport === 'function') {
+        } else if (self.opener && typeof self.opener.refreshCategoryList === 'function') {
             inbox = self.opener;
             legacyInbox = true;
-        } else if (window.parent !== window && typeof window.parent.removeReport === 'function') {
+        } else if (window.parent !== window
+                && typeof window.parent.refreshCategoryList === 'function') {
             inbox = window.parent;
             legacyInbox = true;
-        } else if (typeof window.removeReport === 'function') {
+        } else if (typeof window.refreshCategoryList === 'function') {
             // The legacy oscarMDS preview <jsp:include>s this viewer straight into the inbox page,
             // so the inbox IS this window: no opener, and window.parent is itself. Checked last so
             // a popup or a framed card never matches it. Without this the card was hidden but the
-            // legacy category list and counts kept counting a report already signed off.
+            // legacy counts kept counting a report already signed off.
             inbox = window;
             legacyInbox = true;
         }
@@ -204,7 +213,7 @@ function dropFromInboxhubDirectly(reportId, clearedCount) {
             return false;
         }
         if (legacyInbox) {
-            inbox.removeReport(segmentId, 'HRM');
+            inbox.refreshCategoryList();
         } else {
             inbox.dropAcknowledgedInboxhubItem(segmentId, 'HRM', clearedCount);
         }

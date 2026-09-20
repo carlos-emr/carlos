@@ -338,6 +338,59 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject a signedOff value the inbox cannot see")
+    void shouldRejectSignedOffValue_thatInboxCannotSee() throws Exception {
+        // 2 is the DAO's "any" sentinel, not a state: a row persisted as 2 matches neither the
+        // unsigned (=0) nor the signed-off (=1) query, so the report vanishes from every view.
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "2");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(hrmDocumentToProviderDao);
+    }
+
+    @Test
+    @DisplayName("should reject a signedOff value that is not a number")
+    void shouldRejectSignedOffValue_thatIsNotANumber() throws Exception {
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "yes");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(hrmDocumentToProviderDao);
+    }
+
+    @Test
+    @DisplayName("should report no cleared row when the previous signedOff was null")
+    void shouldReportNoClearedRow_whenPreviousSignedOffWasNull() throws Exception {
+        // signedOff is nullable (int(11) DEFAULT NULL) and the badge counts "signedOff=0"
+        // exactly, which SQL does not match against NULL — so a legacy null row was never in the
+        // count, and reporting it as cleared would walk the badge below the server's figure.
+        HRMDocumentToProvider legacyRow = new HRMDocumentToProvider();
+        legacyRow.setHrmDocumentId(7);
+        legacyRow.setProviderNo("999998");
+        legacyRow.setSignedOff(null);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
+                .thenReturn(legacyRow);
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "1");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        assertThat(response.getContentAsString()).contains("\"clearedCount\":0");
+        // The row is still signed off — only the badge arithmetic is withheld.
+        assertThat(legacyRow.getSignedOff()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("should refuse a sub-class that belongs to another report")
     void shouldRefuseSubClass_thatBelongsToAnotherReport() throws Exception {
         // No setId: the id is JPA-assigned, and the DAO stub below is what supplies this row.
