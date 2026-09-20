@@ -69,10 +69,12 @@
 
 <%
     Integer hrmReportId = Integer.parseInt(request.getParameter("id"));
-    // Access ModelDriven criteria object from request attributes
-    HRMReportCriteria criteria =
-        (io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria) request.getAttribute("criteria");
-    boolean isListView = criteria != null && criteria.getListView() != null ? criteria.getListView() : false;
+    // The ModelDriven HRMReportCriteria is still published as the "criteria" request attribute by
+    // HRMDisplayReport2Action; this page no longer reads it. It used to take listView from there to
+    // decide whether sign-off should clear the inbox, but nothing ever sets that parameter — the
+    // Inboxhub link carries none and oscarMDS/Page.jsp sends "isListView", which does not bind — so
+    // the branch was dead and sign-off silently did nothing. hrmActions.js now decides from the
+    // window shape instead.
     String hrmReportTime = "";
     Integer hrmDuplicateNum = null;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -196,6 +198,18 @@
     // boolean obgynShortcuts = CarlosProperties.getInstance().getProperty("show_obgyn_shortcuts", "false").equalsIgnoreCase("true");
     // String formId = "0";
 
+
+    // When included from oscarMDS/Page.jsp (the inbox view) via <jsp:include>, the Servlet spec
+    // exposes the included path in the jakarta.servlet.include.servlet_path request attribute.
+    // Page.jsp now lives under /WEB-INF/jsp/oscarMDS/ (gated), so the browser-visible request URI
+    // is /documentManager/inboxManage rather than the old /oscarMDS/Page.jsp — the include-path
+    // attribute is the only reliable signal.
+    //
+    // Computed up front because the report container below advertises it to hrmActions.js: in the
+    // inline shape a signed-off report has no window to close, so its card is hidden instead, and
+    // an ordinary top-level report page must not be blanked by mistake.
+    String hrmIncludePath = (String) request.getAttribute("jakarta.servlet.include.servlet_path");
+    boolean hrmFromInboxPage = hrmIncludePath != null && hrmIncludePath.contains("oscarMDS/Page.jsp");
 
     String btnDisabled = "disabled";
     String demographicNo = "";
@@ -417,7 +431,7 @@
 <% return;
 } %>
 
-<div id="hrmdoc_<%=hrmReportId%>">
+<div id="hrmdoc_<%=hrmReportId%>" data-inbox-inline="<%=hrmFromInboxPage%>">
     <div id="buttonBox">
         <input type="button" id="msgBtn_<%=hrmReportId%>" value="Msg"
                onclick="popupPatient(700,960,'<%= request.getContextPath() %>/messenger/SendDemoMessage?demographic_no=','msg', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>/>
@@ -642,8 +656,6 @@
                             <% } %>
                         </div>
                         <input type="hidden" id="demofind<%=hrmReportId %>hrm" value="<%=demographicNo%>"/>
-                        <input type="hidden" id="demofind<%=hrmReportId %>hrm" value=""/>
-                        <input type="hidden" id="routetodemo<%=hrmReportId %>hrm" value=""/>
                         <input type="checkbox" id="activeOnly<%=hrmReportId%>hrm" name="activeOnly" checked="checked"
                                value="true" onclick="setupHrmDemoAutoCompletion('<%=hrmReportId%>')">Active
                         Only<br>
@@ -772,15 +784,6 @@
                     <td colspan=2>
                         <form action="<%=request.getContextPath() %>/hospitalReportManager/PrintHRMReport">
                             <input type="hidden" value="<%=hrmReportId %>" name="hrmReportId"/>
-                            <%
-                                // When included from oscarMDS/Page.jsp (the inbox view) via <jsp:include>,
-                                // the Servlet spec exposes the included path in the jakarta.servlet.include.servlet_path
-                                // request attribute. Page.jsp is now under /WEB-INF/jsp/oscarMDS/ (gated), so the
-                                // browser-visible request URI is /documentManager/inboxManage rather than the
-                                // old /oscarMDS/Page.jsp — we must check the include-path attribute instead.
-                                String hrmIncludePath = (String) request.getAttribute("jakarta.servlet.include.servlet_path");
-                                boolean hrmFromInboxPage = hrmIncludePath != null && hrmIncludePath.contains("oscarMDS/Page.jsp");
-                            %>
                             <% if (hrmFromInboxPage) {%>
                             <input type="button" value="Print" onclick="printHrm('<%=hrmReportId%>')"/>
                             <%} else { %>
@@ -798,10 +801,11 @@
                             } else {
                             %>
                             <input type="button" id="signoff<%=hrmReportId %>" value="Sign-Off"
-                                   onClick="signOffHrm('<%=hrmReportId %>', <%=isListView%>)"/>
+                                   onClick="signOffHrm('<%=hrmReportId %>')"/>
                             <%
                                 }
                             %>
+                            <span id="signoffstatus<%=hrmReportId %>"></span>
 
                         </form>
                     </td>

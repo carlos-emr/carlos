@@ -115,6 +115,31 @@ The `csrfguard.js` script (served by the JavascriptServlet) automatically handle
   or the `postForm()` wrapper which handles this automatically. See
   `src/main/webapp/share/javascript/oscarMDSIndex.js` for the implementation.
 
+### `X-Requested-With` is a LIST, not a single value
+
+CSRFGuard's client script sets `X-Requested-With` to the value of
+`org.owasp.csrfguard.JavascriptServlet.xRequestedWith` in `Owasp.CsrfGuard.properties`
+(currently `OWASP CSRFGuard Project`) from inside its `XMLHttpRequest.send()` hijack. jQuery has already
+called `setRequestHeader("X-Requested-With", "XMLHttpRequest")` by then, and the XHR
+specification says a repeated `setRequestHeader` **combines** values with `", "` rather than
+replacing them. So a plain `jQuery.ajax()` POST arrives at the server as:
+
+```
+X-Requested-With: XMLHttpRequest, OWASP CSRFGuard Project
+```
+
+`carlos-ajax.js` deliberately leaves the header to CSRFGuard (setting it itself would
+duplicate `CSRF-TOKEN` the same way and fail validation), so its requests carry only the
+marker.
+
+**Never compare this header with `equals`.** Use
+`io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request)`, which splits the
+header and accepts either marker. An exact-match check classifies essentially every browser XHR
+in CARLOS as a browser page request; `LogoutBroadcastFilter` then appends its heartbeat
+`<script>` block to `text/html` AJAX replies, and any caller that renders the response body
+shows that JavaScript to the user as text. That is exactly how the HRM report viewer came to
+print JavaScript beside its comment box.
+
 ### Property Key Gotchas
 
 CSRFGuard 4.5 has inconsistent property key naming. Several keys differ from what the

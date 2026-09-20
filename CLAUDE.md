@@ -186,6 +186,7 @@ CSRFGuard's client script only injects the hidden `<input name="CSRF-TOKEN">` in
 Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" style="display:none;"></form>` — CSRFGuard skips action-less forms, so the input never gets populated. Note also how CSRFGuard 4.5 (configured with `org.owasp.csrfguard.Ajax=true`, see `Owasp.CsrfGuard.properties`) validates tokens:
 
 - **AJAX / XHR requests** carrying `X-Requested-With: XMLHttpRequest` are validated via the `CSRF-TOKEN` request header. XHRs hijacked by CSRFGuard's injected client script get this header set automatically; `fetch()` calls are **not** hijacked and must set `CSRF-TOKEN` explicitly (e.g. reading it from the hidden `input[name="CSRF-TOKEN"]`).
+  - **Server-side, never compare `X-Requested-With` with `equals`.** CSRFGuard's hijack calls `setRequestHeader` a second time, and the XHR spec combines repeated values, so a jQuery `$.ajax` POST arrives as `X-Requested-With: XMLHttpRequest, OWASP CSRFGuard Project` and a `carlos-ajax.js` request carries the marker alone. Use `RequestNegotiation.isAjax(request)`. See `docs/csrf-protection-architecture.md` → "`X-Requested-With` is a LIST, not a single value".
 - **Classic form POSTs** (non-AJAX) are validated via the `CSRF-TOKEN` form-body parameter injected by CSRFGuard into the `<form>`.
 
 Header validation takes precedence over body-parameter validation when both are present.

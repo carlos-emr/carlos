@@ -222,6 +222,13 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- document manager ---
             Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action",
                     "_edoc", "w"),
+            // --- HRM ---
+            // Every dispatch on this route mutates (comments, description, sign-off, patient and
+            // provider matching, category, sub-class) and none of its `method` values match
+            // HttpMethodGuardFilter's mutation vocabulary, so a GET reached the DAOs with no CSRF
+            // token at all until the gate was added. The gate runs before authorization.
+            Arguments.of("io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action",
+                    "_hrm", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),

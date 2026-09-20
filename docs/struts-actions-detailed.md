@@ -368,7 +368,7 @@ Hospital report management and integration.
 | hospitalReportManager/hrm | io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action | Main HRM interface |
 | hospitalReportManager/HRMPreferences | io.github.carlos_emr.carlos.hospitalReportManager.HRMPreferences2Action | Manages HRM preferences |
 | hospitalReportManager/Mapping | io.github.carlos_emr.carlos.hospitalReportManager.HRMMapping2Action | Maps HRM data fields |
-| hospitalReportManager/Modify | io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action | Modifies HRM documents |
+| hospitalReportManager/Modify | io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action | Modifies HRM documents (POST-only; replies `application/json` and returns `NONE`) |
 | hospitalReportManager/PrintHRMReport | io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action | Prints HRM reports |
 | hospitalReportManager/Statement | io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action | Modifies HRM statements |
 | hospitalReportManager/UploadLab | io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadLab2Action | Uploads lab results to HRM |
