@@ -906,6 +906,10 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: the render body lives here rather than in
+    // createCacheVersion2, so the containment guard has to be declared on this method too --
+    // both paths below are resolved through PathValidationUtils before anything is opened.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private byte[] renderPageToCache(Document d, Integer pageNum, int dpi) {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
         Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();
