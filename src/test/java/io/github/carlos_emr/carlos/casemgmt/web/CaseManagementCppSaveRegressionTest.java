@@ -385,8 +385,11 @@ class CaseManagementCppSaveRegressionTest {
 
         // Every entity the write loop creates is created inside it: a hoisted allocation is the
         // shape that collapsed the keys into one row.
-        int allocation = block.indexOf("new CaseManagementNoteExt()", forStatement);
-        assertThat(allocation).as("the write loop allocates a note extension").isGreaterThan(forStatement);
+        // Search from the START of the block, not from the loop header: an allocation hoisted
+        // above the loop is precisely the regression, and starting at the header would skip
+        // over it and find the in-loop one instead. isBetween also rejects the -1 of a missing
+        // allocation, so this one assertion carries the whole claim.
+        int allocation = block.indexOf("new CaseManagementNoteExt()");
         assertThat(allocation)
                 .as("the entity is allocated inside the loop body, so each key gets its own row")
                 .isBetween(bodyStart, bodyEnd);

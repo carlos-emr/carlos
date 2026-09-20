@@ -1325,31 +1325,32 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         for (int i = 0; i < extNames.length; i++) {
             String val = request.getParameter(extNames[i]);
-            if (!filled(val)) continue;
+            if (filled(val)) {
+                // Resolve the new state on a detached carrier first. A malformed date has to
+                // leave the stored row exactly as it was, and mutating a managed entity before
+                // knowing that would blank it through dirty checking even though nothing is
+                // saved.
+                CaseManagementNoteExt resolved = new CaseManagementNoteExt();
+                if (i <= 2) {
+                    if (!writePartialDate(val, resolved)) continue;
+                } else {
+                    resolved.setValue(val);
+                }
 
-            // Resolve the new state on a detached carrier first. A malformed date has to leave
-            // the stored row exactly as it was, and mutating a managed entity before knowing
-            // that would blank it through dirty checking even though nothing is saved.
-            CaseManagementNoteExt resolved = new CaseManagementNoteExt();
-            if (i <= 2) {
-                if (!writePartialDate(val, resolved)) continue;
-            } else {
-                resolved.setValue(val);
-            }
-
-            CaseManagementNoteExt cme = extByKey.get(extKeys[i]);
-            if (cme == null) {
-                cme = new CaseManagementNoteExt();
-                cme.setNoteId(note.getId());
-                cme.setKeyVal(extKeys[i]);
-                cme.setValue(resolved.getValue());
-                cme.setDateValue(resolved.getDateValue());
-                caseManagementMgr.saveNoteExt(cme);
-                extByKey.put(extKeys[i], cme);
-            } else {
-                cme.setValue(resolved.getValue());
-                cme.setDateValue(resolved.getDateValue());
-                caseManagementMgr.updateNoteExt(cme);
+                CaseManagementNoteExt cme = extByKey.get(extKeys[i]);
+                if (cme == null) {
+                    cme = new CaseManagementNoteExt();
+                    cme.setNoteId(note.getId());
+                    cme.setKeyVal(extKeys[i]);
+                    cme.setValue(resolved.getValue());
+                    cme.setDateValue(resolved.getDateValue());
+                    caseManagementMgr.saveNoteExt(cme);
+                    extByKey.put(extKeys[i], cme);
+                } else {
+                    cme.setValue(resolved.getValue());
+                    cme.setDateValue(resolved.getDateValue());
+                    caseManagementMgr.updateNoteExt(cme);
+                }
             }
         }
 
