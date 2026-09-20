@@ -568,7 +568,9 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 .doesNotContain("signatureControl.jsp")
                 .doesNotContain("signature.js")
                 .contains("signatureControl.initialize=function initialize(){}")
-                .contains("window.jQuery.fn.size=function size(){return this.length;};")
+                .contains("jq.fn.size=function size(){return this.length;};")
+                .contains("jq.fn.error=function error(handler)")
+                .contains("document.addEventListener('DOMContentLoaded',window.__carlosInstallLegacyJqueryAliases)")
                 .contains("window.AddOtherFax=window.AddOtherFax||function AddOtherFax(){return false;};")
                 .contains("name=\"fdid\" id=\"fdid\" value=\"77\"")
                 .contains("name=\"demographicNo\" id=\"demographicNo\" value=\"123\"")
@@ -615,6 +617,28 @@ class EFormRenderPdfHtmlComposerUnitTest {
 
         assertThat(rendered.select("#otherFaxInput")).hasSize(1);
         assertThat(rendered.selectFirst("#otherFaxInput").val()).isEqualTo("555-0110");
+    }
+
+    @Test
+    @DisplayName("should embed the known licence badge without changing other authored images")
+    void shouldEmbedKnownLicenceBadge_whenRendering() throws Exception {
+        EForm eForm = mockEformWithHtml("<html><body>"
+                + "<img id=badge src=\"http://i.creativecommons.org/l/by-sa/3.0/80x15.png\">"
+                + "<img id=clinical src=\"https://example.org/clinical-image.png\">"
+                + "</body></html>");
+
+        EFormRenderPdfHtmlComposer.applyRendererViewProfile(eForm, "/carlos", "77");
+        org.jsoup.nodes.Document rendered = org.jsoup.Jsoup.parse(eForm.getFormHtml());
+        String badgeSrc = rendered.selectFirst("#badge").attr("src");
+        assertThat(badgeSrc).startsWith("data:image/png;base64,");
+        byte[] png = java.util.Base64.getDecoder().decode(
+                badgeSrc.substring("data:image/png;base64,".length()));
+        java.awt.image.BufferedImage badge = javax.imageio.ImageIO.read(
+                new java.io.ByteArrayInputStream(png));
+        assertThat(badge.getWidth()).isEqualTo(80);
+        assertThat(badge.getHeight()).isEqualTo(15);
+        assertThat(rendered.selectFirst("#clinical").attr("src"))
+                .isEqualTo("https://example.org/clinical-image.png");
     }
 
     @Test

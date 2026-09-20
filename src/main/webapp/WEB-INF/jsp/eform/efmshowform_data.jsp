@@ -211,9 +211,8 @@
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline'",
         "style-src 'self' 'unsafe-inline'",
-        // Licence badges only, and the list is shared with the render servlet so the two surfaces
-        // cannot drift apart. See EFormBrowserRenderPageServlet.LICENCE_BADGE_IMG_SOURCES for why
-        // both hosts are required (a 301 between them, re-checked by CSP) and why this is images only.
+        // Licence badges in the interactive viewer only. The PDF renderer embeds its known badge
+        // and does not fetch external images. The redirect between these hosts requires both.
         "img-src 'self' data: " + EFormBrowserRenderPageServlet.LICENCE_BADGE_IMG_SOURCES,
         "font-src 'self' data:",
         "object-src 'none'",

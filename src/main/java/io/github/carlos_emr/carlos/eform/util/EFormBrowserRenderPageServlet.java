@@ -55,14 +55,12 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     static final String RENDER_TOKEN_PARAM = "renderToken";
 
     /**
-     * The only external origins any eForm surface may load IMAGES from, shared by this servlet and
-     * by {@code efmshowform_data.jsp} so the allowlist cannot drift apart between the two.
+     * External image origins for the interactive saved-form viewer. The PDF renderer embeds the
+     * known Creative Commons badge as data and keeps its image CSP limited to local/data images.
      *
      * <p>A large share of clinic-authored eForms carry a Creative Commons licence badge in their
-     * footer. Under {@code img-src 'self' data:} that badge is refused and the form renders, prints
-     * and archives with a broken image where the licence mark should be. This does NOT affect
-     * whether a form renders at all — measured against a 179-package corpus, forms reach
-     * {@code PDF OK} with the badge still blocked — so the sole effect is output fidelity.</p>
+     * footer. The interactive viewer permits the badge CDN for image loads; the PDF renderer's
+     * off-origin network boundary requires the fixed badge to be embedded locally instead.</p>
      *
      * <p>BOTH hosts are required, and that is not redundancy: {@code i.creativecommons.org} answers
      * the badge with a 301 to {@code licensebuttons.net}, and CSP re-checks the redirect TARGET
@@ -70,10 +68,8 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
      * over plain {@code http://}, which the browser mixed-content-upgrades before the check, so the
      * {@code https:} origins are the ones that must appear here.</p>
      *
-     * <p>Scope is images only. No script, style, frame or connect capability is granted to these
-     * hosts, so a compromised badge CDN can serve a wrong picture and nothing else — it cannot run
-     * code against the render surface, which parses the least trustworthy input this application
-     * handles. Keep this list to licence badges; it is not a general external-asset allowlist.</p>
+     * <p>Scope is images only in the interactive viewer. No script, style, frame or connect
+     * capability is granted to these hosts. Keep this list to licence badges.</p>
      */
     public static final String LICENCE_BADGE_IMG_SOURCES =
             "https://i.creativecommons.org https://licensebuttons.net";
@@ -261,7 +257,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
         if (!browserRender) {
             return "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; "
                     + "form-action 'none'; frame-ancestors 'none'; style-src 'self' 'unsafe-inline'; "
-                    + "img-src 'self' data: " + LICENCE_BADGE_IMG_SOURCES;
+                    + "img-src 'self' data:";
         }
         String connectSource = "'none'";
         if (request != null
@@ -283,8 +279,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
         }
         return "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
                 + "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; "
-                + "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: "
-                + LICENCE_BADGE_IMG_SOURCES + "; "
+                + "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
                 + "font-src 'self' data:; connect-src " + connectSource;
     }
 
