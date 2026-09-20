@@ -26,7 +26,7 @@ non-obvious pitfalls of the dual persistence context. For the short version, see
 ## Architecture Overview
 
 ### Technology Stack
-- **Test Framework**: JUnit 6 (Jupiter) 6.0.3
+- **Test Framework**: JUnit 6 (Jupiter) 6.1.3
 - **Assertions**: AssertJ 3.27.7 for fluent assertions
 - **Mocking**: Mockito 5.23.0 (Java 25 compatible)
 - **Database**: H2 in-memory database (MySQL mode)

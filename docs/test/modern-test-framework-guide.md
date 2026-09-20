@@ -170,7 +170,7 @@ public abstract class CarlosUnitTestBase {
 <dependency>
     <groupId>org.junit.jupiter</groupId>
     <artifactId>junit-jupiter</artifactId>
-    <version>6.0.3</version>
+    <version>6.1.3</version>
     <scope>test</scope>
 </dependency>
 
