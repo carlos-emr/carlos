@@ -1,17 +1,31 @@
 # Release coverage work for issue #3774
 
-The original ticket compares develop `9e27e0ce5f` with main `d182f254cd`. This work targets release/2026.08 at `3fa30806b3`. Test-name and route-string presence is useful inventory, but does not prove execution or a workflow assertion.
+The original ticket compares develop `9e27e0ce5f` with main `d182f254cd`. This work originally targeted release/2026.08 at `3fa30806b3`; the active release tip is now `a47ee58e5c` after the alpha13 maintenance back-merge. Test-name and route-string presence is useful inventory, but does not prove execution or a workflow assertion.
 
 ## Scope corrections
 
-- SMS, the outbound-email archive, the consent-status converter, bounded email output stream, archive read-audit service, and V1.0.25/V1.0.26 are absent from this release. Their develop-specific test gaps remain on #3774; tests must not introduce those application features or migrations to this branch.
+- SMS, the outbound-email archive, the consent-status converter, bounded email output stream, archive read-audit service, and V1.0.25/V1.0.26 remain absent from release tip `a47ee58e5c`. Their test gaps cannot be closed on this branch by test-only changes: a separate, reviewed feature backport and its schema ordering are prerequisites. They remain open on #3774.
 - `UserPropertyScheduleNavigationModeTest` and `ProviderPropertyActionScheduleNavigationModeTest` already inherit `unit`/`fast` from `CarlosUnitTestBase`. The former nevertheless missed the default Surefire filename patterns. Renaming it to `UserPropertyScheduleNavigationModeUnitTest` restores its four behavioral cases to default discovery and removes its unmatched-baseline exception. The provider test is already included and needs no redundant annotation.
 - Credential logging and the simple framework checks now have the `unit` tag. The DAO example, Spring-backed action example and Spring-context checks have `integration`, matching their real Spring/database dependencies.
 - DAO implementation filenames undercount indirect tests: the available full-suite JaCoCo report shows exercised methods in ConsultRequestDaoImpl, ProviderDataDaoImpl and SecurityDaoImpl. New tests must address behavior and missing branches, rather than duplicate an existing interface test just to match a class name.
+- The issue's 11-class zero-execution list includes `CaseManagementManager`. Its changed `develop` line declares an abstract interface overload; the interface has no executable method body to cover. The implementation and callers need behavioral assertions, but adding a test solely to raise this interface's JaCoCo class percentage would not test the changed declaration.
 
-## Measured Java baseline
+## Current release execution audit
 
-The report comes from the completed combined promotion-validation build (`bc61743a06`, 12,503 tests, 51 skips, no failures/errors). Each production blob below was checked identical to the release tip; unmerged PDF/scratchpad fixes are not imported by this coverage branch. These counters describe Java tests, not live browser coverage or a guarantee that every behavior is correct.
+At `f4be70527ec2` (this PR merged with release tip `a47ee58e5c`), a clean JaCoCo run passed 12,567 Java tests with zero failures/errors and 49 skips. The execution file was removed before the run; the report emitted no class-data mismatch warnings. Reproduce the line audit with:
+
+```bash
+mvn -B test org.jacoco:jacoco-maven-plugin:0.8.14:report
+python3 scripts/coverage/changed_line_audit.py target/site/jacoco/jacoco.xml d182f254cd HEAD
+```
+
+Across 133 changed production Java files since the alpha12 `main` baseline, JaCoCo mapped every changed file. It covered 1,732 of 2,770 executable changed lines (62.5%); 30 files have no covered changed lines. The largest gaps are `FaxRecipientSearch2Action` (75 missed), `FaxDocument2Action` (69), `DocumentTextBoxes2Action` (68), lab `Utilities` (54), `AnnotateDocument2Action` (49), `FaxManagerImpl` (33), and the ON/BC lab upload actions (30/22). The script prints all 30 files so follow-up tests can be prioritized against actual execution.
+
+This release measurement uses a different head from the ticket's original `develop` run. It also precedes the five still-open coverage PRs. It is a measured gap inventory, not a completion claim. Additional release PRs should address the fax/document and lab groups first, then rerun this audit after integration.
+
+## Historical Java baseline
+
+This historical baseline comes from the completed combined promotion-validation build (`bc61743a06`, 12,503 tests, 51 skips, no failures/errors). Each production blob below was checked identical to the release tip at the time; subsequent coverage PRs and the alpha13 back-merge make these counters unsuitable as current-release coverage claims. These counters describe Java tests, not live browser coverage or a guarantee that every behavior is correct.
 
 | Class | Covered lines | Missed lines | Covered branches | Missed branches |
 | --- | ---: | ---: | ---: | ---: |
@@ -32,22 +46,22 @@ The report comes from the completed combined promotion-validation build (`bc6174
 
 ## Reviewable work groups
 
-Eight PRs target `release/2026.08`:
+The initial eight PRs target `release/2026.08`:
 
 | PR | Scope | Validation evidence |
 | --- | --- | --- |
 | #3781 | Discovery/tier corrections, audit, incoming PDF rotate/delete coverage | 17 unit + 26 integration cases; eight PDF workflow steps on validation13 |
-| #3782 | Email configuration persistence/schema, secure DAO sorts, screening reports | 48 integration cases; migration and future-upgrade-order regressions; migrated MariaDB check |
+| #3782 | Email configuration persistence/schema, secure DAO sorts, screening reports | 50 focused cases on the refreshed release branch; migration and future-upgrade-order regressions; migrated MariaDB check |
 | #3783 | BCAR forms, RH workflow/action, clinical DTO, inbox dispatch | 51 focused cases; transition mutation detected |
 | #3787 | BC supplementary billing association CRUD | 54 focused/contract cases; three installed-DEB BC workflow steps |
-| #3788 | Demographic gate authentication, labels and printing | 25 anonymous route checks; six label/print workflow steps |
+| #3788 | Demographic gate authentication, labels and printing | 27 configured route probes; the original 25 and six label/print steps passed installed validation, with the two new probes and top-offset assertion awaiting an installed rerun |
 | #3789 | ON payment-type CRUD, CSRF readiness and visible errors | 18 executable script cases; four installed-DEB workflow steps |
-| #3790 | Security administration, eForm email/status, agreement upload | Security/email/agreement VM workflows, bounded SMTP-sink checks, 19 agreement Java cases |
+| #3790 | Security administration, eForm email/status, agreement upload | Security/email/agreement VM workflows, bounded SMTP-sink checks, 62 focused Java cases on the refreshed release branch |
 | #3793 | Facility selection/revocation and patient health-care team | Four facility and three team workflow steps on installed DEBs |
 
 Live runs use the Ubuntu 26.04 VM with locally built matched DEBs and owned fixtures. Each group's document identifies configuration prerequisites, cleanup and limitations. Negative controls exposed application defects rather than merely exercising successful paths: BC association writes, payment CSRF, the security stylesheet, agreement file location/request validation and the email schema mismatch. Issues #3784, #3785, #3786, #3792, #3794 and #3795 track them in their corresponding group PRs.
 
-Existing contact-lifecycle tests already cover personal/internal/professional contact CRUD and flags; the demographic group adds authentication-policy checks rather than claiming new CRUD coverage for every gate. The facility group adds the previously missing team workflow. Existing DAO coverage is retained where the audit's class-name matching understated it. Develop-only SMS/archive/encryption-specific behavior remains outside this release branch and remains open on #3774. These PRs do not claim complete line/branch coverage or close that broader develop audit by route-name presence alone.
+Existing contact-lifecycle tests already cover personal/internal/professional contact CRUD and flags; the demographic group adds authentication-policy checks rather than claiming new CRUD coverage for every gate. The facility group adds the previously missing team workflow. Existing DAO coverage is retained where the audit's class-name matching understated it. SMS/archive/encryption-specific behavior remains outside this release branch and open on #3774. These PRs do not claim complete line/branch coverage or close the broader audit by route-name presence alone.
 
 Completion still requires final changed-head VM checks and CI/review convergence. Rate-limited review requests are not counted as completed reviews.
 
