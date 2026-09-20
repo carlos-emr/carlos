@@ -441,7 +441,7 @@ database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql  (enable/disable)
 database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql  (2026.3.0 full replacement)
 database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql  (gated attachment routes)
 database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql (provider fields for the signature stamp)
-database/mysql/migration/common/V1.0.24__rename_placeholder_demo_clinic.sql  (##letterhead## clinic name)
+database/mysql/migration/common/V1.0.29__rename_placeholder_demo_clinic.sql  (##letterhead## clinic name)
 ```
 
 ### Release
