@@ -12,6 +12,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClass
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -31,12 +32,14 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -219,10 +222,11 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         // The later report succeeding must not mask the earlier failure: the viewer would then
-        // clear a still-unsigned report out of the inbox. clearedCount still reports the row that
-        // did move — it is the truth, and the viewer ignores it on a failed reply anyway.
+        // clear a still-unsigned report out of the inbox. clearedCount is zero because report 8
+        // had no routing row either — sign-off created one, and a row that never sat in an inbox
+        // is not a row that left it.
         assertThat(response.getContentAsString())
-                .isEqualTo("{\"success\":false,\"message\":\"Error encountered\",\"clearedCount\":1}");
+                .isEqualTo("{\"success\":false,\"message\":\"Error encountered\",\"clearedCount\":0}");
     }
 
     @Test
@@ -283,6 +287,79 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         new HRMModifyDocument2Action().execute();
 
         assertThat(response.getContentAsString()).contains("\"clearedCount\":0");
+    }
+
+    @Test
+    @DisplayName("should report no cleared row when the routing row had to be created")
+    void shouldReportNoClearedRow_whenRoutingRowHadToBeCreated() throws Exception {
+        // No routing row for this provider and no unclaimed one either, so sign-off creates a row
+        // that never sat in anybody's inbox. Counting it would decrement a badge for an item that
+        // badge had never counted — signing off a standalone report does exactly this.
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), anyString()))
+                .thenReturn(null);
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "1");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"clearedCount\":0");
+        verify(hrmDocumentToProviderDao).persist(any(HRMDocumentToProvider.class));
+    }
+
+    @Test
+    @DisplayName("should refuse a sub-class that belongs to another report")
+    void shouldRefuseSubClass_thatBelongsToAnotherReport() throws Exception {
+        // No setId: the id is JPA-assigned, and the DAO stub below is what supplies this row.
+        HRMDocumentSubClass otherReportsSubClass = new HRMDocumentSubClass();
+        otherReportsSubClass.setHrmDocumentId(999);
+        when(hrmDocumentSubClassDao.find(55)).thenReturn(otherReportsSubClass);
+        request.addParameter("method", "makeActiveSubClass");
+        request.addParameter("reportId", "7");
+        request.addParameter("subClassId", "55");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"success\":false,\"message\":\"Error encountered\"}");
+        // The report's own sub-classes must be left alone: deactivating first would have stranded
+        // it with none active while still reporting success.
+        verify(hrmDocumentSubClassDao, never()).setAllSubClassesForDocumentAsInactive(anyInt());
+        verify(hrmDocumentSubClassDao, never()).merge(any(HRMDocumentSubClass.class));
+    }
+
+    @Test
+    @DisplayName("should refuse a sub-class id that no longer exists")
+    void shouldRefuseSubClassId_thatNoLongerExists() throws Exception {
+        when(hrmDocumentSubClassDao.find(55)).thenReturn(null);
+        request.addParameter("method", "makeActiveSubClass");
+        request.addParameter("reportId", "7");
+        request.addParameter("subClassId", "55");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":false");
+        verify(hrmDocumentSubClassDao, never()).setAllSubClassesForDocumentAsInactive(anyInt());
+    }
+
+    @Test
+    @DisplayName("should activate a sub-class that belongs to the report")
+    void shouldActivateSubClass_thatBelongsToTheReport() throws Exception {
+        HRMDocumentSubClass ownSubClass = new HRMDocumentSubClass();
+        ownSubClass.setHrmDocumentId(7);
+        when(hrmDocumentSubClassDao.find(55)).thenReturn(ownSubClass);
+        request.addParameter("method", "makeActiveSubClass");
+        request.addParameter("reportId", "7");
+        request.addParameter("subClassId", "55");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        verify(hrmDocumentSubClassDao).setAllSubClassesForDocumentAsInactive(7);
+        verify(hrmDocumentSubClassDao).merge(ownSubClass);
+        assertThat(ownSubClass.isActive()).isTrue();
     }
 
     @Test

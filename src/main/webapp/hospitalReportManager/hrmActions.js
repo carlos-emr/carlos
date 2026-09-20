@@ -192,6 +192,13 @@ function dropFromInboxhubDirectly(reportId, clearedCount) {
         } else if (window.parent !== window && typeof window.parent.removeReport === 'function') {
             inbox = window.parent;
             legacyInbox = true;
+        } else if (typeof window.removeReport === 'function') {
+            // The legacy oscarMDS preview <jsp:include>s this viewer straight into the inbox page,
+            // so the inbox IS this window: no opener, and window.parent is itself. Checked last so
+            // a popup or a framed card never matches it. Without this the card was hidden but the
+            // legacy category list and counts kept counting a report already signed off.
+            inbox = window;
+            legacyInbox = true;
         }
         if (!inbox) {
             return false;
@@ -230,11 +237,16 @@ function closeOrHideHrmReport(reportId) {
         }
         return;
     }
-    if (window.opener && window.opener !== window) {
+    var card = document.getElementById('hrmdoc_' + reportId);
+    // window.opener is NOT a good enough test for "the inbox opened this": ticklerMain,
+    // ticklerDemoMain and the eChart's HRM shortcut all open this route in a popup too, and
+    // closing those on sign-off takes away the revoke affordance they rely on. The inbox links
+    // say so explicitly with inWindow=true, which the page republishes here.
+    if (card && card.getAttribute('data-inbox-window') === 'true'
+            && window.opener && window.opener !== window) {
         window.close();
         return;
     }
-    var card = document.getElementById('hrmdoc_' + reportId);
     if (card && card.getAttribute('data-inbox-inline') === 'true') {
         card.style.display = 'none';
     }
@@ -242,9 +254,15 @@ function closeOrHideHrmReport(reportId) {
 
 function makeIndependent(reportId) {
     hrmModify({method: "makeIndependent", reportId: reportId}, function (result) {
-        if (result.success) {
-            showHrmStatus("similarNotice", "");
+        if (!result.success) {
+            // Its own element, not similarNotice: that span holds the whole list of similar
+            // reports, and overwriting it with an error would delete what the clinician is
+            // reading. Silence here read as "it worked".
+            showHrmStatus("similarstatus" + reportId, result.message);
+            return;
         }
+        showHrmStatus("similarstatus" + reportId, "");
+        showHrmStatus("similarNotice", "");
     });
 }
 
@@ -371,8 +389,12 @@ function updateCategory(reportId) {
     hrmModify({method: "updateCategory", reportId: reportId, categoryId: categoryId},
         function (result) {
             if (!result.success) {
+                // The chooser stays open on a failure, so say why rather than leaving the
+                // clinician looking at a picker that appears to have done nothing.
+                showHrmStatus("categorystatus" + reportId, result.message);
                 return;
             }
+            showHrmStatus("categorystatus" + reportId, "");
             // Only the read-only label is rewritten. Setting textContent on the <select> itself
             // destroyed its <option> children, so the picker came back empty on the next edit.
             document.getElementById('hrmCategory_' + reportId).textContent = categoryName;

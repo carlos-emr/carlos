@@ -206,6 +206,12 @@
     // an ordinary top-level report page must not be blanked by mistake.
     boolean hrmFromInboxPage = "true".equals(request.getParameter("inboxInline"));
 
+    // Whether the INBOX opened this window, which only the inbox links say (inWindow=true, the
+    // same marker labDisplay.jsp uses). window.opener alone cannot stand in for it: ticklerMain,
+    // ticklerDemoMain and the eChart's HRM shortcut all open this very route in a popup, and
+    // closing those on sign-off would take away the revoke affordance they rely on.
+    boolean hrmInInboxWindow = "true".equals(request.getParameter("inWindow"));
+
     String btnDisabled = "disabled";
     String demographicNo = "";
     if (demographicLink != null) {
@@ -426,7 +432,8 @@
 <% return;
 } %>
 
-<div id="hrmdoc_<%=hrmReportId%>" data-inbox-inline="<%=hrmFromInboxPage%>">
+<div id="hrmdoc_<%=hrmReportId%>" data-inbox-inline="<%=hrmFromInboxPage%>"
+     data-inbox-window="<%=hrmInInboxWindow%>">
     <div id="buttonBox">
         <input type="button" id="msgBtn_<%=hrmReportId%>" value="Msg"
                onclick="popupPatient(700,960,'<%= request.getContextPath() %>/messenger/SendDemoMessage?demographic_no=','msg', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>/>
@@ -491,6 +498,7 @@
 		 <div class="boxButton">
 		   <input type="button" onClick="makeIndependent('<%=hrmReportId %>')"
                   value="Mark this report as not similar to the other report(s)"/>
+		   <span id="similarstatus<%=hrmReportId %>"></span>
 		 </div>  
 		</span>
                 <% } %>
@@ -764,6 +772,10 @@
 
 					<a href="javascript:void(0)" onclick="editCategory('<%=hrmReportId %>');">(edit)</a>
 				</span>
+
+				<%-- Outside both spans on purpose: a failed save leaves the chooser open and
+				     showCategory_ hidden, which is exactly when the reason has to be readable. --%>
+				<span id="categorystatus<%=hrmReportId %>"></span>
 
                     </td>
                 </tr>

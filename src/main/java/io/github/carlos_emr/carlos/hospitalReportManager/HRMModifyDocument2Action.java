@@ -287,9 +287,13 @@ public class HRMModifyDocument2Action extends ActionSupport {
                     }
                 }
 
-                // Read the previous state before writing: only a row that was NOT already signed
-                // off leaves the inbox, and that is what the badge is counting.
-                boolean wasSignedOff = providerMapping != null
+                // Read the previous state before writing. Only a routing row that ALREADY EXISTED
+                // and was not yet signed off leaves the inbox, and that is what the badge counts.
+                // A row created here never sat in anyone's inbox, so counting it would decrement a
+                // badge for an item it had never counted — signing off a standalone report, or one
+                // viewed through another provider's inbox, does exactly that.
+                boolean hadRoutingRow = providerMapping != null;
+                boolean wasSignedOff = hadRoutingRow
                         && providerMapping.getSignedOff() != null
                         && providerMapping.getSignedOff() == 1;
 
@@ -306,7 +310,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
                     hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
                 }
 
-                if (signedOff == 1 && !wasSignedOff) {
+                if (signedOff == 1 && hadRoutingRow && !wasSignedOff) {
                     clearedCount++;
                 }
             } catch (Exception e) {
@@ -479,9 +483,10 @@ public class HRMModifyDocument2Action extends ActionSupport {
     /**
      * Makes one of a report's sub-classes the active one.
      *
-     * <p>Reads {@code reportId} and {@code subClassId}, marks every sub-class on the document
-     * inactive, then activates the requested one. The viewer reloads the page afterwards, so this
-     * must not report success unless the switch was persisted.</p>
+     * <p>Reads {@code reportId} and {@code subClassId}. The target is resolved and checked to
+     * belong to this report first; only then are the report's existing sub-classes deactivated and
+     * the new one activated, so a bad id cannot leave the report with none active. The viewer
+     * reloads the page afterwards, so this must not report success unless the switch persisted.</p>
      *
      * @return {@link #NONE}; the JSON status body is written directly
      * @throws IOException if the response body cannot be written
@@ -496,16 +501,21 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
         try {
-            hrmDocumentSubClassDao.setAllSubClassesForDocumentAsInactive(Integer.parseInt(hrmDocumentId));
+            Integer documentId = Integer.parseInt(hrmDocumentId);
 
+            // Resolve and validate the target BEFORE clearing the report's existing rows. Doing it
+            // the other way round meant a stale id left the report with no active sub-class at all
+            // while still reporting success, and an id belonging to a different report would have
+            // been activated against this one.
             HRMDocumentSubClass newActiveSubClass = hrmDocumentSubClassDao.find(Integer.parseInt(subClassId));
-            if (newActiveSubClass != null) {
+            if (newActiveSubClass != null && documentId.equals(newActiveSubClass.getHrmDocumentId())) {
+                hrmDocumentSubClassDao.setAllSubClassesForDocumentAsInactive(documentId);
                 newActiveSubClass.setActive(true);
                 hrmDocumentSubClassDao.merge(newActiveSubClass);
+                success = true;
+            } else {
+                MiscUtils.getLogger().warn("Refused to activate an HRM sub-class that does not belong to the requested report");
             }
-
-            success = true;
-
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to change active subclass but failed.", e);
             success = false;

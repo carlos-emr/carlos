@@ -74,8 +74,16 @@ function setup({elements = {}, windowShape = {}} = {}) {
 
 /** Minimal element stub with the properties the handlers read and write. */
 function element(extra = {}) {
-  return Object.assign({textContent: '', value: '', style: {}, appendChild() {},
-    getAttribute() { return null; }}, extra);
+  const attrs = extra.attrs || {};
+  const base = {textContent: '', value: '', style: {}, appendChild() {},
+    getAttribute(name) { return Object.prototype.hasOwnProperty.call(attrs, name) ? attrs[name] : null; }};
+  const {attrs: _ignored, ...rest} = extra;
+  return Object.assign(base, rest);
+}
+
+/** The report container as the inbox renders it in a popup it opened itself. */
+function inboxWindowCard() {
+  return element({attrs: {'data-inbox-window': 'true', 'data-inbox-inline': 'false'}});
 }
 
 test('modify requests ask for JSON, so no HTML body can be rendered into the page', () => {
@@ -124,7 +132,7 @@ test('sign-off notifies the Inboxhub without needing any listView flag', () => {
     fetchInboxhubData: () => dropped.push(['refetch']),
   };
   const {context, requests, broadcasts, closed} = setup({
-    elements: {signoff7: element()},
+    elements: {signoff7: element(), hrmdoc_7: inboxWindowCard()},
     windowShape: {opener},
   });
 
@@ -222,6 +230,76 @@ test('the inline inbox card is hidden when there is no window to close', () => {
   requests[0].success({success: true, message: 'Success'});
 
   assert.equal(card.style.display, 'none');
+});
+
+test('a popup the inbox did not open stays open after sign-off', () => {
+  // ticklerMain, ticklerDemoMain and the eChart's HRM shortcut all open this same route in a
+  // popup. Closing those would take away the revoke affordance they rely on, so only a window
+  // carrying the inbox's own inWindow marker closes itself.
+  const button = element();
+  const {context, requests, closed} = setup({
+    elements: {signoff7: button, hrmdoc_7: element({attrs: {'data-inbox-window': 'false'}})},
+    windowShape: {opener: {}},
+  });
+
+  context.signOffHrm('7');
+  requests[0].success({success: true, message: 'Success', clearedCount: 1});
+
+  assert.equal(closed.length, 0, 'a tickler/eChart popup must not close itself');
+  assert.equal(button.value, 'Revoke Sign-Off', 'and revocation stays available');
+});
+
+test('the legacy inline inbox is refreshed even though it is this very window', () => {
+  // oscarMDS/Page.jsp <jsp:include>s the viewer into the inbox page itself: no opener, and
+  // window.parent is this window. Without a current-window fallback the card was hidden but the
+  // legacy category list and counts kept counting a report already signed off.
+  const removed = [];
+  const refreshed = [];
+  const card = element({attrs: {'data-inbox-inline': 'true', 'data-inbox-window': 'false'}});
+  const {context, requests} = setup({
+    elements: {signoff7: element(), hrmdoc_7: card},
+  });
+  context.window.removeReport = (id, type) => removed.push([id, type]);
+  context.window.fetchInboxhubData = () => refreshed.push(true);
+
+  context.signOffHrm('7');
+  requests[0].success({success: true, message: 'Success', clearedCount: 1});
+
+  assert.deepEqual(removed, [['7', 'HRM']]);
+  assert.equal(card.style.display, 'none');
+});
+
+test('a failed "not similar" save reports itself without eating the similar-report list', () => {
+  const notice = element({textContent: 'CARLOS has also detected...'});
+  const status = element();
+  const {context, requests} = setup({
+    elements: {similarNotice: notice, similarstatus7: status},
+  });
+
+  context.makeIndependent('7');
+  requests[0].success({success: false, message: 'Error encountered'});
+
+  assert.equal(status.textContent, 'Error encountered');
+  assert.equal(notice.textContent, 'CARLOS has also detected...', 'the list must survive');
+});
+
+test('a failed category save says why, since the chooser stays open', () => {
+  const select = {value: '3', selectedIndex: 0, options: [{text: 'Cardiology'}], textContent: 'untouched'};
+  const status = element();
+  const {context, requests} = setup({
+    elements: {
+      selectedCategory_7: select,
+      hrmCategory_7: element(),
+      chooseCategory_7: element(),
+      showCategory_7: element(),
+      categorystatus7: status,
+    },
+  });
+
+  context.updateCategory('7');
+  requests[0].success({success: false, message: 'Error encountered'});
+
+  assert.equal(status.textContent, 'Error encountered');
 });
 
 test('the Inboxhub view-mode card is hidden when the report is framed', () => {
