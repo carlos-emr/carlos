@@ -32,6 +32,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.util.EFormBrowserRenderPageServlet" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
@@ -210,7 +211,10 @@
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline'",
         "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data:",
+        // Licence badges only, and the list is shared with the render servlet so the two surfaces
+        // cannot drift apart. See EFormBrowserRenderPageServlet.LICENCE_BADGE_IMG_SOURCES for why
+        // both hosts are required (a 301 between them, re-checked by CSP) and why this is images only.
+        "img-src 'self' data: " + EFormBrowserRenderPageServlet.LICENCE_BADGE_IMG_SOURCES,
         "font-src 'self' data:",
         "object-src 'none'",
         // blob: frames carry the attachment-preview PDFs (attachDocument.jsp builds a Blob from the
