@@ -107,15 +107,15 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             filename = importFile.getName();
 
             int check;
-            try (InputStream duplicateCheckStream = Files.newInputStream(validatedImportFile.toPath())) {
+            try (InputStream duplicateCheckStream = PathValidationUtils.openValidatedUploadInputStream(validatedImportFile)) {
                 check = FileUploadCheck.addFile(filename, duplicateCheckStream, proNo);
             }
             if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
                 Connection connection = new Connection();
                 ArrayList<String> messages;
-                // FileUploadCheck consumes the first stream. Files.newInputStream does not
-                // support reset, so each independent reader must start from a fresh stream.
-                try (InputStream parserStream = Files.newInputStream(validatedImportFile.toPath())) {
+                // FileUploadCheck consumes the first stream. Each independent reader must
+                // start from a fresh, validated stream; the original stream cannot be reset.
+                try (InputStream parserStream = PathValidationUtils.openValidatedUploadInputStream(validatedImportFile)) {
                     messages = connection.Retrieve(parserStream);
                 }
                 if (messages != null) {
@@ -146,7 +146,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     //connection.Acknowledge(success);
                 }
                 //SAVE FILE TO DISK
-                try (InputStream archiveStream = Files.newInputStream(validatedImportFile.toPath())) {
+                try (InputStream archiveStream = PathValidationUtils.openValidatedUploadInputStream(validatedImportFile)) {
                     if (!saveFile(archiveStream, filename)) {
                         outcome = OUTCOME_EXCEPTION;
                     }
