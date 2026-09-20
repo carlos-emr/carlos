@@ -210,23 +210,52 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should report failure when one report in a bulk sign-off fails")
-    void shouldReportFailure_whenOneBulkSignOffReportFails() throws Exception {
+    @DisplayName("should reject a sign-off naming more than one report")
+    void shouldRejectSignOff_whenMoreThanOneReportIsNamed() throws Exception {
+        // One success flag and one clearedCount cannot honestly describe a partly-applied batch:
+        // a first report that persisted and a second that threw would report failure, the viewer
+        // would suppress the inbox notification, and the report already signed off in the database
+        // would sit in the inbox until a full reload. Nothing is written at all instead.
         request.addParameter("method", "signOff");
         request.addParameter("reportId", new String[] {"7", "8"});
         request.addParameter("signedOff", new String[] {"1", "1"});
-        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), anyString()))
-                .thenThrow(new RuntimeException("boom"));
 
         String result = new HRMModifyDocument2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        // The later report succeeding must not mask the earlier failure: the viewer would then
-        // clear a still-unsigned report out of the inbox. clearedCount is zero because report 8
-        // had no routing row either — sign-off created one, and a row that never sat in an inbox
-        // is not a row that left it.
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"success\":false,\"message\":\"Error encountered\"}");
+        verifyNoInteractions(hrmDocumentToProviderDao);
+    }
+
+    @Test
+    @DisplayName("should report nothing cleared when the sign-off write throws")
+    void shouldReportNothingCleared_whenSignOffWriteThrows() throws Exception {
+        // success=false and clearedCount>0 together would let the viewer and the database
+        // disagree, so a failed write reports zero.
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), anyString()))
+                .thenThrow(new RuntimeException("boom"));
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "1");
+
+        new HRMModifyDocument2Action().execute();
+
         assertThat(response.getContentAsString())
                 .isEqualTo("{\"success\":false,\"message\":\"Error encountered\",\"clearedCount\":0}");
+    }
+
+    @Test
+    @DisplayName("should reject a sign-off whose signedOff flag is missing")
+    void shouldRejectSignOff_whenSignedOffFlagIsMissing() throws Exception {
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(hrmDocumentToProviderDao);
     }
 
     @Test

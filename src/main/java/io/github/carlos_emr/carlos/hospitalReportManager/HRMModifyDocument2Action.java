@@ -236,12 +236,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
     }
 
     /**
-     * Sets or clears the signed-off flag on the logged-in provider's routing row for one or more
-     * HRM reports.
+     * Sets or clears the signed-off flag on the logged-in provider's routing row for ONE HRM report.
      *
-     * <p>Reads {@code reportId} and {@code signedOff} as parallel request parameter arrays; a row
-     * is created for the provider when none exists, and an unclaimed row ({@code providerNo} of
-     * {@code -1}) is claimed rather than duplicated.</p>
+     * <p>Reads exactly one {@code reportId} and one {@code signedOff}; anything else is answered
+     * with 400, because a single success flag cannot honestly describe a partly-applied batch. A
+     * routing row is created for the provider when none exists, and an unclaimed row
+     * ({@code providerNo} of {@code -1}) is claimed rather than duplicated.</p>
      *
      * <p>Replies with {@code clearedCount}: how many routing rows this call actually moved INTO
      * signed-off. The viewer forwards that number to the Inboxhub, whose Documents/Labs/HRMs
@@ -262,7 +262,19 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
         // A sign-off with no report named is a malformed request, not an empty success: reporting
         // "Success" would tell the viewer to clear the report out of the inbox having filed nothing.
-        if (reportIds == null || reportIds.length == 0) {
+        String[] signedOffValues = request.getParameterValues("signedOff");
+
+        // Exactly one report per request. A sign-off with none named is malformed, and so is one
+        // naming several: this endpoint answers with a SINGLE success flag and a single
+        // clearedCount, which cannot honestly describe a batch that partly succeeded. A batch
+        // whose first report persisted and whose second threw would report failure, the viewer
+        // would suppress the inbox notification, and the report already signed off in the database
+        // would sit in the inbox until the next full reload. The viewer has only ever sent one id,
+        // so the loop that allowed this was unreachable capability with an incoherent contract.
+        // Supporting batches properly means per-report outcomes or a real transaction boundary,
+        // neither of which belongs in a viewer status endpoint.
+        if (reportIds == null || reportIds.length != 1
+                || signedOffValues == null || signedOffValues.length != 1) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return writeResult(false, FAILURE_MESSAGE);
         }
@@ -270,55 +282,54 @@ public class HRMModifyDocument2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        // Bulk sign-off is all-or-nothing as far as the caller is concerned: one failed report
-        // must not be masked by a later success, or the inbox drops a report still awaiting review.
-        boolean success = true;
+        boolean success = false;
         int clearedCount = 0;
-        for (int i = 0; i < reportIds.length; i++) {
-            try {
-                Integer reportId = Integer.parseInt(reportIds[i]);
-                int signedOff = Integer.parseInt(request.getParameterValues("signedOff")[i]);
-                HRMDocumentToProvider providerMapping = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(reportId, providerNo);
-                if (providerMapping == null) {
-                    //check for unclaimed record, if that exists..update that one
-                    providerMapping = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(reportId, "-1");
-                    if (providerMapping != null) {
-                        providerMapping.setProviderNo(providerNo);
-                    }
-                }
-
-                // Read the previous state before writing. Only a routing row that ALREADY EXISTED
-                // and was not yet signed off leaves the inbox, and that is what the badge counts.
-                // A row created here never sat in anyone's inbox, so counting it would decrement a
-                // badge for an item it had never counted — signing off a standalone report, or one
-                // viewed through another provider's inbox, does exactly that.
-                boolean hadRoutingRow = providerMapping != null;
-                boolean wasSignedOff = hadRoutingRow
-                        && providerMapping.getSignedOff() != null
-                        && providerMapping.getSignedOff() == 1;
-
+        try {
+            Integer reportId = Integer.parseInt(reportIds[0]);
+            int signedOff = Integer.parseInt(signedOffValues[0]);
+            HRMDocumentToProvider providerMapping = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(reportId, providerNo);
+            if (providerMapping == null) {
+                //check for unclaimed record, if that exists..update that one
+                providerMapping = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(reportId, "-1");
                 if (providerMapping != null) {
-                    providerMapping.setSignedOff(signedOff);
-                    providerMapping.setSignedOffTimestamp(new Date());
-                    hrmDocumentToProviderDao.merge(providerMapping);
-                } else {
-                    HRMDocumentToProvider hrmDocumentToProvider = new HRMDocumentToProvider();
-                    hrmDocumentToProvider.setHrmDocumentId(reportId);
-                    hrmDocumentToProvider.setProviderNo(providerNo);
-                    hrmDocumentToProvider.setSignedOff(signedOff);
-                    hrmDocumentToProvider.setSignedOffTimestamp(new Date());
-                    hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
+                    providerMapping.setProviderNo(providerNo);
                 }
-
-                if (signedOff == 1 && hadRoutingRow && !wasSignedOff) {
-                    clearedCount++;
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Tried to set signed off status on document but failed.", e);
-                success = false;
             }
-        }
 
+            // Read the previous state before writing. Only a routing row that ALREADY EXISTED and
+            // was not yet signed off leaves the inbox, and that is what the badge counts. A row
+            // created here never sat in anyone's inbox, so counting it would decrement a badge for
+            // an item it had never counted — signing off a standalone report, or one viewed
+            // through another provider's inbox, does exactly that.
+            boolean hadRoutingRow = providerMapping != null;
+            boolean wasSignedOff = hadRoutingRow
+                    && providerMapping.getSignedOff() != null
+                    && providerMapping.getSignedOff() == 1;
+
+            if (providerMapping != null) {
+                providerMapping.setSignedOff(signedOff);
+                providerMapping.setSignedOffTimestamp(new Date());
+                hrmDocumentToProviderDao.merge(providerMapping);
+            } else {
+                HRMDocumentToProvider hrmDocumentToProvider = new HRMDocumentToProvider();
+                hrmDocumentToProvider.setHrmDocumentId(reportId);
+                hrmDocumentToProvider.setProviderNo(providerNo);
+                hrmDocumentToProvider.setSignedOff(signedOff);
+                hrmDocumentToProvider.setSignedOffTimestamp(new Date());
+                hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
+            }
+
+            if (signedOff == 1 && hadRoutingRow && !wasSignedOff) {
+                clearedCount++;
+            }
+            success = true;
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Tried to set signed off status on document but failed.", e);
+            success = false;
+            // Nothing is reported as cleared when the write did not land, so the viewer's
+            // notification and the database can no longer disagree.
+            clearedCount = 0;
+        }
 
         return writeResult(success, success ? SUCCESS_MESSAGE : FAILURE_MESSAGE, clearedCount);
     }
