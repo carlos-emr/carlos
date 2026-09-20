@@ -185,8 +185,12 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(inboxhubForm)
                 .contains("return value !== null && value !== undefined && /^[A-Za-z0-9_-]+$/.test(String(value));");
         assertThat(inboxhubForm)
-                .as("the counter path must validate, not just the DOM lookup")
-                .contains("if (!isInboxhubItemToken(segmentId) || !isInboxhubItemToken(labType)) { return; }");
+                .as("the counter path must validate, not just the DOM lookup. The check lives in "
+                        + "inboxhubItemKey(), which every counter and bookkeeping path goes through "
+                        + "to build its key, so a malformed id yields no key at all")
+                .contains("if (!isInboxhubItemToken(segmentId) || !isInboxhubItemToken(labType)) { return null; }")
+                .as("and each caller must treat 'no key' as 'do nothing', not fall through")
+                .contains("if (key === null) { return; }");
     }
 
     @Test
@@ -206,8 +210,10 @@ class InboxAcknowledgeNotificationRegressionTest {
         String inboxhubForm = read(INBOXHUB_FORM_JSP);
 
         assertThat(inboxhubForm)
-                .as("the refresh listener must drop the item before re-fetching the list")
-                .contains("dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows);");
+                .as("the refresh listener must drop the item, and must READ the answer: it decides "
+                        + "whether a re-fetch is still required, so calling and discarding it would "
+                        + "re-run the whole search over an item already dealt with")
+                .contains("? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows)");
         assertThat(inboxhubForm)
                 .as("the stored totals, not just the rendered badges, must be decremented")
                 .contains("typeInput.val(typeCount - taken);")
@@ -334,12 +340,18 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .contains("return dropFromInboxhubDirectly(segmentId, labType, clearedCount);");
         assertThat(labDisplay)
                 .as("the direct route does the whole job: row and counters, by the server's count")
-                .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);")
+                .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount) === true;")
                 .as("reaching the inbox in preview mode as well as from a popup")
                 .contains("} else if (window.parent !== window")
-                .as("and re-fetching as the listener does, since preview mode draws cards, not rows")
-                .contains("if (typeof inbox.fetchInboxhubData === 'function') {\n"
+                .as("and re-fetching ONLY when the inbox could not deal with the item itself: it "
+                        + "now removes the preview card as well as the list row, and a re-fetch on "
+                        + "top of that reloads every surviving card's iframe. The flag also carries "
+                        + "the paging condition -- while pages remain unloaded the offsets have "
+                        + "shifted and a re-sync is still required -- so this route cannot drift "
+                        + "from the BroadcastChannel listener")
+                .contains("if (!handledInPlace && typeof inbox.fetchInboxhubData === 'function') {\n"
                         + "                inbox.fetchInboxhubData();")
+
                 .as("with a legacy rung for an Inboxhub loaded before this release — for BOTH "
                         + "window shapes, since such an inbox can be showing preview cards in an "
                         + "iframe just as readily as it can have opened this window")

@@ -592,7 +592,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             const handledInPlace = acknowledgedId
                 ? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows)
                 : false;
-            if (handledInPlace && !hasMoreData) {
+            if (handledInPlace) {
                 // Deliberately NO re-fetch. fetchInboxhubData re-runs the whole search from
                 // page 1 and replaces #inboxhubMode wholesale, which drops the clinician back
                 // at the top of a list they had scrolled into, discards every page after the
@@ -609,7 +609,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                 // be listing Acknowledged items, where this acknowledgement ADDS a row rather
                 // than removing one. Only the server can say which.
                 //
-                // OR PAGES REMAIN UNLOADED, and then dropping the item in place is not enough.
+                // OR PAGES REMAIN UNLOADED (dropAcknowledgedInboxhubItem reports false for
+                // that too), and then dropping the item in place is not enough.
                 // The server pages by OFFSET, not by cursor: LabDataController turns the page
                 // number into `page - 1` and the DAOs multiply it out
                 // (HRMDocumentToProviderDao: `setFirstResult(page * pageSize)`). An
@@ -888,8 +889,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * @param {string} segmentId segment id of the acknowledged lab, document or HRM report
      * @param {string} labType its report type; older senders may not supply one
      * @param {number} clearedCount routing rows the acknowledgement cleared; see above
-     * @return {boolean} true when the item was on screen and has been dealt with here, so no
-     *                   re-fetch is needed; false when the server must be asked
+     * @return {boolean} true when the item was on screen AND the inbox holds the whole result
+     *                   set, so nothing needs re-fetching; false when the server must be asked
      */
     function dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount) {
         const itemEl = inboxhubItemElement(segmentId, labType);
@@ -903,7 +904,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         countAcknowledgedInboxhubItem(segmentId, resolvedType, clearedCount);
         // Not "did THIS call remove something": the popup's direct window.opener route may
         // have removed it already, and that is just as much a reason to skip the re-fetch.
-        return isInboxhubItemHandled(segmentId, resolvedType);
+        //
+        // The paging condition belongs HERE, in the contract, rather than in the caller. Two
+        // routes reach this function -- the BroadcastChannel listener, and labDisplay.jsp's
+        // dropFromInboxhubDirectly() for a browser without BroadcastChannel -- and a gate
+        // applied in one of them leaves the other reintroducing the page-boundary bug. What
+        // every caller actually needs to know is "is a re-sync still required", so that is
+        // what this answers. See the listener for why unloaded pages force one.
+        return isInboxhubItemHandled(segmentId, resolvedType) && !hasMoreData;
     }
 
     /**

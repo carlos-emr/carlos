@@ -277,3 +277,17 @@ test('the re-sync still moves the counters exactly once', () => {
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
   assert.equal(inbox.totals.totalLabsCount, 4);
 });
+
+test('the drop helper itself reports that a re-sync is required, not just the listener', () => {
+  // labDisplay.jsp's no-BroadcastChannel fallback calls this function directly and re-fetches
+  // on a falsy answer. If the paging condition lived only in the BroadcastChannel listener,
+  // that browser would drop the item in place with pages still unloaded and reintroduce the
+  // page-boundary bug. The contract is the shared guarantee, so it is asserted directly.
+  const pending = setup('preview', twoLabs, false, true);
+  assert.equal(pending.context.dropAcknowledgedInboxhubItem('170', 'HL7', 1), false,
+    'pages remain unloaded, so every caller must re-sync');
+
+  const loaded = setup('preview', twoLabs, false, false);
+  assert.equal(loaded.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1), true,
+    'everything is loaded, so no caller needs to re-sync');
+});

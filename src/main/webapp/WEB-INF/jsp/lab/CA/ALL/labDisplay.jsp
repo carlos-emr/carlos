@@ -1328,9 +1328,14 @@ input[id^='acklabel_']{
             if (legacyInbox) {
                 inbox.removeReport(segmentId, labType);
             } else {
-                // Returns whether the item was actually on screen and has been taken off it.
-                // An inbox from before that return value existed answers undefined, which
-                // falls through to the re-fetch below exactly as it always did.
+                // Returns whether the inbox dealt with the item AND needs no re-sync. That
+                // second half matters here: the inbox pages by offset, so while pages remain
+                // unloaded an acknowledgement shifts every later result up a place and the
+                // next page would skip one. The condition lives in that function's contract
+                // rather than being repeated here, so this route and the BroadcastChannel
+                // listener cannot drift apart. An inbox from before that return value
+                // existed answers undefined, which falls through to the re-fetch below
+                // exactly as it always did.
                 handledInPlace = inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount) === true;
             }
             // Only when the inbox could not deal with the item itself. It drops the row or
