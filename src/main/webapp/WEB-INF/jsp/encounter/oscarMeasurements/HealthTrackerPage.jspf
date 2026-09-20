@@ -233,7 +233,7 @@
     String safeYcoord = (ycoordParam != null && ycoordParam.matches("\\d{1,7}")) ? ycoordParam : "0";
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
