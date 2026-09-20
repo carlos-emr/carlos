@@ -40,7 +40,9 @@ on:
       - release/*
 
 concurrency:
-  group: sonarcloud-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  # Promotion branches emit both push and pull_request events for the same commit.
+  # Keep those analyses independent so cancellation cannot leave a failed sibling check.
+  group: sonarcloud-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 env:

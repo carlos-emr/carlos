@@ -2789,7 +2789,7 @@ class TestVerifyPhaseFiles(unittest.TestCase):
 
     @property
     def BILLING_TABLE(self):
-        return o19map_schema.BILLING_TOTALS_TABLE[self.PROVINCE]
+        return o19map_schema.CLAIM_HEADER_TABLE[self.PROVINCE]
 
     def _ctx(self):
         def query(sql, db=None):
@@ -2816,7 +2816,7 @@ class TestVerifyPhaseFiles(unittest.TestCase):
                     if "`o19_import`" in sql else [["1"]]
             return [["0"]] if "COUNT(*)" in sql else []
         # province, because the claim header P7 aggregates is per
-        # province and billing_totals_table() fails closed without one
+        # province and claim_header_table() fails closed without one
         return {"state_dir": self.state_dir, "province": self.PROVINCE,
                 "state": {"phases": {"stage": {
                     "dump_sha256": self.DUMP_SHA256}}},
@@ -2876,7 +2876,7 @@ class TestVerifyPhaseFiles(unittest.TestCase):
             text = fh.read()
         self.assertIn("VERDICT", text)
 
-    def test_a_one_sided_billing_table_is_not_reported_as_a_match(self):
+    def test_a_one_sided_claim_header_is_not_reported_as_a_match(self):
         # the claim header present in the target but absent from
         # staging: the run records that it cannot compare. Zeroing both
         # sides to keep the equality test simple used to print "billing
@@ -4132,8 +4132,8 @@ class TestVerifyPhaseFilesBC(TestVerifyPhaseFiles):
     def test_the_claim_header_is_not_the_ontario_one(self):
         # else this whole subclass is the Ontario suite run twice
         self.assertNotEqual(
-            o19map_schema.BILLING_TOTALS_TABLE["bc"],
-            o19map_schema.BILLING_TOTALS_TABLE["on"])
+            o19map_schema.CLAIM_HEADER_TABLE["bc"],
+            o19map_schema.CLAIM_HEADER_TABLE["on"])
 
 
 class TestTheMoneyCheckFailsClosed(unittest.TestCase):
@@ -4154,32 +4154,32 @@ class TestTheMoneyCheckFailsClosed(unittest.TestCase):
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
             with self.assertRaises(SystemExit):
-                o19import.billing_totals_table(self._ctx("ab"))
-        self.assertIn("BILLING_TOTALS_TABLE", err.getvalue())
+                o19import.claim_header_table(self._ctx("ab"))
+        self.assertIn("CLAIM_HEADER_TABLE", err.getvalue())
 
     def test_a_missing_province_stops_verification(self):
         # a context built without one, which is how the gap first showed
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
             with self.assertRaises(SystemExit):
-                o19import.billing_totals_table({})
+                o19import.claim_header_table({})
         self.assertIn("billing", err.getvalue())
 
     def test_a_header_that_is_not_an_identifier_is_refused(self):
         # it is interpolated into SQL as a bare backticked name
-        with mock.patch.object(o19map_schema, "BILLING_TOTALS_TABLE",
+        with mock.patch.object(o19map_schema, "CLAIM_HEADER_TABLE",
                                {"on": "billing`; DROP TABLE x; --"}):
             err = io.StringIO()
             with contextlib.redirect_stderr(err):
                 with self.assertRaises(SystemExit):
-                    o19import.billing_totals_table(self._ctx("on"))
+                    o19import.claim_header_table(self._ctx("on"))
             self.assertIn("plain identifier", err.getvalue())
 
     def test_every_shipped_profile_names_a_claim_header(self):
         carried = sorted({o19map_schema._DEFAULT_PROFILE["O19_PROFILE"]}
                          | set(o19map_schema.PROFILES))
         for province in carried:
-            self.assertIn(province, o19map_schema.BILLING_TOTALS_TABLE,
+            self.assertIn(province, o19map_schema.CLAIM_HEADER_TABLE,
                           province)
 
 
