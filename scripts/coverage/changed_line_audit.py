@@ -89,7 +89,8 @@ def main():
             zero.append((missed, filename))
 
     denominator = sum(totals)
-    print(f"Changed executable Java lines: {totals[0]} covered / {denominator} ({totals[0] / denominator:.1%})")
+    percentage = f"{totals[0] / denominator:.1%}" if denominator else "n/a"
+    print(f"Changed executable Java lines: {totals[0]} covered / {denominator} ({percentage})")
     print(f"Changed Java files: {len(changed)}; unmapped by JaCoCo: {len(unmapped)}")
     print(f"Files with zero covered changed lines: {len(zero)}")
     for missed, filename in sorted(zero, reverse=True):
