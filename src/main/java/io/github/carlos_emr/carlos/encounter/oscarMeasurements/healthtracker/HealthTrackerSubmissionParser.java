@@ -60,15 +60,27 @@ public class HealthTrackerSubmissionParser {
     /**
      * Derives the form-field name the Health Tracker page uses for a flowsheet item.
      *
+     * <p>Keyed on the item's measurement type, not its display name. The type is the
+     * key {@code MeasurementFlowSheet} orders its items by, so it is unique within a
+     * flowsheet; display names are not. Two items may carry the same display name, and
+     * two different names can sanitize to one field ({@code A/B} and {@code AB} both
+     * become {@code AB}) -- either way one posted parameter would answer for both rows
+     * and a value could be written under the wrong measurement type.
+     *
+     * <p>Non-word characters are still stripped so the name is usable as an element id
+     * on the page. Measurement type codes are already {@code [A-Za-z0-9_]} throughout
+     * the reference data, so this is identity in practice.
+     *
      * <p>Kept public and static because the JSP renders the same transform when it
      * emits the inputs; if the two ever drift the form silently stops saving, so
      * both sides call this one method.
      *
-     * @param displayName the flowsheet item display name
-     * @return the display name with every non-word character removed
+     * @param measurementType the flowsheet item's measurement type (its key in
+     *        {@code MeasurementFlowSheet#getMeasurementList()})
+     * @return the measurement type with every non-word character removed
      */
-    public static String fieldNameFor(String displayName) {
-        return displayName == null ? "" : displayName.replaceAll("\\W", "");
+    public static String fieldNameFor(String measurementType) {
+        return measurementType == null ? "" : measurementType.replaceAll("\\W", "");
     }
 
     /**
@@ -101,7 +113,7 @@ public class HealthTrackerSubmissionParser {
             }
 
             String displayName = info.get("display_name");
-            String fieldName = fieldNameFor(displayName);
+            String fieldName = fieldNameFor(measure);
             String value = trimToEmpty(parameters.apply(fieldName));
             if (value.isEmpty()) {
                 continue;

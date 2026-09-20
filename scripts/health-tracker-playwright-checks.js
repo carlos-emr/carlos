@@ -44,8 +44,10 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 // Deliberately one that contains a space, so a regression that forgot to strip
 // non-word characters produces a field the action cannot read back.
 const DISPLAY_NAME = 'Weight kg';
-const FIELD = 'Weightkg';
 const MEASUREMENT_TYPE = 'WT';
+// The tracker names its inputs after the measurement type, which is unique within
+// a flowsheet -- display names are not, and two of them can sanitize to one name.
+const FIELD = MEASUREMENT_TYPE;
 const GOOD_VALUE = '82.5';
 // Letters where the type expects a number. A range bound is configurable per
 // deployment; no numeric measurement type accepts alphabetic input anywhere.
@@ -111,7 +113,7 @@ async function workflow(s) {
       === DISPLAY_NAME, 'The tracker card is not labelled with the flowsheet item display name');
     // The field name is the contract between the JSP and the save action.
     assert(await page.locator(`#trackerForm input[name="${FIELD}"]`).count() === 1,
-      `The entry field is not named ${FIELD}; the save action derives that name from the display name`
+      `The entry field is not named ${FIELD}; the save action derives that name from the measurement type`
       + ' and will read back nothing if the two disagree');
     assert(await page.locator(`#trackerForm input[name="${FIELD}_date"]`).count() === 1,
       'The tracker card has no per-row observation date field');

@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -64,17 +65,49 @@ class HealthTrackerSubmissionParserUnitTest {
     }
 
     @Test
-    @DisplayName("should strip non-word characters from the display name")
-    void shouldStripNonWordCharacters_forFieldName() {
-        assertThat(HealthTrackerSubmissionParser.fieldNameFor("Weight (kg)")).isEqualTo("Weightkg");
+    @DisplayName("should name the field after the measurement type")
+    void shouldNameField_byMeasurementType() {
+        assertThat(HealthTrackerSubmissionParser.fieldNameFor("WT")).isEqualTo("WT");
         assertThat(HealthTrackerSubmissionParser.fieldNameFor("BP")).isEqualTo("BP");
-        assertThat(HealthTrackerSubmissionParser.fieldNameFor("A1C %")).isEqualTo("A1C");
+        assertThat(HealthTrackerSubmissionParser.fieldNameFor("A1C-2")).isEqualTo("A1C2");
     }
 
     @Test
-    @DisplayName("should return empty string when display name is null")
-    void shouldReturnEmptyString_forNullDisplayName() {
+    @DisplayName("should return empty string when the measurement type is null")
+    void shouldReturnEmptyString_forNullMeasurementType() {
         assertThat(HealthTrackerSubmissionParser.fieldNameFor(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should keep two items apart when their display names collide")
+    void shouldKeepFieldsDistinct_whenDisplayNamesCollide() {
+        // A clinician can rename flowsheet items freely, so two items can end up
+        // with one display name -- and "A/B" and "AB" sanitize to the same string.
+        // Naming the fields after the display name would give both rows one
+        // parameter, and the value would land under whichever type was read last.
+        Map<String, String> weight = new HashMap<>();
+        weight.put("measurement_type", "WT");
+        weight.put("display_name", "Daily/Weight");
+        Map<String, String> education = new HashMap<>();
+        education.put("measurement_type", "CEDW");
+        education.put("display_name", "DailyWeight");
+
+        when(flowSheet.getMeasurementList()).thenReturn(List.of("WT", "CEDW"));
+        when(flowSheet.getMeasurementFlowSheetInfo("WT")).thenReturn(weight);
+        when(flowSheet.getMeasurementFlowSheetInfo("CEDW")).thenReturn(education);
+        for (String type : List.of("WT", "CEDW")) {
+            EctMeasurementTypesBean bean = new EctMeasurementTypesBean();
+            bean.setType(type);
+            when(measurementTypes.getMeasurementType(type)).thenReturn(bean);
+        }
+
+        Map<String, String> params = new HashMap<>();
+        params.put("WT", "82.5");
+        params.put("CEDW", "Yes");
+
+        assertThat(parser.parse(flowSheet, params::get, "2026-09-20"))
+                .extracting(HealthTrackerEntry::measurementType, HealthTrackerEntry::value)
+                .containsExactly(tuple("WT", "82.5"), tuple("CEDW", "Yes"));
     }
 
     @Test
@@ -83,17 +116,17 @@ class HealthTrackerSubmissionParserUnitTest {
         givenMeasurement("WT", "Weight (kg)", "kg");
 
         Map<String, String> params = new HashMap<>();
-        params.put("Weightkg", " 82.5 ");
-        params.put("Weightkg_date", "2026-09-01");
-        params.put("Weightkg_comments", "post-op");
-        params.put("Weightkg_note", "addtonote");
+        params.put("WT", " 82.5 ");
+        params.put("WT_date", "2026-09-01");
+        params.put("WT_comments", "post-op");
+        params.put("WT_note", "addtonote");
 
         List<HealthTrackerEntry> entries = parser.parse(flowSheet, params::get, "2026-09-20");
 
         assertThat(entries).hasSize(1);
         HealthTrackerEntry entry = entries.get(0);
         assertThat(entry.measurementType()).isEqualTo("WT");
-        assertThat(entry.fieldName()).isEqualTo("Weightkg");
+        assertThat(entry.fieldName()).isEqualTo("WT");
         assertThat(entry.displayName()).isEqualTo("Weight (kg)");
         assertThat(entry.measuringInstruction()).isEqualTo("kg");
         assertThat(entry.value()).isEqualTo("82.5");
@@ -108,8 +141,8 @@ class HealthTrackerSubmissionParserUnitTest {
         givenMeasurement("WT", "Weight (kg)", "kg");
 
         Map<String, String> params = new HashMap<>();
-        params.put("Weightkg", "80");
-        params.put("Weightkg_date", "   ");
+        params.put("WT", "80");
+        params.put("WT_date", "   ");
 
         List<HealthTrackerEntry> entries = parser.parse(flowSheet, params::get, "2026-09-20");
 
@@ -123,8 +156,8 @@ class HealthTrackerSubmissionParserUnitTest {
         givenMeasurement("WT", "Weight (kg)", "kg");
 
         Map<String, String> params = new HashMap<>();
-        params.put("Weightkg", "   ");
-        params.put("Weightkg_comments", "a comment with no value");
+        params.put("WT", "   ");
+        params.put("WT_comments", "a comment with no value");
 
         assertThat(parser.parse(flowSheet, params::get, "2026-09-20")).isEmpty();
     }
@@ -139,7 +172,7 @@ class HealthTrackerSubmissionParserUnitTest {
         when(flowSheet.getMeasurementFlowSheetInfo("Flu")).thenReturn(info);
 
         Map<String, String> params = new HashMap<>();
-        params.put("Influenza", "Yes");
+        params.put("Flu", "Yes");
 
         assertThat(parser.parse(flowSheet, params::get, "2026-09-20")).isEmpty();
     }
@@ -155,7 +188,7 @@ class HealthTrackerSubmissionParserUnitTest {
         when(measurementTypes.getMeasurementType(anyString())).thenReturn(null);
 
         Map<String, String> params = new HashMap<>();
-        params.put("Mystery", "42");
+        params.put("ZZZ", "42");
 
         assertThat(parser.parse(flowSheet, params::get, "2026-09-20")).isEmpty();
     }
@@ -172,7 +205,7 @@ class HealthTrackerSubmissionParserUnitTest {
         givenMeasurement("WT", "Weight (kg)", "kg");
 
         Map<String, String> params = new HashMap<>();
-        params.put("Weightkg", "80");
+        params.put("WT", "80");
 
         assertThat(parser.parse(flowSheet, params::get, "2026-09-20"))
                 .singleElement().extracting(HealthTrackerEntry::addToNote).isEqualTo(false);

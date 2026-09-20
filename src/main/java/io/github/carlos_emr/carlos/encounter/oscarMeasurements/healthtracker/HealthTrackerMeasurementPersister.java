@@ -83,13 +83,17 @@ public class HealthTrackerMeasurementPersister {
     }
 
     /**
-     * Length of {@code measurements.comments}. A longer comment is refused here
-     * rather than left to the database: under strict SQL modes the insert throws,
-     * and because a Health Tracker save is deliberately partial-success, that
-     * exception would surface after earlier rows in the same submission had
-     * already been committed.
+     * Length of {@code measurements.comments} and {@code measurements.dataField},
+     * both {@code varchar(255)}. A longer value is refused here rather than left to
+     * the database: under strict SQL modes the insert throws, and because a Health
+     * Tracker save is deliberately partial-success, that exception would surface
+     * after earlier rows in the same submission had already been committed.
+     *
+     * <p>A {@code Validations} row may set a shorter maximum, which the length check
+     * above already enforces, but it may equally set none at all -- so the column
+     * limit is checked unconditionally.
      */
-    private static final int MAX_COMMENT_LENGTH = 255;
+    private static final int MAX_COLUMN_LENGTH = 255;
 
     private final MeasurementDao measurementDao;
     private final EctValidation validation;
@@ -129,10 +133,13 @@ public class HealthTrackerMeasurementPersister {
         measurement.setType(entry.measurementType());
         measurement.setDataField(entry.value());
         measurement.setMeasuringInstruction(entry.measuringInstruction());
-        // Legacy shape: the column is non-null and historical rows use a single
-        // space for "no comment". Preserved so exports and reports that test for
-        // emptiness keep behaving the same way.
-        measurement.setComments(entry.comment().isEmpty() ? " " : entry.comment());
+        // Stored exactly as entered, empty string included. Every other writer on
+        // this table (EctMeasurements2Action, WriteNewMeasurements) stores the raw
+        // parameter, and MeasurementDao.findMatching compares comments with exact
+        // equality -- so normalizing "" to " " here would both introduce a
+        // representation nothing else uses and make the duplicate check below miss
+        // a row the Add Measurement path had already written.
+        measurement.setComments(entry.comment());
         measurement.setDateObserved(ConversionUtils.fromDateString(entry.dateObserved()));
         measurement.setAppointmentNo(appointmentNo);
 
@@ -210,9 +217,13 @@ public class HealthTrackerMeasurementPersister {
         if (!validation.isDate(entry.dateObserved())) {
             failures.add(new ValidationFailure("errors.invalidDate", List.of(label)));
         }
-        if (entry.comment().length() > MAX_COMMENT_LENGTH) {
+        if (value.length() > MAX_COLUMN_LENGTH) {
             failures.add(new ValidationFailure("errors.maxlength",
-                    List.of(label + " comment", String.valueOf(MAX_COMMENT_LENGTH))));
+                    List.of(label, String.valueOf(MAX_COLUMN_LENGTH))));
+        }
+        if (entry.comment().length() > MAX_COLUMN_LENGTH) {
+            failures.add(new ValidationFailure("errors.maxlength",
+                    List.of(label + " comment", String.valueOf(MAX_COLUMN_LENGTH))));
         }
         return failures;
     }

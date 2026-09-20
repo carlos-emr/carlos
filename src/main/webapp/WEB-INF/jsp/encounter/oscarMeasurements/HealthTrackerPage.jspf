@@ -132,6 +132,19 @@
         return;
     }
 
+    // The flowsheet named by ?template= is authorized on its own object, the way
+    // the encounter nav entry (EctDisplayMeasurements2Action) gates the tracker on
+    // _flowsheet.tracker. Without this a role denied one specific flowsheet could
+    // still read its measurements by asking this page for it by name. Privileges
+    // are default-open, so a deployment that defines no per-flowsheet rows is
+    // unaffected.
+    if (!securityMgr.hasReadAccess("_flowsheet." + temp, roleName$)) {
+        LogAction.addLog((String) session.getAttribute("user"), LogConst.NORIGHT + LogConst.READ,
+                LogConst.CON_FLOWSHEET, temp, request.getRemoteAddr(), demographic_no);
+        response.sendRedirect(request.getContextPath() + "/noRights.html");
+        return;
+    }
+
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_FLOWSHEET,
             temp, request.getRemoteAddr(), demographic_no);
 
@@ -356,6 +369,11 @@
         if ("tracker".equals(candidate.getName())) {
             continue;
         }
+        // Same per-flowsheet privilege the gate above applies to ?template=: a
+        // flowsheet the role cannot read is not offered as a link to it.
+        if (!securityMgr.hasReadAccess("_flowsheet." + candidate.getName(), roleName$)) {
+            continue;
+        }
 
         if (dxTriggered.contains(candidate.getName())) {
             diagnosed.add(candidate.getName());
@@ -547,7 +565,9 @@
 
             // Must match HealthTrackerSubmissionParser.fieldNameFor exactly, or the
             // inputs this page renders are not the ones the save action reads back.
-            String fieldName = HealthTrackerSubmissionParser.fieldNameFor(displayName);
+            // Keyed on the measurement type, which is unique within a flowsheet;
+            // display names are not.
+            String fieldName = HealthTrackerSubmissionParser.fieldNameFor(measure);
             String encField = SafeEncode.forHtmlAttribute(fieldName);
             String validationName = mtypeBean.getValidationName() == null ? "" : mtypeBean.getValidationName();
             boolean yesNo = "Yes/No".equals(validationName)
@@ -639,8 +659,8 @@
                                 <input type="text" class="form-control form-control-sm entry-input" style="width:170px"
                                        id="<%= encField %>" name="<%= encField %>" autocomplete="off"
                                        placeholder="Enter Data"
-                                       data-convert="<%= SafeEncode.forHtmlAttribute(conversionHint(fieldName)) %>"
-                                       title="<%= SafeEncode.forHtmlAttribute(inputHint(fieldName, validationName)) %>"
+                                       data-convert="<%= SafeEncode.forHtmlAttribute(conversionHint(measure)) %>"
+                                       title="<%= SafeEncode.forHtmlAttribute(inputHint(measure, validationName)) %>"
                                        <%= validationAttributes(measure, mtypeBean.getMeasuringInstrc()) %>>
                                 <% } %>
                             </div>
@@ -747,7 +767,9 @@
                     <% if (graphable) { %>
                     <div class="card-footer graph-view DoNotPrint" style="display:none;"
                          data-points="<%= SafeEncode.forHtmlAttribute(toJson(plotPoints)) %>"
-                         data-is-bp="<%= "BP".equals(fieldName) %>"
+                         <%-- The measurement type, not the label: a clinician can rename
+                              a BP item, and the chart still has to plot two series. --%>
+                         data-is-bp="<%= "BP".equals(measure) %>"
                          data-title="<carlos:encode value='<%= displayName %>' context="htmlAttribute"/>">
                         <button type="button" class="btn-close float-end closeGraph" aria-label="Close"></button>
                         <div class="chart-wrap"><canvas></canvas></div>
@@ -1023,7 +1045,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+                <%-- EctDeleteData2Action, which this button posts to, requires
+                     _measurement d -- gate the control on the same privilege so a
+                     role never sees an enabled Delete the endpoint will refuse. --%>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_measurement" rights="d">
                     <button type="button" class="btn btn-danger" id="deleteButton" disabled>Delete</button>
                 </security:oscarSec>
             </div>
@@ -1239,8 +1264,9 @@
         }
 
         function recalculateBmi() {
-            var weight = document.getElementById('Weightkg');
-            var height = document.getElementById('Heightcm');
+            // Input ids are the measurement types the tracker names its fields by.
+            var weight = document.getElementById('WT');
+            var height = document.getElementById('HT');
             var bmi = document.getElementById('BMI');
             if (!weight || !height || !bmi) {
                 return;
@@ -1522,31 +1548,30 @@
     }
 
     /**
-     * Which double-click unit conversion, if any, applies to a field.
+     * Which double-click unit conversion, if any, applies to a measurement.
      *
-     * <p>Keyed on the sanitized field name rather than the measurement type
-     * because that is what the inputs are named, and it is how the legacy page
-     * decided too.
+     * <p>Keyed on the measurement type, not the item's label: a flowsheet item can
+     * be renamed, and pounds are still pounds.
      */
-    String conversionHint(String fieldName) {
-        if ("Weightkg".equals(fieldName)) {
+    String conversionHint(String measurementType) {
+        if ("WT".equals(measurementType)) {
             return "weight";
         }
-        if ("Heightcm".equals(fieldName)) {
+        if ("HT".equals(measurementType)) {
             return "height";
         }
-        if ("WarfarinWeeklyDose".equals(fieldName)) {
+        if ("COUM".equals(measurementType)) {
             return "weeklyDose";
         }
         return "";
     }
 
     /** Tooltip text for a free-text measurement input. */
-    String inputHint(String fieldName, String validationName) {
-        if (!conversionHint(fieldName).isEmpty()) {
+    String inputHint(String measurementType, String validationName) {
+        if (!conversionHint(measurementType).isEmpty()) {
             return "Double click to convert";
         }
-        if ("BP".equals(fieldName)) {
+        if ("BP".equals(measurementType)) {
             return "00/00 or 000/00";
         }
         return validationName == null ? "" : validationName;

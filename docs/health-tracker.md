@@ -16,7 +16,7 @@ route pair and several sibling pages.
 
 | Route | Class | Purpose |
 | --- | --- | --- |
-| `GET /encounter/oscarMeasurements/ViewHealthTracker` | `ViewClinical2Action` | Renders the page. Same read gate as the other flowsheet views: `_eChart r` at the action, `_flowsheet r` in the JSP. |
+| `GET /encounter/oscarMeasurements/ViewHealthTracker` | `ViewClinical2Action` | Renders the page. Same read gate as the other flowsheet views: `_eChart r` at the action, `_flowsheet r` in the JSP, plus `_flowsheet.<template> r` for the flowsheet actually asked for — the same per-flowsheet object the encounter nav entry gates on, so a role denied one flowsheet cannot read it by naming it in `?template=`. Flowsheets the role cannot read are left out of the switcher. |
 | `POST /encounter/oscarMeasurements/HealthTrackerUpdate` | `HealthTrackerUpdate2Action` | Saves the form. POST-only, `_measurement w`. |
 
 Both routes are extensionless and both JSPs live under `/WEB-INF`, so the page
@@ -86,10 +86,16 @@ without a container.
 ### Behaviours worth knowing
 
 - **Field names are derived, not stored.** An input is named after its flowsheet
-  item's display name with every non-word character stripped — "Weight (kg)"
-  becomes `Weightkg`. The JSP and the parser both call
-  `HealthTrackerSubmissionParser.fieldNameFor`, because if the two ever drift
-  the form silently stops saving.
+  item's *measurement type* — the weight row posts as `WT`. The JSP and the
+  parser both call `HealthTrackerSubmissionParser.fieldNameFor`, because if the
+  two ever drift the form silently stops saving. The type is the key
+  `MeasurementFlowSheet` orders its items by, so it is unique within a flowsheet;
+  display names are not (a clinician can rename items, and `A/B` and `AB`
+  sanitize to the same string), and a shared field name would let one posted
+  value be written under the wrong measurement type. The same types key the
+  double-click unit conversions, the automatic BMI, and the two-series
+  blood-pressure chart, none of which should stop working because an item was
+  renamed.
 - **Partial success is normal.** Valid rows are saved even when a sibling row is
   rejected; the rejected ones come back in the page's validation alert.
 - **Duplicates are suppressed.** An entry matching an existing row (same
@@ -107,10 +113,17 @@ without a container.
   in the chart with no measurement behind it. If note filing fails, the
   measurements are already committed, so the failure is logged rather than
   turned into an error page.
-- **Comments are length-checked against the column.** `measurements.comments` is
-  `varchar(255)`; a longer comment is refused with `errors.maxlength` rather than
-  left to throw from the database, which under strict SQL modes would surface
-  after earlier rows in the same partial-success submission had been committed.
+- **Values and comments are length-checked against their columns.** Both
+  `measurements.dataField` and `measurements.comments` are `varchar(255)`, and a
+  `Validations` row is free to set a shorter maximum or none at all. Anything
+  longer is refused with `errors.maxlength` rather than left to throw from the
+  database, which under strict SQL modes would surface after earlier rows in the
+  same partial-success submission had been committed.
+- **A comment is stored exactly as entered, empty string included.** Every other
+  writer on this table (`EctMeasurements2Action`, `WriteNewMeasurements`) stores
+  the raw parameter and `MeasurementDao.findMatching` compares comments with
+  exact equality, so normalizing an empty comment to `" "` would make the
+  duplicate check miss rows the Add Measurement path had written.
 - **Server-side validation is authoritative.** The `pattern`/`min`/`max`
   attributes the page renders are user feedback only.
 

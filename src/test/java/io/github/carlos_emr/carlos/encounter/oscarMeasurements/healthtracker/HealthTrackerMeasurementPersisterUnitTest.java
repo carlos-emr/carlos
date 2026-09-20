@@ -100,15 +100,35 @@ class HealthTrackerMeasurementPersisterUnitTest {
     }
 
     @Test
-    @DisplayName("should store a single space when no comment was entered")
-    void shouldStoreSpaceComment_whenCommentEmpty() {
+    @DisplayName("should store an empty comment the way every other writer stores it")
+    void shouldStoreEmptyComment_whenCommentEmpty() {
+        // Not " ": EctMeasurements2Action and WriteNewMeasurements both store the
+        // raw parameter, and findMatching compares comments with exact equality, so
+        // a private representation here would miss a row the Add Measurement path
+        // wrote and duplicate it.
         when(measurementDao.findMatching(any(Measurement.class))).thenReturn(List.of());
 
         persister.persist(entry("82.5", "", "2026-09-01"), 111, "999998", 0);
 
         ArgumentCaptor<Measurement> saved = ArgumentCaptor.forClass(Measurement.class);
         verify(measurementDao).persist(saved.capture());
-        assertThat(saved.getValue().getComments()).isEqualTo(" ");
+        assertThat(saved.getValue().getComments()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject a value longer than the measurements column")
+    void shouldRejectEntry_whenValueExceedsColumnLength() {
+        // measurements.dataField is varchar(255) too, and a Validations row is free
+        // to set no maximum length at all -- so the column limit is checked even
+        // when validation had nothing to say about this measurement.
+        String tooLong = "x".repeat(256);
+
+        EntryOutcome outcome = persister.persist(entry(tooLong, "", "2026-09-01"), 111, "999998", 0);
+
+        assertThat(outcome.valid()).isFalse();
+        assertThat(outcome.failures()).extracting(
+                HealthTrackerMeasurementPersister.ValidationFailure::messageKey).contains("errors.maxlength");
+        verify(measurementDao, never()).persist(any(Measurement.class));
     }
 
     @Test
