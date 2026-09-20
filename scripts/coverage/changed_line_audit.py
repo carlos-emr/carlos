@@ -4,22 +4,53 @@
 import re
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 from collections import defaultdict
-from pathlib import Path
+from xml.parsers import expat
+
+
+def read_jacoco_lines(filename):
+    """Stream JaCoCo lines while rejecting DTDs and external entities."""
+    source_lines = {}
+    parser = expat.ParserCreate()
+    package = source = None
+
+    def start_element(name, attrs):
+        nonlocal package, source
+        if name == "package":
+            package = attrs["name"]
+        elif name == "sourcefile" and package is not None:
+            source = f"src/main/java/{package}/{attrs['name']}"
+            source_lines[source] = {}
+        elif name == "line" and source is not None:
+            source_lines[source][int(attrs["nr"])] = (int(attrs["ci"]), int(attrs["mi"]))
+
+    def end_element(name):
+        nonlocal package, source
+        if name == "sourcefile":
+            source = None
+        elif name == "package":
+            package = None
+
+    def check_doctype(name, system_id, public_id, has_internal_subset):
+        if (name, system_id, public_id, has_internal_subset) != (
+                "report", "report.dtd", "-//JACOCO//DTD Report 1.1//EN", 0):
+            raise ValueError("JaCoCo XML contains an unexpected DTD")
+
+    def reject_entity(*_args):
+        raise ValueError("JaCoCo XML must not contain entity declarations or external entities")
+
+    parser.StartElementHandler = start_element
+    parser.EndElementHandler = end_element
+    parser.StartDoctypeDeclHandler = check_doctype
+    parser.EntityDeclHandler = reject_entity
+    parser.ExternalEntityRefHandler = reject_entity
+    with open(filename, "rb") as stream:
+        parser.ParseFile(stream)
+    return source_lines
 
 
 def main():
-    report = ET.parse(sys.argv[1]).getroot()
-    source_lines = {}
-    for package in report.findall("package"):
-        prefix = package.attrib["name"]
-        for source in package.findall("sourcefile"):
-            key = f"src/main/java/{prefix}/{source.attrib['name']}"
-            source_lines[key] = {
-                int(line.attrib["nr"]): (int(line.attrib["ci"]), int(line.attrib["mi"]))
-                for line in source.findall("line")
-            }
+    source_lines = read_jacoco_lines(sys.argv[1])
 
     diff = subprocess.check_output(
         ["git", "diff", "--no-ext-diff", "-U0", sys.argv[2], sys.argv[3], "--", "src/main/java"],
