@@ -53,9 +53,9 @@ class ScreeningReportIntegrationTest extends CarlosTestBase {
         assertThat(row.color).isEqualTo(color);
         assertThat(row.bonusStatus).isEqualTo(bonus);
         assertThat(row.nextSuggestedProcedure).isEqualTo(next);
-        assertThat(report.get("up2date")).isEqualTo(bonus.equals("Y") ? "1" : "0");
-        assertThat(report.get("inEligible")).isEqualTo(state.equals("Ineligible") ? "1" : "0");
-        assertThat(report.get("percent")).isEqualTo(bonus.equals("Y") ? "100" : "0");
+        assertThat(report).containsEntry("up2date", bonus.equals("Y") ? "1" : "0");
+        assertThat(report).containsEntry("inEligible", state.equals("Ineligible") ? "1" : "0");
+        assertThat(report).containsEntry("percent", bonus.equals("Y") ? "100" : "0");
     }
 
     @ParameterizedTest
@@ -65,9 +65,9 @@ class ScreeningReportIntegrationTest extends CarlosTestBase {
         PreventionReportDisplay row = (PreventionReportDisplay) ((List<?>) report.get("returnReport")).get(0);
         assertThat(row.state).isEqualTo("No Info");
         assertThat(row.nextSuggestedProcedure).isEqualTo("L1");
-        assertThat(report.get("eformSearch")).isEqualTo(search);
-        assertThat(report.get("followUpType")).isEqualTo(followup);
-        assertThat(report.get("BillCode")).isEqualTo(bill);
+        assertThat(report).containsEntry("eformSearch", search);
+        assertThat(report).containsEntry("followUpType", followup);
+        assertThat(report).containsEntry("BillCode", bill);
     }
 
     private Map<String, Object> history(String date, String refused) {
