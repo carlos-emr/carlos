@@ -50,8 +50,10 @@
  *
  * USAGE
  *   EFORM_CORPUS_DIR=/path/to/zips npm run test:eform-corpus-soak
+ *   EFORM_CORPUS_SKIP_IMPORT=1 reuses forms already imported into this same test database, for
+ *   example when comparing two installed package builds; leave unset for the first run.
  *
- * Each *.zip in EFORM_CORPUS_DIR is imported, opened for EFORM_CORPUS_DEMOGRAPHIC (default 1),
+ * By default each *.zip in EFORM_CORPUS_DIR is imported, opened for EFORM_CORPUS_DEMOGRAPHIC (default 1),
  * saved, and downloaded as a PDF. Results are written to <EFORM_CORPUS_OUT>/corpus-soak.json
  * alongside each PDF, so the PDFs can be opened and inspected — which is the point. A clean
  * completeness gate does not mean the page is correct; a blank background and a letter printed as
@@ -80,9 +82,11 @@ const config = {
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
   corpusDir: process.env.EFORM_CORPUS_DIR || '',
+  skipImport: process.env.EFORM_CORPUS_SKIP_IMPORT === '1',
   outDir: process.env.EFORM_CORPUS_OUT || '/tmp/eform-corpus-soak',
   demographicNo: process.env.EFORM_CORPUS_DEMOGRAPHIC || '1',
   renderTimeoutMs: Number(process.env.EFORM_CORPUS_RENDER_TIMEOUT_MS || 120000),
+  networkIdleTimeoutMs: Number(process.env.EFORM_CORPUS_NETWORK_IDLE_TIMEOUT_MS || 10000),
 };
 
 /**
@@ -224,29 +228,31 @@ function launchOptions() {
       page.waitForLoadState('domcontentloaded'),
       page.click('button[type="submit"], input[type="submit"]'),
     ]);
-    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
 
     // --- import every package through the production ZIP importer ---
-    const importer = await context.newPage();
-    for (const zip of zips) {
-      // Go straight to the import partial rather than the manager page: on the manager the partial
-      // lives in a collapsed accordion, so its submit button is present but never visible.
-      await gotoApp(importer, config.baseUrl, '/eform/partials/import');
-      await importer.waitForLoadState('networkidle').catch(() => {});
-      await importer.locator('#zippedForm').setInputFiles(path.join(config.corpusDir, zip));
-      await Promise.all([
-        importer.waitForLoadState('domcontentloaded').catch(() => {}),
-        importer.locator('input[type="submit"][name="subm"]').click(),
-      ]);
-      await importer.waitForTimeout(2500);
-      console.log(`imported ${zip}`);
+    if (!config.skipImport) {
+      const importer = await context.newPage();
+      for (const zip of zips) {
+        // Go straight to the import partial rather than the manager page: on the manager the partial
+        // lives in a collapsed accordion, so its submit button is present but never visible.
+        await gotoApp(importer, config.baseUrl, '/eform/partials/import');
+        await importer.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
+        await importer.locator('#zippedForm').setInputFiles(path.join(config.corpusDir, zip));
+        await Promise.all([
+          importer.waitForLoadState('domcontentloaded').catch(() => {}),
+          importer.locator('input[type="submit"][name="subm"]').click(),
+        ]);
+        await importer.waitForTimeout(2500);
+        console.log(`imported ${zip}`);
+      }
+      await importer.close();
     }
-    await importer.close();
 
     // --- render each imported form ---
     const manager = await context.newPage();
     await gotoApp(manager, config.baseUrl, '/eform/efmformmanager');
-    await manager.waitForLoadState('networkidle').catch(() => {});
+    await manager.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
 
     for (const zip of zips) {
       const formName = packageFormName(path.join(config.corpusDir, zip));
@@ -286,16 +292,25 @@ function launchOptions() {
         await gotoApp(form, config.baseUrl,
             `/eform/efmformadd_data?fid=${encodeURIComponent(result.fid)}`
             + `&demographic_no=${encodeURIComponent(config.demographicNo)}`);
-        await form.waitForLoadState('networkidle').catch(() => {});
+        await form.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
         await form.evaluate(() => {
           const subject = document.getElementById('remote_eform_subject');
           if (subject) subject.value = 'corpus soak';
         });
+        // A published form can require a clinic decision before the browser permits its Save
+        // button to submit. Without this check the harness waits two minutes for a PDF from a form
+        // that never saved, then misreports the form's own validation as a Carlos render failure.
+        const invalidInputs = await form.locator('input:invalid, select:invalid, textarea:invalid')
+          .evaluateAll((elements) => elements.map((element) => element.name || element.id || element.tagName)
+            .filter(Boolean).slice(0, 8));
+        if (invalidInputs.length) {
+          throw new Error(`FORM REQUIRES INPUT: ${invalidInputs.join(', ')}`);
+        }
         await Promise.all([
           form.waitForLoadState('domcontentloaded'),
           form.click('#remoteSubmitButton'),
         ]);
-        await form.waitForLoadState('networkidle').catch(() => {});
+        await form.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
         result.fdid = await form.locator('#fdid').inputValue().catch(() => null);
 
         await form.click('#remoteDownloadButton');
@@ -316,7 +331,8 @@ function launchOptions() {
           result.outcome = pdf.subarray(0, 5).toString('latin1') === '%PDF-' ? 'PDF OK' : 'NOT A PDF';
         }
       } catch (error) {
-        result.outcome = `NO PDF: ${error.message.split('\n')[0].slice(0, 120)}`;
+        const message = error.message.split('\n')[0].slice(0, 120);
+        result.outcome = message.startsWith('FORM REQUIRES INPUT:') ? message : `NO PDF: ${message}`;
       } finally {
         await form.close().catch(() => {});
       }
