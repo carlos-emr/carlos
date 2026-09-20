@@ -445,6 +445,15 @@ public class EFormBrowserPdfService {
      * print CSS. It deliberately does NOT set {@code width: max-content} or {@code overflow: visible}
      * (those were raster screenshot hacks); native print lays the form out at its natural width.
      *
+     * <p>The zero page margin is a default, not a policy. A document that publishes
+     * {@code data-carlos-page-margin} on its {@code <body>} gets that margin instead, via a second
+     * style element appended AFTER this one — the cascade order matters, because this stylesheet is
+     * itself appended to {@code <head>} at print time and would otherwise beat any {@code @page}
+     * rule the document authored. Today the Rich Text Letter is the only caller: the editor stores
+     * {@code body.innerHTML} alone, so the {@code .rtl} template's {@code @page} rule is lost at
+     * save time and {@link EFormRenderPdfHtmlComposer} re-declares it on the render surface.
+     * Scanned-background forms publish nothing and keep the zero margin they depend on.</p>
+     *
      * <p>It also deliberately does NOT paint a background colour onto {@code <html>}. Observed
      * behaviour: with {@code html.style.background = 'white'} set here, a form whose scanned
      * background is an {@code <img>} at {@code position:absolute; z-index:-1} — the standard eForm
@@ -496,6 +505,24 @@ public class EFormBrowserPdfService {
             + "    }\n"
             + "  `;\n"
             + "  document.head.appendChild(cleanupStyle);\n"
+            + "}\n"
+            // A document that declares its own paper margin opts out of the zero-margin baseline.
+            // Only the Rich Text Letter does today: the editor stores body.innerHTML alone, so the
+            // .rtl template's own `@page { margin: 2cm }` is gone by render time and the composer
+            // re-declares it on <body>. The baseline above is appended to <head> at print time, so
+            // on a specificity tie it is LAST and wins; this override has to be appended after it.
+            // The value is re-validated here rather than trusted: this runs inside a stylesheet.
+            + "const declaredPageMargin = document.body\n"
+            + "  ? (document.body.getAttribute('data-carlos-page-margin') || '').trim()\n"
+            + "  : '';\n"
+            + "const pageMarginIsSafe = /^(?:0|\\d{1,3}(?:\\.\\d{1,3})?(?:cm|mm|in|pt|pc|px|em|rem|%))"
+            + "(?: (?:0|\\d{1,3}(?:\\.\\d{1,3})?(?:cm|mm|in|pt|pc|px|em|rem|%))){0,3}$/\n"
+            + "  .test(declaredPageMargin);\n"
+            + "if (pageMarginIsSafe && !document.getElementById('eform-browser-pdf-page-margin')) {\n"
+            + "  const marginStyle = document.createElement('style');\n"
+            + "  marginStyle.id = 'eform-browser-pdf-page-margin';\n"
+            + "  marginStyle.textContent = '@page { margin: ' + declaredPageMargin + '; }';\n"
+            + "  document.head.appendChild(marginStyle);\n"
             + "}\n"
             + "const body = document.body;\n"
             + "if (body) {\n"

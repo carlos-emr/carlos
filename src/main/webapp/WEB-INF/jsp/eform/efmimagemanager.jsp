@@ -97,8 +97,10 @@
     <h3>Image Library</h3>
 
 
+    <%-- The upload panel navigates the whole window when it succeeds, so it needs to know whether
+         this visit is running inside the administration shell's top nav bar (scheduleNav=1). --%>
     <iframe id="uploadFrame" name="uploadFrame" frameborder="0" width="100%" height="auto" scrolling="no"
-            src="<%=request.getContextPath()%>/eform/partials/upload_image"></iframe>
+            src="<%=request.getContextPath()%>/eform/partials/upload_image<%= "1".equals(request.getParameter("scheduleNav")) ? "?scheduleNav=1" : "" %>"></iframe>
 
     <table class="table table-sm table-striped table-hover" id="tblImage">
         <thead>

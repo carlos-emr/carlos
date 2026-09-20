@@ -105,6 +105,27 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should let a document opt out of the zero page margin with a body attribute")
+    void shouldHonourDeclaredPageMargin_whenPreparingPrint() {
+        // The Rich Text Letter's .rtl templates declare "@page { margin: 2cm; }", but the editor
+        // stores body.innerHTML alone so that rule is gone by render time; the composer re-declares
+        // it and marks the body. The override style must be appended AFTER the baseline above, or
+        // the baseline's "margin: 0" wins the cascade and the letter prints edge to edge again.
+        assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS)
+                .contains("data-carlos-page-margin")
+                .contains("eform-browser-pdf-page-margin")
+                .contains("'@page { margin: ' + declaredPageMargin + '; }'");
+        assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS.indexOf("eform-browser-pdf-page-margin"))
+                .as("the override must be appended after the zero-margin baseline")
+                .isGreaterThan(EFormBrowserPdfService.PREPARE_PRINT_JS
+                        .indexOf("document.head.appendChild(cleanupStyle)"));
+        // The value reaches a stylesheet, so it is re-validated on this side too rather than
+        // trusted because the composer wrote it.
+        assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS)
+                .contains("pageMarginIsSafe");
+    }
+
+    @Test
     @DisplayName("should never paint a root background over the negative z-index layer when preparing print")
     void shouldNotPaintRootBackground_whenPreparingPrint() {
         // Empirical rule, not a derived one: with a background declared on <html>, a form whose

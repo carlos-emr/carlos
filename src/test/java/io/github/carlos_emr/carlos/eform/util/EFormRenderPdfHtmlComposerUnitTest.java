@@ -164,7 +164,77 @@ class EFormRenderPdfHtmlComposerUnitTest {
         assertThat(html)
                 .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
                 .contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"")
-                .contains("<body style=\"width:640px;\">");
+                .contains("width:640px;")
+                // The whole pipeline reparses the document more than once (EForm.getDocument(),
+                // removeAbsentOptionalStamps); the print rules and the margin marker have to
+                // survive all of it, not just wrapLetterHtmlForPrint().
+                .contains("@page { margin: 2cm; }")
+                .contains("data-carlos-page-margin=\"2cm\"");
+    }
+
+    @Test
+    @DisplayName("should re-declare the letter template print rules the editor drops at save time")
+    void shouldReDeclareTemplatePrintRules_whenWrappingStoredLetter() {
+        // editControlContents() stores body.innerHTML only, so the .rtl template's <head> — and
+        // with it "@page { margin: 2cm; }" — never reaches the PDF. Without this the letter
+        // printed flush to the paper edge.
+        String wrapped = EFormRenderPdfHtmlComposer.wrapLetterHtmlForPrint("<p>Dear Dr. Smith,</p>");
+
+        assertThat(wrapped)
+                .contains("media=\"print\"")
+                .contains("@page { margin: 2cm; }")
+                .contains("* { color: #000000; }")
+                .contains(".DoNotPrint { display: none; }")
+                .contains("<p>Dear Dr. Smith,</p>");
+    }
+
+    @Test
+    @DisplayName("should publish the page margin as a body attribute the renderer can read")
+    void shouldPublishPageMargin_asBodyAttribute() {
+        // EFormBrowserPdfService appends its zero-margin baseline to <head> at print time, so on a
+        // specificity tie it beats any @page rule in the document. The attribute is how the letter
+        // opts out of that baseline; without it the stylesheet above is silently overridden.
+        assertThat(EFormRenderPdfHtmlComposer.wrapLetterHtmlForPrint("<p>x</p>"))
+                .contains("data-carlos-page-margin=\"2cm\"");
+    }
+
+    @Test
+    @DisplayName("should keep the default page margin when the configured override is unusable")
+    void shouldKeepDefaultPageMargin_whenOverrideIsUnusable() {
+        CarlosProperties properties = mock(CarlosProperties.class);
+        try (MockedStatic<CarlosProperties> mocked = mockStatic(CarlosProperties.class)) {
+            mocked.when(CarlosProperties::getInstance).thenReturn(properties);
+
+            // The value is interpolated into a stylesheet. Anything that could close the
+            // declaration is discarded rather than emitted.
+            when(properties.getProperty("eform_rtl_letter_page_margin",
+                    EFormRenderPdfHtmlComposer.DEFAULT_LETTER_PAGE_MARGIN))
+                    .thenReturn("2cm; } body { display: none } @page { margin: 0");
+            assertThat(EFormRenderPdfHtmlComposer.letterPageMargin())
+                    .isEqualTo(EFormRenderPdfHtmlComposer.DEFAULT_LETTER_PAGE_MARGIN);
+
+            when(properties.getProperty("eform_rtl_letter_page_margin",
+                    EFormRenderPdfHtmlComposer.DEFAULT_LETTER_PAGE_MARGIN))
+                    .thenReturn("not-a-length");
+            assertThat(EFormRenderPdfHtmlComposer.letterPageMargin())
+                    .isEqualTo(EFormRenderPdfHtmlComposer.DEFAULT_LETTER_PAGE_MARGIN);
+        }
+    }
+
+    @Test
+    @DisplayName("should honour a configured page margin when it parses as a CSS length")
+    void shouldHonourConfiguredPageMargin_whenItParsesAsCssLength() {
+        CarlosProperties properties = mock(CarlosProperties.class);
+        try (MockedStatic<CarlosProperties> mocked = mockStatic(CarlosProperties.class)) {
+            mocked.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("eform_rtl_letter_page_margin",
+                    EFormRenderPdfHtmlComposer.DEFAULT_LETTER_PAGE_MARGIN))
+                    .thenReturn("1in 0.75in");
+
+            assertThat(EFormRenderPdfHtmlComposer.wrapLetterHtmlForPrint("<p>x</p>"))
+                    .contains("@page { margin: 1in 0.75in; }")
+                    .contains("data-carlos-page-margin=\"1in 0.75in\"");
+        }
     }
 
     @Test

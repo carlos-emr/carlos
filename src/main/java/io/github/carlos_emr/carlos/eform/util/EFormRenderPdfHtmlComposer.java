@@ -238,6 +238,17 @@ public final class EFormRenderPdfHtmlComposer {
         return eForm.getFormHtml();
     }
 
+    /** Page margin the bundled {@code .rtl} templates declare in their {@code @media print} block. */
+    static final String DEFAULT_LETTER_PAGE_MARGIN = "2cm";
+    /**
+     * One to four CSS lengths (or a bare {@code 0}), the shapes the {@code @page margin} shorthand
+     * accepts. Deliberately narrow: this value is written into a stylesheet, so nothing that could
+     * close the declaration or open a new rule may pass.
+     */
+    private static final Pattern LETTER_PAGE_MARGIN_PATTERN = Pattern.compile(
+            "(?:0|\\d{1,3}(?:\\.\\d{1,3})?(?:cm|mm|in|pt|pc|px|em|rem|%))"
+            + "(?: (?:0|\\d{1,3}(?:\\.\\d{1,3})?(?:cm|mm|in|pt|pc|px|em|rem|%))){0,3}");
+
     /** Prefix legacy signature-stamp scripts concatenate a provider number onto. */
     private static final String SIGNATURE_STAMP_PREFIX = "consult_sig_";
 
@@ -490,9 +501,62 @@ public final class EFormRenderPdfHtmlComposer {
             }
             String html = hardenLetterHtml(decodeStoredLetter(value.getVarValue()));
             html = html.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
-            eForm.setFormHtml("<html><body style='width:640px;'>" + html + "</body></html>");
+            eForm.setFormHtml(wrapLetterHtmlForPrint(html));
             return;
         }
+    }
+
+    /**
+     * Wraps a decoded Rich Text Letter body in the print document the renderer captures.
+     *
+     * <p>The editor stores {@code body.innerHTML} only (see {@code editControlContents} in
+     * {@code editControl2.js}), so the {@code .rtl} template's {@code <head>} — and with it the
+     * {@code @media print} block every bundled template carries — is gone by the time the letter
+     * reaches the PDF. Before this wrapper the letter was spliced into a bare
+     * {@code <html><body style='width:640px;'>}, which is why a letter authored against a template
+     * declaring {@code @page &#123; margin: 2cm; &#125;} printed flush to the paper edge with a wide
+     * blank gutter on the right: nothing in the render surface ever asked for a page margin, and the
+     * renderer's own baseline stylesheet zeroes it.</p>
+     *
+     * <p>Re-declaring the template's print rules here restores the authored geometry without
+     * changing what is stored. {@code data-carlos-page-margin} is the marker
+     * {@code EFormBrowserPdfService}'s print preparation reads to keep its zero-margin baseline from
+     * overriding this rule — the baseline is appended to {@code <head>} at print time and would
+     * otherwise win the cascade on specificity ties.</p>
+     *
+     * @param letterHtml decoded, hardened letter body markup
+     * @return a complete HTML document carrying the letter and the Rich Text Letter print rules
+     */
+    static String wrapLetterHtmlForPrint(String letterHtml) {
+        String margin = letterPageMargin();
+        return "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">"
+                + "<style type=\"text/css\" media=\"print\">"
+                + "* { color: #000000; }"
+                + ".DoNotPrint { display: none; }"
+                + "@page { margin: " + margin + "; }"
+                + "</style></head>"
+                + "<body data-carlos-page-margin=\"" + margin + "\" style='width:640px;'>"
+                + letterHtml
+                + "</body></html>";
+    }
+
+    /**
+     * Page margin applied to a rendered Rich Text Letter, as a CSS length.
+     *
+     * <p>Defaults to {@value #DEFAULT_LETTER_PAGE_MARGIN}, matching the {@code @page} rule in the
+     * bundled {@code .rtl} templates. A deployment that wants different paper geometry overrides
+     * {@code eform_rtl_letter_page_margin}. The value is interpolated into a stylesheet, so an
+     * unparseable or over-long override is discarded rather than emitted: a property file is
+     * administrator-controlled, but a malformed value here would silently corrupt every letter PDF
+     * rather than fail loudly.</p>
+     */
+    static String letterPageMargin() {
+        String configured = CarlosProperties.getInstance()
+                .getProperty("eform_rtl_letter_page_margin", DEFAULT_LETTER_PAGE_MARGIN);
+        if (configured == null || !LETTER_PAGE_MARGIN_PATTERN.matcher(configured.trim()).matches()) {
+            return DEFAULT_LETTER_PAGE_MARGIN;
+        }
+        return configured.trim();
     }
 
     /**

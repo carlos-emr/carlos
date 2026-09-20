@@ -115,6 +115,12 @@ $SQL carlos < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
 # the eform-rtl-attachment-* Playwright checks pin this.
 echo 'Rewiring Rich Text Letter attachment routes...'
 $SQL carlos < /database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+# Also after the modernize update, and for the same reason: it adds the hidden
+# user_id / user_ohip_no / doctor_provider_no inputs that editControl2.js reads to
+# pick consult_sig_<provider_no>.png for the Stamp and Closing Salutation buttons.
+# Without it the RTL falls back to the single shared stamp.png for every provider.
+echo 'Adding Rich Text Letter provider stamp fields...'
+$SQL carlos < /database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql
 # The snapshot's HRM rows name report files that never shipped, so every HRM
 # list is empty. Point one demographic-1 report at the fixture that
 # seed_data.sh copies into the document store (deb parity: carlos-ctl demo-data
