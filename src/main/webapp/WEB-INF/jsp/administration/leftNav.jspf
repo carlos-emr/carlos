@@ -804,10 +804,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewApiClients"><fmt:message key="admin.admin.restClients"/></a></li>
 						</ul>
 					</li>
-					
-					<caisi:isModuleLoad moduleName="HRM">
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/Statement"><fmt:message key="admin.admin.hrmStatus"/></a></li>
-					</caisi:isModuleLoad>
 
 					<%
 						if (oscarVariables.getProperty("hsfo.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo.loginSiteCode", "")))

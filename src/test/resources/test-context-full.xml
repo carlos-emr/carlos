@@ -287,7 +287,6 @@
                 <value>io.github.carlos_emr.carlos.PMmodule.model.Vacancy</value>
                 <value>io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate</value>
                 <!-- HRM entities -->
-                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMProviderConfidentialityStatement</value>
                 <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMSubClass</value>
                 <!-- Common entities - Billing related -->
                 <value>io.github.carlos_emr.carlos.commn.model.BillingCdmServiceCodes</value>

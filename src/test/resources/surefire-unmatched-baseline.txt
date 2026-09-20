@@ -91,7 +91,6 @@ io.github.carlos_emr.carlos.flowsheet.Flowsheet2ActionTest
 io.github.carlos_emr.carlos.form.gate.FormViewRoutesTest
 io.github.carlos_emr.carlos.form.gate.ViewForm2ActionTest
 io.github.carlos_emr.carlos.form.pageUtil.FormForwardNamed2ActionTest
-io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2ActionTest
 io.github.carlos_emr.carlos.i18n.MasterDemographicRecordKeysTest
 io.github.carlos_emr.carlos.i18n.OscarResourcesBundleParseTest
 io.github.carlos_emr.carlos.i18n.RourkeI18nKeysTest

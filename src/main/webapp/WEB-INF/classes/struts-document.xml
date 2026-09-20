@@ -210,9 +210,6 @@
         <action name="hospitalReportManager/Modify" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action">
             <result name="ajax">/WEB-INF/jsp/hospitalReportManager/ajaxResponse.jsp</result>
         </action>
-        <action name="hospitalReportManager/Statement" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action">
-            <result name="success">/WEB-INF/jsp/hospitalReportManager/hospitalReportManager.jsp</result>
-        </action>
         <action name="hospitalReportManager/HRMDownloadFile" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDownloadFile2Action"/>
         <action name="hospitalReportManager/hrm" class="io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action"/>
         <action name="hospitalReportManager/PrintHRMReport" class="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action"/>
