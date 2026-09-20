@@ -333,6 +333,33 @@ class CaseManagementCppSaveRegressionTest {
      * closing quote is no good either: the {@code chain} action's own line ends in one while
      * the chained rule continues below it.</p>
      */
+    @Test
+    @DisplayName("the note route should allocate a note extension per key, not reuse one (#3739)")
+    void shouldAllocateNoteExtensionPerKey_inIssueNoteSave() throws IOException {
+        // saveNoteExt() is a JPA persist(). Re-persisting an instance that the first call
+        // already made managed is a no-op, so hoisting the entity out of the loop collapsed
+        // every extension of the note into one row and kept only the key written last: a CPP
+        // item saved with both a start date and a resolution date lost the start date. The
+        // allocation has to sit inside the loop. CaseManagementCppExtPersistenceIntegrationTest
+        // pins the persistence behaviour this depends on.
+        String action = read(Path.of("src", "main", "java", "io", "github", "carlos_emr", "carlos",
+                "casemgmt", "web", "CaseManagementEntry2Action.java"));
+
+        int loopStart = action.indexOf("/* save extra fields */");
+        assertThat(loopStart).as("the extension save block is present").isGreaterThan(0);
+        int loopEnd = action.indexOf("caseManagementMgr.getEditors(note);", loopStart);
+        assertThat(loopEnd).as("the extension save block is bounded").isGreaterThan(loopStart);
+        String block = action.substring(loopStart, loopEnd);
+
+        int allocation = block.indexOf("new CaseManagementNoteExt()");
+        assertThat(allocation).as("the block allocates a note extension").isGreaterThan(0);
+        int forStatement = block.indexOf("for (int i = 0; i < extNames.length; i++)");
+        assertThat(forStatement).as("the block loops over the extension keys").isGreaterThan(0);
+        assertThat(allocation)
+                .as("the entity is allocated inside the loop, so each key gets its own row")
+                .isGreaterThan(forStatement);
+    }
+
     private String readExclusionRule(String ruleId) throws IOException {
         String exclusions = read(Path.of("debian", "assets", "modsecurity",
                 "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"))

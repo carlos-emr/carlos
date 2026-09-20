@@ -1305,11 +1305,19 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         /* save extra fields */
-        CaseManagementNoteExt cme = new CaseManagementNoteExt();
-        cme.setNoteId(note.getId());
+        // One row per extension key, so each field needs its own entity. saveNoteExt() is a
+        // JPA persist(): the first call makes the instance managed and assigns it an id, and a
+        // second persist() of that same instance is a no-op, so a reused instance collapses
+        // every field of the note into the single row the first call created -- whichever key
+        // was written last wins. Setting a CPP item's start date and resolution date together
+        // therefore stored only the resolution date. The read path
+        // (caseManagementNoteExtDao.getExtByNote, above) matches rows by key_val and expects a
+        // distinct row per key, so a shared instance silently loses fields.
         for (int i = 0; i < extNames.length; i++) {
             String val = request.getParameter(extNames[i]);
             if (filled(val)) {
+                CaseManagementNoteExt cme = new CaseManagementNoteExt();
+                cme.setNoteId(note.getId());
                 cme.setKeyVal(extKeys[i]);
                 cme.setDateValue((Date) null);
                 cme.setValue(null);
