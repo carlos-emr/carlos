@@ -6,8 +6,10 @@ const path = require('node:path');
 const { ROUTES, assertProtected } = require('./demographic-gates-playwright-checks');
 test('every demographic gate probe names an actual release route', () => {
   const xml = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/classes/struts-demographic.xml'), 'utf8');
-  assert.equal(new Set(ROUTES).size, 25);
-  for (const route of ROUTES) assert.ok(xml.includes(`name="demographic/${route}"`), `Missing route ${route}`);
+  assert.equal(new Set(ROUTES).size, 27);
+  const configured = [...xml.matchAll(/<action\b[^>]*\bname="demographic\/([^"]+)"[^>]*\bclass="[^"]*\.gate\.[^"]+"/g)]
+    .map(match => match[1]);
+  assert.deepEqual([...ROUTES].sort(), configured.sort(), 'Every demographic gate action must be probed');
 });
 test('gate assertion rejects silent success, missing routes, errors and external redirects', () => {
   const base = 'http://127.0.0.1:8080/carlos';

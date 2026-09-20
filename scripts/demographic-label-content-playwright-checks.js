@@ -44,6 +44,7 @@ async function workflow(s) {
     h.assert(await settings.locator('.label-block').count() === 2, 'Print settings ignored the selected label count');
     for (const block of await settings.locator('.label-block').all()) assertPatientText(await block.innerText(), s.marker, address);
     h.assert(await settings.locator('.label-block').first().evaluate(el => el.style.left) === '20px', 'Print preview ignored its left offset');
+    h.assert(await settings.locator('.label-block').first().evaluate(el => el.style.top) === '30px', 'Print preview ignored its top offset');
   });
 }
 if (require.main === module) runWorkflow('demographic-label-content', workflow);

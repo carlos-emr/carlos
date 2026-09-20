@@ -4,7 +4,8 @@
 const h = require('./lib/playwright-harness');
 const ROUTES = [
   'ViewContact', 'ViewContactSearch', 'ViewProContact', 'ViewProContactSearch',
-  'ViewProfessionalSpecialistSearch', 'ViewAddDemoToPatientSet', 'ViewZdemographicSwipe',
+  'ViewProfessionalSpecialistSearch', 'ViewSearch', 'ViewAddDemoToPatientSet',
+  'ViewAddNewDemographicSwipe', 'ViewZdemographicSwipe',
   'ViewZdemographicFullTitleSearch', 'ViewDemographicAddARecordHtm', 'ViewDemographicAudit',
   'ViewDemographicCohort', 'ViewDemographicEditDemographicJs', 'ViewDemographicLabelPrintSetting',
   'ViewDemographicPrintDemographic', 'ViewDemographicSearch2ReportResults',
