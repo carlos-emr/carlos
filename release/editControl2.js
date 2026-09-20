@@ -1260,12 +1260,15 @@ function submitFaxButton() {
 	};
 
 	function stampProviderField(field) {
+		// Trimmed to match ConsultationSignatureService.isNumericProviderNo(), which trims before
+		// testing \d+. An AP output that arrives padded must resolve to the same provider on both
+		// sides, or the letter silently falls back to stamp.png for a provider who has a signature.
 		var element = document.getElementById(field.inputId);
-		if (element && typeof element.value === "string" && element.value.length > 0) {
-			return element.value;
+		if (element && typeof element.value === "string" && element.value.trim().length > 0) {
+			return element.value.trim();
 		}
 		if (cache.contains(field.apKey) && !cache.isEmpty(field.apKey)) {
-			return String(cache.get(field.apKey));
+			return String(cache.get(field.apKey)).trim();
 		}
 		return "";
 	}

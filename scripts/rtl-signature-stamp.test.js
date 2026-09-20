@@ -108,6 +108,15 @@ test('an install with neither signatures nor stamps.js still gets the shared sta
   assert.equal(ctx.pickStamp(), stamp('stamp.png'));
 });
 
+test('a padded provider number resolves the same as the server would', () => {
+  // ConsultationSignatureService.isNumericProviderNo() trims before testing \d+. If the client
+  // did not, a padded AP output would fall back to stamp.png for a provider who has a signature
+  // file the server is perfectly willing to serve.
+  const ctx = loadStampFunctions();
+  ctx.inputs = { user_ohip_no: ' 54321 ', user_id: ' 999998 ' };
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png'));
+});
+
 test('a provider number that is not digits never reaches the image URL', () => {
   // The value becomes an imagefile= query parameter that the eForm image route treats as a path
   // component. Anything but digits means the AP returned something unexpected.
