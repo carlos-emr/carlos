@@ -355,9 +355,30 @@ class CaseManagementCppSaveRegressionTest {
         assertThat(allocation).as("the block allocates a note extension").isGreaterThan(0);
         int forStatement = block.indexOf("for (int i = 0; i < extNames.length; i++)");
         assertThat(forStatement).as("the block loops over the extension keys").isGreaterThan(0);
+
+        // Bound the loop body by brace-matching rather than by position relative to the `for`
+        // header alone: "after the header" would also be satisfied by an allocation sitting
+        // past the loop's closing brace, which is not what this guard claims to check. The
+        // block holds no string or character literal containing a brace, so a plain scan is
+        // enough and does not need to model Java lexing.
+        int bodyStart = block.indexOf('{', forStatement);
+        assertThat(bodyStart).as("the loop body opens").isGreaterThan(forStatement);
+        int depth = 0;
+        int bodyEnd = -1;
+        for (int i = bodyStart; i < block.length(); i++) {
+            char c = block.charAt(i);
+            if (c == '{') {
+                depth++;
+            } else if (c == '}' && --depth == 0) {
+                bodyEnd = i;
+                break;
+            }
+        }
+        assertThat(bodyEnd).as("the loop body closes inside the extension save block").isGreaterThan(bodyStart);
+
         assertThat(allocation)
-                .as("the entity is allocated inside the loop, so each key gets its own row")
-                .isGreaterThan(forStatement);
+                .as("the entity is allocated inside the loop body, so each key gets its own row")
+                .isBetween(bodyStart, bodyEnd);
     }
 
     private String readExclusionRule(String ruleId) throws IOException {
