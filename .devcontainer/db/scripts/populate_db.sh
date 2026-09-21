@@ -138,6 +138,9 @@ for f in "${MIG}"/common/V*__add_sms_consent.sql; do
   [ -f "$f" ] || { echo "ERROR: no V*__add_sms_consent.sql under ${MIG}/common" >&2; exit 1; }
   $SQL carlos < "$f"
 done
+# The migration seeds the consent type inactive until its wording has compliance
+# sign-off. Activate it here so the SMS opt-in path can be exercised in development.
+$SQL carlos -e "UPDATE consentType SET active = 1 WHERE type = 'sms_communication_consent';"
 # Administration fixtures for the data-backed Administration screens the demo
 # snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
 # (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only

@@ -14,11 +14,18 @@ ALTER TABLE sms_transaction
 -- that wording never mentions text messages, and SMS carries a lock-screen disclosure
 -- risk email does not. Existing patients therefore start at "unknown" (blocked) until
 -- SMS consent is recorded for them.
+--
+-- Seeded INACTIVE: the wording below is a draft awaiting compliance sign-off, and an
+-- active consent type is shown on every patient record at every clinic. While it is
+-- inactive, SMS stays blocked as SMS_CONSENT_NOT_CONFIGURED and staff never see the
+-- wording. There is no administration screen for consent types, so a clinic (or a later
+-- migration carrying the approved wording) turns it on with:
+--   UPDATE consentType SET active = 1 WHERE type = 'sms_communication_consent';
 INSERT INTO consentType (type, name, description, active, providerNo, remoteEnabled)
 SELECT 'sms_communication_consent',
        'SMS Text Message Consent',
        'This patient has consented to receive text messages (SMS) from the clinic, including appointment reminders and administrative notices. Text messages are not encrypted and may be visible on a locked screen. The patient may withdraw consent at any time.',
-       1, NULL, NULL
+       0, NULL, NULL
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM consentType WHERE type = 'sms_communication_consent');
 
