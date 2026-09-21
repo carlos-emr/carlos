@@ -14,36 +14,48 @@ const assets = {
   'editor.js': '/WEB-INF/eform-assets/editControl2.js',
   'blank.rtl': '/WEB-INF/eform-assets/blank.rtl',
 };
+const blankHtml = fs.readFileSync(web+assets['blank.rtl'],'utf8');
+// nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- fixed repository HTML plus a literal local print spy; no request or external value enters this script.
+const blankFixture = blankHtml.replace('</head>', '<script>window.print=()=>parent.delayedFramePrints++;</script></head>');
 const row = (type,value) => ({type,dataField:value,demographicId:17,dateObserved:Date.UTC(2026,8,12)});
 
 async function run() {
   const browser = await launchBrowser({chromePath:process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',headless:true});
   try {
-    const page = await browser.newPage({timezoneId:'America/Vancouver'}); const errors=[]; const pending=[]; const templateRequests=[];
+    const page = await browser.newPage({timezoneId:'America/Vancouver'}); const errors=[]; const pending=[]; const templateRequests=[]; const catalogRequests=[];
     page.on('pageerror',error=>errors.push(error.message));
     page.on('dialog',dialog=>dialog.accept());
     await page.route('**/*',async route=>{
       const url = new URL(route.request().url());
       if (url.pathname==='/carlos/ws/rs/measurements/17') {pending.push(route); return;}
       const name=url.pathname.split('/').pop();
+      if (name==='efmformrtl_templates') {catalogRequests.push(route);return;}
       if (name==='efmformapconfig_lookup') {templateRequests.push(route);return;}
       if (name==='fixture') return route.fulfill({contentType:'text/html',body:`<!doctype html><html><head>
 <script src="jquery.js"></script><script src="purify.js"></script><script src="cache.js"></script><script src="image.js"></script></head>
 <body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden"><input id="subject" value="Fixture letter" type="hidden">
 <input id="hasValidRecipient" value="true" type="hidden"><input id="emailConsentStatus" value="Unknown" type="hidden"><input id="emailConsentName" value="Fixture" type="hidden">
-<div id="control1"></div><div id="control2"></div><div id="control3"></div><div id="control4"></div><select id="template"><option value="">Templates</option><option value="default.rtl">Default</option><option value="async.rtl">Async</option><option value="failure.rtl">Failure</option></select>
-<script>window.delayedPrints=0;window.delayedFramePrints=0;window.print=()=>window.delayedPrints++;</script><script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
+<textarea id="Letter" hidden>&lt;p&gt;Saved fixture letter&lt;/p&gt;</textarea><div id="oscar-spinner-screen"></div><div id="oscar-spinner"></div><div id="control1"></div><div id="control2"></div><div id="control3"></div><div id="control4"></div><select id="template"><option value="">Templates</option><option value="default.rtl">Default</option><option value="async.rtl">Async</option><option value="failure.rtl">Failure</option></select>
+<script>window.delayedPrints=0;window.delayedFramePrints=0;window.print=()=>window.delayedPrints++;window.faxSubmits=0;document.RichTextLetter.submit=()=>{window.faxSubmits++;window.submittedLetter=document.getElementById('Letter').value;};window.maximize=()=>{};window.updateAttached=()=>{};window.setDirtyFlag=()=>window.needToConfirm=true;</script><script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
 <button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button>
 <button type="button" name="PrintSubmitButton" onclick="window.prints++">Print and submit</button>
 <button type="button" id="PrintSubmitButton" onclick="window.prints++">Print and submit by id</button></form></body></html>`});
-      if (assets[name]) return route.fulfill({body:name==='blank.rtl'?fs.readFileSync(web+assets[name],'utf8').replace('</head>','<script>window.print=()=>parent.delayedFramePrints++;</script></head>'):fs.readFileSync(web+assets[name]),contentType:name==='blank.rtl'?'text/html':'text/javascript'});
+      if (assets[name]) return route.fulfill({body:name==='blank.rtl'?blankFixture:fs.readFileSync(web+assets[name]),contentType:name==='blank.rtl'?'text/html':'text/javascript'});
       if (name==='async.rtl' || name==='failure.rtl') return route.fulfill({contentType:'text/html',body:'<!doctype html><html><body>##'+(name==='async.rtl'?'asyncField':'failureField')+'##</body></html>'});
       if (name==='default.rtl') return route.fulfill({contentType:'text/html',body:'<!doctype html><html><body>DEFAULT CONTENT</body></html>'});
       return route.abort();
     });
     await page.goto('http://127.0.0.1:2091/carlos/eform/fixture');
     await page.waitForFunction(()=>document.getElementById('edit').contentDocument.designMode==='on');
-    await page.evaluate(()=>attachDirtyFlagListener()); // Start() installs the same initial-frame hook.
+    assert.equal((await page.evaluate(()=>getMeasures('BP',1))).failed,true);
+    assert.equal(pending.length,0);
+    await page.evaluate(()=>Start());
+    for (let n=0;n<100&&!catalogRequests.length;n++) await page.waitForTimeout(10);
+    assert.equal(catalogRequests.length,1);
+    assert.equal((await page.evaluate(()=>getMeasures('BP',1))).failed,true);
+    assert.equal(await page.frameLocator('#edit').locator('body').textContent(),'Saved fixture letter');
+    await catalogRequests.shift().fulfill({contentType:'text/html',body:'<option value="">Templates</option><option value="default.rtl">Default</option><option value="async.rtl">Async</option><option value="failure.rtl">Failure</option><option value="blank.rtl">Blank</option>'});
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
     assert.deepEqual(await page.evaluate(()=>[
       measurementMonth(Date.parse('2026-09-30T23:30:00-07:00')),
       measurementMonth(Date.parse('2026-12-31T23:30:00-08:00')),
@@ -142,9 +154,9 @@ async function run() {
       seteditControlContents('edit','<p>##fixtureReplacement##</p>');
       parseTemplate();
     });
-    assert.equal((await respond({BP:[row('BP','120/80')]}))[0].failed,true);
+    assert.equal((await respond({BP:[row('BP','120/80')]}))[0].cancelled,true);
     assert.equal(await body.textContent(),'Replacement template');
-    await page.locator('#rtl-measurement-status').waitFor({state:'visible'});
+    await page.locator('#rtl-measurement-status').waitFor({state:'hidden'});
 
     await begin(['BP']);
     await respond({BP:[row('BP','<img src=x onerror=alert(1)>')]});
@@ -163,7 +175,6 @@ async function run() {
     await respond({});
     await page.evaluate(()=>{
       window.faxSubmits=0;
-      document.RichTextLetter.submit=()=>window.faxSubmits++;
       window.saveRTL=()=>{window.faxLetter=editControlContents('edit');};
       submitFaxButton();
       document.getElementById('edit').contentDocument.body.append(' LATE EDIT');
@@ -358,6 +369,56 @@ async function run() {
     assert.equal(templateRequests.length,1);
     assert.equal(await page.evaluate(()=>window.templateTimeout),4321);
     await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="timeoutProbe"><input name="timeoutProbe" value="ok">'});
+    // A delayed legacy native submit must recheck readiness and serialize anew.
+    await page.evaluate(()=>{
+      window.saveRTL=()=>{
+        window.needToConfirm=false;
+        document.getElementById('Letter').value=editControlContents('edit');
+      };
+      saveRTL();window.legacySubmit=()=>document.RichTextLetter.submit();
+    });
+    await begin(['BP']);
+    await page.evaluate(()=>window.legacySubmit());
+    assert.equal(await page.evaluate(()=>window.faxSubmits),1);
+    assert.equal(await page.evaluate(()=>window.needToConfirm),true);
+    await respond({BP:[row('BP','130/85')]});
+    await page.evaluate(()=>window.legacySubmit());
+    assert.equal(await page.evaluate(()=>window.faxSubmits),2);
+    assert.match(await page.evaluate(()=>window.submittedLetter),/130\/85/);
+    await page.evaluate(()=>saveRTL());
+    await begin(['BP']);await respond({BP:[row('BP','140/90')]});
+    await page.evaluate(()=>window.legacySubmit());
+    assert.equal(await page.evaluate(()=>window.faxSubmits),3);
+    assert.match(await page.evaluate(()=>window.submittedLetter),/140\/90/);
+
+    async function selectText() {
+      await page.evaluate(()=>{
+        const doc=document.getElementById('edit').contentDocument;
+        doc.body.textContent='BEFORE SELECTED AFTER';
+        const range=doc.createRange();range.setStart(doc.body.firstChild,7);range.setEnd(doc.body.firstChild,15);
+        const selection=doc.getSelection();selection.removeAllRanges();selection.addRange(range);
+        window.loaded=Promise.all([getMeasures('BP',1)]);
+      });
+    }
+    await selectText();
+    await body.press('Control+End');await body.press('End');await body.pressSequentially(' TYPED');
+    await respond({BP:[row('BP','125/80')]});
+    assert.equal(await body.textContent(),'BEFORE BP: 125/80(2026/9);  AFTER TYPED');
+    await selectText();await respond({});
+    assert.equal(await body.textContent(),'BEFORE SELECTED AFTER');
+    await selectText();
+    for (let n=0;n<100&&!pending.length;n++) await page.waitForTimeout(10);
+    await pending.shift().fulfill({status:500,body:'Fixture measurement failure'});
+    assert.equal((await page.evaluate(()=>window.loaded))[0].failed,true);
+    assert.equal(await body.textContent(),'BEFORE SELECTED AFTER');
+    await selectText();
+    await page.evaluate(()=>{
+      const doc=document.getElementById('edit').contentDocument;
+      Array.from(doc.body.childNodes).find(node=>node.nodeType===3&&node.textContent==='SELECTED').textContent='EDITED';
+    });
+    assert.equal((await respond({BP:[row('BP','125/80')]}))[0].failed,true);
+    assert.equal(await body.textContent(),'BEFORE EDITED AFTER');
+    assert(!((await body.innerHTML()).includes('RTL measurement')));
     assert.deepEqual(errors,[]);
     console.log('PASS: native Range insertion, request ordering, live caret/typing, serializer and legacy/toolbar print gates, marker cleanup, replaced template, literal measurement text. Chromium '+browser.version());
   } finally {await browser.close();}

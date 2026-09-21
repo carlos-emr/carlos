@@ -58,6 +58,7 @@ function setup() {
   const window = {location:{href:'https://localhost/carlos/eform/efmshowform_data?demographic_no=99'}, setTimeout};
   const context = vm.createContext({window, document, XMLHttpRequest:Xhr, URL, alert:text=>alerts.push(text), cfg_editorname:'edit', gup:(name,url)=>new URL(url||window.location.href).searchParams.get(name)||'', setDirtyFlag:()=>dirty++});
   vm.runInContext(code, context);
+  context.measureTemplateCatalogLoading=false; // Unit fixtures model a fully initialized letter.
   return {context, document, contentDocument, frame, patient, requests, alerts, dirty:()=>dirty};
 }
 function row(type, value, date = '2026-09-12', demographicId = 17) { return {type, dataField:value, dateObserved:date, demographicId}; }
@@ -269,6 +270,7 @@ test('a same-tick editor replacement gives the next request a fresh insertion po
   const fresh=f.context.getMeasures('WT',1);await delay(5);
   assert.equal(f.requests.length,1);assert.deepEqual(f.requests[0].body.types,['WT']);
   f.requests[0].respond({WT:[row('WT','70')]});
-  assert.equal((await old).failed,true);assert.equal((await fresh).failed,undefined);
+  assert.equal((await old).cancelled,true);assert.equal((await fresh).failed,undefined);
+  assert.equal(notice(f),'');
   assert.equal(f.contentDocument.body.textContent,'Replacement WT: 70(2026/9); ');
 });

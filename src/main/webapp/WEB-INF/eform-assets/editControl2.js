@@ -411,6 +411,44 @@ function Select(selectname){
  * clinic template with letterhead and ##placeholders## never populated. Enabling it here, before the
  * parse, is order-independent: the template's own onload then finds it already on.
  */
+function guardLetterSubmit() {
+    var form = measurementLetterForm();
+    if (!form || typeof form.submit !== 'function' || form.submit.__rtlMeasurementGuard) { return; }
+    var nativeSubmit = form.submit;
+    var preparing = false;
+    function cancelSubmission(message) {
+        cancelPendingFaxSubmission();
+        if (typeof clearWorkflowFlags === 'function') { clearWorkflowFlags(); }
+        var faxField = document.getElementById('faxEForm');
+        if (faxField) { faxField.value = false; }
+        window.needToConfirm = true;
+        if (typeof HideSpin === 'function' && document.getElementById('oscar-spinner-screen')
+                && document.getElementById('oscar-spinner')) { HideSpin(); }
+        alert(message);
+        return false;
+    }
+    var guardedSubmit = function() {
+        if (preparing) { return false; }
+        if (measurementHistoryStillLoading()) {
+            return cancelSubmission('The letter is still loading. Please wait before saving.');
+        }
+        preparing = true;
+        try {
+            // Legacy PrintSaveButton timers bypass submit events and may hold an
+            // old Letter value. Serialize the current editor immediately before POST.
+            if (typeof saveRTL === 'function') { saveRTL(); }
+            if (measurementHistoryStillLoading()) {
+                return cancelSubmission('The letter is still loading. Please wait before saving.');
+            }
+            return nativeSubmit.apply(form, arguments);
+        } catch (error) {
+            return cancelSubmission('The letter could not be prepared for saving. Please review it and try again.');
+        } finally { preparing = false; }
+    };
+    guardedSubmit.__rtlMeasurementGuard = true;
+    form.submit = guardedSubmit;
+}
+
 function guardLetterPrint(targetWindow) {
     if (!targetWindow || typeof targetWindow.print !== 'function' || targetWindow.print.__rtlMeasurementGuard) { return; }
     var nativePrint = targetWindow.print;
@@ -453,6 +491,7 @@ function enableEditorDesignMode() {
  * double-firing on ordinary typing is harmless.
  */
 function attachDirtyFlagListener() {
+	guardLetterSubmit();
 	var frame = document.getElementById(cfg_editorname);
 	var frameWindow = frame ? frame.contentWindow : null;
 	if (!frameWindow || typeof frameWindow.addEventListener !== 'function') { return; }
@@ -472,7 +511,7 @@ function loadDefaultTemplate() {
 	// Internal measurement markers must not suppress the configured template.
 	// Loading it replaces the document; any outstanding insertion then fails
 	// visibly so the user can retry against the fully loaded template.
-	var content = editControlContents(cfg_editorname, true).replace(/<!--RTL measurement insertion-->/g, '');
+	var content = editControlContents(cfg_editorname, true).replace(/<!--RTL measurement (?:insertion|selection)-->/g, '');
 	if (content.trim() != '') { measureInitialTemplateLoading = false; finishPendingSourceView(); return; }
 	cancelPendingFaxSubmission();
 	measureTemplateRevision++;
@@ -1647,7 +1686,7 @@ var measureBatchesPending = 0;
 var measureBatchFailed = false;
 var measureRequestRevision = 0;
 var measureInitialTemplateLoading = false;
-var measureTemplateCatalogLoading = false;
+var measureTemplateCatalogLoading = true;
 var measureTemplateLookupsPending = 0;
 var measureTemplateRevision = 0;
 var pendingMeasureSourceView = null;
@@ -1700,11 +1739,22 @@ function createMeasureBatch() {
     if (!editorDoc || !editorDoc.body) { throw new Error('The letter editor is not ready.'); }
     var patient = measurementPatientId();
     var marker = editorDoc.createComment('RTL measurement insertion');
+    var startMarker = null;
+    var selectionSnapshot = null;
     var selection = editorDoc.getSelection();
     if (selection && selection.rangeCount && editorDoc.body.contains(selection.getRangeAt(0).endContainer)) {
-        var range = selection.getRangeAt(0).cloneRange();
+        var selectedRange = selection.getRangeAt(0).cloneRange();
+        var hasSelection = !selectedRange.collapsed;
+        if (hasSelection) { selectionSnapshot = selectedRange.cloneContents(); }
+        var range = selectedRange.cloneRange();
         range.collapse(false);
         range.insertNode(marker);
+        if (hasSelection) {
+            startMarker = editorDoc.createComment('RTL measurement selection');
+            var startRange = selectedRange.cloneRange();
+            startRange.collapse(true);
+            startRange.insertNode(startMarker);
+        }
         range.setStartAfter(marker);
         range.collapse(true);
         selection.removeAllRanges();
@@ -1712,7 +1762,8 @@ function createMeasureBatch() {
     } else {
         editorDoc.body.appendChild(marker);
     }
-    return {patient: patient, document: editorDoc, marker: marker, requests: []};
+    return {patient: patient, document: editorDoc, revision: measureTemplateRevision,
+        marker: marker, startMarker: startMarker, selectionSnapshot: selectionSnapshot, requests: []};
 }
 
 /**
@@ -1738,7 +1789,12 @@ function getMeasures(measure, max) {
                 resolve({values: [], dates: [], failed: true});
                 return;
             }
-            if (measureBatchFailed && measureBatchesPending > 0) {
+            var batches = [pendingMeasureBatch, activeMeasureBatch].concat(measureRequestQueue);
+            batches.forEach(function(batch) {
+                if (batch && !measureBatchIsCurrent(batch)) { batch.superseded = true; }
+            });
+            var continuingGroup = batches.some(function(batch) { return batch && !batch.superseded && measureBatchIsCurrent(batch); });
+            if (measureBatchFailed && continuingGroup) {
                 // A success in another queued batch cannot repair every failed
                 // insertion. Finish that group before accepting a fresh retry.
                 showMeasurementStatus('Some measurements were not inserted. Wait for the remaining loads to finish, then retry Lab Grid or Vitals.', true);
@@ -1748,7 +1804,7 @@ function getMeasures(measure, max) {
             if (pendingMeasureBatch && !measureBatchIsCurrent(pendingMeasureBatch)) { flushMeasureRequests(); }
             if (!pendingMeasureBatch) {
                 pendingMeasureBatch = createMeasureBatch();
-                if (measureBatchesPending === 0) { measureBatchFailed = false; }
+                if (!continuingGroup) { measureBatchFailed = false; }
                 measureBatchesPending++;
                 showMeasurementStatus('Loading measurements. Please wait before saving or printing.', false);
                 window.setTimeout(flushMeasureRequests, 0);
@@ -1783,10 +1839,13 @@ function startNextMeasureBatch() {
         insertMeasureBatch(batch, histories);
         return histories;
     }).catch(function() {
-        measureBatchFailed = true;
-        return batch.requests.map(function() { return {values: [], dates: [], failed: true}; });
+        var cancelled = batch.superseded || !measureBatchContextIsCurrent(batch);
+        if (!cancelled) { measureBatchFailed = true; }
+        return batch.requests.map(function() { return {values: [], dates: [], failed: true, cancelled: !!cancelled}; });
     }).then(function(histories) {
-        if (batch.marker.parentNode) { batch.marker.parentNode.removeChild(batch.marker); }
+        [batch.marker, batch.startMarker].forEach(function(marker) {
+            if (marker && marker.parentNode) { marker.parentNode.removeChild(marker); }
+        });
         measureBatchesPending--;
         activeMeasureBatch = null;
         if (measureBatchFailed) {
@@ -1885,12 +1944,17 @@ function appendMeasureText(parent, text, size, bold) {
     parent.appendChild(node);
 }
 
-function measureBatchIsCurrent(batch) {
+function measureBatchContextIsCurrent(batch) {
     var frame = document.getElementById(cfg_editorname);
     try {
         return frame && frame.contentDocument === batch.document && measurementPatientId() === batch.patient
-            && batch.document.body.contains(batch.marker);
+            && measureTemplateRevision === batch.revision;
     } catch (error) { return false; }
+}
+
+function measureBatchIsCurrent(batch) {
+    return measureBatchContextIsCurrent(batch) && batch.document.body.contains(batch.marker)
+        && (!batch.startMarker || batch.document.body.contains(batch.startMarker));
 }
 
 function insertMeasureBatch(batch, histories) {
@@ -1908,6 +1972,15 @@ function insertMeasureBatch(batch, histories) {
         fragment.appendChild(batch.document.createElement('br'));
     });
     var changed = fragment.childNodes.length > 0;
+    if (changed && batch.startMarker) {
+        var selectedRange = batch.document.createRange();
+        selectedRange.setStartAfter(batch.startMarker);
+        selectedRange.setEndBefore(batch.marker);
+        if (!selectedRange.cloneContents().isEqualNode(batch.selectionSnapshot)) {
+            throw new Error('The selected letter content changed while measurements loaded');
+        }
+        selectedRange.deleteContents();
+    }
     batch.marker.parentNode.insertBefore(fragment, batch.marker);
     if (changed) {
         // Saved forms can supply an event-dependent or broken legacy callback.
