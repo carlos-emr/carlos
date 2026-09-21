@@ -309,12 +309,13 @@ async function run() {
     assert.equal(await page.evaluate(()=>{
       try {editControlContents('edit');return false;} catch(error){return /still loading/.test(error.message);}
     }),true);
+    await body.press('Control+End');await body.press('End');await body.pressSequentially(' TYPED DURING LOOKUP');
     await page.evaluate(()=>viewsource(true));
     await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="template"><input name="asyncField" value="POPULATED">'});
     await page.waitForFunction(()=>!measurementHistoryStillLoading());
     assert.equal(await page.evaluate(()=>document.getElementById('edit').contentDocument.__rtlSourceMode),true);
     await page.evaluate(()=>viewsource(false));
-    assert.equal(await body.textContent(),'POPULATED');
+    assert.equal(await body.textContent(),'POPULATED TYPED DURING LOOKUP');
     await page.evaluate(()=>{window.loaded=Promise.all([getMeasures('BP',1)]);});
     await respond({BP:[row('BP','120/80')]});
     assert.match(await body.textContent(),/POPULATED/);assert.match(await body.textContent(),/120\/80/);
@@ -356,6 +357,15 @@ async function run() {
       assert.equal(await body.textContent(),replacementText);
       assert.equal(await page.evaluate(()=>cache.contains('asyncField')),false);
     }
+    // populateTemplate reads the live body at response time, so replacing the
+    // placeholder with typed content during a lookup must preserve that content.
+    await page.evaluate(()=>{cache.values={};document.getElementById('template').selectedIndex=2;loadTemplate('template');});
+    for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);
+    assert.equal(templateRequests.length,1);
+    await body.click();await body.press('Control+A');await body.pressSequentially('MANUAL TEMPLATE REPLACEMENT');
+    await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="template"><input name="asyncField" value="MUST NOT REPLACE TYPING">'});
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    assert.equal(await body.textContent(),'MANUAL TEMPLATE REPLACEMENT');
     // Settling the old request must leave the new template's lookup gated.
     await page.evaluate(()=>{cache.values={};document.getElementById('template').selectedIndex=2;loadTemplate('template');});
     for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);

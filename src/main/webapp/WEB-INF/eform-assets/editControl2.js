@@ -631,7 +631,8 @@ function parseTemplate(){
 }
 
 function populateTemplate(){
-	//replace template placeholders with database pulls
+	// Read the live editor when the lookup completes, not a request-time snapshot.
+	// Text typed or replaced while waiting remains part of the expanded content.
 	var contents=editControlContents(cfg_editorname, true);
 	var temp = contents.split('##'); //parse for template place holders identified by ##value##
 	contents='';
