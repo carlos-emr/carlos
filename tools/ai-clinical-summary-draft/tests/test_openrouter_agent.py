@@ -63,8 +63,16 @@ class OpenRouterTest(unittest.TestCase):
                          {key: agent.DEFAULTS[key] for key in ('model', 'provider', 'temperature',
                                                                'reasoning_tokens', 'request_bytes',
                                                                'section_passes')})
-        # Whole-record NHSSYN002 passes measured 176-209 seconds, so 180 rejects a valid summary.
-        self.assertEqual(300, agent.DEFAULTS['timeout_seconds'])
+        # Whole-record passes measured 176-209 seconds on 2026-09-18 and 204-288 on 2026-09-21,
+        # so neither 180 nor 300 leaves room; the ceiling stays inside the 540-second gateway budget.
+        self.assertEqual(420, agent.DEFAULTS['timeout_seconds'])
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'config.json'
+            agent.private_write(path, json.dumps(dict(self.config, timeout_seconds=480)))
+            self.assertEqual(480, agent.read_config(path)['timeout_seconds'])
+            agent.private_write(path, json.dumps(dict(self.config, timeout_seconds=481)))
+            with self.assertRaises(ValueError):
+                agent.read_config(path)
 
     def test_live_contract_cache_and_new_request_id(self):
         first = self.gateway.run(self.request)

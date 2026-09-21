@@ -34,10 +34,10 @@ REPO = ROOT.parents[1]
 API = "https://openrouter.ai/api/v1/"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 MAX_RATE_LIMIT_WAIT_SECONDS = 120
-# The configuration QUALITY.md validated on all three fixtures. A whole-record NHSSYN002 pass
-# measured 176-209 seconds, so the response deadline is the permitted maximum rather than 180.
+# The configuration QUALITY.md validated on all three fixtures. Whole-record passes measured
+# 176-209 seconds on 2026-09-18 and 204-288 on 2026-09-21, so neither 180 nor 300 leaves room.
 DEFAULTS = {"model": "qwen/qwen3.5-27b", "provider": "siliconflow",
-            "port": 11437, "timeout_seconds": 300, "max_tokens": 16384, "cache_seconds": 900,
+            "port": 11437, "timeout_seconds": 420, "max_tokens": 16384, "cache_seconds": 900,
             "temperature": 0.0, "request_bytes": 50000, "reasoning_tokens": 0,
             "section_passes": False, "section_workers": 2}
 SECTION_SCOPES = {
@@ -105,7 +105,8 @@ def read_config(path):
             and re.fullmatch(r"[a-z0-9._-]+/[a-z0-9._-]+", config["model"]), "Use an explicit model ID")
     require(isinstance(config["provider"], str)
             and re.fullmatch(r"[a-z0-9/_-]+", config["provider"]), "Use an explicit provider slug")
-    for field, minimum, maximum in (("port", 1024, 65535), ("timeout_seconds", 10, 300),
+    # The response deadline's ceiling stays inside the 540-second gateway budget.
+    for field, minimum, maximum in (("port", 1024, 65535), ("timeout_seconds", 10, 480),
                                      ("max_tokens", 1024, 32768), ("cache_seconds", 0, 900),
                                      ("request_bytes", pipeline.REQUEST_BYTES, 50000), ("reasoning_tokens", 0, 8192),
                                      ("section_workers", 1, 2)):
