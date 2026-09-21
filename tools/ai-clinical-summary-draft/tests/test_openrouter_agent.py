@@ -119,8 +119,11 @@ class OpenRouterTest(unittest.TestCase):
                          {entry['source_id']: entry['status'] for entry in coverage})
         self.assertIn('recorded by the host', coverage[[e['source_id'] for e in coverage].index('note-1')]['reason'])
         self.assertIn('Repeats note-1.', coverage[[e['source_id'] for e in coverage].index('note-2')]['reason'])
-        with self.assertRaisesRegex(ValueError, 'source review'):
-            respond([]).run(dict(self.request, request_id=str(uuid4()), sources=sources))
+        # A note the model neither cited nor explained is recorded as such, not a reason to fail the draft.
+        silent = respond([]).run(dict(self.request, request_id=str(uuid4()), sources=sources))['output']['coverage']
+        self.assertEqual({'note-1': 'cited', 'note-2': 'reviewed_not_cited'},
+                         {entry['source_id']: entry['status'] for entry in silent})
+        self.assertIn('the model gave no reason', silent[[e['source_id'] for e in silent].index('note-2')]['reason'])
         # The usual case: every source is cited, so the model returns no reviews at all.
         all_cited = respond([]).run(dict(self.request, request_id=str(uuid4()), sources=sources[:1]))
         self.assertEqual(['cited'], [entry['status'] for entry in all_cited['output']['coverage']])

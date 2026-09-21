@@ -78,15 +78,32 @@ class PipelineTest(unittest.TestCase):
                          completed["coverage"])
         self.assertEqual(completed, pipeline.complete_coverage(completed, sources))
 
-    def test_a_models_own_review_of_a_cited_source_is_kept_and_an_uncited_source_is_never_invented(self):
+    def test_a_models_own_review_is_kept_and_an_unexplained_uncited_source_is_recorded_as_such(self):
         sources = [{"id": "note-1"}, {"id": "note-2"}]
         own = {"source_id": "note-1", "status": "cited", "reason": "Admission history."}
         output = {"claims": [{"id": "c1", "text": "A.", "source_ids": ["note-1"]}], "sections": [], "coverage": [own]}
-        # note-2 is uncited and unexplained: the host must not manufacture a review for it.
-        self.assertEqual([own], pipeline.complete_coverage(output, sources)["coverage"])
+        # note-2 is uncited and unexplained. The host says exactly that rather than failing the draft
+        # or pretending the model reviewed it.
+        unexplained = {"source_id": "note-2", "status": "reviewed_not_cited",
+                       "reason": "note-2: no statement cites this note and the model gave no reason; "
+                                 "recorded by the host."}
+        self.assertEqual([own, unexplained], pipeline.complete_coverage(output, sources)["coverage"])
+        self.assertEqual(["note-2"], pipeline.unexplained_sources(pipeline.complete_coverage(output, sources)))
         # The schema no longer offers "cited", so a model reviewing a cited source can only mislabel it.
         output["coverage"] = [dict(own, status="reviewed_not_cited")]
-        self.assertEqual([own], pipeline.complete_coverage(output, sources)["coverage"])
+        self.assertEqual([own, unexplained], pipeline.complete_coverage(output, sources)["coverage"])
+
+    def test_a_note_first_recorded_as_unexplained_becomes_cited_once_a_host_statement_cites_it(self):
+        sources = [{"id": "note-1"}, {"id": "note-2"}]
+        output = {"claims": [{"id": "c1", "text": "A.", "source_ids": ["note-1"]}], "sections": [], "coverage": []}
+        first = pipeline.complete_coverage(output, sources)
+        self.assertEqual(["note-2"], pipeline.unexplained_sources(first))
+        first["claims"].append({"id": "host-obs-1", "text": "Restored.", "source_ids": ["note-2"]})
+        second = pipeline.complete_coverage(first, sources)
+        self.assertEqual([], pipeline.unexplained_sources(second))
+        self.assertEqual({"source_id": "note-2", "status": "cited",
+                          "reason": "note-2: cited by 1 statement in this draft; recorded by the host."},
+                         second["coverage"][-1])
 
     def test_full_record_fixture_exceeds_old_limit_and_requires_every_fact(self):
         self.assertEqual(self.bundle, json.loads((ROOT / "full-record-input.json").read_text()))

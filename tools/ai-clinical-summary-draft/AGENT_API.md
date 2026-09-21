@@ -119,8 +119,9 @@ still accepted, and its status always follows the actual claim citations. Return
 as many atomic single-paragraph claims as the supplied clinical content requires.
 There is no claim-count, character, citation-count or source-count cap. Return zero
 claims and sections only when the supplied portion contains no clinical facts.
-There are at most five sections. A source that is neither cited nor reviewed fails
-the draft. Coverage reasons must be source-specific. See
+There are at most five sections. A source that is neither cited nor reviewed is
+recorded by the host as unexplained and raised as a validation warning; it does not
+fail the draft. Coverage reasons must be source-specific. See
 [CONTRACT.md](CONTRACT.md) for all rendering invariants.
 
 Do not return sources, model names, timestamps, patient context, fact ledger or
