@@ -39,6 +39,8 @@ import jakarta.jws.WebService;
 import org.apache.cxf.annotations.GZIP;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AllergyTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -50,23 +52,40 @@ public class AllergyWs extends AbstractWs {
     @Autowired
     private AllergyManager allergyManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     public AllergyTransfer getAllergy(Integer allergyId) {
-        Allergy allergy = allergyManager.getAllergy(getLoggedInInfo(), allergyId);
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireAllergyReadPrivilege(loggedInInfo);
+        Allergy allergy = allergyManager.getAllergy(loggedInInfo, allergyId);
         return (AllergyTransfer.toTransfer(allergy));
     }
 
     public AllergyTransfer[] getAllergiesUpdatedAfterDate(Date updatedAfterThisDateInclusive, int itemsToReturn) {
-        List<Allergy> allergies = allergyManager.getUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateInclusive, itemsToReturn);
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireAllergyReadPrivilege(loggedInInfo);
+        List<Allergy> allergies = allergyManager.getUpdatedAfterDate(loggedInInfo, updatedAfterThisDateInclusive, itemsToReturn);
         return (AllergyTransfer.toTransfers(allergies));
     }
 
     public AllergyTransfer[] getAllergiesByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateInclusive, int itemsToReturn) {
-        List<Allergy> allergies = allergyManager.getAllergiesByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateInclusive, itemsToReturn);
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireAllergyReadPrivilege(loggedInInfo);
+        List<Allergy> allergies = allergyManager.getAllergiesByProgramProviderDemographicDate(loggedInInfo, programId, providerNo, demographicId, updatedAfterThisDateInclusive, itemsToReturn);
         return (AllergyTransfer.toTransfers(allergies));
     }
 
     public AllergyTransfer[] getAllergiesByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
-        List<Allergy> allergies = allergyManager.getByDemographicIdUpdatedAfterDate(getLoggedInInfo(), demographicId, lastUpdate.getTime());
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireAllergyReadPrivilege(loggedInInfo);
+        List<Allergy> allergies = allergyManager.getByDemographicIdUpdatedAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
         return (AllergyTransfer.toTransfers(allergies));
+    }
+
+    private void requireAllergyReadPrivilege(LoggedInInfo loggedInInfo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
     }
 }

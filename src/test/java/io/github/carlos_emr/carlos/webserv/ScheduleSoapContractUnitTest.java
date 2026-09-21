@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AppointmentTransfer;
@@ -45,8 +46,11 @@ import io.github.carlos_emr.carlos.webserv.transfer_objects.AppointmentTypeTrans
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -76,6 +80,15 @@ class ScheduleSoapContractUnitTest extends CarlosUnitTestBase {
     @Mock
     private ScheduleManager scheduleManager;
 
+    /**
+     * These are delegation-contract tests, not RBAC tests, so the gate is stubbed open. The
+     * privilege enforcement itself is covered by {@code AbstractWsPrivilegeUnitTest}. Without this
+     * the {@code ScheduleWs} guards resolve the manager through {@code SpringUtils} and fail with
+     * "No mock registered".
+     */
+    @Mock
+    private SecurityInfoManager securityInfoManager;
+
     private LoggedInInfo loggedInInfo;
     private ScheduleWs service;
 
@@ -94,6 +107,10 @@ class ScheduleSoapContractUnitTest extends CarlosUnitTestBase {
             }
         };
         injectDependency(service, "scheduleManager", scheduleManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        lenient().when(securityInfoManager.hasPrivilege(
+                        any(LoggedInInfo.class), anyString(), anyString(), nullable(String.class)))
+                .thenReturn(true);
     }
 
     @Test

@@ -43,6 +43,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
@@ -62,14 +63,18 @@ public class ProgramService extends AbstractServiceImpl {
     /** Security object guarding program-management data, matching the PMmodule actions. */
     private static final String SECURITY_OBJECT = "_pmm_management";
 
-    @Autowired
-    ProgramManager2 programManager;
+    private final ProgramManager2 programManager;
+
+    private final AdmissionManager admissionManager;
+
+    private final SecurityInfoManager securityInfoManager;
 
     @Autowired
-    AdmissionManager admissionManager;
-
-    @Autowired
-    private SecurityInfoManager securityInfoManager;
+    public ProgramService(ProgramManager2 programManager, AdmissionManager admissionManager, SecurityInfoManager securityInfoManager) {
+        this.programManager = programManager;
+        this.admissionManager = admissionManager;
+        this.securityInfoManager = securityInfoManager;
+    }
 
 
     @GET
@@ -86,7 +91,6 @@ public class ProgramService extends AbstractServiceImpl {
         if (day == null) {
             day = DateFormatUtils.format(Calendar.getInstance(), DateUtils.ISO8601_DATE_PATTERN);
         }
-
 
         Date d = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN).parse(day);
 
@@ -111,7 +115,6 @@ public class ProgramService extends AbstractServiceImpl {
             throw new Exception("Can't get a program for this providers to use as default");
         }
 
-
         List<AdmissionTo1> transfers = new AdmissionConverter().includeDemographic(true).getAllAsTransferObjects(getLoggedInInfo(), admissionManager.findAdmissionsByProgramAndDate(getLoggedInInfo(), Integer.parseInt(programNo), d, startIndex, numToReturn));
 
         response.setContent(transfers);
@@ -135,6 +138,16 @@ public class ProgramService extends AbstractServiceImpl {
             List<ProgramTo1> listProgramTo1 = new ArrayList<ProgramTo1>();
             ProgramConverter converter = new ProgramConverter();
 
+            for (ProgramProvider programProvider : programProviders) {
+                // program_provider.program_id is nullable and the association is not optional=false,
+                // so a membership row can carry no program. Skipping it keeps one orphaned row from
+                // turning the whole program list into a 500 for the provider.
+                Program program = programProvider.getProgram();
+                if (program == null) {
+                    continue;
+                }
+                listProgramTo1.add(converter.getAsTransferObject(getLoggedInInfo(), program));
+            }
             response.setContent(listProgramTo1);
             response.setTotal(listProgramTo1.size());
         }

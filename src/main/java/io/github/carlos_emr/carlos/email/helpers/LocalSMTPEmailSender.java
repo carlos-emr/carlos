@@ -25,8 +25,8 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         JsonNode jsonNode = parseConfig(emailConfig);
-        String host = requiredText(jsonNode, "host", emailConfig);
-        String port = requiredText(jsonNode, "port", emailConfig);
+        String host = requiredText(jsonNode, "host", emailConfig).trim();
+        String port = requiredText(jsonNode, "port", emailConfig).trim();
 
         // SECURITY: Only allow localhost variations
         if (!isLocalhost(host)) {
@@ -34,11 +34,7 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
         }
 
         mailSender.setHost(host);
-        try {
-            mailSender.setPort(Integer.parseInt(port));
-        } catch (NumberFormatException e) {
-            throw invalidConfiguration(emailConfig);
-        }
+        mailSender.setPort(parsePort(port, invalidConfiguration(emailConfig).getMessage()));
 
         // LOCAL provider - no authentication needed. Username is optional; its password is not
         // read, decrypted, or copied into the JavaMail sender when this provider cannot use it.

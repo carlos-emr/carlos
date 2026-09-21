@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import io.github.carlos_emr.carlos.utility.OutboundEmailArchiveException;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
@@ -56,13 +58,14 @@ import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * Email management service for the OpenO EMR healthcare system.
+ * Email management service for the CARLOS EMR healthcare system.
  *
  * This manager provides comprehensive email functionality for healthcare providers,
  * including secure email transmission, encryption support for PHI (Protected Health Information),
@@ -91,6 +94,8 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 @Service
 public class EmailManager {
+    private static final String ARCHIVE_FAILURE_MESSAGE = "Failed to archive outbound email";
+    private static final String SEND_FAILURE_MESSAGE = "Failed to send email";
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
     private static final String EMAIL_AUDIT_CONTENT = "Email";
     private static final String UNKNOWN_NAME_PART = "Unknown";
@@ -129,6 +134,7 @@ public class EmailManager {
     private final SecurityInfoManager securityInfoManager;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
+    private final OutboundEmailArchiveService outboundEmailArchiveService;
 
     /**
      * Creates an email manager with the consent gate and sender factory used by the send path.
@@ -137,11 +143,13 @@ public class EmailManager {
      * @param emailConsentResolver resolves current patient email consent
      * @param emailSenderFactory creates the outbound sender after consent is accepted
      * @param securityInfoManager checks the caller's email privileges
+     * @param outboundEmailArchiveService persists finalized SMTP messages before dispatch
      */
     public EmailManager(EmailConsentResolver emailConsentResolver, EmailSenderFactory emailSenderFactory,
-            SecurityInfoManager securityInfoManager) {
+            SecurityInfoManager securityInfoManager, OutboundEmailArchiveService outboundEmailArchiveService) {
         this.emailConsentResolver = emailConsentResolver;
         this.emailSenderFactory = emailSenderFactory;
+        this.outboundEmailArchiveService = outboundEmailArchiveService;
         this.securityInfoManager = securityInfoManager;
     }
 
@@ -156,18 +164,27 @@ public class EmailManager {
      * @return the persisted send/consent result, or a transient sender-configuration failure
      * @throws RuntimeException if the caller lacks email write privilege
      */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
-        return sendEmailWithResult(loggedInInfo, emailData).getEmailLog();
+        return sendEmailInternal(loggedInInfo, emailData).getEmailLog();
     }
 
     /**
      * Sends an email while keeping the transport outcome distinct from persistence state.
+     * Caller transactions are suspended so archive storage commits before external SMTP dispatch.
      *
      * <p>This is the preferred API for interactive callers. The compatibility
      * {@link #sendEmail(LoggedInInfo, EmailData)} method remains for existing integrations that
      * consume only the log entity.</p>
      */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailSendResult sendEmailWithResult(LoggedInInfo loggedInInfo, EmailData emailData) {
+        return sendEmailInternal(loggedInInfo, emailData);
+    }
+
+    // FindSecBugs HARD_CODE_PASSWORD: empty values erase request credentials when the send attempt finishes.
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD", justification = "Empty strings clear secrets; they are not authentication credentials")
+    private EmailSendResult sendEmailInternal(LoggedInInfo loggedInInfo, EmailData emailData) {
         boolean ownsWorkingDirectory = emailData.getWorkingDirectory() == null;
         try {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
@@ -200,7 +217,7 @@ public class EmailManager {
                     encryptEmail(emailData);
                 }
                 EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
-                emailSender.send();
+                sendWithArchive(loggedInInfo, emailSender, emailLog);
                 return completeAcceptedSend(loggedInInfo, emailLog);
             } catch (EmailSendingException e) {
                 return completeFailedSend(loggedInInfo, emailLog, e);
@@ -211,6 +228,195 @@ public class EmailManager {
             }
             emailData.setPassword("");
             emailData.setPasswordClue("");
+        }
+    }
+
+    private void sendWithArchive(LoggedInInfo loggedInInfo, EmailSender sender, EmailLog log)
+            throws EmailSendingException {
+        try {
+            archiveOutboundEmail(loggedInInfo, sender, log);
+            sender.sendPrepared();
+        } catch (EmailSendingException e) {
+            throw new EmailSendingException(safePersistedFailureMessage(e), e,
+                    e.isDeliveryOutcomeUncertain());
+        } catch (SecurityException e) {
+            // Record the refused attempt, but propagate authorization failure to the caller.
+            recordAuthorizationFailure(log, e);
+            throw e;
+        } catch (RuntimeException e) {
+            throw new EmailSendingException("Email transport did not confirm whether the message was accepted.",
+                    e, true);
+        } finally {
+            discardPreparedQuietly(sender, null);
+        }
+    }
+
+    private void recordAuthorizationFailure(EmailLog emailLog, SecurityException failure) {
+        String detail = safePersistedFailureMessage(failure);
+        Date timestamp = new Date();
+        try {
+            // The attempt was already authorized and persisted. Record only its failure even if
+            // email privileges were revoked mid-flight; never use this path to initiate a send.
+            int updated = emailLogDao.transitionEmailStatus(emailLog.getId(), EmailStatus.PENDING,
+                    EmailStatus.FAILED, detail, timestamp);
+            if (updated != 1) {
+                throw new IllegalStateException("Email failure status was not recorded");
+            }
+            emailLog.setStatus(EmailStatus.FAILED);
+            emailLog.setErrorMessage(detail);
+            emailLog.setTimestamp(timestamp);
+        } catch (RuntimeException persistenceFailure) {
+            failure.addSuppressed(persistenceFailure);
+            logger.error("Email authorization failed and its status could not be recorded; emailLogId={}; causeType={}",
+                    emailLog.getId(), persistenceFailure.getClass().getSimpleName());
+        }
+    }
+
+    private String safePersistedFailureMessage(Throwable failure) {
+        return safeFailureOperationMessage(failure) + " (" + safeDiagnosticCategory(failure) + ")";
+    }
+
+    private String safeFailureOperationMessage(Throwable failure) {
+        return failure instanceof OutboundEmailArchiveException
+                ? ARCHIVE_FAILURE_MESSAGE
+                : SEND_FAILURE_MESSAGE;
+    }
+
+    private String safeDiagnosticCategory(Throwable failure) {
+        String category = searchDiagnosticCategory(failure, 0);
+        return category != null ? category : "uncategorized delivery failure";
+    }
+
+    private String searchDiagnosticCategory(Throwable failure, int depth) {
+        if (failure == null || depth >= 8) {
+            return null;
+        }
+        String specific = safeDiagnosticCategoryFor(failure);
+        if (specific != null) {
+            return specific;
+        }
+        // Descend before settling for a wrapper's own generic label.
+        if (failure instanceof org.springframework.mail.MailSendException mailSendFailure) {
+            Exception[] messageExceptions = mailSendFailure.getMessageExceptions();
+            for (Exception messageException : messageExceptions) {
+                String nested = searchDiagnosticCategory(messageException, depth + 1);
+                if (nested != null) {
+                    return nested;
+                }
+            }
+        }
+        String fromCause = searchCauseCategory(failure, depth);
+        return fromCause != null ? fromCause : genericDiagnosticCategoryFor(failure);
+    }
+
+    private String searchCauseCategory(Throwable failure, int depth) {
+        Throwable cause = failure.getCause();
+        return cause != null && cause != failure ? searchDiagnosticCategory(cause, depth + 1) : null;
+    }
+
+    private String genericDiagnosticCategoryFor(Throwable failure) {
+        if (failure instanceof jakarta.mail.MessagingException) {
+            return "SMTP messaging failure";
+        }
+        if (failure instanceof org.springframework.mail.MailSendException) {
+            return "SMTP send failure";
+        }
+        return null;
+    }
+
+    private String safeDiagnosticCategoryFor(Throwable failure) {
+        if (failure instanceof org.apache.hc.client5.http.HttpResponseException rejection) {
+            return "HTTP " + rejection.getStatusCode() + " rejection";
+        }
+        if (failure instanceof SecurityException) {
+            return "authorization failure";
+        }
+        if (failure instanceof java.net.SocketTimeoutException) {
+            return "network timeout";
+        }
+        if (failure instanceof java.net.UnknownHostException) {
+            return "host lookup failure";
+        }
+        if (failure instanceof java.net.ConnectException) {
+            return "connection failure";
+        }
+        if (failure instanceof jakarta.mail.AuthenticationFailedException
+                || failure instanceof org.springframework.mail.MailAuthenticationException) {
+            return "SMTP authentication failure";
+        }
+        if (failure instanceof jakarta.mail.SendFailedException) {
+            return "SMTP recipient failure";
+        }
+        // MessagingException and MailSendException are handled in
+        // genericDiagnosticCategoryFor, not here: they name a layer, not a fault, and
+        // matching them at this point would hide the specific cause they wrap.
+        if (failure instanceof javax.net.ssl.SSLHandshakeException) {
+            return "TLS negotiation failure";
+        }
+        if (failure instanceof IOException) {
+            return "I/O failure";
+        }
+        return null;
+    }
+
+    private void discardPreparedQuietly(EmailSender emailSender, Throwable primaryFailure) {
+        if (emailSender == null) {
+            return;
+        }
+        try {
+            emailSender.discardPrepared();
+        } catch (RuntimeException cleanupFailure) {
+            if (primaryFailure != null) {
+                primaryFailure.addSuppressed(cleanupFailure);
+            }
+            logger.warn("Prepared outbound email cleanup failed: {}", cleanupFailure.getClass().getSimpleName());
+        }
+    }
+
+    private void discardAfterPreparationFailure(EmailSender emailSender, Exception failure) {
+        discardPreparedQuietly(emailSender, failure);
+        logger.warn("Outbound email preparation failed: {}", failure.getClass().getSimpleName());
+    }
+
+    private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
+        OutboundEmailArchiveDto archiveRequest;
+        try {
+            // Message preparation, NOT archive storage. This validates SMTP configuration
+            // (host, port, credentials) and builds the MIME message, so a failure here is a
+            // send-configuration problem. Reporting it as an archive fault would send an
+            // operator to inspect the archive subsystem over a mistyped SMTP password.
+            archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+        } catch (EmailSendingException | SecurityException e) {
+            // Preserve authorization refusals; they must not become routine archive failures.
+            discardAfterPreparationFailure(emailSender, e);
+            throw e;
+        } catch (RuntimeException e) {
+            // Other unchecked preparation failures -- config JSON parsing, MIME construction
+            // -- are converted so they reach sendEmail's non-rethrow catch: the attempt is
+            // recorded as FAILED and the caller gets an EmailLog rather than a raw stack.
+            // sendEmail does also catch RuntimeException now, but that path rethrows, which
+            // is the wrong outcome for an ordinary preparation fault.
+            discardAfterPreparationFailure(emailSender, e);
+            throw new EmailSendingException(SEND_FAILURE_MESSAGE, e);
+        }
+
+        try {
+            // Preserve the exact attempted message before transport. ARCHIVED describes successful
+            // capture of that immutable artifact; EmailLog remains the source of truth for whether
+            // delivery subsequently succeeded or failed, so failed attempts retain their audit record.
+            outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
+        } catch (SecurityException e) {
+            // Third and last site subject to the authorization-propagation rule above.
+            // OutboundEmailArchiveService.archive throws SecurityException for a missing
+            // _edoc w right and for patient-record access denial; wrapping either as an
+            // archive fault would tell the operator storage broke when access was refused.
+            discardPreparedQuietly(emailSender, e);
+            logger.warn("Outbound email archive authorization failed: {}", e.getClass().getSimpleName());
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            discardPreparedQuietly(emailSender, e);
+            logger.warn("Outbound email archive failed: {}", e.getClass().getSimpleName());
+            throw new OutboundEmailArchiveException(ARCHIVE_FAILURE_MESSAGE, e);
         }
     }
 

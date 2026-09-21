@@ -37,7 +37,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -67,7 +66,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.PharmacyInfoTo1;
  * JAX-RS endpoints (issue #2798): read endpoints require {@code _rx} "r" and
  * the create/update/delete mutators require {@code _rx} "w". Uses a testable
  * subclass that overrides {@code getLoggedInInfo()} to bypass the CXF HTTP
- * request context, with dependencies injected via reflection.</p>
+ * request context, with constructor-injected dependencies.</p>
  *
  * @since 2026-06-29
  * @see PharmacyService
@@ -90,25 +89,16 @@ class PharmacyServiceUnitTest extends CarlosUnitTestBase {
     private PharmacyService service;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         loggedInInfo.setIp("127.0.0.1");
 
-        service = new PharmacyService() {
+        service = new PharmacyService(mockPharmacyInfoDao, mockSecurityInfoManager) {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;
             }
         };
-
-        inject("pharmacyInfoDao", mockPharmacyInfoDao);
-        inject("securityInfoManager", mockSecurityInfoManager);
-    }
-
-    private void inject(String fieldName, Object value) throws Exception {
-        Field field = PharmacyService.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(service, value);
     }
 
     /**

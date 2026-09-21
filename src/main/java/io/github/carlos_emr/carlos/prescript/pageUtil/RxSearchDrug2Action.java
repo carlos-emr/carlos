@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -74,7 +75,8 @@ public final class RxSearchDrug2Action extends ActionSupport {
             throws IOException, ServletException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "missing required sec object (_rx)");
+            return NONE;
         }
 
         String method = request.getParameter("method");
@@ -184,29 +186,42 @@ public final class RxSearchDrug2Action extends ActionSupport {
     }
 
 
-    private String getInactiveDate () {
-        String din = request.getParameter("din");
-        String id = request.getParameter("id");
-
+    // FindSecBugs XSS_SERVLET: Jackson serializes every value into an application/json response;
+    // returning NONE prevents JSP/HTML rendering. See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Jackson ObjectNode serialization with application/json content type; no HTML rendering")
+    private String getInactiveDate() throws IOException {
+        response.setContentType("application/json");
+        response.setHeader("Cache-Control", "no-store");
+        ObjectNode result = OBJECT_MAPPER.createObjectNode();
         try {
-            RxDrugRef drugData = new RxDrugRef();
-            Vector vec = drugData.getInactiveDate(din);
-            vec.add(id);
-            jsonify(vec, response);
-
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            try {
-                if (!response.isCommitted()) {
-                    response.resetBuffer();
-                    response.setContentType("application/json");
-                    response.getWriter().write("{}");
-                }
-            } catch (java.io.IOException ioe) {
-                MiscUtils.getLogger().error("Error writing empty inactive date JSON response", ioe);
+            Vector<?> dates = drugref.getInactiveDate(request.getParameter("din"));
+            if (dates == null || dates.stream().anyMatch(value -> !(value instanceof java.util.Date))) {
+                throw new IllegalStateException("Invalid inactive-date response");
             }
+            result.put("checked", true);
+            if (dates.isEmpty()) {
+                result.putNull("inactiveDate");
+            } else {
+                java.util.Date date = (java.util.Date) dates.firstElement();
+                java.time.LocalDate calendarDate = date instanceof java.sql.Date sqlDate
+                        ? sqlDate.toLocalDate()
+                        : java.time.Instant.ofEpochMilli(date.getTime())
+                                .atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                result.put("inactiveDate", calendarDate.toString());
+            }
+            // Retain the previous results payload for existing consumers.
+            Vector<Object> legacyResults = new Vector<>(dates);
+            legacyResults.add(request.getParameter("id"));
+            result.set("results", OBJECT_MAPPER.valueToTree(legacyResults));
+        } catch (Exception e) {
+            logger.error("Inactive drug date lookup failed ({})", e.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            result.removeAll();
+            result.put("checked", false);
+            result.put("error", "Drug status could not be checked");
         }
-        return null;
+        response.getWriter().write(result.toString());
+        return NONE;
     }
 
     /**

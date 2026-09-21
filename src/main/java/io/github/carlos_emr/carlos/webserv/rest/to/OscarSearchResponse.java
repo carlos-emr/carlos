@@ -35,8 +35,15 @@ import java.util.List;
 
 import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlSeeAlso;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicMergedTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.PharmacyInfoTo1;
+import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
 
 @XmlRootElement(name = "List")
+// The erased T property cannot supply JAXB with the concrete list-item types.
+@XmlSeeAlso({DemographicTo1.class, DemographicMergedTo1.class, PharmacyInfoTo1.class, ProviderTransfer.class})
 public class OscarSearchResponse<T> implements Serializable {
 
     private static final long serialVersionUID = 1L;

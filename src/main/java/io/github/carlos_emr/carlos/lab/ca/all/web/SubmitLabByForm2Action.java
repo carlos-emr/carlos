@@ -205,8 +205,14 @@ public class SubmitLabByForm2Action extends ActionSupport {
         ByteArrayInputStream is = new ByteArrayInputStream(hl7.getBytes());
         String filePath = Utilities.saveFile(is, filename);
         is.close();
+        if (filePath == null) {
+            // Utilities.saveFile returns null when the write failed and the partial file was removed.
+            logger.error("Lab file save returned no path; aborting lab submission");
+            addActionError(getText("oscarMDS.createLab.submitError"));
+            return manage();
+        }
         File uploadDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        File file = PathValidationUtils.validateExistingPath(new File(filePath), uploadDir);
+        File file = PathValidationUtils.validateExistingPath(filePath, uploadDir);
 
         int checkFileUploadedSuccessfully;
         try (FileInputStream fis = new FileInputStream(file)) {

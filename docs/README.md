@@ -10,11 +10,12 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 
 | Category | Documents | Description |
 |----------|-----------|-------------|
-| **Installation & Deployment** | [Installing CARLOS (.deb packages)](install-deb.md)<br>[carlos-ctl administration reference](carlos-ctl.md) | Single-server production install on Ubuntu 26.04: packages, an illustrated installer walkthrough, quickstart, day-two administration, troubleshooting, backups, TLS — plus the post-install configuration and `carlos-ctl` verb reference. Development environments use the [devcontainer](../.devcontainer/README.md); a container-based deployment is under development at [carlos-podman](https://github.com/carlos-emr/carlos-podman) |
+| **Installation & Deployment** | [Installing CARLOS (.deb packages)](install-deb.md)<br>[carlos-ctl administration reference](carlos-ctl.md)<br>[Importing an OSCAR 19 clinic (.deb)](o19-import-deb.md) | Single-server production install on Ubuntu 26.04: packages, an illustrated installer walkthrough, quickstart, day-two administration, troubleshooting, backups, TLS — plus the post-install configuration and `carlos-ctl` verb reference. Development environments use the [devcontainer](../.devcontainer/README.md); a container-based deployment is under development at [carlos-podman](https://github.com/carlos-emr/carlos-podman) |
+| **Migration** | [OSCAR 19 → CARLOS Migration Plan](oscar19-to-carlos-migration-plan.md)<br>[Importing an OSCAR 19 clinic (.deb)](o19-import-deb.md)<br>[OSCAR 19 importer — review ledger](o19-review-ledger.md)<br>[Jasypt → Spring Crypto](migration/jasypt-to-spring-crypto.md) | Design and operational spec plus the operator runbook for the experimental OSCAR 19 clinic import, the per-finding audit record of the review behind it, and the credential-encryption migration |
 | **Testing** | [📂 test/](test/)<br>[📂 ui-tests/](ui-tests/)<br>[eForm PDF Render Smoke Test](ui-tests/eform-pdf-render-smoke-test.md) | Modern test framework docs, browser-backed UI testing, and the eForm PDF smoke runbook |
 | **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
 | **Security** | [Password System](Password_System.md) | Authentication and security architecture |
-| **APIs** | [API Collections Index](api-collections-index.md) | REST API documentation and collections |
+| **APIs** | [API Collections Index](api-collections-index.md)<br>[Cortico CARLOS API Compatibility](api/cortico-carlos-compatibility.md)<br>[CARLOS API Testing Checklist](../API-TESTING-CARLOS.md) | REST/SOAP API documentation, collections, integration compatibility notes, and the manual API testing worksheet |
 | **Development** | [Release Process](release-process.md)<br>[DS Guideline](dsGuideline.md)<br>[Copyright Header (Magenta)](copyright-header-magenta.md) | Branching, releases, and development standards |
 
 ### 🧪 Testing Documentation
@@ -57,7 +58,7 @@ Key testing resources:
 2. **Writing Tests**: Start with [test/README.md](test/README.md)
 3. **Struts Migration**: Review [Struts Actions Summary](struts-actions-summary.md)
 4. **New Pages and JSP Routing**: Review [Struts Web Endpoints](struts-web-endpoints.md)
-5. **APIs**: Check [API Collections Index](api-collections-index.md)
+5. **APIs**: Check [API Collections Index](api-collections-index.md), [Cortico CARLOS API Compatibility](api/cortico-carlos-compatibility.md), and the [CARLOS API Testing Checklist](../API-TESTING-CARLOS.md)
 6. **Security**: Understand [Password System](Password_System.md)
 
 ### For New Team Members
@@ -73,7 +74,7 @@ Key testing resources:
 
 **CARLOS EMR** is a Canadian healthcare EMR system with:
 - Multi-jurisdictional compliance (BC, ON, generic)
-- Java 21, Spring 6.2.17, Struts 7.1.1, Hibernate 6.x, Maven 3, Tomcat 10.1, MariaDB/MySQL
+- Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 - HIPAA/PIPEDA compliance for PHI protection
 - Comprehensive medical modules (billing, prescriptions, labs, etc.)
 

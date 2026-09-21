@@ -36,199 +36,179 @@ import io.github.carlos_emr.carlos.commn.model.JSONAction;
 import io.github.carlos_emr.carlos.commn.model.ScratchPad;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.LogSafe;
-import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
 
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Map;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.servlet.http.HttpSession;
 
 /**
+ * Displays and saves the session provider's scratchpad and manages owned versions.
+ * Named operations are dispatched explicitly so invalid requests cannot become saves.
+ * Scratchpad is a personal session-provider feature, exposed without a separate
+ * module privilege in the user-settings menu. Every entry point requires a session
+ * provider; version operations additionally enforce the stored provider's ownership.
  *
  * @author jay
  */
 public class Scratch2Action extends JSONAction {
 
+    private static final String SUCCESS_FIELD = "success";
+    private static final String SESSION_PROVIDER_REQUIRED = "Session provider required";
+
     private final ScratchPadDao scratchPadDao = SpringUtils.getBean(ScratchPadDao.class);
 
+    /**
+     * Displays an owned scratchpad version on GET or HEAD.
+     *
+     * @return {@code scratchPadVersion} for an owned record, or {@link #NONE} after
+     *         HTTP 401 (no session provider), 405 (wrong verb), 400 (invalid ID), or
+     *         404 (missing or foreign version)
+     * @throws Exception if version lookup or response generation fails
+     */
     public String showVersion() throws Exception {
-    	String id = request.getParameter("id");
-
-    	if (id == null || id.trim().isEmpty()) {
-    		throw new IllegalArgumentException("Missing required parameter: id");
-    	}
-
-		try {
-    		ScratchPad scratchPad = scratchPadDao.find(Integer.parseInt(id));
-    		if (scratchPad == null) {
-    			throw new IllegalArgumentException("ScratchPad not found for id: " + id);
-    		}
-    		request.setAttribute("ScratchPad", scratchPad);
-    		return "scratchPadVersion";
-    	} catch (NumberFormatException e) {
-    		throw new IllegalArgumentException("Invalid id parameter: must be a valid integer", e);
-    	}
+        if (sessionProviderNo() == null) return rejectRequest(HttpServletResponse.SC_UNAUTHORIZED, SESSION_PROVIDER_REQUIRED);
+        if (!"GET".equals(request.getMethod()) && !"HEAD".equals(request.getMethod())) {
+            return rejectRequest(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "GET or HEAD required");
+        }
+        ScratchPad scratch = findOwnedVersion();
+        if (scratch == null) return NONE;
+        request.setAttribute("ScratchPad", scratch);
+        return "scratchPadVersion";
     }
-    
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public String execute() throws Exception {
 
-        String method = request.getParameter("method");
-        if ("POST".equalsIgnoreCase(request.getMethod())) {
-            if ("delete".equals(method)) {
-                return delete();
-            }
-            // POST without a method parameter is the normal scratchpad save operation.
-        } else {
-            if ("showVersion".equals(method)) {
-                return showVersion();
-            }
-            return SUCCESS;
-        }
-        if ("GET".equalsIgnoreCase(request.getMethod())) {
-            return "success";
-        }
-
-        String providerNo =  (String) request.getSession().getAttribute("user");
-        String pNo = request.getParameter("providerNo");
-        if (providerNo == null || providerNo.trim().isEmpty()) {
+    private ScratchPad findOwnedVersion() {
+        String providerNo = sessionProviderNo();
+        if (providerNo == null || providerNo.isBlank()) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return null;
         }
-
-        if (isRequestForSessionProvider(providerNo, pNo)){
-        String id = request.getParameter("id");
-        String scratchPad = request.getParameter("scratchpad");
-        String windowId = request.getParameter("windowId");
-        String returnId;
-        String returnText;
-        ScratchData scratch = new ScratchData();
-        Map<String, String> h = scratch.getLatest(providerNo);
-
-        if (h == null){  //FIRST TIME USE
-           returnId = scratch.insert(providerNo, scratchPad);
-           returnText = scratchPad;
-
-        }else {
-
-           String textValue = h.get("text");
-           if (textValue == null) {
-               MiscUtils.getLogger().error("ScratchPad text value is null for provider: {}", Encode.forJava(providerNo));
-               response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-               return null;
-           }
-           returnText = textValue.trim();
-
-            //Get current Id in scratch table
-           String idValue = h.get("id");
-           if (idValue == null || idValue.trim().isEmpty()) {
-               MiscUtils.getLogger().error("ScratchPad id value is null or empty for provider: {}", Encode.forJava(providerNo));
-               response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-               return null;
-           }
-
-           int databaseId;
-           try {
-               databaseId = Integer.parseInt(idValue);
-           } catch (NumberFormatException e) {
-               MiscUtils.getLogger().error("Invalid ScratchPad id format: {}", Encode.forJava(idValue), e);
-               response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-               return null;
-           }
-           returnId = ""+databaseId;
-
-           if (id == null || id.trim().isEmpty()) {
-               MiscUtils.getLogger().error("Request id parameter is null or empty");
-               response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-               return null;
-           }
-
-           Logger logger = MiscUtils.getLogger();
-           if (logger.isDebugEnabled()) {
-               String safeRequestId = LogSafe.sanitize(id);
-               logger.debug("database Id = {} request id {}", databaseId, safeRequestId);
-           }
-
-           int requestId;
-           try {
-               requestId = Integer.parseInt(id);
-           } catch (NumberFormatException e) {
-               MiscUtils.getLogger().error("Invalid request id format: {}", LogSafe.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-               response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-               return null;
-           }
-
-		   if (databaseId > requestId){
-			   //check to see if the id in database is higher than in the request
-              MiscUtils.getLogger().debug(" Database id greater than id");
-
-		   }else if (isTextDifferent(scratchPad, returnText)){
-	           returnId = scratch.insert(providerNo, scratchPad);   //save new record and return new id.
-               returnText = scratchPad;
-               MiscUtils.getLogger().debug("dirty field set");
-           }
-        }
-			ObjectNode jsonObject = objectMapper.createObjectNode();
-			jsonObject.put("id", Encode.forHtmlContent(returnId));
-			jsonObject.put("text", Encode.forHtmlContent(returnText));
-			jsonObject.put("windowId", Encode.forHtmlContent(windowId));
-			jsonResponse(jsonObject);
-
-        }else {
-			Logger logger = MiscUtils.getLogger();
-			if (logger.isErrorEnabled()) {
-				logger.error("Scratch pad provider mismatch; request and session provider values omitted from log");
-			}
-			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            ObjectNode jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
-            jsonObject.put("message", "Provider mismatch");
-            jsonResponse(jsonObject);
-        }
-        
-        return null;      
-    }
-    
-    public String delete() {
-    	String id = request.getParameter("id");
-	    ObjectNode jsonObject = objectMapper.createObjectNode();
-
+        int id;
         try {
-            if (id != null && !id.isEmpty()) {
-                ScratchPad scratch = scratchPadDao.find(Integer.parseInt(id));
-                if (scratch != null) {
-                    scratch.setStatus(false);
-                    scratchPadDao.merge(scratch);
-                    jsonObject.put("id", Encode.forHtmlContent(id));
-                    jsonObject.put("version", scratch.getDateTime() != null
-                        ? scratch.getDateTime().toInstant().toString()
-                        : null);
-                    jsonObject.put("success", true);
-                } else {
-                    MiscUtils.getLogger().warn("ScratchPad not found for id: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    jsonObject.put("success", false);
-                }
-            } else {
-                jsonObject.put("success", false);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to delete ScratchPad entry with id: {}", LogSafe.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            // Ensure callers can detect the failure via HTTP status and JSON payload
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
+            id = Integer.parseInt(request.getParameter("id"));
+            if (id <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException ex) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
         }
-	    jsonResponse(jsonObject);
-    	return null;
+        ScratchPad scratch = scratchPadDao.find(id);
+        // Use the stored owner, never the caller's providerNo parameter.
+        if (scratch == null || !providerNo.equals(scratch.getProviderNo())) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return null;
+        }
+        return scratch;
     }
 
-	private boolean isTextDifferent(String scratchPad, String returnText) {
-		String s1 = scratchPad == null ? "" : scratchPad.trim();
-		String s2 = returnText == null ? "" : returnText.trim();
-		return !s1.equals(s2);
-	}
+    /**
+     * Routes version reads and deletes explicitly. A POST without an operation, or
+     * with method=save, saves the session provider's scratchpad. Unknown operations
+     * return HTTP 400 instead of falling through to the save path. The text parameter
+     * is required, but an empty string remains a valid deliberate clear.
+     *
+     * @return a view result, or {@link #NONE} after a direct response; errors use
+     *         HTTP 400 for invalid input, 401 for no session provider, 403 for a
+     *         provider mismatch, 404 for a missing/foreign version, 405 for a wrong
+     *         verb, 409 for a stale save revision, or 500 for invalid stored data or deletion failure
+     * @throws Exception if scratchpad storage or response generation fails
+     */
+    @Override
+    public String execute() throws Exception {
+        String providerNo = sessionProviderNo();
+        if (providerNo == null) return rejectRequest(HttpServletResponse.SC_UNAUTHORIZED, SESSION_PROVIDER_REQUIRED);
+        String method = request.getParameter("method");
+        if ("showVersion".equals(method)) return showVersion();
+        if ("delete".equals(method)) return delete();
+        if (method != null && !method.isBlank() && !"save".equals(method)) {
+            return rejectRequest(HttpServletResponse.SC_BAD_REQUEST, "Unknown scratchpad operation");
+        }
+        if (!"POST".equals(request.getMethod())) {
+            return "save".equals(method)
+                    ? rejectRequest(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required")
+                    : SUCCESS;
+        }
+
+        if (!isRequestForSessionProvider(providerNo, request.getParameter("providerNo"))) {
+            MiscUtils.getLogger().error("Scratch pad provider mismatch; request and session provider values omitted from log");
+            return rejectRequest(HttpServletResponse.SC_FORBIDDEN, "Provider mismatch");
+        }
+        String text = request.getParameter("scratchpad");
+        if (text == null) return rejectRequest(HttpServletResponse.SC_BAD_REQUEST, "Scratchpad text is required");
+        int expectedId;
+        try {
+            expectedId = Integer.parseInt(request.getParameter("id"));
+            if (expectedId < 0) throw new NumberFormatException();
+        } catch (NumberFormatException ex) {
+            return rejectRequest(HttpServletResponse.SC_BAD_REQUEST, "Valid scratchpad revision required");
+        }
+        try {
+            ScratchPadDao.SaveResult saved = scratchPadDao.saveIfCurrent(providerNo, expectedId, text);
+            if (saved.conflict()) {
+                return rejectRequest(HttpServletResponse.SC_CONFLICT,
+                        "Another window changed this scratchpad. Your unsaved text has been kept. Open the current version and reconcile your changes before saving.");
+            }
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put(SUCCESS_FIELD, true);
+            result.put("id", saved.version().getId().toString());
+            // JSON is a data response, not HTML. The editor assigns text to .value;
+            // encoding here would corrupt literal entities, plus signs and percent sequences.
+            result.put("text", saved.version().getText());
+            jsonResponse(result);
+        } catch (RuntimeException ex) {
+            MiscUtils.getLogger().error("Unable to save scratchpad ({})", ex.getClass().getSimpleName());
+            return rejectRequest(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Scratchpad could not be saved. Your unsaved text has been kept; please retry.");
+        }
+        return NONE;
+    }
+
+    /**
+     * Soft-deletes a session provider's owned version on POST and writes JSON.
+     *
+     * @return {@link #NONE} after success or HTTP 401 (no session provider),
+     *         405 (wrong verb), 400 (invalid ID), 404 (missing/foreign version), or
+     *         500 (persistence failure); failures contain {@code success:false}
+     */
+    public String delete() {
+        if (sessionProviderNo() == null) return rejectRequest(HttpServletResponse.SC_UNAUTHORIZED, SESSION_PROVIDER_REQUIRED);
+        ObjectNode result = objectMapper.createObjectNode();
+        result.put(SUCCESS_FIELD, false);
+        if (!"POST".equals(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            jsonResponse(result);
+            return NONE;
+        }
+        ScratchPad scratch = findOwnedVersion();
+        if (scratch == null) {
+            jsonResponse(result);
+            return NONE;
+        }
+        try {
+            scratch.setStatus(false);
+            scratchPadDao.merge(scratch);
+            result.put("id", scratch.getId().toString());
+            result.put("version", scratch.getDateTime() != null
+                    ? java.time.Instant.ofEpochMilli(scratch.getDateTime().getTime()).toString() : null);
+            result.put(SUCCESS_FIELD, true);
+        } catch (RuntimeException ex) {
+            MiscUtils.getLogger().error("Unable to delete scratchpad version ({})", ex.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+        jsonResponse(result);
+        return NONE;
+    }
+
+    private String sessionProviderNo() {
+        HttpSession session = request.getSession(false);
+        Object provider = session == null ? null : session.getAttribute("user");
+        return provider instanceof String value && !value.isBlank() ? value : null;
+    }
+
+    private String rejectRequest(int status, String message) {
+        response.setStatus(status);
+        ObjectNode result = objectMapper.createObjectNode();
+        result.put(SUCCESS_FIELD, false);
+        result.put("message", message);
+        jsonResponse(result);
+        return NONE;
+    }
 
 	static boolean isRequestForSessionProvider(String sessionProviderNo, String requestProviderNo) {
 		return sessionProviderNo != null

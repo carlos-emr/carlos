@@ -1838,7 +1838,7 @@
     "groupId" : "org.apache.cxf",
     "artifactId" : "cxf-rt-transports-local",
     "version" : "4.1.8",
-    "scope" : "compile",
+    "scope" : "test",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:km+JiKWG8BeAospAfNWgfRtiYBorA9PF1nnwvkgwkteY8AROX2EBryYFxnQ4tmKxEsg07CZIAQalCuVsj4bIdA=="
@@ -2477,27 +2477,27 @@
   }, {
     "groupId" : "org.bouncycastle",
     "artifactId" : "bcpkix-jdk18on",
-    "version" : "1.84",
+    "version" : "1.86",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:AWRNfgxgQeqMhin2rXP3IG76J5fZVNoVB91DxdJioWEZTthOlgI0z1xTeHAz8RgapJZeDW6/6CygQN4TyjB1ZQ=="
+    "integrity" : "sha512:KSPA2jhItH0ZU726OuUEQfOjQW82RqJiRMCAQU8x+96HXk5QYZoO80ZwyHc2ekVDijRiYPyLBH51O1U969QLNw=="
   }, {
     "groupId" : "org.bouncycastle",
     "artifactId" : "bcprov-jdk18on",
-    "version" : "1.84",
+    "version" : "1.86",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:S35WloMAI7rRWU2fl2aJj3gBjsfW7DTeI/KmaDsCgDuS/+irXSHxpxfrT6+o4i3POktt0nW9hsfLAmCZh/6S9Q=="
+    "integrity" : "sha512:RQKFEoGSnvZFMWrpatfW22pU0RzgJKZr7GVMLu9iuA8XS2eioV3oayaY8ztpZFniHs/sSoRjUPQpc5TpozHEOw=="
   }, {
     "groupId" : "org.bouncycastle",
     "artifactId" : "bcutil-jdk18on",
-    "version" : "1.84",
+    "version" : "1.86",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:4AGyRHI/s8TR4Ghiu4V1EgFaktfhhlCuNEej0lgnTsjtN7jLqVg5ewD43XNGOUPpqUid1dvdviSyTNb65cqKYg=="
+    "integrity" : "sha512:rrkTj5bVxISRl0l0U0uzsHkxoY02zL7YKJQK4DYfXvj1sK1sd2oa67TSwEFu34t9FD2CG/5xNteUjE5YB7HEJg=="
   }, {
     "groupId" : "org.checkerframework",
     "artifactId" : "checker-qual",

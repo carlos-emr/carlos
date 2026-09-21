@@ -55,11 +55,11 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
 
     private Integer serviceId;
 
-    @ManyToOne(fetch = FetchType.EAGER, targetEntity = ProfessionalSpecialist.class, cascade = CascadeType.MERGE)
+    @ManyToOne(fetch = FetchType.LAZY, targetEntity = ProfessionalSpecialist.class, cascade = CascadeType.MERGE)
     @JoinColumn(name = "specId", referencedColumnName = "specId")
     private ProfessionalSpecialist professionalSpecialist;
 
-    @ManyToOne(fetch = FetchType.EAGER, targetEntity = DemographicContact.class)
+    @ManyToOne(fetch = FetchType.LAZY, targetEntity = DemographicContact.class)
     @JoinColumn(name = "demographicContactId", referencedColumnName = "id")
     private DemographicContact demographicContact;
 
@@ -85,7 +85,8 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
     private String concurrentProblems;
     private String urgency;
     private String appointmentInstructions;
-    private boolean patientWillBook;
+    // The published schema permits NULL for legacy/imported requests.
+    private Boolean patientWillBook = Boolean.FALSE;
 
     @Column(name = "site_name")
     private String siteName;
@@ -105,6 +106,8 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
     private Integer fdid = null;
     private String source;
 
+    // This joins a non-primary-key value. Hibernate resolves it during entity loading even
+    // with LAZY; retain explicit eager loading for detached appointment-instruction labels.
     @ManyToOne(fetch = FetchType.EAGER, targetEntity = LookupListItem.class)
     @JoinColumn(name = "appointmentInstructions", referencedColumnName = "value", insertable = false, updatable = false)
     private LookupListItem lookupListItem;
@@ -245,8 +248,14 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
         this.siteName = siteName;
     }
 
+    /**
+     * Reports whether the patient will book the appointment. Legacy requests
+     * with a persisted {@code null} booking flag return {@code false}.
+     *
+     * @return {@code true} only when the stored booking flag is explicitly true
+     */
     public boolean isPatientWillBook() {
-        return patientWillBook;
+        return Boolean.TRUE.equals(patientWillBook);
     }
 
     public void setPatientWillBook(boolean patientWillBook) {

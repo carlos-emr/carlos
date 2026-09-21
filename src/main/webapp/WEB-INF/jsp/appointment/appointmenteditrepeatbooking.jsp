@@ -72,12 +72,11 @@
 --%>
 <%@ page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
-<%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.service.RecurringAppointmentService" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -91,8 +90,9 @@
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
+    boolean bEdit = request.getParameter("appointment_no") != null && !request.getParameter("appointment_no").isBlank();
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="u" reverse="<%=true%>">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights='<%= bEdit ? "u" : "w" %>' reverse="<%=true%>">
     <%authed = false; %>
     <%response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment");%>
 </security:oscarSec>
@@ -104,237 +104,45 @@
 
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-    boolean bEdit = request.getParameter("appointment_no") != null;
 %>
 
 <%
-    AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
-    OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-    SimpleDateFormat dayFormatter = new SimpleDateFormat("yyyy-MM-dd");
-    SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss");
-    SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-%>
-<%!
-    GregorianCalendar addDateByYMD(GregorianCalendar cal, String unit, int n) {
-        if (unit.equals("day")) {
-            cal.add(Calendar.DATE, n);
-        } else if (unit.equals("month")) {
-            cal.add(Calendar.MONTH, n);
-        } else if (unit.equals("year")) {
-            cal.add(Calendar.YEAR, n);
-        }
-        return cal;
-    }
-%>
-<%
+    String recurrenceMessage = null;
+    boolean recurrenceSucceeded = false;
     if (request.getParameter("groupappt") != null) {
-        boolean bSucc = false;
-        String createdDateTime = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd HH:mm:ss");
-        String userName = (String) session.getAttribute("userlastname") + ", " + (String) session.getAttribute("userfirstname");
-        String everyNum = request.getParameter("everyNum") != null ? request.getParameter("everyNum") : "0";
-        String everyUnit = request.getParameter("everyUnit") != null ? request.getParameter("everyUnit") : "day";
-        String endDate = request.getParameter("endDate") != null ? request.getParameter("endDate") : UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy");
-        int delta = Integer.parseInt(everyNum);
-        if (everyUnit.equals("week")) {
-            delta = delta * 7;
-            everyUnit = "day";
+        Map<String, String> values = new HashMap<>();
+        for (String key : request.getParameterMap().keySet()) values.put(key, request.getParameter(key));
+        try {
+            String program = (String) session.getAttribute("programId_oscarView");
+            int count = SpringUtils.getBean(RecurringAppointmentService.class).apply(
+                    LoggedInInfo.getLoggedInInfoFromSession(request), values,
+                    program == null || program.isBlank() ? 0 : Integer.parseInt(program));
+            String operation = request.getParameter("groupappt");
+            String verb = "Add Group Appointment".equals(operation) ? "created"
+                    : "Group Delete".equals(operation) ? "deleted"
+                    : "Group Cancel".equals(operation) ? "cancelled" : "updated";
+            recurrenceMessage = count == 0 ? "No appointments created: repeats already exist for the selected dates."
+                    : count + " appointment(s) " + verb + ".";
+            recurrenceSucceeded = true;
+        } catch (IllegalArgumentException ex) {
+            recurrenceMessage = ex.getMessage();
+        } catch (SecurityException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            MiscUtils.getLogger().error("Recurring appointment operation failed; transaction rolled back", ex);
+            recurrenceMessage = "The recurring appointment operation failed. No changes were saved. Please try again.";
         }
-        GregorianCalendar gCalDate = new GregorianCalendar();
-        GregorianCalendar gEndDate = (GregorianCalendar) gCalDate.clone();
-        gEndDate.setTime(UtilDateUtilities.StringToDate(endDate, "dd/MM/yyyy"));
-
-        // repeat adding
-        if (request.getParameter("groupappt").equals("Add Group Appointment")) {
-            String[] param = new String[19];
-            int rowsAffected = 0, datano = 0;
-
-            java.util.Date iDate = ConversionUtils.fromDateString(request.getParameter("appointment_date"));
-
-            while (true) {
-                Appointment a = new Appointment();
-                a.setProviderNo(request.getParameter("provider_no"));
-                a.setAppointmentDate(iDate);
-                a.setStartTime(ConversionUtils.fromTimeStringNoSeconds(request.getParameter("start_time")));
-                a.setEndTime(ConversionUtils.fromTimeStringNoSeconds(request.getParameter("end_time")));
-                a.setName(request.getParameter("keyword"));
-                a.setNotes(request.getParameter("notes"));
-                a.setReason(request.getParameter("reason"));
-                a.setLocation(request.getParameter("location"));
-                a.setResources(request.getParameter("resources"));
-                a.setType(request.getParameter("type"));
-                a.setStyle(request.getParameter("style"));
-                a.setBilling(request.getParameter("billing"));
-                a.setStatus(request.getParameter("status"));
-                a.setCreateDateTime(new java.util.Date());
-                a.setCreator(userName);
-                a.setRemarks(request.getParameter("remarks"));
-                if (request.getParameter("demographic_no") != null && !(request.getParameter("demographic_no").equals(""))) {
-                    a.setDemographicNo(Integer.parseInt(request.getParameter("demographic_no")));
-                } else {
-                    a.setDemographicNo(0);
-                }
-
-                a.setProgramId(Integer.parseInt((String) request.getSession().getAttribute("programId_oscarView")));
-                a.setUrgency(request.getParameter("urgency"));
-                a.setReasonCode(Integer.parseInt(request.getParameter("reasonCode")));
-                appointmentDao.persist(a);
-
-
-                gCalDate.setTime(iDate);
-                gCalDate = addDateByYMD(gCalDate, everyUnit, delta);
-
-                if (gCalDate.after(gEndDate))
-                    break;
-                else
-                    iDate = gCalDate.getTime();
-            }
-            bSucc = true;
+    }
+    String selectedUnit = request.getParameter("everyUnit");
+    String selectedInterval = request.getParameter("everyNum");
+    String selectedEnd = request.getParameter("endDate");
+    if (selectedEnd == null) {
+        try {
+            selectedEnd = java.time.LocalDate.parse(request.getParameter("appointment_date")).plusMonths(1)
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"));
+        } catch (RuntimeException ex) {
+            selectedEnd = UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy");
         }
-
-
-        // repeat updating
-        if (request.getParameter("groupappt").equals("Group Update") || request.getParameter("groupappt").equals("Group Cancel") ||
-                request.getParameter("groupappt").equals("Group Delete")) {
-            int rowsAffected = 0, datano = 0;
-
-            Object[] paramE = new Object[10];
-            Appointment aa = appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no")));
-            if (aa != null) {
-                paramE[0] = ConversionUtils.toDateString(aa.getAppointmentDate());
-                paramE[1] = aa.getProviderNo();
-                paramE[2] = ConversionUtils.toTimeStringNoSeconds(aa.getStartTime());
-                paramE[3] = ConversionUtils.toTimeStringNoSeconds(aa.getEndTime());
-                paramE[4] = aa.getName();
-                paramE[5] = aa.getNotes();
-                paramE[6] = aa.getReason();
-                paramE[7] = ConversionUtils.toTimestampString(aa.getCreateDateTime());
-                paramE[8] = aa.getCreator();
-                paramE[9] = String.valueOf(aa.getDemographicNo());
-
-            }
-
-            // group cancel
-            if (request.getParameter("groupappt").equals("Group Cancel")) {
-                Object[] param = new Object[13];
-                param[0] = "C";
-                param[1] = createdDateTime;
-                param[2] = userName;
-                for (int k = 0; k < paramE.length; k++) param[k + 3] = paramE[k];
-
-                // repeat doing
-                while (true) {
-                    Appointment appt = appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no")));
-                    appointmentArchiveDao.archiveAppointment(appt);
-
-                    List<Appointment> appts = appointmentDao.find(dayFormatter.parse((String) param[3]), (String) param[4], ConversionUtils.fromTimeStringNoSeconds((String) param[5]), ConversionUtils.fromTimeStringNoSeconds((String) param[6]),
-                            (String) param[7], (String) param[8], (String) param[9], ConversionUtils.fromTimestampString((String) param[10]), (String) param[11], Integer.parseInt((String) param[12]));
-
-                    for (Appointment a : appts) {
-                        a.setStatus("C");
-                        a.setUpdateDateTime(ConversionUtils.fromTimestampString(createdDateTime));
-                        a.setLastUpdateUser(userName);
-                        appointmentDao.merge(a);
-                        rowsAffected++;
-                    }
-
-                    gCalDate.setTime(UtilDateUtilities.StringToDate((String) param[3], "yyyy-MM-dd"));
-                    gCalDate = addDateByYMD(gCalDate, everyUnit, delta);
-
-                    if (gCalDate.after(gEndDate)) break;
-                    else param[3] = UtilDateUtilities.DateToString(gCalDate.getTime(), "yyyy-MM-dd");
-                }
-                bSucc = true;
-            }
-
-            // group delete
-            if (request.getParameter("groupappt").equals("Group Delete")) {
-                Object[] param = new Object[10];
-                for (int k = 0; k < paramE.length; k++) param[k] = paramE[k];
-
-                // repeat doing
-                while (true) {
-
-                    List<Appointment> appts = appointmentDao.find(dayFormatter.parse((String) param[0]), (String) param[1], ConversionUtils.fromTimeStringNoSeconds((String) param[2]), ConversionUtils.fromTimeStringNoSeconds((String) param[3]),
-                            (String) param[4], (String) param[5], (String) param[6], ConversionUtils.fromTimestampString((String) param[7]), (String) param[8], Integer.parseInt((String) param[9]));
-                    for (Appointment appt : appts) {
-                        appointmentArchiveDao.archiveAppointment(appt);
-                        appointmentDao.remove(appt.getId());
-                        rowsAffected++;
-                    }
-
-                    gCalDate.setTime(UtilDateUtilities.StringToDate((String) param[0], "yyyy-MM-dd"));
-                    gCalDate = addDateByYMD(gCalDate, everyUnit, delta);
-
-                    if (gCalDate.after(gEndDate)) break;
-                    else param[0] = UtilDateUtilities.DateToString(gCalDate.getTime(), "yyyy-MM-dd");
-                }
-                bSucc = true;
-            }
-
-            if (request.getParameter("groupappt").equals("Group Update")) {
-                Object[] param = new Object[22];
-                param[0] = MyDateFormat.getTimeXX_XX_XX(request.getParameter("start_time"));
-                param[1] = MyDateFormat.getTimeXX_XX_XX(request.getParameter("end_time"));
-                param[2] = request.getParameter("keyword");
-                param[3] = request.getParameter("demographic_no");
-                param[4] = request.getParameter("notes");
-                param[5] = request.getParameter("reason");
-                param[6] = request.getParameter("location");
-                param[7] = request.getParameter("resources");
-                param[8] = createdDateTime;
-                param[9] = userName;
-                param[10] = request.getParameter("urgency");
-                param[11] = request.getParameter("reasonCode");
-                for (int k = 0; k < paramE.length; k++)
-                    param[k + 12] = paramE[k];
-
-                // repeat doing
-                while (true) {
-                    List<Appointment> appts = appointmentDao.find(dayFormatter.parse((String) paramE[0]), (String) paramE[1], ConversionUtils.fromTimeStringNoSeconds((String) paramE[2]), ConversionUtils.fromTimeStringNoSeconds((String) paramE[3]),
-                            (String) paramE[4], (String) paramE[5], (String) paramE[6], ConversionUtils.fromTimestampString((String) paramE[7]), (String) paramE[8], Integer.parseInt((String) paramE[9]));
-                    for (Appointment appt : appts) {
-                        appointmentArchiveDao.archiveAppointment(appt);
-                        appt.setStartTime(ConversionUtils.fromTimeString(MyDateFormat.getTimeXX_XX_XX(request.getParameter("start_time"))));
-                        appt.setEndTime(ConversionUtils.fromTimeString(MyDateFormat.getTimeXX_XX_XX(request.getParameter("end_time"))));
-                        appt.setName(request.getParameter("keyword"));
-                        appt.setDemographicNo(Integer.parseInt((String) paramE[9]));
-                        appt.setNotes(request.getParameter("notes"));
-                        appt.setReason(request.getParameter("reason"));
-                        appt.setLocation(request.getParameter("location"));
-                        appt.setResources(request.getParameter("resources"));
-                        appt.setUpdateDateTime(ConversionUtils.fromTimestampString(createdDateTime));
-                        appt.setLastUpdateUser(userName);
-                        appt.setUrgency(request.getParameter("urgency"));
-                        appt.setReasonCode(Integer.parseInt(request.getParameter("reasonCode")));
-                        appointmentDao.merge(appt);
-                        rowsAffected++;
-                    }
-
-
-                    gCalDate.setTime(UtilDateUtilities.StringToDate((String) param[12], "yyyy-MM-dd"));
-                    gCalDate = addDateByYMD(gCalDate, everyUnit, delta);
-
-                    if (gCalDate.after(gEndDate)) break;
-                    else param[12] = UtilDateUtilities.DateToString(gCalDate.getTime(), "yyyy-MM-dd");
-                }
-                bSucc = true;
-            }
-        }
-
-        if (bSucc) {
-%>
-<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
-<script type="text/javascript">
-    self.opener.refresh();
-    self.close();
-</script>
-<%
-        } else {
-%>
-<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
-<%
-        }
-        return;
     }
 %>
 <!DOCTYPE html>
@@ -377,6 +185,19 @@
 
     <body>
     <div class="container">
+        <% if (recurrenceMessage != null) { %>
+        <div id="recurrence-result" role="<%= recurrenceSucceeded ? "status" : "alert" %>"
+             class="alert <%= recurrenceSucceeded ? "alert-success" : "alert-danger" %>"><%= SafeEncode.forHtml(recurrenceMessage) %></div>
+        <% } %>
+        <% if (recurrenceSucceeded) { %>
+        <button type="button" class="btn btn-primary" onclick="window.close()"><fmt:message key="global.btnClose"/></button>
+        <script>
+            if (window.opener && !window.opener.closed && typeof window.opener.refresh === 'function') {
+                window.opener.refresh();
+            }
+        </script>
+        <% } else { %>
+        <p><fmt:message key='<%= bEdit ? "appointment.recurrence.guidance" : "appointment.recurrence.newGuidance" %>'/></p>
 
         <div id="jsAlertBanner"
              class="alert alert-danger alert-dismissible"
@@ -417,40 +238,40 @@
                             <%
                                 for (int i = 1; i < 12; i++) {
                             %>
-                            <option value="<%=i%>"><%=i%></option>
+                            <option value="<%=i%>" <%= String.valueOf(i).equals(selectedInterval) ? "selected" : "" %>><%=i%></option>
                             <%
                                 }
                             %>
                         </select>
                         <input type="hidden" name="everyUnit" id="everyUnit"
                                class="form-control form-control-sm" style="width: 8rem;"
-                               value="day" readonly>
+                               value="<%= SafeEncode.forHtmlAttribute(selectedUnit == null ? "day" : selectedUnit) %>" readonly>
 
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitDay"
-                                   value="day" checked onclick='onCheck(this, "day")'>
+                                   value="day" <%= selectedUnit == null || "day".equals(selectedUnit) ? "checked" : "" %> onclick='onCheck(this, "day")'>
                             <label class="form-check-label" for="dateUnitDay">
                                 <fmt:message key="day"/>
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitWeek"
-                                   value="week" onclick='onCheck(this, "week")'>
+                                   value="week" <%= "week".equals(selectedUnit) ? "checked" : "" %> onclick='onCheck(this, "week")'>
                             <label class="form-check-label" for="dateUnitWeek">
                                 <fmt:message key="week"/>
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitMonth"
-                                   value="month" onclick='onCheck(this, "month")'>
+                                   value="month" <%= "month".equals(selectedUnit) ? "checked" : "" %> onclick='onCheck(this, "month")'>
                             <label class="form-check-label" for="dateUnitMonth">
                                 <fmt:message key="month"/>
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnitYear"
-                                   value="year" onclick='onCheck(this, "year")'>
+                                   value="year" <%= "year".equals(selectedUnit) ? "checked" : "" %> onclick='onCheck(this, "year")'>
                             <label class="form-check-label" for="dateUnitYear">
                                 <fmt:message key="year"/>
                             </label>
@@ -466,7 +287,7 @@
                     <div class="input-group">
                         <input type="text" name="endDate" id="endDate"
                                class="form-control form-control-sm" style="width: 9rem;"
-                               value="<carlos:encode value='<%= UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy") %>' context="htmlAttribute"/>"
+                               value="<carlos:encode value='<%= selectedEnd %>' context="htmlAttribute"/>"
                                readonly>
                         
                           <button type="button" id="f_trigger_b" class="btn btn-outline-secondary btn-sm"><i class="fa fa-calendar" aria-hidden="true"></i></button>
@@ -478,6 +299,10 @@
                 <!-- Action buttons -->
                 <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                     <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-primary btn-sm"
+                                onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; this.disabled=true; document.forms['groupappt'].submit();">
+                            <fmt:message key="appointment.recurrence.create"/>
+                        </button>
                         <% if (bEdit) { %>
                         <button type="button" class="btn btn-primary btn-sm"
                                 onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();">
@@ -490,11 +315,6 @@
                         <button type="button" class="btn btn-danger btn-sm"
                                 onclick="if (confirm('${carlos:forJavaScript(deleteConfirmMsg)}')) { document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit(); }">
                             <fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>
-                        </button>
-                        <% } else { %>
-                        <button type="button" class="btn btn-primary btn-sm"
-                                onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();">
-                            <fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>
                         </button>
                         <% } %>
                     </div>
@@ -516,6 +336,7 @@
                 String temp = null;
                 for (Enumeration paramNames = request.getParameterNames(); paramNames.hasMoreElements(); ) {
                     temp = paramNames.nextElement().toString();
+                    if (Set.of("groupappt", "everyNum", "everyUnit", "dateUnit", "endDate").contains(temp)) continue;
                     if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
                         continue;
                     out.println("<input type='hidden' name='" + SafeEncode.forHtmlAttribute(temp) + "' value=\"" + SafeEncode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "") + "\">");
@@ -523,10 +344,11 @@
             %>
         </form>
 
+        <% } %>
     </div><%-- end .container --%>
 
     <script type="text/javascript">
-        Calendar.setup({
+        if (document.getElementById("endDate")) Calendar.setup({
             inputField: "endDate",      // id of the input field
             ifFormat: "%d/%m/%Y",       // format of the input field
             showsTime: false,            // will display a time selector
