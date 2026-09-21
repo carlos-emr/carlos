@@ -424,12 +424,11 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         return SEND_STATUS_ACCEPTED.equals(sendStatus) || SEND_STATUS_SEND_FAILED.equals(sendStatus);
     }
 
+    // No setters for sendStatus, sendAttemptedAt or sentAt, on purpose. The record* methods
+    // above are the only way to move the send lifecycle, so the deleted-row and
+    // terminal-outcome guards cannot be bypassed. Field access means JPA needs none.
     public String getSendStatus() {
         return sendStatus;
-    }
-
-    public void setSendStatus(String sendStatus) {
-        this.sendStatus = sendStatus;
     }
 
     public Date getArchivedAt() {
@@ -444,16 +443,8 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         return sendAttemptedAt;
     }
 
-    public void setSendAttemptedAt(Date sendAttemptedAt) {
-        this.sendAttemptedAt = sendAttemptedAt;
-    }
-
     public Date getSentAt() {
         return sentAt;
-    }
-
-    public void setSentAt(Date sentAt) {
-        this.sentAt = sentAt;
     }
 
     public Date getDeletedAt() {

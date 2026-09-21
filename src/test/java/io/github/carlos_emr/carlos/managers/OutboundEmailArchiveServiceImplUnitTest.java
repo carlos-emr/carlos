@@ -1075,6 +1075,11 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(archive.getByteSize()).isEqualTo((long) RFC822_BYTES.length);
         assertThat(archive.getRetentionPolicy()).isEqualTo(OutboundEmailArchive.RETENTION_POLICY_PERMANENT);
         assertThat(archive.getStorageType()).isEqualTo(OutboundEmailArchive.STORAGE_TYPE_EDOC);
+        // From the field default: the entity has no sendStatus setter, so the send lifecycle
+        // can only be moved through its guarded record* transitions.
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
+        assertThat(archive.getSendAttemptedAt()).isNull();
+        assertThat(archive.getSentAt()).isNull();
         assertThat(archive.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
     }
 

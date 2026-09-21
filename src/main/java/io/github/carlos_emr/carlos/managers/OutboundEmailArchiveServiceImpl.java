@@ -543,7 +543,6 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         archive.setByteSize((long) artifactBytes.length);
         archive.setStorageType(OutboundEmailArchive.STORAGE_TYPE_EDOC);
         archive.setRetentionPolicy(OutboundEmailArchive.RETENTION_POLICY_PERMANENT);
-        archive.setSendStatus(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
         archive.setLastUpdateUser(buildContext.providerNo());
 
         for (OutboundEmailArchiveAttachment attachment : safeArchiveAttachmentList(buildContext.attachments())) {
