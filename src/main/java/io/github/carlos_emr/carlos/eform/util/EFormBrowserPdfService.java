@@ -2685,15 +2685,20 @@ public class EFormBrowserPdfService {
             value = value.substring(0, queryStart);
             for (String parameter : query.split("&")) {
                 int separator = parameter.indexOf('=');
-                if (separator > 0 && "imagefile".equals(parameter.substring(0, separator))) {
-                    try {
-                        name = URLDecoder.decode(
-                                parameter.substring(separator + 1), StandardCharsets.UTF_8);
-                    } catch (IllegalArgumentException e) {
-                        // A malformed filename cannot prove that an asset loaded.
-                        return null;
+                try {
+                    String parameterName = URLDecoder.decode(
+                            separator < 0 ? parameter : parameter.substring(0, separator), StandardCharsets.UTF_8);
+                    if ("imagefile".equals(parameterName)) {
+                        // Explicitly missing values and repeated parameters cannot prove an asset
+                        // identity. Decode names too, matching servlet query-parameter semantics.
+                        if (separator < 0 || name != null) {
+                            return null;
+                        }
+                        name = URLDecoder.decode(parameter.substring(separator + 1), StandardCharsets.UTF_8);
                     }
-                    break;
+                } catch (IllegalArgumentException e) {
+                    // A malformed query cannot prove that an asset loaded.
+                    return null;
                 }
             }
         }

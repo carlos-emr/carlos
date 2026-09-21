@@ -1100,6 +1100,8 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%2520.png")).isEqualTo("scan%20.png");
         assertThat(EFormBrowserPdfService.resourceBasename(base + "displayImage?imagefile=scan%2520.png"))
                 .isEqualTo("scan%20.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "displayImage?image%66ile=scan%2B1.png"))
+                .isEqualTo("scan+1.png");
         assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%ZZ.png")).isNull();
         assertThat(EFormBrowserPdfService.resourceBasename(base + "displayImage?imagefile=scan%ZZ.png")).isNull();
         assertThat(EFormBrowserPdfService.resourceBasename(base + "path%2Fscan.png")).isNull();
@@ -1118,6 +1120,23 @@ class EFormBrowserPdfServiceUnitTest {
                 responseReceivedJson("Image", GATE_BASE_URL + "/displayImage?imagefile=logo.png", 200));
         EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(
                 entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"imagefile", "other=1&imagefile", "image%66ile", "image%66ile=",
+            "imagefile=logo.png&imagefile=logo.png", "imagefile=logo.png&image%66ile=other.png",
+            "imagefile=logo.png&imagefile", "image%ZZfile=logo.png"})
+    @DisplayName("should reject malformed or ambiguous asset parameters before path fallback")
+    void shouldRejectInvalidAssetParameters_beforePathFallback(String query) {
+        String failedUrl = GATE_BASE_URL + "/logo.png?" + query;
+        assertThat(EFormBrowserPdfService.resourceBasename(failedUrl)).isNull();
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(List.of(
+                responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                responseReceivedJson("Image", failedUrl, 404),
+                responseReceivedJson("Image", GATE_BASE_URL + "/logo.png", 200)),
+                EFormBrowserPdfService.originOf(GATE_BASE_URL));
         assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
         assertThat(scan.failedSubresources()).isZero();
     }
