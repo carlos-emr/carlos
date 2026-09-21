@@ -33,6 +33,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.MeasurementResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -124,7 +125,7 @@ public class MeasurementService extends AbstractServiceImpl {
      * @param json JSONObject containing array of measurement type codes to retrieve
      * @param demoId Integer the patient's demographic ID from the URL path
      * @return MeasurementResponse containing matching measurements and metadata
-     * @throws SecurityException if user lacks required measurement read privileges
+     * @throws ForbiddenException if measurement or patient-record access is denied
      * 
      * @see MeasurementResponse
      * @see MeasurementManager#getMeasurementByType(io.github.carlos_emr.carlos.utility.LoggedInInfo, Integer, List)
@@ -134,8 +135,15 @@ public class MeasurementService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     public MeasurementResponse getMeasurements(ObjectNode json, @PathParam("demographicNo") Integer demoId) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_measurement", "r", null)) {
-            throw new SecurityException("Access Denied: Missing required sec object (_measurement)");
+        if (demoId == null || demoId <= 0) {
+            throw new BadRequestException("Invalid demographic identifier");
+        }
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        // The URL is client-controlled. Enforce patient-specific measurement rights
+        // and demographic/eChart record restrictions before accessing any data.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", demoId.toString())
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demoId)) {
+            throw new ForbiddenException("Access Denied: measurement or patient-record access is restricted");
         }
         MeasurementResponse response = new MeasurementResponse();
         ArrayNode jsonArray = (ArrayNode) json.get("types");
@@ -148,7 +156,7 @@ public class MeasurementService extends AbstractServiceImpl {
             return response;
         }
 
-        List<Measurement> measurements = measurementManager.getMeasurementByType(getLoggedInInfo(), demoId, new ArrayList<String>(Arrays.asList(types)));
+        List<Measurement> measurements = measurementManager.getMeasurementByType(loggedInInfo, demoId, new ArrayList<String>(Arrays.asList(types)));
         response.addMeasurements(measurements);
         return response;
     }
