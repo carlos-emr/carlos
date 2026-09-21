@@ -70,6 +70,7 @@ public class DelImage2Action extends ActionSupport {
         // token-less GET (e.g. a forged <img src>). Checked before privilege and
         // before any file operation, same shape as the sibling DelEForm2Action.
         if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }

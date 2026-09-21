@@ -50,6 +50,7 @@ class DelImage2ActionUnitTest {
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             assertThat(new DelImage2Action().execute()).isEqualTo("none");
             assertThat(response.getStatus()).isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
             verifyNoInteractions(security);
         }
     }
