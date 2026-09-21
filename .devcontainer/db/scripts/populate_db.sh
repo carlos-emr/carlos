@@ -140,6 +140,8 @@ for f in "${MIG}"/common/V*__add_sms_consent.sql; do
 done
 # The migration seeds the consent type inactive until its wording has compliance
 # sign-off. Activate it here so the SMS opt-in path can be exercised in development.
+# The consent section only renders with USE_NEW_PATIENT_CONSENT_MODULE=true, which
+# the devcontainer's carlos.properties turns off; flip it there to see the consent.
 $SQL carlos -e "UPDATE consentType SET active = 1 WHERE type = 'sms_communication_consent';"
 # Administration fixtures for the data-backed Administration screens the demo
 # snapshot leaves empty. admin_test_data.sql is shared with the deb demo load

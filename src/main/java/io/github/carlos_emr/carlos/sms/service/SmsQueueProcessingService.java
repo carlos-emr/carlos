@@ -132,8 +132,14 @@ public class SmsQueueProcessingService {
                 } else if (!rateLimiter.tryAcquire(providerType)) {
                     transactionRecorder.releaseClaim(claimed, new Date());
                     shouldContinue = false;
-                } else if (sendOnRecordedConsent(claimed, decision)) {
-                    processed++;
+                } else {
+                    DispatchOutcome outcome = sendOnRecordedConsent(claimed, decision);
+                    if (outcome == DispatchOutcome.SENT) {
+                        processed++;
+                    }
+                    // A write failure is unlikely to be about one row; stop rather than strand the rest of
+                    // the queue SENDING one row at a time.
+                    shouldContinue = outcome != DispatchOutcome.SNAPSHOT_WRITE_FAILED;
                 }
             }
         }
@@ -144,9 +150,9 @@ public class SmsQueueProcessingService {
      * Sends a claimed row once its audit snapshot names the consent record this dispatch relied on. The
      * admission snapshot is usually still current and costs no write.
      *
-     * @return {@code false} when the snapshot could not be written, in which case nothing is sent
+     * @return {@link DispatchOutcome#SENT} once the send was attempted; otherwise nothing was sent
      */
-    private boolean sendOnRecordedConsent(SmsTransaction claimed, SmsConsentDecisionDto decision) {
+    private DispatchOutcome sendOnRecordedConsent(SmsTransaction claimed, SmsConsentDecisionDto decision) {
         SmsTransaction recorded = claimed;
         // A permit naming no consent state never counts as already recorded, even against an empty snapshot;
         // the row refuses to record it, so it ends below as not sent.
@@ -156,18 +162,20 @@ public class SmsQueueProcessingService {
             } catch (SmsTransactionClaimConflictException e) {
                 // The row changed or vanished under the claim, so whoever changed it decides what happens
                 // next. The recorder logs why the write was dropped.
-                return false;
+                return DispatchOutcome.ROW_CHANGED_UNDER_CLAIM;
             } catch (RuntimeException e) {
                 // The row stays SENDING, and stale recovery will fail it for manual review unless the SMS
                 // provider can confirm by lookup that it never received the message.
                 LOGGER.warn("SMS transaction {} not sent: its dispatch-time consent could not be recorded;{}",
                         claimed.getId(), LogSafe.exceptionTrace(e));
-                return false;
+                return DispatchOutcome.SNAPSHOT_WRITE_FAILED;
             }
         }
         processTransaction(recorded);
-        return true;
+        return DispatchOutcome.SENT;
     }
+
+    private enum DispatchOutcome { SENT, ROW_CHANGED_UNDER_CLAIM, SNAPSHOT_WRITE_FAILED }
 
     private void deferAfterConsentCheckFailure(SmsTransaction claimed) {
         try {

@@ -614,6 +614,42 @@ class SmsQueueProcessingServiceUnitTest {
     }
 
     @Test
+    @DisplayName("a failed dispatch-time snapshot write stops draining that SMS provider for the run")
+    void shouldStopDraining_whenDispatchConsentSnapshotCannotBeWritten() {
+        SmsTransaction first = queuedTransaction();
+        first.recordConsentDecision(SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 5, Instant.parse("2026-09-01T14:30:00Z")));
+        SmsTransaction second = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(456, "416-555-3434", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(second, 2L);
+        second.recordConsentDecision(SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 6, Instant.parse("2026-09-01T14:30:00Z")));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second)) {
+            @Override
+            public SmsTransaction recordConsentDecision(SmsTransaction row, SmsConsentDecisionDto decision) {
+                throw new IllegalStateException("database unavailable");
+            }
+        };
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        // A write failure is unlikely to be about one row, so the rest of the queue is left unclaimed
+        // rather than stranded SENDING one row at a time.
+        assertThat(first.getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(second)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
     @DisplayName("a dispatch-time permit that names no consent state is never sent on")
     void shouldNotSend_whenDispatchPermitNamesNoConsentState() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
