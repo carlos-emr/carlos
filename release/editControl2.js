@@ -599,9 +599,60 @@ function doHtml(value) {
 			editorDoc.body.appendChild(editorDoc.createTextNode(value));
 		}
 	}
+	bindStampFallbacks(editorDoc);
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
 	document.getElementById(cfg_editorname).contentWindow.focus();
+}
+
+/**
+ * Attaches the stamps.js / stamp.png fallback to a freshly inserted provider stamp.
+ *
+ * pickStamp() marks a per-provider stamp with STAMP_MARKER_ATTRIBUTE. The handler cannot be an
+ * inline onerror: doHtml() runs every insertion through DOMPurify, which strips event-handler
+ * attributes, so it is bound here instead — after insertion, in the same task, before the image can
+ * finish loading.
+ *
+ * This is what makes the fallback a guarantee rather than a race. probeProviderStamp() usually
+ * answers first and pickStamp() then emits the right URL outright, but on a form_html that predates
+ * the hidden identity inputs the provider number only arrives with the APCache lookup, so the very
+ * first Stamp click can be issued before any probe has completed. Without this the letter would
+ * keep a broken image and the documented fallback would never run.
+ *
+ * SECURITY: the marker carries no data. The fallback FILENAME is held in carlosPendingStampFallback
+ * and never round-trips through the DOM, because this scans the whole editor document — which after
+ * a reopen holds the restored saved letter, i.e. stored, user-authored HTML. DOMPurify permits
+ * data-* attributes, so a filename read back out of an attribute would be attacker-influenced DOM
+ * text flowing into an image URL (CodeQL js/html-constructed-from-input). Keeping the value in
+ * module state means the URL is only ever built from legacyStampFile(), the same trusted
+ * ImgArray/APCache source pickStamp() has always used. The marker is removed as it is consumed, so
+ * it never reaches the stored letter either.
+ */
+function bindStampFallbacks(editorDoc) {
+	if (!editorDoc || !editorDoc.querySelectorAll) { return; }
+	var fallback = carlosPendingStampFallback;
+	carlosPendingStampFallback = "";
+	var stamps = editorDoc.querySelectorAll('img[' + STAMP_MARKER_ATTRIBUTE + ']');
+	for (var index = 0; index < stamps.length; index++) {
+		(function (image) {
+			image.removeAttribute(STAMP_MARKER_ATTRIBUTE);
+			// Defence in depth: a stray marker on restored content has no pending fallback, and a
+			// filename is a plain basename or it is not used.
+			if (!/^[\w.\- ]+$/.test(fallback)) { return; }
+			// Closure flag, not an attribute: the guard must not leave a marker in the stored
+			// letter, and swapping src can itself fire another error event.
+			var swapped = false;
+			var swap = function () {
+				if (swapped) { return; }
+				swapped = true;
+				console.log('editControl: stored signature unavailable; falling back to ' + fallback);
+				image.src = stampImageSrc(fallback);
+			};
+			image.addEventListener('error', swap);
+			// The image may already have failed from cache before this ran.
+			if (image.complete && image.naturalWidth === 0) { swap(); }
+		})(stamps[index]);
+	}
 }
 
 function block(blockElements) {
@@ -977,26 +1028,38 @@ function submitFaxButton() {
 
 	cache.addMapping({
 		name: "_ClosingSalutation", 
-		values: ["provider_name_first_init", "current_user_fname_lname", "doctor", "current_user"],	
+		values: ["provider_name_first_init", "current_user_fname_lname", "doctor", "current_user",
+			"current_user_id", "current_user_ohip_no", "doctor_provider_no"],	
 		storeInCacheHandler: function (key,value) {		
+			// The identity may only have arrived with this lookup (a form_html predating the hidden
+			// inputs), so re-run the existence probe now that it is known.
+			probeProviderStamp();
 			var imgsrc=pickStamp();
 			var frag = ("<p>Yours Sincerely<p>" + imgsrc + "<p>");
-			var salutation = frag;
-			if (!cache.isEmpty("provider_name_first_init")) {
-					salutation=(frag+cache.get("provider_name_first_init") + ", MD");
-				}
-			// now allow for signing by the current user 
-			if (cache.contains("current_user")) {
+			// The NAME must name whoever the STAMP signed as. Deciding them separately is how a
+			// letter ended up with one clinician's signature above another clinician's name.
+			var signsAsCurrentUser = stampSignerRole() === "user";
+			if (!signsAsCurrentUser && cache.contains("current_user")) {
+				// No provider numbers to go on (a pre-migration form_html with no AP values either):
+				// fall back to the legacy rule, where the current user having a stamps.js entry is
+				// what marks them as the signer.
 				for (i=0; i<ImgArray.length;i++){
 					var ListItemArr =  ImgArray[i].split("|");
 					var UserName = ListItemArr[0];
 					var FileName = ListItemArr[1]; void FileName; // retained for external API consumers
-					if (cache.get('current_user').indexOf(UserName)>=0){
-						console.log('current user has a signature so use it in the closing salutation');					
-							salutation=(frag+cache.get("current_user_fname_lname") + ", MD");
-						}
+					if (UserName && cache.get('current_user').indexOf(UserName)>=0){
+						console.log('current user has a signature so use it in the closing salutation');
+						signsAsCurrentUser = true;
 					}
+				}
 			}
+			var signerName = "";
+			if (signsAsCurrentUser && !cache.isEmpty("current_user_fname_lname")) {
+				signerName = cache.get("current_user_fname_lname");
+			} else if (!cache.isEmpty("provider_name_first_init")) {
+				signerName = cache.get("provider_name_first_init");
+			}
+			var salutation = signerName.length > 0 ? (frag + signerName + ", MD") : frag;
 			cache.put(this.name, salutation);
 		},
 		cacheResponseHandler:function () {
@@ -1007,10 +1070,18 @@ function submitFaxButton() {
 	});
 	
 
+	// current_user_id / current_user_ohip_no / doctor_provider_no drive pickStamp()'s choice of
+	// consult_sig_<provider_no>.png. They normally arrive as hidden inputs on the form, but an
+	// install whose stored Rich Text Letter form_html predates those inputs has none, so they are
+	// listed here too: the lookup that resolves the stamp then also fetches the identity it needs.
 	cache.addMapping({
 		name: "stamp", 
-		values: ["stamp_name", "doctor", "current_user"], 
+		values: ["stamp_name", "doctor", "current_user",
+			"current_user_id", "current_user_ohip_no", "doctor_provider_no"], 
 		storeInCacheHandler: function(_key,_val) { 
+				// Re-probe: on a form_html without the hidden inputs the identity only becomes known
+				// here, so the probe fired at Start() had no filename to check.
+				probeProviderStamp();
 				var imgsrc=pickStamp();
 				cache.put("stamp",imgsrc);
 		}
@@ -1156,7 +1227,13 @@ function submitFaxButton() {
 				seteditControlContents(cfg_editorname, contents, true);
 			}
 			maximize();
-			
+
+			// Body onload, so every hidden input the server populated is in the DOM. Warm the
+			// per-provider signature check now rather than when the Stamp button is pressed: the
+			// answer decides whether the stamp falls back to stamps.js, and pickStamp() is called
+			// synchronously from a cache handler that cannot wait for a round trip.
+			probeProviderStamp();
+
 			console.log('updating attached');
 			updateAttached();
 	}
@@ -1221,39 +1298,175 @@ function submitFaxButton() {
 	}
 
  
+	/**
+	 * Lowest ohip_no that identifies a billing practitioner (MD / NP / RMW).
+	 *
+	 * Numbers below this are reserved for non-billing accounts that still need a schedule
+	 * (residents, nurses, clerical staff, room/resource pseudo-providers), so a letter written
+	 * under one of those logins is signed by the patient's MRP rather than by the typist. Mirrors
+	 * sign() in visualEformEditor.jsp, which uses the same delegation rule.
+	 */
+	var MIN_BILLING_PROVIDER_OHIP_NO = 1000;
+
+	/**
+	 * Provider identity the stamp is chosen from, in the two places it can reach this page.
+	 *
+	 * The hidden inputs are the primary source: efmformadd_data/efmshowform_data populate them
+	 * server-side from the form's oscarDB= attributes, and the $('input:hidden') sweep in Start()
+	 * copies them into the cache before any button can be clicked. The AP keys are the same values
+	 * fetched over APCache, and cover an install whose stored form_html predates those inputs (a
+	 * clinic that customized the Rich Text Letter row, or one that has not run the migration yet):
+	 * they are listed on the "stamp" and "_ClosingSalutation" mappings so a lookup pulls them.
+	 */
+	var STAMP_PROVIDER_FIELDS = {
+		userId:     { inputId: "user_id",            apKey: "current_user_id" },
+		userOhipNo: { inputId: "user_ohip_no",       apKey: "current_user_ohip_no" },
+		doctorNo:   { inputId: "doctor_provider_no", apKey: "doctor_provider_no" }
+	};
+
+	function stampProviderField(field) {
+		// Trimmed to match ConsultationSignatureService.isNumericProviderNo(), which trims before
+		// testing \d+. An AP output that arrives padded must resolve to the same provider on both
+		// sides, or the letter silently falls back to stamp.png for a provider who has a signature.
+		var element = document.getElementById(field.inputId);
+		if (element && typeof element.value === "string" && element.value.trim().length > 0) {
+			return element.value.trim();
+		}
+		if (cache.contains(field.apKey) && !cache.isEmpty(field.apKey)) {
+			return String(cache.get(field.apKey)).trim();
+		}
+		return "";
+	}
+
+	/**
+	 * Who signs this letter: "user" (the logged-in provider), "mrp" (the patient's most responsible
+	 * provider), or "" when neither can be determined.
+	 *
+	 * A billing practitioner signs their own letters; anyone else is writing under the direction of
+	 * the MRP and signs with that provider's signature. Both the stamp IMAGE and the typed NAME in
+	 * the closing salutation derive from this single answer — they used to be decided separately,
+	 * and a billing user with a signature file but no stamps.js entry got their own signature
+	 * printed above the MRP's name.
+	 */
+	function stampSignerRole() {
+		var userOhipNo = parseInt(stampProviderField(STAMP_PROVIDER_FIELDS.userOhipNo), 10);
+		if (!isNaN(userOhipNo) && userOhipNo > MIN_BILLING_PROVIDER_OHIP_NO
+				&& stampProviderField(STAMP_PROVIDER_FIELDS.userId).length > 0) {
+			return "user";
+		}
+		if (stampProviderField(STAMP_PROVIDER_FIELDS.doctorNo).length > 0) { return "mrp"; }
+		return "";
+	}
+
+	/** Provider number whose signature should sign this letter, or "" when it cannot be determined. */
+	function stampProviderNumber() {
+		var role = stampSignerRole();
+		if (role === "user") { return stampProviderField(STAMP_PROVIDER_FIELDS.userId); }
+		if (role === "mrp") { return stampProviderField(STAMP_PROVIDER_FIELDS.doctorNo); }
+		return "";
+	}
+
+	/**
+	 * Image URL for an eForm asset.
+	 *
+	 * cfg_isrc is what the host form configures (the Rich Text Letter sets
+	 * "../eform/displayImage.do?imagefile="), but it defaults to the empty string, and an empty
+	 * base would make the stamp a bare relative filename that resolves against the action path and
+	 * 404s. Fall back to the extensionless route, which is the canonical one.
+	 */
+	function stampImageSrc(file) {
+		var base = (typeof cfg_isrc === "string" && cfg_isrc.length > 0)
+			? cfg_isrc
+			: "../eform/displayImage?imagefile=";
+		return base + file;
+	}
+
+	/** Signature file CARLOS stores per provider (Administration > Provider > signature). */
+	function providerStampFile() {
+		var providerNumber = stampProviderNumber();
+		// Defensive, not cosmetic: this becomes an imagefile= query value, and the eForm image
+		// route treats it as a path component. Provider numbers are digits in every supported
+		// install; anything else means the AP returned something unexpected, so stamp nothing
+		// rather than assemble a filename out of it.
+		if (!/^[0-9]{1,20}$/.test(providerNumber)) { return ""; }
+		return "consult_sig_" + providerNumber + ".png";
+	}
+
+	/**
+	 * Valueless marker pickStamp() puts on a per-provider stamp, and the fallback filename that goes
+	 * with it. The filename lives here rather than in the markup on purpose — see
+	 * {@link bindStampFallbacks}, which scans the whole editor document including restored saved
+	 * letters, so anything read back out of an attribute is attacker-influenced DOM text.
+	 */
+	var STAMP_MARKER_ATTRIBUTE = "data-carlos-stamp";
+	var carlosPendingStampFallback = "";
+
+	/**
+	 * Records whether the per-provider signature file actually exists, so a provider who has not
+	 * uploaded one still gets the clinic's stamps.js / stamp.png fallback instead of a broken image.
+	 *
+	 * The probe is fired once from Start(), well before the Stamp button can be clicked. If it has
+	 * not answered yet the per-provider file is used anyway — that is the intended stamp, and the
+	 * legacy fallback is the exception.
+	 */
+	var carlosProviderStampProbe = { file: "", missing: false };
+
+	function probeProviderStamp() {
+		var file = providerStampFile();
+		if (file === "" || file === carlosProviderStampProbe.file) { return; }
+		carlosProviderStampProbe = { file: file, missing: false };
+		var probe = new Image();
+		probe.onerror = function() {
+			// Only trust the result if it is still about the file we asked for.
+			if (carlosProviderStampProbe.file === file) { carlosProviderStampProbe.missing = true; }
+			console.log("editControl: no stored signature for " + file + "; falling back to stamps.js");
+		};
+		probe.src = stampImageSrc(file);
+	}
+
+	function legacyStampFile() {
+		// Clinic-supplied override: a stamps.js in the eForm images folder defining
+		// var ImgArray = ["doctor|SignatureFile.png", ...];
+		// Current user wins over the MRP, matching the _ClosingSalutation rule.
+		var fileName = "stamp.png";
+		var sources = ["doctor", "current_user"];
+		// `var` on both counters deliberately: the loops this replaces assigned a bare `i`,
+		// which is an implicit global shared with fhtLetterhead() and the closing-salutation
+		// handler.
+		for (var s = 0; s < sources.length; s++) {
+			if (cache.isEmpty(sources[s])) { continue; }
+			var signer = String(cache.get(sources[s]));
+			for (var entry = 0; entry < ImgArray.length; entry++) {
+				var pair = String(ImgArray[entry]).split("|");
+				var userName = pair[0];
+				var signatureFile = pair[1];
+				if (userName && signatureFile && signer.indexOf(userName) >= 0) {
+					fileName = signatureFile;
+				}
+			}
+		}
+		return fileName;
+	}
+
 	function pickStamp() {
 		// set the HTML contents of the signature stamp
-		// for single user set stamp.png to be that users signature image in the images folder
-		// otherwise form a stamp.js file and upload to images with content as below 
-		// defining key value pairs of name of doctor and the corresponding image file
-		// var ImgArray = [
-		//	"doctor|SignatureFile.png",
-		//	];
-
-		var mystamp ='<img src="../eform/displayImage?imagefile=stamp.png" width="200" height="100">';
-		if (cache.contains("doctor")) {
-			for (i=0; i<ImgArray.length;i++){
-		        var ListItemArr =  ImgArray[i].split("|");
-		        var UserName = ListItemArr[0];
-		        var FileName = ListItemArr[1];
-		        if (cache.get('doctor').indexOf(UserName)>=0){
-		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
-			        }
-				}
+		//
+		// Preferred source is the provider's own signature image, consult_sig_<provider_no>.png,
+		// the same file the consultation module and the visual eForm editor stamp with. stamps.js
+		// (an ImgArray of "doctor|SignatureFile.png" pairs) and the single-user stamp.png remain as
+		// fallbacks for an install that has not loaded per-provider signatures: before this, they
+		// were the ONLY sources, so every letter from a multi-provider clinic without a stamps.js
+		// was signed with the same stamp.png.
+		var file = providerStampFile();
+		if (file === "" || (carlosProviderStampProbe.file === file && carlosProviderStampProbe.missing)) {
+			return '<img src="' + stampImageSrc(legacyStampFile()) + '" width="200" height="100" />';
 		}
-		// now allow for signing by the current user 
-		if (cache.contains("current_user")) {
-			for (i=0; i<ImgArray.length;i++){
-		        var ListItemArr =  ImgArray[i].split("|");
-		        var UserName = ListItemArr[0];
-		        var FileName = ListItemArr[1];
-		        if (cache.get('current_user').indexOf(UserName)>=0){
-					console.log('current user has a signature so use it');					
-		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
-			        }
-				}
-		}
-		return mystamp;
+		// The per-provider file is the intended stamp, but the probe may not have answered yet.
+		// bindStampFallbacks() turns the marker into a load-error handler once this is inserted.
+		// The fallback filename rides module state, not the markup: see bindStampFallbacks().
+		carlosPendingStampFallback = legacyStampFile();
+		return '<img src="' + stampImageSrc(file) + '" ' + STAMP_MARKER_ATTRIBUTE
+			+ '="1" width="200" height="100" />';
 	}
 	// Flag read by efmshowform_data and the eForm framework to identify this
 	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag

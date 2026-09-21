@@ -40,6 +40,10 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import java.util.logging.Level;
 
@@ -102,6 +106,27 @@ class EFormBrowserPdfServiceUnitTest {
                 // The raster-era screenshot hacks must NOT come back: they broke native pagination.
                 .doesNotContain("max-content")
                 .doesNotContain("overflow");
+    }
+
+    @Test
+    @DisplayName("should let a document opt out of the zero page margin with a body attribute")
+    void shouldHonourDeclaredPageMargin_whenPreparingPrint() {
+        // The Rich Text Letter's .rtl templates declare "@page { margin: 2cm; }", but the editor
+        // stores body.innerHTML alone so that rule is gone by render time; the composer re-declares
+        // it and marks the body. The override style must be appended AFTER the baseline above, or
+        // the baseline's "margin: 0" wins the cascade and the letter prints edge to edge again.
+        assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS)
+                .contains("data-carlos-page-margin")
+                .contains("eform-browser-pdf-page-margin")
+                .contains("'@page { margin: ' + declaredPageMargin + '; }'");
+        assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS.indexOf("eform-browser-pdf-page-margin"))
+                .as("the override must be appended after the zero-margin baseline")
+                .isGreaterThan(EFormBrowserPdfService.PREPARE_PRINT_JS
+                        .indexOf("document.head.appendChild(cleanupStyle)"));
+        // The value reaches a stylesheet, so it is re-validated on this side too rather than
+        // trusted because the composer wrote it.
+        assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS)
+                .contains("pageMarginIsSafe");
     }
 
     @Test
@@ -838,6 +863,7 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
         assertThat(scan.failedCriticalSubresources()).isZero();
         assertThat(scan.failedSubresources()).isEqualTo(1);
+        assertThat(scan.duplicateScriptFailureUrls()).isEmpty();
     }
 
     @Test
@@ -858,7 +884,7 @@ class EFormBrowserPdfServiceUnitTest {
                 cdpMessage("Network.responseReceived", "\"type\":\"Other\",\"response\":{\"url\":\"http://127.0.0.1:8080/favicon.ico\",\"status\":404}"),
                 cdpMessage("Network.loadingFailed", "\"type\":\"Other\",\"errorText\":\"net::ERR_FAILED\",\"canceled\":false"),
                 // Healthy subresource: not counted.
-                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=form.js\",\"status\":200}"));
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=form.js\",\"mimeType\":\"application/javascript\",\"status\":200}"));
 
         EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
 
@@ -942,13 +968,39 @@ class EFormBrowserPdfServiceUnitTest {
         String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
-                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=onBodyLoad_Oct2018.js\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=onBodyLoad_Oct2018.js\",\"mimeType\":\"application/javascript\",\"status\":200}"),
                 cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js\",\"status\":404}"));
 
         EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
 
         assertThat(scan.failedCriticalSubresources()).as("the file demonstrably loaded").isZero();
         assertThat(scan.failedSubresources()).as("still reported as advisory").isEqualTo(1);
+        assertThat(scan.duplicateScriptFailureUrls()).containsExactly("http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js");
+        String mimeRefusal = "http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet 0:0 "
+                + "Refused to execute script from 'http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js' "
+                + "because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled.";
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(
+                mimeRefusal, scan.duplicateScriptFailureUrls())).isTrue();
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(mimeRefusal, java.util.Set.of()))
+                .as("a MIME refusal without a failed duplicate could hide a wrong 200 response")
+                .isFalse();
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(
+                "Refused to execute script from 'data:' because its MIME type ('text/html') "
+                        + "is not executable, and strict MIME type checking is enabled.",
+                scan.duplicateScriptFailureUrls())).isFalse();
+        EFormBrowserPdfService.NetworkGateScan imageOnly = EFormBrowserPdfService.scanNetworkEvents(
+                List.of(
+                        responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                        responseReceivedJson("Image",
+                                "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet"
+                                        + "?imagefile=onBodyLoad_Oct2018.js", 200),
+                        responseReceivedJson("Script",
+                                "http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js", 404)),
+                allowedOrigin);
+        assertThat(imageOnly.failedCriticalSubresources()).as("an image cannot prove a script loaded").isEqualTo(1);
+        assertThat(imageOnly.duplicateScriptFailureUrls())
+                .as("an image with the same name does not prove the script executed")
+                .isEmpty();
     }
 
     @Test
@@ -967,6 +1019,7 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.failedCriticalSubresources()).isZero();
         assertThat(scan.failedSubresources()).isEqualTo(1);
+        assertThat(scan.duplicateScriptFailureUrls()).isEmpty();
     }
 
     @Test
@@ -1003,6 +1056,121 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.failedCriticalSubresources()).isEqualTo(2);
         assertThat(scan.failedSubresources()).as("neither reference is downgraded").isZero();
+    }
+
+    @Test
+    @DisplayName("should correlate encoded duplicate images and scripts while preserving real failures")
+    void shouldCorrelateEncodedDuplicates_whenQueryEncodesSpaceAsPlus() {
+        String origin = "http://127.0.0.1:8080";
+        List<String> entries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"" + origin + "/carlos/render\",\"status\":200}"),
+                // Failure first: correlation must work independently of event ordering.
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/scan%20(1).png\",\"status\":404}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/eform/displayImage?imagefile=scan+(1).png\",\"status\":200}"),
+                cdpMessage("Network.requestWillBeSent", "\"requestId\":\"script\",\"request\":{\"url\":\"" + origin + "/carlos/clinic%20%5B1%5D.js\",\"method\":\"GET\"}"),
+                cdpMessage("Network.loadingFailed", "\"requestId\":\"script\",\"type\":\"Script\",\"canceled\":false"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"" + origin + "/carlos/eform/displayImage?imagefile=clinic%20%5B1%5D.js\",\"mimeType\":\"application/javascript\",\"status\":200}"));
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(entries, origin);
+        assertThat(scan.failedCriticalSubresources()).isZero();
+        assertThat(scan.failedSubresources()).isEqualTo(2);
+        assertThat(scan.duplicateScriptFailureUrls()).containsExactly(origin + "/carlos/clinic%20%5B1%5D.js");
+        String refusal = "Refused to execute script from '" + origin + "/carlos/clinic%20%5B1%5D.js' "
+                + "because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled.";
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(refusal, scan.duplicateScriptFailureUrls())).isTrue();
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(refusal, java.util.Set.of())).isFalse();
+
+        List<String> missing = new java.util.ArrayList<>(entries);
+        missing.add(cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/scan%20(2).png\",\"status\":404}"));
+        // A literal path '+' is not the space in the loaded query filename.
+        missing.add(cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/scan+(1).png\",\"status\":404}"));
+        missing.add(cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/scan%ZZ.png\",\"status\":404}"));
+        EFormBrowserPdfService.NetworkGateScan blocked = EFormBrowserPdfService.scanNetworkEvents(missing, origin);
+        assertThat(blocked.failedCriticalSubresources()).isEqualTo(3);
+        assertThat(blocked.failedSubresources()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should decode path filenames once, preserve pluses and reject malformed escapes")
+    void shouldDecodePathBasename_withSingleDecodeAndLiteralPluses() {
+        String base = "http://127.0.0.1:8080/carlos/";
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%20%5B1%5D.png?ignored=1#fragment"))
+                .isEqualTo("scan [1].png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan+1.png")).isEqualTo("scan+1.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%2B1.png")).isEqualTo("scan+1.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%2520.png")).isEqualTo("scan%20.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "displayImage?imagefile=scan%2520.png"))
+                .isEqualTo("scan%20.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "displayImage?image%66ile=scan%2B1.png"))
+                .isEqualTo("scan+1.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%ZZ.png")).isNull();
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "displayImage?imagefile=scan%ZZ.png")).isNull();
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "path%2Fscan.png")).isNull();
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "path%5Cscan.png")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing%2Flogo.png", "missing%5Clogo.png", "missing/logo.png", ""})
+    @DisplayName("should keep invalid query filenames critical even when the basename loaded")
+    void shouldRejectInvalidQueryFilename_whenBasenameLoaded(String queryName) {
+        String failedUrl = GATE_BASE_URL + "/logo.png?imagefile=" + queryName;
+        assertThat(EFormBrowserPdfService.resourceBasename(failedUrl)).isNull();
+        List<String> entries = List.of(
+                responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                responseReceivedJson("Image", failedUrl, 404),
+                responseReceivedJson("Image", GATE_BASE_URL + "/displayImage?imagefile=logo.png", 200));
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(
+                entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"imagefile", "other=1&imagefile", "image%66ile", "image%66ile=",
+            "imagefile=logo.png&imagefile=logo.png", "imagefile=logo.png&image%66ile=other.png",
+            "imagefile=logo.png&imagefile", "image%ZZfile=logo.png"})
+    @DisplayName("should reject malformed or ambiguous asset parameters before path fallback")
+    void shouldRejectInvalidAssetParameters_beforePathFallback(String query) {
+        String failedUrl = GATE_BASE_URL + "/logo.png?" + query;
+        assertThat(EFormBrowserPdfService.resourceBasename(failedUrl)).isNull();
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(List.of(
+                responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                responseReceivedJson("Image", failedUrl, 404),
+                responseReceivedJson("Image", GATE_BASE_URL + "/logo.png", 200)),
+                EFormBrowserPdfService.originOf(GATE_BASE_URL));
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isZero();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"Image,Script", "Image,Document", "Document,Image", "Media,Image", "Script,Image"})
+    @DisplayName("should retain failed content when only a different resource type loaded")
+    void shouldRetainMissingContent_whenAnotherResourceTypeLoaded(String failedType, String loadedType) {
+        String failedUrl = GATE_BASE_URL + "/shared.js";
+        List<String> entries = List.of(
+                responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                responseReceivedJson(failedType, failedUrl, 404),
+                cdpMessage("Network.requestWillBeSent", "\"requestId\":\"typed\",\"request\":{\"url\":\"" + failedUrl + "\",\"method\":\"GET\"}"),
+                cdpMessage("Network.loadingFailed", "\"requestId\":\"typed\",\"type\":\"" + failedType + "\",\"canceled\":false"),
+                responseReceivedJson(loadedType, GATE_BASE_URL + "/displayImage?imagefile=shared.js", 200, "text/javascript"));
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(
+                entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(2);
+        assertThat(scan.failedSubresources()).isZero();
+        assertThat(scan.duplicateScriptFailureUrls()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should retain a failed clinical fetch even when another query on that route loaded")
+    void shouldRetainClinicalFetchFailure_whenAnotherQuerySucceeds() {
+        List<String> entries = List.of(
+                responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                responseReceivedJson("XHR", GATE_BASE_URL + "/APCache?field=weight", 200),
+                cdpMessage("Network.requestWillBeSent", "\"requestId\":\"clinical\",\"request\":{\"url\":\"" + GATE_BASE_URL + "/APCache?field=bp\",\"method\":\"GET\"}"),
+                cdpMessage("Network.loadingFailed", "\"requestId\":\"clinical\",\"type\":\"XHR\",\"canceled\":false"));
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(
+                entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isZero();
     }
 
     @Test
@@ -1370,6 +1538,75 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should exclude a duplicate-script MIME refusal only after network proof")
+    void shouldCorrelateMimeRefusal_withFailedDuplicateScript() throws Exception {
+        String bareScript = "http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js";
+        String servedScript = "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet"
+                + "?imagefile=onBodyLoad_Oct2018.js";
+        String refusal = "Refused to execute script from '" + bareScript + "' because its MIME type "
+                + "('text/html') is not executable, and strict MIME type checking is enabled.";
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> duplicate = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Script", servedScript, 200, "application/javascript")),
+                perfEntry(responseReceivedJson("Script", bareScript, 404)));
+        EFormRenderCompletenessReport complete = service.enforceRenderGates(
+                driverWithConsole(browserConsole(consoleEntry(refusal))),
+                duplicate, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
+        assertThat(complete.severeConsoleErrors()).isZero();
+        assertThat(complete.failedContentResources()).isZero();
+        String unrelatedRefusal = refusal.replace("/carlos/onBodyLoad_Oct2018.js", "/other/onBodyLoad_Oct2018.js");
+        EFormRenderCompletenessReport unrelated = service.enforceRenderGates(
+                driverWithConsole(browserConsole(consoleEntry(unrelatedRefusal))),
+                duplicate, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
+        assertThat(unrelated.severeConsoleErrors()).as("a shared basename is not the observed failed URL").isEqualTo(1);
+
+        List<LogEntry> wrongMime200 = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Script", bareScript, 200, "text/html")));
+        EFormRenderCompletenessReport incomplete = service.enforceRenderGates(
+                driverWithConsole(browserConsole(consoleEntry(refusal))),
+                wrongMime200, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
+        assertThat(incomplete.severeConsoleErrors()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"text/html", "text/plain", "application/json", "application/octet-stream",
+            "application/javascript+json", "text/javascr\u0131pt", "text/java\u017Fcript"})
+    @DisplayName("should retain duplicate-script failures when the successful response has no executable MIME")
+    void shouldRetainDuplicateScriptFailures_withWrongOrMissingMime(String mimeType) throws Exception {
+        String bare = GATE_BASE_URL + "/clinic.js";
+        String served = GATE_BASE_URL + "/eform/displayImage?imagefile=clinic.js";
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Script", bare, 404, "text/html")),
+                perfEntry(responseReceivedJson("Script", served, 200, mimeType)));
+        String refusal = "Refused to execute script from '" + served
+                + "' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled.";
+        EFormRenderCompletenessReport report = new EFormBrowserPdfService().enforceRenderGates(
+                driverWithConsole(browserConsole(consoleEntry(refusal))),
+                entries, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
+        assertThat(report.severeConsoleErrors()).as("a 200 login/error response is not an executed script").isEqualTo(1);
+        assertThat(report.failedContentResources()).as("no matching script successfully loaded").isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"text/javascript", "Application/JavaScript; charset=UTF-8", "application/x-javascript", "text/jscript"})
+    @DisplayName("should recognize executable MIME evidence on cached script responses")
+    void shouldDowngradeDuplicateScriptFailure_withExecutableCachedMime(String mimeType) {
+        List<String> entries = List.of(
+                responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                responseReceivedJson("Script", GATE_BASE_URL + "/clinic.js", 404, "text/html"),
+                responseReceivedJson("Script", GATE_BASE_URL + "/eform/displayImage?imagefile=clinic.js", 304, mimeType));
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(
+                entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
+        assertThat(scan.failedCriticalSubresources()).isZero();
+        assertThat(scan.failedSubresources()).isEqualTo(1);
+        assertThat(scan.duplicateScriptFailureUrls()).containsExactly(GATE_BASE_URL + "/clinic.js");
+    }
+
+    @Test
     @DisplayName("should prefer the latched main-document status over a later same-origin document")
     void shouldPreferLatchedStatus_overLaterIframeDocument() {
         // The scan observes a same-origin Document 200 (e.g. a signature iframe), but the status
@@ -1442,8 +1679,13 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     private static String responseReceivedJson(String type, String url, int status) {
+        return responseReceivedJson(type, url, status, null);
+    }
+
+    private static String responseReceivedJson(String type, String url, int status, String mimeType) {
+        String mime = mimeType == null ? "" : ",\"mimeType\":\"" + mimeType + "\"";
         return cdpMessage("Network.responseReceived",
-                "\"type\":\"" + type + "\",\"response\":{\"url\":\"" + url + "\",\"status\":" + status + "}");
+                "\"type\":\"" + type + "\",\"response\":{\"url\":\"" + url + "\",\"status\":" + status + mime + "}");
     }
 
     private static String requestWillBeSentJson(String url) {
@@ -1616,7 +1858,7 @@ class EFormBrowserPdfServiceUnitTest {
         String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
-                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=form.js\",\"status\":304}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=form.js\",\"mimeType\":\"application/javascript\",\"status\":304}"),
                 // Same filename, bare duplicate reference, fails. The 304 above must license the
                 // downgrade or a cached asset would stop counting as present.
                 cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/form.js\",\"status\":404}"));

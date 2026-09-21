@@ -39,7 +39,7 @@ public class HRMDocumentSubClassDao extends AbstractDaoImpl<HRMDocumentSubClass>
     }
 
     public List<HRMDocumentSubClass> getActiveSubClassesByDocumentId(Integer id) {
-        String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.isActive=1";
+        String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.isActive=true";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, id);
         @SuppressWarnings("unchecked")

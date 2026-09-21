@@ -416,7 +416,11 @@
                         tracker = "&tracker=slim";
                     }
 
-                    String flowsheetPath = "encounter/oscarMeasurements/ViewTemplateFlowSheet";
+                    // When Edit Flowsheet was opened from the Health Tracker (&htracker)
+                    // the back button has to return there, not to the plain flowsheet view.
+                    String flowsheetPath = request.getParameter("htracker") != null
+                            ? "encounter/oscarMeasurements/ViewHealthTracker"
+                            : "encounter/oscarMeasurements/ViewTemplateFlowSheet";
             %>
 
             <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<carlos:encode value='<%= demographic %>' context="uriComponent"/>&template=<carlos:encode value='<%= flowsheet %>' context="uriComponent"/><%=tracker%>"
@@ -693,6 +697,11 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
 
                     <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="card card-body bg-body-tertiary"
                           action="FlowSheetCustomAction" method="post">
+                        <%-- Round-trips the Health Tracker origin so FlowSheetCustom2Action's
+                             result lands back on the tracker instead of the flowsheet view. --%>
+                        <%if (request.getParameter("htracker") != null) {%>
+                        <input type="hidden" name="htracker" value="<carlos:encode value='<%= module %>' context="htmlAttribute"/>"/>
+                        <%}%>
                         <input type="hidden" name="flowsheet" value="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="method" value="save"/>
                         <%if (demographic != null) {%>

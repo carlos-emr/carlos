@@ -103,7 +103,7 @@
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.22.1</jackson.version>
+        <jackson.version>2.22.2</jackson.version>
         <!-- Apache HttpClient 5 -->
         <httpclient5.version>5.6.3</httpclient5.version>
         <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
@@ -113,7 +113,7 @@
         <!-- Bouncy Castle -->
         <bouncycastle.version>1.86</bouncycastle.version>
         <!-- JasperReports -->
-        <jasperreports.version>7.0.7</jasperreports.version>
+        <jasperreports.version>7.0.8</jasperreports.version>
         <!-- Modern OpenPDF uses org.openpdf.* for handwritten PDF code.
              JasperReports PDF still uses the legacy com.lowagie.* OpenPDF coordinate;
              keep both coordinates distinct so Maven does not replace the JasperReports
@@ -121,9 +121,9 @@
         <openpdf.version>3.0.3</openpdf.version>
         <jasperreports.openpdf.version>1.3.43</jasperreports.openpdf.version>
         <!-- PDFBox -->
-        <pdfbox.version>3.0.7</pdfbox.version>
+        <pdfbox.version>3.0.8</pdfbox.version>
         <!-- TwelveMonkeys ImageIO -->
-        <twelvemonkeys.version>3.13.1</twelvemonkeys.version>
+        <twelvemonkeys.version>3.15.2</twelvemonkeys.version>
         <!-- ZXing barcode -->
         <zxing.version>3.5.4</zxing.version>
         <!-- OWASP Encoder -->
@@ -133,7 +133,7 @@
         <!-- Structural validation for authorized Query-by-Example SELECTs -->
         <jsqlparser.version>5.3</jsqlparser.version>
         <!-- JNA: pin transitive ultrabuk-htmltopdf-java range [5.12,) to the locked version -->
-        <jna.version>5.19.0</jna.version>
+        <jna.version>5.19.1</jna.version>
         <!-- HAPI HL7 v2 -->
         <hapi-hl7.version>1.0.1</hapi-hl7.version>
         <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
@@ -141,7 +141,7 @@
         <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
         <selenium.version>4.46.0</selenium.version>
         <!-- Testing -->
-        <junit-jupiter.version>6.0.3</junit-jupiter.version>
+        <junit-jupiter.version>6.1.3</junit-jupiter.version>
         <mockito.version>5.23.0</mockito.version>
         <struts.devMode>false</struts.devMode>
         <!-- Struts 7.x has migrated com.opensymphony.xwork2.* to org.apache.struts2.* -->
@@ -194,12 +194,12 @@
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-runtime</artifactId>
-                <version>4.0.6</version>
+                <version>4.0.9</version>
             </dependency>
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-core</artifactId>
-                <version>4.0.6</version>
+                <version>4.0.9</version>
             </dependency>
             <!-- Override transitive xercesImpl to fix CVE-2022-23437 and CVE-2020-14338 -->
             <dependency>
@@ -304,14 +304,14 @@
             <dependency>
                 <groupId>org.apache.neethi</groupId>
                 <artifactId>neethi</artifactId>
-                <version>3.2.2</version>
+                <version>3.2.4</version>
             </dependency>
             <!-- Override older transitive commons-configuration2 releases flagged by Snyk
                  for secret exposure during interpolation failures (CVE-2024-32958). -->
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-configuration2</artifactId>
-                <version>2.15.0</version>
+                <version>2.15.1</version>
             </dependency>
             <!-- Override the OpenTelemetry API family aligned by the transitive dependency tree.
                  Addresses the Snyk/OpenTelemetry baggage-header allocation alert (CVE-2026-45292)
@@ -384,7 +384,7 @@
         <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
-            <version>1.3.6</version>
+            <version>1.4.0</version>
         </dependency>
 
         <!-- Log4j 2 libraries -->
@@ -422,7 +422,7 @@
         <dependency>
             <groupId>commons-validator</groupId>
             <artifactId>commons-validator</artifactId>
-            <version>1.10.1</version>
+            <version>1.11.0</version>
             <exclusions>
                 <!-- Excluded this low version to avoid triggering security issue -->
                 <exclusion>
@@ -434,18 +434,18 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.21.0</version>
+            <version>2.22.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-collections4</artifactId>
-            <version>4.5.0</version>
+            <version>4.6.0</version>
         </dependency>
         <!-- apache commons codec -->
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
-           <version>1.21.0</version>
+           <version>1.22.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -929,7 +929,7 @@
         <dependency>
             <groupId>com.github.hazendaz</groupId>
             <artifactId>displaytag</artifactId>
-            <version>3.7.0</version>
+            <version>3.8.0</version>
             <exclusions>
                 <!-- Exclude SLF4J to use project's managed version -->
                 <exclusion>
@@ -961,7 +961,7 @@
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.23.1</version>
+            <version>1.23.2</version>
         </dependency>
 
         <dependency>
@@ -974,7 +974,7 @@
         <dependency>
             <groupId>org.apache.ant</groupId>
             <artifactId>ant</artifactId>
-            <version>1.10.15</version>
+            <version>1.10.18</version>
         </dependency>
 
         <!-- ==================== Templating (Velocity) ==================== -->
@@ -1018,7 +1018,7 @@
         <dependency>
             <groupId>com.sun.xml.messaging.saaj</groupId>
             <artifactId>saaj-impl</artifactId>
-            <version>3.0.4</version>
+            <version>3.0.6</version>
         </dependency>
 
         <!-- ==================== Web Services (CXF) ==================== -->
@@ -1287,14 +1287,14 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>2.4.240</version>
+            <version>2.5.250</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.5.0-jre</version>
+            <version>33.7.1-jre</version>
         </dependency>
 
         <!-- Flying Saucer - HTML/CSS to PDF via OpenPDF 3.0.x (org.openpdf.* namespace) -->
@@ -1392,7 +1392,7 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
-            <version>3.2.3</version>
+            <version>3.2.4</version>
         </dependency>
         <!-- Direct API dependency for application-owned render-cleanup telemetry. Export remains
              deployment-configured; without an SDK the API safely behaves as a no-op. -->
@@ -1423,12 +1423,13 @@
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational
              IMPROPER_UNICODE case-folding detector). CLASS retention, compile-only; provided scope
-             keeps it out of the WAR. Version tracks the spotbugs engine (plugin 4.9.3.0).
+             keeps it out of the WAR. Version tracks the spotbugs engine (plugin 4.10.2.0;
+             see the hold rationale on the spotbugs-maven-plugin declaration).
              See docs/static-analysis-workflows.md. -->
         <dependency>
             <groupId>com.github.spotbugs</groupId>
             <artifactId>spotbugs-annotations</artifactId>
-            <version>4.9.3</version>
+            <version>4.10.2</version>
             <scope>provided</scope>
         </dependency>
 
@@ -1555,8 +1556,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.15.0</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <release>25</release>
                     <!-- Emit MethodParameters attribute into .class files so Spring SpEL can
                          resolve method-argument names like #providerNo in @Cacheable conditions.
                          Without this, Spring 6+ silently fails parameter-name discovery (legacy
@@ -1699,8 +1699,12 @@
                 <artifactId>maven-pmd-plugin</artifactId>
                 <version>3.28.0</version>
                 <configuration>
-                    <!-- Target JDK version -->
-                    <targetJdk>21</targetJdk>
+                    <!-- PMD parses sources at this language level. It must track the
+                         compiler <release> above: left at 21 while javac emits 25,
+                         PMD silently reports parse errors (or mis-analyses) on any
+                         Java 22-25 syntax instead of applying the ruleset. PMD 7.22
+                         pinned below recognises Java 25. -->
+                    <targetJdk>25</targetJdk>
 
                     <!-- Custom ruleset -->
                     <rulesets>
@@ -1850,7 +1854,7 @@
                     <failOnError>false</failOnError>
                     <failOnWarnings>false</failOnWarnings>
                     <quiet>true</quiet>
-                    <source>21</source>
+                    <source>25</source>
                     <additionalJOptions>
                         <additionalJOption>-Xdoclint:none</additionalJOption>
                     </additionalJOptions>
@@ -1957,7 +1961,25 @@
                     <plugin>
                         <groupId>com.github.spotbugs</groupId>
                         <artifactId>spotbugs-maven-plugin</artifactId>
-                        <version>4.9.3.0</version>
+                        <!-- 4.10.x for Java 25: 4.9.3 bundles an ASM that cannot read
+                             class file version 69 and aborts every class with
+                             "Unsupported class file major version 69", producing no
+                             report at all. 4.10.2 carries ASM 9.10.1, which reads it.
+
+                             HELD at 4.10.2.0 against the dependency bump on
+                             release/2026.08 (#3820), which raised this to 4.10.4.1.
+                             4.10.4.x declares <prerequisites><maven>3.8.9</maven>, and
+                             this analysis runs `mvn` inside carlos-tomcat-dev, which
+                             installs `maven` from apt on a noble base image — Ubuntu
+                             noble ships maven 3.8.7-2. Maven enforces plugin
+                             prerequisites, so 4.10.4.1 fails the build outright with
+                             "requires Maven version 3.8.9" before analysing anything.
+                             4.10.2.0 asks only for maven 3.6.3.
+
+                             To take 4.10.4.x, the dev image must first ship Maven
+                             >= 3.8.9 (apt noble cannot); until then this pin is the
+                             newest SpotBugs that runs here. -->
+                        <version>4.10.2.0</version>
                         <configuration>
                             <effort>Max</effort>
                             <threshold>Low</threshold>
@@ -1967,6 +1989,14 @@
                             <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
                             <fork>true</fork>
                             <maxHeap>${spotbugs.maxHeapMb}</maxHeap>
+                            <!-- The forked analyzer's default cap is 10 minutes. Until
+                                 4.10 this never mattered, because on Java 25 bytecode the
+                                 old analyzer aborted immediately on every class instead of
+                                 analysing anything. A real effort=Max pass over the whole
+                                 tree needs more room than that on a loaded runner, and the
+                                 failure mode is an opaque "execution timed out" with no
+                                 report, so give it an explicit ceiling. -->
+                            <timeout>2400000</timeout>
                             <plugins>
                                 <plugin>
                                     <groupId>com.h3xstream.findsecbugs</groupId>

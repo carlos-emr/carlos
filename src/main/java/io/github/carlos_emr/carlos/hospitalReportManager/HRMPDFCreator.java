@@ -37,8 +37,6 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 
-import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMProviderConfidentialityStatementDao;
-
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -58,7 +56,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>Converts HRM report data into printable PDF format, handling three content types:</p>
  * <ul>
  *   <li><strong>Text reports:</strong> Structured layout with demographics, report content,
- *       metadata box, and provider confidentiality statement</li>
+ *       and metadata box</li>
  *   <li><strong>Image attachments</strong> ({@code .gif}, {@code .jpg}, {@code .png}):
  *       Scaled to fit page with auto-rotation for landscape images</li>
  *   <li><strong>HTML reports</strong> ({@code .html}): Converted to PDF via
@@ -80,7 +78,6 @@ public class HRMPDFCreator extends PdfPageEventHelper {
     private HRMDocument hrmDocument;
     private HRMReport hrmReport;
     private Document document;
-    private LoggedInInfo loggedInInfo;
 
 
     /**
@@ -92,7 +89,7 @@ public class HRMPDFCreator extends PdfPageEventHelper {
      *
      * @param outputStream OutputStream to write the generated PDF to
      * @param hrmId Integer the HRM document ID to render
-     * @param loggedInInfo LoggedInInfo the current user session for confidentiality statement lookup
+     * @param loggedInInfo LoggedInInfo the current user session, used for report parsing
      */
     public HRMPDFCreator(OutputStream outputStream, Integer hrmId, LoggedInInfo loggedInInfo) {
 
@@ -100,7 +97,6 @@ public class HRMPDFCreator extends PdfPageEventHelper {
         HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);
         //Stores the output stream and hrmId
         this.outputStream = outputStream;
-        this.loggedInInfo = loggedInInfo;
 
         try {
             //Gets the HRMDocument by the provided Id
@@ -158,45 +154,11 @@ public class HRMPDFCreator extends PdfPageEventHelper {
                 document.setMargins(0, 0, 0, 0);
                 document.open();
 
-                //Add confidentiality statement to PDF
-                float footerHeight = 0f;
-                HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
-                String confidentialityStatement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
-                PdfPTable confidentialityStatementTable = null;
-                if (confidentialityStatement != null && confidentialityStatement.trim().length() > 0) {
-                    BaseFont baseFont = BaseFont.createFont(BaseFont.COURIER, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-                    Font font = new Font(baseFont, 10, Font.NORMAL);
-                    Font italicFont = new Font(baseFont, 10, Font.ITALIC);
-                    //Creates a cell to be used as a separator line
-                    PdfPCell separator = new PdfPCell();
-                    separator.setBorder(PdfPCell.BOTTOM);
-                    separator.setFixedHeight(0.1f);
-                    //Creates a cell to be used to insert a small amount of space
-                    PdfPCell space = new PdfPCell();
-                    space.setBorder(0);
-                    space.setFixedHeight(2f);
-                    //Creates the main page table
-                    confidentialityStatementTable = new PdfPTable(1);
-                    confidentialityStatementTable.setTotalWidth(PageSize.LETTER.getWidth());
-                    confidentialityStatementTable.setLockedWidth(true);
-                    PdfPCell cell = new PdfPCell();
-                    cell.setBorder(0);
-
-                    confidentialityStatementTable.addCell(separator);
-                    cell.setPhrase(new Phrase("Confidentiality Statement:", italicFont));
-                    confidentialityStatementTable.addCell(cell);
-                    cell.setPhrase(new Phrase(confidentialityStatement, font));
-                    confidentialityStatementTable.addCell(cell);
-                    confidentialityStatementTable.addCell(space);
-
-                    footerHeight += confidentialityStatementTable.getTotalHeight() + 5;
-                }
-
                 //Translates the binary content into an image
                 Image image = Image.getInstance(hrmReport.getBinaryContent());
                 //Scales the image in case one of the dimensions is bigger than the document
 
-                image.scaleToFit(document.getPageSize().getWidth(), document.getPageSize().getHeight() - footerHeight);
+                image.scaleToFit(document.getPageSize().getWidth(), document.getPageSize().getHeight());
 
                 //Checks if the scaled width is bigger than the document width and that the height can fit the width
                 if (image.getScaledWidth() >= document.getPageSize().getWidth() && image.getScaledHeight() <= document.getPageSize().getWidth()) {
@@ -204,16 +166,11 @@ public class HRMPDFCreator extends PdfPageEventHelper {
                     image.setRotationDegrees(90);
                     //Rescales the image so that it fits the page better
 
-                    image.scaleToFit(document.getPageSize().getWidth(), document.getPageSize().getHeight() - footerHeight);
+                    image.scaleToFit(document.getPageSize().getWidth(), document.getPageSize().getHeight());
 
                 }
 
                 document.add(image);
-
-                if (confidentialityStatementTable != null) {
-                    //Adds the table to the document
-                    document.add(confidentialityStatementTable);
-                }
 
                 document.close();
             } else if (hrmReport.getFileExtension() != null && (hrmReport.getFileExtension().equals(".html"))) {
@@ -239,9 +196,8 @@ public class HRMPDFCreator extends PdfPageEventHelper {
      * Generates the structured PDF layout for a text-based HRM report.
      *
      * <p>Builds a single-column table with demographic info, reception timestamp,
-     * report text content, provider confidentiality statement, and a bordered metadata
-     * box containing message ID, sending author, facility, report number, date, and
-     * result status.</p>
+     * report text content, and a bordered metadata box containing message ID,
+     * sending author, facility, report number, date, and result status.</p>
      *
      * @param hrmReport HRMReport the parsed report data to render
      * @throws IOException if font creation fails
@@ -307,18 +263,6 @@ public class HRMPDFCreator extends PdfPageEventHelper {
         cell.setPhrase(new Phrase(hrmReport.getFirstReportTextContent(), font));
         mainPage.addCell(cell);
         mainPage.addCell(space);
-
-        //Add confidentiality statement to PDF
-        HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
-        String confidentialityStatement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
-        if (confidentialityStatement != null && confidentialityStatement.trim().length() > 0) {
-            mainPage.addCell(separator);
-            cell.setPhrase(new Phrase("Confidentiality Statement:", italicFont));
-            mainPage.addCell(cell);
-            cell.setPhrase(new Phrase(confidentialityStatement, font));
-            mainPage.addCell(cell);
-            mainPage.addCell(space);
-        }
 
         //Creates a box at the bottom of the report that contains the metadata
         float[] metaDataBoxWidths = {1f, 2f};

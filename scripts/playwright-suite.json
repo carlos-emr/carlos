@@ -475,7 +475,7 @@
       "name": "incoming-pdf-extraction",
       "script": "scripts/incoming-pdf-extraction-playwright-checks.js",
       "tiers": [
-        "core"
+        "extended"
       ],
       "assertsDatabase": true,
       "provinces": [
@@ -704,6 +704,19 @@
       "env": [
         "EFORM_ADMIN_NAV_SCREENSHOT_DIR"
       ]
+    },
+    {
+      "name": "eform-image-delete",
+      "script": "scripts/eform-image-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
     },
     {
       "name": "eform-consultation-acceptance",
@@ -1042,6 +1055,21 @@
         "all"
       ],
       "timeoutSec": 600,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "inbox-preview-acknowledge",
+      "script": "scripts/inbox-preview-acknowledge-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
       "env": [
         "INBOX_TIMEOUT_MS"
       ]
@@ -1988,6 +2016,24 @@
       ]
     },
     {
+      "name": "health-tracker",
+      "script": "scripts/health-tracker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only."
+    },
+    {
       "name": "measurement-history",
       "script": "scripts/measurement-history-playwright-checks.js",
       "tiers": [
@@ -2263,6 +2309,47 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "facility-selection",
+      "script": "scripts/facility-selection-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "health-care-team",
+      "script": "scripts/health-care-team-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "hrm-window",
+      "script": "scripts/hrm-window-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "CHROME_BIN"
+      ]
     }
   ]
 }
