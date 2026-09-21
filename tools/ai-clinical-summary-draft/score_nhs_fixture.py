@@ -51,7 +51,10 @@ def source_dates(fixture):
 
 def claim_dates(text):
     """Dates a claim asserts, normalized to dd/mm/yy for comparison."""
-    found = set(re.findall(r"\b\d{2}/\d{2}/\d{2}\b", text))
+    # A longer slash run such as "note-10/12/13/14" lists note IDs, and 14/15/18 is no calendar date.
+    found = {f"{day}/{month}/{year}"
+             for day, month, year in re.findall(r"(?<![\d/])(\d{2})/(\d{2})/(\d{2})(?![\d/])", text)
+             if 1 <= int(day) <= 31 and 1 <= int(month) <= 12}
     for iso in re.findall(r"\b(\d{4})-(\d{2})-(\d{2})\b", text):
         found.add(f"{iso[2]}/{iso[1]}/{iso[0][2:]}")
     return found
