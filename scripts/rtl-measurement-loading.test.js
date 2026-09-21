@@ -262,3 +262,13 @@ test('legacy forms without the framework patient field use their own form action
   assert.equal(f.requests[0].url,'/carlos/ws/rs/measurements/17');
   f.requests[0].respond({BP:[row('BP','120/80')]});assert.equal((await p).failed,undefined);
 });
+
+test('a same-tick editor replacement gives the next request a fresh insertion point', async () => {
+  const f=setup();const old=f.context.getMeasures('BP',1);
+  f.contentDocument.body.textContent='Replacement ';
+  const fresh=f.context.getMeasures('WT',1);await delay(5);
+  assert.equal(f.requests.length,1);assert.deepEqual(f.requests[0].body.types,['WT']);
+  f.requests[0].respond({WT:[row('WT','70')]});
+  assert.equal((await old).failed,true);assert.equal((await fresh).failed,undefined);
+  assert.equal(f.contentDocument.body.textContent,'Replacement WT: 70(2026/9); ');
+});

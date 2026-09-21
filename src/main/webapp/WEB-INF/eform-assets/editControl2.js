@@ -332,8 +332,10 @@ function editControlContents(editorname, allowPendingMeasurements) {
 // isStoredContent: true only when restoring a SAVED letter. The new-form template path
 // (populateTemplate) also writes through here before designMode is enabled, and losing a blank
 // template costs nothing — so only a stored-content write that cannot land is treated as data loss.
-function seteditControlContents(editorname, value, isStoredContent){
+function seteditControlContents(editorname, value, isStoredContent, keepPendingSourceView){
 	cancelPendingFaxSubmission();
+	measureTemplateRevision++;
+	if (!keepPendingSourceView) { pendingMeasureSourceView = null; }
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
@@ -409,12 +411,32 @@ function Select(selectname){
  * clinic template with letterhead and ##placeholders## never populated. Enabling it here, before the
  * parse, is order-independent: the template's own onload then finds it already on.
  */
+function guardLetterPrint(targetWindow) {
+    if (!targetWindow || typeof targetWindow.print !== 'function' || targetWindow.print.__rtlMeasurementGuard) { return; }
+    var nativePrint = targetWindow.print;
+    var printDocument = targetWindow.document;
+    var guardedPrint = function() {
+        if (targetWindow.document !== printDocument) { return; }
+        cancelPendingFaxSubmission();
+        if (measurementHistoryStillLoading()) {
+            window.needToConfirm = true;
+            alert('The letter is still loading. Please wait before printing.');
+            return;
+        }
+        return nativePrint.call(targetWindow);
+    };
+    guardedPrint.__rtlMeasurementGuard = true;
+    targetWindow.print = guardedPrint;
+}
+guardLetterPrint(window);
+
 function enableEditorDesignMode() {
 	var frame = document.getElementById(cfg_editorname);
 	var frameDoc;
 	try { frameDoc = frame && frame.contentWindow ? frame.contentWindow.document : null; }
 	catch (e) { frameDoc = null; } // cross-origin frame: nothing to do (and nothing we could edit)
 	if (frameDoc && frameDoc.designMode !== 'on') { frameDoc.designMode = 'on'; }
+	if (frameDoc) { guardLetterPrint(frame.contentWindow); }
 }
 
 /**
@@ -431,10 +453,11 @@ function enableEditorDesignMode() {
  * double-firing on ordinary typing is harmless.
  */
 function attachDirtyFlagListener() {
-	if (typeof setDirtyFlag !== 'function') { return; }
 	var frame = document.getElementById(cfg_editorname);
 	var frameWindow = frame ? frame.contentWindow : null;
 	if (!frameWindow || typeof frameWindow.addEventListener !== 'function') { return; }
+	guardLetterPrint(frameWindow);
+	if (typeof setDirtyFlag !== 'function') { return; }
 	frameWindow.addEventListener('keypress', setDirtyFlag, true);
 	frameWindow.addEventListener('input', setDirtyFlag, true);
 }
@@ -452,6 +475,7 @@ function loadDefaultTemplate() {
 	var content = editControlContents(cfg_editorname, true).replace(/<!--RTL measurement insertion-->/g, '');
 	if (content.trim() != '') { measureInitialTemplateLoading = false; finishPendingSourceView(); return; }
 	cancelPendingFaxSubmission();
+	measureTemplateRevision++;
 	measureInitialTemplateLoading = true;
 	// Invalidate markers before navigation starts, including a fast REST response.
 	document.getElementById(cfg_editorname).contentDocument.body.textContent = '';
@@ -485,6 +509,7 @@ function loadTemplate(selectname){
 		// Security: validate template name to prevent path traversal or script injection via iframe src
 		if (!/^[\w.\- ]+$/.test(selected)) { console.warn('loadTemplate: invalid template name:', selected); return; }
 		cancelPendingFaxSubmission();
+		measureTemplateRevision++;
 		measureInitialTemplateLoading = true;
 		pendingMeasureSourceView = null;
 		var previousDocument = document.getElementById(cfg_editorname).contentDocument;
@@ -507,6 +532,12 @@ function loadTemplate(selectname){
 }
 
 function parseTemplate(){
+	var templateRevision = ++measureTemplateRevision;
+	var templateDocument = document.getElementById(cfg_editorname).contentDocument;
+    function templateIsCurrent() {
+        var frame = document.getElementById(cfg_editorname);
+        return measureTemplateRevision === templateRevision && frame && frame.contentDocument === templateDocument;
+    }
 	//replace template placeholders with database pulls
 	var contents=editControlContents(cfg_editorname, true);
 	var temp = contents.split('##'); //parse for template place holders identified by ##value##
@@ -535,7 +566,21 @@ function parseTemplate(){
 			templateMapping.values = keys;
 			if (!cache.flushCache && cache.contains("template")) { populateTemplate(); return; }
 			measureTemplateLookupsPending++;
-			try { cache.lookup("template", 15000); }
+			try { cache.lookup("template", 15000, {
+                isCurrent: templateIsCurrent,
+                onStale: function() { finishTemplateLookup(true); },
+                onResponse: function() {
+                    var populated = false;
+                    try { populateTemplate(); populated = true; }
+                    catch (error) { console.warn('RTL: template population failed.'); }
+                    finally { finishTemplateLookup(populated); }
+                },
+                onError: function() {
+                    // A failed lookup for a replaced letter must not add a failure
+                    // notice to its replacement, but must release its pending count.
+                    finishTemplateLookup(!templateIsCurrent());
+                }
+            }); }
 			catch (error) { finishTemplateLookup(false); }
 		}		 
 	}
@@ -568,7 +613,7 @@ function populateTemplate(){
 		}
 		contents += temp[x];
 	}
-	seteditControlContents(cfg_editorname,contents);
+	seteditControlContents(cfg_editorname,contents,false,true);
 }
 
 function parseText(obs) {
@@ -978,20 +1023,7 @@ function submitFaxButton() {
 }
 	
 
-	cache.addMapping({name: "template", cacheResponseHandler: function() {
-        var populated = false;
-        try { populateTemplate(); populated = true; }
-        catch (error) { console.warn('RTL: template population failed.'); }
-        finally { finishTemplateLookup(populated); }
-    }});
-
-    // APCache invokes this as the jQuery request's error handler. Scope template
-    // completion to its lookup type; other cache lookups keep the existing alert.
-    cache.cacheResponseErrorHandler = function() {
-        if (/(^|[?&])oscarAPCacheLookupType=template(&|$)/.test(String(this.data || '') + '&' + String(this.url || ''))) {
-            finishTemplateLookup(false);
-        } else { alert('Please contact an administrator, an error has occurred.'); }
-    };
+	cache.addMapping({name: "template", cacheResponseHandler: populateTemplate});
 
     function finishTemplateLookup(success) {
         measureTemplateLookupsPending = Math.max(0, measureTemplateLookupsPending - 1);
@@ -1617,6 +1649,7 @@ var measureRequestRevision = 0;
 var measureInitialTemplateLoading = false;
 var measureTemplateCatalogLoading = false;
 var measureTemplateLookupsPending = 0;
+var measureTemplateRevision = 0;
 var pendingMeasureSourceView = null;
 
 function measurementHistoryStillLoading() {
@@ -1712,6 +1745,7 @@ function getMeasures(measure, max) {
                 resolve({values: [], dates: [], failed: true});
                 return;
             }
+            if (pendingMeasureBatch && !measureBatchIsCurrent(pendingMeasureBatch)) { flushMeasureRequests(); }
             if (!pendingMeasureBatch) {
                 pendingMeasureBatch = createMeasureBatch();
                 if (measureBatchesPending === 0) { measureBatchFailed = false; }
@@ -1740,7 +1774,9 @@ function startNextMeasureBatch() {
     if (activeMeasureBatch || !measureRequestQueue.length) { return; }
     var batch = measureRequestQueue.shift();
     activeMeasureBatch = batch;
-    fetchMeasureHistory(batch).then(function(measurements) {
+    var history = measureBatchIsCurrent(batch) ? fetchMeasureHistory(batch)
+        : Promise.reject(new Error('The original measurement insertion point is no longer available'));
+    history.then(function(measurements) {
         var histories = batch.requests.map(function(request) {
             return normalizeMeasureHistory(measurements, request, batch.patient);
         });
@@ -1849,12 +1885,16 @@ function appendMeasureText(parent, text, size, bold) {
     parent.appendChild(node);
 }
 
-function insertMeasureBatch(batch, histories) {
+function measureBatchIsCurrent(batch) {
     var frame = document.getElementById(cfg_editorname);
-    if (!frame || frame.contentDocument !== batch.document || measurementPatientId() !== batch.patient
-            || !batch.document.body.contains(batch.marker)) {
-        // The user deleted the placeholder or loaded another letter/template. Never
-        // fall back to the current caret, which could silently put results in another letter.
+    try {
+        return frame && frame.contentDocument === batch.document && measurementPatientId() === batch.patient
+            && batch.document.body.contains(batch.marker);
+    } catch (error) { return false; }
+}
+
+function insertMeasureBatch(batch, histories) {
+    if (!measureBatchIsCurrent(batch)) {
         throw new Error('The original measurement insertion point is no longer available');
     }
     var fragment = batch.document.createDocumentFragment();

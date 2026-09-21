@@ -33,17 +33,18 @@ async function run() {
 <body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden"><input id="subject" value="Fixture letter" type="hidden">
 <input id="hasValidRecipient" value="true" type="hidden"><input id="emailConsentStatus" value="Unknown" type="hidden"><input id="emailConsentName" value="Fixture" type="hidden">
 <div id="control1"></div><div id="control2"></div><div id="control3"></div><div id="control4"></div><select id="template"><option value="">Templates</option><option value="default.rtl">Default</option><option value="async.rtl">Async</option><option value="failure.rtl">Failure</option></select>
-<script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
+<script>window.delayedPrints=0;window.delayedFramePrints=0;window.print=()=>window.delayedPrints++;</script><script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
 <button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button>
 <button type="button" name="PrintSubmitButton" onclick="window.prints++">Print and submit</button>
 <button type="button" id="PrintSubmitButton" onclick="window.prints++">Print and submit by id</button></form></body></html>`});
-      if (assets[name]) return route.fulfill({body:fs.readFileSync(web+assets[name]),contentType:name==='blank.rtl'?'text/html':'text/javascript'});
+      if (assets[name]) return route.fulfill({body:name==='blank.rtl'?fs.readFileSync(web+assets[name],'utf8').replace('</head>','<script>window.print=()=>parent.delayedFramePrints++;</script></head>'):fs.readFileSync(web+assets[name]),contentType:name==='blank.rtl'?'text/html':'text/javascript'});
       if (name==='async.rtl' || name==='failure.rtl') return route.fulfill({contentType:'text/html',body:'<!doctype html><html><body>##'+(name==='async.rtl'?'asyncField':'failureField')+'##</body></html>'});
       if (name==='default.rtl') return route.fulfill({contentType:'text/html',body:'<!doctype html><html><body>DEFAULT CONTENT</body></html>'});
       return route.abort();
     });
     await page.goto('http://127.0.0.1:2091/carlos/eform/fixture');
     await page.waitForFunction(()=>document.getElementById('edit').contentDocument.designMode==='on');
+    await page.evaluate(()=>attachDirtyFlagListener()); // Start() installs the same initial-frame hook.
     assert.deepEqual(await page.evaluate(()=>[
       measurementMonth(Date.parse('2026-09-30T23:30:00-07:00')),
       measurementMonth(Date.parse('2026-12-31T23:30:00-08:00')),
@@ -74,7 +75,13 @@ async function run() {
       await route.fulfill({contentType:'application/json',body:JSON.stringify({measurements})});
       return page.evaluate(()=>window.loaded);
     }
+    await page.evaluate(()=>{
+      window.delayedPrint=window.print.bind(window);
+      window.delayedFramePrint=document.getElementById('edit').contentWindow.print.bind(document.getElementById('edit').contentWindow);
+    });
     await begin(['BP','WT']);
+    await page.evaluate(()=>{window.delayedPrint();window.delayedFramePrint();});
+    assert.deepEqual(await page.evaluate(()=>[window.delayedPrints,window.delayedFramePrints]),[0,0]);
     assert.equal(await page.evaluate(()=>{
       window.originalPrompt=window.prompt;window.consentPrompts=0;
       window.prompt=()=>{window.consentPrompts++;return 'No';};
@@ -112,6 +119,8 @@ async function run() {
     assert.equal(await page.evaluate(()=>{remoteEmail();window.prompt=window.originalPrompt;return window.consentPrompts;}),1);
     assert.equal(await page.locator('#emailAction').count(),0);
     assert.equal(await body.textContent(),'BEFORE BP: 120/80(2026/9); WT: 70(2026/9); AFTER TYPED');
+    await page.evaluate(()=>{window.delayedPrint();window.delayedFramePrint();});
+    assert.deepEqual(await page.evaluate(()=>[window.delayedPrints,window.delayedFramePrints]),[1,1]);
     const saved=await page.evaluate(()=>editControlContents('edit'));
     assert(!saved.includes('RTL measurement insertion'));
     const exported=await page.evaluate(async()=>{
@@ -248,6 +257,10 @@ async function run() {
         const doc=document.getElementById('edit').contentDocument;
         doc.body.textContent='';doc.getSelection().removeAllRanges();
         cfg_template='default.rtl';window.loaded=Promise.all([getMeasures('BP',1)]);
+      });
+      for (let n=0;n<100&&!pending.length;n++) await page.waitForTimeout(10);
+      assert.equal(pending.length,1);
+      await page.evaluate(()=>{
         loadDefaultTemplate();
         window.duringTemplateLoad=getMeasures('WT',1);
       });
@@ -278,8 +291,11 @@ async function run() {
     assert.equal(await page.evaluate(()=>{
       try {editControlContents('edit');return false;} catch(error){return /still loading/.test(error.message);}
     }),true);
+    await page.evaluate(()=>viewsource(true));
     await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="template"><input name="asyncField" value="POPULATED">'});
     await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    assert.equal(await page.evaluate(()=>document.getElementById('edit').contentDocument.__rtlSourceMode),true);
+    await page.evaluate(()=>viewsource(false));
     assert.equal(await body.textContent(),'POPULATED');
     await page.evaluate(()=>{window.loaded=Promise.all([getMeasures('BP',1)]);});
     await respond({BP:[row('BP','120/80')]});
@@ -297,6 +313,52 @@ async function run() {
     await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="template"><input name="asyncField" value="POPULATED">'});
     await page.waitForFunction(()=>!measurementHistoryStillLoading());
     assert.equal(await body.textContent(),'POPULATED');
+    // Old template results cannot touch a replacement document or its cache.
+    for (const replacement of ['navigation','sameDocument']) {
+      await page.evaluate(()=>{
+        cache.values={};document.getElementById('template').selectedIndex=2;loadTemplate('template');
+      });
+      for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);
+      assert.equal(templateRequests.length,1);
+      if (replacement==='navigation') {
+        await page.evaluate(()=>{document.getElementById('template').selectedIndex=1;loadTemplate('template');});
+        await page.waitForFunction(()=>document.getElementById('edit').contentDocument?.body?.textContent==='DEFAULT CONTENT');
+      } else {
+        await page.evaluate(()=>seteditControlContents('edit','Replacement content'));
+      }
+      await body.pressSequentially(' USER EDIT');
+      const replacementText=await body.textContent();
+      await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="template"><input name="asyncField" value="STALE">'});
+      await page.waitForFunction(()=>!measurementHistoryStillLoading());
+      assert.equal(await body.textContent(),replacementText);
+      assert.equal(await page.evaluate(()=>cache.contains('asyncField')),false);
+    }
+    // Settling the old request must leave the new template's lookup gated.
+    await page.evaluate(()=>{cache.values={};document.getElementById('template').selectedIndex=2;loadTemplate('template');});
+    for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);
+    assert.equal(templateRequests.length,1);
+    await page.evaluate(()=>{document.getElementById('template').selectedIndex=3;loadTemplate('template');});
+    for (let n=0;n<100&&templateRequests.length<2;n++) await page.waitForTimeout(10);
+    assert.equal(templateRequests.length,2);
+    await templateRequests.shift().fulfill({status:500,body:'Stale lookup failure'});
+    await page.waitForFunction(()=>measureTemplateLookupsPending===1);
+    assert.equal(await page.evaluate(()=>measurementHistoryStillLoading()),true);
+    assert.equal(await body.textContent(),'##failureField##');
+    await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="template"><input name="failureField" value="CURRENT">'});
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    assert.equal(await body.textContent(),'CURRENT');
+    // The new optional timeout must preserve a clinic's global jQuery setting
+    // for existing callers which do not pass the second argument.
+    await page.evaluate(()=>{
+      const oldTimeout=jQuery.ajaxSettings.timeout;
+      jQuery.ajaxSetup({timeout:4321});
+      try {createCache({}).lookup('timeoutProbe');}
+      finally {jQuery.ajaxSetup({timeout:oldTimeout});}
+    });
+    for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);
+    assert.equal(templateRequests.length,1);
+    assert.equal(await page.evaluate(()=>window.templateTimeout),4321);
+    await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="timeoutProbe"><input name="timeoutProbe" value="ok">'});
     assert.deepEqual(errors,[]);
     console.log('PASS: native Range insertion, request ordering, live caret/typing, serializer and legacy/toolbar print gates, marker cleanup, replaced template, literal measurement text. Chromium '+browser.version());
   } finally {await browser.close();}
