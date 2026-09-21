@@ -47,14 +47,44 @@ class PipelineTest(unittest.TestCase):
             sources = [{"id": f"note-{i}"} for i in range(count)]
             schema = pipeline.ollama_schema(self.schema, sources)
             coverage = schema["properties"]["coverage"]
-            self.assertEqual(count, coverage["minItems"])
+            # The model reviews only sources it did not cite, so an all-cited pass returns none.
+            self.assertEqual(0, coverage["minItems"])
             self.assertEqual(count, coverage["maxItems"])
+            self.assertEqual(["reviewed_not_cited", "excluded"],
+                             coverage["items"]["properties"]["status"]["enum"])
             expected = [source["id"] for source in sources]
             self.assertEqual(expected, coverage["items"]["properties"]["source_id"]["enum"])
             citations = schema["properties"]["claims"]["items"]["properties"]["source_ids"]
             self.assertEqual(expected, citations["items"]["enum"])
             self.assertEqual(count, citations["maxItems"])
         self.assertEqual(original, self.schema)
+
+    def test_host_records_cited_sources_and_keeps_the_models_uncited_reviews(self):
+        sources = [{"id": "note-1"}, {"id": "note-2"}, {"id": "admin-1"}]
+        skipped = {"source_id": "admin-1", "status": "excluded", "reason": "Administrative task text."}
+        output = {"claims": [{"id": "c1", "text": "A.", "source_ids": ["note-1", "note-2"]},
+                             {"id": "c2", "text": "B.", "source_ids": ["note-1"]}],
+                  "sections": [], "coverage": [skipped]}
+        original = copy.deepcopy(output)
+        completed = pipeline.complete_coverage(output, sources)
+        self.assertEqual(original, output)
+        self.assertEqual([skipped,
+                          {"source_id": "note-1", "status": "cited",
+                           "reason": "note-1: cited by 2 statements in this draft; recorded by the host."},
+                          {"source_id": "note-2", "status": "cited",
+                           "reason": "note-2: cited by 1 statement in this draft; recorded by the host."}],
+                         completed["coverage"])
+        self.assertEqual(completed, pipeline.complete_coverage(completed, sources))
+
+    def test_a_models_own_review_of_a_cited_source_is_kept_and_an_uncited_source_is_never_invented(self):
+        sources = [{"id": "note-1"}, {"id": "note-2"}]
+        own = {"source_id": "note-1", "status": "cited", "reason": "Admission history."}
+        output = {"claims": [{"id": "c1", "text": "A.", "source_ids": ["note-1"]}], "sections": [], "coverage": [own]}
+        # note-2 is uncited and unexplained: the host must not manufacture a review for it.
+        self.assertEqual([own], pipeline.complete_coverage(output, sources)["coverage"])
+        # The schema no longer offers "cited", so a model reviewing a cited source can only mislabel it.
+        output["coverage"] = [dict(own, status="reviewed_not_cited")]
+        self.assertEqual([own], pipeline.complete_coverage(output, sources)["coverage"])
 
     def test_full_record_fixture_exceeds_old_limit_and_requires_every_fact(self):
         self.assertEqual(self.bundle, json.loads((ROOT / "full-record-input.json").read_text()))

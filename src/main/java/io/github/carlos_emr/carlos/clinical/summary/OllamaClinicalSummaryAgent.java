@@ -69,7 +69,8 @@ public final class OllamaClinicalSummaryAgent implements ClinicalSummaryAgent {
                 .put("keep_alive", "5m");
         ObjectNode schema = request.get("output_schema").deepCopy();
         ObjectNode coverage = (ObjectNode) schema.path("properties").path("coverage");
-        coverage.put("minItems", request.get("sources").size()).put("maxItems", request.get("sources").size());
+        // The model reviews only the sources it did not cite; the host records the cited ones.
+        coverage.put("minItems", 0).put("maxItems", request.get("sources").size());
         var coverageIds = ((ObjectNode) coverage.path("items").path("properties").path("source_id")).putArray("enum");
         ObjectNode citations = (ObjectNode) schema.path("properties").path("claims").path("items").path("properties").path("source_ids");
         citations.put("maxItems", request.get("sources").size());

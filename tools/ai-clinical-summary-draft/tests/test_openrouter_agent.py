@@ -93,6 +93,35 @@ class OpenRouterTest(unittest.TestCase):
         first['output']['claims'].clear()
         self.assertTrue(self.gateway.run(self.request)['output']['claims'])
 
+    def test_model_reviews_only_uncited_sources_and_the_gateway_completes_coverage(self):
+        notes = [note for note in self.gateway.allowed.notes if note[0] == 'NHSSYN003'][:2]
+        sources = [dict(self.request['sources'][0], id=f'note-{i + 1}', patient_id='demographic-3003',
+                        title=f'Signed encounter note (note-{i + 1})', date=date, text=body)
+                   for i, (_fixture, date, body) in enumerate(notes)]
+
+        def respond(uncited_review):
+            def transport(config, endpoint, payload):
+                result = completion(config, endpoint, payload)
+                output = json.loads(result['choices'][0]['message']['content'])
+                output['claims'] = output['claims'][:1]
+                output['sections'][0]['claim_ids'] = ['c0']
+                output['coverage'] = uncited_review
+                result['choices'][0]['message']['content'] = json.dumps(output)
+                return result
+            return agent.Gateway(dict(self.config, cache_seconds=0), transport=transport)
+
+        reviewed = respond([{'source_id': 'note-2', 'status': 'reviewed_not_cited', 'reason': 'Repeats note-1.'}])
+        coverage = reviewed.run(dict(self.request, sources=sources))['output']['coverage']
+        self.assertEqual({'note-1': 'cited', 'note-2': 'reviewed_not_cited'},
+                         {entry['source_id']: entry['status'] for entry in coverage})
+        self.assertIn('recorded by the host', coverage[[e['source_id'] for e in coverage].index('note-1')]['reason'])
+        self.assertIn('Repeats note-1.', coverage[[e['source_id'] for e in coverage].index('note-2')]['reason'])
+        with self.assertRaisesRegex(ValueError, 'source review'):
+            respond([]).run(dict(self.request, request_id=str(uuid4()), sources=sources))
+        # The usual case: every source is cited, so the model returns no reviews at all.
+        all_cited = respond([]).run(dict(self.request, request_id=str(uuid4()), sources=sources[:1]))
+        self.assertEqual(['cited'], [entry['status'] for entry in all_cited['output']['coverage']])
+
     def test_cache_expires_and_can_be_disabled(self):
         self.gateway.run(self.request)
         self.now = 900
@@ -240,7 +269,8 @@ class OpenRouterTest(unittest.TestCase):
         changed['claims'][0]['source_ids'] = ['unknown']
         variants.append(json.dumps(changed))
         changed = copy.deepcopy(baseline)
-        changed['coverage'] = []
+        # An empty review list is valid when every source is cited; a review of an unknown source is not.
+        changed['coverage'] = [{'source_id': 'unknown', 'status': 'excluded', 'reason': 'Not supplied.'}]
         variants.append(json.dumps(changed))
         changed = copy.deepcopy(baseline)
         changed['sections'][0]['claim_ids'] = ['unknown']

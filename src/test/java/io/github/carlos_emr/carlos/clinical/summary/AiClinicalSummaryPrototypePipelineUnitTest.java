@@ -21,6 +21,8 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     private int failOnCall;
     private int outputLimitBytes;
     private int requestBytes = ClinicalSummaryGenerationPipeline.REQUEST_BYTES;
+    private boolean reviewsOnlyUncited;
+    private boolean citesOnlyFirstSource;
     private final ClinicalSummaryAgent agent = new ClinicalSummaryAgent() {
         public String displayName() { return "Test full-record agent"; }
         public String cacheIdentity() { return "fixed-test-revision"; }
@@ -39,9 +41,11 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
             ArrayNode coverage = output.putArray("coverage");
             for (JsonNode source : request.get("sources")) {
                 String id = source.get("id").asText();
+                if (citesOnlyFirstSource && !claims.isEmpty()) continue;
                 String text = source.get("text").asText().replace('\n', ' ');
                 claims.addObject().put("id", "claim-" + id).put("text", text).putArray("source_ids").add(id);
                 ids.add("claim-" + id);
+                if (reviewsOnlyUncited) continue;
                 coverage.addObject().put("source_id", id).put("status", "cited").put("reason", "Recorded findings from " + id);
             }
             return output;
@@ -186,6 +190,38 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
         requests.clear();
         assertThat(generate(input).getClaimsById()).hasSize(30);
         assertThat(requests).noneSatisfy(request -> assertThat(request.get("sources")).isEqualTo(first));
+    }
+
+    @Test
+    void hostRecordsCitedSourcesWhenTheAgentReviewsOnlyUncitedOnes() throws Exception {
+        reviewsOnlyUncited = true;
+        var result = generate(chart(3));
+        assertThat(result.getClaimsById()).hasSize(3);
+        assertThat(result.getView().get("coverage").toString())
+                .contains("source-1", "source-2", "source-3", "cited by 1 statement in this draft; recorded by the host")
+                .doesNotContain("reviewed_not_cited");
+    }
+
+    @Test
+    void aMislabelledReviewOfACitedSourceTakesTheHostKnownStatusAndKeepsItsReason() throws Exception {
+        ObjectNode output = JSON.createObjectNode();
+        output.putArray("claims").addObject().put("id", "c1").put("text", "A.").putArray("source_ids").add("source-1");
+        output.putArray("sections");
+        output.putArray("coverage").addObject().put("source_id", "source-1").put("status", "reviewed_not_cited")
+                .put("reason", "Admission history.");
+        JsonNode completed = ClinicalSummaryGenerationPipeline.completeCoverage(output, chart(2).get("sources"));
+        assertThat(completed.get("coverage")).hasSize(1);
+        assertThat(completed.get("coverage").get(0).get("status").asText()).isEqualTo("cited");
+        assertThat(completed.get("coverage").get(0).get("reason").asText()).isEqualTo("Admission history.");
+        assertThat(output.get("coverage").get(0).get("status").asText()).isEqualTo("reviewed_not_cited");
+    }
+
+    @Test
+    void rejectsAnUncitedSourceTheAgentLeftUnexplained() throws Exception {
+        reviewsOnlyUncited = true;
+        citesOnlyFirstSource = true;
+        // The host records citations; it never manufactures a review for a source the agent ignored.
+        assertThatThrownBy(() -> generate(chart(2))).isInstanceOf(ClinicalSummaryGenerationException.class);
     }
 
     @Test

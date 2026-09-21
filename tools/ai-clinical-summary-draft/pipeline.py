@@ -13,7 +13,7 @@ def ollama_schema(schema, sources):
     result = copy.deepcopy(schema)
     ids = [source["id"] for source in sources]
     coverage = result["properties"]["coverage"]
-    coverage.update(minItems=len(ids), maxItems=len(ids))
+    coverage.update(minItems=0, maxItems=len(ids))  # Only uncited sources are reviewed by the model.
     coverage["items"]["properties"]["source_id"]["enum"] = ids
     citations = result["properties"]["claims"]["items"]["properties"]["source_ids"]
     citations["maxItems"] = len(ids)
@@ -81,6 +81,35 @@ def plan(sources, prompt, schema, request_bytes=REQUEST_BYTES):
     return batches
 
 
+def complete_coverage(output, sources):
+    """Record each cited source for the model, which reviews only the sources it did not cite.
+
+    An uncited source the model left unexplained is never given a review here, so it still fails.
+    """
+    result = copy.deepcopy(output)
+    if not (isinstance(result, dict) and isinstance(result.get("claims"), list)
+            and isinstance(result.get("coverage"), list)):
+        return result  # Malformed output is rejected by validation, not repaired.
+    reviewed = {entry.get("source_id") for entry in result["coverage"] if isinstance(entry, dict)}
+    counts = {}
+    for claim in result["claims"]:
+        references = claim.get("source_ids") if isinstance(claim, dict) else None
+        for source_id in dict.fromkeys(references if isinstance(references, list) else []):
+            if isinstance(source_id, str):
+                counts[source_id] = counts.get(source_id, 0) + 1
+    for entry in result["coverage"]:
+        if isinstance(entry, dict) and entry.get("source_id") in counts:
+            entry["status"] = "cited"  # Citations are a host-known fact; the model's reason is kept.
+    for source in sources:
+        count = counts.get(source["id"])
+        if count and source["id"] not in reviewed:
+            result["coverage"].append({
+                "source_id": source["id"], "status": "cited",
+                "reason": f"{source['id']}: cited by {count} statement{'' if count == 1 else 's'} "
+                          "in this draft; recorded by the host."})
+    return result
+
+
 def merge(outputs, sources):
     if len(outputs) == 1:
         return outputs[0]
@@ -136,6 +165,7 @@ def generate(sources, prompt, schema, infer, validate_part, request_bytes=REQUES
             for smaller in split(part):
                 run(smaller)
             return
+        output = complete_coverage(output, part)
         validate_part(part, output)
         outputs.append(output)
 

@@ -137,8 +137,10 @@ anything beyond that exact identity record, still goes through generation. An ex
 minimal portion reports an output-limit error rather than a model-server outage.
 After fixture checks, runtime generation also omits the known synthetic import preamble
 from note inputs; the clinical body and full original source evidence are retained.
-Claims are generated before section membership. Each pass constrains coverage count
+Claims are generated before section membership. Each pass constrains coverage
 and citation IDs to its actual sources, while the host still checks uniqueness and support.
+The model reviews only the sources it did not cite; the host records cited sources itself,
+which cut generated output by 9-26% on the three fixtures without changing the rendered coverage contract.
 Clinical prose uses ordinary JSON string rules in the decoding schema. The host rejects
 embedded line breaks after parsing: the former `^[^\r\n]+$` schema pattern allowed raw
 quotes in Ollama's generated grammar, so output could spill past a string boundary and

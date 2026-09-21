@@ -31,7 +31,10 @@ empty states and must not be interpreted as negative clinical findings.
 Coverage includes every source exactly once; status is `cited`,
 `reviewed_not_cited` or `excluded`, with a nonempty reason. Only sources
 actually referenced by claims have status `cited`; ledger-only references
-do not count as summary coverage.
+do not count as summary coverage. The model writes reviews only for sources
+no claim cites; the host records each cited source itself, with the number of
+statements citing it, before this rule is checked. A source that is neither
+cited nor reviewed is never given a review by the host, so the draft is rejected.
 
 Validation severity is `pass`, `warning` or `error`. Source IDs may be empty
 for structural findings; any supplied IDs must resolve. Error findings suppress
