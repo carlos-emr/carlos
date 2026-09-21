@@ -429,8 +429,9 @@ class Gateway:
         message = choice.get("message")
         require(isinstance(message, dict) and not message.get("refusal") and not message.get("tool_calls")
                 and isinstance(message.get("content"), str), "Missing assistant JSON")
-        output = normalize_section_placement(label_source_reviews(loads(message["content"]), sources), sources)
-        output = normalize_coverage_status(output, sources)
+        # The host records cited sources first: an all-cited draft arrives with no reviews at all.
+        output = pipeline.complete_coverage(label_source_reviews(loads(message["content"]), sources), sources)
+        output = normalize_coverage_status(normalize_section_placement(output, sources), sources)
         if section is not None:
             require(all(row["id"] == section for row in output["sections"]), "Unexpected section in scoped pass")
         self.validate_output(sources, output)

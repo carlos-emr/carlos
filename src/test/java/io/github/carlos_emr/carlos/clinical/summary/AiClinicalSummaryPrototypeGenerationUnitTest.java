@@ -131,7 +131,8 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
         assertThat(payload.path("format").path("type").asText()).isEqualTo("object");
         var sources = MAPPER.valueToTree(chart.getView()).path("sources");
         var coverageSchema = payload.path("format").path("properties").path("coverage");
-        assertThat(coverageSchema.path("minItems").asInt()).isEqualTo(sources.size());
+        // The model reviews only the sources it did not cite, so an all-cited pass returns none.
+        assertThat(coverageSchema.path("minItems").asInt()).isZero();
         assertThat(coverageSchema.path("maxItems").asInt()).isEqualTo(sources.size());
         ArrayNode sourceIds = MAPPER.createArrayNode();
         sources.forEach(source -> sourceIds.add(source.get("id").asText()));

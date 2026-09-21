@@ -35,7 +35,7 @@ Never write a person's name or licence number in a claim, even when the source s
 recording who contacted whom. 'The ward registrar contacted the GP' is correct; naming either is a defect.
 Do not include patient ages, DOBs, sex, IDs, admission metadata or fixture/import notices.
 
-Account for every source exactly once in coverage: cited, reviewed_not_cited, or excluded.
-Only sources referenced by claims may be cited. Sources outside this section's scope are reviewed_not_cited.
+List in coverage only the sources that no claim cites, each exactly once, as reviewed_not_cited or excluded.
+Never list a source that a claim cites; the host records those. Sources outside this section's scope are reviewed_not_cited.
 Give each source a brief, unique, source-specific reason rather than copying clinical prose.
 Before returning, check every source for omitted facts within this scope, lost qualifiers, unsupported claims and repetition.

@@ -138,6 +138,7 @@ final class ClinicalSummaryGenerationPipeline {
             for (ObjectNode smaller : split(request)) run(snapshot, smaller, true, outputs);
             return;
         }
+        generated = completeCoverage(generated, part.get("sources"));
         ClinicalSummaryGenerationService.validateGenerated(generated, part.get("sources"), true);
         for (String field : List.of("sections", "claims", "coverage")) part.set(field, generated.get(field).deepCopy());
         ClinicalSummaryArtifact validated = new ClinicalSummaryArtifact(part);
@@ -185,6 +186,44 @@ final class ClinicalSummaryGenerationPipeline {
             second.add(source.deepCopy().put("text", text.substring(start)));
         }
         return List.of(left, right);
+    }
+
+    /**
+     * Records each cited source on the agent's behalf; the agent reviews only sources it did not cite.
+     * An uncited source the agent left unexplained is never given a review here, so it still fails
+     * validation. Malformed output is returned unchanged for validation to reject.
+     */
+    static JsonNode completeCoverage(JsonNode generated, JsonNode sources) {
+        if (generated == null || !generated.isObject() || !generated.path("claims").isArray()
+                || !generated.path("coverage").isArray()) {
+            return generated;
+        }
+        ObjectNode result = generated.deepCopy();
+        Set<String> reviewed = new LinkedHashSet<>();
+        result.get("coverage").forEach(entry -> reviewed.add(entry.path("source_id").asText()));
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (JsonNode claim : result.get("claims")) {
+            Set<String> references = new LinkedHashSet<>();
+            claim.path("source_ids").forEach(reference -> references.add(reference.asText()));
+            references.forEach(reference -> counts.merge(reference, 1, Integer::sum));
+        }
+        ArrayNode coverage = (ArrayNode) result.get("coverage");
+        for (JsonNode entry : coverage) {
+            // Citations are a host-known fact; the agent's reason is kept.
+            if (entry.isObject() && counts.containsKey(entry.path("source_id").asText())) {
+                ((ObjectNode) entry).put("status", "cited");
+            }
+        }
+        for (JsonNode source : sources) {
+            String id = source.path("id").asText();
+            Integer count = counts.get(id);
+            if (count != null && !reviewed.contains(id)) {
+                coverage.addObject().put("source_id", id).put("status", "cited")
+                        .put("reason", id + ": cited by " + count + (count == 1 ? " statement" : " statements")
+                                + " in this draft; recorded by the host.");
+            }
+        }
+        return result;
     }
 
     private static ObjectNode merge(List<JsonNode> outputs, JsonNode sources) {

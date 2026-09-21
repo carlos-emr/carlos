@@ -102,7 +102,7 @@ Return exactly these four envelope fields, echoing version and request ID:
       { "id": "claim-1", "text": "<source-supported statement>", "source_ids": ["note-123"] }
     ],
     "coverage": [
-      { "source_id": "note-123", "status": "cited", "reason": "Used in claim-1." }
+      { "source_id": "note-124", "status": "reviewed_not_cited", "reason": "Repeats the plan recorded in note-123." }
     ]
   }
 }
@@ -111,13 +111,16 @@ Return exactly these four envelope fields, echoing version and request ID:
 Every claim needs a valid source citation and belongs to exactly one non-empty
 section. Sections use one of the five fixed ID/title pairs in the supplied schema:
 Clinical overview, Active problems, Medications and allergies, Results and
-observations, or Plan and follow-up. Omit empty sections. Coverage must account
-for every supplied source exactly once and match actual claim citations. Return
+observations, or Plan and follow-up. Omit empty sections. Coverage must review
+every supplied source that no claim cites, exactly once, as `reviewed_not_cited`
+or `excluded`. Omit cited sources: the host records those from the citations, so
+an agent need not spend output describing a source it used. A `cited` review is
+still accepted, and its status always follows the actual claim citations. Return
 as many atomic single-paragraph claims as the supplied clinical content requires.
 There is no claim-count, character, citation-count or source-count cap. Return zero
 claims and sections only when the supplied portion contains no clinical facts.
-There are at most five sections; coverage must account for every supplied source.
-Coverage reasons must be source-specific. See
+There are at most five sections. A source that is neither cited nor reviewed fails
+the draft. Coverage reasons must be source-specific. See
 [CONTRACT.md](CONTRACT.md) for all rendering invariants.
 
 Do not return sources, model names, timestamps, patient context, fact ledger or
