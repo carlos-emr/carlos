@@ -42,6 +42,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -236,7 +237,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReportNothingCleared_whenSignOffWriteThrows() throws Exception {
         // success=false and clearedCount>0 together would let the viewer and the database
         // disagree, so a failed write reports zero.
-        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), anyString()))
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), anyString()))
                 .thenThrow(new RuntimeException("boom"));
         stubReportExists(7);
         request.addParameter("method", "signOff");
@@ -268,8 +269,8 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         mapping.setHrmDocumentId(7);
         mapping.setProviderNo("999998");
         mapping.setSignedOff(0);
-        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
-                .thenReturn(mapping);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("999998")))
+                .thenReturn(java.util.List.of(mapping));
         stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
@@ -292,8 +293,8 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         mapping.setHrmDocumentId(7);
         mapping.setProviderNo("999998");
         mapping.setSignedOff(1);
-        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
-                .thenReturn(mapping);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("999998")))
+                .thenReturn(java.util.List.of(mapping));
         stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
@@ -312,8 +313,8 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         mapping.setHrmDocumentId(7);
         mapping.setProviderNo("999998");
         mapping.setSignedOff(1);
-        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
-                .thenReturn(mapping);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("999998")))
+                .thenReturn(java.util.List.of(mapping));
         stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
@@ -330,8 +331,8 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         // No routing row for this provider and no unclaimed one either, so sign-off creates a row
         // that never sat in anybody's inbox. Counting it would decrement a badge for an item that
         // badge had never counted — signing off a standalone report does exactly this.
-        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), anyString()))
-                .thenReturn(null);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), anyString()))
+                .thenReturn(java.util.List.of());
         stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
@@ -383,8 +384,8 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         legacyRow.setHrmDocumentId(7);
         legacyRow.setProviderNo("999998");
         legacyRow.setSignedOff(null);
-        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
-                .thenReturn(legacyRow);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("999998")))
+                .thenReturn(java.util.List.of(legacyRow));
         stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
@@ -573,5 +574,83 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"success\":false");
         verify(hrmDocumentToDemographicDao, never()).merge(any(HRMDocumentToDemographic.class));
         verify(hrmDocumentToDemographicDao, never()).persist(any(HRMDocumentToDemographic.class));
+    }
+
+    @Test
+    @DisplayName("should sign off every duplicate routing row, not just the last one")
+    void shouldSignOffEveryDuplicateRoutingRow_notJustTheLastOne() throws Exception {
+        // HRMDocumentToProvider has no unique constraint on (hrmDocumentId, providerNo), and
+        // findByHrmDocumentIdAndProviderNo returns results.get(size - 1). Signing off only that
+        // row left the other signedOff=0 row behind, so the server kept listing the report while
+        // the viewer had already hidden it — the "sign-off does nothing" the tester reported.
+        stubReportExists(7);
+        HRMDocumentToProvider first = new HRMDocumentToProvider();
+        first.setHrmDocumentId(7);
+        first.setProviderNo("999998");
+        first.setSignedOff(0);
+        HRMDocumentToProvider duplicate = new HRMDocumentToProvider();
+        duplicate.setHrmDocumentId(7);
+        duplicate.setProviderNo("999998");
+        duplicate.setSignedOff(0);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("999998")))
+                .thenReturn(java.util.List.of(first, duplicate));
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "1");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(first.getSignedOff()).isEqualTo(1);
+        assertThat(duplicate.getSignedOff()).isEqualTo(1);
+        verify(hrmDocumentToProviderDao, times(2)).merge(any(HRMDocumentToProvider.class));
+        // Both rows were in the badge, so both leaving it is a decrement of two.
+        assertThat(response.getContentAsString()).contains("\"clearedCount\":2");
+    }
+
+    @Test
+    @DisplayName("should claim every unclaimed routing row when the provider has none")
+    void shouldClaimEveryUnclaimedRoutingRow_whenProviderHasNone() throws Exception {
+        stubReportExists(7);
+        HRMDocumentToProvider unclaimed = new HRMDocumentToProvider();
+        unclaimed.setHrmDocumentId(7);
+        unclaimed.setProviderNo("-1");
+        unclaimed.setSignedOff(0);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("999998")))
+                .thenReturn(java.util.List.of());
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("-1")))
+                .thenReturn(java.util.List.of(unclaimed));
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "1");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(unclaimed.getProviderNo()).isEqualTo("999998");
+        assertThat(unclaimed.getSignedOff()).isEqualTo(1);
+        assertThat(response.getContentAsString()).contains("\"clearedCount\":1");
+    }
+
+    @Test
+    @DisplayName("should not add a second routing row when the provider is already assigned")
+    void shouldNotAddSecondRoutingRow_whenProviderIsAlreadyAssigned() throws Exception {
+        // merge() on an entity with a null id INSERTS, and nothing stopped a repeat assignment
+        // from manufacturing the duplicate rows the sign-off path then had to cope with.
+        HRMDocumentToProvider existing = new HRMDocumentToProvider();
+        existing.setHrmDocumentId(7);
+        existing.setProviderNo("123");
+        existing.setSignedOff(0);
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("123")))
+                .thenReturn(java.util.List.of(existing));
+        request.addParameter("method", "assignProvider");
+        request.addParameter("reportId", "7");
+        request.addParameter("providerNo", "123");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        verify(hrmDocumentToProviderDao, never()).merge(any(HRMDocumentToProvider.class));
     }
 }

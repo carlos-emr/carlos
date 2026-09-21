@@ -324,42 +324,55 @@ public class HRMModifyDocument2Action extends ActionSupport {
         int clearedCount = 0;
         try {
             int signedOff = signedOffValue;
-            HRMDocumentToProvider providerMapping = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(reportId, providerNo);
-            if (providerMapping == null) {
-                //check for unclaimed record, if that exists..update that one
-                providerMapping = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(reportId, "-1");
-                if (providerMapping != null) {
-                    providerMapping.setProviderNo(providerNo);
+            Date signedOffAt = new Date();
+
+            // EVERY matching row, not the last one. HRMDocumentToProvider has no unique constraint
+            // on (hrmDocumentId, providerNo) — only PRIMARY KEY(id) and two non-unique indexes —
+            // and findByHrmDocumentIdAndProviderNo returns results.get(size - 1). Signing off just
+            // that row left any other signedOff=0 row for the same pair behind, so the server kept
+            // listing the report while the viewer had already hidden or closed it. That is the
+            // "sign-off does nothing" the tester reported, and no amount of client-side
+            // notification fixes it. HRMReportParser already reads these rows as a list.
+            List<HRMDocumentToProvider> providerMappings =
+                    hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(reportId, providerNo);
+            if (providerMappings == null || providerMappings.isEmpty()) {
+                //check for unclaimed records, if those exist..update them
+                providerMappings = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(reportId, "-1");
+                if (providerMappings != null) {
+                    for (HRMDocumentToProvider unclaimedMapping : providerMappings) {
+                        unclaimedMapping.setProviderNo(providerNo);
+                    }
                 }
             }
 
-            // Read the previous state before writing. The inbox badge counts routing rows whose
-            // signedOff is EXACTLY 0 (HRMDocumentToProviderDao: "signedOff=0"), so only such a row
-            // can leave it. Two things are deliberately NOT counted:
-            //   - no row at all: sign-off creates one, and a row that never sat in anyone's inbox
-            //     is not a row that left it (a standalone report, or one viewed through another
-            //     provider's inbox);
-            //   - a row whose signedOff is NULL: the column is nullable (int(11) DEFAULT NULL) and
-            //     "signedOff = 0" does not match NULL in SQL, so legacy rows were never counted
-            //     either. Treating NULL as unsigned would walk the badge below the server's figure.
-            boolean previouslyUnsigned = providerMapping != null
-                    && Integer.valueOf(0).equals(providerMapping.getSignedOff());
-
-            if (providerMapping != null) {
-                providerMapping.setSignedOff(signedOff);
-                providerMapping.setSignedOffTimestamp(new Date());
-                hrmDocumentToProviderDao.merge(providerMapping);
-            } else {
+            if (providerMappings == null || providerMappings.isEmpty()) {
+                // No row at all: sign-off creates one, and a row that never sat in anybody's inbox
+                // is not a row that left it, so it is deliberately not counted (a standalone
+                // report, or one viewed through another provider's inbox).
                 HRMDocumentToProvider hrmDocumentToProvider = new HRMDocumentToProvider();
                 hrmDocumentToProvider.setHrmDocumentId(reportId);
                 hrmDocumentToProvider.setProviderNo(providerNo);
                 hrmDocumentToProvider.setSignedOff(signedOff);
-                hrmDocumentToProvider.setSignedOffTimestamp(new Date());
+                hrmDocumentToProvider.setSignedOffTimestamp(signedOffAt);
                 hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
-            }
+            } else {
+                for (HRMDocumentToProvider providerMapping : providerMappings) {
+                    // Read the previous state before writing. The inbox badge counts routing rows
+                    // whose signedOff is EXACTLY 0 (HRMDocumentToProviderDao: "signedOff=0"), so
+                    // only such a row can leave it. A row whose signedOff is NULL is not counted:
+                    // the column is nullable (int(11) DEFAULT NULL) and "signedOff = 0" does not
+                    // match NULL in SQL, so legacy rows were never in the badge either. Treating
+                    // NULL as unsigned would walk the badge below the server's figure.
+                    boolean previouslyUnsigned = Integer.valueOf(0).equals(providerMapping.getSignedOff());
 
-            if (signedOff == 1 && previouslyUnsigned) {
-                clearedCount++;
+                    providerMapping.setSignedOff(signedOff);
+                    providerMapping.setSignedOffTimestamp(signedOffAt);
+                    hrmDocumentToProviderDao.merge(providerMapping);
+
+                    if (signedOff == 1 && previouslyUnsigned) {
+                        clearedCount++;
+                    }
+                }
             }
             success = true;
         } catch (Exception e) {
@@ -396,13 +409,24 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
 
         try {
-            HRMDocumentToProvider providerMapping = new HRMDocumentToProvider();
             Integer hrmDocumentId = Integer.valueOf(request.getParameter("reportId"));
-            providerMapping.setHrmDocumentId(hrmDocumentId);
-            providerMapping.setProviderNo(providerNo);
-            providerMapping.setSignedOff(0);
 
-            hrmDocumentToProviderDao.merge(providerMapping);
+            // Only if this provider is not already routed this report. merge() on an entity with
+            // a null id INSERTS, and there is no unique constraint on (hrmDocumentId, providerNo),
+            // so assigning the same provider twice used to add a second unsigned routing row. The
+            // report then stayed in that provider's inbox after sign-off cleared one of them. The
+            // forwarding branch just below, and HRMReportParser, both already check first; this
+            // path was the one that did not.
+            List<HRMDocumentToProvider> existingMappings =
+                    hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(hrmDocumentId, providerNo);
+            if (existingMappings == null || existingMappings.isEmpty()) {
+                HRMDocumentToProvider providerMapping = new HRMDocumentToProvider();
+                providerMapping.setHrmDocumentId(hrmDocumentId);
+                providerMapping.setProviderNo(providerNo);
+                providerMapping.setSignedOff(0);
+
+                hrmDocumentToProviderDao.merge(providerMapping);
+            }
 
             //Gets the list of IncomingLabRules pertaining to the current providers
             List<IncomingLabRules> incomingLabRules = incomingLabRulesDao.findCurrentByProviderNo(providerNo);
