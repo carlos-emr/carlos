@@ -870,8 +870,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         const key = inboxhubItemKey(segmentId, labType);
         if (key === null) { return; }
         if (countedAcknowledgedItems[key]) { return; }
+        // A zero consumes nothing. Two windows can acknowledge the same item at once: whichever
+        // request commits second finds the rows already out of NEW and reports 0, and that
+        // message can arrive FIRST. Marking the item counted on it discarded the positive count
+        // that followed, leaving the badge high until a full reload. Zero is still a real answer
+        // — it just never moves the total, so there is nothing to record as spent.
+        const clearedRows = clearedRowsFrom(clearedCount);
+        if (clearedRows === 0) { return; }
         countedAcknowledgedItems[key] = true;
-        decrementInboxhubStatFor(labType, clearedRowsFrom(clearedCount));
+        decrementInboxhubStatFor(labType, clearedRows);
     }
 
     /**

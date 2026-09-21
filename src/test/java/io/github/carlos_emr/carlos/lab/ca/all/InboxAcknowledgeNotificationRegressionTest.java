@@ -271,7 +271,14 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .contains("result.put(\"clearedCount\", outcome.clearedCount());");
         assertThat(read(INBOXHUB_FORM_JSP))
                 .as("the listener must move the totals by the reported count, not by one")
-                .contains("decrementInboxhubStatFor(labType, clearedRowsFrom(clearedCount));");
+                .contains("const clearedRows = clearedRowsFrom(clearedCount);")
+                .contains("decrementInboxhubStatFor(labType, clearedRows);")
+                .as("and a zero must not consume the per-item key: two windows can acknowledge "
+                        + "the same item at once, the second to commit reports 0, and that "
+                        + "message can arrive first — spending the key on it discarded the "
+                        + "positive count behind it and left the badge high until a reload")
+                .contains("if (clearedRows === 0) { return; }\n"
+                        + "        countedAcknowledgedItems[key] = true;");
     }
 
     @Test

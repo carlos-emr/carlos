@@ -544,6 +544,28 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should answer JSON when the document lookup itself throws")
+    void shouldAnswerJson_whenDocumentLookupThrows() throws Exception {
+        // The lookup sat outside the try that turns handler failures into JSON, so a DAO
+        // failure escaped the action, Struts resolved the document package's global `error`
+        // result, and /Modify replied with an HTML error page — which hrmModify() requested as
+        // dataType "json", so jQuery's parse threw into a catch the clinician never sees.
+        when(hrmDocumentDao.find(7)).thenThrow(new RuntimeException("database down"));
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "1");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"success\":false,\"message\":\"Error encountered\",\"clearedCount\":0}");
+        verifyNoInteractions(hrmDocumentToProviderDao);
+    }
+
+    @Test
     @DisplayName("should reject sign-off when the report id is not a number")
     void shouldRejectSignOff_whenReportIdIsNotANumber() throws Exception {
         request.addParameter("method", "signOff");

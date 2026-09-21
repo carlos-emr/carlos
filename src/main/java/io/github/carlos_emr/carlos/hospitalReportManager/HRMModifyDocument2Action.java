@@ -312,10 +312,27 @@ public class HRMModifyDocument2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return writeResult(false, FAILURE_MESSAGE);
         }
+        // Guarded, because this route's whole contract is that it answers JSON. An unguarded DAO
+        // call here escapes the action, Struts resolves the document package's global `error`
+        // result, and /Modify replies with an HTML error page — which hrmModify() requested as
+        // dataType "json", so jQuery's parse throws into a catch the clinician never sees. That
+        // is the silent failure this PR exists to remove, reintroduced one line above the try
+        // that was meant to prevent it.
+        //
         // intValue() deliberately: AbstractDaoImpl declares both find(Object) and find(int), and
         // an Integer would silently bind to the Object overload rather than the primary-key
         // lookup the rest of this class uses.
-        if (hrmDocumentDao.find(reportId.intValue()) == null) {
+        boolean reportExists;
+        try {
+            reportExists = hrmDocumentDao.find(reportId.intValue()) != null;
+        } catch (Exception e) {
+            // A lookup failure is not a malformed request: the caller cannot correct it, so it
+            // is a 500 rather than the 400 an unknown id gets.
+            MiscUtils.getLogger().error("Tried to resolve HRM document before sign-off but failed.", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return writeResult(false, FAILURE_MESSAGE, 0);
+        }
+        if (!reportExists) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return writeResult(false, FAILURE_MESSAGE);
         }

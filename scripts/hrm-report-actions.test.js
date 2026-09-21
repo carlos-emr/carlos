@@ -429,3 +429,49 @@ test('a successful retry clears the error the previous sign-off left behind', ()
   assert.equal(status.textContent, '', 'the stale failure must not outlive the retry');
   assert.equal(button.value, 'Sign-Off');
 });
+
+test('a failed unlink keeps the patient link on screen instead of wiping it', () => {
+  // demostatus holds the patient name AND the (remove) link. Clearing it before checking
+  // result.success left a failed unlink with the database link still in place, no name on
+  // screen, no way to retry, and the autocomplete still hidden.
+  const linkedName = {marker: 'FAKE-Patient, Test'};
+  const container = element({
+    children: [linkedName],
+    appendChild(node) { this.children.push(node); },
+    querySelector() { return null; },
+  });
+  const {context, requests} = setup({
+    elements: {demostatus7: container},
+  });
+
+  context.removeDemoFromHrm('7');
+  requests[0].success({success: false, message: 'Error encountered'});
+
+  assert.ok(container.children.includes(linkedName),
+    'the linked patient must survive a failed unlink');
+  assert.equal(container.textContent, '', 'and the container is not blanked');
+  const notice = container.children.find(child => child.className === 'hrm-demo-status');
+  assert.ok(notice, 'the failure is reported in its own node');
+  assert.equal(notice.textContent, 'Error encountered');
+});
+
+test('a successful unlink still replaces the linked view', () => {
+  const container = element({
+    children: [{marker: 'FAKE-Patient, Test'}],
+    appendChild(node) { this.children.push(node); },
+    querySelector() { return null; },
+  });
+  const {context, requests} = setup({
+    elements: {
+      demostatus7: container,
+      'autocompletedemo7hrm': element(),
+      'demofind7hrm': element(),
+    },
+  });
+
+  context.removeDemoFromHrm('7');
+  requests[0].success({success: true, message: 'Success'});
+
+  assert.equal(container.textContent, '', 'cleared before the new content is built');
+  assert.ok(container.children.some(child => child.textContent === 'Not currently linked'));
+});

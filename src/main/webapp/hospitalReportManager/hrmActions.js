@@ -343,11 +343,21 @@ function removeDemoFromHrm(reportId) {
         if (!container) {
             return;
         }
-        container.textContent = '';
+        // Nothing is cleared until the unlink is known to have landed. This container holds the
+        // patient's name AND the (remove) link, so emptying it first left a failed unlink with
+        // the database link still in place, no name on screen, no way to retry, and the
+        // autocomplete still hidden — the clinician had to reload to get back to where they were.
         if (!result.success) {
-            container.textContent = result.message;
+            var failureNotice = container.querySelector('.hrm-demo-status');
+            if (!failureNotice) {
+                failureNotice = document.createElement('div');
+                failureNotice.className = 'hrm-demo-status';
+                container.appendChild(failureNotice);
+            }
+            failureNotice.textContent = result.message;
             return;
         }
+        container.textContent = '';
         container.appendChild(document.createTextNode(result.message));
         container.appendChild(document.createElement('br'));
         var italic = document.createElement('i');
