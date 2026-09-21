@@ -148,12 +148,18 @@ public class SmsQueueProcessingService {
      */
     private boolean sendOnRecordedConsent(SmsTransaction claimed, SmsConsentDecisionDto decision) {
         SmsTransaction recorded = claimed;
-        if (!claimed.hasConsentSnapshot(decision)) {
+        // A permit naming no consent state never counts as already recorded, even against an empty snapshot;
+        // the row refuses to record it, so it ends below as not sent.
+        if (decision.consentStatus() == null || !claimed.hasConsentSnapshot(decision)) {
             try {
                 recorded = transactionRecorder.recordConsentDecision(claimed, decision);
+            } catch (SmsTransactionClaimConflictException e) {
+                // The row changed or vanished under the claim, so whoever changed it decides what happens
+                // next. The recorder logs why the write was dropped.
+                return false;
             } catch (RuntimeException e) {
-                // Either the row changed under the claim and its new owner decides what happens next, or the
-                // write failed and the row stays SENDING until stale recovery fails it for manual review.
+                // The row stays SENDING, and stale recovery will fail it for manual review unless the SMS
+                // provider can confirm by lookup that it never received the message.
                 LOGGER.warn("SMS transaction {} not sent: its dispatch-time consent could not be recorded;{}",
                         claimed.getId(), LogSafe.exceptionTrace(e));
                 return false;

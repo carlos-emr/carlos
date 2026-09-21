@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -28,6 +30,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("service")
 class SmsSendServiceUnitTest {
+    private static final SmsConsentDecisionDto CONSENTED = SmsConsentDecisionDto.permitted(
+            SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"));
+
     @Test
     @DisplayName("send records a consent-blocked row and never reaches the SMS provider when consent denies")
     void shouldBlockSend_whenConsentServiceDenies() {
@@ -58,7 +63,7 @@ class SmsSendServiceUnitTest {
         AtomicReference<SmsSendCommand> consentCommand = new AtomicReference<>();
         SmsConsentService allowConsent = command -> {
             consentCommand.set(command);
-            return SmsConsentDecisionDto.permit();
+            return CONSENTED;
         };
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
@@ -97,7 +102,7 @@ class SmsSendServiceUnitTest {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(),
+                command -> CONSENTED,
                 new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
                 providerType -> true,
@@ -133,7 +138,7 @@ class SmsSendServiceUnitTest {
         };
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(),
+                command -> CONSENTED,
                 new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
                 providerType -> true,
@@ -160,7 +165,7 @@ class SmsSendServiceUnitTest {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(),
+                command -> CONSENTED,
                 new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
                 recorder,
                 providerType -> false,
@@ -183,7 +188,7 @@ class SmsSendServiceUnitTest {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(),
+                command -> CONSENTED,
                 new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
                 recorder,
                 providerType -> true,
@@ -200,7 +205,7 @@ class SmsSendServiceUnitTest {
     @Test
     @DisplayName("send records uncertain SMS outcomes for status lookup")
     void shouldLeaveOutcomeUncertain_whenProviderThrows() {
-        SmsConsentService allowConsent = command -> SmsConsentDecisionDto.permit();
+        SmsConsentService allowConsent = command -> CONSENTED;
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
@@ -229,7 +234,7 @@ class SmsSendServiceUnitTest {
     @Test
     @DisplayName("send preserves unresolved provider outcomes for manual recovery")
     void shouldLeaveOutcomeUncertain_whenProviderResolutionThrows() {
-        SmsConsentService allowConsent = command -> SmsConsentDecisionDto.permit();
+        SmsConsentService allowConsent = command -> CONSENTED;
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
@@ -280,7 +285,7 @@ class SmsSendServiceUnitTest {
                 return transaction;
             }
         };
-        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> SmsConsentDecisionDto.permit(),
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
                 new SmsProviderClientResolver(List.of(new StubSmsProviderClient())), recorder, type -> true,
                 new SmsDefaultProviderResolver(() -> "STUB"));
 
@@ -311,7 +316,9 @@ class SmsSendServiceUnitTest {
             SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
             assignId(transaction, nextTransactionId++);
             transactions.add(transaction);
-            if (!decision.allowed()) {
+            if (decision.allowed()) {
+                transaction.recordConsentDecision(decision);
+            } else {
                 transaction.markConsentBlocked(decision);
             }
             return transaction;

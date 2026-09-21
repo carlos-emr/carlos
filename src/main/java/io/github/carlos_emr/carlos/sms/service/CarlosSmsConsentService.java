@@ -65,7 +65,8 @@ public class CarlosSmsConsentService implements SmsConsentService {
     private static final String UNKNOWN_MESSAGE = "No SMS consent is recorded for this patient.";
     private static final String NOT_EXPLICIT_CODE = "SMS_CONSENT_NOT_EXPLICIT";
     private static final String NOT_EXPLICIT_MESSAGE =
-            "Only implied SMS consent is recorded for this patient; record the patient's explicit consent.";
+            "Only implied SMS consent is recorded for this patient; delete that record and record the "
+                    + "patient's consent again.";
     private static final String OPTED_OUT_CODE = "SMS_CONSENT_OPTED_OUT";
     private static final String OPTED_OUT_MESSAGE = "This patient has opted out of SMS.";
     private static final String SYSTEM_TEST_DISABLED_CODE = "SMS_SYSTEM_TEST_DISABLED";
@@ -135,7 +136,8 @@ public class CarlosSmsConsentService implements SmsConsentService {
                     SmsConsentStatus.OPT_OUT, optOut.get().getId(), lastUpdate(optOut.get()));
         }
         // Every remaining record is an opt-in, but only one the patient gave directly counts. The patient
-        // record always stores explicit consent; an implied row can only come from an import or API caller.
+        // record stores explicit consent on every row it creates and never changes the flag on an existing
+        // row, so an implied row can only come from an import or API caller and has to be replaced.
         Optional<Consent> explicitOptIn = records.stream().filter(Consent::isExplicit).max(BY_EDIT_DATE);
         if (explicitOptIn.isEmpty()) {
             Consent implied = records.stream().max(BY_EDIT_DATE).orElseThrow();

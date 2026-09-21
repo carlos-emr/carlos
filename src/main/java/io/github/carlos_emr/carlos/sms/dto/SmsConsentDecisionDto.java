@@ -9,8 +9,8 @@ import java.time.Instant;
  * Outcome of an SMS consent check, plus the consent record it relied on.
  * <p>
  * {@code consentStatus}, {@code consentId} and {@code consentLastUpdateDate} form the audit snapshot
- * persisted on the {@code sms_transaction} row. They are null for decisions built with the snapshot-free
- * {@link #permit()} / {@link #blocked(SmsStatus, String, String)} factories.
+ * persisted on the {@code sms_transaction} row. A permitting decision must name its {@code consentStatus};
+ * only the snapshot-free {@link #blocked(SmsStatus, String, String)} factory leaves all three null.
  */
 public record SmsConsentDecisionDto(
         boolean allowed,
@@ -29,14 +29,6 @@ public record SmsConsentDecisionDto(
         } else if (!isBlockingStatus(blockedStatus)) {
             throw new IllegalArgumentException("blockedStatus must be CONSENT_BLOCKED or OPTOUT_BLOCKED");
         }
-    }
-
-    /**
-     * A permit that names no consent state. {@code sms_transaction} rows refuse to record it, so it suits
-     * only tests whose recorder is a fake; a real consent service must use {@link #permitted}.
-     */
-    public static SmsConsentDecisionDto permit() {
-        return permitted(null, null, null);
     }
 
     public static SmsConsentDecisionDto permitted(
