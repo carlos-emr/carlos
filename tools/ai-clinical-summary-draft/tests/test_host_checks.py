@@ -70,6 +70,12 @@ class ObservationSetsTest(unittest.TestCase):
                          [entry["measurements"] for entry in found])
         self.assertEqual("HR 102; Temp 38.2; BP 128/78; SpO2 98", found[0]["text"])
 
+    def test_a_value_that_ends_a_sentence_is_kept_and_a_decimal_is_never_cut_short(self):
+        found = host_checks.observation_sets("Observations: HR 2, BP 124/78, RR 1, Temp 36.8, SpO2 98. Patient alert.")
+        self.assertEqual("HR 2; BP 124/78; RR 1; Temp 36.8; SpO2 98", found[0]["text"])
+        self.assertEqual([("hr", "88"), ("rr", "16"), ("temp", "36.8")],
+                         host_checks.observation_sets("HR 88. RR 16. Temp 36.8.")[0]["measurements"])
+
     def test_fewer_than_three_kinds_or_measurements_far_apart_are_not_a_set(self):
         self.assertEqual([], host_checks.observation_sets("BP 120/80 today, HR 70."))
         far = "HR 70 on arrival. " + "Unrelated narrative. " * 8 + "BP 120/80 later. " + "More narrative. " * 8 + "RR 16."

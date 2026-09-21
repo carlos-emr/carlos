@@ -18,7 +18,8 @@ MEASUREMENTS = (
     ("temp", r"\b(?:temp(?:erature)?)\b", r"\d{2}(?:\.\d)?"),
     ("spo2", r"\b(?:SpO2|SaO2|O2 sats?|sats?|oxygen saturations?)\b", r"\d{2,3}"),
 )
-FINDER = re.compile("|".join(f"(?P<{kind}>{label}{JOIN}(?P<{kind}_value>{value})(?![\\d/.]))"
+# A value may end a sentence ("SpO2 98."), but "36" is never read out of "36.8".
+FINDER = re.compile("|".join(f"(?P<{kind}>{label}{JOIN}(?P<{kind}_value>{value})(?![\\d/]|\\.\\d))"
                              for kind, label, value in MEASUREMENTS), re.IGNORECASE)
 LABELS = {kind: label for kind, label, _value in MEASUREMENTS}
 MAX_GAP = 80  # Characters between neighbouring measurements of one observation set.
