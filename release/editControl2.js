@@ -509,11 +509,13 @@ function existsTemplate(template) {
 
 function loadDefaultTemplate() {
 	// Internal measurement markers must not suppress the configured template.
-	// Loading it replaces the document; any outstanding insertion then fails
-	// visibly so the user can retry against the fully loaded template.
+	// Loading replaces the document. Report a discarded insertion unless a
+	// new measurement request explicitly superseded it.
 	var content = editControlContents(cfg_editorname, true).replace(/<!--RTL measurement (?:insertion|selection)-->/g, '');
 	if (content.trim() != '') { measureInitialTemplateLoading = false; finishPendingSourceView(); return; }
 	cancelPendingFaxSubmission();
+	pendingMeasureSourceView = null;
+	showLetterStatus('rtl-template-lookup-status', '', false);
 	measureTemplateRevision++;
 	measureInitialTemplateLoading = true;
 	// Invalidate markers before navigation starts, including a fast REST response.
@@ -551,6 +553,7 @@ function loadTemplate(selectname){
 		measureTemplateRevision++;
 		measureInitialTemplateLoading = true;
 		pendingMeasureSourceView = null;
+		showLetterStatus('rtl-template-lookup-status', '', false);
 		var previousDocument = document.getElementById(cfg_editorname).contentDocument;
 		[pendingMeasureBatch, activeMeasureBatch].concat(measureRequestQueue).forEach(function(batch) {
 			if (batch && batch.document === previousDocument && batch.marker.parentNode) {
@@ -607,7 +610,7 @@ function parseTemplate(){
 			measureTemplateLookupsPending++;
 			try { cache.lookup("template", 15000, {
                 isCurrent: templateIsCurrent,
-                onStale: function() { finishTemplateLookup(true); },
+                onStale: function() { finishTemplateLookup(true, true); },
                 onResponse: function() {
                     var populated = false;
                     try { populateTemplate(); populated = true; }
@@ -617,7 +620,7 @@ function parseTemplate(){
                 onError: function() {
                     // A failed lookup for a replaced letter must not add a failure
                     // notice to its replacement, but must release its pending count.
-                    finishTemplateLookup(!templateIsCurrent());
+                    finishTemplateLookup(false, !templateIsCurrent());
                 }
             }); }
 			catch (error) { finishTemplateLookup(false); }
@@ -653,6 +656,7 @@ function populateTemplate(){
 		contents += temp[x];
 	}
 	seteditControlContents(cfg_editorname,contents,false,true);
+	showLetterStatus('rtl-template-lookup-status', '', false);
 }
 
 function parseText(obs) {
@@ -1064,12 +1068,13 @@ function submitFaxButton() {
 
 	cache.addMapping({name: "template", cacheResponseHandler: populateTemplate});
 
-    function finishTemplateLookup(success) {
+    function finishTemplateLookup(success, stale) {
         measureTemplateLookupsPending = Math.max(0, measureTemplateLookupsPending - 1);
-        if (!success) {
-            measureBatchFailed = true;
-            showLookupFailureNotice('template');
-            showMeasurementStatus('Template fields could not be loaded. Select the template again to retry.', true);
+        // Template completeness is independent of measurement failures. A successful
+        // measurement must not hide this warning, nor can a stale callback clear it.
+        if (!stale) {
+            showLetterStatus('rtl-template-lookup-status', success ? '' :
+                'Template fields could not be loaded. Select the template again to retry.', true);
         }
         finishPendingSourceView();
     }
@@ -1363,10 +1368,12 @@ function submitFaxButton() {
 						});
 					}
 					measureTemplateCatalogLoading = false;
+					showLetterStatus('rtl-template-catalog-status', '', false);
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {
 					console.error('Failed to load letter templates: ' + status);
+					showLetterStatus('rtl-template-catalog-status', 'Letter templates could not be loaded. Check the letter before saving; reopen the form to retry loading templates.', true);
 					measureTemplateCatalogLoading = false;
 					loadDefaultTemplate();
 				}
@@ -1707,10 +1714,15 @@ function assertMeasurementHistoryReady() {
 }
 
 function showMeasurementStatus(message, failed) {
-    var notice = document.getElementById('rtl-measurement-status');
+    showLetterStatus('rtl-measurement-status', message, failed);
+}
+
+function showLetterStatus(id, message, failed) {
+    var notice = document.getElementById(id);
     if (!notice) {
         notice = document.createElement('div');
-        notice.id = 'rtl-measurement-status';
+        notice.id = id;
+        notice.className = 'DoNotPrint';
         notice.setAttribute('role', 'status');
         var editor = document.getElementById(cfg_editorname);
         if (!editor || !editor.parentNode) { return; }
@@ -1839,7 +1851,9 @@ function startNextMeasureBatch() {
         insertMeasureBatch(batch, histories);
         return histories;
     }).catch(function() {
-        var cancelled = batch.superseded || !measureBatchContextIsCurrent(batch);
+        // Only a fresh request can supersede this failure silently. Navigation
+        // alone still needs a retry warning for the discarded measurements.
+        var cancelled = !!batch.superseded;
         if (!cancelled) { measureBatchFailed = true; }
         return batch.requests.map(function() { return {values: [], dates: [], failed: true, cancelled: !!cancelled}; });
     }).then(function(histories) {

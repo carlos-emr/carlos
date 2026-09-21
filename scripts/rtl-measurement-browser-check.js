@@ -154,9 +154,9 @@ async function run() {
       seteditControlContents('edit','<p>##fixtureReplacement##</p>');
       parseTemplate();
     });
-    assert.equal((await respond({BP:[row('BP','120/80')]}))[0].cancelled,true);
+    assert.equal((await respond({BP:[row('BP','120/80')]}))[0].failed,true);
     assert.equal(await body.textContent(),'Replacement template');
-    await page.locator('#rtl-measurement-status').waitFor({state:'hidden'});
+    await page.locator('#rtl-measurement-status').waitFor({state:'visible'});
 
     await begin(['BP']);
     await respond({BP:[row('BP','<img src=x onerror=alert(1)>')]});
@@ -271,9 +271,12 @@ async function run() {
       for (let n=0;n<100&&!pending.length;n++) await page.waitForTimeout(10);
       assert.equal(pending.length,1);
       await page.evaluate(()=>{
+        viewsource(true);
         loadDefaultTemplate();
+        window.sourceTransitionAfterDefault=pendingMeasureSourceView;
         window.duringTemplateLoad=getMeasures('WT',1);
       });
+      assert.equal(await page.evaluate(()=>window.sourceTransitionAfterDefault),null);
       assert.equal((await page.evaluate(()=>window.duringTemplateLoad)).failed,true);
       await page.waitForFunction(()=>document.getElementById('edit').contentDocument?.body?.textContent==='DEFAULT CONTENT');
       assert.equal((await respond(measurements))[0].failed,true);
@@ -316,13 +319,18 @@ async function run() {
     await templateRequests.shift().fulfill({status:500,body:'Fixture lookup failure'});
     await page.waitForFunction(()=>!measurementHistoryStillLoading());
     assert.equal(await page.evaluate(()=>measureTemplateLookupsPending),0);
-    await page.locator('#carlos-apcache-lookup-failure').waitFor({state:'visible'});
+    await page.locator('#rtl-template-lookup-status').waitFor({state:'visible'});
+    // Measurement success cannot claim the unresolved template fields recovered.
+    await page.evaluate(()=>{window.loaded=Promise.all([getMeasures('BP',1)]);});
+    await respond({BP:[row('BP','120/80')]});
+    await page.locator('#rtl-template-lookup-status').waitFor({state:'visible'});
     await page.evaluate(()=>{document.getElementById('template').selectedIndex=2;loadTemplate('template');});
     for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);
     assert.equal(templateRequests.length,1);
     await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="template"><input name="asyncField" value="POPULATED">'});
     await page.waitForFunction(()=>!measurementHistoryStillLoading());
     assert.equal(await body.textContent(),'POPULATED');
+    await page.locator('#rtl-template-lookup-status').waitFor({state:'hidden'});
     // Old template results cannot touch a replacement document or its cache.
     for (const replacement of ['navigation','sameDocument']) {
       await page.evaluate(()=>{
@@ -419,6 +427,21 @@ async function run() {
     assert.equal((await respond({BP:[row('BP','125/80')]}))[0].failed,true);
     assert.equal(await body.textContent(),'BEFORE EDITED AFTER');
     assert(!((await body.innerHTML()).includes('RTL measurement')));
+    // A failed catalogue must remain visible after unrelated measurement success.
+    await page.evaluate(()=>{document.getElementById('Letter').value='<p>Saved recovery letter</p>';Start();});
+    for (let n=0;n<100&&!catalogRequests.length;n++) await page.waitForTimeout(10);
+    await catalogRequests.shift().fulfill({status:500,body:'Fixture catalogue failure'});
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    assert.equal(await body.textContent(),'Saved recovery letter');
+    await page.locator('#rtl-template-catalog-status').waitFor({state:'visible'});
+    await page.evaluate(()=>{window.loaded=Promise.all([getMeasures('BP',1)]);});
+    await respond({BP:[row('BP','120/80')]});
+    await page.locator('#rtl-template-catalog-status').waitFor({state:'visible'});
+    await page.evaluate(()=>Start());
+    for (let n=0;n<100&&!catalogRequests.length;n++) await page.waitForTimeout(10);
+    await catalogRequests.shift().fulfill({contentType:'text/html',body:'<option value="">Templates</option><option value="blank.rtl">Blank</option>'});
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    await page.locator('#rtl-template-catalog-status').waitFor({state:'hidden'});
     assert.deepEqual(errors,[]);
     console.log('PASS: native Range insertion, request ordering, live caret/typing, serializer and legacy/toolbar print gates, marker cleanup, replaced template, literal measurement text. Chromium '+browser.version());
   } finally {await browser.close();}
