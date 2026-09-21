@@ -862,7 +862,7 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
         assertThat(scan.failedCriticalSubresources()).isZero();
         assertThat(scan.failedSubresources()).isEqualTo(1);
-        assertThat(scan.duplicateScriptFailureNames()).isEmpty();
+        assertThat(scan.duplicateScriptFailureUrls()).isEmpty();
     }
 
     @Test
@@ -974,19 +974,19 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.failedCriticalSubresources()).as("the file demonstrably loaded").isZero();
         assertThat(scan.failedSubresources()).as("still reported as advisory").isEqualTo(1);
-        assertThat(scan.duplicateScriptFailureNames()).containsExactly("onBodyLoad_Oct2018.js");
+        assertThat(scan.duplicateScriptFailureUrls()).containsExactly("http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js");
         String mimeRefusal = "http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet 0:0 "
                 + "Refused to execute script from 'http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js' "
                 + "because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled.";
         assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(
-                mimeRefusal, scan.duplicateScriptFailureNames())).isTrue();
+                mimeRefusal, scan.duplicateScriptFailureUrls())).isTrue();
         assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(mimeRefusal, java.util.Set.of()))
                 .as("a MIME refusal without a failed duplicate could hide a wrong 200 response")
                 .isFalse();
         assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(
                 "Refused to execute script from 'data:' because its MIME type ('text/html') "
                         + "is not executable, and strict MIME type checking is enabled.",
-                scan.duplicateScriptFailureNames())).isFalse();
+                scan.duplicateScriptFailureUrls())).isFalse();
         EFormBrowserPdfService.NetworkGateScan imageOnly = EFormBrowserPdfService.scanNetworkEvents(
                 List.of(
                         responseReceivedJson("Document", MAIN_DOC_URL, 200),
@@ -996,7 +996,8 @@ class EFormBrowserPdfServiceUnitTest {
                         responseReceivedJson("Script",
                                 "http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js", 404)),
                 allowedOrigin);
-        assertThat(imageOnly.duplicateScriptFailureNames())
+        assertThat(imageOnly.failedCriticalSubresources()).as("an image cannot prove a script loaded").isEqualTo(1);
+        assertThat(imageOnly.duplicateScriptFailureUrls())
                 .as("an image with the same name does not prove the script executed")
                 .isEmpty();
     }
@@ -1017,7 +1018,7 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.failedCriticalSubresources()).isZero();
         assertThat(scan.failedSubresources()).isEqualTo(1);
-        assertThat(scan.duplicateScriptFailureNames()).isEmpty();
+        assertThat(scan.duplicateScriptFailureUrls()).isEmpty();
     }
 
     @Test
@@ -1071,10 +1072,10 @@ class EFormBrowserPdfServiceUnitTest {
         EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(entries, origin);
         assertThat(scan.failedCriticalSubresources()).isZero();
         assertThat(scan.failedSubresources()).isEqualTo(2);
-        assertThat(scan.duplicateScriptFailureNames()).containsExactly("clinic [1].js");
+        assertThat(scan.duplicateScriptFailureUrls()).containsExactly(origin + "/carlos/clinic%20%5B1%5D.js");
         String refusal = "Refused to execute script from '" + origin + "/carlos/clinic%20%5B1%5D.js' "
                 + "because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled.";
-        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(refusal, scan.duplicateScriptFailureNames())).isTrue();
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(refusal, scan.duplicateScriptFailureUrls())).isTrue();
         assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(refusal, java.util.Set.of())).isFalse();
 
         List<String> missing = new java.util.ArrayList<>(entries);
@@ -1102,6 +1103,20 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(EFormBrowserPdfService.resourceBasename(base + "displayImage?imagefile=scan%ZZ.png")).isNull();
         assertThat(EFormBrowserPdfService.resourceBasename(base + "path%2Fscan.png")).isNull();
         assertThat(EFormBrowserPdfService.resourceBasename(base + "path%5Cscan.png")).isNull();
+    }
+
+    @Test
+    @DisplayName("should retain a failed clinical fetch even when another query on that route loaded")
+    void shouldRetainClinicalFetchFailure_whenAnotherQuerySucceeds() {
+        List<String> entries = List.of(
+                responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                responseReceivedJson("XHR", GATE_BASE_URL + "/APCache?field=weight", 200),
+                cdpMessage("Network.requestWillBeSent", "\"requestId\":\"clinical\",\"request\":{\"url\":\"" + GATE_BASE_URL + "/APCache?field=bp\",\"method\":\"GET\"}"),
+                cdpMessage("Network.loadingFailed", "\"requestId\":\"clinical\",\"type\":\"XHR\",\"canceled\":false"));
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(
+                entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isZero();
     }
 
     @Test
@@ -1486,6 +1501,11 @@ class EFormBrowserPdfServiceUnitTest {
                 duplicate, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
         assertThat(complete.severeConsoleErrors()).isZero();
         assertThat(complete.failedContentResources()).isZero();
+        String unrelatedRefusal = refusal.replace("/carlos/onBodyLoad_Oct2018.js", "/other/onBodyLoad_Oct2018.js");
+        EFormRenderCompletenessReport unrelated = service.enforceRenderGates(
+                driverWithConsole(browserConsole(consoleEntry(unrelatedRefusal))),
+                duplicate, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
+        assertThat(unrelated.severeConsoleErrors()).as("a shared basename is not the observed failed URL").isEqualTo(1);
 
         List<LogEntry> wrongMime200 = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
@@ -1499,7 +1519,7 @@ class EFormBrowserPdfServiceUnitTest {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"text/html", "text/plain", "application/json", "application/octet-stream",
-            "application/javascript+json"})
+            "application/javascript+json", "text/javascr\u0131pt", "text/java\u017Fcript"})
     @DisplayName("should retain duplicate-script failures when the successful response has no executable MIME")
     void shouldRetainDuplicateScriptFailures_withWrongOrMissingMime(String mimeType) throws Exception {
         String bare = GATE_BASE_URL + "/clinic.js";
@@ -1529,7 +1549,7 @@ class EFormBrowserPdfServiceUnitTest {
                 entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
         assertThat(scan.failedCriticalSubresources()).isZero();
         assertThat(scan.failedSubresources()).isEqualTo(1);
-        assertThat(scan.duplicateScriptFailureNames()).containsExactly("clinic.js");
+        assertThat(scan.duplicateScriptFailureUrls()).containsExactly(GATE_BASE_URL + "/clinic.js");
     }
 
     @Test

@@ -22,11 +22,23 @@
 package io.github.carlos_emr.carlos.eform.util;
 
 import java.io.File;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.google.common.base.Ascii;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.DataNode;
+import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Range;
+import org.jsoup.parser.Parser;
 
 import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -82,7 +94,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  * name is validated — and it is validated anyway, through the same
  * {@link PathValidationUtils#validatePathComponent} and {@link DisplayImage2Action#getImageFile}
  * lookup the asset route itself uses. Rewriting is idempotent: the rewritten value contains
- * {@code ${}, so a second pass skips it.</p>
+ * {@code ${...}}, so a second pass skips it.</p>
  *
  * @since 2026-09-20
  */
@@ -95,34 +107,21 @@ public final class EFormAssetReferences {
      */
     static final String IMAGE_PATH_MARKER = "${oscar_image_path}";
 
-    /**
-     * Matches an HTML {@code src} attribute and captures its quoted value.
-     *
-     * <p>Deliberately not an HTML parse. Re-serializing two decades of hand-authored clinic markup
-     * through a parser to change one attribute risks changing everything else on the page, and
-     * these forms are exactly the input least able to survive normalization. The whitespace before
-     * {@code src} excludes {@code data-src} and {@code x-src}, which can carry non-resource data.</p>
-     */
-    private static final Pattern HTML_SRC_REFERENCE = Pattern.compile(
-            "<[A-Za-z][^<>]{0,4096}?\\s+(src)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
-            Pattern.CASE_INSENSITIVE);
+    private static final Set<String> SRC_ELEMENTS = Set.of(
+            "script", "img", "iframe", "frame", "embed", "audio", "video", "source", "track");
+    private static final Set<String> SCRIPT_ATTRIBUTES = Set.of(
+            "onload", "onerror", "onclick", "onchange", "oninput", "onmouseover", "onmouseout",
+            "onmouseenter", "onmouseleave", "onfocus", "onblur", "onkeydown", "onkeyup", "onkeypress",
+            "onmousedown", "onmouseup", "ontouchstart", "ontouchend", "onpointerdown", "onpointerup",
+            "onpageshow", "onsubmit", "onreset", "onresize", "onbeforeprint", "onafterprint");
+    private static final Set<String> CONTROL_WORDS = Set.of("if", "while", "for", "with", "switch", "catch");
+    private static final Set<String> BEFORE_EXPRESSION = Set.of(
+            "return", "throw", "case", "delete", "void", "typeof", "new", "in", "of", "instanceof",
+            "yield", "await", "else", "do", "break", "continue");
 
-    /** A dotted JavaScript property assignment, not a standalone variable called {@code src}. */
+    /** Applied only at a JavaScript code position, never over strings, comments or HTML text. */
     private static final Pattern JS_SRC_REFERENCE = Pattern.compile(
-            "\\.(src)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
-            Pattern.CASE_INSENSITIVE);
-
-    /**
-     * Capture the complete link so its relation can be checked on either side of href.
-     * Only stylesheet links are supported; metadata and navigation links stay as authored.
-     */
-    private static final Pattern LINK_HREF_REFERENCE = Pattern.compile(
-            "<link\\b[^<>]{0,4096}?\\s+(href)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3[^<>]{0,4096}>",
-            Pattern.CASE_INSENSITIVE);
-
-    /** Consume whole attribute values so text inside another attribute cannot masquerade as rel. */
-    private static final Pattern LINK_ATTRIBUTE = Pattern.compile(
-            "\\s+([A-Za-z_:][A-Za-z0-9_.:-]*)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'=<>`]+))");
+            "\\.(src)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3");
 
     /**
      * A bare filename: a name, a dot, an extension, and nothing structural.
@@ -169,52 +168,207 @@ public final class EFormAssetReferences {
         }
 
         Map<String, Boolean> resolved = new HashMap<>();
-        return rewriteReferences(rewriteReferences(rewriteReferences(html, HTML_SRC_REFERENCE,
-                resolved, assetExists), JS_SRC_REFERENCE, resolved, assetExists),
-                LINK_HREF_REFERENCE, resolved, assetExists);
-    }
-
-    private static String rewriteReferences(String html, Pattern reference, Map<String, Boolean> resolved,
-            Predicate<String> assetExists) {
-        Matcher matcher = reference.matcher(html);
-        StringBuilder rewritten = new StringBuilder(html.length());
-        boolean changed = false;
-
-        while (matcher.find()) {
-            String value = matcher.group(4);
-            String replacement = matcher.group();
-            if ((reference != LINK_HREF_REFERENCE || isStylesheetLink(matcher.group()))
-                    && isCandidate(value) && isServable(value, resolved, assetExists)) {
-                replacement = matcher.group().substring(0, matcher.start(4) - matcher.start())
-                        + IMAGE_PATH_MARKER + value
-                        + matcher.group().substring(matcher.end(4) - matcher.start());
-                changed = true;
+        Set<Integer> insertions = new TreeSet<>();
+        // Use the parser only for source positions. Never serialize the document: that would
+        // normalize unrelated hand-authored markup, quotes and whitespace.
+        for (Element element : Jsoup.parse(html, "", Parser.htmlParser().setTrackPosition(true)).getAllElements()) {
+            String tag = element.normalName();
+            if (SRC_ELEMENTS.contains(tag) || ("input".equals(tag) && Ascii.equalsIgnoreCase("image", element.attr("type")))) {
+                collectAttribute(html, element, "src", insertions, resolved, assetExists);
             }
-            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
-        }
-        if (!changed) {
-            return html;
-        }
-        matcher.appendTail(rewritten);
-        return rewritten.toString();
-    }
-
-    private static boolean isStylesheetLink(String link) {
-        Matcher attributes = LINK_ATTRIBUTE.matcher(link);
-        while (attributes.find()) {
-            if ("rel".equalsIgnoreCase(attributes.group(1))) {
-                String relation = attributes.group(2) != null ? attributes.group(2)
-                        : attributes.group(3) != null ? attributes.group(3) : attributes.group(4);
-                for (String token : relation.split("[\\t\\n\\f\\r ]+")) {
-                    if ("stylesheet".equalsIgnoreCase(token)) {
-                        return true;
+            if ("link".equals(tag) && isStylesheetRelation(element.attr("rel"))) {
+                collectAttribute(html, element, "href", insertions, resolved, assetExists);
+            }
+            if ("script".equals(tag) && !element.hasAttr("src")
+                    && (element.attr("type").isBlank()
+                        || element.attr("type").matches("(?i)(?:text|application)/(?:x-)?(?:java|ecma)script"))) {
+                for (DataNode data : element.dataNodes()) {
+                    Range range = data.sourceRange();
+                    if (range.isTracked()) {
+                        collectScriptReferences(html, range.startPos(), range.endPos(), insertions, resolved, assetExists);
                     }
                 }
-                // Like HTML, use the first occurrence if an author repeats the attribute.
-                return false;
+            }
+            for (org.jsoup.nodes.Attribute attribute : element.attributes()) {
+                if (SCRIPT_ATTRIBUTES.contains(attribute.getKey())) {
+                    Range range = element.attributes().sourceRange(attribute.getKey()).valueRange();
+                    // Entity decoding changes offsets and can introduce quotes; preserve those
+                    // handlers rather than treating encoded string contents as executable code.
+                    if (range.isTracked() && html.substring(range.startPos(), range.endPos()).equals(attribute.getValue())) {
+                        collectScriptReferences(html, range.startPos(), range.endPos(), insertions, resolved, assetExists);
+                    }
+                }
+            }
+        }
+        if (insertions.isEmpty()) {
+            return html;
+        }
+        StringBuilder rewritten = new StringBuilder(html.length() + insertions.size() * IMAGE_PATH_MARKER.length());
+        int previous = 0;
+        for (int position : insertions) {
+            rewritten.append(html, previous, position).append(IMAGE_PATH_MARKER);
+            previous = position;
+        }
+        return rewritten.append(html, previous, html.length()).toString();
+    }
+
+    private static void collectAttribute(String html, Element element, String attribute,
+            Set<Integer> insertions, Map<String, Boolean> resolved, Predicate<String> assetExists) {
+        Range range = element.attributes().sourceRange(attribute).valueRange();
+        if (!range.isTracked() || range.startPos() < 1 || range.endPos() >= html.length()) {
+            return;
+        }
+        char quote = html.charAt(range.startPos() - 1);
+        // Keep the existing quoted-filename scope; insert into the original source, not a
+        // decoded/normalized attribute value or text that merely resembles an attribute.
+        if ((quote == '\'' || quote == '"') && html.charAt(range.endPos()) == quote) {
+            String value = html.substring(range.startPos(), range.endPos());
+            if (isCandidate(value) && isServable(value, resolved, assetExists)) {
+                insertions.add(range.startPos());
+            }
+        }
+    }
+
+    private static boolean isStylesheetRelation(String relation) {
+        for (String token : relation.split("[\\t\\n\\f\\r ]+")) {
+            if (Ascii.equalsIgnoreCase("stylesheet", token)) {
+                return true;
             }
         }
         return false;
+    }
+
+    private static void collectScriptReferences(String html, int start, int end, Set<Integer> insertions,
+            Map<String, Boolean> resolved, Predicate<String> assetExists) {
+        Deque<Boolean> controlParentheses = new ArrayDeque<>();
+        String lastWord = "";
+        boolean beforeExpression = true;
+        boolean afterBrace = false;
+        boolean propertyName = false;
+        Matcher reference = JS_SRC_REFERENCE.matcher(html);
+        for (int i = start; i < end;) {
+            char c = html.charAt(i);
+            if (Character.isWhitespace(c)) {
+                i++;
+                continue;
+            }
+            if (html.startsWith("//", i) || html.startsWith("<!--", i) || html.startsWith("-->", i)) {
+                while (i < end && html.charAt(i) != '\n' && html.charAt(i) != '\r') {
+                    i++;
+                }
+                continue;
+            }
+            if (html.startsWith("/*", i)) {
+                int close = html.indexOf("*/", i + 2);
+                i = close < 0 ? end : Math.min(end, close + 2);
+                continue;
+            }
+            if (c == '`') {
+                // Nested template interpolation needs a full parser. Preserve the remaining
+                // script rather than risk interpreting template text as property assignments.
+                return;
+            }
+            if (c == '\'' || c == '"') {
+                i = skipQuotedScript(html, i, end, c);
+                beforeExpression = false;
+                afterBrace = false;
+                lastWord = "";
+                continue;
+            }
+            if (c == '/') {
+                if (afterBrace) {
+                    // A slash after '}' can begin a regexp or divide an object expression.
+                    // Preserve this ambiguous remainder instead of guessing its lexical state.
+                    return;
+                }
+                if (beforeExpression) {
+                    i = skipScriptRegexp(html, i, end);
+                    beforeExpression = false;
+                } else {
+                    i += i + 1 < end && html.charAt(i + 1) == '=' ? 2 : 1;
+                    beforeExpression = true;
+                }
+                lastWord = "";
+                continue;
+            }
+            if (Character.isJavaIdentifierStart(c)) {
+                int wordStart = i++;
+                while (i < end && Character.isJavaIdentifierPart(html.charAt(i))) {
+                    i++;
+                }
+                lastWord = propertyName ? "" : html.substring(wordStart, i);
+                propertyName = false;
+                beforeExpression = BEFORE_EXPRESSION.contains(lastWord);
+                afterBrace = false;
+                continue;
+            }
+            if ((c == '+' || c == '-') && i + 1 < end && html.charAt(i + 1) == c) {
+                // Prefix operators still precede an expression; postfix operators still follow one.
+                i += 2;
+                lastWord = "";
+                afterBrace = false;
+                propertyName = false;
+                continue;
+            }
+            propertyName = c == '.';
+            if (c == '.') {
+                reference.region(i, end);
+                if (reference.lookingAt()) {
+                    int following = reference.end();
+                    while (following < end && Character.isWhitespace(html.charAt(following))) {
+                        following++;
+                    }
+                    String value = reference.group(4);
+                    if ((following == end || ";,)}]".indexOf(html.charAt(following)) >= 0)
+                            && isCandidate(value) && isServable(value, resolved, assetExists)) {
+                        insertions.add(reference.start(4));
+                    }
+                }
+                beforeExpression = false;
+            } else if (c == '(') {
+                controlParentheses.push(CONTROL_WORDS.contains(lastWord));
+                beforeExpression = true;
+            } else if (c == ')') {
+                beforeExpression = !controlParentheses.isEmpty() && controlParentheses.pop();
+            } else if (c == ']' || Character.isDigit(c)) {
+                beforeExpression = false;
+            } else {
+                beforeExpression = true;
+            }
+            afterBrace = c == '}';
+            lastWord = "";
+            i++;
+        }
+    }
+
+    private static int skipQuotedScript(String html, int start, int end, char quote) {
+        for (int i = start + 1; i < end; i++) {
+            if (html.charAt(i) == '\\') {
+                i++;
+            } else if (html.charAt(i) == quote) {
+                return i + 1;
+            }
+        }
+        return end;
+    }
+
+    private static int skipScriptRegexp(String html, int start, int end) {
+        boolean characterClass = false;
+        for (int i = start + 1; i < end; i++) {
+            char c = html.charAt(i);
+            if (c == '\\') {
+                i++;
+            } else if (c == '[') {
+                characterClass = true;
+            } else if (c == ']') {
+                characterClass = false;
+            } else if (c == '/' && !characterClass) {
+                return i + 1;
+            } else if (c == '\n' || c == '\r') {
+                return end; // An unterminated regexp makes the remainder unsafe to inspect.
+            }
+        }
+        return end;
     }
 
     /**

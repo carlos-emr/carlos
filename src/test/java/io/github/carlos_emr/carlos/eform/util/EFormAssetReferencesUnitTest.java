@@ -120,6 +120,7 @@ class EFormAssetReferencesUnitTest {
                 "<link rel='next' href='instructions.html'>",
                 "<link href='styles.css'>",
                 "<link rel='notstylesheet' href='styles.css'>",
+                "<link rel='\u017Ftylesheet' href='styles.css'>",
                 "<link data-rel='stylesheet' href='styles.css'>",
                 "<link title=\" rel='stylesheet'\" href='styles.css' rel='canonical'>",
                 "<link rel='canonical' rel='stylesheet' href='styles.css'>",
@@ -252,6 +253,54 @@ class EFormAssetReferencesUnitTest {
 
             assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT)).isEqualTo(html);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "<div title=\"example src='logo.png'\"></div>",
+            "<link rel='stylesheet' title=\"example href='styles.css'\">",
+            "<!-- <img src='logo.png'> -->",
+            "<script>var template = \"<img src='logo.png'>\";</script>",
+            "<p>example.src = 'logo.png';</p>",
+            "<div only=\"example.src = 'logo.png';\"></div>",
+            "<script type='application/json'>{\"example\":\".src = 'logo.png';\"}</script>",
+            "<script>var template = `.src = 'logo.png';`;</script>",
+            "<script>object.SRC = 'logo.png';</script>",
+            "<script>image.src = 'logo.png' + suffix;</script>",
+            "<img onload=\"var note = &quot;.src = 'logo.png';&quot;;\">"
+    })
+    @DisplayName("should preserve source-like text outside actual resource references")
+    void shouldPreserveAuthoredText_whenNotAResourceReference(String html) {
+        assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT)).isEqualTo(html);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "var template = \".src = 'logo.png';\";",
+            "// .src = 'logo.png';\n",
+            "/* .src = 'logo.png'; */",
+            "var pattern = /\\.src = 'logo.png'/;",
+            "if (ready) /\\.src = 'logo.png'/.test(note);",
+            "var scale = width / 2;",
+            "n++ / 2; var note = \"http://example .src = 'logo.png';\";",
+            "var scale = object.return / 2;",
+            "var note = \"escaped \\\" .src = 'logo.png';\";"
+    })
+    @DisplayName("should rewrite executable src assignments while preserving preceding strings and comments")
+    void shouldRewriteActualAssignment_afterOtherJavaScriptTokens(String prefix) {
+        String html = "<script>" + prefix + " image.src = 'logo.png';</script>";
+        assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT))
+                .isEqualTo("<script>" + prefix + " image.src = '${oscar_image_path}logo.png';</script>");
+    }
+
+    @Test
+    @DisplayName("should preserve quoted metadata while rewriting actual attributes and event handlers")
+    void shouldRewriteReferences_withQuotedMetadataPresent() {
+        String html = "<img title=\"example src='logo.png'\" src='logo.png' onerror=\"this.src='logo.png';\">"
+                + "<link title=\"example href='styles.css'\" href='styles.css' rel='stylesheet'>";
+        assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT))
+                .isEqualTo("<img title=\"example src='logo.png'\" src='${oscar_image_path}logo.png' onerror=\"this.src='${oscar_image_path}logo.png';\">"
+                        + "<link title=\"example href='styles.css'\" href='${oscar_image_path}styles.css' rel='stylesheet'>");
     }
 
     @Nested
