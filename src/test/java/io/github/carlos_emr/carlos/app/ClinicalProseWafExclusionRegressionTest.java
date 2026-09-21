@@ -295,7 +295,7 @@ class ClinicalProseWafExclusionRegressionTest {
 
     @Test
     @DisplayName("legacy eForm label exclusion should apply only to POST saves and the exact label argument")
-    void shouldLimitLegacyEformLabelExclusion() throws IOException {
+    void shouldLimitLegacyEformLabelExclusion_toPostSavesAndExactArgument() throws IOException {
         String rule = readExclusionRule("1046");
         assertThat(rule)
                 .contains("SecRule REQUEST_URI \"@rx ^/carlos/eform/addEForm(?:[;?]|$)\"")
@@ -317,7 +317,7 @@ class ClinicalProseWafExclusionRegressionTest {
 
     @Test
     @DisplayName("saved legacy label variants should bypass only CRS 933210 on POST eForm saves")
-    void shouldLimitLegacyEformLabelVariantExclusion() throws IOException {
+    void shouldLimitLegacyEformLabelVariantExclusion_toRule933210OnPostSaves() throws IOException {
         String rule = readExclusionRule("1047");
         assertThat(rule)
                 .contains("SecRule REQUEST_URI \"@rx ^/carlos/eform/addEForm(?:[;?]|$)\"")

@@ -108,7 +108,7 @@ class EFormAssetReferencesUnitTest {
                 "<link rel='alternate \tStyleSheet' title='Print' href='styles.css' />"
         })
         @DisplayName("should recognize stylesheet relation tokens regardless of attribute order")
-        void shouldRewriteStylesheetRelations(String html) {
+        void shouldRewriteStylesheetRelations_withAnyAttributeOrder(String html) {
             assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT))
                     .isEqualTo(html.replace("styles.css", "${oscar_image_path}styles.css"));
         }
@@ -126,7 +126,7 @@ class EFormAssetReferencesUnitTest {
                 "<link rel='preload' href='styles.css' as='style'>"
         })
         @DisplayName("should preserve non-stylesheet link relations even when the asset exists")
-        void shouldPreserveNonStylesheetLinks(String html) {
+        void shouldPreserveLinks_withNonStylesheetRelations(String html) {
             assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT)).isEqualTo(html);
         }
 
@@ -235,7 +235,7 @@ class EFormAssetReferencesUnitTest {
 
         @Test
         @DisplayName("should leave data-src, x-src, and standalone src variables unchanged")
-        void shouldNotRewriteNonResourceSrcAssignments() {
+        void shouldPreserveSrcAssignments_whenNotResourceReferences() {
             String html = "<img data-src=\"logo.png\" x-src=\"logo.png\">"
                     + "<script>var src = 'logo.png'; source.src = 'logo.png';</script>";
 
@@ -246,7 +246,7 @@ class EFormAssetReferencesUnitTest {
 
         @Test
         @DisplayName("should leave unsupported extensions and reserved query characters unchanged")
-        void shouldNotRewriteUnservableOrAmbiguousFilenames() {
+        void shouldPreserveFilenames_whenUnservableOrAmbiguous() {
             String html = "<img src=\"payload.bin\"><img src=\"logo+stamp.png\">"
                     + "<img src=\"logo%20stamp.png\">";
 

@@ -1055,7 +1055,7 @@ class EFormBrowserPdfServiceUnitTest {
 
     @Test
     @DisplayName("should correlate encoded duplicate images and scripts while preserving real failures")
-    void shouldCorrelateEncodedDuplicateResources() {
+    void shouldCorrelateEncodedDuplicates_whenQueryEncodesSpaceAsPlus() {
         String origin = "http://127.0.0.1:8080";
         List<String> entries = List.of(
                 cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"" + origin + "/carlos/render\",\"status\":200}"),
@@ -1086,7 +1086,7 @@ class EFormBrowserPdfServiceUnitTest {
 
     @Test
     @DisplayName("should decode path filenames once, preserve pluses and reject malformed escapes")
-    void shouldDecodePathBasenameExactlyOnce() {
+    void shouldDecodePathBasename_withSingleDecodeAndLiteralPluses() {
         String base = "http://127.0.0.1:8080/carlos/";
         assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%20%5B1%5D.png?ignored=1#fragment"))
                 .isEqualTo("scan [1].png");
