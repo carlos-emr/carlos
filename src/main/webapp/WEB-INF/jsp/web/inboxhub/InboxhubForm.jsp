@@ -594,7 +594,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         // request so separate inbox tabs keep independent state.
         saved.value = JSON.stringify({filter: filter, activeTypeFilter: activeTypeFilter,
             ackToggleState: ackToggleState, rapidReviewState: rapidReviewState});
-        form.requestSubmit();
+        // This is a resync after a committed mutation. An unfinished patient-search edit
+        // must not let the search validator cancel it and leave counts/deduplication stale.
+        HTMLFormElement.prototype.submit.call(form);
     }
 
     /** Restores validated display state before the first AJAX result request after a revoke. */

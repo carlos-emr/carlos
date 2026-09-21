@@ -118,7 +118,7 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
   const container = { scrollHeight: shortPreview ? 100 : 900, clientHeight: 400 };
   const form = {
     saved: null, raw: '',
-    requestSubmit() { state.submits++; },
+    requestSubmit() { throw new Error("Search validation must not gate a committed revoke"); },
     querySelector() { return this.saved; },
     appendChild(input) { this.saved = input; },
     getAttribute() { return this.raw; },
@@ -140,6 +140,7 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
 
   const context = vm.createContext({
     jQuery, BroadcastChannel, document, URLSearchParams,
+    HTMLFormElement: {prototype: {submit() { assert.equal(this, form); state.submits++; }}},
     filter: '', activeTypeFilter: null, ackToggleState: false,
     hasMoreData, isFetchingData: false, rapidReviewState: false,
     showInboxhubStats() {},

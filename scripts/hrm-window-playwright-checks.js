@@ -51,8 +51,8 @@ function inbox(url) {
     : inboxScript;
   // The fixture echoes only its constant expected state after asserting the submitted payload.
   const stateAttribute = restoring ? JSON.stringify(FILTER_STATE).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
-  return dependencies + `<form id="inboxSearchForm" method="post" action="/inbox" data-revoke-state="${stateAttribute}">
-      <input name="filter" value="kept"></form>
+  return dependencies + `<form id="inboxSearchForm" method="post" action="/inbox" data-revoke-state="${stateAttribute}" onsubmit="return false;">
+      <input name="filter" value="kept"><input name="unfinishedPatient" required></form>
     <input id="totalHRMCount" value="${signed ? 1 : 2}"><input id="totalResultsCount" value="${signed ? 2 : 3}">
     <a id="patient1hrms">Patient HRM category</a>
     <div id="inboxViewItems">

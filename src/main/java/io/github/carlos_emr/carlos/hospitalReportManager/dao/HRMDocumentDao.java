@@ -51,11 +51,7 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
     /** Holds the report row until the surrounding mutation transaction completes. */
     public HRMDocument findForUpdate(int id) {
-        HRMDocument document = entityManager.find(HRMDocument.class, id, LockModeType.PESSIMISTIC_WRITE);
-        if (document != null) {
-            entityManager.refresh(document, LockModeType.PESSIMISTIC_WRITE);
-        }
-        return document;
+        return entityManager.find(HRMDocument.class, id, LockModeType.PESSIMISTIC_WRITE);
     }
 
     public List<HRMDocument> findById(int id) {
