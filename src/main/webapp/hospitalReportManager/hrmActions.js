@@ -86,7 +86,7 @@ function deleteComment(commentId, reportId) {
  * parameter, and oscarMDS/Page.jsp sends `isListView`, which the action's criteria object does
  * not bind), so the notification branch was dead and only the button label changed.
  *
- * Revoking deliberately does NOT notify: the report belongs back in the inbox.
+ * Revoking asks the inbox to reload its totals and rows, because the report belongs back in it.
  *
  * @param {string} reportId HRM document id
  * @param {boolean} isSign true to sign off, false to revoke a previous sign-off
@@ -110,6 +110,7 @@ function doSignOff(reportId, isSign) {
         updateSignOffButton(reportId, isSign);
 
         if (!isSign) {
+            notifyInboxhubAfterHrmChange(reportId, undefined, true);
             return;
         }
 
@@ -160,6 +161,11 @@ function updateSignOffButton(reportId, isSign) {
  *                 badge anyway walks it below the truth until a full page reload.
  */
 function notifyInboxhubAfterHrmSignOff(reportId, clearedCount) {
+    notifyInboxhubAfterHrmChange(reportId, clearedCount, false);
+}
+
+/** A revoke has its own message; it must never be mistaken for an acknowledgement. */
+function notifyInboxhubAfterHrmChange(reportId, clearedCount, revoked) {
     // Broadcast FIRST, then tell directly only what the broadcast cannot reach.
     //
     // Doing both unconditionally notified a modern Inboxhub twice. With unloaded pages left,
@@ -171,7 +177,7 @@ function notifyInboxhubAfterHrmSignOff(reportId, clearedCount) {
     try {
         const bc = new BroadcastChannel('inboxhub-refresh');
         bc.postMessage({
-            action: 'refresh',
+            action: revoked ? 'hrm-revoked' : 'refresh',
             segmentID: String(reportId),
             labType: 'HRM',
             clearedCount: clearedCount
@@ -181,7 +187,7 @@ function notifyInboxhubAfterHrmSignOff(reportId, clearedCount) {
     } catch (e) {
         // BroadcastChannel unsupported; the direct route below is all there is.
     }
-    dropFromInboxhubDirectly(reportId, clearedCount, broadcast);
+    dropFromInboxhubDirectly(reportId, clearedCount, broadcast, revoked);
 }
 
 /**
@@ -198,7 +204,7 @@ function notifyInboxhubAfterHrmSignOff(reportId, clearedCount) {
  * one visible until the list reloads — the server already filters signed-off reports out of it.
  * refreshCategoryList() re-fetches the counts, which is the part that cannot wait.
  */
-function dropFromInboxhubDirectly(reportId, clearedCount, broadcastSent) {
+function dropFromInboxhubDirectly(reportId, clearedCount, broadcastSent, revoked) {
     var segmentId = String(reportId);
     try {
         // The Inboxhub can be told exactly which item and how many rows; it is preferred wherever
@@ -237,6 +243,14 @@ function dropFromInboxhubDirectly(reportId, clearedCount, broadcastSent) {
         var handledInPlace = false;
         if (legacyInbox) {
             inbox.refreshCategoryList();
+        } else if (revoked) {
+            if (typeof inbox.refreshInboxhubAfterHrmRevoke === 'function') {
+                inbox.refreshInboxhubAfterHrmRevoke();
+            } else {
+                // A page loaded before this script update still needs authoritative totals.
+                inbox.location.reload();
+            }
+            return true;
         } else {
             // The return value says whether the inbox dealt with the item AND needs no
             // re-sync; it answers false while unloaded pages remain, because the inbox pages

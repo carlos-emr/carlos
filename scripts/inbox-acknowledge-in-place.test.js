@@ -26,7 +26,7 @@ function slice(from, to) {
 
 // The acknowledge path exactly as the page ships it. resetInboxFilters sits between the two
 // slices and is left out because it carries a JSP encoder tag, which is not JavaScript.
-const acknowledgePath = slice('    try {\n        const inboxhubRefreshChannel',
+const acknowledgePath = slice('    function refreshInboxhubAfterHrmRevoke()',
                               '    /**\n     * Resets all inbox filters');
 const rapidReview = slice('    // Flag set by BroadcastChannel listener',
                           '    // State variables preserved');
@@ -43,7 +43,7 @@ const rapidReview = slice('    // Flag set by BroadcastChannel listener',
  *        in place; see the page-boundary tests at the end for why.
  */
 function setup(mode, items, shortPreview = false, hasMoreData = false) {
-  const state = { fetches: 0, viewFetches: 0, draws: [], opened: null, scrolledTo: null };
+  const state = { fetches: 0, viewFetches: 0, submits: 0, draws: [], opened: null, scrolledTo: null };
   const totals = { totalDocsCount: 5, totalLabsCount: 5, totalHRMCount: 5, totalResultsCount: 15 };
   let rendered = items.map(([segmentId, labType]) => ({
     segmentId, labType,
@@ -117,7 +117,10 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
   }
   const container = { scrollHeight: shortPreview ? 100 : 900, clientHeight: 400 };
   const document = {
-    getElementById: id => (id === 'inboxViewItems' && mode === 'preview' ? container : null),
+    getElementById(id) {
+      if (id === 'inboxSearchForm') return { requestSubmit() { state.submits++; } };
+      return id === 'inboxViewItems' && mode === 'preview' ? container : null;
+    },
     querySelector(selector) {
       assert.equal(selector, '#inbox_table tbody tr a');
       if (mode !== 'list' || rendered.length === 0) { return null; }
@@ -327,4 +330,23 @@ test('forgetting what is off screen does not let the badge be moved twice', () =
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
   assert.equal(inbox.totals.totalLabsCount, 4, 'the counted record has the longer lifetime');
   assert.equal(inbox.totals.totalResultsCount, 14);
+});
+
+for (const mode of ['list', 'preview']) {
+  test(mode + ' revocation reloads authoritative totals without acknowledging the row', () => {
+    const inbox = setup(mode, [['7', 'HRM']]);
+    inbox.acknowledge({ action: 'hrm-revoked', segmentID: '7', labType: 'HRM' });
+    assert.equal(inbox.state.submits, 1);
+    assert.equal(inbox.state.fetches, 0);
+    assert.equal(inbox.totals.totalHRMCount, 5);
+    assert.deepEqual(inbox.shown(), ['HRM:7']);
+  });
+}
+test('malformed revocation cannot acknowledge an item', () => {
+  const inbox = setup('list', [['7', 'HL7']]);
+  inbox.acknowledge({ action: 'hrm-revoked', segmentID: '7', labType: 'HL7' });
+  assert.equal(inbox.state.submits, 0);
+  assert.equal(inbox.state.fetches, 0);
+  assert.deepEqual(inbox.shown(), ['HL7:7']);
+  assert.equal(inbox.totals.totalLabsCount, 5);
 });

@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
@@ -46,6 +47,15 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
     public HRMDocumentDao() {
         super(HRMDocument.class);
+    }
+
+    /** Holds the report row until the surrounding mutation transaction completes. */
+    public HRMDocument findForUpdate(int id) {
+        HRMDocument document = entityManager.find(HRMDocument.class, id, LockModeType.PESSIMISTIC_WRITE);
+        if (document != null) {
+            entityManager.refresh(document, LockModeType.PESSIMISTIC_WRITE);
+        }
+        return document;
     }
 
     public List<HRMDocument> findById(int id) {

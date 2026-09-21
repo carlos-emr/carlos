@@ -575,9 +575,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * Senders: oscarMDSIndex.js updateStatus(), hrmActions.js doSignOff()
      * Channel: 'inboxhub-refresh'
      */
+    /**
+     * A revoked HRM sign-off restores routing rows. Re-submit the current search so the server
+     * replaces the totals as well as the result set and clears acknowledgement deduplication.
+     * An AJAX list fetch alone keeps both the old totals and countedAcknowledgedItems.
+     */
+    function refreshInboxhubAfterHrmRevoke() {
+        document.getElementById('inboxSearchForm').requestSubmit();
+    }
+
     try {
         const inboxhubRefreshChannel = new BroadcastChannel('inboxhub-refresh');
         inboxhubRefreshChannel.onmessage = function(event) {
+            if (event && event.data && event.data.action === 'hrm-revoked') {
+                if (event.data.labType === 'HRM' && isInboxhubItemToken(event.data.segmentID)) {
+                    refreshInboxhubAfterHrmRevoke();
+                }
+                return;
+            }
             // Senders post {action, segmentID, labType}. A popup running a cached older
             // script can still post the bare string 'refresh'; both must keep working.
             const acknowledgedId = (event && event.data && event.data.segmentID) ? event.data.segmentID : null;

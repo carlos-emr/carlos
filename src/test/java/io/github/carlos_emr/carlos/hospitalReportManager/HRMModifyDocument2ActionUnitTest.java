@@ -30,6 +30,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,6 +72,8 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     private HRMDocumentCommentDao hrmDocumentCommentDao;
     private IncomingLabRulesDao incomingLabRulesDao;
     private SecurityInfoManager securityInfoManager;
+    private PlatformTransactionManager transactions;
+    private TransactionStatus transactionStatus;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -85,6 +90,11 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         hrmDocumentCommentDao = mock(HRMDocumentCommentDao.class);
         incomingLabRulesDao = mock(IncomingLabRulesDao.class);
         securityInfoManager = mock(SecurityInfoManager.class);
+        transactions = mock(PlatformTransactionManager.class);
+        transactionStatus = new SimpleTransactionStatus();
+        when(transactions.getTransaction(any())).thenReturn(transactionStatus);
+        when(hrmDocumentDao.findForUpdate(anyInt())).thenReturn(new HRMDocument());
+        registerMock(PlatformTransactionManager.class, transactions);
 
         registerMock(HRMDocumentDao.class, hrmDocumentDao);
         registerMock(HRMDocumentToDemographicDao.class, hrmDocumentToDemographicDao);
@@ -656,23 +666,12 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should restore the previously active sub-class when the switch fails")
-    void shouldRestorePreviouslyActiveSubClass_whenSwitchFails() throws Exception {
-        // Deactivate-then-activate is two separately committed DAO calls, so a failure between
-        // them left the report with NO active sub-class — it lost its classification, and the
-        // viewer skips its reload on failure so nothing on screen said so.
+    @DisplayName("should roll back the subclass switch when activation fails")
+    void shouldRollBackSubclassSwitch_whenActivationFails() throws Exception {
         HRMDocumentSubClass target = new HRMDocumentSubClass();
         target.setHrmDocumentId(7);
-        HRMDocumentSubClass wasActive = new HRMDocumentSubClass();
-        wasActive.setHrmDocumentId(7);
-        wasActive.setActive(true);
-
         when(hrmDocumentSubClassDao.find(55)).thenReturn(target);
-        when(hrmDocumentSubClassDao.getActiveSubClassesByDocumentId(7))
-                .thenReturn(java.util.List.of(wasActive));
-        // same(), not equals(): AbstractModel.equals compares ids, and these are unsaved.
         doThrow(new RuntimeException("database down")).when(hrmDocumentSubClassDao).merge(same(target));
-
         request.addParameter("method", "makeActiveSubClass");
         request.addParameter("reportId", "7");
         request.addParameter("subClassId", "55");
@@ -681,10 +680,10 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentAsString()).contains("\"success\":false");
-        assertThat(wasActive.isActive())
-                .as("the report must not be left with no active sub-class")
-                .isTrue();
-        verify(hrmDocumentSubClassDao).merge(same(wasActive));
+        verify(transactions).rollback(transactionStatus);
+        verify(transactions, never()).commit(any());
+        verify(hrmDocumentSubClassDao).setAllSubClassesForDocumentAsInactive(7);
+        verify(hrmDocumentSubClassDao).refresh(target);
     }
 
     @Test

@@ -5,7 +5,7 @@
  * GNU General Public License, Version 2, 1991 (GPLv2).
  * License details are available via "indivica.ca/gplv2"
  * and "gnu.org/licenses/gpl-2.0.html".
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -17,6 +17,10 @@ package io.github.carlos_emr.carlos.hospitalReportManager;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Supplier;
+
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -184,6 +188,22 @@ public class HRMModifyDocument2Action extends ActionSupport {
     }
 
     /**
+     * Commits a report mutation as one unit. DAO methods join this transaction; an exception
+     * rolls back earlier writes before the caller emits its JSON failure response. Locking the
+     * report also serializes this endpoint's routing read/create/update decisions.
+     */
+    private <T> T mutateReport(int reportId, Supplier<T> mutation) {
+        TransactionTemplate transaction = new TransactionTemplate(
+                SpringUtils.getBean(PlatformTransactionManager.class));
+        return transaction.execute(status -> {
+            if (hrmDocumentDao.findForUpdate(reportId) == null) {
+                throw new IllegalArgumentException("HRM report does not exist");
+            }
+            return mutation.get();
+        });
+    }
+
+    /**
      * Breaks one HRM report out of its similar-report group.
      *
      * <p>Reads {@code reportId}. A child report simply loses its parent; a parent hands the group
@@ -202,31 +222,33 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
         try {
-            HRMDocument document = hrmDocumentDao.find(Integer.parseInt(reportId));
-            if (document.getParentReport() != null && !document.getParentReport().equals(Integer.parseInt(reportId))) {
-                // There is a parent report that isn't itself, implies this is a child document
-                document.setParentReport(null);
-                hrmDocumentDao.merge(document);
-            } else {
-                // This is a parent document so we need to find and disassociate all the children documents (if any)
-                List<HRMDocument> documentChildren = hrmDocumentDao.getAllChildrenOf(document.getId());
-                if (documentChildren != null && documentChildren.size() > 0) {
-                    // If there's children, choose the first child (which has the earliest id) and mark its parent as null
-                    HRMDocument newParentDoc = documentChildren.get(0);
-                    newParentDoc.setParentReport(null);
-                    hrmDocumentDao.merge(newParentDoc);
+            success = mutateReport(Integer.parseInt(reportId), () -> {
+                HRMDocument document = hrmDocumentDao.find(Integer.parseInt(reportId));
+                if (document.getParentReport() != null && !document.getParentReport().equals(Integer.parseInt(reportId))) {
+                    // There is a parent report that isn't itself, implies this is a child document
+                    document.setParentReport(null);
+                    hrmDocumentDao.merge(document);
+                } else {
+                    // This is a parent document so we need to find and disassociate all the children documents (if any)
+                    List<HRMDocument> documentChildren = hrmDocumentDao.getAllChildrenOf(document.getId());
+                    if (documentChildren != null && documentChildren.size() > 0) {
+                        // If there's children, choose the first child (which has the earliest id) and mark its parent as null
+                        HRMDocument newParentDoc = documentChildren.get(0);
+                        newParentDoc.setParentReport(null);
+                        hrmDocumentDao.merge(newParentDoc);
 
-                    // update all children to have this first child as their parent instead
-                    for (HRMDocument childDoc : documentChildren) {
-                        if (childDoc.getId().intValue() != newParentDoc.getId().intValue()) {
-                            childDoc.setParentReport(newParentDoc.getId());
-                            hrmDocumentDao.merge(childDoc);
+                        // update all children to have this first child as their parent instead
+                        for (HRMDocument childDoc : documentChildren) {
+                            if (childDoc.getId().intValue() != newParentDoc.getId().intValue()) {
+                                childDoc.setParentReport(newParentDoc.getId());
+                                hrmDocumentDao.merge(childDoc);
+                            }
                         }
                     }
                 }
-            }
 
-            success = true;
+                return true;
+            });
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to set make document independent but failed.", e);
             success = false;
@@ -272,8 +294,8 @@ public class HRMModifyDocument2Action extends ActionSupport {
         // would suppress the inbox notification, and the report already signed off in the database
         // would sit in the inbox until the next full reload. The viewer has only ever sent one id,
         // so the loop that allowed this was unreachable capability with an incoherent contract.
-        // Supporting batches properly means per-report outcomes or a real transaction boundary,
-        // neither of which belongs in a viewer status endpoint.
+        // The transaction below covers all routing rows for this one report; a multi-report
+        // API would also need per-report identities in its response and inbox notifications.
         if (reportIds == null || reportIds.length != 1
                 || signedOffValues == null || signedOffValues.length != 1) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -339,64 +361,65 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
         boolean success = false;
         int clearedCount = 0;
+        final int requestedState = signedOffValue;
         try {
-            int signedOff = signedOffValue;
-            Date signedOffAt = new Date();
+            clearedCount = mutateReport(reportId, () -> {
+                int signedOff = requestedState;
+                int changedRows = 0;
+                Date signedOffAt = new Date();
 
-            // EVERY matching row, not the last one. HRMDocumentToProvider has no unique constraint
-            // on (hrmDocumentId, providerNo) — only PRIMARY KEY(id) and two non-unique indexes —
-            // and findByHrmDocumentIdAndProviderNo returns results.get(size - 1). Signing off just
-            // that row left any other signedOff=0 row for the same pair behind, so the server kept
-            // listing the report while the viewer had already hidden or closed it. That is the
-            // "sign-off does nothing" the tester reported, and no amount of client-side
-            // notification fixes it. HRMReportParser already reads these rows as a list.
-            List<HRMDocumentToProvider> providerMappings =
-                    hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(reportId, providerNo);
-            if (providerMappings == null || providerMappings.isEmpty()) {
-                //check for unclaimed records, if those exist..update them
-                providerMappings = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(reportId, "-1");
-                if (providerMappings != null) {
-                    for (HRMDocumentToProvider unclaimedMapping : providerMappings) {
-                        unclaimedMapping.setProviderNo(providerNo);
+                // EVERY matching row, not the last one. HRMDocumentToProvider has no unique constraint
+                // on (hrmDocumentId, providerNo) — only PRIMARY KEY(id) and two non-unique indexes —
+                // and findByHrmDocumentIdAndProviderNo returns results.get(size - 1). Signing off just
+                // that row left any other signedOff=0 row for the same pair behind, so the server kept
+                // listing the report while the viewer had already hidden or closed it. That is the
+                // "sign-off does nothing" the tester reported, and no amount of client-side
+                // notification fixes it. HRMReportParser already reads these rows as a list.
+                List<HRMDocumentToProvider> providerMappings =
+                        hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(reportId, providerNo);
+                if (providerMappings == null || providerMappings.isEmpty()) {
+                    //check for unclaimed records, if those exist..update them
+                    providerMappings = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(reportId, "-1");
+                }
+
+                if (providerMappings == null || providerMappings.isEmpty()) {
+                    // No row at all: sign-off creates one, and a row that never sat in anybody's inbox
+                    // is not a row that left it, so it is deliberately not counted (a standalone
+                    // report, or one viewed through another provider's inbox).
+                    HRMDocumentToProvider hrmDocumentToProvider = new HRMDocumentToProvider();
+                    hrmDocumentToProvider.setHrmDocumentId(reportId);
+                    hrmDocumentToProvider.setProviderNo(providerNo);
+                    hrmDocumentToProvider.setSignedOff(signedOff);
+                    hrmDocumentToProvider.setSignedOffTimestamp(signedOffAt);
+                    hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
+                } else {
+                    for (HRMDocumentToProvider providerMapping : providerMappings) {
+                        // Read the previous state before writing. The inbox badge counts routing rows
+                        // whose signedOff is EXACTLY 0 (HRMDocumentToProviderDao: "signedOff=0"), so
+                        // only such a row can leave it. A row whose signedOff is NULL is not counted:
+                        // the column is nullable (int(11) DEFAULT NULL) and "signedOff = 0" does not
+                        // match NULL in SQL, so legacy rows were never in the badge either. Treating
+                        // NULL as unsigned would walk the badge below the server's figure.
+                        hrmDocumentToProviderDao.refresh(providerMapping);
+                        boolean previouslyUnsigned = Integer.valueOf(0).equals(providerMapping.getSignedOff());
+                        providerMapping.setProviderNo(providerNo);
+
+                        providerMapping.setSignedOff(signedOff);
+                        providerMapping.setSignedOffTimestamp(signedOffAt);
+                        hrmDocumentToProviderDao.merge(providerMapping);
+
+                        if (signedOff == 1 && previouslyUnsigned) {
+                            changedRows++;
+                        }
                     }
                 }
-            }
-
-            if (providerMappings == null || providerMappings.isEmpty()) {
-                // No row at all: sign-off creates one, and a row that never sat in anybody's inbox
-                // is not a row that left it, so it is deliberately not counted (a standalone
-                // report, or one viewed through another provider's inbox).
-                HRMDocumentToProvider hrmDocumentToProvider = new HRMDocumentToProvider();
-                hrmDocumentToProvider.setHrmDocumentId(reportId);
-                hrmDocumentToProvider.setProviderNo(providerNo);
-                hrmDocumentToProvider.setSignedOff(signedOff);
-                hrmDocumentToProvider.setSignedOffTimestamp(signedOffAt);
-                hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
-            } else {
-                for (HRMDocumentToProvider providerMapping : providerMappings) {
-                    // Read the previous state before writing. The inbox badge counts routing rows
-                    // whose signedOff is EXACTLY 0 (HRMDocumentToProviderDao: "signedOff=0"), so
-                    // only such a row can leave it. A row whose signedOff is NULL is not counted:
-                    // the column is nullable (int(11) DEFAULT NULL) and "signedOff = 0" does not
-                    // match NULL in SQL, so legacy rows were never in the badge either. Treating
-                    // NULL as unsigned would walk the badge below the server's figure.
-                    boolean previouslyUnsigned = Integer.valueOf(0).equals(providerMapping.getSignedOff());
-
-                    providerMapping.setSignedOff(signedOff);
-                    providerMapping.setSignedOffTimestamp(signedOffAt);
-                    hrmDocumentToProviderDao.merge(providerMapping);
-
-                    if (signedOff == 1 && previouslyUnsigned) {
-                        clearedCount++;
-                    }
-                }
-            }
+                return changedRows;
+            });
             success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to set signed off status on document but failed.", e);
             success = false;
-            // Nothing is reported as cleared when the write did not land, so the viewer's
-            // notification and the database can no longer disagree.
+            // The transaction has rolled back every routing change before reporting failure.
             clearedCount = 0;
         }
 
@@ -456,56 +479,58 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
         try {
-            // Only if this provider is not already routed this report. merge() on an entity with
-            // a null id INSERTS, and there is no unique constraint on (hrmDocumentId, providerNo),
-            // so assigning the same provider twice used to add a second unsigned routing row. The
-            // report then stayed in that provider's inbox after sign-off cleared one of them. The
-            // forwarding branch just below, and HRMReportParser, both already check first; this
-            // path was the one that did not.
-            List<HRMDocumentToProvider> existingMappings =
-                    hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(hrmDocumentId, providerNo);
-            if (existingMappings == null || existingMappings.isEmpty()) {
-                HRMDocumentToProvider providerMapping = new HRMDocumentToProvider();
-                providerMapping.setHrmDocumentId(hrmDocumentId);
-                providerMapping.setProviderNo(providerNo);
-                providerMapping.setSignedOff(0);
+            success = mutateReport(hrmDocumentId, () -> {
+                // Only if this provider is not already routed this report. merge() on an entity with
+                // a null id INSERTS, and there is no unique constraint on (hrmDocumentId, providerNo),
+                // so assigning the same provider twice used to add a second unsigned routing row. The
+                // report then stayed in that provider's inbox after sign-off cleared one of them. The
+                // forwarding branch just below, and HRMReportParser, both already check first; this
+                // path was the one that did not.
+                List<HRMDocumentToProvider> existingMappings =
+                        hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(hrmDocumentId, providerNo);
+                if (existingMappings == null || existingMappings.isEmpty()) {
+                    HRMDocumentToProvider providerMapping = new HRMDocumentToProvider();
+                    providerMapping.setHrmDocumentId(hrmDocumentId);
+                    providerMapping.setProviderNo(providerNo);
+                    providerMapping.setSignedOff(0);
 
-                hrmDocumentToProviderDao.merge(providerMapping);
-            }
+                    hrmDocumentToProviderDao.merge(providerMapping);
+                }
 
-            //Gets the list of IncomingLabRules pertaining to the current providers
-            List<IncomingLabRules> incomingLabRules = incomingLabRulesDao.findCurrentByProviderNo(providerNo);
-            //If the list is not null
-            if (incomingLabRules != null) {
-                //For each labRule in the list
-                for (IncomingLabRules labRule : incomingLabRules) {
-                    if (labRule.getForwardTypeStrings().contains("HRM")) {
-                        //Creates a string of the providers number that the lab will be forwarded to
-                        String forwardProviderNumber = labRule.getFrwdProviderNo();
-                        //Checks to see if this providers is already linked to this lab
-                        HRMDocumentToProvider hrmDocumentToProvider = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(hrmDocumentId, forwardProviderNumber);
-                        //If a record was not found
-                        if (hrmDocumentToProvider == null) {
-                            //Puts the information into the HRMDocumentToProvider object
-                            hrmDocumentToProvider = new HRMDocumentToProvider();
-                            hrmDocumentToProvider.setHrmDocumentId(hrmDocumentId);
-                            hrmDocumentToProvider.setProviderNo(forwardProviderNumber);
-                            hrmDocumentToProvider.setSignedOff(0);
-                            //Stores it in the table
-                            hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
+                //Gets the list of IncomingLabRules pertaining to the current providers
+                List<IncomingLabRules> incomingLabRules = incomingLabRulesDao.findCurrentByProviderNo(providerNo);
+                //If the list is not null
+                if (incomingLabRules != null) {
+                    //For each labRule in the list
+                    for (IncomingLabRules labRule : incomingLabRules) {
+                        if (labRule.getForwardTypeStrings().contains("HRM")) {
+                            //Creates a string of the providers number that the lab will be forwarded to
+                            String forwardProviderNumber = labRule.getFrwdProviderNo();
+                            //Checks to see if this providers is already linked to this lab
+                            HRMDocumentToProvider hrmDocumentToProvider = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(hrmDocumentId, forwardProviderNumber);
+                            //If a record was not found
+                            if (hrmDocumentToProvider == null) {
+                                //Puts the information into the HRMDocumentToProvider object
+                                hrmDocumentToProvider = new HRMDocumentToProvider();
+                                hrmDocumentToProvider.setHrmDocumentId(hrmDocumentId);
+                                hrmDocumentToProvider.setProviderNo(forwardProviderNumber);
+                                hrmDocumentToProvider.setSignedOff(0);
+                                //Stores it in the table
+                                hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
+                            }
                         }
                     }
                 }
-            }
 
 
-            //we want to remove any unmatched entries when we do a manual match like this. -1 means unclaimed in this table.
-            HRMDocumentToProvider existingUnmatched = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(hrmDocumentId, "-1");
-            if (existingUnmatched != null) {
-                hrmDocumentToProviderDao.remove(existingUnmatched.getId());
-            }
+                //we want to remove any unmatched entries when we do a manual match like this. -1 means unclaimed in this table.
+                HRMDocumentToProvider existingUnmatched = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(hrmDocumentId, "-1");
+                if (existingUnmatched != null) {
+                    hrmDocumentToProviderDao.remove(existingUnmatched.getId());
+                }
 
-            success = true;
+                return true;
+            });
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to assign HRM document to providers but failed.", e);
             success = false;
@@ -532,15 +557,17 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
         try {
-            List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
+            success = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
+                List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
 
-            if (currentMappingList != null) {
-                for (HRMDocumentToDemographic currentMapping : currentMappingList) {
-                    hrmDocumentToDemographicDao.remove(currentMapping.getId());
+                if (currentMappingList != null) {
+                    for (HRMDocumentToDemographic currentMapping : currentMappingList) {
+                        hrmDocumentToDemographicDao.remove(currentMapping.getId());
+                    }
                 }
-            }
 
-            success = true;
+                return true;
+            });
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to remove HRM document from demographic but failed.", e);
             success = false;
@@ -571,29 +598,31 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
         try {
-            // No inner catch. Clearing the existing links is not a best-effort preliminary: if it
-            // fails and the new link is written anyway, the report is attached to the old chart
-            // AND the new one, and the JSON still says "Success". An HRM report showing on two
-            // patients' charts is a worse outcome than a failed match the clinician can retry,
-            // and the viewer only re-enables the patient buttons on success. Same class as the
-            // swallowed catch removed from updateCategory.
-            List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
+            success = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
+                // No inner catch. Clearing the existing links is not a best-effort preliminary: if it
+                // fails and the new link is written anyway, the report is attached to the old chart
+                // AND the new one, and the JSON still says "Success". An HRM report showing on two
+                // patients' charts is a worse outcome than a failed match the clinician can retry,
+                // and the viewer only re-enables the patient buttons on success. Same class as the
+                // swallowed catch removed from updateCategory.
+                List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
 
-            if (currentMappingList != null) {
-                for (HRMDocumentToDemographic currentMapping : currentMappingList) {
-                    hrmDocumentToDemographicDao.remove(currentMapping);
+                if (currentMappingList != null) {
+                    for (HRMDocumentToDemographic currentMapping : currentMappingList) {
+                        hrmDocumentToDemographicDao.remove(currentMapping);
+                    }
                 }
-            }
 
-            HRMDocumentToDemographic demographicMapping = new HRMDocumentToDemographic();
+                HRMDocumentToDemographic demographicMapping = new HRMDocumentToDemographic();
 
-            demographicMapping.setHrmDocumentId(Integer.valueOf(hrmDocumentId));
-            demographicMapping.setDemographicNo(Integer.valueOf(demographicNo));
-            demographicMapping.setTimeAssigned(new Date());
+                demographicMapping.setHrmDocumentId(Integer.valueOf(hrmDocumentId));
+                demographicMapping.setDemographicNo(Integer.valueOf(demographicNo));
+                demographicMapping.setTimeAssigned(new Date());
 
-            hrmDocumentToDemographicDao.merge(demographicMapping);
+                hrmDocumentToDemographicDao.merge(demographicMapping);
 
-            success = true;
+                return true;
+            });
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to assign HRM document to demographic but failed.", e);
             success = false;
@@ -623,35 +652,21 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
         try {
-            Integer documentId = Integer.parseInt(hrmDocumentId);
-
-            // Resolve and validate the target BEFORE clearing the report's existing rows. Doing it
-            // the other way round meant a stale id left the report with no active sub-class at all
-            // while still reporting success, and an id belonging to a different report would have
-            // been activated against this one.
-            HRMDocumentSubClass newActiveSubClass = hrmDocumentSubClassDao.find(Integer.parseInt(subClassId));
-            if (newActiveSubClass != null && documentId.equals(newActiveSubClass.getHrmDocumentId())) {
-                // Deactivate-then-activate is two separately committed DAO calls: AbstractDaoImpl
-                // is class-level @Transactional and this action is not, so a failure between them
-                // leaves the report with NO active sub-class — it loses its classification, and
-                // the viewer skips its reload on failure so nothing on screen says so. Remember
-                // what was active and put it back rather than leave the report worse than it
-                // started. Not a transaction: a compensating restore, scoped to this one method.
-                List<HRMDocumentSubClass> previouslyActive =
-                        hrmDocumentSubClassDao.getActiveSubClassesByDocumentId(documentId);
-
-                hrmDocumentSubClassDao.setAllSubClassesForDocumentAsInactive(documentId);
-                newActiveSubClass.setActive(true);
-                try {
-                    hrmDocumentSubClassDao.merge(newActiveSubClass);
-                } catch (Exception e) {
-                    restorePreviouslyActiveSubClasses(previouslyActive);
-                    throw e;
+            int documentId = Integer.parseInt(hrmDocumentId);
+            int targetId = Integer.parseInt(subClassId);
+            success = mutateReport(documentId, () -> {
+                HRMDocumentSubClass target = hrmDocumentSubClassDao.find(targetId);
+                if (target == null || !Integer.valueOf(documentId).equals(target.getHrmDocumentId())) {
+                    return false;
                 }
-                success = true;
-            } else {
-                MiscUtils.getLogger().warn("Refused to activate an HRM sub-class that does not belong to the requested report");
-            }
+                hrmDocumentSubClassDao.setAllSubClassesForDocumentAsInactive(documentId);
+                // Bulk HQL bypasses managed state. Refresh even when this target was already
+                // active, otherwise setActive(true) can be a no-op after the database cleared it.
+                hrmDocumentSubClassDao.refresh(target);
+                target.setActive(true);
+                hrmDocumentSubClassDao.merge(target);
+                return true;
+            });
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to change active subclass but failed.", e);
             success = false;
@@ -659,30 +674,6 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
 
         return writeResult(success);
-    }
-
-    /**
-     * Puts back the sub-classes that were active before a failed switch.
-     *
-     * <p>Best effort by design: the switch has already failed and is about to be reported as
-     * such, so a failure to restore must not replace that reply with a different error. It is
-     * logged and the original failure stands.</p>
-     *
-     * @param previouslyActive the rows read before deactivation, possibly empty
-     */
-    private void restorePreviouslyActiveSubClasses(List<HRMDocumentSubClass> previouslyActive) {
-        if (previouslyActive == null) {
-            return;
-        }
-        for (HRMDocumentSubClass subClass : previouslyActive) {
-            try {
-                subClass.setActive(true);
-                hrmDocumentSubClassDao.merge(subClass);
-            } catch (Exception e) {
-                MiscUtils.getLogger().error(
-                        "Failed to restore the previously active HRM sub-class after a failed switch.", e);
-            }
-        }
     }
 
     /**

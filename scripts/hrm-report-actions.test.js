@@ -231,7 +231,7 @@ test('the legacy oscarMDS inbox is refreshed, never asked to remove a row by bar
   assert.equal(broadcasts.length, 1);
 });
 
-test('revoking a sign-off puts the report back and tells the inbox nothing', () => {
+test('revoking requests authoritative inbox state without removing the report or closing', () => {
   const button = element();
   const removed = [];
   const {context, requests, broadcasts, closed} = setup({
@@ -244,7 +244,8 @@ test('revoking a sign-off puts the report back and tells the inbox nothing', () 
 
   requests[0].success({success: true, message: 'Success'});
 
-  assert.deepEqual(broadcasts, []);
+  assert.equal(broadcasts.length, 1);
+  assert.deepEqual(plain(broadcasts[0].message), {action: 'hrm-revoked', segmentID: '7', labType: 'HRM'});
   assert.deepEqual(removed, []);
   assert.equal(closed.length, 0);
   assert.equal(button.value, 'Sign-Off');
@@ -536,4 +537,23 @@ test('marking a report independent clears only its own similar-report list', () 
   assert.equal(ownNotice.textContent, '', 'this report\'s list is cleared');
   assert.equal(otherNotice.textContent, "another report's list",
     "a sibling report's list must be left alone");
+});
+
+
+test('revoking without BroadcastChannel refreshes authoritative modern inbox state once', () => {
+  let reloads = 0;
+  const removed = [];
+  const {context, requests, closed} = setup({
+    noBroadcastChannel: true,
+    elements: {signoff7: element()},
+    windowShape: {opener: {
+      dropAcknowledgedInboxhubItem: (...args) => removed.push(args),
+      refreshInboxhubAfterHrmRevoke: () => { reloads += 1; },
+    }},
+  });
+  context.revokeSignOffHrm('7');
+  requests[0].success({success: true, message: 'Success'});
+  assert.equal(reloads, 1);
+  assert.deepEqual(removed, []);
+  assert.deepEqual(closed, []);
 });
