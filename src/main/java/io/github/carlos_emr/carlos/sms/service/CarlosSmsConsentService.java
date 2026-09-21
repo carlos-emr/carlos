@@ -44,11 +44,10 @@ import java.util.function.BooleanSupplier;
  * <p>
  * Anything other than a current explicit opt-in blocks the send: SMS consent is never implied, so a record
  * with {@code explicit=false} does not permit one. When a patient has several live records for the consent
- * type, any opt-out among them blocks the send. The consent
- * record is read through {@link ConsentDao} rather than {@code PatientConsentManager} because the
- * manager's lookup requires a {@code LoggedInInfo} for its privilege check and access log, and the queue
- * worker rechecks consent on a scheduler thread that has no session. Authorizing the sender belongs to
- * the send entry point, not to this check.
+ * type, any opt-out among them blocks the send. The consent record is read through {@link ConsentDao}
+ * rather than {@code PatientConsentManager} because the manager's lookup requires a {@code LoggedInInfo}
+ * for its privilege check and access log, and the queue worker rechecks consent on a scheduler thread that
+ * has no session. Authorizing the sender belongs to the send entry point, not to this check.
  * <p>
  * Decisions carry reason codes and generic operator messages only; they never include patient identifiers.
  *
@@ -60,7 +59,7 @@ public class CarlosSmsConsentService implements SmsConsentService {
 
     private static final String NOT_CONFIGURED_CODE = "SMS_CONSENT_NOT_CONFIGURED";
     private static final String NOT_CONFIGURED_MESSAGE =
-            "SMS consent is not configured; set the sms_communication property to an active consent type.";
+            "SMS consent is not configured; the sms_communication property must name an active consent type.";
     private static final String UNKNOWN_CODE = "SMS_CONSENT_UNKNOWN";
     private static final String UNKNOWN_MESSAGE = "No SMS consent is recorded for this patient.";
     private static final String NOT_EXPLICIT_CODE = "SMS_CONSENT_NOT_EXPLICIT";
