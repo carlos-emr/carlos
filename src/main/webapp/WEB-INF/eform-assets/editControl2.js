@@ -411,19 +411,23 @@ function Select(selectname){
  * clinic template with letterhead and ##placeholders## never populated. Enabling it here, before the
  * parse, is order-independent: the template's own onload then finds it already on.
  */
+function cancelLetterOutput() {
+    cancelPendingFaxSubmission();
+    if (typeof clearWorkflowFlags === 'function') { clearWorkflowFlags(); }
+    var faxField = document.getElementById('faxEForm');
+    if (faxField) { faxField.value = false; }
+    window.needToConfirm = true;
+    if (typeof HideSpin === 'function' && document.getElementById('oscar-spinner-screen')
+            && document.getElementById('oscar-spinner')) { HideSpin(); }
+}
+
 function guardLetterSubmit() {
     var form = measurementLetterForm();
     if (!form || typeof form.submit !== 'function' || form.submit.__rtlMeasurementGuard) { return; }
     var nativeSubmit = form.submit;
     var preparing = false;
     function cancelSubmission(message) {
-        cancelPendingFaxSubmission();
-        if (typeof clearWorkflowFlags === 'function') { clearWorkflowFlags(); }
-        var faxField = document.getElementById('faxEForm');
-        if (faxField) { faxField.value = false; }
-        window.needToConfirm = true;
-        if (typeof HideSpin === 'function' && document.getElementById('oscar-spinner-screen')
-                && document.getElementById('oscar-spinner')) { HideSpin(); }
+        cancelLetterOutput();
         alert(message);
         return false;
     }
@@ -457,7 +461,7 @@ function guardLetterPrint(targetWindow) {
         if (targetWindow.document !== printDocument) { return; }
         cancelPendingFaxSubmission();
         if (measurementHistoryStillLoading()) {
-            window.needToConfirm = true;
+            cancelLetterOutput();
             alert('The letter is still loading. Please wait before printing.');
             return;
         }
@@ -1344,11 +1348,22 @@ function submitFaxButton() {
 			measureInitialTemplateLoading = true;
 			measureTemplateCatalogLoading = true;
 
+            function catalogFailed() {
+                showLetterStatus('rtl-template-catalog-status', 'Letter templates could not be loaded. Check the letter before saving; reopen the form to retry loading templates.', true);
+                measureTemplateCatalogLoading = false;
+                loadDefaultTemplate();
+            }
 			// Load template <option> elements into the template dropdown
 			$.ajax({
 				url : "efmformrtl_templates",
                 timeout: 15000,
 				success : function(data) {
+                    var catalog = new DOMParser().parseFromString(data, 'text/html');
+                    // The endpoint always includes blank.rtl. A login/error page
+                    // returned with HTTP 200 must not look like an empty catalogue.
+                    if (!catalog.querySelector('option[value="blank.rtl"]')) {
+                        catalogFailed(); return;
+                    }
 					var cleanData = sanitizeHtml(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']});
 					if (cleanData !== null) {
 						$("#template").html(cleanData);
@@ -1371,9 +1386,7 @@ function submitFaxButton() {
 				},
 				error : function(xhr, status, error) {
 					console.error('Failed to load letter templates: ' + status);
-					showLetterStatus('rtl-template-catalog-status', 'Letter templates could not be loaded. Check the letter before saving; reopen the form to retry loading templates.', true);
-					measureTemplateCatalogLoading = false;
-					loadDefaultTemplate();
+                    catalogFailed();
 				}
 			});
 
@@ -1689,6 +1702,8 @@ var measureRequestQueue = [];
 var activeMeasureBatch = null;
 var measureBatchesPending = 0;
 var measureBatchFailed = false;
+var failedMeasureTypes = Object.create(null);
+var rejectedMeasureTypes = Object.create(null);
 var measureRequestRevision = 0;
 var measureInitialTemplateLoading = false;
 var measureTemplateCatalogLoading = true;
@@ -1705,7 +1720,7 @@ function assertMeasurementHistoryReady() {
     if (measurementHistoryStillLoading()) {
         // Legacy saveRTL implementations clear this flag before serializing. A
         // blocked save must retain the unload warning even if the request fails.
-        window.needToConfirm = true;
+        cancelLetterOutput();
         alert('Measurements are still loading. Please wait before saving or printing this letter.');
         throw new Error('RTL measurements are still loading');
     }
@@ -1729,6 +1744,14 @@ function showLetterStatus(id, message, failed) {
     notice.textContent = message;
     notice.style.color = failed ? '#a00000' : '';
     notice.hidden = !message;
+}
+
+function showRejectedMeasureStatus() {
+    var types = Object.keys(rejectedMeasureTypes);
+    var reasons = types.map(function(type) { return rejectedMeasureTypes[type]; })
+        .filter(function(reason, index, all) { return all.indexOf(reason) === index; });
+    showLetterStatus('rtl-measurement-precondition-status', types.length ?
+        reasons.join(' ') + ' Requested types still to retry: ' + types.join(', ') + '.' : '', true);
 }
 
 function measurementPatientId() {
@@ -1784,16 +1807,19 @@ function createMeasureBatch() {
  */
 function getMeasures(measure, max) {
     measureRequestRevision++;
+    cancelPendingFaxSubmission();
     return new Promise(function(resolve) {
         try {
             if (measureInitialTemplateLoading || measureTemplateCatalogLoading || measureTemplateLookupsPending > 0) {
-                showLetterStatus('rtl-measurement-precondition-status', 'Lab Grid or Vitals was not loaded while the template was loading. Retry after the template finishes.', true);
+                rejectedMeasureTypes[String(measure)] = 'Lab Grid or Vitals was not loaded while the template was loading. Retry after the template finishes.';
+                showRejectedMeasureStatus();
                 resolve({values: [], dates: [], failed: true});
                 return;
             }
             var editorFrame = document.getElementById(cfg_editorname);
             if (editorFrame && editorFrame.contentDocument && editorFrame.contentDocument.__rtlSourceMode) {
-                showLetterStatus('rtl-measurement-precondition-status', 'Lab Grid or Vitals was not loaded in HTML source view. Return to the visual editor and retry.', true);
+                rejectedMeasureTypes[String(measure)] = 'Lab Grid or Vitals was not loaded in HTML source view. Return to the visual editor and retry.';
+                showRejectedMeasureStatus();
                 resolve({values: [], dates: [], failed: true});
                 return;
             }
@@ -1818,9 +1844,10 @@ function getMeasures(measure, max) {
                 window.setTimeout(flushMeasureRequests, 0);
             }
             pendingMeasureBatch.requests.push({measure: String(measure), max: max, resolve: resolve});
-            showLetterStatus('rtl-measurement-precondition-status', '', false);
+
         } catch (error) {
             measureBatchFailed = true;
+            failedMeasureTypes[String(measure)] = true;
             showMeasurementStatus('Measurements could not be loaded. Check that a patient and letter are open.', true);
             resolve({values: [], dates: [], failed: true});
         }
@@ -1846,12 +1873,20 @@ function startNextMeasureBatch() {
             return normalizeMeasureHistory(measurements, request, batch.patient);
         });
         insertMeasureBatch(batch, histories);
+        batch.requests.forEach(function(request) {
+            delete failedMeasureTypes[request.measure];
+            delete rejectedMeasureTypes[request.measure];
+        });
+        showRejectedMeasureStatus();
         return histories;
     }).catch(function() {
         // Only a fresh request can supersede this failure silently. Navigation
         // alone still needs a retry warning for the discarded measurements.
         var cancelled = !!batch.superseded;
-        if (!cancelled) { measureBatchFailed = true; }
+        if (!cancelled) {
+            measureBatchFailed = true;
+            batch.requests.forEach(function(request) { failedMeasureTypes[request.measure] = true; });
+        }
         return batch.requests.map(function() { return {values: [], dates: [], failed: true, cancelled: !!cancelled}; });
     }).then(function(histories) {
         [batch.marker, batch.startMarker].forEach(function(marker) {
@@ -1859,8 +1894,8 @@ function startNextMeasureBatch() {
         });
         measureBatchesPending--;
         activeMeasureBatch = null;
-        if (measureBatchFailed) {
-            showMeasurementStatus('Some requested measurements were not inserted. Please retry Lab Grid or Vitals before saving an incomplete letter.', true);
+        if (measureBatchFailed || Object.keys(failedMeasureTypes).length) {
+            showMeasurementStatus('Some requested measurements were not inserted. Please retry Lab Grid or Vitals before saving an incomplete letter. Types still to retry: ' + Object.keys(failedMeasureTypes).join(', ') + '.', true);
         } else if (!measureBatchesPending) {
             showMeasurementStatus('', false);
         }
@@ -2024,7 +2059,7 @@ document.addEventListener('click', function(event) {
             || outputControl.test(control.name) || outputControl.test(control.id)) {
         if (typeof cancelPendingFaxSubmission === 'function') { cancelPendingFaxSubmission(); }
         if (!measurementHistoryStillLoading()) { return; }
-        window.needToConfirm = true;
+        cancelLetterOutput();
         event.preventDefault();
         event.stopImmediatePropagation();
         alert('Measurements are still loading. Please wait before saving or printing this letter.');
@@ -2034,7 +2069,7 @@ document.addEventListener('submit', function(event) {
     if (event.target !== measurementLetterForm()) { return; }
     if (typeof cancelPendingFaxSubmission === 'function') { cancelPendingFaxSubmission(); }
     if (measurementHistoryStillLoading()) {
-        window.needToConfirm = true;
+        cancelLetterOutput();
         event.preventDefault();
         event.stopImmediatePropagation();
         alert('Measurements are still loading. Please wait before saving or printing this letter.');

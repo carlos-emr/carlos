@@ -109,6 +109,7 @@ function editorStillLoading() {
     if (typeof window.cancelPendingFaxSubmission === 'function') { window.cancelPendingFaxSubmission(); }
     // Measurement loads must settle before any save/download/fax workflow flags or spinner.
     if (typeof window.measurementHistoryStillLoading === 'function' && window.measurementHistoryStillLoading()) {
+        if (typeof window.cancelLetterOutput === 'function') { window.cancelLetterOutput(); }
         window.needToConfirm = true;
         alert('Measurements are still loading. Please wait before saving or printing this letter.');
         return true;

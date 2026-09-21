@@ -6,7 +6,9 @@ const vm = require('node:vm');
 const test = require('node:test');
 const {setTimeout: delay} = require('node:timers/promises');
 const editor = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/eform-assets/editControl2.js'), 'utf8');
-const code = editor.slice(editor.indexOf('// RTL measurement batches'), editor.indexOf('// end lab grid //'));
+const code = editor.slice(editor.indexOf('function cancelLetterOutput()'), editor.indexOf('function guardLetterSubmit()'))
+  + editor.slice(editor.indexOf('var pendingFaxSubmission ='), editor.indexOf('function submitFaxButton()'))
+  + editor.slice(editor.indexOf('// RTL measurement batches'), editor.indexOf('// end lab grid //'));
 
 // Minimal document model for queue/transport tests. Native selection/range behavior
 // is covered separately by the Chromium fixture; no browser API is replaced there.
@@ -55,7 +57,7 @@ function setup() {
     send(body) { this.body = JSON.parse(body); }
     respond(measurements, status = 200) { this.status = status; this.responseText = JSON.stringify({measurements}); this.onload(); }
   }
-  const window = {location:{href:'https://localhost/carlos/eform/efmshowform_data?demographic_no=99'}, setTimeout};
+  const window = {location:{href:'https://localhost/carlos/eform/efmshowform_data?demographic_no=99'}, setTimeout, clearTimeout};
   const context = vm.createContext({window, document, XMLHttpRequest:Xhr, URL, alert:text=>alerts.push(text), cfg_editorname:'edit', gup:(name,url)=>new URL(url||window.location.href).searchParams.get(name)||'', setDirtyFlag:()=>dirty++});
   vm.runInContext(code, context);
   context.measureTemplateCatalogLoading=false; // Unit fixtures model a fully initialized letter.
@@ -296,3 +298,27 @@ for (const guard of ['template loading','source view']) {
     assert.match(f.contentDocument.body.textContent,/70/);
   });
 }
+
+test('success for another type cannot clear a failed measurement retry warning', async () => {
+  const f=setup();const failed=f.context.getMeasures('BP',1);await delay(5);
+  f.requests[0].onerror();await failed;
+  const other=f.context.getMeasures('WT',1);await delay(5);
+  f.requests[1].respond({WT:[row('WT','70')]});await other;
+  assert.match(notice(f),/Types still to retry: BP/);
+  const retry=f.context.getMeasures('BP',1);await delay(5);
+  f.requests[2].respond({BP:[row('BP','120/80')]});await retry;
+  assert.equal(notice(f),'');
+});
+
+test('only a successful retry of the rejected type clears its precondition warning', async () => {
+  const f=setup();f.context.measureTemplateCatalogLoading=true;
+  assert.equal((await f.context.getMeasures('BP',1)).failed,true);
+  f.context.measureTemplateCatalogLoading=false;
+  const other=f.context.getMeasures('WT',1);await delay(5);
+  f.requests[0].respond({WT:[row('WT','70')]});await other;
+  assert.match(notice(f,'rtl-measurement-precondition-status'),/still to retry: BP/);
+  const retry=f.context.getMeasures('BP',1);await delay(5);
+  assert.match(notice(f,'rtl-measurement-precondition-status'),/still to retry: BP/);
+  f.requests[1].respond({BP:[row('BP','120/80')]});await retry;
+  assert.equal(notice(f,'rtl-measurement-precondition-status'),'');
+});

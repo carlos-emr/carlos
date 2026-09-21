@@ -105,7 +105,9 @@ async function run() {
       try {doExport();return false;} catch(error){return /still loading/.test(error.message);}
     }),true);
     assert.equal(await page.evaluate(()=>window.exportCount),0);
+    await page.evaluate(()=>setHiddenFormInput('saveAndDownloadEForm','saveAndDownloadEForm','true'));
     await page.locator('[name=PrintSaveButton]').click();
+    assert.equal(await page.locator('[data-carlos-workflow-flag]').count(),0);
     await page.locator('[name=PrintSubmitButton]').click();
     await page.locator('#PrintSubmitButton').click();
     assert.equal(await page.evaluate(()=>{
@@ -116,6 +118,7 @@ async function run() {
     assert.equal(await page.evaluate(()=>window.prints),0);
     assert.equal(await page.evaluate(()=>{
       window.formPrint=()=>window.prints++;
+      setHiddenFormInput('emailAction','emailAction','true');
       remotePrint();
       loadDefaultTemplate(); // Internal template reads must not raise the save gate.
       window.needToConfirm=false; // Shipped legacy saveRTL resets before serialization.
@@ -123,6 +126,7 @@ async function run() {
     }),true);
     assert.equal(await page.evaluate(()=>window.needToConfirm),true);
     assert.equal(await page.evaluate(()=>window.prints),0);
+    assert.equal(await page.locator('[data-carlos-workflow-flag]').count(),0);
     // Move the live caret and type while the response is withheld.
     const body=page.frameLocator('#edit').locator('body');
     await body.click();await body.press('Control+End');await body.press('End');await body.pressSequentially(' TYPED');
@@ -169,6 +173,7 @@ async function run() {
       try {submitFaxButton();} finally {window.setTimeout=originalTimer;}
     });
     await begin(['BP']);
+    assert.equal(await page.evaluate(()=>pendingFaxSubmission),null);
     await page.evaluate(()=>window.deferredFaxSubmit());
     assert.equal(await page.locator('#faxEForm').inputValue(),'false');
     assert.equal(await page.evaluate(()=>window.needToConfirm),true);
@@ -470,6 +475,12 @@ async function run() {
     await page.locator('#rtl-template-catalog-status').waitFor({state:'visible'});
     await page.evaluate(()=>{window.loaded=Promise.all([getMeasures('BP',1)]);});
     await respond({BP:[row('BP','120/80')]});
+    await page.locator('#rtl-template-catalog-status').waitFor({state:'visible'});
+    await page.evaluate(()=>Start());
+    for (let n=0;n<100&&!catalogRequests.length;n++) await page.waitForTimeout(10);
+    await catalogRequests.shift().fulfill({contentType:'text/html',body:'<html><body>Session expired</body></html>'});
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    assert.equal(await body.textContent(),'Saved recovery letter');
     await page.locator('#rtl-template-catalog-status').waitFor({state:'visible'});
     await page.evaluate(()=>Start());
     for (let n=0;n<100&&!catalogRequests.length;n++) await page.waitForTimeout(10);
