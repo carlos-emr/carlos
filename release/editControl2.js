@@ -110,7 +110,9 @@
 var cfg_layout = '[select-block]|[bold][italic]|[unordered][ordered][rule]|[undo][redo]|[indent][outdent][select-all][clean]|[clock][spell][help]<br />[edit-area]';
 var cfg_formatblock = '<option value="">&mdash; format &mdash;</option>  <option value="<p>">Paragraph</option>  <option value="<h1>">Heading 1</option>  <option value="<h2>">Heading 2</option>  <option value="<h3>">Heading 3</option>  <option value="<h4>">Heading 4</option>  <option value="<h5>">Heading 5</option>  <option value="<h6>">Heading 6</option>  </select>';
 var cfg_formatface = '<option value="">&mdash; font face &mdash;</option>  <option value="Arial,Helvetica,sans-serif">Arial</option> <option value="Courier">Courier</option> <option value="Times New Roman">Times</option> </select>';
-var cfg_formatfontsize = '<option value="">&mdash; font size &mdash;</option>  <option value="1">9px</option>  <option value="2">12px</option> <option value="3">14px</option> <option value="4">16px</option> <option value="5">20px</option> <option value="6">24px</option> <option value="7">32px</option> </select>';
+// Approximate CSS pixels at default browser font settings; retain legacy 1-7 values
+// so formatting commands and existing saved letters keep their original behavior.
+var cfg_formatfontsize = '<option value="">&mdash; font size &mdash;</option>  <option value="1">&asymp;10px</option>  <option value="2">&asymp;13px</option> <option value="3">&asymp;16px</option> <option value="4">&asymp;18px</option> <option value="5">&asymp;24px</option> <option value="6">&asymp;32px</option> <option value="7">&asymp;48px</option> </select>';
 var cfg_formattemplate = '<option value="">&mdash; template &mdash;</option>  <option value="blank.rtl">blank</option>  </select>';
 var cfg_isrc = '';  				// path to icons degrades to text buttons if icons not found
 var cfg_filesrc = '';				// path to blank.html and editor_help.html

@@ -11,6 +11,11 @@ clinicians to compose formatted letters with one-click insertion of patient data
 allergies, prescriptions, lab results, vitals, preventions) and supports attachments, faxing,
 emailing, and PDF export.
 
+The font-size dropdown displays approximate CSS pixel sizes (≈10px through ≈48px).
+It retains the legacy HTML font-size levels 1–7 used by the editor and saved letters; browser
+font preferences and template styles can affect their rendered size. The release and packaged
+editor assets must remain identical.
+
 The RTL is the only eForm shipped by default with CARLOS. All other eForms are uploaded by clinic
 administrators through the eForm Manager UI.
 
