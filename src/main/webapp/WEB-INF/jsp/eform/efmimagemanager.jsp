@@ -100,7 +100,9 @@
                 }
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = '<%=request.getContextPath()%>/eform/deleteImage';
+                // scheduleNav=1 keeps the administration shell's top nav bar across the
+                // delete POST/redirect (same flag the upload iframe above carries).
+                form.action = '<%=request.getContextPath()%>/eform/deleteImage<%= "1".equals(request.getParameter("scheduleNav")) ? "?scheduleNav=1" : "" %>';
                 var input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'filename';

@@ -141,8 +141,13 @@
                  operator on a 405 instead of the refreshed Image Library. Same
                  defect and same fix as eform/delEForm and eform/restoreEForm
                  above. A redirect also makes this a proper POST/redirect/GET,
-                 so a browser refresh cannot re-submit the delete. -->
-            <result name="success" type="redirect">/eform/efmimagemanager</result>
+                 so a browser refresh cannot re-submit the delete.
+                 The target is read from the action via OGNL, not a literal
+                 path: a redirect starts a new request, so the scheduleNav=1
+                 flag the delete POST carried would otherwise be dropped and
+                 the operator would lose the administration shell's top nav
+                 bar. getRedirectTarget() re-appends it when present. -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eform/restoreEForm" class="io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action">
             <!-- REDIRECT, not a forward, for exactly the reason delEForm above is:

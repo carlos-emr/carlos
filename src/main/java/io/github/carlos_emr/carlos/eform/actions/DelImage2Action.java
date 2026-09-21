@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -100,6 +101,20 @@ public class DelImage2Action extends ActionSupport {
         }
         
         return SUCCESS;
+    }
+
+    /**
+     * Redirect target for the {@code success} result, read by struts-eform.xml via
+     * OGNL ({@code ${redirectTarget}}). A redirect starts a new request, so the
+     * {@code scheduleNav=1} flag the delete POST carried would otherwise be lost and
+     * the operator would land back on the Image Library with the administration
+     * shell's top nav bar gone.
+     *
+     * @return {@code /eform/efmimagemanager}, with {@code ?scheduleNav=1} appended
+     *         when the deleting request carried the flag
+     */
+    public String getRedirectTarget() {
+        return ScheduleNav.append("/eform/efmimagemanager", request);
     }
 
 }

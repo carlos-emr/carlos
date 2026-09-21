@@ -706,6 +706,19 @@
       ]
     },
     {
+      "name": "eform-image-delete",
+      "script": "scripts/eform-image-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "eform-consultation-acceptance",
       "script": "scripts/eform-consultation-acceptance-playwright-checks.js",
       "tiers": [
