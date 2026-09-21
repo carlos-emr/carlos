@@ -52,8 +52,8 @@ import org.springframework.beans.factory.BeanCreationException;
  *       append HTML to a JSON body that the browser has already begun parsing.
  *   <li><b>Portal failures are translated once.</b> The portal's own message names an endpoint
  *       template and a status, which mean nothing to a receptionist, and the {@code 404} arm must
- *       not claim the patient is unknown — that status is three-way, covering an unknown record, a
- *       patient with no portal account, and a rejected service identity.
+ *       not claim the patient is unknown — that status covers both an unknown record and a
+ *       rejected service identity. Only a portal-confirmed absent account is reported as such.
  * </ul>
  *
  * @since 2026-08-19
