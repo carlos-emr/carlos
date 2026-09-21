@@ -31,7 +31,9 @@ async function run() {
 <script src="jquery.js"></script><script src="purify.js"></script><script src="cache.js"></script><script src="image.js"></script></head>
 <body><form action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden">
 <script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
-<button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button></form></body></html>`});
+<button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button>
+<button type="button" name="PrintSubmitButton" onclick="window.prints++">Print and submit</button>
+<button type="button" id="PrintSubmitButton" onclick="window.prints++">Print and submit by id</button></form></body></html>`});
       if (assets[name]) return route.fulfill({body:fs.readFileSync(web+assets[name]),contentType:name==='blank.rtl'?'text/html':'text/javascript'});
       return route.abort();
     });
@@ -60,6 +62,8 @@ async function run() {
     }
     await begin(['BP','WT']);
     await page.locator('[name=PrintSaveButton]').click();
+    await page.locator('[name=PrintSubmitButton]').click();
+    await page.locator('#PrintSubmitButton').click();
     assert.equal(await page.evaluate(()=>window.prints),0);
     assert.equal(await page.evaluate(()=>{
       window.formPrint=()=>window.prints++;

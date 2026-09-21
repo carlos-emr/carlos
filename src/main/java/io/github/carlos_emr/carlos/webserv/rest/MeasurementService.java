@@ -46,20 +46,20 @@ import java.util.List;
 
 /**
  * RESTful web service for measurement data operations in OpenO EMR.
- * This service provides secure, OAuth-authenticated access to measurement data
- * for external integrations, mobile applications, and API consumers.
+ * This service provides authenticated access to measurement data through the UI
+ * session or OAuth for external integrations, mobile applications, and API consumers.
  * 
  * <p>The service follows REST conventions and provides JSON-based endpoints for:</p>
  * <ul>
  *   <li><strong>Data retrieval</strong>: Getting measurements by type, patient, and date ranges</li>
- *   <li><strong>Security enforcement</strong>: OAuth 1.0a authentication and authorization</li>
+ *   <li><strong>Security enforcement</strong>: Session/OAuth authentication and patient-scoped authorization</li>
  *   <li><strong>Data transformation</strong>: Converting internal models to API-friendly formats</li>
  *   <li><strong>Type filtering</strong>: Selective measurement retrieval by clinical type</li>
  * </ul>
  * 
  * <p>Security model:</p>
  * <ul>
- *   <li>All endpoints require OAuth 1.0a authentication</li>
+ *   <li>All endpoints require an authenticated UI session or OAuth 1.0a authentication</li>
  *   <li>Users must have "_measurement" read privileges</li>
  *   <li>Patient demographic access is validated per request</li>
  *   <li>Audit logging tracks all API access</li>
@@ -92,7 +92,7 @@ import java.util.List;
 @Component("measurementService")
 @Consumes(MediaType.APPLICATION_JSON)
 public class MeasurementService extends AbstractServiceImpl {
-    /** Security manager for OAuth authentication and authorization. */
+    /** Security manager for measurement and patient-record authorization. */
     @Autowired
     private SecurityInfoManager securityInfoManager;
     
@@ -114,7 +114,7 @@ public class MeasurementService extends AbstractServiceImpl {
      * 
      * <p>Security requirements:</p>
      * <ul>
-     *   <li>Valid OAuth 1.0a authentication token</li>
+     *   <li>Authenticated UI session or valid OAuth 1.0a authentication token</li>
      *   <li>"_measurement" read privilege</li>
      *   <li>Access to the specified patient's demographic data</li>
      * </ul>
@@ -122,7 +122,7 @@ public class MeasurementService extends AbstractServiceImpl {
      * <p>Response includes all measurements of the requested types for the patient,
      * transformed into API-friendly format with metadata.</p>
      * 
-     * @param json JSONObject containing array of measurement type codes to retrieve
+     * @param json ObjectNode containing array of measurement type codes to retrieve
      * @param demoId Integer the patient's demographic ID from the URL path
      * @return MeasurementResponse containing matching measurements and metadata
      * @throws ForbiddenException if measurement or patient-record access is denied

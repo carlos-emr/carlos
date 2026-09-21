@@ -161,10 +161,16 @@ test('empty data is successful and values containing markup remain literal text'
 
 test('legacy Print controls and submit events are blocked before inline handlers', async () => {
   const f=setup(); const p=f.context.getMeasures('BP',1); let blocked=0;
-  const event={target:{closest:()=>({name:'PrintSaveButton',type:'button'})},preventDefault:()=>blocked++,stopImmediatePropagation:()=>blocked++};
-  f.document.listeners.click(event); f.document.listeners.submit(event); assert.equal(blocked,4);
+  const events=[];
+  for (const controlName of ['SubmitButton','PrintButton','PrintSaveButton','PrintSubmitButton','pdfButton','pdfSaveButton']) {
+    for (const attribute of ['name','id']) {
+      const event={target:{closest:()=>({[attribute]:controlName,type:'button'})},preventDefault:()=>blocked++,stopImmediatePropagation:()=>blocked++};
+      events.push(event); f.document.listeners.click(event);
+    }
+  }
+  f.document.listeners.submit(events[0]); assert.equal(blocked,26);
   await delay(5); f.requests[0].respond({}); await p;
-  f.document.listeners.click(event); f.document.listeners.submit(event); assert.equal(blocked,4);
+  events.forEach(event=>f.document.listeners.click(event)); f.document.listeners.submit(events[0]); assert.equal(blocked,26);
 });
 
 test('the floating toolbar blocks before its existing save/download workflow starts', async () => {

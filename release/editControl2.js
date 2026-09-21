@@ -1726,8 +1726,8 @@ document.addEventListener('click', function(event) {
     if (!measurementHistoryStillLoading() || !event.target.closest) { return; }
     var control = event.target.closest('input, button');
     if (!control) { return; }
-    var name = control.name || '';
-    if (control.type === 'submit' || /^(SubmitButton|PrintButton|PrintSaveButton|pdfButton|pdfSaveButton)$/.test(name)) {
+    var outputControl = /^(SubmitButton|PrintButton|PrintSaveButton|PrintSubmitButton|pdfButton|pdfSaveButton)$/;
+    if (control.type === 'submit' || outputControl.test(control.name) || outputControl.test(control.id)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         alert('Measurements are still loading. Please wait before saving or printing this letter.');
