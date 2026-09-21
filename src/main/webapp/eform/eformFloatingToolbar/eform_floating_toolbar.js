@@ -106,6 +106,11 @@ let editorLoadingBlockCount = 0;
  * clinician to "wait" forever. The (visible) alert is raised here so callers stay simple.
  */
 function editorStillLoading() {
+    // Measurement loads must settle before any save/download/fax workflow flags or spinner.
+    if (typeof window.measurementHistoryStillLoading === 'function' && window.measurementHistoryStillLoading()) {
+        alert('Measurements are still loading. Please wait before saving or printing this letter.');
+        return true;
+    }
 	// Scoped to the editor's OWN template dropdown (#template, created by editControl2.js and
 	// repopulated when efmformrtl_templates returns). The previous query was every `select option`
 	// in the document, and the "loading..." literal appears nowhere in CARLOS-shipped code — it can
@@ -615,6 +620,9 @@ function remoteSaveOnly() {
 }
 
 function remotePrint() {
+    if (editorStillLoading()) {
+        return;
+    }
     // Same reason as remoteSaveOnly above: Print saves, and must not inherit a cancelled Fax's intent.
     clearWorkflowFlags();
 

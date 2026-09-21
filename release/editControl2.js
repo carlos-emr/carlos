@@ -299,7 +299,10 @@ function ex(command,value){
 	document.getElementById(cfg_editorname).contentWindow.document.execCommand(command, false, value); 
 }
 
-function editControlContents(editorname) {
+function editControlContents(editorname, allowPendingMeasurements) {
+	// Template expansion reads content too; only those internal reads may bypass
+	// the save/print gate so changing a template still completes while a request runs.
+	if (!allowPendingMeasurements) { assertMeasurementHistoryReady(); }
 	var value = "";
 	// HARD STOP: the stored letter never made it into the editor (see seteditControlContents'
 	// fallback branch). Every caller of this function feeds its result to a save, so returning the
@@ -488,7 +491,7 @@ function loadTemplate(selectname){
 
 function parseTemplate(){
 	//replace template placeholders with database pulls
-	var contents=editControlContents(cfg_editorname);
+	var contents=editControlContents(cfg_editorname, true);
 	var temp = contents.split('##'); //parse for template place holders identified by ##value##
 	var keys = [];
 	var needLookup = false;
@@ -520,7 +523,7 @@ function parseTemplate(){
 
 function populateTemplate(){
 	//replace template placeholders with database pulls
-	var contents=editControlContents(cfg_editorname);
+	var contents=editControlContents(cfg_editorname, true);
 	var temp = contents.split('##'); //parse for template place holders identified by ##value##
 	contents='';
 	var x;
@@ -1495,76 +1498,245 @@ if (location.search) {
 }
 
 
-// The graph link URLs are commented out below in getMeasures(). The old
-// hardcoded fid=74 path would be wrong for most installations. If the graph
-// link feature is re-enabled, derive the fid from the URL parameter
-// (gup("fid")) instead of hardcoding it.
-var measureArray = [];
-var measureDateArray = [];
+// RTL measurement batches share one request and retain their original insertion point.
+var pendingMeasureBatch = null;
+var measureRequestQueue = [];
+var activeMeasureBatch = null;
+var measureBatchesPending = 0;
+var measureBatchFailed = false;
 
-/**
- * Retrieves measurement/lab history for a given measurement type and inserts
- * a formatted summary into the editor. Called by labgrid() and labgrid2()
- * (the "Lab Grid" and "Vitals" sidebar buttons).
- *
- * Makes a synchronous XHR to efmshowform_data to fetch measurement data
- * for the current patient, then formats it as "TYPE: value (date), value (date), ..."
- *
- * @param {string} measure - Measurement type code (e.g., "HB", "BP", "A1C")
- * @param {number} max - Maximum number of historical values to display
- */
-function getMeasures(measure, max) {
-    var xmlhttp = new XMLHttpRequest();
-    // pathArray was originally used to build newURL; kept for potential future use by callers.
-    var pathArray = window.location.pathname.split('/'); void pathArray;
-    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory?type=" + measure;
-    xmlhttp.onreadystatechange = function() {
-        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            var str = xmlhttp.responseText; //local variable
-            if (!str) {
-                return;
-            }
-            var myRe = /<td width="10">([0-9.,]+)<\/td>/g; //for the measurement
-            var myArray;
-            measureArray = []
-            measureDateArray = []
-            var i = 0;
-            while ((myArray = myRe.exec(str)) !== null) {
-                measureArray[i] = myArray[1];
-                i = i + 1;
-            }
+function measurementHistoryStillLoading() {
+    return measureBatchesPending > 0;
+}
 
-            var myRe = /<td width="150">([0-9,-]+)<\/td>\s*<td width="150">/g; //the first date is the observation date
-            var myArray;
-            var i = 0;
-            while ((myArray = myRe.exec(str)) !== null) {
-                measureDateArray[i] = myArray[1];
-                i = i + 1;
-            }
-        }
-    }
-    xmlhttp.open("GET", newURL, false);
-    xmlhttp.send();
-    //alert(this.patient_name.value)
-    if (measureArray.length > 0) {
-        //myGraphWindow = "<a href=" + formPath + measure + "&GraphType=Bar" + "&mA=" + measureArray + "&mDA=" + measureDateArray + " target='_blank'>" + measure + ": " + "</a>"
-       var myGraphWindow = measure + ": "
-
-       
- //myGraphWindow = formPath + measure + measureArray + measureDateArray + measure + ": "
-         doHtml("<font size='3'>"+myGraphWindow +"</font>");
-        var displaynum = measureArray.length
-        if (measureArray.length > max) {
-            displaynum = max
-        }
-        for (var jj = 0; jj < displaynum; jj++) {
-            var d = new Date(measureDateArray[jj])
-            var LabDate = "(" + d.getFullYear() + "/" + (d.getMonth() + 1) + "); "
-            doHtml("<font size='3'>"+measureArray[jj].bold()+ "</font>"+"<font size='2'>"+LabDate+ "</font>")
-        }
-           doHtml("<br></br>");
+function assertMeasurementHistoryReady() {
+    if (measurementHistoryStillLoading()) {
+        alert('Measurements are still loading. Please wait before saving or printing this letter.');
+        throw new Error('RTL measurements are still loading');
     }
 }
+
+function showMeasurementStatus(message, failed) {
+    var notice = document.getElementById('rtl-measurement-status');
+    if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'rtl-measurement-status';
+        notice.setAttribute('role', 'status');
+        var editor = document.getElementById(cfg_editorname);
+        if (!editor || !editor.parentNode) { return; }
+        editor.parentNode.insertBefore(notice, editor);
+    }
+    notice.textContent = message;
+    notice.style.color = failed ? '#a00000' : '';
+    notice.hidden = !message;
+}
+
+function measurementPatientId() {
+    var field = document.getElementById('demographicNo');
+    var patient = field ? field.value : gup('demographic_no') || gup('efmdemographic_no');
+    if (!/^[1-9][0-9]*$/.test(String(patient || ''))) {
+        throw new Error('The letter has no patient selected.');
+    }
+    return String(patient);
+}
+
+function createMeasureBatch() {
+    var frame = document.getElementById(cfg_editorname);
+    var editorDoc = frame && frame.contentDocument;
+    if (!editorDoc || !editorDoc.body) { throw new Error('The letter editor is not ready.'); }
+    var patient = measurementPatientId();
+    var marker = editorDoc.createComment('RTL measurement insertion');
+    var selection = editorDoc.getSelection();
+    if (selection && selection.rangeCount && editorDoc.body.contains(selection.getRangeAt(0).endContainer)) {
+        var range = selection.getRangeAt(0).cloneRange();
+        range.collapse(false);
+        range.insertNode(marker);
+        range.setStartAfter(marker);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    } else {
+        editorDoc.body.appendChild(marker);
+    }
+    return {patient: patient, document: editorDoc, marker: marker, requests: []};
+}
+
+/**
+ * Queue a measurement type for the current letter. Same-tick Lab Grid/Vitals calls
+ * use one authenticated JSON request; batches run serially in click order.
+ * The promise always settles, including failure, because legacy sidebar callers
+ * do not await it. A visible error distinguishes failure from an empty history.
+ */
+function getMeasures(measure, max) {
+    return new Promise(function(resolve) {
+        try {
+            if (!pendingMeasureBatch) {
+                pendingMeasureBatch = createMeasureBatch();
+                if (measureBatchesPending === 0) { measureBatchFailed = false; }
+                measureBatchesPending++;
+                showMeasurementStatus('Loading measurements. Please wait before saving or printing.', false);
+                window.setTimeout(flushMeasureRequests, 0);
+            }
+            pendingMeasureBatch.requests.push({measure: String(measure), max: max, resolve: resolve});
+        } catch (error) {
+            showMeasurementStatus('Measurements could not be loaded. Check that a patient and letter are open.', true);
+            resolve({values: [], dates: [], failed: true});
+        }
+    });
+}
+
+function flushMeasureRequests() {
+    if (pendingMeasureBatch) {
+        measureRequestQueue.push(pendingMeasureBatch);
+        pendingMeasureBatch = null;
+    }
+    startNextMeasureBatch();
+}
+
+function startNextMeasureBatch() {
+    if (activeMeasureBatch || !measureRequestQueue.length) { return; }
+    var batch = measureRequestQueue.shift();
+    activeMeasureBatch = batch;
+    fetchMeasureHistory(batch).then(function(measurements) {
+        var histories = batch.requests.map(function(request) {
+            return normalizeMeasureHistory(measurements, request, batch.patient);
+        });
+        insertMeasureBatch(batch, histories);
+        return histories;
+    }).catch(function() {
+        measureBatchFailed = true;
+        return batch.requests.map(function() { return {values: [], dates: [], failed: true}; });
+    }).then(function(histories) {
+        if (batch.marker.parentNode) { batch.marker.parentNode.removeChild(batch.marker); }
+        measureBatchesPending--;
+        activeMeasureBatch = null;
+        if (measureBatchFailed) {
+            showMeasurementStatus('Some requested measurements were not inserted. Please retry Lab Grid or Vitals before saving an incomplete letter.', true);
+        } else if (!measureBatchesPending) {
+            showMeasurementStatus('', false);
+        }
+        // Settle callers only after releasing this batch's save/print gate.
+        batch.requests.forEach(function(request, index) { request.resolve(histories[index]); });
+        startNextMeasureBatch();
+    });
+}
+
+function fetchMeasureHistory(batch) {
+    return new Promise(function(resolve, reject) {
+        var request = new XMLHttpRequest();
+        // Existing read-authorized REST service binds the request to this letter's patient.
+        // The legacy HTML-history endpoint instead uses the mutable encounter session patient.
+        var url = new URL('../ws/rs/measurements/' + batch.patient, window.location.href);
+        request.open('POST', url.pathname, true);
+        request.setRequestHeader('Content-Type', 'application/json');
+        request.setRequestHeader('Accept', 'application/json');
+        request.timeout = 15000;
+        request.onload = function() {
+            if (request.status !== 200) { reject(new Error('Measurement request failed')); return; }
+            try {
+                var data = JSON.parse(request.responseText);
+                if (!data || !data.measurements || typeof data.measurements !== 'object' || Array.isArray(data.measurements)) {
+                    throw new Error('Invalid measurement response');
+                }
+                resolve(data.measurements);
+            } catch (error) { reject(error); }
+        };
+        request.onerror = request.ontimeout = request.onabort = function() {
+            reject(new Error('Measurement request did not complete'));
+        };
+        request.send(JSON.stringify({types: Array.from(new Set(batch.requests.map(function(item) { return item.measure; })))}));
+    });
+}
+
+function normalizeMeasureHistory(measurements, request, patient) {
+    var rows = Object.prototype.hasOwnProperty.call(measurements, request.measure) ? measurements[request.measure] : [];
+    if (!Array.isArray(rows)) { throw new Error('Invalid measurement history'); }
+    rows.forEach(function(row) {
+        if (!row || String(row.demographicId) !== patient || row.type !== request.measure || typeof row.dataField !== 'string') {
+            throw new Error('Measurement response does not match the request');
+        }
+    });
+    var limit = Math.floor(Number(request.max));
+    if (!Number.isFinite(limit) || limit < 1) { limit = 1; }
+    rows = rows.slice().sort(function(a, b) {
+        return measurementDateTime(b.dateObserved) - measurementDateTime(a.dateObserved);
+    }).slice(0, Math.min(limit, 100));
+    return {values: rows.map(function(row) { return row.dataField; }),
+        dates: rows.map(function(row) { return row.dateObserved; })};
+}
+
+function measurementDateTime(value) {
+    var timestamp = typeof value === 'number' ? value : Date.parse(value);
+    return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function measurementMonth(value) {
+    // The REST service's default Jackson date format is epoch milliseconds. Also
+    // accept ISO dates from installations with the optional date serializer.
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        var date = new Date(value);
+        if (!Number.isNaN(date.getTime())) { return date.getUTCFullYear() + '/' + (date.getUTCMonth() + 1); }
+    }
+    var parts = /^(\d{4})-(\d{2})-\d{2}/.exec(String(value || ''));
+    if (parts) { return parts[1] + '/' + Number(parts[2]); }
+    return 'date unavailable';
+}
+
+function appendMeasureText(parent, text, size, bold) {
+    var node = parent.ownerDocument.createElement('font');
+    node.setAttribute('size', size);
+    var content = bold ? parent.ownerDocument.createElement('b') : node;
+    content.textContent = text;
+    if (bold) { node.appendChild(content); }
+    parent.appendChild(node);
+}
+
+function insertMeasureBatch(batch, histories) {
+    var frame = document.getElementById(cfg_editorname);
+    if (!frame || frame.contentDocument !== batch.document || measurementPatientId() !== batch.patient
+            || !batch.document.body.contains(batch.marker)) {
+        // The user deleted the placeholder or loaded another letter/template. Never
+        // fall back to the current caret, which could silently put results in another letter.
+        throw new Error('The original measurement insertion point is no longer available');
+    }
+    var fragment = batch.document.createDocumentFragment();
+    histories.forEach(function(history, index) {
+        if (!history.values.length) { return; }
+        appendMeasureText(fragment, batch.requests[index].measure + ': ', '3', false);
+        history.values.forEach(function(value, i) {
+            appendMeasureText(fragment, value, '3', true);
+            appendMeasureText(fragment, '(' + measurementMonth(history.dates[i]) + '); ', '2', false);
+        });
+        fragment.appendChild(batch.document.createElement('br'));
+    });
+    var changed = fragment.childNodes.length > 0;
+    batch.marker.parentNode.insertBefore(fragment, batch.marker);
+    if (changed) {
+        if (typeof setDirtyFlag === 'function') { setDirtyFlag(); }
+        else { window.needToConfirm = true; }
+    }
+}
+
+// Legacy forms can print before calling saveRTL(), so intercept their controls in
+// the capture phase. The floating toolbar has its own pre-workflow guard below.
+document.addEventListener('click', function(event) {
+    if (!measurementHistoryStillLoading() || !event.target.closest) { return; }
+    var control = event.target.closest('input, button');
+    if (!control) { return; }
+    var name = control.name || '';
+    if (control.type === 'submit' || /^(SubmitButton|PrintButton|PrintSaveButton|pdfButton|pdfSaveButton)$/.test(name)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        alert('Measurements are still loading. Please wait before saving or printing this letter.');
+    }
+}, true);
+document.addEventListener('submit', function(event) {
+    if (measurementHistoryStillLoading()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        alert('Measurements are still loading. Please wait before saving or printing this letter.');
+    }
+}, true);
 
 // end lab grid //
 
