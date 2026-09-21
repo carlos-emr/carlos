@@ -805,6 +805,21 @@ The wider seed has more of the same trap. Of 615 observation sets in the 50 char
 76 hold a red-range value, in 22 patients, including NHSSYN005 with a heart rate of
 7 and NHSSYN017 with 472.
 
+## A short draft now shows its gaps instead of failing
+
+The first live run with these checks, 27B on DeepInfra, was rejected outright. That
+stack writes short drafts, and it left a note neither cited nor reviewed, which the
+coverage change made earlier the same day treated as fatal. That rule made weaker
+stacks fail completely, which is the opposite of what these guarantees are for. The
+host now records such a note as "no statement cites this note and the model gave no
+reason", never as reviewed by the model, and raises a validation warning naming it.
+A review of an unknown source, or two reviews of one source, still fails.
+
+Run again, the same stack returned in 34 seconds with 35 statements, 8 of them
+restored by the host including the abnormal set, no date, leak, duplicate or
+forbidden-assertion defects, and one note recorded as unexplained. It fails the gate
+on the anticoagulant conflict alone.
+
 ## Limits
 
 Extraction is pattern matching over English abbreviations. A set written in a form

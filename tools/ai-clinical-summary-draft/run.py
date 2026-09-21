@@ -69,6 +69,9 @@ def build_artifact(bundle, generated, model, artifact_id, timestamp, allow_empty
                          + ", which none of its cited notes carries (" + ", ".join(finding["allowed"]) + ").",
               "source_ids": finding["source_ids"]}
              for finding in host_checks.date_findings(generated, bundle["sources"])]
+        + [{"severity": "warning", "code": "sources_not_cited_without_reason",
+            "message": "The draft neither cites nor explains setting aside these notes; read them directly.",
+            "source_ids": unexplained} for unexplained in [pipeline.unexplained_sources(generated)] if unexplained]
     }
     return validate(artifact)
 

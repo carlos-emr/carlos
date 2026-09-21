@@ -82,10 +82,20 @@ def plan(sources, prompt, schema, request_bytes=REQUEST_BYTES):
     return batches
 
 
+UNEXPLAINED = "no statement cites this note and the model gave no reason; recorded by the host."
+
+
+def unexplained_sources(output):
+    """Sources the model neither cited nor reviewed, as recorded by complete_coverage."""
+    return [entry["source_id"] for entry in output["coverage"] if entry["reason"].endswith(UNEXPLAINED)]
+
+
 def complete_coverage(output, sources):
     """Record each cited source for the model, which reviews only the sources it did not cite.
 
-    An uncited source the model left unexplained is never given a review here, so it still fails.
+    A source the model neither cited nor reviewed is recorded as exactly that. It is never described
+    as reviewed by the model, and it no longer fails the whole draft: a short draft from a weaker
+    stack shows its gaps instead of showing nothing.
     """
     result = copy.deepcopy(output)
     if not (isinstance(result, dict) and isinstance(result.get("claims"), list)
@@ -98,6 +108,11 @@ def complete_coverage(output, sources):
         for source_id in dict.fromkeys(references if isinstance(references, list) else []):
             if isinstance(source_id, str):
                 counts[source_id] = counts.get(source_id, 0) + 1
+    # A host record of an unexplained note is stale once a later host statement cites that note.
+    result["coverage"] = [entry for entry in result["coverage"]
+                          if not (isinstance(entry, dict) and entry.get("source_id") in counts
+                                  and str(entry.get("reason", "")).endswith(UNEXPLAINED))]
+    reviewed = {entry.get("source_id") for entry in result["coverage"] if isinstance(entry, dict)}
     for entry in result["coverage"]:
         if isinstance(entry, dict) and entry.get("source_id") in counts:
             entry["status"] = "cited"  # Citations are a host-known fact; the model's reason is kept.
@@ -108,6 +123,9 @@ def complete_coverage(output, sources):
                 "source_id": source["id"], "status": "cited",
                 "reason": f"{source['id']}: cited by {count} statement{'' if count == 1 else 's'} "
                           "in this draft; recorded by the host."})
+        elif not count and source["id"] not in reviewed:
+            result["coverage"].append({"source_id": source["id"], "status": "reviewed_not_cited",
+                                       "reason": f"{source['id']}: {UNEXPLAINED}"})
     return result
 
 

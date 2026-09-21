@@ -34,7 +34,10 @@ actually referenced by claims have status `cited`; ledger-only references
 do not count as summary coverage. The model writes reviews only for sources
 no claim cites; the host records each cited source itself, with the number of
 statements citing it, before this rule is checked. A source that is neither
-cited nor reviewed is never given a review by the host, so the draft is rejected.
+cited nor reviewed is recorded by the host as exactly that ("no statement cites
+this note and the model gave no reason") with a `sources_not_cited_without_reason`
+validation warning. The host never describes it as reviewed by the model, and it
+does not fail the draft: a short draft shows its gaps instead of showing nothing.
 
 Two further host guarantees hold whichever model, provider or local server wrote the
 draft, because they use only the note dates and verbatim note text the host already
