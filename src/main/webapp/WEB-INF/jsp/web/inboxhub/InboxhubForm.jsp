@@ -55,7 +55,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         </h2>
         <div id="collapseSearch" class="accordion-collapse collapse show" aria-labelledby="headingSearch" data-bs-parent="#inbox-hub-search">
             <div class="accordion-body">
-                 <form action="${pageContext.request.contextPath}/web/inboxhub/Inboxhub?method=displayInboxForm" method="post" id="inboxSearchForm" onsubmit="return validatePatientOptions();">
+                 <form action="${pageContext.request.contextPath}/web/inboxhub/Inboxhub?method=displayInboxForm" method="post" id="inboxSearchForm" data-revoke-state="${carlos:forHtmlAttribute(param.inboxhubRevokeState)}" onsubmit="return validatePatientOptions();">
                     <div class="m-2">
                         <input type="hidden" name="query.viewMode" id="btnViewMode" value="${query.viewMode ? 'true' : 'false'}">
 
@@ -412,6 +412,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         setupDatepicker('#startDate', '#clearStartDate');
         setupDatepicker('#endDate', '#clearEndDate');
 
+        restoreInboxhubAfterHrmRevoke();
         inboxSearchFormData = jQuery("#inboxSearchForm").serialize();
         fetchInboxhubData();
 
@@ -581,7 +582,48 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * An AJAX list fetch alone keeps both the old totals and countedAcknowledgedItems.
      */
     function refreshInboxhubAfterHrmRevoke() {
-        document.getElementById('inboxSearchForm').requestSubmit();
+        const form = document.getElementById('inboxSearchForm');
+        let saved = form.querySelector('input[name="inboxhubRevokeState"]');
+        if (!saved) {
+            saved = document.createElement('input');
+            saved.type = 'hidden';
+            saved.name = 'inboxhubRevokeState';
+            form.appendChild(saved);
+        }
+        // Category selection and toolbar modes live outside the form. Carry them in this
+        // request so separate inbox tabs keep independent state.
+        saved.value = JSON.stringify({filter: filter, activeTypeFilter: activeTypeFilter,
+            ackToggleState: ackToggleState, rapidReviewState: rapidReviewState});
+        form.requestSubmit();
+    }
+
+    /** Restores validated display state before the first AJAX result request after a revoke. */
+    function restoreInboxhubAfterHrmRevoke() {
+        const form = document.getElementById('inboxSearchForm');
+        const raw = form.getAttribute('data-revoke-state');
+        if (!raw) { return; }
+        let state;
+        try {
+            state = JSON.parse(raw);
+        } catch (e) {
+            return;
+        }
+        if (!state || typeof state !== 'object') { return; }
+        const category = new URLSearchParams(typeof state.filter === 'string' ? state.filter : '');
+        const demographic = category.get('demographicFilter');
+        const type = category.get('typeFilter');
+        const suffix = {all: 'all', doc: 'docs', lab: 'hl7s', hrm: 'hrms'};
+        if (/^\d{1,10}$/.test(demographic || '') && Number(demographic) <= 2147483647
+                && Object.prototype.hasOwnProperty.call(suffix, type)) {
+            // Reconstruct only known filter parameters; never append the submitted string itself.
+            filter = '&demographicFilter=' + demographic + '&typeFilter=' + type;
+            const link = document.getElementById('patient' + demographic + suffix[type]);
+            if (link) { link.classList.add('selected'); }
+        }
+        activeTypeFilter = ['DOC', 'HL7', 'HRM'].includes(state.activeTypeFilter)
+            ? state.activeTypeFilter : null;
+        ackToggleState = state.ackToggleState === true;
+        rapidReviewState = state.rapidReviewState === true;
     }
 
     try {

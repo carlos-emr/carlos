@@ -21,7 +21,9 @@ function slice(from, to) {
 }
 const inboxScript = slice('    function refreshInboxhubAfterHrmRevoke()',
   '    /**\n     * Resets all inbox filters');
-let signed = false, fail = false, mutations = 0, reloads = 0;
+let signed = false, fail = false, mutations = 0, reloads = 0, restoring = false;
+const FILTER_STATE = {filter: '&demographicFilter=1&typeFilter=hrm', activeTypeFilter: 'HRM',
+  ackToggleState: true, rapidReviewState: true};
 function report(inboxWindow = false, inline = false) {
   return `<section id="hrmdoc_7" data-inbox-window="${inboxWindow}" data-inbox-inline="${inline}">
     <input type="button" id="signoff7" value="${signed ? 'Revoke Sign-Off' : 'Sign-Off'}"
@@ -47,9 +49,12 @@ function inbox(url) {
     ? inboxScript.slice(0, staleStart) + inboxScript.slice(staleEnd)
       + '\nwindow.refreshInboxhubAfterHrmRevoke = undefined;'
     : inboxScript;
-  return dependencies + `<form id="inboxSearchForm" method="post" action="/inbox">
+  // The fixture echoes only its constant expected state after asserting the submitted payload.
+  const stateAttribute = restoring ? JSON.stringify(FILTER_STATE).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
+  return dependencies + `<form id="inboxSearchForm" method="post" action="/inbox" data-revoke-state="${stateAttribute}">
       <input name="filter" value="kept"></form>
     <input id="totalHRMCount" value="${signed ? 1 : 2}"><input id="totalResultsCount" value="${signed ? 2 : 3}">
+    <a id="patient1hrms">Patient HRM category</a>
     <div id="inboxViewItems">
       ${signed ? '' : `<div class="document-card card" data-segment-id="7" data-lab-type="HRM">
         ${mode === 'iframe' ? '<iframe src="/report?chart=1"></iframe>' : 'HRM report'}</div>`}
@@ -57,10 +62,13 @@ function inbox(url) {
       <div class="document-card card" data-segment-id="7" data-lab-type="HL7">Other lab</div>
     </div>${controls}<script>
       var hasMoreData=false, rapidReviewState=false, pendingRapidReviewOpen=false;
+      var filter='', activeTypeFilter=null, ackToggleState=false;
+      ${mode === 'chart' ? "filter='&demographicFilter=1&typeFilter=hrm';activeTypeFilter='HRM';ackToggleState=true;rapidReviewState=true;" : ''}
       function showInboxhubStats() {}
       function fetchInboxhubData(){throw new Error('Unexpected full list fetch');}
       function openNextInboxItem() {}
       ${listenerScript}
+      restoreInboxhubAfterHrmRevoke();
     </script>`;
 }
 const server = http.createServer(async (req, res) => {
@@ -93,6 +101,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST') {
     let body = ''; for await (const chunk of req) body += chunk;
     assert.equal(new URLSearchParams(body).get('filter'), 'kept');
+    assert.deepEqual(JSON.parse(new URLSearchParams(body).get('inboxhubRevokeState')), FILTER_STATE);
+    restoring = true;
     reloads++;
   }
   res.end(inbox(url));
@@ -103,7 +113,7 @@ async function main() {
   const browser = await chromium.launch(getLaunchOptions(process.env.CHROME_BIN));
   try {
     for (const mode of ['popup', 'coop', 'fallback', 'iframe', 'legacy', 'chart', 'cached', 'failure']) {
-      signed = false; fail = mode === 'failure'; mutations = 0; reloads = 0;
+      signed = false; fail = mode === 'failure'; mutations = 0; reloads = 0; restoring = false;
       const context = await browser.newContext();
       const errors = [];
       context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
@@ -146,6 +156,10 @@ async function main() {
           await viewer.locator('#signoff7').click();
           await page.waitForFunction(() => document.getElementById('totalHRMCount').value === '2');
           assert.equal(reloads, mode === 'cached' ? 0 : 1);
+          if (mode === 'chart') {
+            assert.deepEqual(await page.evaluate(() => ({filter, activeTypeFilter, ackToggleState, rapidReviewState})), FILTER_STATE);
+            assert.equal(await page.locator('#patient1hrms').getAttribute('class'), 'selected');
+          }
           assert(!viewer.isClosed());
           await viewer.locator('#signoff7').click();
           await page.waitForFunction(() => document.getElementById('totalHRMCount').value === '1');

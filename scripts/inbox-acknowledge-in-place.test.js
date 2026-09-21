@@ -116,9 +116,18 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
     close() {}
   }
   const container = { scrollHeight: shortPreview ? 100 : 900, clientHeight: 400 };
+  const form = {
+    saved: null, raw: '',
+    requestSubmit() { state.submits++; },
+    querySelector() { return this.saved; },
+    appendChild(input) { this.saved = input; },
+    getAttribute() { return this.raw; },
+  };
   const document = {
+    createElement() { return {}; },
     getElementById(id) {
-      if (id === 'inboxSearchForm') return { requestSubmit() { state.submits++; } };
+      if (id === 'inboxSearchForm') return form;
+      if (/^patient/.test(id)) return {classList: {add() { state.selectedCategory = id; }}};
       return id === 'inboxViewItems' && mode === 'preview' ? container : null;
     },
     querySelector(selector) {
@@ -130,7 +139,8 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
   };
 
   const context = vm.createContext({
-    jQuery, BroadcastChannel, document,
+    jQuery, BroadcastChannel, document, URLSearchParams,
+    filter: '', activeTypeFilter: null, ackToggleState: false,
     hasMoreData, isFetchingData: false, rapidReviewState: false,
     showInboxhubStats() {},
     fetchInboxhubData() { state.fetches++; },
@@ -139,7 +149,7 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
   vm.runInContext(acknowledgePath + rapidReview, context);
 
   return {
-    state, totals, context,
+    state, totals, context, form,
     acknowledge: data => listener({ data }),
     shown: () => rendered.map(item => item.labType + ':' + item.segmentId),
   };
@@ -358,5 +368,39 @@ for (const mode of ['list', 'preview']) {
     assert.equal(inbox.totals.totalHRMCount, 4);
     assert.equal(inbox.totals.totalResultsCount, 14);
     assert.deepEqual(inbox.shown(), ['HRM:8']);
+  });
+}
+
+test('revocation carries category and toolbar state through a full reload', () => {
+  const before = setup('list', [['7', 'HRM']]);
+  Object.assign(before.context, {filter: '&demographicFilter=1&typeFilter=hrm',
+    activeTypeFilter: 'HRM', ackToggleState: true, rapidReviewState: true});
+  before.acknowledge({action: 'hrm-revoked', segmentID: '7', labType: 'HRM'});
+  assert.equal(before.form.saved.name, 'inboxhubRevokeState');
+  const after = setup('list', [['7', 'HRM']]);
+  after.form.raw = before.form.saved.value;
+  after.context.restoreInboxhubAfterHrmRevoke();
+  assert.equal(after.context.filter, '&demographicFilter=1&typeFilter=hrm');
+  assert.equal(after.context.activeTypeFilter, 'HRM');
+  assert.equal(after.context.ackToggleState, true);
+  assert.equal(after.context.rapidReviewState, true);
+  assert.equal(after.state.selectedCategory, 'patient1hrms');
+});
+
+test('restored category state cannot append unrelated query parameters', () => {
+  const inbox = setup('list', []);
+  inbox.form.raw = JSON.stringify({filter: '&demographicFilter=0&typeFilter=hrm&query.searchAll=true'});
+  inbox.context.restoreInboxhubAfterHrmRevoke();
+  assert.equal(inbox.context.filter, '&demographicFilter=0&typeFilter=hrm');
+});
+
+for (const raw of ['not JSON', 'null', JSON.stringify({filter: '&demographicFilter=99999999999&typeFilter=hrm'}),
+  JSON.stringify({filter: '&demographicFilter=1&typeFilter=__proto__', activeTypeFilter: 'invalid'})]) {
+  test('invalid reload state is ignored: ' + raw, () => {
+    const inbox = setup('list', []);
+    inbox.form.raw = raw;
+    inbox.context.restoreInboxhubAfterHrmRevoke();
+    assert.equal(inbox.context.filter, '');
+    assert.equal(inbox.context.activeTypeFilter, null);
   });
 }

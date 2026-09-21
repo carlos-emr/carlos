@@ -5,6 +5,9 @@ Deploy the WAR's Java classes, JSPs and JavaScript together. The endpoint accept
 returns `application/json` with `success`, `message`, and, for sign-off, `clearedCount`.
 The latter counts committed routing-row transitions. Inboxhub counts distinct HRM documents,
 so a positive transition removes one HRM from its badge even when duplicate routing rows exist.
+Revoking reloads authoritative totals and carries the category selection, active type badge,
+acknowledgement toggle and Rapid Review state through that request. The page validates and
+restores this display state before fetching the new results.
 
 ## Upgrade and rollback
 
