@@ -106,7 +106,7 @@ def read_config(path):
             and re.fullmatch(r"[a-z0-9/_-]+", config["provider"]), "Use an explicit provider slug")
     for field, minimum, maximum in (("port", 1024, 65535), ("timeout_seconds", 10, 300),
                                      ("max_tokens", 1024, 32768), ("cache_seconds", 0, 900),
-                                     ("request_bytes", 10000, 50000), ("reasoning_tokens", 0, 8192),
+                                     ("request_bytes", pipeline.REQUEST_BYTES, 50000), ("reasoning_tokens", 0, 8192),
                                      ("section_workers", 1, 2)):
         require(type(config[field]) is int and minimum <= config[field] <= maximum,
                 "Invalid numeric configuration: " + field)
