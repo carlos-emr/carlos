@@ -114,6 +114,7 @@
     "test:clinical-calculators-playwright": "node scripts/clinical-calculators-playwright-checks.js",
     "test:demographic-labels-playwright": "node scripts/demographic-labels-playwright-checks.js",
     "test:inboxhub-filters-playwright": "node scripts/inboxhub-filters-playwright-checks.js",
+    "test:inbox-preview-acknowledge-playwright": "node scripts/inbox-preview-acknowledge-playwright-checks.js",
     "test:mutator-get-rejection-live-playwright": "node scripts/mutator-get-rejection-live-playwright-checks.js",
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
     "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js",
