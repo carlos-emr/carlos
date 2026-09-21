@@ -302,14 +302,14 @@ function closeOrHideHrmReport(reportId) {
 function makeIndependent(reportId) {
     hrmModify({method: "makeIndependent", reportId: reportId}, function (result) {
         if (!result.success) {
-            // Its own element, not similarNotice: that span holds the whole list of similar
+            // Its own element, not similarNotice<id>: that span holds the whole list of similar
             // reports, and overwriting it with an error would delete what the clinician is
             // reading. Silence here read as "it worked".
             showHrmStatus("similarstatus" + reportId, result.message);
             return;
         }
         showHrmStatus("similarstatus" + reportId, "");
-        showHrmStatus("similarNotice", "");
+        showHrmStatus("similarNotice" + reportId, "");
     });
 }
 

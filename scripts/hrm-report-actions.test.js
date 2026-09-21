@@ -319,7 +319,7 @@ test('a failed "not similar" save reports itself without eating the similar-repo
   const notice = element({textContent: 'CARLOS has also detected...'});
   const status = element();
   const {context, requests} = setup({
-    elements: {similarNotice: notice, similarstatus7: status},
+    elements: {similarNotice7: notice, similarstatus7: status},
   });
 
   context.makeIndependent('7');
@@ -514,4 +514,26 @@ test('a successful unlink still replaces the linked view', () => {
 
   assert.equal(container.textContent, '', 'cleared before the new content is built');
   assert.ok(container.children.some(child => child.textContent === 'Not currently linked'));
+});
+
+test('marking a report independent clears only its own similar-report list', () => {
+  // oscarMDS/Page.jsp <jsp:include>s this viewer once per inbox result, so a bare id appears
+  // many times on that page and getElementById returns the FIRST one. An unqualified
+  // similarNotice therefore let a later report erase an earlier report's similarity list.
+  const ownNotice = element({textContent: 'similar to 41, 42'});
+  const otherNotice = element({textContent: "another report's list"});
+  const {context, requests} = setup({
+    elements: {
+      similarNotice7: ownNotice,
+      similarNotice9: otherNotice,
+      similarstatus7: element(),
+    },
+  });
+
+  context.makeIndependent('7');
+  requests[0].success({success: true, message: 'Success'});
+
+  assert.equal(ownNotice.textContent, '', 'this report\'s list is cleared');
+  assert.equal(otherNotice.textContent, "another report's list",
+    "a sibling report's list must be left alone");
 });

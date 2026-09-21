@@ -482,7 +482,11 @@
                     allDocumentsWithRelationship = (List<HRMDocument>) request.getAttribute("allDocumentsWithRelationship");
                     if (allDocumentsWithRelationship != null && allDocumentsWithRelationship.size() > 1) {
                 %>
-                <span id="similarNotice">CARLOS has also detected that the following reports are similar:
+                <%-- Report-qualified, like similarstatus below it: oscarMDS/Page.jsp <jsp:include>s this
+                     viewer once per inbox result, so a bare id appears many times on that page and
+                     getElementById returns the FIRST one. Marking a later report independent then
+                     erased an earlier report's similar-report list. --%>
+                <span id="similarNotice<%=hrmReportId %>">CARLOS has also detected that the following reports are similar:
 		<%
             List<Integer> seenBefore = new LinkedList<Integer>();
             for (HRMDocument relationshipDocument : allDocumentsWithRelationship) {
