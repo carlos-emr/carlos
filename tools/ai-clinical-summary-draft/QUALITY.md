@@ -671,3 +671,86 @@ those bytes, while this branch's lock expects its own vendored copy. Building wi
 a private `-Dmaven.repo.local` holding this branch's jar passes the lock check
 unchanged: **131 tests in the clinical slice pass under Maven**. Rebasing onto
 `develop` removes the mismatch.
+
+# Making it faster — 2026-09-21
+
+A summary is slow because of how much the model writes, not how much it reads. A
+whole-record pass reads about 7,700 tokens and writes 3,500 to 6,300; at the 13 to
+35 tokens per second SiliconFlow served today, writing is nearly all of the 80 to
+290 seconds. Two things were tried: writing less, and a faster model or provider.
+
+## The model no longer reviews sources it cited
+
+Each draft ended with one coverage entry per source, such as "note-2: Source
+contains anaesthetic assessment details, airway exam, vitals, risk assessment, and
+pre-op instructions." In the 3002 run inspected, all 20 entries had status `cited`
+and together were 18% of the output. The host already derives citation status from the
+claims, so that sentence only restated a note the clinician can open.
+
+The model now reviews only sources that no claim cites, as `reviewed_not_cited` or
+`excluded`. The host records each cited source itself ("note-1: cited by 6
+statements in this draft; recorded by the host.") before validation, in both the
+Python pipeline and the Java host, so the rendered artifact still accounts for
+every source exactly once. A source that is neither cited nor reviewed is never
+given a review by the host and still fails the draft. Because the schema no longer
+offers `cited`, a model that reviews a cited source anyway takes the host-known
+status and keeps its reason. The gateway previously validated a draft before
+coverage existed, which would have rejected the new normal case of an all-cited
+draft with no reviews; coverage is now completed first, with a test.
+
+Same configuration, same day, before and after:
+
+| Patient | Output tokens before | After | Change | Claims before | After | Gate after |
+| --- | --- | --- | --- | --- | --- | --- |
+| 3002 | 6,357 and 6,281 | 4,722 | -25% | 53 and 58 | 48 | pass |
+| 3001 | 3,744 and 3,832 | 2,818 | -26% | 29 and 29 | 28 | pass |
+| 3003 | 3,455 and 3,660 | 3,253 | -9% | 28 and 32 | 34 | pass |
+
+All three keep full critical-fact recall with no defects; 3003 again misses the
+non-critical `conservative-management` fact. Tokens are the fair measure: wall time
+moved between 80 and 290 seconds with the provider's speed, not with this change.
+One run per patient is thin evidence, and the prompt did change, so the claim
+counts need watching over more runs. A first 3003 attempt was rejected because the
+provider returned a single token after 109 seconds.
+
+The change also made a skipped note visible. On 3001 the model cited 18 of 19 notes
+and reviewed the other: "note-19 contains no new clinical facts beyond the GP
+contact and follow-up arrangement already detailed in note-18 and note-16." Earlier
+runs cited all 19. The gate still passes at full recall, but an explicit way to
+set a note aside may make the model use it more often; that is now at least
+auditable on the Coverage tab rather than hidden.
+
+## No faster model or provider passed the gate
+
+Fourteen trials and three repeats on 3002, the hardest chart, with the prompt and
+schema as they stood before the coverage change, temperature 0, one whole-record
+pass ([run records](quality/2026-09-21/exploratory-runs.json), names beginning `T-`):
+
+| Model | Provider | Result | Wall | Tokens/s | Claims | Critical facts missed |
+| --- | --- | --- | --- | --- | --- | --- |
+| 27B | SiliconFlow (default) | **pass**, pass | 232, 284 s | 22-28 | 53, 58 | none |
+| 27B | DeepInfra | fail | 94 s | 37 | 26 | abnormal vitals |
+| 27B | Alibaba, AtlasCloud | unavailable | — | — | — | — |
+| 35B-A3B | Venice | fail, fail, rejected | 59, 53, 41 s | 98-105 | 54, 50 | conflict; then both |
+| 35B-A3B | Parasail | fail | 154 s | 33 | 46 | both |
+| 35B-A3B | SiliconFlow | rejected | 113 s | — | — | — |
+| 35B-A3B | DeepInfra | rate limited twice | — | — | — | — |
+| 35B-A3B, 122B-A10B | Alibaba, AtlasCloud | unavailable | — | — | — | — |
+| 122B-A10B | SiliconFlow | fail | 142 s | 44 | 51 | abnormal vitals, 1 date error |
+| 397B-A17B | DeepInfra | fail | 161 s | 33 | 39 | conflict |
+| 397B-A17B | Venice | fail | 15 s | 234 | 20 | both, 1 forbidden assertion |
+
+"Unavailable" means OpenRouter returned no permitted endpoint: Alibaba and
+AtlasCloud do not satisfy the zero-data-retention and no-data-collection routing the
+gateway requires, for any model. The two critical facts are the NHSSYN002
+observation set with heart rate 2 and respiratory rate 1, and the tinzaparin and
+enoxaparin conflict.
+
+Sparse models are much faster per token, up to 234 tokens per second against 27B's
+22 to 28, and every one of them dropped at least one of the two facts this fixture
+exists to test. 35B-A3B on Venice was the nearest, at about a quarter of the wall
+time, and missed the anticoagulant conflict in both completed runs. Speed was again
+hiding omission, as it did for DeepInfra on 09-18. The default stays
+`qwen/qwen3.5-27b` on SiliconFlow. These are one to three runs each on one invented
+record; they rule candidates out, they do not rank them.
+
