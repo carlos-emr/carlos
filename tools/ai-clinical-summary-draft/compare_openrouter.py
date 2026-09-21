@@ -14,7 +14,7 @@ import pipeline
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--fixture', choices=('NHSSYN001', 'NHSSYN002', 'NHSSYN003'), required=True)
+    parser.add_argument('--fixture', required=True, help='Chart number of a committed fixture, such as NHSSYN004')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--config', type=Path)
     parser.add_argument('--temperature', type=float)
@@ -73,7 +73,9 @@ def main():
     if args.section_prompt:
         gateway.section_prompt = args.section_prompt.read_text()
     # Each fixture is its own patient, and its notes number from one within that chart.
-    patient_id = 'demographic-300' + args.fixture[-1]
+    if args.fixture not in {fixture for fixture, _date, _body in gateway.allowed.notes}:
+        parser.error('Unknown fixture; use a chart number from the committed NHS seed')
+    patient_id = 'demographic-' + str(3000 + int(args.fixture[-3:]))
     sources = []
     for date, body in [(date, body) for fixture, date, body in gateway.allowed.notes
                        if fixture == args.fixture]:
