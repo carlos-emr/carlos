@@ -41,6 +41,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
@@ -1119,6 +1120,24 @@ class EFormBrowserPdfServiceUnitTest {
                 entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
         assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
         assertThat(scan.failedSubresources()).isZero();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"Image,Script", "Image,Document", "Document,Image", "Media,Image", "Script,Image"})
+    @DisplayName("should retain failed content when only a different resource type loaded")
+    void shouldRetainMissingContent_whenAnotherResourceTypeLoaded(String failedType, String loadedType) {
+        String failedUrl = GATE_BASE_URL + "/shared.js";
+        List<String> entries = List.of(
+                responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                responseReceivedJson(failedType, failedUrl, 404),
+                cdpMessage("Network.requestWillBeSent", "\"requestId\":\"typed\",\"request\":{\"url\":\"" + failedUrl + "\",\"method\":\"GET\"}"),
+                cdpMessage("Network.loadingFailed", "\"requestId\":\"typed\",\"type\":\"" + failedType + "\",\"canceled\":false"),
+                responseReceivedJson(loadedType, GATE_BASE_URL + "/displayImage?imagefile=shared.js", 200, "text/javascript"));
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(
+                entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(2);
+        assertThat(scan.failedSubresources()).isZero();
+        assertThat(scan.duplicateScriptFailureUrls()).isEmpty();
     }
 
     @Test

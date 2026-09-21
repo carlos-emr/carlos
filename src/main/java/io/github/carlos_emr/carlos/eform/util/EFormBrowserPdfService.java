@@ -2429,7 +2429,9 @@ public class EFormBrowserPdfService {
      */
     private static final Set<String> PRESENTATION_RESOURCE_TYPES = Set.of("Stylesheet", "Font");
 
-    private record CriticalResourceFailure(String name, String url, boolean script) { }
+    private record ResourceIdentity(String name, String type) { }
+
+    private record CriticalResourceFailure(String name, String url, String type) { }
 
     /**
      * Replays raw CDP performance-log messages: counts egress attempts to any origin other than
@@ -2460,8 +2462,8 @@ public class EFormBrowserPdfService {
      * off a local disk) and once through {@code ${oscar_image_path}} (so it resolves when served) —
      * and the bare reference is expected to 404 over HTTP. Counting that by-design 404 as missing
      * content blocked forms whose assets were demonstrably present and executing. Matching is on the
-     * filename alone and requires an observed 2xx, so a genuinely absent file still blocks: nothing
-     * else would have loaded it.</p>
+     * filename and CDP resource type, with an observed 2xx or cached 304. A successful script
+     * cannot prove that an image with the same filename loaded.</p>
      *
      * <p>The classification is therefore deferred to a second pass. CDP events are replayed from a
      * buffered log in arrival order, so the 404 for a filename can be seen before the 200 for it;
@@ -2477,8 +2479,7 @@ public class EFormBrowserPdfService {
         int failedCriticalSubresources = 0;
         int nonReadRequests = 0;
         java.util.Map<String, String> requestUrlsById = new java.util.HashMap<>();
-        java.util.Set<String> loadedResourceNames = new java.util.HashSet<>();
-        java.util.Set<String> loadedScriptNames = new java.util.HashSet<>();
+        java.util.Set<ResourceIdentity> loadedResources = new java.util.HashSet<>();
         java.util.Set<String> duplicateScriptFailureUrls = new java.util.HashSet<>();
         List<CriticalResourceFailure> criticalFailures = new ArrayList<>();
         for (String rawEntry : rawEntries) {
@@ -2546,7 +2547,7 @@ public class EFormBrowserPdfService {
                         failedCriticalSubresources++;
                     } else if (criticalFailures.size() < MAX_TRACKED_REQUEST_URLS) {
                         criticalFailures.add(new CriticalResourceFailure(resourceBasename(responseUrl),
-                                responseUrl, "Script".equals(resourceType)));
+                                responseUrl, resourceType));
                     } else {
                         // Past the bound, classify immediately as missing content: dropping the
                         // entry would silently undercount failures.
@@ -2556,16 +2557,13 @@ public class EFormBrowserPdfService {
                         && isLoaded(status)
                         && (!"Script".equals(resourceType)
                             || isJavaScriptMimeType(params.path("response").path("mimeType").asText("")))
-                        && loadedResourceNames.size() < MAX_TRACKED_REQUEST_URLS) {
+                        && loadedResources.size() < MAX_TRACKED_REQUEST_URLS) {
                     // A 2xx, or a 304 which means the browser already holds the bytes. A redirect is
                     // neither and must never license downgrading a failure for the same filename.
                     // Scripts also need executable MIME evidence, including cached responses.
                     String loadedName = resourceBasename(responseUrl);
                     if (loadedName != null) {
-                        loadedResourceNames.add(loadedName);
-                        if ("Script".equals(resourceType)) {
-                            loadedScriptNames.add(loadedName);
-                        }
+                        loadedResources.add(new ResourceIdentity(loadedName, resourceType));
                     }
                 }
             } else if ("Network.loadingFailed".equals(method)
@@ -2581,20 +2579,20 @@ public class EFormBrowserPdfService {
                     failedCriticalSubresources++;
                 } else if (criticalFailures.size() < MAX_TRACKED_REQUEST_URLS) {
                     criticalFailures.add(new CriticalResourceFailure(resourceBasename(failedUrl),
-                            failedUrl, "Script".equals(params.path("type").asText(""))));
+                            failedUrl, params.path("type").asText("")));
                 } else {
                     failedCriticalSubresources++;
                 }
             }
         }
-        // Second pass: a failure whose filename also loaded successfully in this render is a
+        // Second pass: a failure whose filename and type also loaded successfully in this render is a
         // by-design duplicate reference, not missing content. An unknown filename (no URL recorded
         // for the requestId) can never be matched, so it stays blocking — fail closed.
         for (CriticalResourceFailure failure : criticalFailures) {
-            Set<String> loadedNames = failure.script() ? loadedScriptNames : loadedResourceNames;
-            if (failure.name() != null && loadedNames.contains(failure.name())) {
+            if (failure.name() != null
+                    && loadedResources.contains(new ResourceIdentity(failure.name(), failure.type()))) {
                 failedSubresources++;
-                if (failure.script() && failure.url() != null) {
+                if ("Script".equals(failure.type()) && failure.url() != null) {
                     duplicateScriptFailureUrls.add(failure.url());
                 }
             } else {

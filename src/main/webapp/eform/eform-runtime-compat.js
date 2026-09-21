@@ -689,12 +689,26 @@
         signatureStatus.installed = true;
     }
 
-    // This file is loaded before jQuery and before the jSignature plugin, so the wrapper cannot be
-    // applied at parse time. DOMContentLoaded always precedes the window load event that fires
-    // <body onload="...loadSig()">, which is the only caller that matters here.
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", installSignatureGuard);
-    } else {
+    // An async plugin may arrive after DOMContentLoaded. Capture its script-load event after
+    // assignment but before body onload restores the signature. Retry only after the normal
+    // ready-time attempt misses, preserving the parsing-time setup of synchronous plugins.
+    function retrySignatureGuard() {
         installSignatureGuard();
+        if (signatureStatus.installed) {
+            document.removeEventListener("load", retrySignatureGuard, true);
+            window.removeEventListener("load", retrySignatureGuard);
+        }
+    }
+    function installOrRetrySignatureGuard() {
+        installSignatureGuard();
+        if (!signatureStatus.installed) {
+            document.addEventListener("load", retrySignatureGuard, true);
+            window.addEventListener("load", retrySignatureGuard);
+        }
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", installOrRetrySignatureGuard);
+    } else {
+        installOrRetrySignatureGuard();
     }
 }(window, document));

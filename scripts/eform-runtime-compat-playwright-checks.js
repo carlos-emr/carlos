@@ -182,6 +182,36 @@ function signaturePage() {
     </script></body></html>`;
 }
 
+// The server withholds the async plugin until this fixture's DOMContentLoaded callback releases
+// it. This proves the retry, without depending on a timer racing page parsing.
+function asyncSignaturePage() {
+  return `<!doctype html><html><body onload="restoreAsyncSignature()"><div id="pad"></div>
+    <script src="/eform-runtime-compat.js"></script><script src="/jquery.js"></script>
+    <script async src="/jSignature-async.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        window.__pluginAbsentAtReady = typeof jQuery.fn.jSignature !== 'function';
+        fetch('/release-jSignature');
+      });
+      function restoreAsyncSignature() {
+        var errors = [], malformedRejected = false;
+        var wrappedBeforeBodyLoad = !!jQuery.fn.jSignature.__carlosEmptyDataGuard;
+        var pad = jQuery('#pad').jSignature();
+        try { pad.jSignature('setData', 'data:image/jsignature;base30,'); }
+        catch (error) { errors.push(String(error)); }
+        try { pad.jSignature('setData', 'data:image/jsignature;base30, '); }
+        catch (error) { malformedRejected = true; }
+        window.__asyncSignatureResult = {
+          absentAtReady: window.__pluginAbsentAtReady,
+          wrappedBeforeBodyLoad: wrappedBeforeBodyLoad,
+          skipped: window.__carlosEformSignatureCompat.skippedEmptyLoads,
+          malformedRejected: malformedRejected,
+          errors: errors
+        };
+      }
+    </script></body></html>`;
+}
+
 function jqueryAliasesPage(withPreloadedJquery) {
   const preload = withPreloadedJquery ? '<script src="/jquery.js"></script>' : '';
   return `<!doctype html><html><body>
@@ -206,6 +236,15 @@ async function main() {
   const jquery = fs.readFileSync(JQUERY_PATH, 'utf8');
   const jsignature = fs.readFileSync(JSIGNATURE_PATH, 'utf8');
   const networkHits = [];
+  let asyncPluginResponse;
+  let releaseAsyncPlugin = false;
+  function sendAsyncPlugin() {
+    if (releaseAsyncPlugin && asyncPluginResponse) {
+      asyncPluginResponse.writeHead(200, { 'Content-Type': 'application/javascript' });
+      asyncPluginResponse.end(jsignature);
+      asyncPluginResponse = null;
+    }
+  }
   const server = http.createServer((request, response) => {
     if (request.url === '/eform-runtime-compat.js') {
       response.writeHead(200, { 'Content-Type': 'application/javascript' });
@@ -215,6 +254,24 @@ async function main() {
     if (request.url === '/jquery.js' || request.url === '/jSignature.js') {
       response.writeHead(200, { 'Content-Type': 'application/javascript' });
       response.end(request.url === '/jquery.js' ? jquery : jsignature);
+      return;
+    }
+    if (request.url === '/signature-async') {
+      releaseAsyncPlugin = false;
+      response.writeHead(200, { 'Content-Type': 'text/html' });
+      response.end(asyncSignaturePage());
+      return;
+    }
+    if (request.url === '/jSignature-async.js') {
+      asyncPluginResponse = response;
+      sendAsyncPlugin();
+      return;
+    }
+    if (request.url === '/release-jSignature') {
+      releaseAsyncPlugin = true;
+      sendAsyncPlugin();
+      response.writeHead(204);
+      response.end();
       return;
     }
     if (request.url === '/signature') {
@@ -313,6 +370,19 @@ async function main() {
       failures.push(`jSignature compatibility: ${error.message}`);
     }
 
+    await tab.goto(`${base}/signature-async`);
+    const asyncSignature = await tab.evaluate('window.__asyncSignatureResult');
+    try {
+      assert(asyncSignature && asyncSignature.absentAtReady === true,
+        'async fixture must load the real plugin after DOMContentLoaded');
+      assert(asyncSignature.wrappedBeforeBodyLoad && asyncSignature.skipped === 1,
+        `async signature was not guarded before body onload: ${JSON.stringify(asyncSignature)}`);
+      assert(asyncSignature.errors.length === 0 && asyncSignature.malformedRejected,
+        `async guard must skip exactly empty data and preserve malformed errors: ${JSON.stringify(asyncSignature)}`);
+    } catch (error) {
+      failures.push(`async jSignature compatibility: ${error.message}`);
+    }
+
     for (const preloaded of [false, true]) {
       const label = preloaded ? 'with preloaded jQuery' : 'without preloaded jQuery';
       await tab.goto(`${base}/aliases-${preloaded ? 'with' : 'no'}-preload`);
@@ -340,7 +410,7 @@ async function main() {
     return;
   }
   console.log('PASS eForm runtime compatibility: synchronous delivery, aligned arrays, '
-    + 'visible missing-payload failure, bundled jSignature empty base30 handling, '
+    + 'visible missing-payload failure, bundled synchronous/async jSignature empty base30 handling, '
     + 'and immediate jQuery aliases after replacement.');
 }
 
