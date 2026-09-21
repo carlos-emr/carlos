@@ -41,7 +41,7 @@ async function run() {
     // while its actual action functions can be exercised with this isolated editor.
     await page.addScriptTag({path:web+'/eform/eformFloatingToolbar/eform_floating_toolbar.js'});
     async function begin(types) {
-      await page.evaluate(types=>{
+      await page.evaluate(types=>{ // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- types are fixed BP/WT arrays below, structured-cloned into a literal function; every network request is fulfilled locally or aborted by the fixture route.
         const doc=document.getElementById('edit').contentDocument;
         doc.body.textContent='BEFORE AFTER';
         const range=doc.createRange(); range.setStart(doc.body.firstChild,7);range.collapse(true);
