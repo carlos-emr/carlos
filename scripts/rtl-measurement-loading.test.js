@@ -180,10 +180,14 @@ test('legacy Print controls and submit events are blocked before inline handlers
   for (const controlName of ['SubmitButton','PrintButton','PrintSaveButton','PrintSubmitButton','pdfButton','pdfSaveButton']) {
     for (const attribute of ['name','id']) {
       const event={target:{closest:()=>({[attribute]:controlName,type:'button'})},preventDefault:()=>blocked++,stopImmediatePropagation:()=>blocked++};
+      f.context.window.needToConfirm=false;
       events.push(event); f.document.listeners.click(event);
+      assert.equal(f.context.window.needToConfirm,true);
     }
   }
+  f.context.window.needToConfirm=false;
   f.document.listeners.submit(events[0]); assert.equal(blocked,26);
+  assert.equal(f.context.window.needToConfirm,true);
   await delay(5); f.requests[0].respond({}); await p;
   events.forEach(event=>f.document.listeners.click(event)); f.document.listeners.submit(events[0]); assert.equal(blocked,26);
 });
@@ -194,6 +198,24 @@ test('the floating toolbar blocks before its existing save/download workflow sta
   const start=source.indexOf('function editorStillLoading() {'); const end=source.indexOf('\n/**',start);
   f.context.window.measurementHistoryStillLoading=f.context.measurementHistoryStillLoading;
   vm.runInContext('let editorLoadingBlockCount=0;\n'+source.slice(start,end),f.context);
-  const p=f.context.getMeasures('BP',1); assert.equal(f.context.editorStillLoading(),true);
+  const p=f.context.getMeasures('BP',1); f.context.window.needToConfirm=false;
+  assert.equal(f.context.editorStillLoading(),true); assert.equal(f.context.window.needToConfirm,true);
   await delay(5); f.requests[0].respond({}); await p; assert.equal(f.context.editorStillLoading(),false);
 });
+
+for (const throws of [false,true]) {
+  test('successful insertion stays dirty and successful when legacy callback '+(throws?'throws':'clears the flag'), async () => {
+    const f=setup();
+    f.context.setDirtyFlag=()=>{
+      f.context.window.needToConfirm=false;
+      if (throws) throw new Error('Legacy callback requires an event');
+    };
+    const p=f.context.getMeasures('BP',1); await delay(5);
+    f.requests[0].respond({BP:[row('BP','120/80')]});
+    assert.equal((await p).failed,undefined);
+    assert.equal(f.context.window.needToConfirm,true);
+    assert.equal(f.context.measurementHistoryStillLoading(),false);
+    assert.equal(notice(f),'');
+    assert.equal((f.contentDocument.body.textContent.match(/120\/80/g)||[]).length,1);
+  });
+}

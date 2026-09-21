@@ -1776,8 +1776,15 @@ function insertMeasureBatch(batch, histories) {
     var changed = fragment.childNodes.length > 0;
     batch.marker.parentNode.insertBefore(fragment, batch.marker);
     if (changed) {
-        if (typeof setDirtyFlag === 'function') { setDirtyFlag(); }
-        else { window.needToConfirm = true; }
+        // Saved forms can supply an event-dependent or broken legacy callback.
+        // Insertion already succeeded: never report it as a failed load (which
+        // would invite a duplicate retry), and always retain the unload warning.
+        window.needToConfirm = true;
+        if (typeof setDirtyFlag === 'function') {
+            try { setDirtyFlag(); }
+            catch (error) { console.warn('RTL: legacy dirty-state callback failed after measurement insertion.'); }
+            finally { window.needToConfirm = true; }
+        }
     }
 }
 
@@ -1789,6 +1796,7 @@ document.addEventListener('click', function(event) {
     if (!control) { return; }
     var outputControl = /^(SubmitButton|PrintButton|PrintSaveButton|PrintSubmitButton|pdfButton|pdfSaveButton)$/;
     if (control.type === 'submit' || outputControl.test(control.name) || outputControl.test(control.id)) {
+        window.needToConfirm = true;
         event.preventDefault();
         event.stopImmediatePropagation();
         alert('Measurements are still loading. Please wait before saving or printing this letter.');
@@ -1796,6 +1804,7 @@ document.addEventListener('click', function(event) {
 }, true);
 document.addEventListener('submit', function(event) {
     if (measurementHistoryStillLoading()) {
+        window.needToConfirm = true;
         event.preventDefault();
         event.stopImmediatePropagation();
         alert('Measurements are still loading. Please wait before saving or printing this letter.');

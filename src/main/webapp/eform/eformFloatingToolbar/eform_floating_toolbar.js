@@ -108,6 +108,7 @@ let editorLoadingBlockCount = 0;
 function editorStillLoading() {
     // Measurement loads must settle before any save/download/fax workflow flags or spinner.
     if (typeof window.measurementHistoryStillLoading === 'function' && window.measurementHistoryStillLoading()) {
+        window.needToConfirm = true;
         alert('Measurements are still loading. Please wait before saving or printing this letter.');
         return true;
     }
