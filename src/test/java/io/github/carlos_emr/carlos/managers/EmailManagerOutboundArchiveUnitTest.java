@@ -230,6 +230,31 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should report a definite archive failure when archive creation throws an unchecked exception")
+    void shouldReportDefiniteArchiveFailure_whenArchiveCreationThrowsUnchecked() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(51);
+        doThrow(new IllegalStateException("archive store unavailable"))
+                .when(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            // Nothing was dispatched, so this must not fall through to sendWithArchive's
+            // catch-all and be reported as "the transport did not confirm". That wording is
+            // reserved for a fault inside sendPrepared(), where the outcome really is unknown.
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).startsWith("Failed to archive outbound email");
+            verify(smtpSenders.constructed().get(0), never()).sendPrepared();
+            verifyNoInteractions(javaMailSender);
+            verify(outboundEmailArchiveService, never()).recordSendOutcome(any(), any(), any());
+        }
+    }
+
+    @Test
     @DisplayName("should archive SMTP email before sending prepared message")
     void shouldArchiveSmtpEmail_beforeSendingPreparedMessage() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
