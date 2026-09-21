@@ -336,7 +336,8 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
 
     private boolean verifiesAgainstEmbeddedCertificate(byte[] signatureContents, byte[] signedContent)
             throws Exception {
-        // Stream constructor: a PDF zero-pads its /Contents slot, which the byte[] one rejects.
+        // Stream constructor: bytes follow the CMS blob in its fixed-size /Contents slot (zeros,
+        // or ciphertext in an encrypted PDF), and the byte[] constructor rejects them.
         CMSSignedData signedData = new CMSSignedData(
                 new CMSProcessableByteArray(signedContent), new ByteArrayInputStream(signatureContents));
         SignerInformation signer = signedData.getSignerInfos().getSigners().iterator().next();

@@ -155,6 +155,29 @@ class PDFSigningUtilUnitTest {
     }
 
     @Test
+    @DisplayName("should write the signature as definite-length DER")
+    void shouldWriteSignatureAsDefiniteLengthDer_forStrictValidators() throws Exception {
+        Path signed = PDFSigningUtil.signPDF(writeSinglePagePdf(), createSigningFixture().config());
+        generatedOutputs.add(signed);
+
+        byte[] pdfBytes = Files.readAllBytes(signed);
+        byte[] contents;
+        try (PDDocument document = Loader.loadPDF(signed.toFile())) {
+            contents = document.getSignatureDictionaries().get(0).getContents(pdfBytes);
+        }
+        // ISO 32000-1 12.8.3.3.1 requires DER. BouncyCastle's default is indefinite-length BER
+        // (30 80 ...), which lenient readers accept and strict validators reject.
+        assertThat(contents[0] & 0xff).isEqualTo(0x30);
+        assertThat(contents[1] & 0xff).isNotEqualTo(0x80);
+        org.bouncycastle.asn1.ASN1Primitive cms;
+        try (org.bouncycastle.asn1.ASN1InputStream input = new org.bouncycastle.asn1.ASN1InputStream(contents)) {
+            cms = input.readObject();
+        }
+        byte[] asWritten = java.util.Arrays.copyOf(contents, cms.getEncoded().length);
+        assertThat(cms.getEncoded("DER")).isEqualTo(asWritten);
+    }
+
+    @Test
     @DisplayName("should sign a third-party restricted PDF when handed an unrelated send password")
     void shouldSignThirdPartyRestrictedPdf_whenHandedUnrelatedSendPassword() throws Exception {
         // An uploaded document its author restricted: opens with no password, but has its own
@@ -333,9 +356,11 @@ class PDFSigningUtilUnitTest {
     }
 
     private boolean verifyCmsSignature(byte[] signatureContents, byte[] signedContent) throws Exception {
-        // A PDF reserves a fixed-size /Contents slot and zero-pads the CMS blob to fill it. Read
-        // from a stream so only the first DER object is parsed: the byte[] constructor rejects
-        // the padding as "extra data" from BouncyCastle 1.85 on.
+        // A PDF reserves a fixed-size /Contents slot, so bytes follow the CMS blob: zeros in a
+        // plain PDF, ciphertext in an encrypted one, where PDFBox encrypts the placeholder before
+        // the signature is written over its front. Read from a stream so only the first DER
+        // object is parsed: the byte[] constructor rejects that tail as "extra data" from
+        // BouncyCastle 1.85 on.
         CMSSignedData signedData = new CMSSignedData(new CMSProcessableByteArray(signedContent),
                 new java.io.ByteArrayInputStream(signatureContents));
         SignerInformation signerInformation = signedData.getSignerInfos().getSigners().iterator().next();

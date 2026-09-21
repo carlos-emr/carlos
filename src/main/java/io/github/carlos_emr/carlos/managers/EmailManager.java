@@ -1146,15 +1146,16 @@ public class EmailManager {
         // An encrypted PDF can only be modified with its owner password.
         String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
         for (EmailAttachment attachment : attachments) {
+            Path attachmentPDFPath = null;
             Path signedPDFPath = null;
             try {
-                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+                attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
                 signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
                 attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
             } catch (IOException | RuntimeException e) {
                 // Any RuntimeException, not a chosen few: one that escaped would skip
                 // completeFailedSend and strand the EmailLog at PENDING behind a 500.
-                deleteUnadoptedSignedPdf(signedPDFPath);
+                deleteUnadoptedSignedPdf(signedPDFPath, attachmentPDFPath);
                 // The cause chain is what tells an operator whether the keystore, its password or
                 // the certificate is at fault. It names server paths, never the attachment: the
                 // attachment's own file name can identify a patient, so it is left out.
@@ -1168,8 +1169,11 @@ public class EmailManager {
      * Removes a signed PDF that the working directory never took ownership of. It holds the
      * patient's document and nothing else would ever delete it.
      */
-    private void deleteUnadoptedSignedPdf(Path signedPDFPath) {
-        if (signedPDFPath == null || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
+    private void deleteUnadoptedSignedPdf(Path signedPDFPath, Path sourcePDFPath) {
+        // signPDF hands back its input when signing is off. That cannot happen on this path, but
+        // the source may itself sit under the temp directory, so never rely on the guard alone.
+        if (signedPDFPath == null || signedPDFPath.equals(sourcePDFPath)
+                || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
             return;
         }
         try {
