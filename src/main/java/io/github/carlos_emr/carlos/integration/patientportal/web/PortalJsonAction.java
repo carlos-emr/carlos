@@ -132,6 +132,8 @@ public abstract class PortalJsonAction extends ActionSupport {
             """
             The portal did not recognise this request. If this affects every patient, the portal \
             connection needs checking.""";
+    private static final String NO_PORTAL_ACCOUNT =
+            "This patient does not have a patient portal account.";
     private static final String THROTTLED =
             "The portal is rate limiting requests. Try again shortly.";
     private static final String UNREACHABLE =
@@ -297,7 +299,10 @@ public abstract class PortalJsonAction extends ActionSupport {
         return write(response, status, payload);
     }
 
-    /** A 404 does not distinguish an absent account from rejected service credentials. */
+    /**
+     * The message for a 404 that carries no distinguishing detail, which may be an unknown record
+     * or rejected service credentials. A confirmed absent account is handled before this.
+     */
     String notFoundMessage() {
         return NOT_FOUND;
     }
@@ -321,6 +326,12 @@ public abstract class PortalJsonAction extends ActionSupport {
      */
     String portalFailure(HttpServletResponse response, PatientPortalException exception)
             throws IOException {
+        if (exception.isAccountAbsent()) {
+            // The portal authenticated CARLOS and answered for this patient, so this is neither a
+            // connection fault nor worth a warning: it is the state of every patient who has not
+            // activated yet.
+            return notFound(response, "no_portal_account", NO_PORTAL_ACCOUNT);
+        }
         String message =
                 switch (exception.kind()) {
                     case CONFLICT -> exception.detail() == null

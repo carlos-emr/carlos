@@ -259,6 +259,24 @@ class PortalAccountAndPanelActionUnitTest {
                     .contains("connection needs checking");
         }
 
+        @Test
+        @DisplayName("should say the patient has no portal account when the portal confirms it")
+        void shouldReportNoPortalAccount_whenUnlockFindsNoAccount() throws Exception {
+            request.setParameter("method", "unlock");
+            when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
+                    .thenThrow(
+                            PatientPortalException.ofStatus(
+                                    404, "/x", "portal account not found"));
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(response.getContentAsString())
+                    .contains("\"reason\":\"no_portal_account\"")
+                    .contains("does not have a patient portal account")
+                    .doesNotContain("connection needs checking");
+        }
+
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
         @DisplayName("should re-enable without demanding a reason")
@@ -368,6 +386,25 @@ class PortalAccountAndPanelActionUnitTest {
                     .contains("accountError")
                     .contains("\"ok\":false")
                     .doesNotContain("no_portal_account");
+        }
+
+        @Test
+        @DisplayName("should report a complete panel with no account when the portal confirms it")
+        void shouldReportNoAccount_whenThePortalConfirmsTheAccountIsAbsent() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(
+                            PatientPortalException.ofStatus(
+                                    404, "/x", "portal account not found"));
+
+            panelAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString())
+                    .contains("\"ok\":true")
+                    .contains("\"account\":null")
+                    .doesNotContain("accountError");
         }
 
         @Test

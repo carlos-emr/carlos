@@ -70,6 +70,9 @@ public class PatientPortalException extends RuntimeException {
             "patient portal call to %s returned a body CARLOS could not read (HTTP %d)";
 
     /** Why the call failed, derived from the portal's documented status codes. */
+    /** The portal's {@code 404} detail for an authenticated lookup of a patient with no account. */
+    public static final String ACCOUNT_NOT_FOUND_DETAIL = "portal account not found";
+
     public enum Kind {
         /** {@code 400} — the request contradicted itself, e.g. a demographic scope mismatch. */
         BAD_REQUEST,
@@ -179,6 +182,20 @@ public class PatientPortalException extends RuntimeException {
     /** @return an allowlisted contract detail, or null when absent or withheld */
     public String detail() {
         return detail;
+    }
+
+    /**
+     * Whether the portal confirmed that this patient has no portal account.
+     *
+     * <p>A portal {@code 404} is usually ambiguous, but this one is not: a rejected service
+     * identity answers {@code "not found"}, while an authenticated lookup for a patient who has
+     * not activated answers {@link #ACCOUNT_NOT_FOUND_DETAIL}. That is the normal state of every
+     * invited patient, so callers must not report it as a connection fault.
+     *
+     * @return true only for the portal's explicit no-account answer
+     */
+    public boolean isAccountAbsent() {
+        return kind == Kind.NOT_FOUND_OR_UNAUTHENTICATED && ACCOUNT_NOT_FOUND_DETAIL.equals(detail);
     }
 
     /**
