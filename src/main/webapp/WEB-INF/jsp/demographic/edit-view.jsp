@@ -635,7 +635,7 @@
                                                                                     <li>
                                                                                         <c:if test="${ patientConsent.consentType.active }">
                           			<span class="popup label"
-                                          onmouseover="nhpup.popup(${ patientConsent.consentType.description },{'width':350} );">
+                                          onmouseover="nhpup.popup('${carlos:forJavaScriptAttribute(carlos:forHtmlContent(patientConsent.consentType.description))}',{'width':350} );">
 										${carlos:forHtml(patientConsent.consentType.name)}
 									</span>
 
