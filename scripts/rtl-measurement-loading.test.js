@@ -241,3 +241,15 @@ test('initial template setup finishes before accepting measurement requests', as
   f.requests[0].respond({BP:[row('BP','120/80')]});
   assert.equal((await p).failed,undefined);assert.equal(notice(f),'');
 });
+
+test('a template-loading rejection remains visible after an older batch succeeds', async () => {
+  const f=setup();const first=f.context.getMeasures('BP',1);await delay(5);
+  f.context.measureInitialTemplateLoading=true;
+  assert.equal((await f.context.getMeasures('WT',1)).failed,true);
+  f.context.measureInitialTemplateLoading=false;
+  f.requests[0].respond({BP:[row('BP','120/80')]});await first;
+  assert.match(notice(f),/not inserted/);
+  const retry=f.context.getMeasures('WT',1);await delay(5);
+  f.requests[1].respond({WT:[row('WT','70')]});await retry;
+  assert.equal(notice(f),'');
+});

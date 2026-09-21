@@ -333,6 +333,7 @@ function editControlContents(editorname, allowPendingMeasurements) {
 // (populateTemplate) also writes through here before designMode is enabled, and losing a blank
 // template costs nothing — so only a stored-content write that cannot land is treated as data loss.
 function seteditControlContents(editorname, value, isStoredContent){
+	cancelPendingFaxSubmission();
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
@@ -450,6 +451,7 @@ function loadDefaultTemplate() {
 	// visibly so the user can retry against the fully loaded template.
 	var content = editControlContents(cfg_editorname, true).replace(/<!--RTL measurement insertion-->/g, '');
 	if (content.trim() != '') { measureInitialTemplateLoading = false; return; }
+	cancelPendingFaxSubmission();
 	measureInitialTemplateLoading = true;
 	// Invalidate markers before navigation starts, including a fast REST response.
 	document.getElementById(cfg_editorname).contentDocument.body.textContent = '';
@@ -482,6 +484,15 @@ function loadTemplate(selectname){
     	var selected = document.getElementById(selectname).options[cursel].value;
 		// Security: validate template name to prevent path traversal or script injection via iframe src
 		if (!/^[\w.\- ]+$/.test(selected)) { console.warn('loadTemplate: invalid template name:', selected); return; }
+		cancelPendingFaxSubmission();
+		measureInitialTemplateLoading = true;
+		pendingMeasureSourceView = null;
+		var previousDocument = document.getElementById(cfg_editorname).contentDocument;
+		[pendingMeasureBatch, activeMeasureBatch].concat(measureRequestQueue).forEach(function(batch) {
+			if (batch && batch.document === previousDocument && batch.marker.parentNode) {
+				batch.marker.parentNode.removeChild(batch.marker);
+			}
+		});
 		//document.getElementById(cfg_editorname).src = cfg_filesrc + selected + '.html' ; //FF != IE
 		window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
 		document.getElementById('subject').value = selected == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));		
@@ -768,15 +779,13 @@ function doBreak(){
 
 function viewsource(source) {
 	cancelPendingFaxSubmission();
-	// Switching representation invalidates pending insertion points. Remove the
-	// comments before producing source text; never leave a checked source toggle
-	// displaying rich text because a guard threw after the checkbox changed.
 	var editorDoc = document.getElementById(cfg_editorname).contentDocument;
-	[pendingMeasureBatch, activeMeasureBatch].concat(measureRequestQueue).forEach(function(batch) {
-		if (batch && batch.document === editorDoc && batch.marker.parentNode) {
-			batch.marker.parentNode.removeChild(batch.marker);
-		}
-	});
+	if (measurementHistoryStillLoading()) {
+		pendingMeasureSourceView = {document: editorDoc, source: !!source};
+		if (!measureBatchFailed) { showMeasurementStatus('Source view will change after measurements finish loading.', false); }
+		return;
+	}
+	if (!!editorDoc.__rtlSourceMode === !!source) { return; }
 	// load the html into a variable, blank the body, import as text, disable gui
 	var html;
 	if (isIE()){
@@ -1576,6 +1585,7 @@ var measureBatchesPending = 0;
 var measureBatchFailed = false;
 var measureRequestRevision = 0;
 var measureInitialTemplateLoading = false;
+var pendingMeasureSourceView = null;
 
 function measurementHistoryStillLoading() {
     return measureBatchesPending > 0;
@@ -1647,12 +1657,14 @@ function getMeasures(measure, max) {
     return new Promise(function(resolve) {
         try {
             if (measureInitialTemplateLoading) {
+                measureBatchFailed = true;
                 showMeasurementStatus('The letter template is still loading. Please wait before loading Lab Grid or Vitals.', true);
                 resolve({values: [], dates: [], failed: true});
                 return;
             }
             var editorFrame = document.getElementById(cfg_editorname);
             if (editorFrame && editorFrame.contentDocument && editorFrame.contentDocument.__rtlSourceMode) {
+                measureBatchFailed = true;
                 showMeasurementStatus('Switch back from HTML source view before loading Lab Grid or Vitals.', true);
                 resolve({values: [], dates: [], failed: true});
                 return;
@@ -1713,6 +1725,15 @@ function startNextMeasureBatch() {
         // Settle callers only after releasing this batch's save/print gate.
         batch.requests.forEach(function(request, index) { request.resolve(histories[index]); });
         startNextMeasureBatch();
+        if (!measureBatchesPending && pendingMeasureSourceView) {
+            var transition = pendingMeasureSourceView;
+            pendingMeasureSourceView = null;
+            var frame = document.getElementById(cfg_editorname);
+            if (frame && frame.contentDocument === transition.document) {
+                try { viewsource(transition.source); }
+                catch (error) { showMeasurementStatus('Measurements finished loading, but source view could not be changed. Please retry the source-view control.', true); }
+            }
+        }
     });
 }
 

@@ -205,10 +205,40 @@ async function run() {
     await begin(['BP']);
     await page.evaluate(()=>viewsource(true));
     assert.equal(await body.textContent(),'BEFORE AFTER');
-    assert.equal((await respond({BP:[row('BP','120/80')]}))[0].failed,true);
-    assert.equal(await body.textContent(),'BEFORE AFTER');
+    assert.equal((await respond({BP:[row('BP','120/80')]}))[0].failed,undefined);
+    assert.match(await body.textContent(),/120\/80/);
+    assert(!((await body.textContent()).includes('RTL measurement insertion')));
+    assert.equal(await page.evaluate(()=>document.getElementById('edit').contentDocument.__rtlSourceMode),true);
     await page.evaluate(()=>viewsource(false));
-    assert.equal(await body.textContent(),'BEFORE AFTER');
+    assert.equal(await body.textContent(),'BEFORE BP: 120/80(2026/9); AFTER');
+    await begin(['BP']);
+    await page.evaluate(()=>{viewsource(true);viewsource(false);});
+    await respond({BP:[row('BP','120/80')]});
+    assert.equal(await body.textContent(),'BEFORE BP: 120/80(2026/9); AFTER');
+    assert.equal(await page.evaluate(()=>document.getElementById('edit').contentDocument.__rtlSourceMode),false);
+    // Navigation has not committed yet when the old callback runs here.
+    for (const navigation of ['default','selected']) {
+      await page.evaluate(navigation=>{ // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- fixed local navigation names, structured-cloned into a literal function; all routes are local fixtures or aborted.
+        const originalTimer=window.setTimeout;
+        window.setTimeout=callback=>{window.deferredFaxSubmit=callback;return 123;};
+        try {submitFaxButton();} finally {window.setTimeout=originalTimer;}
+        cfg_template='default.rtl';
+        window.beforeNavigationDocument=document.getElementById('edit').contentDocument;
+        if (navigation==='default') {
+          document.getElementById('edit').contentDocument.body.textContent='';loadDefaultTemplate();
+        } else {
+          window.setDirtyFlag=()=>{window.needToConfirm=true;};
+          document.getElementById('template').selectedIndex=1;loadTemplate('template');
+        }
+        window.deferredFaxSubmit();
+      },navigation);
+      assert.equal(await page.evaluate(()=>window.faxSubmits),1);
+      assert.equal(await page.locator('#faxEForm').inputValue(),'false');
+      await page.waitForFunction(()=>{
+        const doc=document.getElementById('edit').contentDocument;
+        return doc!==window.beforeNavigationDocument && doc?.body?.textContent==='DEFAULT CONTENT';
+      });
+    }
     // Both empty and nonempty measurement results must leave the configured
     // default intact when the initial blank letter is still loading.
     for (const measurements of [{},{BP:[row('BP','120/80')]}]) {
