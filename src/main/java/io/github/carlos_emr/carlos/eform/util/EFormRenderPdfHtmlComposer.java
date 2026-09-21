@@ -677,7 +677,11 @@ public final class EFormRenderPdfHtmlComposer {
         Element signatureCompatibility = new Element(Tag.valueOf(SCRIPT_TAG), "");
         signatureCompatibility.append(
                 "window.signatureControl=window.signatureControl||{};"
-                + "window.signatureControl.initialize=function initialize(){};");
+                + "window.signatureControl.initialize=function initialize(){};"
+                // The interactive toolbar already defines this as a no-op after removing the
+                // legacy fax control. It has no print content, but forms still call it from
+                // delayed setFaxNo() callbacks after the toolbar is removed for PDF rendering.
+                + "window.AddOtherFax=window.AddOtherFax||function AddOtherFax(){return false;};");
         dependencies.add(signatureCompatibility);
 
         int insertionIndex = 0;
@@ -693,6 +697,16 @@ public final class EFormRenderPdfHtmlComposer {
         addHiddenRendererValue(body, "demographicNo", eForm.getDemographicNo());
         addHiddenRendererValue(body, "fid", eForm.getFid());
         addHiddenRendererValue(body, "fdid", formDataId);
+        // The interactive toolbar creates this hidden fax control before the form's delayed
+        // setFaxNo() callback runs. The PDF profile removes that toolbar, but generated and
+        // clinic-authored forms still schedule the callback from body.onload. Preserve its
+        // target so the timer completes without printing or submitting a fax control.
+        if (document.getElementById("otherFaxInput") == null) {
+            Element form = body.selectFirst("form");
+            Element faxInput = (form == null ? body : form).appendElement("input");
+            faxInput.attr("type", "hidden");
+            faxInput.attr("id", "otherFaxInput");
+        }
         if (isSavedViewProfileEnabled()) {
             addHiddenRendererValue(
                     body,

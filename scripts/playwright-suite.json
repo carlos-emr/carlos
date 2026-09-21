@@ -2335,6 +2335,21 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "hrm-window",
+      "script": "scripts/hrm-window-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "CHROME_BIN"
+      ]
     }
   ]
 }

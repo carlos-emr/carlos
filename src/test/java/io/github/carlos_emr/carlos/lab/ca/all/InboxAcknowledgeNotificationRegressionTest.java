@@ -145,8 +145,11 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(read(SHOW_DOCUMENT_JSP))
                 .contains("segmentID: segmentId,")
                 .contains("labType: labType,");
+        // Matched as separate fragments, the way the three files above are: the point is that the
+        // id and type are named, not how the object literal happens to be wrapped.
         assertThat(read(HRM_ACTIONS_JS))
-                .contains("bc.postMessage({ action: 'refresh', segmentID: String(reportId), labType: 'HRM' });");
+                .contains("segmentID: String(reportId),")
+                .contains("labType: 'HRM',");
     }
 
     @Test
@@ -268,7 +271,14 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .contains("result.put(\"clearedCount\", outcome.clearedCount());");
         assertThat(read(INBOXHUB_FORM_JSP))
                 .as("the listener must move the totals by the reported count, not by one")
-                .contains("decrementInboxhubStatFor(labType, clearedRowsFrom(clearedCount));");
+                .contains("const clearedRows = clearedRowsFrom(clearedCount);")
+                .contains("decrementInboxhubStatFor(labType, clearedRows);")
+                .as("and a zero must not consume the per-item key: two windows can acknowledge "
+                        + "the same item at once, the second to commit reports 0, and that "
+                        + "message can arrive first — spending the key on it discarded the "
+                        + "positive count behind it and left the badge high until a reload")
+                .contains("if (clearedRows === 0) { return; }\n"
+                        + "        countedAcknowledgedItems[key] = true;");
     }
 
     @Test
@@ -391,6 +401,17 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .as("the close path is row-only again, so closeOnSuccess no longer gates counting")
                 .contains("closeLabAfterMacro(formid, json.acknowledged);")
                 .doesNotContain("inboxNotified");
+
+        // hrmActions.js is the third caller of this contract and was pinned nowhere, so when
+        // the return value was introduced its direct route kept re-fetching unconditionally —
+        // the exact page-boundary and preview-reload cost the flag exists to avoid. Pinned
+        // here alongside labDisplay.jsp so the two cannot drift apart again.
+        assertThat(read(HRM_ACTIONS_JS))
+                .as("the HRM viewer reads the same in-place flag")
+                .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, 'HRM', clearedCount) === true;")
+                .as("and re-fetches only when the inbox could not finish the job itself")
+                .contains("if (!handledInPlace && typeof inbox.fetchInboxhubData === 'function') {\n"
+                        + "            inbox.fetchInboxhubData();");
     }
 
     @Test
