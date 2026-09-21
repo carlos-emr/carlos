@@ -24,7 +24,8 @@ public final class ClinicalSummaryAgents {
                     properties.getProperty(PREFIX + "http.path", "/v1/clinical-summary"),
                     properties.getProperty(PREFIX + "http.name", "Configured agent"),
                     timeoutMillis(properties.getProperty(PREFIX + "http.timeoutSeconds", "600")),
-                    Integer.parseInt(properties.getProperty(PREFIX + "http.requestBytes", "10000")));
+                    Integer.parseInt(properties.getProperty(PREFIX + "http.requestBytes",
+                            String.valueOf(ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES))));
             default -> throw new IllegalArgumentException("Unknown clinical summary agent adapter");
         };
     }

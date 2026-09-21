@@ -53,7 +53,7 @@ def plan(sources, prompt, schema, request_bytes=REQUEST_BYTES):
     request = {"contract_version": 1, "request_id": "0" * 36, "workflow": "patient-overview",
                "data_classification": "verified-synthetic", "instructions": prompt,
                "sources": sources, "output_schema": schema}
-    require(type(request_bytes) is int and 10000 <= request_bytes <= 60000, "Invalid request budget")
+    require(type(request_bytes) is int and REQUEST_BYTES <= request_bytes <= 60000, "Invalid request budget")
     if len(json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) <= request_bytes:
         return [copy.deepcopy(sources)]
     if len(sources) == 1:

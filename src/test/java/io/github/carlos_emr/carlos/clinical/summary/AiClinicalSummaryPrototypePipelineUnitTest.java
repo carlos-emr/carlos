@@ -84,7 +84,7 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
         assertThat(result.getClaimsById()).hasSize(60);
         assertThat(result.getView().get("sources")).isEqualTo(new ClinicalSummaryArtifact(input).getView().get("sources"));
         requests.clear();
-        requestBytes = 10000;
+        requestBytes = ClinicalSummaryGenerationPipeline.REQUEST_BYTES;
         generate(input);
         assertThat(requests).hasSizeGreaterThan(1);
     }
