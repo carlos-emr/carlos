@@ -5,6 +5,7 @@ import argparse
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 import copy
+import functools
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import getpass
@@ -311,6 +312,29 @@ def api_request(config, endpoint, payload=None):
         raise UpstreamError("OpenRouter connection, timeout, or response-format failure") from None
 
 
+@functools.lru_cache(maxsize=1)
+def committed_notes():
+    """Parse and cross-check the committed seed and manifest once per process; the seed is several megabytes."""
+    fixtures = loads((REPO / "src/main/resources/clinical/summary/nhs-generation-fixtures.json").read_text())
+    expected = {(note["sha256"], note["date"]): fixture["chart_no"]
+                for fixture in fixtures for note in fixture["notes"]}
+    seed = (REPO / ".devcontainer/db/scripts/nhs-synthetic/patients.sql").read_text()
+    pattern = (r"INSERT INTO casemgmt_note [^\n]+?SELECT @nhs_demographic_no,'999998',"
+               r"CONVERT\(0x([0-9a-fA-F]+) USING utf8mb4\),CONVERT\(0x([0-9a-fA-F]+) USING utf8mb4\)")
+    notes = []
+    found = set()
+    for body_hex, date_hex in re.findall(pattern, seed):
+        body = bytes.fromhex(body_hex).decode("utf-8")
+        date = bytes.fromhex(date_hex).decode("utf-8")[:10]
+        fingerprint = (hashlib.sha256(body.encode("utf-8")).hexdigest(), date)
+        require(fingerprint in expected and fingerprint not in found, "Synthetic seed/manifest mismatch")
+        found.add(fingerprint)
+        require(BOUNDARY in body, "Missing fixture boundary")
+        notes.append((expected[fingerprint], date, body.split(BOUNDARY, 1)[1]))
+    require(found == set(expected), "Synthetic seed/manifest incomplete")
+    return tuple(notes)
+
+
 class SyntheticNotes:
     """Check outgoing text against the committed corpus, including split note portions.
 
@@ -318,23 +342,7 @@ class SyntheticNotes:
     check prevents a caller's synthetic flag alone from authorizing cloud disclosure.
     """
     def __init__(self):
-        fixtures = loads((REPO / "src/main/resources/clinical/summary/nhs-generation-fixtures.json").read_text())
-        expected = {(note["sha256"], note["date"]): fixture["chart_no"]
-                    for fixture in fixtures for note in fixture["notes"]}
-        seed = (REPO / ".devcontainer/db/scripts/nhs-synthetic/patients.sql").read_text()
-        pattern = (r"INSERT INTO casemgmt_note [^\n]+?SELECT @nhs_demographic_no,'999998',"
-                   r"CONVERT\(0x([0-9a-fA-F]+) USING utf8mb4\),CONVERT\(0x([0-9a-fA-F]+) USING utf8mb4\)")
-        self.notes = []
-        found = set()
-        for body_hex, date_hex in re.findall(pattern, seed):
-            body = bytes.fromhex(body_hex).decode("utf-8")
-            date = bytes.fromhex(date_hex).decode("utf-8")[:10]
-            fingerprint = (hashlib.sha256(body.encode("utf-8")).hexdigest(), date)
-            require(fingerprint in expected and fingerprint not in found, "Synthetic seed/manifest mismatch")
-            found.add(fingerprint)
-            require(BOUNDARY in body, "Missing fixture boundary")
-            self.notes.append((expected[fingerprint], date, body.split(BOUNDARY, 1)[1]))
-        require(found == set(expected), "Synthetic seed/manifest incomplete")
+        self.notes = list(committed_notes())
 
     def validate(self, sources):
         candidates = {fixture for fixture, _date, _body in self.notes}
@@ -468,7 +476,8 @@ class Gateway:
         pool = ThreadPoolExecutor(max_workers=self.config["section_workers"])
         try:
             futures = {section: pool.submit(generate_section, section) for section in order}
-            return pipeline.merge([futures[section].result() for section in SECTION_SCOPES], sources)
+            return pipeline.finish(pipeline.merge([futures[section].result() for section in SECTION_SCOPES],
+                                                  sources), sources)
         finally:
             pool.shutdown(wait=True, cancel_futures=True)
 

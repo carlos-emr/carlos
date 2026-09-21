@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import uuid
+import host_checks
 import pipeline
 from urllib.error import URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -63,7 +64,11 @@ def build_artifact(bundle, generated, model, artifact_id, timestamp, allow_empty
             {"severity": "warning", "code": "clinical_review_required",
              "message": "Model prose has not been clinically verified. Citation existence does not prove support, accuracy or completeness.",
              "source_ids": []}
-        ]
+        ] + [{"severity": "warning", "code": "date_not_in_cited_sources",
+              "message": "Statement " + finding["claim_id"] + " asserts " + finding["asserted"]
+                         + ", which none of its cited notes carries (" + ", ".join(finding["allowed"]) + ").",
+              "source_ids": finding["source_ids"]}
+             for finding in host_checks.date_findings(generated, bundle["sources"])]
     }
     return validate(artifact)
 

@@ -17,6 +17,7 @@ from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import host_checks
 import openrouter_agent as agent
 import pipeline
 import switch_summary_agent as switch
@@ -94,7 +95,9 @@ class OpenRouterTest(unittest.TestCase):
         self.assertTrue(self.gateway.run(self.request)['output']['claims'])
 
     def test_model_reviews_only_uncited_sources_and_the_gateway_completes_coverage(self):
-        notes = [note for note in self.gateway.allowed.notes if note[0] == 'NHSSYN003'][:2]
+        # Notes without an observation set, so the host has nothing to restore and cite on its own.
+        notes = [note for note in self.gateway.allowed.notes
+                 if note[0] == 'NHSSYN003' and not host_checks.observation_sets(note[2])][:2]
         sources = [dict(self.request['sources'][0], id=f'note-{i + 1}', patient_id='demographic-3003',
                         title=f'Signed encounter note (note-{i + 1})', date=date, text=body)
                    for i, (_fixture, date, body) in enumerate(notes)]
@@ -121,6 +124,19 @@ class OpenRouterTest(unittest.TestCase):
         # The usual case: every source is cited, so the model returns no reviews at all.
         all_cited = respond([]).run(dict(self.request, request_id=str(uuid4()), sources=sources[:1]))
         self.assertEqual(['cited'], [entry['status'] for entry in all_cited['output']['coverage']])
+
+    def test_a_draft_that_drops_an_observation_set_gets_it_back_from_the_host(self):
+        fixture, date, body = next(note for note in self.gateway.allowed.notes
+                                   if note[0] == 'NHSSYN002' and 'HR 2\nBP 124/78\nRR 1' in note[2])
+        sources = [dict(self.request['sources'][0], id='note-9', patient_id='demographic-3002',
+                        title='Signed encounter note (note-9)', date=date, text=body)]
+        output = self.gateway.run(dict(self.request, sources=sources))['output']
+        restored = [claim for claim in output['claims'] if claim['id'].startswith('host-obs-')]
+        self.assertEqual(1, len(restored))
+        self.assertIn('HR 2; BP 124/78; RR 1; Temp 36.8; SpO2 98', restored[0]['text'])
+        self.assertIn(restored[0]['id'], next(section['claim_ids'] for section in output['sections']
+                                              if section['id'] == 'results_observations'))
+        self.gateway.validate_output(sources, output)
 
     def test_cache_expires_and_can_be_disabled(self):
         self.gateway.run(self.request)
