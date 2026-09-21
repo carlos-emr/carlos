@@ -655,6 +655,43 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject provider assignment when the report id names no document")
+    void shouldRejectProviderAssignment_whenReportIdNamesNoDocument() throws Exception {
+        // assignProvider CREATES routing rows — its own and one per forwarding rule — and
+        // HRMDocumentToProvider has no foreign key. A row pointing at nothing makes
+        // HRMResultsData's unguarded findById(id).get(0) throw on every later inbox load for
+        // each provider routed, so one call can deny several inboxes at once. signOff already
+        // guarded this; this door was still open.
+        when(hrmDocumentDao.find(4242)).thenReturn(null);
+        request.addParameter("method", "assignProvider");
+        request.addParameter("reportId", "4242");
+        request.addParameter("providerNo", "123");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString()).contains("\"success\":false");
+        verifyNoInteractions(hrmDocumentToProviderDao);
+    }
+
+    @Test
+    @DisplayName("should answer JSON when the lookup behind a provider assignment throws")
+    void shouldAnswerJson_whenLookupBehindProviderAssignmentThrows() throws Exception {
+        when(hrmDocumentDao.find(7)).thenThrow(new RuntimeException("database down"));
+        request.addParameter("method", "assignProvider");
+        request.addParameter("reportId", "7");
+        request.addParameter("providerNo", "123");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertThat(response.getContentType()).startsWith("application/json");
+        verifyNoInteractions(hrmDocumentToProviderDao);
+    }
+
+    @Test
     @DisplayName("should not add a second routing row when the provider is already assigned")
     void shouldNotAddSecondRoutingRow_whenProviderIsAlreadyAssigned() throws Exception {
         // merge() on an entity with a null id INSERTS, and nothing stopped a repeat assignment
@@ -665,6 +702,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         existing.setSignedOff(0);
         when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("123")))
                 .thenReturn(java.util.List.of(existing));
+        stubReportExists(7);
         request.addParameter("method", "assignProvider");
         request.addParameter("reportId", "7");
         request.addParameter("providerNo", "123");

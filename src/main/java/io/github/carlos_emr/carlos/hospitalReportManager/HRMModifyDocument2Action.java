@@ -425,9 +425,37 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
 
+        // The same guard signOff carries, for the same reason: this handler also CREATES routing
+        // rows — its own and one per forwarding rule — and HRMDocumentToProvider has no foreign
+        // key to hold it to a real document. A row pointing at nothing makes HRMResultsData's
+        // unguarded hrmDocumentDao.findById(id).get(0) throw on every later inbox load for each
+        // provider routed, so one call denies several inboxes at once. I fixed this in signOff
+        // and left the other door open.
+        Integer hrmDocumentId;
         try {
-            Integer hrmDocumentId = Integer.valueOf(request.getParameter("reportId"));
+            hrmDocumentId = Integer.valueOf(request.getParameter("reportId").trim());
+        } catch (NumberFormatException | NullPointerException e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return writeResult(false, FAILURE_MESSAGE);
+        }
+        boolean reportExists;
+        try {
+            // intValue(): AbstractDaoImpl declares both find(Object) and find(int), and an
+            // Integer binds to the Object overload rather than the primary-key lookup.
+            reportExists = hrmDocumentDao.find(hrmDocumentId.intValue()) != null;
+        } catch (Exception e) {
+            // A lookup failure is not a malformed request, so it is a 500 — and it stays inside
+            // the JSON contract rather than escaping to the global HTML error result.
+            MiscUtils.getLogger().error("Tried to resolve HRM document before assigning a provider but failed.", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return writeResult(false, FAILURE_MESSAGE);
+        }
+        if (!reportExists) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return writeResult(false, FAILURE_MESSAGE);
+        }
 
+        try {
             // Only if this provider is not already routed this report. merge() on an entity with
             // a null id INSERTS, and there is no unique constraint on (hrmDocumentId, providerNo),
             // so assigning the same provider twice used to add a second unsigned routing row. The
