@@ -150,7 +150,9 @@ public class DemographicAdd2Action extends ActionSupport {
         // --- Patient consent module ---
         if (oscarProps.getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
             PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
-            request.setAttribute("consentTypes", patientConsentManager.getConsentTypes());
+            // Active types only, as on the edit form: the save path ignores answers for inactive types, and
+            // an inactive type may carry wording that is not yet approved for use.
+            request.setAttribute("consentTypes", patientConsentManager.getActiveConsentTypes());
         }
 
         String today = new SimpleDateFormat("yyyy-MM-dd").format(new Date());

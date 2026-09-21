@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
+import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
@@ -48,6 +49,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.time.Year;
 import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -205,7 +207,7 @@ class DemographicAdd2ActionUnitTest extends CarlosWebTestBase {
         private void stubDefaultBehaviour() {
             when(mockCountryCodeDao.getAllCountryCodes()).thenReturn(new ArrayList<>());
             when(mockProviderDao.getActiveProvidersByRole(anyString())).thenReturn(new ArrayList<>());
-            when(mockPatientConsentManager.getConsentTypes()).thenReturn(new ArrayList<>());
+            lenient().when(mockPatientConsentManager.getActiveConsentTypes()).thenReturn(new ArrayList<>());
             // No UserProperty for HC_Type by default — exercises the fallback path
             when(mockUserPropertyDAO.getProp(anyString(), eq(UserProperty.HC_TYPE))).thenReturn(null);
         }
@@ -336,12 +338,23 @@ class DemographicAdd2ActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
-        @DisplayName("should load consent types from PatientConsentManager when module is enabled")
-        void shouldLoadConsentTypes_whenConsentModuleEnabled() throws Exception {
-            // USE_NEW_PATIENT_CONSENT_MODULE=true in carlos.properties
+        @DisplayName("should offer only active consent types on the add-patient form when module is enabled")
+        void shouldOfferOnlyActiveConsentTypes_whenConsentModuleEnabled() throws Exception {
+            // USE_NEW_PATIENT_CONSENT_MODULE=true in carlos.properties. The save path only records answers
+            // for active consent types, so an inactive one on the form would show wording that is not in
+            // use (for example a draft awaiting sign-off) and silently discard the answer.
+            ConsentType active = new ConsentType();
+            active.setType("active_consent");
+            active.setActive(true);
+            ConsentType inactive = new ConsentType();
+            inactive.setType("inactive_consent");
+            inactive.setActive(false);
+            when(mockPatientConsentManager.getConsentTypes()).thenReturn(List.of(active, inactive));
+            when(mockPatientConsentManager.getActiveConsentTypes()).thenReturn(List.of(active));
+
             executeAction(action);
 
-            verify(mockPatientConsentManager).getConsentTypes();
+            assertThat(mockRequest.getAttribute("consentTypes")).isEqualTo(List.of(active));
         }
     }
 }
