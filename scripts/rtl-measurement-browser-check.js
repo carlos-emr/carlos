@@ -427,6 +427,40 @@ async function run() {
     assert.equal((await respond({BP:[row('BP','125/80')]}))[0].failed,true);
     assert.equal(await body.textContent(),'BEFORE EDITED AFTER');
     assert(!((await body.innerHTML()).includes('RTL measurement')));
+    // The retained IE detection path also parses only once after navigation.
+    await page.evaluate(()=>{
+      window.originalIsIE=isIE;window.isIE=()=>true;
+      const frame=document.getElementById('edit');
+      Object.defineProperty(frame,'document',{get:()=>frame.contentDocument,configurable:true});
+      window.originalParseTemplate=parseTemplate;window.templateParseCount=0;
+      window.parseTemplate=()=>{window.templateParseCount++;return window.originalParseTemplate();};
+      document.getElementById('template').selectedIndex=1;loadTemplate('template');
+    });
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    await body.pressSequentially(' AFTER LOAD');
+    await page.waitForTimeout(1100);
+    assert.equal(await page.evaluate(()=>window.templateParseCount),1);
+    assert.match(await body.textContent(),/AFTER LOAD/);
+    await page.evaluate(()=>{
+      window.isIE=window.originalIsIE;window.parseTemplate=window.originalParseTemplate;
+      delete document.getElementById('edit').document;
+    });
+    // HTTP 200 is not sufficient: reject absent/wrong/duplicate response markers
+    // before they can populate the editor or write a value into the cache.
+    for (const response of [
+      '<html><body>Session expired. Sign in.</body></html>',
+      '<input name="oscarAPCacheLookupType" value="wrong"><input name="asyncField" value="WRONG">',
+      '<input name="oscarAPCacheLookupType" value="template"><input name="oscarAPCacheLookupType" value="template"><input name="asyncField" value="DUPLICATE">',
+    ]) {
+      await page.evaluate(()=>{cache.values={};document.getElementById('template').selectedIndex=2;loadTemplate('template');});
+      for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);
+      assert.equal(templateRequests.length,1);
+      await templateRequests.shift().fulfill({contentType:'text/html',body:response});
+      await page.waitForFunction(()=>!measurementHistoryStillLoading());
+      assert.equal(await body.textContent(),'##asyncField##');
+      assert.equal(await page.evaluate(()=>cache.contains('asyncField')),false);
+      await page.locator('#rtl-template-lookup-status').waitFor({state:'visible'});
+    }
     // A failed catalogue must remain visible after unrelated measurement success.
     await page.evaluate(()=>{document.getElementById('Letter').value='<p>Saved recovery letter</p>';Start();});
     for (let n=0;n<100&&!catalogRequests.length;n++) await page.waitForTimeout(10);

@@ -299,6 +299,14 @@ function createCache(options) {
                     }
                     try {
                         response = jQuery(response);
+                        if (handlers && handlers.onResponse) {
+                            // Per-request consumers must not treat a login page or a
+                            // different lookup as success, or mutate the cache first.
+                            var responseTypes = response.filter('[name="oscarAPCacheLookupType"]');
+                            if (responseTypes.length !== 1 || responseTypes.val() !== key) {
+                                throw new Error('Unexpected APCache response type');
+                            }
+                        }
                         var y;
                         var map;
                         var _lookupType = "";

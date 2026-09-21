@@ -529,8 +529,7 @@ function loadDefaultTemplate() {
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
 		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); finishPendingSourceView(); };
-		//for IE put some delay to ensure that the new src is loaded before we parse it
-    	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
+		// Parse once from iframe load; a second delayed parse could replace later edits.
 	} else {
 		var blankTemplate = '<html><head><title>Blank Document Template</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"><style type=\"text/css\">body {font-size: 1em; font-family:\"Times New Roman\", Times, serif; background-color: #FFFFFF;}</style><style type=\"text/css\" media=\"print\">* {color: #000000;}.DoNotPrint {display: none;}</style></head><body contenteditable onLoad=\"document.designMode = \'on\';\"></body></html>';
 		var blankFrame = document.getElementById(cfg_editorname);
@@ -568,8 +567,7 @@ function loadTemplate(selectname){
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
 		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); finishPendingSourceView(); };
-		//for IE put some delay to ensure that the new src is loaded before we parse it
-    		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
+		// Parse once from iframe load; a second delayed parse could replace later edits.
     	}
 }
 
