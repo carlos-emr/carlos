@@ -460,9 +460,13 @@ function guardLetterSubmit() {
 }
 
 function guardLetterPrint(targetWindow) {
-    if (!targetWindow || typeof targetWindow.print !== 'function' || targetWindow.print.__rtlMeasurementGuard) { return; }
-    var nativePrint = targetWindow.print;
+    if (!targetWindow || typeof targetWindow.print !== 'function') { return; }
+    var previousPrint = targetWindow.print;
     var printDocument = targetWindow.document;
+    if (previousPrint.__rtlMeasurementGuard && previousPrint.__rtlPrintDocument === printDocument) { return; }
+    // Rewrap a retained WindowProxy function for the new document, while old
+    // delayed callbacks keep their own document check and remain cancelled.
+    var nativePrint = previousPrint.__rtlNativePrint || previousPrint;
     var guardedPrint = function() {
         if (targetWindow.document !== printDocument) { return; }
         cancelPendingFaxSubmission();
@@ -474,6 +478,8 @@ function guardLetterPrint(targetWindow) {
         return nativePrint.call(targetWindow);
     };
     guardedPrint.__rtlMeasurementGuard = true;
+    guardedPrint.__rtlPrintDocument = printDocument;
+    guardedPrint.__rtlNativePrint = nativePrint;
     targetWindow.print = guardedPrint;
 }
 guardLetterPrint(window);
@@ -1967,11 +1973,13 @@ function normalizeMeasureHistory(measurements, request, patient) {
             throw new Error('Measurement response does not match the request');
         }
     });
-    var limit = Math.floor(Number(request.max));
-    if (!Number.isFinite(limit) || limit < 1) { limit = 1; }
+    // Legacy callers omit max (or pass a nonnumeric 'all') for the full history.
+    // Preserve that contract, including zero/negative limits yielding no values.
+    var limit = Number(request.max);
+    limit = Number.isNaN(limit) || limit === Infinity ? rows.length : Math.max(0, Math.ceil(limit));
     rows = rows.slice().sort(function(a, b) {
         return measurementDateTime(b.dateObserved) - measurementDateTime(a.dateObserved);
-    }).slice(0, Math.min(limit, 100));
+    }).slice(0, limit);
     return {values: rows.map(function(row) { return row.dataField; }),
         dates: rows.map(function(row) { return row.dateObserved; })};
 }

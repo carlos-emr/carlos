@@ -89,7 +89,8 @@ async function run() {
     }
     await page.evaluate(()=>{
       window.delayedPrint=window.print.bind(window);
-      window.delayedFramePrint=document.getElementById('edit').contentWindow.print.bind(document.getElementById('edit').contentWindow);
+      window.initialFrameGuard=document.getElementById('edit').contentWindow.print;
+      window.delayedFramePrint=window.initialFrameGuard.bind(document.getElementById('edit').contentWindow);
     });
     await begin(['BP','WT']);
     await page.evaluate(()=>{window.delayedPrint();window.delayedFramePrint();});
@@ -488,6 +489,26 @@ async function run() {
       assert.equal(await page.evaluate(()=>cache.contains('asyncField')),false);
       await page.locator('#rtl-template-lookup-status').waitFor({state:'visible'});
     }
+    // Re-registering a print wrapper retained across iframe navigation must
+    // refresh the live function while leaving old captured callbacks cancelled.
+    const printCount=await page.evaluate(()=>window.delayedFramePrints);
+    assert.equal(await page.evaluate(()=>{
+      const frame=document.getElementById('edit');
+      frame.contentWindow.print=window.initialFrameGuard;
+      enableEditorDesignMode();
+      window.initialFrameGuard(); // Still belongs to the original document.
+      frame.contentWindow.print(); // New wrapper calls the underlying print spy.
+      const refreshed=frame.contentWindow.print;
+      enableEditorDesignMode();
+      return refreshed===frame.contentWindow.print && refreshed!==window.initialFrameGuard;
+    }),true);
+    assert.equal(await page.evaluate(()=>window.delayedFramePrints),printCount+1);
+    await begin(['BP']);
+    await page.evaluate(()=>document.getElementById('edit').contentWindow.print());
+    assert.equal(await page.evaluate(()=>window.delayedFramePrints),printCount+1);
+    await respond({});
+    await page.evaluate(()=>document.getElementById('edit').contentWindow.print());
+    assert.equal(await page.evaluate(()=>window.delayedFramePrints),printCount+2);
     // A failed catalogue must remain visible after unrelated measurement success.
     await page.evaluate(()=>{
       document.getElementById('Letter').value='<p>Saved recovery letter</p>';

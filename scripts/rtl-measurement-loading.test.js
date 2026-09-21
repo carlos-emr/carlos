@@ -332,3 +332,11 @@ test('a queued successful request for the failed type clears the obsolete group 
   assert.equal((await second).failed,undefined);
   assert.equal(notice(f),'');assert.equal(f.context.measureBatchFailed,false);
 });
+
+test('legacy history limits preserve omitted/all, zero, and explicit counts without silent truncation', () => {
+  const f=setup();const history=Array.from({length:120},(_,i)=>row('BP',String(i)));
+  for (const [max,count] of [[undefined,120],['all',120],[Infinity,120],[0,0],[null,0],[-1,0],[-Infinity,0],[2,2],['3',3],[1.5,2],[110,110]]) {
+    const result=f.context.normalizeMeasureHistory({BP:history},{measure:'BP',max},'17');
+    assert.equal(result.values.length,count,'max='+String(max));
+  }
+});
