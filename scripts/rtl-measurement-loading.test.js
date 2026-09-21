@@ -101,10 +101,13 @@ test('installed REST epoch dates sort and display alongside ISO dates without st
   assert.equal(f.context.measurementMonth(null),'date unavailable');
 });
 
-test('a failed batch stays visible when a queued batch succeeds; retry can clear it', async () => {
+test('after a failure, retry waits for queued work to settle and then clears the warning on success', async () => {
   const f = setup(); const one=f.context.getMeasures('BP',1); await delay(5);
   const two=f.context.getMeasures('WT',1); await delay(5);
   f.requests[0].onerror(); await one;
+  assert.equal((await f.context.getMeasures('BP',1)).failed,true);
+  assert.equal(f.requests.length,2); // The early retry did not start another request.
+  assert.match(notice(f),/Wait for the remaining loads/);
   f.requests[1].respond({WT:[row('WT','70')]}); await two;
   assert.match(notice(f),/not inserted/);
   const retry=f.context.getMeasures('BP',1); await delay(5);

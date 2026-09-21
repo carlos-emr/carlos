@@ -1573,6 +1573,13 @@ function createMeasureBatch() {
 function getMeasures(measure, max) {
     return new Promise(function(resolve) {
         try {
+            if (measureBatchFailed && measureBatchesPending > 0) {
+                // A success in another queued batch cannot repair every failed
+                // insertion. Finish that group before accepting a fresh retry.
+                showMeasurementStatus('Some measurements were not inserted. Wait for the remaining loads to finish, then retry Lab Grid or Vitals.', true);
+                resolve({values: [], dates: [], failed: true});
+                return;
+            }
             if (!pendingMeasureBatch) {
                 pendingMeasureBatch = createMeasureBatch();
                 if (measureBatchesPending === 0) { measureBatchFailed = false; }
