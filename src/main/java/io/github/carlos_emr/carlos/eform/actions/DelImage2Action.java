@@ -63,6 +63,7 @@ public class DelImage2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an HTTP method constant; not a security or authorization decision.
     @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "IMPROPER_UNICODE"}, justification = "PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use. IMPROPER_UNICODE: case-insensitive comparison of an HTTP method constant; not a security or authorization decision")
+    @Override
     public String execute() throws IOException {
 
         // CSRFGuard validates POST/PUT/DELETE/PATCH, not GET/HEAD, so without this
@@ -102,7 +103,7 @@ public class DelImage2Action extends ActionSupport {
             Path imagePath = image.toPath();
             Files.delete(imagePath);
 
-        } catch (SecurityException e) {
+        } catch (SecurityException _) {
             // Path validation failed
             return ERROR;
         } catch (IOException e) {
@@ -114,17 +115,16 @@ public class DelImage2Action extends ActionSupport {
     }
 
     /**
-     * Redirect target for the {@code success} result, read by struts-eform.xml via
-     * OGNL ({@code ${redirectTarget}}). A redirect starts a new request, so the
-     * {@code scheduleNav=1} flag the delete POST carried would otherwise be lost and
-     * the operator would land back on the Image Library with the administration
-     * shell's top nav bar gone.
+     * Returns schedule-navigation requests to the Administration shell, which renders the
+     * schedule header and loads Image Library. The standalone JSP does not render that header.
+     * Other callers retain their standalone Image Library destination.
      *
-     * @return {@code /eform/efmimagemanager}, with {@code ?scheduleNav=1} appended
-     *         when the deleting request carried the flag
+     * @return the application-relative destination for the POST/redirect/GET result
      */
     public String getRedirectTarget() {
-        return ScheduleNav.append("/eform/efmimagemanager", request);
+        return ScheduleNav.isActive(request)
+                ? ScheduleNav.append("/administration?show=ImageUpload", request)
+                : "/eform/efmimagemanager";
     }
 
 }

@@ -44,6 +44,8 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="eform.uploadimages.imgDelete" var="imageDeleteConfirm"/>
+<fmt:message key="eform.uploadimages.deleteTokenUnavailable" var="imageDeleteTokenUnavailable"/>
 
 
 <!DOCTYPE html>
@@ -85,7 +87,7 @@
             }
 
             async function deleteImg(image) {
-                if (!confirm("<fmt:message key="eform.uploadimages.imgDelete"/>")) {
+                if (!confirm("${carlos:forJavaScript(imageDeleteConfirm)}")) {
                     return;
                 }
                 // A form built after page load is never visited by CSRFGuard's
@@ -95,7 +97,7 @@
                 // of submitting a doomed request.
                 var token = await csrfToken();
                 if (!token) {
-                    alert("<fmt:message key="eform.uploadimages.deleteTokenUnavailable"/>");
+                    alert("${carlos:forJavaScript(imageDeleteTokenUnavailable)}");
                     return;
                 }
                 var form = document.createElement('form');

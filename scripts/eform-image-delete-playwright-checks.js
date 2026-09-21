@@ -131,74 +131,122 @@ async function uploadImage(context, recorder, imagePath, name) {
 
     await uploadImage(context, recorder, imagePath, imageName);
 
-    // Delete while the CSRF token fetch is still in flight. csrf-token.jspf
-    // populates the hidden CSRF-TOKEN input from an async fetch; a click that
-    // lands before it resolves reads an empty value, and submitting anyway
-    // reproduces the exact 403 an operator sees. Stalling the fetch widens
-    // that window enough to click inside it reliably.
-    const csrfStallMs = 5000;
-    await context.route('**/csrfguard*', async (route) => {
-      if (route.request().resourceType() !== 'script') {
-        await new Promise((resolve) => setTimeout(resolve, csrfStallMs));
+    for (const scenario of ['standalone', 'administration', 'token-failure']) {
+      if (scenario !== 'standalone') await uploadImage(context, recorder, imagePath, imageName);
+      const managerPage = await context.newPage();
+      wirePage(managerPage, 'image-delete-' + scenario, recorder);
+      const inShell = scenario !== 'standalone';
+      if (inShell) {
+        await gotoApp(managerPage, config.baseUrl, '/administration?scheduleNav=1');
+        await managerPage.waitForLoadState('networkidle');
+        await managerPage.locator('#firstTable').waitFor({state: 'visible'});
       }
-      await route.continue();
-    });
 
-    const managerPage = await context.newPage();
-    wirePage(managerPage, 'image-delete-manager', recorder);
-    await gotoApp(managerPage, config.baseUrl, '/eform/efmimagemanager');
-    // 'load', not 'networkidle': the stalled token fetch must still be in
-    // flight when we read the input below.
-    await managerPage.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
+      let releaseToken;
+      const heldToken = new Promise(resolve => { releaseToken = resolve; });
+      let sawHeldToken;
+      const tokenRequested = new Promise(resolve => { sawHeldToken = resolve; });
+      let tokenMode = scenario === 'token-failure' ? 'fail' : 'hold';
+      await managerPage.route('**/csrfguard*', async route => {
+        const request = route.request();
+        if (request.resourceType() === 'script' || request.frame() !== managerPage.mainFrame()) {
+          return route.continue();
+        }
+        if (tokenMode === 'fail') {
+          // A valid HTTP response with no token exercises the parse/retry failure path.
+          return route.fulfill({status: 200, contentType: 'text/javascript', body: '// no token'});
+        }
+        if (tokenMode === 'hold') {
+          sawHeldToken();
+          await heldToken;
+        }
+        return route.continue();
+      });
+      try {
+        if (inShell) {
+          await managerPage.locator('button[data-bs-target="#collapseForms"]').first().click();
+          await managerPage.locator('a.defaultImageUpload').first().click();
+          await managerPage.locator('#dynamic-content #tblImage').waitFor({state: 'visible'});
+          assert(new URL(managerPage.url()).pathname.endsWith('/administration'),
+            'Image Library did not load through the Administration fragment path');
+          // The shell may already have tokens from other panels. Force the same empty-token
+          // condition as a newly loaded fragment, without replacing the application's fetch.
+          await managerPage.locator('input[name="CSRF-TOKEN"]').evaluateAll(inputs => {
+            for (const input of inputs) input.value = '';
+          });
+        } else {
+          await gotoApp(managerPage, config.baseUrl, '/eform/efmimagemanager');
+          await managerPage.waitForLoadState('load');
+        }
+        assert(await managerPage.locator('input[name="CSRF-TOKEN"]').first().inputValue() === '',
+          'The fixture must exercise an empty CSRF token before clicking Delete');
+        managerPage.removeAllListeners('dialog');
+        managerPage.on('dialog', async dialog => {
+          recorder.dialogs.push({label: scenario, type: dialog.type(), text: dialog.message()});
+          await dialog.accept();
+        });
+        const row = managerPage.locator('#tblImage tbody tr', {hasText: imageName}).first();
+        const deleteLink = row.locator('a[onclick^="deleteImg"]').first();
+        await deleteLink.waitFor({state: 'visible'});
+        let deletePosts = 0;
+        managerPage.on('request', request => {
+          if (request.url().includes('/eform/deleteImage') && request.method() === 'POST') deletePosts++;
+        });
 
-    // wirePage installs a dialog handler that dismisses confirm(), which would
-    // cancel deleteImg() before it ever builds the form. Replace it for this
-    // page only.
-    managerPage.removeAllListeners('dialog');
-    managerPage.on('dialog', async (dialog) => {
-      recorder.dialogs.push({ label: 'image-delete-manager', type: dialog.type(), text: dialog.message() });
-      await dialog.accept().catch(() => {});
-    });
+        if (scenario === 'token-failure') {
+          const alert = managerPage.waitForEvent('dialog', {predicate: d => d.type() === 'alert'});
+          await deleteLink.click();
+          assert((await alert).message().length > 0, 'Token failure did not give a user-facing message');
+          assert(deletePosts === 0, 'Token failure submitted a delete request');
+          assert(await row.count() === 1, 'Token failure removed the image row');
+          console.log('PASS token failure: alert shown, no delete POST, image retained');
+          tokenMode = 'hold';
+        }
 
-    const tokenAtLoad = await managerPage.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-    assert(
-      tokenAtLoad === '',
-      'The /csrfguard stall did not hold: the CSRF token was already populated on load, so this '
-        + 'run did not exercise the empty-token race it is meant to cover.',
-    );
-
-    const row = managerPage.locator('#tblImage tbody tr', { hasText: imageName }).first();
-    await row.waitFor({ state: 'visible', timeout: 15000 });
-    const deleteLink = row.locator('a[onclick^="deleteImg"]').first();
-    assert(await deleteLink.count() > 0, `No delete control on the row for ${imageName}`);
-
-    const [deleteResponse] = await Promise.all([
-      managerPage.waitForResponse(
-        (r) => r.url().includes('/eform/deleteImage') && r.request().method() === 'POST',
-        { timeout: 60000 },
-      ),
-      deleteLink.click(),
-    ]);
-    // Reaching here at all is part of the assertion: before the fix, the click
-    // submitted immediately with no token and this POST came back 403.
-    assertNotBlocked(deleteResponse, 'Deleting an eForm image');
-    await context.unroute('**/csrfguard*');
-    await managerPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-
-    const landedOn = managerPage.url();
-    assert(
-      landedOn.includes('/eform/efmimagemanager'),
-      `After deleting, the operator should land back on the Image Library, got ${landedOn}`,
-    );
-
-    // Persistence, not the redirect, is the proof: reload from scratch.
-    await gotoApp(managerPage, config.baseUrl, '/eform/efmimagemanager');
-    await managerPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    const remaining = await managerPage.locator('#tblImage a.viewImage', { hasText: imageName }).count();
-    assert(remaining === 0, `Uploaded image ${imageName} still appears in the Image Library after deleting it`);
-
+        const responsePromise = managerPage.waitForResponse(
+          r => r.url().includes('/eform/deleteImage') && r.request().method() === 'POST',
+          {timeout: 60000});
+        await deleteLink.click();
+        let timer;
+        try {
+          await Promise.race([tokenRequested, new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error('Delete did not request a CSRF token')), 15000);
+          })]);
+          assert(deletePosts === 0, 'Delete posted before the stalled token fetch completed');
+        } finally {
+          clearTimeout(timer);
+          tokenMode = 'pass';
+          releaseToken();
+        }
+        const deleteResponse = await responsePromise;
+        assertNotBlocked(deleteResponse, 'Deleting an eForm image');
+        assert(deleteResponse.status() >= 300 && deleteResponse.status() < 400,
+          'Successful deletion must use POST/redirect/GET');
+        const post = new URLSearchParams(deleteResponse.request().postData());
+        assert(Boolean(post.get('CSRF-TOKEN')), 'Delete POST did not carry its token');
+        assert(post.get('filename') === imageName, 'Delete POST selected the wrong fixture');
+        await managerPage.waitForURL(url => inShell
+          ? url.pathname.endsWith('/administration') && url.searchParams.get('show') === 'ImageUpload'
+          : url.pathname.endsWith('/eform/efmimagemanager'));
+        await managerPage.waitForLoadState('networkidle');
+        if (inShell) {
+          assert(new URL(managerPage.url()).searchParams.get('scheduleNav') === '1',
+            'Delete redirect lost scheduleNav=1');
+          await managerPage.locator('#firstTable').waitFor({state: 'visible'});
+          await managerPage.locator('#dynamic-content #tblImage').waitFor({state: 'visible'});
+        }
+        await managerPage.reload({waitUntil: 'networkidle'});
+        await managerPage.locator('#tblImage').waitFor({state: 'visible'});
+        assert(await managerPage.locator('#tblImage a.viewImage', {hasText: imageName}).count() === 0,
+          'Uploaded image still appears after delete and reload');
+        assert(deletePosts === 1, 'A single delete click submitted more than one POST');
+        console.log('PASS ' + scenario + ': stalled token, redirect, navigation and deletion persistence');
+      } finally {
+        releaseToken();
+        await managerPage.close();
+      }
+    }
     assertNoPageErrors(recorder);
-    await managerPage.close();
     await context.close();
 
     console.log(

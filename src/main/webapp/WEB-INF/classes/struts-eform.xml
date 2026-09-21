@@ -146,7 +146,8 @@
                  path: a redirect starts a new request, so the scheduleNav=1
                  flag the delete POST carried would otherwise be dropped and
                  the operator would lose the administration shell's top nav
-                 bar. getRedirectTarget() re-appends it when present. -->
+                 bar. getRedirectTarget() returns that context to the Administration
+                 Image Library deep link with the flag preserved. -->
             <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eform/restoreEForm" class="io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action">
