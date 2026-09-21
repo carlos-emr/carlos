@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const {chromium} = require('playwright');
+const {launchBrowser} = require('./lib/playwright-harness');
 const web = path.resolve(__dirname,'../src/main/webapp');
 const assets = {
   'jquery.js': '/library/jquery/jquery-3.7.1.min.js',
@@ -17,8 +17,7 @@ const assets = {
 const row = (type,value) => ({type,dataField:value,demographicId:17,dateObserved:Date.UTC(2026,8,12)});
 
 async function run() {
-  const browser = await chromium.launch({executablePath:process.env.CHROME_PATH || undefined,
-    args:['--no-sandbox','--disable-dev-shm-usage'],headless:true});
+  const browser = await launchBrowser({chromePath:process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',headless:true});
   try {
     const page = await browser.newPage({timezoneId:'America/Vancouver'}); const errors=[]; const pending=[]; const templateRequests=[];
     page.on('pageerror',error=>errors.push(error.message));
