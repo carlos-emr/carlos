@@ -64,8 +64,11 @@ async function run() {
     assert.equal(await page.evaluate(()=>{
       window.formPrint=()=>window.prints++;
       remotePrint();
+      loadDefaultTemplate(); // Internal template reads must not raise the save gate.
+      window.needToConfirm=false; // Shipped legacy saveRTL resets before serialization.
       try {editControlContents('edit');return false;} catch(error){return /still loading/.test(error.message);}
     }),true);
+    assert.equal(await page.evaluate(()=>window.needToConfirm),true);
     assert.equal(await page.evaluate(()=>window.prints),0);
     // Move the live caret and type while the response is withheld.
     const body=page.frameLocator('#edit').locator('body');

@@ -112,6 +112,15 @@ test('a failed batch stays visible when a queued batch succeeds; retry can clear
   assert.equal(notice(f),'');
 });
 
+test('a blocked legacy serializer restores the unload warning even when loading fails', async () => {
+  const f=setup(); const p=f.context.getMeasures('BP',1);
+  f.context.window.needToConfirm=false; // Legacy saveRTL resets before reading editor HTML.
+  assert.throws(()=>f.context.assertMeasurementHistoryReady(),/still loading/);
+  assert.equal(f.context.window.needToConfirm,true);
+  await delay(5);f.requests[0].onerror();await p;
+  assert.equal(f.context.window.needToConfirm,true);
+});
+
 for (const failure of ['timeout','network','HTTP','invalid JSON','wrong patient']) {
   test(failure+' settles every caller, removes placeholders and makes failure visible', async () => {
     const f = setup(); const p = f.context.getMeasures('BP',1); await delay(5); const request=f.requests[0];

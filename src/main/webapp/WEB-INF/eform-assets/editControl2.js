@@ -446,7 +446,7 @@ function existsTemplate(template) {
 
 function loadDefaultTemplate() {
 	// Skipping loading of default template if the letter already has content.
-	if (editControlContents(cfg_editorname).trim() != '') { return; }
+	if (editControlContents(cfg_editorname, true).trim() != '') { return; }
 	if (existsTemplate(cfg_template)) {
 		var selected = cfg_template;
 		window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
@@ -1511,6 +1511,9 @@ function measurementHistoryStillLoading() {
 
 function assertMeasurementHistoryReady() {
     if (measurementHistoryStillLoading()) {
+        // Legacy saveRTL implementations clear this flag before serializing. A
+        // blocked save must retain the unload warning even if the request fails.
+        window.needToConfirm = true;
         alert('Measurements are still loading. Please wait before saving or printing this letter.');
         throw new Error('RTL measurements are still loading');
     }
