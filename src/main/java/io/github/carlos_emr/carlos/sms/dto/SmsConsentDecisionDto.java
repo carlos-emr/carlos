@@ -31,6 +31,14 @@ public record SmsConsentDecisionDto(
         }
     }
 
+    /**
+     * A decision that permits the send.
+     *
+     * @param consentStatus         the consent state relied on; required, or the row will refuse to record it
+     * @param consentId             the {@code Consent} row relied on, or null when no patient record was
+     *                              consulted (system tests)
+     * @param consentLastUpdateDate that row's edit date, or null when it has none
+     */
     public static SmsConsentDecisionDto permitted(
             SmsConsentStatus consentStatus,
             Integer consentId,
@@ -39,10 +47,18 @@ public record SmsConsentDecisionDto(
         return new SmsConsentDecisionDto(true, null, null, null, consentStatus, consentId, consentLastUpdateDate);
     }
 
+    /** A blocking decision with no audit snapshot. Production decisions use the six-argument form. */
     public static SmsConsentDecisionDto blocked(SmsStatus blockedStatus, String reasonCode, String operatorMessage) {
         return blocked(blockedStatus, reasonCode, operatorMessage, null, null, null);
     }
 
+    /**
+     * A decision that blocks the send, with the consent state and record it was based on.
+     *
+     * @param blockedStatus   {@code CONSENT_BLOCKED} or {@code OPTOUT_BLOCKED}
+     * @param reasonCode      stable machine-readable reason; never contains patient identifiers
+     * @param operatorMessage generic explanation for staff; never contains patient identifiers
+     */
     public static SmsConsentDecisionDto blocked(
             SmsStatus blockedStatus,
             String reasonCode,
