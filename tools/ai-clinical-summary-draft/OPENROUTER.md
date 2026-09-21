@@ -32,7 +32,8 @@ ZDR routing, disallow provider fallback, and validate the returned draft locally
 Python 3's standard library is sufficient. The CARLOS changes in this PR must be
 built/deployed to use the larger HTTP request budget.
 
-Only the three committed NHS development fixtures are supported. CARLOS verifies
+Only the 50 committed NHS development fixtures (`NHSSYN001` to `NHSSYN050`) are supported;
+the quality gate has labelled facts for the first three only. CARLOS verifies
 the complete authorized chart; the gateway separately checks outgoing clinical text
 against the checksum-verified seed corpus. The gateway rejects other text, changed
 instructions/schema and arbitrary metadata before any cloud request or cache lookup.
@@ -89,8 +90,8 @@ cd /workspace/.git/codex-worktrees/summary-cache
 
 4. Open [the local CARLOS app](http://127.0.0.1:8080/carlos/) and log in again if
    needed. In this seeded development runtime the login is `carlosdoc`, password
-   `carlos2026`, PIN `2026`. Open the **eChart** for `NHSSYN001`, `NHSSYN002` or
-   `NHSSYN003`, then **Patient overview → Generate AI draft**. Opening the eChart
+   `carlos2026`, PIN `2026`. Open the **eChart** for any chart from `NHSSYN001` to
+   `NHSSYN050`, then **Patient overview → Generate AI draft**. Opening the eChart
    first supplies the program context needed to read the notes. The generated
    draft identifies `OpenRouter / qwen/qwen3.5-27b` as its configured agent.
 

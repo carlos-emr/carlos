@@ -31,7 +31,9 @@ class PipelineTest(unittest.TestCase):
         """
         import openrouter_agent
         notes = openrouter_agent.SyntheticNotes().notes
-        for fixture in ("NHSSYN001", "NHSSYN002", "NHSSYN003"):
+        fixtures = sorted({name for name, _date, _body in notes})
+        self.assertEqual(50, len(fixtures))
+        for fixture in fixtures:
             sources = []
             for date, body in [(date, body) for name, date, body in notes if name == fixture]:
                 source_id = f"note-{len(sources) + 1}"
