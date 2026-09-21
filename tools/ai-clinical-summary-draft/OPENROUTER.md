@@ -2,27 +2,31 @@
 
 The OpenRouter gateway plugs into the existing CARLOS HTTP agent. It processes the
 whole eligible synthetic chart with content-driven length. The current test default
-is `qwen/qwen3.5-397b-a17b` on `venice`, temperature **0.2**, reasoning disabled,
-with a **50,000-byte serialized request budget** and a 16,384-token output allowance.
-This is a larger hosted Qwen model; it does not need your laptop GPU or local model storage.
+is `qwen/qwen3.5-27b` on `siliconflow`, temperature **0**, reasoning disabled, one
+whole-record pass, with a **50,000-byte serialized request budget**, a 16,384-token
+output allowance and a **420-second response deadline**. This is a hosted Qwen model;
+it does not need your laptop GPU or local model storage. A saved private configuration
+keeps its own model, provider and deadline until `configure` is rerun.
 
-The larger source budget lets the tested NHSSYN001 chart fit in one model pass,
+The larger source budget lets each tested NHS chart fit in one model pass,
 reducing repeated introductions caused by independent small batches. It is the
 amount of record context supplied per pass, not a change to the provider's native
 context window, and not a cap on final summary length. Longer records and exhausted
 outputs still use lossless source splitting. The prompt asks for dated clinical
 progression, distinct facts, explicit medication discrepancies and no identity prose.
 
-These settings are an **experimental readability choice, not a clinical quality gate**.
-Trials of 9B, 27B, 35B-A3B and 397B-A17B, temperatures 0/0.2/0.6/0.7, reasoning,
-and different source budgets showed inconsistent factual retention. The selected
-trial improved presentation and identified the discharge-medication discrepancy,
-but still overstated a planned discharge and omitted some details. See the
-[quality report](QUALITY.md) for observations, rejected experiments and reproduction.
+These settings are the only ones that passed the deterministic fixture gate on all
+three synthetic patients; they are **an engineering result, not a clinical quality
+gate**. The earlier default, `qwen/qwen3.5-397b-a17b` on `venice` at temperature 0.2,
+leaked staff names and cost more. Whole-record passes measured 176-209 seconds on
+2026-09-18 and 204-288 seconds on 2026-09-21 for the same charts, so the former
+180-second deadline rejects valid summaries and 300 leaves no room. The deadline may
+be configured up to 480 seconds, inside the 540-second gateway budget. See the [quality report](QUALITY.md) for observations, rejected
+experiments, remaining limits and reproduction.
 
 [OpenRouter parameter documentation](https://openrouter.ai/docs/api/reference/parameters)
 explains temperature and output-token settings. The
-[selected endpoint catalog](https://openrouter.ai/api/v1/models/qwen/qwen3.5-397b-a17b/endpoints)
+[selected endpoint catalog](https://openrouter.ai/api/v1/models/qwen/qwen3.5-27b/endpoints)
 advertises structured output and context capacity; the gateway continues to require
 ZDR routing, disallow provider fallback, and validate the returned draft locally.
 Python 3's standard library is sufficient. The CARLOS changes in this PR must be
@@ -88,7 +92,7 @@ cd /workspace/.git/codex-worktrees/summary-cache
    `carlos2026`, PIN `2026`. Open the **eChart** for `NHSSYN001`, `NHSSYN002` or
    `NHSSYN003`, then **Patient overview → Generate AI draft**. Opening the eChart
    first supplies the program context needed to read the notes. The generated
-   draft identifies `OpenRouter / qwen/qwen3.5-397b-a17b` as its configured agent.
+   draft identifies `OpenRouter / qwen/qwen3.5-27b` as its configured agent.
 
 5. To return to local Qwen, keep the local Ollama server on port 11436 running and use:
 
@@ -109,7 +113,7 @@ clinical.ai_summary_generation.enabled=true
 clinical.ai_summary_generation.agent=http
 clinical.ai_summary_generation.http.port=11437
 clinical.ai_summary_generation.http.path=/v1/clinical-summary
-clinical.ai_summary_generation.http.name=OpenRouter / qwen/qwen3.5-9b
+clinical.ai_summary_generation.http.name=OpenRouter / qwen/qwen3.5-27b
 clinical.ai_summary_generation.http.timeoutSeconds=600
 clinical.ai_summary_generation.http.requestBytes=50000
 ```
@@ -141,7 +145,7 @@ chart freshness, including when the gateway returns cached work. A 16,384-token
 per-call budget is a transport bound, not a summary-length target: exhausted
 responses are discarded and smaller source portions are retried without dropping
 text. Each gateway request has a 540-second budget; each upstream call has a
-180-second response deadline, including when OpenRouter sends keepalive whitespace.
+420-second response deadline by default, including when OpenRouter sends keepalive whitespace.
 Only temporary rate limits (429) get up to two automatic retries, waiting 2 then
 4 seconds, or the provider's `Retry-After` up to 120 seconds per wait. Integer or
 fractional seconds and HTTP-date values are supported; malformed hints use the
@@ -200,6 +204,23 @@ unchanged source evidence, citation selection, pending-button behavior, CSRF
 rejection, return to recorded facts, and 1440/390/320-pixel layouts. There were no
 browser JavaScript errors. This verifies the tested workflow, not medical accuracy
 or every synthetic patient's latency.
+
+On 2026-09-21 the same browser check ran against the current default
+(`qwen/qwen3.5-27b`, SiliconFlow, temperature 0, one whole-record pass, 300-second
+deadline) and the current prompt, cold and then cached, for all three patients:
+
+| Patient | Cold | Gateway pass | Claims | Sources | Cached repeat |
+| --- | --- | --- | --- | --- | --- |
+| 3001 | 191.6 s | 187.1 s | 28 | 20 | 3.1 s |
+| 3002 | 212.2 s | 208.2 s | 58 | 21 | 3.1 s |
+| 3003 | 83.6 s | 82.8 s | 26 | 18 | 1.0 s |
+
+All six runs passed the unchanged-evidence, citation, CSRF, pending-button and
+three-viewport checks with no browser JavaScript errors. Both 3001 and 3002 exceeded
+the former 180-second deadline. These runs used a 300-second deadline; later repeats
+the same day reached 288 seconds, so the default is now 420. The clinician waits more
+than three minutes on a cold 3002 chart; the page shows only a pending
+button during that time. See [QUALITY.md](QUALITY.md) for how these drafts scored.
 
 The reproducible test is `tests/generation-browser-checks.cjs`. It opens the eChart
 to establish program context and writes timing/count/error results plus screenshots.

@@ -1,0 +1,297 @@
+[
+ {
+  "name": "R1-002-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 231.536,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 53,
+  "cost_usd": 0.01499,
+  "calls": [
+   {
+    "seconds": 231.334,
+    "prompt_tokens": 9103,
+    "completion_tokens": 6357,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01498975,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 53,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "R2-002-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 283.833,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 58,
+  "cost_usd": 0.014838,
+  "calls": [
+   {
+    "seconds": 283.427,
+    "prompt_tokens": 9103,
+    "completion_tokens": 6281,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01483775,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 58,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "R3-002-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 138.05,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 0,
+  "cost_usd": 0.012634,
+  "calls": [
+   {
+    "seconds": 138.046,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5179,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01263375,
+    "finish_reasons": [
+     null
+    ]
+   }
+  ]
+ },
+ {
+  "name": "R4-001-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 270.6,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 29,
+  "cost_usd": 0.009417,
+  "calls": [
+   {
+    "seconds": 270.523,
+    "prompt_tokens": 7715,
+    "completion_tokens": 3744,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00941675,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "R5-001-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 288.18,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 29,
+  "cost_usd": 0.009593,
+  "calls": [
+   {
+    "seconds": 288.128,
+    "prompt_tokens": 7715,
+    "completion_tokens": 3832,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00959275,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "R6-003-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 204.423,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 28,
+  "cost_usd": 0.008489,
+  "calls": [
+   {
+    "seconds": 204.363,
+    "prompt_tokens": 6315,
+    "completion_tokens": 3455,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00848875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 28,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "R7-003-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 257.986,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 32,
+  "cost_usd": 0.008899,
+  "calls": [
+   {
+    "seconds": 257.66,
+    "prompt_tokens": 6315,
+    "completion_tokens": 3660,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00889875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 32,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ }
+]

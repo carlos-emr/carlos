@@ -525,3 +525,149 @@ whole-record pass, committed prompt, 16,000-byte budget:
 | 3001 RCVS | 28 | 1.00 | 1.00 | $0.0093 | pass |
 | 3002 knee replacement | 56 | 1.00 | 1.00 | $0.0150 | pass |
 | 3003 pneumomediastinum | 31 | 0.95 | 1.00 | $0.0086 | pass |
+
+# Running the recommended configuration in the application — 2026-09-21
+
+Everything above measured the recommended configuration through
+`compare_openrouter.py` with per-run overrides. The gateway's own defaults and the
+application had never run it. This round closes that gap and corrects two records.
+
+## The defaults contradicted the recommendation
+
+`openrouter_agent.DEFAULTS` still named `qwen/qwen3.5-397b-a17b` on Venice at
+temperature 0.2 with a 180-second response deadline, and a fresh `configure`
+enabled section passes, which both section-pass rounds above rejected. The defaults
+are now the validated configuration: `qwen/qwen3.5-27b`, SiliconFlow, temperature 0,
+reasoning off, single whole-record pass, 420-second deadline. A test pins them.
+
+The deadline was not cosmetic. Every SiliconFlow 27B run above used a 300-second
+deadline and a 50,000-byte budget in **one call** (backfilled into
+`quality/2026-09-18/exploratory-runs.json` from the raw reports, which always
+recorded them). Whole-record 3002 passes measured 176, 180, 206, 208 and 209
+seconds, so the former 180-second default rejects a summary that would have passed.
+
+**Correction:** the "Final validated configuration" table above is headed
+"16,000-byte budget". That is the Java and Ollama adapter default. Those three
+OpenRouter runs used the gateway's 50,000-byte budget and one pass each; they were
+re-run after the host default moved to confirm nothing regressed.
+
+## Application results
+
+After rebuilding the application with the current prompt, the browser check ran
+cold then cached for all three patients through the real gateway (timings in
+[OPENROUTER.md](OPENROUTER.md)). All six runs passed their workflow checks. The
+rendered claims were then scored against the committed ledgers on text alone,
+because the application cites database note numbers rather than the ledger's
+`note-N` IDs, so the date and cross-section duplicate checks were **not** run:
+
+| Patient | Claims | Fact recall | Critical recall | Name/identity leaks | Forbidden assertions |
+| --- | --- | --- | --- | --- | --- |
+| 3001 RCVS | 28 | 1.00 | 11/11 | 0 | 0 |
+| 3002 knee replacement | 58 | 1.00 | 13/13 | 0 | **1** |
+| 3003 pneumomediastinum | 26 | 0.95 | 13/13 | 0 | 0 |
+
+The 3002 finding is `assumed-anticoagulant-switch`, raised by this claim:
+
+> Medication records conflict regarding thromboprophylaxis: note-620 (05/01/26) and
+> note-623 (06/01/26) prescribe Enoxaparin 40 mg SC OD, while note-618 (05/01/26) and
+> note-619 (05/01/26) prescribe Tinzaparin 4,500 units SC OD; no note documents the
+> discontinuation of Tinzaparin or the specific timing of the switch to Enoxaparin.
+
+The claim does what P7 asks: it says the records conflict and that no
+discontinuation is documented. It fails because "the switch to Enoxaparin" matches
+the lexical rule, and the wording does presuppose that a switch occurred. The rule
+is left strict rather than taught to ignore negated context, since loosening a
+safety check to make one run pass is the wrong direction; whether this phrasing is
+acceptable is a clinical judgement. It also shows the final table above rested on
+one 3002 run: at temperature 0 the same configuration produced a gate-passing
+draft on 09-18 and this one on 09-21. 3003 again missed the non-critical
+`conservative-management` fact.
+
+## Repeating the default configuration
+
+Seven uncached repeats of the default configuration through `compare_openrouter.py`,
+scored with `score_nhs_fixture.py` ([run records](quality/2026-09-21/exploratory-runs.json)):
+
+| Run | Patient | Wall | Claims | Fact recall | Critical | Defects | Gate |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| R1 | 3002 | 232 s | 53 | 1.00 | 1.00 | 0 | pass |
+| R2 | 3002 | 284 s | 58 | 1.00 | 1.00 | 0 | pass |
+| R3 | 3002 | 138 s | — | — | — | — | rejected |
+| R4 | 3001 | 271 s | 29 | 1.00 | 1.00 | 0 | pass |
+| R5 | 3001 | 288 s | 29 | 1.00 | 1.00 | 0 | pass |
+| R6 | 3003 | 204 s | 28 | 1.00 | 1.00 | 0 | pass |
+| R7 | 3003 | 258 s | 32 | 0.95 | 1.00 | 0 | pass |
+
+Six of seven pass with no date errors, leaks, forbidden assertions or duplicates.
+Three things follow from the seventh and from the timings.
+
+**The provider dropped one response.** R3 returned 5,179 completion tokens with no
+finish reason. The gateway rejected it as incomplete rather than accept a partial
+draft, which is the intended behaviour, but the call was still billed ($0.0126) and
+malformed content is deliberately not retried, so the clinician would see a failure.
+
+**Latency roughly doubled between sessions.** 3001 took 125 seconds on 09-18 and
+271-288 today with identical settings; OpenRouter's public endpoint catalogue
+reported a non-zero status for SiliconFlow early in this session. Two passing runs finished
+within 16 seconds of a 300-second deadline, so the default is now 420 and the
+permitted ceiling 480, which stays inside the 540-second gateway budget. A slow
+first call leaves no room to retry within that budget.
+
+**The scorer had a false positive.** R1 first failed with two date errors. Both came
+from one claim listing its sources as "note-10/12/13/14/15/18/20", which the
+dd/mm/yy pattern read as the dates 10/12/13 and 14/15/18. Dates inside a longer
+slash run, or with an impossible day or month, are no longer matched. Over all
+1,383 claims in the saved reports only that claim's extracted dates change, and the
+397B section-pass control still reports its three real misdatings.
+
+That same R1 claim is a quality problem the gate does not measure. It reports
+"Medication records conflict regarding the ferrous sulfate regimen" because the
+final discharge note does not repeat a dose two earlier notes prescribed. That is
+an omission, not two conflicting prescriptions, so the P7 same-purpose rule is
+over-firing here. A false conflict costs a clinician attention rather than hiding a
+fact, but it is a second reason P7 needs an unseen record. The eval harness's
+`holdout-anticoagulation` case does not serve: it tests held-versus-restarted
+chronology for one drug, not two drugs prescribed for one purpose.
+
+## Local Ollama at the 16,000-byte default
+
+The same browser check ran 3003, the smallest chart, through the default Ollama
+adapter (`qwen3.5:2b`). This container has no GPU, and the server was deliberately
+limited to three cores at the lowest priority, so timings here say nothing about a
+GPU host. What Ollama's own log shows is still informative:
+
+| Pass | Prompt tokens | Generated | Time | Outcome |
+| --- | --- | --- | --- | --- |
+| 1 | 3,443 | 4,096 | 21 m 11 s | hit the output limit; discarded |
+| 2, after the host halved the input | 2,198 | 1,519 | 14 m 07 s | stopped normally; draft failed validation |
+
+The application then recorded `ClinicalSummary.generateRejected` and left the chart
+extract unchanged, which is the safe outcome. But the first pass at the new budget
+spent its entire 4,096-token output allowance. The 16,000-byte budget was sized
+against the 16,384-token context less the output allowance; it was not checked
+against whether a pass that large can finish *within* the output allowance. For this
+model on this chart it cannot, so the larger budget bought a wasted pass before the
+split. Whether 2B produces a valid draft at any budget is a separate question this
+run does not answer, and the rejection reason is shown only to the clinician, not
+logged. The browser check's 31-minute navigation timeout also expired before the
+request finished. This needs repeating on a GPU host before the 16,000 default is
+trusted for the local adapter.
+
+## The budget floor is enforced on first use, not at startup
+
+The section above says a configuration pinning `http.requestBytes=10000` fails "at
+startup". `ClinicalSummaryAgents.configured()` is called when a clinician first
+presses Generate. Checked in the running application: with the budget pinned to
+10,000 it starts normally, and the first Generate returns in under two seconds with
+"The summary agent is not configured correctly. The chart extract is unchanged."
+No inference is requested and the chart is untouched, so the failure is safe, but
+it is later and less specific than described.
+
+## Build note
+
+`mvn test` failed on a dependency-lock mismatch because `develop` later repacked
+the vendored `ultrabuk-htmltopdf-java` jar (#3543) and the shared `~/.m2` cache held
+those bytes, while this branch's lock expects its own vendored copy. Building with
+a private `-Dmaven.repo.local` holding this branch's jar passes the lock check
+unchanged: **131 tests in the clinical slice pass under Maven**. Rebasing onto
+`develop` removes the mismatch.
