@@ -256,6 +256,9 @@ public class EmailManager {
         } catch (EmailSendingException e) {
             // An uncertain outcome stays at ATTEMPTED. Recording FAILED would assert the message
             // did not go out, which is precisely what this path could not establish.
+            // Unlike ACCEPTED, this runs ahead of the EmailLog write on purpose: a failed send
+            // held at PENDING for a lock wait cannot duplicate a delivered message, and the
+            // archive id is only in scope here.
             if (!e.isDeliveryOutcomeUncertain()) {
                 recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.FAILED);
             }

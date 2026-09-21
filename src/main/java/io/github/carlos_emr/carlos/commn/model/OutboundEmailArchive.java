@@ -342,6 +342,7 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
      * @param providerNo provider number responsible for the send
      */
     public void recordSendAttempt(String providerNo) {
+        requireNotDeleted();
         if (isSendOutcomeObserved()) {
             // An observed outcome is terminal. A late or duplicated attempt marker must not
             // turn it back into "not known" or restamp when the attempt began.
@@ -362,6 +363,7 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
      * @param providerNo provider number responsible for the send
      */
     public void recordSendAccepted(String providerNo) {
+        requireNotDeleted();
         if (isSendOutcomeObserved()) {
             // One archive is one dispatch, so a second outcome contradicts the first rather
             // than updating it. Keep what was observed first: flipping a recorded refusal to
@@ -388,6 +390,7 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
      * @param providerNo provider number responsible for the send
      */
     public void recordSendFailure(String providerNo) {
+        requireNotDeleted();
         if (isSendOutcomeObserved()) {
             // A post-acceptance bookkeeping fault must not rewrite a recorded acceptance, and a
             // repeated failure must not replace the first one's audit stamp.
@@ -404,6 +407,17 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
      * Whether the transport's answer has been recorded. {@code ARCHIVED} and
      * {@code SEND_ATTEMPTED} both mean "not known", so only these two states are terminal.
      */
+    /**
+     * A tombstone is frozen. The service refuses first, under the row lock; this keeps the
+     * invariant on the entity as well, the way the legal hold transitions do, so a future
+     * caller cannot restamp a deleted row by reaching the mutators directly.
+     */
+    private void requireNotDeleted() {
+        if (deleted) {
+            throw new IllegalStateException("Outbound email archive is already deleted");
+        }
+    }
+
     private boolean isSendOutcomeObserved() {
         return SEND_STATUS_ACCEPTED.equals(sendStatus) || SEND_STATUS_SEND_FAILED.equals(sendStatus);
     }

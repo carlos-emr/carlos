@@ -73,7 +73,9 @@ public interface OutboundEmailArchiveService {
      * @param archiveId persisted archive identifier; null means archiving never produced a row,
      *        so there is no lifecycle to advance and the call is a no-op
      * @param outcome lifecycle transition to apply
-     * @return the updated archive, or {@code null} when {@code archiveId} is null
+     * @return the updated archive, or {@code null} when {@code archiveId} is null. It is
+     *         detached once this call's transaction ends: read its scalar fields only, not its
+     *         lazy associations
      * @throws IllegalArgumentException when no archive matches, the outcome is null, or the
      *         caller carries no provider number
      * @throws IllegalStateException when the archive has been deleted; a tombstone is frozen
