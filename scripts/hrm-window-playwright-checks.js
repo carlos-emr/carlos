@@ -32,13 +32,21 @@ function report(inboxWindow = false, inline = false) {
 const dependencies = '<script src="/jquery.js"></script><script>var contextpath="";</script><script src="/hrmActions.js"></script>';
 function inbox(url) {
   const mode = url.searchParams.get('mode') || 'popup';
-  const target = '/report' + (mode === 'coop' ? '?coop=1' : mode === 'chart' ? '?chart=1' : '');
+  const target = '/report' + (mode === 'coop' ? '?coop=1' : ['chart', 'cached'].includes(mode) ? '?chart=1' : '');
   const controls = `<button id="open" onclick="window.open('${target}', '_blank', 'width=800,height=700')">Open HRM</button>`;
   if (mode === 'legacy') {
     return dependencies + `<script>function refreshCategoryList(){document.getElementById('refreshed').textContent='yes';}</script>
       <span id="refreshed"></span><div id="labdoc_7" data-lab-type="HL7">Other lab</div>
       <div id="labdoc_7" data-lab-type="HRM">${report(false, true)}</div>`;
   }
+  // Model a page loaded before revoke support: its listener only understands acknowledgements.
+  const staleStart = inboxScript.indexOf("            if (event && event.data && event.data.action === 'hrm-revoked')");
+  const staleEnd = inboxScript.indexOf('            // Senders post', staleStart);
+  assert(staleStart >= 0 && staleEnd > staleStart);
+  const listenerScript = mode === 'cached'
+    ? inboxScript.slice(0, staleStart) + inboxScript.slice(staleEnd)
+      + '\nwindow.refreshInboxhubAfterHrmRevoke = undefined;'
+    : inboxScript;
   return dependencies + `<form id="inboxSearchForm" method="post" action="/inbox">
       <input name="filter" value="kept"></form>
     <input id="totalHRMCount" value="${signed ? 1 : 2}"><input id="totalResultsCount" value="${signed ? 2 : 3}">
@@ -52,7 +60,7 @@ function inbox(url) {
       function showInboxhubStats() {}
       function fetchInboxhubData(){throw new Error('Unexpected full list fetch');}
       function openNextInboxItem() {}
-      ${inboxScript}
+      ${listenerScript}
     </script>`;
 }
 const server = http.createServer(async (req, res) => {
@@ -94,13 +102,14 @@ async function main() {
   const base = `http://127.0.0.1:${server.address().port}`;
   const browser = await chromium.launch(getLaunchOptions(process.env.CHROME_BIN));
   try {
-    for (const mode of ['popup', 'coop', 'fallback', 'iframe', 'legacy', 'chart', 'failure']) {
+    for (const mode of ['popup', 'coop', 'fallback', 'iframe', 'legacy', 'chart', 'cached', 'failure']) {
       signed = false; fail = mode === 'failure'; mutations = 0; reloads = 0;
       const context = await browser.newContext();
       const errors = [];
       context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
       if (mode === 'fallback') await context.addInitScript(() => { window.BroadcastChannel = undefined; });
       const page = await context.newPage();
+      // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this fixture's bound 127.0.0.1 server; mode is from the fixed scenario array above, with no external URL input
       await page.goto(`${base}/inbox?mode=${mode}`);
       let viewer;
       if (mode === 'iframe') {
@@ -132,11 +141,11 @@ async function main() {
         assert.equal(await page.locator('[data-lab-type="HRM"]').count(), 1);
         assert.equal(await page.locator('[data-segment-id="8"]').count(), 1);
         assert.equal(await page.locator('[data-lab-type="HL7"]').count(), 1);
-        if (mode === 'chart') {
+        if (mode === 'chart' || mode === 'cached') {
           assert(!viewer.isClosed());
           await viewer.locator('#signoff7').click();
           await page.waitForFunction(() => document.getElementById('totalHRMCount').value === '2');
-          assert.equal(reloads, 1);
+          assert.equal(reloads, mode === 'cached' ? 0 : 1);
           assert(!viewer.isClosed());
           await viewer.locator('#signoff7').click();
           await page.waitForFunction(() => document.getElementById('totalHRMCount').value === '1');
@@ -145,7 +154,7 @@ async function main() {
           if (!viewer.isClosed()) await viewer.waitForEvent('close');
         }
       }
-      assert.equal(mutations, mode === 'chart' ? 3 : mode === 'failure' ? 2 : 1);
+      assert.equal(mutations, ['chart', 'cached'].includes(mode) ? 3 : mode === 'failure' ? 2 : 1);
       assert.deepEqual(errors, []);
       console.log(`PASS ${mode}: real AJAX, window lifecycle and inbox state`);
       await context.close();

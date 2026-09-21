@@ -568,5 +568,21 @@ test('an unparseable successful reply requires reconciliation before retry', () 
   assert.match(status.textContent, /Unable to confirm.*Refresh this report and inbox/);
   assert.equal(broadcasts.length, 0);
   assert.equal(closed.length, 0);
-  assert(!status.textContent.includes('<script>'));
+  assert.equal(status.textContent, "Unable to confirm the change. Refresh this report and inbox before trying again.");
+});
+
+test('revocation reloads a cached older inbox even when broadcasting succeeds', () => {
+  let reloads = 0;
+  const {context, requests, broadcasts, closed} = setup({
+    elements: {signoff7: element(), hrmdoc_7: inboxWindowCard()},
+    windowShape: {opener: {
+      dropAcknowledgedInboxhubItem() { throw new Error('must not acknowledge a revoke'); },
+      location: {reload() { reloads++; }},
+    }},
+  });
+  context.revokeSignOffHrm('7');
+  requests[0].success({success: true, message: 'Success', clearedCount: 0});
+  assert.equal(broadcasts.length, 1);
+  assert.equal(reloads, 1);
+  assert.equal(closed.length, 0);
 });

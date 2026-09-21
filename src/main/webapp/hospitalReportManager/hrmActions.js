@@ -243,7 +243,10 @@ function dropFromInboxhubDirectly(reportId, clearedCount, broadcastSent, revoked
         // The legacy oscarMDS inbox has no listener on that channel, so it is told directly
         // whether or not the broadcast went out. A modern Inboxhub that already heard it must
         // NOT be driven again: its listener does the whole job, including the re-fetch.
-        if (broadcastSent && !legacyInbox) {
+        // A cached Inboxhub cannot interpret the revoke message. Even when broadcasting
+        // works, retain the full reload fallback for a reachable page without the helper.
+        if (broadcastSent && !legacyInbox
+                && (!revoked || typeof inbox.refreshInboxhubAfterHrmRevoke === 'function')) {
             return true;
         }
         var handledInPlace = false;
