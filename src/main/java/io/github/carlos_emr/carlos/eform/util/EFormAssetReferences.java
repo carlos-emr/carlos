@@ -96,16 +96,20 @@ public final class EFormAssetReferences {
     static final String IMAGE_PATH_MARKER = "${oscar_image_path}";
 
     /**
-     * Matches an {@code src} assignment and captures its quoted value.
+     * Matches an HTML {@code src} attribute and captures its quoted value.
      *
      * <p>Deliberately not an HTML parse. Re-serializing two decades of hand-authored clinic markup
      * through a parser to change one attribute risks changing everything else on the page, and
-     * these forms are exactly the input least able to survive normalization. The pattern also
-     * intentionally matches a JavaScript assignment ({@code img.src = "stamp.png"}) as well as an
-     * HTML attribute: legacy forms build asset URLs both ways and both need the same rewrite.</p>
+     * these forms are exactly the input least able to survive normalization. The whitespace before
+     * {@code src} excludes {@code data-src} and {@code x-src}, which can carry non-resource data.</p>
      */
-    private static final Pattern SRC_REFERENCE = Pattern.compile(
-            "\\b(src)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
+    private static final Pattern HTML_SRC_REFERENCE = Pattern.compile(
+            "<[A-Za-z][^<>]{0,4096}?\\s+(src)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
+            Pattern.CASE_INSENSITIVE);
+
+    /** A dotted JavaScript property assignment, not a standalone variable called {@code src}. */
+    private static final Pattern JS_SRC_REFERENCE = Pattern.compile(
+            "\\.(src)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -113,7 +117,7 @@ public final class EFormAssetReferences {
      * the same name happens to exist in the shared asset directory.
      */
     private static final Pattern LINK_HREF_REFERENCE = Pattern.compile(
-            "(<link\\b[^>]{0,4096}?\\bhref)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
+            "<link\\b[^<>]{0,4096}?\\s+(href)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -126,7 +130,7 @@ public final class EFormAssetReferences {
      * excluding them here would strand exactly the assets that need the marker most.</p>
      */
     private static final Pattern BARE_FILENAME = Pattern.compile(
-            "[A-Za-z0-9._~%+, ()\\[\\]-]{1,200}\\.[A-Za-z0-9]{1,10}");
+            "[A-Za-z0-9._~, ()\\[\\]-]{1,200}\\.[A-Za-z0-9]{1,10}");
 
     /**
      * Upper bound on distinct candidate names resolved per call. A pathological document cannot
@@ -161,7 +165,8 @@ public final class EFormAssetReferences {
         }
 
         Map<String, Boolean> resolved = new HashMap<>();
-        return rewriteReferences(rewriteReferences(html, SRC_REFERENCE, resolved, assetExists),
+        return rewriteReferences(rewriteReferences(rewriteReferences(html, HTML_SRC_REFERENCE,
+                resolved, assetExists), JS_SRC_REFERENCE, resolved, assetExists),
                 LINK_HREF_REFERENCE, resolved, assetExists);
     }
 
@@ -175,7 +180,7 @@ public final class EFormAssetReferences {
             String value = matcher.group(4);
             String replacement = matcher.group();
             if (isCandidate(value) && isServable(value, resolved, assetExists)) {
-                replacement = matcher.group(1) + matcher.group(2) + matcher.group(3)
+                replacement = matcher.group().substring(0, matcher.start(4) - matcher.start())
                         + IMAGE_PATH_MARKER + value + matcher.group(3);
                 changed = true;
             }
@@ -207,7 +212,10 @@ public final class EFormAssetReferences {
                 || trimmed.indexOf('$') >= 0 || trimmed.indexOf('{') >= 0) {
             return false;
         }
-        return BARE_FILENAME.matcher(trimmed).matches();
+        // Percent and plus need query-component encoding that setImagePath does not currently do.
+        // Rewriting them would turn an exact ZIP filename into a different asset request.
+        return BARE_FILENAME.matcher(trimmed).matches()
+                && EFormAssetContentType.forFilename(trimmed).isPresent();
     }
 
     private static boolean isServable(String name, Map<String, Boolean> resolved,

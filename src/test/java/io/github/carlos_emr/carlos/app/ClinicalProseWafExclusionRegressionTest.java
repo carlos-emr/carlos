@@ -316,6 +316,29 @@ class ClinicalProseWafExclusionRegressionTest {
     }
 
     @Test
+    @DisplayName("saved legacy label variants should bypass only CRS 933210 on POST eForm saves")
+    void shouldLimitLegacyEformLabelVariantExclusion() throws IOException {
+        String rule = readExclusionRule("1047");
+        assertThat(rule)
+                .contains("SecRule REQUEST_URI \"@rx ^/carlos/eform/addEForm(?:[;?]|$)\"")
+                .contains("\"id:1047,phase:1,pass,nolog,chain\"")
+                .contains("SecRule REQUEST_METHOD \"@streq POST\"")
+                .doesNotContain("ctl:ruleRemoveById=")
+                .doesNotContain("ctl:ruleRemoveByTag=")
+                .doesNotContain("ctl:ruleRemoveTargetByTag=");
+
+        List<String> targets = Stream.of(rule.split("\\n"))
+                .map(String::trim)
+                .filter(line -> line.startsWith("ctl:"))
+                .map(line -> line.replaceAll("[,\\\\]+$", "").replace("\"", ""))
+                .toList();
+        assertThat(targets).containsExactlyInAnyOrder(
+                "ctl:ruleRemoveTargetById=933210;ARGS:label2",
+                "ctl:ruleRemoveTargetById=933210;ARGS:Label",
+                "ctl:ruleRemoveTargetById=933210;ARGS:patientlabel");
+    }
+
+    @Test
     @DisplayName("per-row prose fields should be exempted by anchored regex patterns, and nothing broader")
     void shouldExemptPerRowFields_byAnchoredPatternOnly() throws IOException {
         // A regex target is rejected inside a ctl action but accepted by a config-time

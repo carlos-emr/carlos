@@ -47,7 +47,8 @@ class EFormAssetReferencesUnitTest {
     /** Assets the fake eForm asset directory can serve. */
     private static final Predicate<String> PRESENT =
             Set.of("jSignature.min.js", "onBodyLoad_Oct2018.js", "logo.png", "scan (1).png",
-                    "instructions.html", "styles.css")::contains;
+                    "instructions.html", "styles.css", "payload.bin", "logo+stamp.png",
+                    "logo%20stamp.png")::contains;
 
     /** Nothing is servable — the shape every "left as authored" assertion needs. */
     private static final Predicate<String> ABSENT = name -> false;
@@ -199,6 +200,26 @@ class EFormAssetReferencesUnitTest {
         @DisplayName("should leave markup untouched when it carries no references")
         void shouldLeaveMarkupUntouched_whenNoReferencesPresent() {
             String html = "<p>Patient instructions.</p>";
+
+            assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT)).isEqualTo(html);
+        }
+
+        @Test
+        @DisplayName("should leave data-src, x-src, and standalone src variables unchanged")
+        void shouldNotRewriteNonResourceSrcAssignments() {
+            String html = "<img data-src=\"logo.png\" x-src=\"logo.png\">"
+                    + "<script>var src = 'logo.png'; source.src = 'logo.png';</script>";
+
+            assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT))
+                    .isEqualTo("<img data-src=\"logo.png\" x-src=\"logo.png\">"
+                            + "<script>var src = 'logo.png'; source.src = '${oscar_image_path}logo.png';</script>");
+        }
+
+        @Test
+        @DisplayName("should leave unsupported extensions and reserved query characters unchanged")
+        void shouldNotRewriteUnservableOrAmbiguousFilenames() {
+            String html = "<img src=\"payload.bin\"><img src=\"logo+stamp.png\">"
+                    + "<img src=\"logo%20stamp.png\">";
 
             assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT)).isEqualTo(html);
         }
