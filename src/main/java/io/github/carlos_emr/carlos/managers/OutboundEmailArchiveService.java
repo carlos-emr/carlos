@@ -69,7 +69,8 @@ public interface OutboundEmailArchiveService {
      * outcome that could not be recorded leaves the row at its previous state, which is why
      * neither {@code ARCHIVED} nor {@code SEND_ATTEMPTED} may be read as "delivery failed".</p>
      *
-     * @param loggedInInfo current user context for audit logging
+     * @param loggedInInfo current user context: authorizes the write and supplies the row's
+     *        {@code lastUpdateUser}. The transition itself is not audit-logged
      * @param archiveId persisted archive identifier; null means archiving never produced a row,
      *        so there is no lifecycle to advance and the call is a no-op
      * @param outcome lifecycle transition to apply

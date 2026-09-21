@@ -404,10 +404,6 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     }
 
     /**
-     * Whether the transport's answer has been recorded. {@code ARCHIVED} and
-     * {@code SEND_ATTEMPTED} both mean "not known", so only these two states are terminal.
-     */
-    /**
      * A tombstone is frozen. The service refuses first, under the row lock; this keeps the
      * invariant on the entity as well, the way the legal hold transitions do, so a future
      * caller cannot restamp a deleted row by reaching the mutators directly.
@@ -418,6 +414,10 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         }
     }
 
+    /**
+     * Whether the transport's answer has been recorded. {@code ARCHIVED} and
+     * {@code SEND_ATTEMPTED} both mean "not known", so only these two states are terminal.
+     */
     private boolean isSendOutcomeObserved() {
         return SEND_STATUS_ACCEPTED.equals(sendStatus) || SEND_STATUS_SEND_FAILED.equals(sendStatus);
     }

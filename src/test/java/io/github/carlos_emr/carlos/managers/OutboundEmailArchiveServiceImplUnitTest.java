@@ -1455,6 +1455,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         stubArchiveLookup(archive);
         service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
         java.util.Date attemptedAt = archive.getSendAttemptedAt();
+        // Backfilled by ACCEPTED, since no attempt marker was written. Without this the
+        // identity check below would hold trivially on null.
+        assertThat(attemptedAt).isNotNull();
 
         service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
 
@@ -1470,12 +1473,15 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         OutboundEmailArchive archive = archiveUnderLegalHold();
         stubArchiveLookup(archive);
         service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+        java.util.Date attemptedAt = archive.getSendAttemptedAt();
+        assertThat(attemptedAt).isNotNull();
 
         service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
         service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
 
         assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_FAILED);
         assertThat(archive.getSentAt()).isNull();
+        assertThat(archive.getSendAttemptedAt()).isSameAs(attemptedAt);
     }
 
     @Test
@@ -1516,6 +1522,22 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(archive.getSentAt()).isNull();
         assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
         verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
+    }
+
+    @Test
+    @DisplayName("should refuse every lifecycle mutator on a deleted entity")
+    void shouldRefuseLifecycleMutators_whenEntityIsDeleted() {
+        // The service refuses first, so its test passes through either guard. This pins the
+        // entity's own, which is what protects a caller that reaches the mutators directly.
+        OutboundEmailArchive archive = archiveForDeletion();
+        archive.markDeleted("999001", "duplicate send");
+
+        assertThatThrownBy(() -> archive.recordSendAttempt(PROVIDER_NO)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> archive.recordSendAccepted(PROVIDER_NO)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> archive.recordSendFailure(PROVIDER_NO)).isInstanceOf(IllegalStateException.class);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
+        assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
     }
 
     /**

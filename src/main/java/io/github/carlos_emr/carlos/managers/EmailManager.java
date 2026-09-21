@@ -256,6 +256,7 @@ public class EmailManager {
         } catch (EmailSendingException e) {
             // An uncertain outcome stays at ATTEMPTED. Recording FAILED would assert the message
             // did not go out, which is precisely what this path could not establish.
+            //
             // Unlike ACCEPTED, this runs ahead of the EmailLog write on purpose: a failed send
             // held at PENDING for a lock wait cannot duplicate a delivered message, and the
             // archive id is only in scope here.
@@ -282,8 +283,8 @@ public class EmailManager {
     /**
      * Advances the archive's send lifecycle without ever changing the send's own outcome.
      *
-     * <p>Strictly best-effort, which is also why this never throws: the ACCEPTED call sits
-     * outside any catch. By the time the ACCEPTED transition runs the message is already
+     * <p>Strictly best-effort, which is also why this never throws: nothing around the
+     * ACCEPTED call would absorb a RuntimeException. By the time the ACCEPTED transition runs the message is already
      * with the transport, so a bookkeeping fault here must not turn a delivered email into a
      * reported failure — that would prompt a clinician to send a duplicate. A transition that
      * cannot be written leaves the row at its previous state, which the lifecycle constants

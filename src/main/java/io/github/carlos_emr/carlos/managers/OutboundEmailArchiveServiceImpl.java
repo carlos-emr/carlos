@@ -405,7 +405,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         outboundEmailArchiveDao.merge(archive);
 
         // Deliberately not audited through LogAction. The send is already audited by EmailManager,
-        // and three lifecycle rows per email would bury the entries that record access to patient
+        // and two more lifecycle rows per email would bury the entries that record access to patient
         // data without adding anything the archive row does not already state.
         return archive;
     }
