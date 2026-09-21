@@ -302,7 +302,7 @@ function ex(command,value){
 function editControlContents(editorname, allowPendingMeasurements) {
 	// Template expansion reads content too; only those internal reads may bypass
 	// the save/print gate so changing a template still completes while a request runs.
-	if (!allowPendingMeasurements) { assertMeasurementHistoryReady(); }
+	if (!allowPendingMeasurements) { cancelPendingFaxSubmission(); assertMeasurementHistoryReady(); }
 	var value = "";
 	// HARD STOP: the stored letter never made it into the editor (see seteditControlContents'
 	// fallback branch). Every caller of this function feeds its result to a save, so returning the
@@ -449,7 +449,8 @@ function loadDefaultTemplate() {
 	// Loading it replaces the document; any outstanding insertion then fails
 	// visibly so the user can retry against the fully loaded template.
 	var content = editControlContents(cfg_editorname, true).replace(/<!--RTL measurement insertion-->/g, '');
-	if (content.trim() != '') { return; }
+	if (content.trim() != '') { measureInitialTemplateLoading = false; return; }
+	measureInitialTemplateLoading = true;
 	// Invalidate markers before navigation starts, including a fast REST response.
 	document.getElementById(cfg_editorname).contentDocument.body.textContent = '';
 	if (existsTemplate(cfg_template)) {
@@ -460,14 +461,14 @@ function loadDefaultTemplate() {
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
-		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
+		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
 	} else {
 		var blankTemplate = '<html><head><title>Blank Document Template</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"><style type=\"text/css\">body {font-size: 1em; font-family:\"Times New Roman\", Times, serif; background-color: #FFFFFF;}</style><style type=\"text/css\" media=\"print\">* {color: #000000;}.DoNotPrint {display: none;}</style></head><body contenteditable onLoad=\"document.designMode = \'on\';\"></body></html>';
 		var blankFrame = document.getElementById(cfg_editorname);
 		// srcdoc navigates the iframe too, so the listener has to follow the new Window here as well.
-		blankFrame.onload = function() { enableEditorDesignMode(); attachDirtyFlagListener(); };
+		blankFrame.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); attachDirtyFlagListener(); };
 		blankFrame.srcdoc = blankTemplate;
 	}
 }
@@ -488,7 +489,7 @@ function loadTemplate(selectname){
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
-		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
+		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
     	}
@@ -744,6 +745,7 @@ function doTable() {
 }
 
 function doExport() {
+	cancelPendingFaxSubmission();
 	assertMeasurementHistoryReady();
 	var blob = new Blob([document.getElementById('edit').contentWindow.document.documentElement.outerHTML], { type: 'text/html;charset=utf-8'}); 
 	saveAs(blob, document.getElementById('subject').value+'.rtl');
@@ -765,7 +767,16 @@ function doBreak(){
 }
 
 function viewsource(source) {
-	assertMeasurementHistoryReady();
+	cancelPendingFaxSubmission();
+	// Switching representation invalidates pending insertion points. Remove the
+	// comments before producing source text; never leave a checked source toggle
+	// displaying rich text because a guard threw after the checkbox changed.
+	var editorDoc = document.getElementById(cfg_editorname).contentDocument;
+	[pendingMeasureBatch, activeMeasureBatch].concat(measureRequestQueue).forEach(function(batch) {
+		if (batch && batch.document === editorDoc && batch.marker.parentNode) {
+			batch.marker.parentNode.removeChild(batch.marker);
+		}
+	});
 	// load the html into a variable, blank the body, import as text, disable gui
 	var html;
 	if (isIE()){
@@ -898,7 +909,19 @@ function printKey (key) {
 	if (value != null && checkKeyResponse(key)) { doHtml(cache.get(key)); } 		  
 }
 	
+var pendingFaxSubmission = null;
+
+function cancelPendingFaxSubmission() {
+	if (!pendingFaxSubmission) { return; }
+	window.clearTimeout(pendingFaxSubmission.timer);
+	pendingFaxSubmission = null;
+	var faxField = document.getElementById('faxEForm');
+	if (faxField) { faxField.value=false; }
+	window.needToConfirm=true;
+}
+
 function submitFaxButton() {
+	cancelPendingFaxSubmission();
 	assertMeasurementHistoryReady();
 	var faxField = document.getElementById('faxEForm');
 	function serializeFaxLetter() {
@@ -916,7 +939,12 @@ function submitFaxButton() {
 	var letterDocument = document.getElementById(cfg_editorname).contentDocument;
 	var patient = measurementPatientId();
 	serializeFaxLetter();
-	setTimeout(function() {
+	var submission = {timer: null};
+	pendingFaxSubmission = submission;
+	submission.timer = window.setTimeout(function() {
+		// A newer output action owns the form, even if this timer was queued already.
+		if (pendingFaxSubmission !== submission) { return; }
+		pendingFaxSubmission = null;
 		try {
 			if (measureRequestRevision !== revision
 					|| document.getElementById(cfg_editorname).contentDocument !== letterDocument
@@ -1204,6 +1232,7 @@ function submitFaxButton() {
 	 * Note: updateAttached() is defined in the DB-stored form_html, not here.
 	 */
 	function Start() {
+			measureInitialTemplateLoading = true;
 
 			// Load template <option> elements into the template dropdown
 			$.ajax({
@@ -1546,6 +1575,7 @@ var activeMeasureBatch = null;
 var measureBatchesPending = 0;
 var measureBatchFailed = false;
 var measureRequestRevision = 0;
+var measureInitialTemplateLoading = false;
 
 function measurementHistoryStillLoading() {
     return measureBatchesPending > 0;
@@ -1616,6 +1646,11 @@ function getMeasures(measure, max) {
     measureRequestRevision++;
     return new Promise(function(resolve) {
         try {
+            if (measureInitialTemplateLoading) {
+                showMeasurementStatus('The letter template is still loading. Please wait before loading Lab Grid or Vitals.', true);
+                resolve({values: [], dates: [], failed: true});
+                return;
+            }
             var editorFrame = document.getElementById(cfg_editorname);
             if (editorFrame && editorFrame.contentDocument && editorFrame.contentDocument.__rtlSourceMode) {
                 showMeasurementStatus('Switch back from HTML source view before loading Lab Grid or Vitals.', true);
@@ -1735,14 +1770,13 @@ function measurementDateTime(value) {
 }
 
 function measurementMonth(value) {
-    // The REST service's default Jackson date format is epoch milliseconds. Also
-    // accept ISO dates from installations with the optional date serializer.
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        var date = new Date(value);
-        if (!Number.isNaN(date.getTime())) { return date.getFullYear() + '/' + (date.getMonth() + 1); }
-    }
-    var parts = /^(\d{4})-(\d{2})-\d{2}/.exec(String(value || ''));
+    // Calendar-only dates retain their clinical month; timestamps, including
+    // ISO strings with an offset, use the same local month as epoch values.
+    var parts = /^(\d{4})-(\d{2})-\d{2}$/.exec(String(value || ''));
     if (parts) { return parts[1] + '/' + Number(parts[2]); }
+    var timestamp = typeof value === 'number' ? value : Date.parse(value);
+    var date = new Date(timestamp);
+    if (!Number.isNaN(date.getTime())) { return date.getFullYear() + '/' + (date.getMonth() + 1); }
     return 'date unavailable';
 }
 
@@ -1788,14 +1822,22 @@ function insertMeasureBatch(batch, histories) {
     }
 }
 
+function measurementLetterForm() {
+    var editor = document.getElementById(cfg_editorname);
+    return editor && editor.closest ? editor.closest('form') : document.RichTextLetter;
+}
+
 // Legacy forms can print before calling saveRTL(), so intercept their controls in
 // the capture phase. The floating toolbar has its own pre-workflow guard below.
 document.addEventListener('click', function(event) {
-    if (!measurementHistoryStillLoading() || !event.target.closest) { return; }
+    if (!event.target.closest) { return; }
     var control = event.target.closest('input, button');
     if (!control) { return; }
     var outputControl = /^(SubmitButton|PrintButton|PrintSaveButton|PrintSubmitButton|pdfButton|pdfSaveButton)$/;
-    if (control.type === 'submit' || outputControl.test(control.name) || outputControl.test(control.id)) {
+    if ((control.type === 'submit' && control.form === measurementLetterForm())
+            || outputControl.test(control.name) || outputControl.test(control.id)) {
+        if (typeof cancelPendingFaxSubmission === 'function') { cancelPendingFaxSubmission(); }
+        if (!measurementHistoryStillLoading()) { return; }
         window.needToConfirm = true;
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -1803,6 +1845,8 @@ document.addEventListener('click', function(event) {
     }
 }, true);
 document.addEventListener('submit', function(event) {
+    if (event.target !== measurementLetterForm()) { return; }
+    if (typeof cancelPendingFaxSubmission === 'function') { cancelPendingFaxSubmission(); }
     if (measurementHistoryStillLoading()) {
         window.needToConfirm = true;
         event.preventDefault();

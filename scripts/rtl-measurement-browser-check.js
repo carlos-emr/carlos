@@ -46,7 +46,9 @@ async function run() {
       measurementMonth(Date.parse('2026-09-30T23:30:00-07:00')),
       measurementMonth(Date.parse('2026-12-31T23:30:00-08:00')),
       measurementMonth('2026-09-30'),
-    ]),['2026/9','2026/12','2026/9']);
+      measurementMonth('2026-10-01T01:30:00Z'),
+      measurementMonth('2027-01-01T01:30:00Z'),
+    ]),['2026/9','2026/12','2026/9','2026/9','2026/12']);
     assert.equal(await page.evaluate(()=>measurementDateTime('2026-10-01')
       > measurementDateTime(Date.parse('2026-09-30T23:30:00-07:00'))),true);
     // Load after DOMContentLoaded: toolbar initialization needs a server-rendered form,
@@ -71,9 +73,6 @@ async function run() {
       return page.evaluate(()=>window.loaded);
     }
     await begin(['BP','WT']);
-    assert.equal(await page.evaluate(()=>{
-      try {viewsource(true);return false;} catch(error){return /still loading/.test(error.message);}
-    }),true);
     assert.equal(await page.evaluate(()=>{
       window.originalPrompt=window.prompt;window.consentPrompts=0;
       window.prompt=()=>{window.consentPrompts++;return 'No';};
@@ -174,6 +173,25 @@ async function run() {
     await page.evaluate(()=>window.deferredFaxSubmit());
     assert.equal(await page.evaluate(()=>window.faxSubmits),1);
     assert.equal(await page.locator('#faxEForm').inputValue(),'false');
+    // Switching output intent invalidates the old callback even if it was
+    // already queued; exercise real entry points without sending any fax/email.
+    for (const action of ['legacyPrint','toolbarPrint','email','save','export']) {
+      await page.evaluate(()=>{
+        const originalTimer=window.setTimeout;
+        window.setTimeout=callback=>{window.deferredFaxSubmit=callback;return 123;};
+        try {submitFaxButton();} finally {window.setTimeout=originalTimer;}
+      });
+      await page.evaluate(action=>{ // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- action is from the fixed local array above, passed through structured arguments into a literal function; all fixture routes are fulfilled locally or aborted.
+        if (action==='legacyPrint') document.querySelector('[name=PrintSaveButton]').click();
+        if (action==='toolbarPrint') {window.needToConfirm=false;window.remoteSave=()=>false;remotePrint();}
+        if (action==='email') {window.prompt=()=>null;remoteEmail();}
+        if (action==='save') editControlContents('edit');
+        if (action==='export') doExport();
+        window.deferredFaxSubmit();
+      },action); // Fixed action names above; no user input or interpolated code.
+      assert.equal(await page.evaluate(()=>window.faxSubmits),1,action+' cancels delayed fax');
+      assert.equal(await page.locator('#faxEForm').inputValue(),'false');
+    }
     // Source mode may not capture a pending marker or accept rich-text results.
     const beforeSource=await body.innerHTML();
     await page.evaluate(()=>viewsource(true));
@@ -184,6 +202,13 @@ async function run() {
     assert.equal(pending.length,0);
     await page.evaluate(()=>viewsource(false));
     assert.equal(await body.innerHTML(),beforeSource);
+    await begin(['BP']);
+    await page.evaluate(()=>viewsource(true));
+    assert.equal(await body.textContent(),'BEFORE AFTER');
+    assert.equal((await respond({BP:[row('BP','120/80')]}))[0].failed,true);
+    assert.equal(await body.textContent(),'BEFORE AFTER');
+    await page.evaluate(()=>viewsource(false));
+    assert.equal(await body.textContent(),'BEFORE AFTER');
     // Both empty and nonempty measurement results must leave the configured
     // default intact when the initial blank letter is still loading.
     for (const measurements of [{},{BP:[row('BP','120/80')]}]) {
@@ -192,7 +217,9 @@ async function run() {
         doc.body.textContent='';doc.getSelection().removeAllRanges();
         cfg_template='default.rtl';window.loaded=Promise.all([getMeasures('BP',1)]);
         loadDefaultTemplate();
+        window.duringTemplateLoad=getMeasures('WT',1);
       });
+      assert.equal((await page.evaluate(()=>window.duringTemplateLoad)).failed,true);
       await page.waitForFunction(()=>document.getElementById('edit').contentDocument?.body?.textContent==='DEFAULT CONTENT');
       assert.equal((await respond(measurements))[0].failed,true);
       assert.equal(await body.textContent(),'DEFAULT CONTENT');

@@ -106,6 +106,7 @@ let editorLoadingBlockCount = 0;
  * clinician to "wait" forever. The (visible) alert is raised here so callers stay simple.
  */
 function editorStillLoading() {
+    if (typeof window.cancelPendingFaxSubmission === 'function') { window.cancelPendingFaxSubmission(); }
     // Measurement loads must settle before any save/download/fax workflow flags or spinner.
     if (typeof window.measurementHistoryStillLoading === 'function' && window.measurementHistoryStillLoading()) {
         window.needToConfirm = true;
@@ -554,6 +555,7 @@ function setHiddenFormInput(id, name, value) {
  * workflow (e.g. a stale faxEForm=true making a later Save enter the fax path).
  */
 function clearWorkflowFlags() {
+    if (typeof window.cancelPendingFaxSubmission === 'function') { window.cancelPendingFaxSubmission(); }
     // Scoped to toolbar-created nodes only (see setHiddenFormInput). Never select by bare id: the
     // surrounding eForm is author-supplied HTML and may own an element of the same name.
     document.querySelectorAll('[data-carlos-workflow-flag]').forEach(function (el) {

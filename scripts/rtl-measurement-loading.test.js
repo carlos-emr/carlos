@@ -44,6 +44,7 @@ function documentFixture() {
 }
 function setup() {
   const document = documentFixture(); const contentDocument = documentFixture();
+  document.RichTextLetter=document.createElement('form');
   const frame = document.createElement('iframe'); frame.id = 'edit'; frame.contentDocument = contentDocument; document.body.appendChild(frame);
   const patient = document.createElement('input'); patient.id = 'demographicNo'; patient.value = '17'; document.body.appendChild(patient);
   const requests = []; const alerts = []; let dirty = 0;
@@ -186,10 +187,10 @@ test('legacy Print controls and submit events are blocked before inline handlers
     }
   }
   f.context.window.needToConfirm=false;
-  f.document.listeners.submit(events[0]); assert.equal(blocked,26);
+  f.document.listeners.submit({...events[0],target:f.document.RichTextLetter}); assert.equal(blocked,26);
   assert.equal(f.context.window.needToConfirm,true);
   await delay(5); f.requests[0].respond({}); await p;
-  events.forEach(event=>f.document.listeners.click(event)); f.document.listeners.submit(events[0]); assert.equal(blocked,26);
+  events.forEach(event=>f.document.listeners.click(event)); f.document.listeners.submit({...events[0],target:f.document.RichTextLetter}); assert.equal(blocked,26);
 });
 
 test('the floating toolbar blocks before its existing save/download workflow starts', async () => {
@@ -219,3 +220,24 @@ for (const throws of [false,true]) {
     assert.equal((f.contentDocument.body.textContent.match(/120\/80/g)||[]).length,1);
   });
 }
+
+test('measurement loading does not block an unrelated form submission', async () => {
+  const f=setup();const p=f.context.getMeasures('BP',1);let blocked=0;
+  const unrelated=f.document.createElement('form');
+  const event={target:unrelated,preventDefault:()=>blocked++,stopImmediatePropagation:()=>blocked++};
+  f.document.listeners.submit(event);
+  f.document.listeners.click({...event,target:{closest:()=>({type:'submit',form:unrelated})}});
+  assert.equal(blocked,0);
+  await delay(5);f.requests[0].respond({});await p;
+});
+
+test('initial template setup finishes before accepting measurement requests', async () => {
+  const f=setup();f.context.measureInitialTemplateLoading=true;
+  assert.equal((await f.context.getMeasures('BP',1)).failed,true);
+  assert.equal(f.requests.length,0);assert.equal(f.context.measurementHistoryStillLoading(),false);
+  assert.match(notice(f),/template is still loading/);
+  f.context.measureInitialTemplateLoading=false;
+  const p=f.context.getMeasures('BP',1);await delay(5);
+  f.requests[0].respond({BP:[row('BP','120/80')]});
+  assert.equal((await p).failed,undefined);assert.equal(notice(f),'');
+});
