@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Enumeration;
 import java.util.Locale;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.owasp.csrfguard.CsrfGuard;
 
 /**
  * Shared HTTP request/content negotiation predicates used by security-sensitive filters.
@@ -26,11 +27,17 @@ public final class RequestNegotiation {
     private static final String AJAX_HEADER = "X-Requested-With";
     private static final String AJAX_VALUE = "XMLHttpRequest";
     /**
-     * Marker CSRFGuard's client script stamps on every XHR it hijacks. It is the value of
-     * {@code org.owasp.csrfguard.JavascriptServlet.xRequestedWith} in
-     * {@code src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties}; keep the two in step.
+     * Fallback for the marker CSRFGuard's client script stamps on every XHR it hijacks: the
+     * shipped value of {@code org.owasp.csrfguard.JavascriptServlet.xRequestedWith} in
+     * {@code src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties}.
+     *
+     * <p>Used only when the running configuration cannot be read — see
+     * {@link #csrfGuardAjaxMarker()}. An installation that overrides the property in
+     * {@code Owasp.CsrfGuard.overlay.properties} is honoured by reading it at runtime, because a
+     * hard-coded copy would stop matching and every {@code carlos-ajax.js} request on that
+     * installation would be classified as a browser page request again.</p>
      */
-    private static final String CSRFGUARD_AJAX_VALUE = "OWASP CSRFGuard Project";
+    private static final String CSRFGUARD_DEFAULT_AJAX_VALUE = "OWASP CSRFGuard Project";
     private static final String HTML_CONTENT_TYPE = "text/html";
     private static final String JSON_ACCEPT = "application/json";
 
@@ -63,31 +70,70 @@ public final class RequestNegotiation {
         if (request == null) {
             return false;
         }
+        // Resolved once per request rather than per header line: it reads a singleton's field,
+        // but there is no reason to do it repeatedly.
+        String csrfGuardMarker = csrfGuardAjaxMarker();
+
         // Repeated header lines are as legal as one combined line; check both shapes.
         Enumeration<String> headerValues = request.getHeaders(AJAX_HEADER);
         if (headerValues == null) {
-            return containsAjaxMarker(request.getHeader(AJAX_HEADER));
+            return containsAjaxMarker(request.getHeader(AJAX_HEADER), csrfGuardMarker);
         }
         boolean sawAny = false;
         while (headerValues.hasMoreElements()) {
             sawAny = true;
-            if (containsAjaxMarker(headerValues.nextElement())) {
+            if (containsAjaxMarker(headerValues.nextElement(), csrfGuardMarker)) {
                 return true;
             }
         }
-        return sawAny ? false : containsAjaxMarker(request.getHeader(AJAX_HEADER));
+        return sawAny ? false : containsAjaxMarker(request.getHeader(AJAX_HEADER), csrfGuardMarker);
     }
 
-    /** Tests one {@code X-Requested-With} header line for a recognised XHR marker. */
+    /**
+     * The marker CSRFGuard's client script is actually configured to send.
+     *
+     * <p>Read from the running CSRFGuard rather than copied, because this application uses
+     * {@code ConfigurationAutodetectProviderFactory} and therefore honours
+     * {@code Owasp.CsrfGuard.overlay.properties}: an installation may override
+     * {@code JavascriptServlet.xRequestedWith}, and {@code carlos-ajax.js} then sends only that
+     * value. A hard-coded copy would miss it, and every such request would be treated as a
+     * browser page request — the whole fault this predicate exists to prevent.</p>
+     *
+     * <p>Falls back to the shipped default when CSRFGuard is not initialised, which is the case
+     * in unit tests and during early startup.</p>
+     */
+    private static String csrfGuardAjaxMarker() {
+        try {
+            String configured = CsrfGuard.getInstance().getJavascriptXrequestedWith();
+            if (configured != null && !configured.isBlank()) {
+                return configured;
+            }
+        } catch (RuntimeException | LinkageError e) {
+            // Not initialised yet, or no configuration on the classpath. The default below is
+            // still correct for every installation that has not overridden the property.
+        }
+        return CSRFGUARD_DEFAULT_AJAX_VALUE;
+    }
+
+    /**
+     * Tests one {@code X-Requested-With} header line for a recognised XHR marker.
+     *
+     * <p>The shipped default is accepted alongside the configured marker. On an installation
+     * that has overridden the property the default can no longer arrive from CSRFGuard itself,
+     * and accepting it costs only the response decoration on a request that deliberately sent
+     * it — never a CSRF check, which is validated separately.</p>
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static boolean containsAjaxMarker(String headerValue) {
+    private static boolean containsAjaxMarker(String headerValue, String csrfGuardMarker) {
         if (headerValue == null) {
             return false;
         }
         for (String marker : headerValue.split(",")) {
             String trimmed = marker.trim();
-            if (AJAX_VALUE.equalsIgnoreCase(trimmed) || CSRFGUARD_AJAX_VALUE.equalsIgnoreCase(trimmed)) {
+            if (AJAX_VALUE.equalsIgnoreCase(trimmed)
+                    || CSRFGUARD_DEFAULT_AJAX_VALUE.equalsIgnoreCase(trimmed)
+                    || csrfGuardMarker.equalsIgnoreCase(trimmed)) {
                 return true;
             }
         }

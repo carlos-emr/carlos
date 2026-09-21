@@ -29,7 +29,7 @@ const source = fs.readFileSync(
  * @param {Object} options.windowShape extra window/self properties (opener, parent, close)
  * @return {Object} the VM context, plus `requests` and `broadcasts` recorders
  */
-function setup({elements = {}, windowShape = {}} = {}) {
+function setup({elements = {}, windowShape = {}, noBroadcastChannel = false} = {}) {
   const requests = [];
   const broadcasts = [];
   const closed = [];
@@ -63,10 +63,12 @@ function setup({elements = {}, windowShape = {}} = {}) {
     self: windowStub,
     contextpath: '/carlos',
     console: {error() {}},
-    BroadcastChannel: function (name) {
-      this.postMessage = message => broadcasts.push({name, message});
-      this.close = () => {};
-    },
+    BroadcastChannel: noBroadcastChannel
+      ? function () { throw new TypeError('BroadcastChannel is not defined'); }
+      : function (name) {
+          this.postMessage = message => broadcasts.push({name, message});
+          this.close = () => {};
+        },
   });
   vm.runInContext(source, context);
   return {context, requests, broadcasts, closed, elements, disabled};
@@ -145,8 +147,45 @@ test('sign-off notifies the Inboxhub without needing any listView flag', () => {
     name: 'inboxhub-refresh',
     message: {action: 'refresh', segmentID: '7', labType: 'HRM', clearedCount: 1},
   }]);
-  assert.deepEqual(dropped, [['7', 'HRM', 1], ['refetch']]);
+  // The broadcast owns the modern Inboxhub. Driving it directly as well notified it twice:
+  // with unloaded pages left the direct drop answers false and re-fetches, that re-fetch
+  // clears the handled record, and the listener then re-fetches too — two whole searches.
+  assert.deepEqual(dropped, [], 'a broadcast-reachable Inboxhub is not also driven directly');
   assert.equal(closed.length, 1, 'a popup closes itself after sign-off');
+});
+
+test('the direct route still runs when BroadcastChannel is unavailable', () => {
+  const dropped = [];
+  const opener = {
+    dropAcknowledgedInboxhubItem: (id, type, count) => { dropped.push([id, type, count]); return true; },
+    fetchInboxhubData: () => dropped.push(['refetch']),
+  };
+  const {context, requests} = setup({
+    elements: {signoff7: element(), hrmdoc_7: inboxWindowCard()},
+    windowShape: {opener},
+    noBroadcastChannel: true,
+  });
+
+  context.signOffHrm('7');
+  requests[0].success({success: true, message: 'Success', clearedCount: 1});
+
+  assert.deepEqual(dropped, [['7', 'HRM', 1]],
+    'with no channel the direct route is the only one, and an in-place drop needs no re-fetch');
+});
+
+test('the legacy inbox is refreshed directly even when the broadcast went out', () => {
+  // oscarMDS has no listener on that channel, so the broadcast never reaches it.
+  const calls = [];
+  const {context, requests, broadcasts} = setup({
+    elements: {signoff7: element()},
+    windowShape: {opener: {refreshCategoryList: () => calls.push('refresh')}},
+  });
+
+  context.signOffHrm('7');
+  requests[0].success({success: true, message: 'Success', clearedCount: 1});
+
+  assert.equal(broadcasts.length, 1);
+  assert.deepEqual(calls, ['refresh'], 'the legacy inbox is told directly regardless');
 });
 
 test('a sign-off that cleared no routing row does not move the inbox badge', () => {
@@ -164,7 +203,8 @@ test('a sign-off that cleared no routing row does not move the inbox badge', () 
   requests[0].success({success: true, message: 'Success', clearedCount: 0});
 
   assert.equal(plain(broadcasts)[0].message.clearedCount, 0);
-  assert.deepEqual(dropped, [['7', 'HRM', 0]]);
+  // Carried by the broadcast, which owns the modern Inboxhub; the direct route stands down.
+  assert.deepEqual(dropped, []);
 });
 
 test('the legacy oscarMDS inbox is refreshed, never asked to remove a row by bare id', () => {

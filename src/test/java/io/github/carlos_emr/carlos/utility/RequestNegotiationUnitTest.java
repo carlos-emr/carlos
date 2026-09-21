@@ -60,6 +60,19 @@ class RequestNegotiationUnitTest {
     }
 
     @Test
+    @DisplayName("should fall back to the shipped marker when CSRFGuard is not initialised")
+    void shouldFallBackToShippedMarker_whenCsrfGuardIsNotInitialised() {
+        // The marker is read from the running CSRFGuard so an installation overriding
+        // JavascriptServlet.xRequestedWith in Owasp.CsrfGuard.overlay.properties is honoured.
+        // Nothing initialises CSRFGuard in a unit test, so this exercises the fallback: the
+        // predicate must still work rather than throwing out of a filter.
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-Requested-With", "OWASP CSRFGuard Project");
+
+        assertThat(RequestNegotiation.isAjax(request)).isTrue();
+    }
+
+    @Test
     @DisplayName("should not detect AJAX when no recognised marker is present")
     void shouldNotDetectAjax_whenNoRecognisedMarkerIsPresent() {
         MockHttpServletRequest request = new MockHttpServletRequest();

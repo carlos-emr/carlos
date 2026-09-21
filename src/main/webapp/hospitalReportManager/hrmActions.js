@@ -158,7 +158,14 @@ function updateSignOffButton(reportId, isSign) {
  *                 badge anyway walks it below the truth until a full page reload.
  */
 function notifyInboxhubAfterHrmSignOff(reportId, clearedCount) {
-    dropFromInboxhubDirectly(reportId, clearedCount);
+    // Broadcast FIRST, then tell directly only what the broadcast cannot reach.
+    //
+    // Doing both unconditionally notified a modern Inboxhub twice. With unloaded pages left,
+    // dropAcknowledgedInboxhubItem answers false, so the direct route re-fetched; that calls
+    // resetDataPageCount(), which calls forgetHandledInboxhubItems(); the broadcast listener
+    // then found no handled marker, answered false in its turn and started a SECOND full
+    // fetch. Two whole searches for one sign-off, which is the cost #3826 removed.
+    var broadcast = false;
     try {
         const bc = new BroadcastChannel('inboxhub-refresh');
         bc.postMessage({
@@ -168,9 +175,11 @@ function notifyInboxhubAfterHrmSignOff(reportId, clearedCount) {
             clearedCount: clearedCount
         });
         bc.close();
+        broadcast = true;
     } catch (e) {
-        // BroadcastChannel unsupported; the direct route above is all there is.
+        // BroadcastChannel unsupported; the direct route below is all there is.
     }
+    dropFromInboxhubDirectly(reportId, clearedCount, broadcast);
 }
 
 /**
@@ -187,7 +196,7 @@ function notifyInboxhubAfterHrmSignOff(reportId, clearedCount) {
  * one visible until the list reloads — the server already filters signed-off reports out of it.
  * refreshCategoryList() re-fetches the counts, which is the part that cannot wait.
  */
-function dropFromInboxhubDirectly(reportId, clearedCount) {
+function dropFromInboxhubDirectly(reportId, clearedCount, broadcastSent) {
     var segmentId = String(reportId);
     try {
         // The Inboxhub can be told exactly which item and how many rows; it is preferred wherever
@@ -216,6 +225,12 @@ function dropFromInboxhubDirectly(reportId, clearedCount) {
         }
         if (!inbox) {
             return false;
+        }
+        // The legacy oscarMDS inbox has no listener on that channel, so it is told directly
+        // whether or not the broadcast went out. A modern Inboxhub that already heard it must
+        // NOT be driven again: its listener does the whole job, including the re-fetch.
+        if (broadcastSent && !legacyInbox) {
+            return true;
         }
         var handledInPlace = false;
         if (legacyInbox) {
