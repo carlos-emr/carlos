@@ -49,6 +49,15 @@ values and saying the host restored it. A date a claim asserts that none of its
 cited notes carries (their own date, a date written in them, or a stated tomorrow or
 48 hours) is recorded as a `date_not_in_cited_sources` validation warning.
 
+Where the site supplies a drug-class table (`CARLOS_DRUG_CLASSES`, a JSON map of drug
+name to ATC code derived from its drug reference database and not committed, because
+the ATC classification belongs to the WHO Collaborating Centre), the host also finds
+two drugs of one ATC chemical subgroup that are each ordered in the record with no
+note recording a stop or switch. If no claim reports that conflict, the host states it
+as a claim with ID `host-med-N` under Medications and allergies, and a claim that
+describes a switch no note records gets an `undocumented_medication_change` warning.
+With no table the check is skipped. The Java host does not apply this check yet.
+
 Validation severity is `pass`, `warning` or `error`. Source IDs may be empty
 for structural findings; any supplied IDs must resolve. Error findings suppress
 the summary. The UI labels artifact findings separately from runtime structural

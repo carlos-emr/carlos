@@ -69,6 +69,12 @@ def build_artifact(bundle, generated, model, artifact_id, timestamp, allow_empty
                          + ", which none of its cited notes carries (" + ", ".join(finding["allowed"]) + ").",
               "source_ids": finding["source_ids"]}
              for finding in host_checks.date_findings(generated, bundle["sources"])]
+        + [{"severity": "warning", "code": "undocumented_medication_change",
+            "message": "Statement " + finding["claim_id"] + " describes a switch or change between "
+                       + " and ".join(finding["drugs"]) + ", which no note records.",
+            "source_ids": finding["source_ids"]}
+           for finding in host_checks.undocumented_changes(generated, bundle["sources"],
+                                                           host_checks.configured_classes())]
         + [{"severity": "warning", "code": "sources_not_cited_without_reason",
             "message": "The draft neither cites nor explains setting aside these notes; read them directly.",
             "source_ids": unexplained} for unexplained in [pipeline.unexplained_sources(generated)] if unexplained]

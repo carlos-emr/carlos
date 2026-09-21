@@ -836,3 +836,74 @@ to the same test cases as `host_checks.py`; the two must be kept aligned by hand
 anticoagulant conflict still depends on the model. No clinician has reviewed the rule
 or its wording, and the application has not yet been rebuilt and run with them.
 
+# How fast it can be — 2026-09-21
+
+## The third guarantee: same-class drug conflicts
+
+The conflict the prompt had to be taught, tinzaparin and enoxaparin both ordered with
+neither stopped, is what kept every faster stack from passing. CARLOS's drug
+reference database carries ATC codes, and both drugs sit in chemical subgroup B01AB,
+the heparins; so do nimodipine and amlodipine in C08CA, the NHSSYN001 discharge
+discrepancy. `host_checks.medication_conflicts` reports two drugs of one subgroup,
+each ordered somewhere in the record (a dose beside the name, or an ordering verb
+before it), where no note records a stop or switch near either name. If no claim
+already reports it, the host states the conflict under Medications and allergies
+without asserting any resolution, and a claim that describes a switch no note
+records gets a validation warning. The class table is read from a site file and is
+not committed.
+
+Across the 50 charts it finds 12 unresolved conflicts, in 12 patients: two heparins
+in seven charts, two direct oral anticoagulants in two, a calcium-channel-blocker
+pair, a macrolide pair and a laxative pair. The dataset evidently repeats this trap.
+A first version missed NHSSYN002 itself: an unanchored "stop" matched inside
+"postoperative" beside the drug name and counted as a recorded stop. The change words
+are now anchored to the start of a word, with that case as a test.
+
+Replayed with all three guarantees over the 53 saved single-pass drafts, no draft was
+made worse and no critical fact is missing on any stack except one Phala draft.
+35B-A3B on Venice goes from 0 to 2 of 2, on Parasail from 0 to 1 of 1, and 397B on
+DeepInfra from 0 to 1 of 1. What still fails is what the model itself asserts: an
+undocumented switch or a completed discharge, a misdated claim, or a staff name.
+
+## Live, with all three guarantees
+
+| Model | Provider | Pass | 3001 | 3002 | 3003 | Cost | What failed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 35B-A3B | Parasail | 6 of 9 | 24, 47 s | 48, 50, 58 s | 24, 25, 32 s | $0.005 | one date and identity leak, one duplicate pair, one rejected draft |
+| 27B | DeepInfra | 4 of 6 | 36, 41 s | 41, 44 s | 36, 38 s | $0.009 | an asserted switch, both 3002 runs |
+| 35B-A3B | Venice | 2 of 6 | 16, 18 s | 20, 36 s | 14, 14 s | $0.007 | staff names in four runs |
+| 397B-A17B | Venice | 3 of 3 | 44 s | 195 s | 44 s | $0.018 | none |
+| 27B | SiliconFlow, the default, earlier today | 9 of 11 | 80-288 s | 174-284 s | 181-258 s | $0.012 | two dropped responses |
+
+In the rebuilt application, through the real gateway on 35B-A3B and Parasail, the
+browser check generated NHSSYN002 in 39 seconds, NHSSYN001 in 38, NHSSYN003 in 23,
+and NHSSYN009, a 27-note patient no prompt was ever tuned on and one of the twelve
+with a heparin conflict, in 54. Cached repeats took about two seconds. This morning
+the same check took 84 to 212 seconds.
+
+So a summary in roughly 25 to 60 seconds is achievable, at under a cent, about four to
+five times faster than the default. It is not yet as dependable: six of nine clean
+against the default's nine of eleven, and the fast model's faults are its own
+assertions, which the host can flag but does not remove. 35B-A3B on Venice is twice
+as fast again and fails on staff names, which a host check could catch next. These
+are small samples on three invented patients and one unseen chart.
+
+## What running it in the application showed
+
+The rebase changed the Maven version, so the exploded webapp moved to
+`target/carlos-2026.09.0-alpha1-SNAPSHOT` while the isolated Tomcat still served
+`target/carlos`, the pre-rebase build. That build could not sign in against the
+`carlos` database and sent the gateway a prompt it rightly refused. The browser
+check also needed two changes for the rebased application: its GET and missing-token
+probes now run inside the page, because a bare API client is signed out by session
+hardening and only ever saw the login page; and it listens for page errors only once
+on the summary page, because the eChart's own unload handler throws as the browser
+leaves it (`newCaseManagementView.js.jsp`, `onClosing` reading `noteId` of an
+undefined note), which is an eChart defect on `develop`, not this feature's.
+
+On screen the restored statements sit under Results and observations and read
+correctly. With eight of them on NHSSYN002 the repeated "restored verbatim by the
+host because the draft omitted them" preamble is heavy; a host badge would read
+better. The Java host applies the observation and date guarantees but not yet the
+drug-conflict one, which the application currently gets only through the gateway.
+

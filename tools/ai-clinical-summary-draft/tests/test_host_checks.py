@@ -129,5 +129,66 @@ class RestoreObservationsTest(unittest.TestCase):
         self.assertEqual(["note-9", "note-10"], restored["claims"][-1]["source_ids"])
 
 
+CLASSES = {"tinzaparin": "B01AB10", "enoxaparin": "B01AB05", "paracetamol": "N02BE01", "codeine": "R05DA04"}
+TINZ = "Post-op plan: Tinzaparin 4,500 units SC once daily for thromboprophylaxis. Paracetamol 1g QDS PRN."
+ENOX = "Ward round. Plan: start enoxaparin 40 mg SC once daily for thromboprophylaxis; codeine 30 mg PRN."
+
+
+class MedicationConflictsTest(unittest.TestCase):
+    def sources(self, later=ENOX):
+        return [source(TINZ, "note-7"), source(later, "note-9", "2026-01-06")]
+
+    def test_two_ordered_drugs_of_one_class_with_no_recorded_stop_are_a_conflict(self):
+        self.assertEqual([{"group": "B01AB", "drugs": {"tinzaparin": ["note-7"], "enoxaparin": ["note-9"]}}],
+                         host_checks.medication_conflicts(self.sources(), CLASSES))
+
+    def test_the_word_postoperative_is_not_a_recorded_stop(self):
+        # Observed on NHSSYN002: "as per postop instructions" beside the drug name hid the real conflict.
+        later = ENOX + " Ensure enoxaparin administration as per postoperative instructions."
+        self.assertEqual(1, len(host_checks.medication_conflicts(self.sources(later), CLASSES)))
+
+    def test_a_recorded_stop_or_switch_a_mere_mention_and_different_classes_are_not_conflicts(self):
+        for later in ("Tinzaparin stopped. Start enoxaparin 40 mg SC once daily.",
+                      "Switched from tinzaparin to enoxaparin 40 mg SC once daily.",
+                      "Patient asked whether enoxaparin would be needed; not prescribed.",
+                      "Plan: codeine 30 mg PRN for breakthrough pain."):
+            with self.subTest(later=later):
+                self.assertEqual([], host_checks.medication_conflicts(self.sources(later), CLASSES))
+        self.assertEqual([], host_checks.medication_conflicts(self.sources(), None))
+
+    def test_a_draft_that_lists_both_drugs_as_routine_gets_a_host_statement_and_never_a_claimed_switch(self):
+        output = draft(("Tinzaparin 4,500 units SC once daily was prescribed.", ["note-7"]),
+                       ("Enoxaparin 40 mg SC once daily was started.", ["note-9"]))
+        restored, added = host_checks.note_medication_conflicts(output, self.sources(), CLASSES)
+        self.assertEqual(1, added)
+        claim = restored["claims"][-1]
+        self.assertEqual("host-med-1", claim["id"])
+        self.assertEqual(["note-7", "note-9"], claim["source_ids"])
+        self.assertEqual("Medication records conflict, as found by the host: tinzaparin (05/01/26) and enoxaparin "
+                         "(06/01/26) belong to the same drug class (ATC B01AB) and no note records either being "
+                         "stopped, so the record does not show which is intended.", claim["text"])
+        self.assertNotRegex(claim["text"], r"(?i)(switch|chang|convert|transition)\w*\s+(to\s+)?enoxaparin")
+        self.assertEqual(["host-med-1"], next(row["claim_ids"] for row in restored["sections"]
+                                              if row["id"] == "medications_allergies"))
+        self.assertEqual((restored, 0), host_checks.note_medication_conflicts(restored, self.sources(), CLASSES))
+
+    def test_the_conflict_statement_uses_the_date_format_the_draft_already_uses(self):
+        output = draft(("On 2026-01-05 tinzaparin 4,500 units SC once daily was prescribed.", ["note-7"]))
+        restored, _added = host_checks.note_medication_conflicts(output, self.sources(), CLASSES)
+        self.assertIn("tinzaparin (2026-01-05) and enoxaparin (2026-01-06)", restored["claims"][-1]["text"])
+
+    def test_a_draft_that_already_reports_the_conflict_is_left_alone(self):
+        output = draft(("Medication records conflict: tinzaparin and enoxaparin were both prescribed with no "
+                        "documented discontinuation.", ["note-7", "note-9"]))
+        self.assertEqual((output, 0), host_checks.note_medication_conflicts(output, self.sources(), CLASSES))
+
+    def test_a_claimed_switch_that_no_note_records_is_reported(self):
+        output = draft(("The thromboprophylaxis regimen was changed to enoxaparin 40 mg once daily.", ["note-9"]))
+        self.assertEqual([{"claim_id": "c1", "drugs": ["enoxaparin", "tinzaparin"], "source_ids": ["note-9"]}],
+                         host_checks.undocumented_changes(output, self.sources(), CLASSES))
+        documented = self.sources("Switched from tinzaparin to enoxaparin 40 mg SC once daily.")
+        self.assertEqual([], host_checks.undocumented_changes(output, documented, CLASSES))
+
+
 if __name__ == "__main__":
     unittest.main()
