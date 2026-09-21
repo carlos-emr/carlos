@@ -53,8 +53,9 @@ retirement semantics, and failure investigation.
 
 `V1.0.29__add_sms_consent.sql` seeds the dedicated `sms_communication_consent` consent type and the
 `sms_communication` property that points outbound SMS at it, and adds the consent audit snapshot
-columns (`consent_status`, `consent_id`, `consent_last_update_date`) to `sms_transaction`. Existing
-patients start with no SMS consent record, so SMS stays blocked for them until consent is recorded.
+columns (`consent_status`, `consent_id`, `consent_last_update_date`) to `sms_transaction`. The consent
+type is seeded inactive until its wording has compliance sign-off, so SMS stays blocked as not
+configured until it is activated, and then for each patient until their consent is recorded.
 See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
