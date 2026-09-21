@@ -117,13 +117,28 @@ async function run() {
     assert.equal(await body.locator('img').count(),0);
     assert.match(await body.textContent(),/<img src=x onerror=alert\(1\)>/);
     await page.evaluate(()=>{
+      window.saveRTL=()=>editControlContents('edit');
+      const originalTimer=window.setTimeout;
+      window.setTimeout=callback=>{window.deferredFaxSubmit=callback;};
+      try {submitFaxButton();} finally {window.setTimeout=originalTimer;}
+    });
+    await begin(['BP']);
+    assert.equal(await page.evaluate(()=>{
+      try {window.deferredFaxSubmit();return false;} catch(error){return /still loading/.test(error.message);}
+    }),true);
+    assert.equal(await page.locator('#faxEForm').inputValue(),'false');
+    assert.equal(await page.evaluate(()=>window.needToConfirm),true);
+    await respond({});
+    await page.evaluate(()=>{
       window.faxSubmits=0;
       document.RichTextLetter.submit=()=>window.faxSubmits++;
-      window.saveRTL=()=>editControlContents('edit');
+      window.saveRTL=()=>{window.faxLetter=editControlContents('edit');};
       submitFaxButton();
+      document.getElementById('edit').contentDocument.body.append(' LATE EDIT');
     });
     await page.waitForFunction(()=>window.faxSubmits===1);
     assert.equal(await page.locator('#faxEForm').inputValue(),'true');
+    assert.match(await page.evaluate(()=>window.faxLetter),/LATE EDIT/);
     assert.deepEqual(errors,[]);
     console.log('PASS: native Range insertion, request ordering, live caret/typing, serializer and legacy/toolbar print gates, marker cleanup, replaced template, literal measurement text. Chromium '+browser.version());
   } finally {await browser.close();}

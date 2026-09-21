@@ -893,14 +893,23 @@ function printKey (key) {
 function submitFaxButton() {
 	assertMeasurementHistoryReady();
 	var faxField = document.getElementById('faxEForm');
-	faxField.value=true;
-	try {
-		saveRTL();
-	} catch (error) {
-		faxField.value=false;
-		throw error;
+	function serializeFaxLetter() {
+		try {
+			saveRTL();
+		} catch (error) {
+			faxField.value=false;
+			window.needToConfirm=true;
+			throw error;
+		}
 	}
-	setTimeout(function() { document.RichTextLetter.submit(); }, 1000);
+	faxField.value=true;
+	serializeFaxLetter();
+	setTimeout(function() {
+		// Measurements or edits can arrive during the legacy one-second delay.
+		// Recheck readiness and serialize the current letter immediately before POST.
+		serializeFaxLetter();
+		document.RichTextLetter.submit();
+	}, 1000);
 }
 	
 
