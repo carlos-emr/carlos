@@ -722,7 +722,7 @@
             <c:choose>
                 <c:when test="${ isEmailSuccessful }">
 					<div class="alert alert-success" role="alert" id="successMessage">
-						<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
+						<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.acceptedForDelivery"/></p>
 						<%-- CARLOS observes the transport handing off, nothing beyond it: a provider can --%>
 						<%-- still bounce or discard the message afterwards without telling us. Saying    --%>
 						<%-- "sent" alone invites a clinician to treat unread lab results as received.    --%>
