@@ -205,6 +205,26 @@ class InboxAcknowledgeNotificationRegressionTest {
     }
 
     @Test
+    @DisplayName("should forget what is off screen when a fetch replaces the result set")
+    void shouldForgetHandledItems_whenFetchReplacesTheResultSet() throws IOException {
+        // handledInboxhubItems answers "is this already off screen", so it is only true of the
+        // result set that was on screen when it was written. Carried across a fetch it claims
+        // an item is dealt with in a result set that never showed it: acknowledge in the New
+        // view, switch to the Acknowledged view where that item now BELONGS on the list, and a
+        // later notification for it is answered with "already handled" instead of the re-fetch
+        // that renders its row. The behaviour is exercised in
+        // scripts/inbox-acknowledge-in-place.test.js; what is pinned here is the wiring that
+        // test cannot reach, because it stubs fetchInboxhubData.
+        String inboxhubForm = read(INBOXHUB_FORM_JSP);
+
+        assertThat(inboxhubForm)
+                .as("the fetch that empties #inboxhubMode must also drop the per-result-set record")
+                .containsSubsequence(
+                        "jQuery(\"#inboxhubMode\").empty();",
+                        "forgetHandledInboxhubItems();");
+    }
+
+    @Test
     @DisplayName("should drop the acknowledged item from the inbox counters on refresh")
     void shouldDecrementCounters_whenAcknowledgementIsBroadcast() throws IOException {
         String inboxhubForm = read(INBOXHUB_FORM_JSP);

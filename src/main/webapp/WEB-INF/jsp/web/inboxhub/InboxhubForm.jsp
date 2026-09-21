@@ -785,9 +785,28 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * calls removeInboxhubRow directly, and the broadcast lands moments later — and by the
      * second arrival the row is already gone. Without this record that arrival cannot tell
      * "already dealt with" from "never on screen", and would fall back to the full re-fetch
-     * that costs the clinician their place in the list. Reset only by a full page load.
+     * that costs the clinician their place in the list.
+     *
+     * Scoped to the CURRENT RESULT SET, which is why it is cleared by resetDataPageCount()
+     * and countedAcknowledgedItems is not. The two records answer different questions with
+     * different lifetimes: this one is about what is on screen, and a fetch replaces the
+     * screen; that one is about the stored totals, which are page-load state a fetch does
+     * not re-render. Carrying this one across a fetch makes it claim an item is dealt with
+     * in a result set that never showed it — acknowledge in the New view, switch to the
+     * Acknowledged view, and a later notification for that same item would be answered with
+     * "already handled" instead of the re-fetch that adds its row.
      */
     var handledInboxhubItems = Object.create(null);
+
+    /**
+     * Drops the per-result-set record of what this window has taken off screen.
+     *
+     * Called by resetDataPageCount(), i.e. whenever a fetch is about to replace the rendered
+     * result set. Nothing can be "already off screen" once the screen itself is discarded.
+     */
+    function forgetHandledInboxhubItems() {
+        handledInboxhubItems = Object.create(null);
+    }
 
     /**
      * The card that took an acknowledged one's place, captured before its removal.
@@ -1184,6 +1203,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             currentFetchRequest.abort();  // Cancel the ongoing AJAX request
         }
         jQuery("#inboxhubMode").empty();
+        // The rendered result set is going away, so what this window took off screen is no
+        // longer a statement about anything. See handledInboxhubItems for why the counted
+        // record, whose totals survive the fetch, deliberately does NOT follow it here.
+        forgetHandledInboxhubItems();
         page = 1;
         hasMoreData = true;
         isFetchingData = false;

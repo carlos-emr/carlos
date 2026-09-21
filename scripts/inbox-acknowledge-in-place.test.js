@@ -296,3 +296,35 @@ test('the drop helper itself reports that a re-sync is required, not just the li
   assert.equal(loaded.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1), true,
     'everything is loaded, so no caller needs to re-sync');
 });
+
+/*
+ * THE RESULT-SET LIFETIME.
+ *
+ * handledInboxhubItems answers "is this item already off screen", so it means nothing once
+ * the screen is replaced. resetDataPageCount() clears it for that reason. The counted record
+ * deliberately does not follow: the totals are hidden-input page state that a fetch does not
+ * re-render, so counting an item a second time would take rows off the badge that nobody
+ * cleared.
+ */
+
+test('a new result set forgets what the old one had already taken off screen', () => {
+  // Acknowledge in the New view, then switch to the Acknowledged view, where that same item
+  // now belongs ON the list. A stale "already handled" would answer the notification with
+  // silence instead of the re-fetch that renders its row.
+  const inbox = setup('preview', twoLabs);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.fetches, 0);
+
+  inbox.context.forgetHandledInboxhubItems();   // what resetDataPageCount() does
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.fetches, 1, 'the new result set has never been told about this item');
+});
+
+test('forgetting what is off screen does not let the badge be moved twice', () => {
+  const inbox = setup('preview', twoLabs);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  inbox.context.forgetHandledInboxhubItems();
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.totals.totalLabsCount, 4, 'the counted record has the longer lifetime');
+  assert.equal(inbox.totals.totalResultsCount, 14);
+});
