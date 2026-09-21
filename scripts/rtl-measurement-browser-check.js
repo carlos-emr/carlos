@@ -29,7 +29,7 @@ async function run() {
       const name=url.pathname.split('/').pop();
       if (name==='fixture') return route.fulfill({contentType:'text/html',body:`<!doctype html><html><head>
 <script src="jquery.js"></script><script src="purify.js"></script><script src="cache.js"></script><script src="image.js"></script></head>
-<body><form action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden">
+<body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden">
 <script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
 <button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button>
 <button type="button" name="PrintSubmitButton" onclick="window.prints++">Print and submit</button>
@@ -71,6 +71,11 @@ async function run() {
     await page.locator('[name=PrintSaveButton]').click();
     await page.locator('[name=PrintSubmitButton]').click();
     await page.locator('#PrintSubmitButton').click();
+    assert.equal(await page.evaluate(()=>{
+      window.saveRTL=()=>editControlContents('edit');
+      try {submitFaxButton();return false;} catch(error){return /still loading/.test(error.message);}
+    }),true);
+    assert.equal(await page.locator('#faxEForm').inputValue(),'false');
     assert.equal(await page.evaluate(()=>window.prints),0);
     assert.equal(await page.evaluate(()=>{
       window.formPrint=()=>window.prints++;
@@ -88,6 +93,12 @@ async function run() {
     assert.equal(await body.textContent(),'BEFORE BP: 120/80(2026/9); WT: 70(2026/9); AFTER TYPED');
     const saved=await page.evaluate(()=>editControlContents('edit'));
     assert(!saved.includes('RTL measurement insertion'));
+    assert.equal(await page.locator('#faxEForm').inputValue(),'false');
+    assert.equal(await page.evaluate(()=>{
+      window.saveRTL=()=>{throw new Error('Serialization failed');};
+      try {submitFaxButton();return false;} catch(error){return error.message==='Serialization failed';}
+    }),true);
+    assert.equal(await page.locator('#faxEForm').inputValue(),'false');
     await page.locator('[name=PrintSaveButton]').click();assert.equal(await page.evaluate(()=>window.prints),1);
     await body.pressSequentially(' MORE');assert.match(await body.textContent(),/TYPED MORE$/);
 
@@ -105,6 +116,14 @@ async function run() {
     await respond({BP:[row('BP','<img src=x onerror=alert(1)>')]});
     assert.equal(await body.locator('img').count(),0);
     assert.match(await body.textContent(),/<img src=x onerror=alert\(1\)>/);
+    await page.evaluate(()=>{
+      window.faxSubmits=0;
+      document.RichTextLetter.submit=()=>window.faxSubmits++;
+      window.saveRTL=()=>editControlContents('edit');
+      submitFaxButton();
+    });
+    await page.waitForFunction(()=>window.faxSubmits===1);
+    assert.equal(await page.locator('#faxEForm').inputValue(),'true');
     assert.deepEqual(errors,[]);
     console.log('PASS: native Range insertion, request ordering, live caret/typing, serializer and legacy/toolbar print gates, marker cleanup, replaced template, literal measurement text. Chromium '+browser.version());
   } finally {await browser.close();}

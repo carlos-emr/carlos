@@ -891,8 +891,15 @@ function printKey (key) {
 }
 	
 function submitFaxButton() {
-	document.getElementById('faxEForm').value=true;
-	saveRTL();
+	assertMeasurementHistoryReady();
+	var faxField = document.getElementById('faxEForm');
+	faxField.value=true;
+	try {
+		saveRTL();
+	} catch (error) {
+		faxField.value=false;
+		throw error;
+	}
 	setTimeout(function() { document.RichTextLetter.submit(); }, 1000);
 }
 	
