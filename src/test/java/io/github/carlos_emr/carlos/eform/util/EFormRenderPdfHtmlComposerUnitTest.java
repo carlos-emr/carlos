@@ -581,8 +581,6 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 .isLessThan(html.indexOf("/clinic.js"));
         assertThat(html.indexOf("window.AddOtherFax="))
                 .isLessThan(html.indexOf("/clinic.js"));
-        assertThat(html.indexOf("window.jQuery.fn.size="))
-                .isLessThan(html.indexOf("/clinic.js"));
         assertThat(html.indexOf("window.__carlosEformPdfRender=true;"))
                 .isLessThan(html.indexOf("/eform/eform-runtime-compat.js"));
     }

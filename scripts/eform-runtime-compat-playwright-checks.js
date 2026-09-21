@@ -132,12 +132,19 @@ function signaturePage() {
     <script src="/jquery.js"></script><script src="/jSignature.js"></script>
     <script>
       var calls = [];
+      // The compatibility file defers its guard until DOMContentLoaded. This inline spy runs
+      // during parsing, so the guard captures the spy as its original plugin function. Calls
+      // recorded below are calls that actually reach the bundled plugin through that function.
+      var guardInstalledAtSpySetup = window.__carlosEformSignatureCompat.installed;
       var original = jQuery.fn.jSignature;
-      jQuery.fn.jSignature = function () {
+      var pluginSpy = function () {
         calls.push({verb: arguments[0], data: arguments[1]});
         return original.apply(this, arguments);
       };
+      jQuery.fn.jSignature = pluginSpy;
       window.addEventListener('load', function () {
+        var guardWrapsSpy = jQuery.fn.jSignature.__carlosEmptyDataGuard
+          && jQuery.fn.jSignature !== pluginSpy;
         var pad = jQuery('#pad').jSignature();
         calls.length = 0;
         var errors = [];
@@ -154,6 +161,8 @@ function signaturePage() {
         attempt('data:image/jsignature;base30,0A_0A', pad, true);
         attempt('data:text/jsignature-foo,', pad, true);
         window.__signatureResult = {
+          guardInstalledAtSpySetup: guardInstalledAtSpySetup,
+          guardWrapsSpy: guardWrapsSpy,
           resetAfterEmpty: resetAfterEmpty,
           setDataAfterEmpty: setDataAfterEmpty,
           resetAfterNotReady: resetAfterNotReady,
@@ -280,6 +289,8 @@ async function main() {
     const signature = await tab.evaluate('window.__signatureResult');
     try {
       assert(signature && signature.installed, 'jSignature guard was not installed before window load');
+      assert(signature.guardInstalledAtSpySetup === false && signature.guardWrapsSpy,
+        `plugin spy must be installed before the guard wraps it: ${JSON.stringify(signature)}`);
       assert(signature.errors.length === 0, `jSignature fixture threw: ${signature.errors.join('; ')}`);
       assert(signature.resetAfterEmpty === 1 && signature.setDataAfterEmpty === 0,
         `empty base30 was not reset without decoding: ${JSON.stringify(signature)}`);
