@@ -104,6 +104,45 @@ For production use, treat email as an external delivery dependency:
 - Confirm successful test delivery and `EmailLog` status before sending patient
   communications.
 
+## Optional PDF Signing
+
+Outgoing PDF attachments can carry a cryptographic signature. It is disabled by
+default (`pdf.signing.enabled=false`); with it off, nothing about a send changes.
+
+What a signature does and does not give the recipient:
+
+- It lets a PDF reader show that the file has not been altered since CARLOS
+  signed it, and which certificate signed it.
+- It does not encrypt anything and does not replace the password-protected PDF
+  workflow. Signing runs after that encryption, so the signature covers the
+  exact bytes that are archived and sent.
+- A self-signed certificate proves control of the clinic's private key, but
+  readers show an "unknown signer" warning until the recipient trusts that
+  certificate. A certificate from a recognised authority avoids the warning.
+
+To enable it, provision a PKCS#12 or JKS keystore holding the private key and
+its certificate chain, readable only by the Tomcat user, and set in
+`carlos.properties`:
+
+```
+pdf.signing.enabled=true
+pdf.signing.keystore.path=/etc/carlos-emr/pdf-signing.p12
+pdf.signing.keystore.type=PKCS12
+pdf.signing.keystore.password=...
+pdf.signing.key.alias=...
+```
+
+`pdf.signing.key.password` defaults to the keystore password. The signer name,
+reason, location and contact shown in the reader are optional.
+
+Signing is fail-closed. Once enabled, a missing keystore, a wrong password, a
+key that does not match its certificate, or a certificate whose key usage
+forbids signing fails the send with "Failed to sign email PDF attachment"
+rather than delivering an unsigned file. Every attachment on the email is
+signed, so every attachment must be a PDF. Send a non-PHI test message after
+enabling it or rotating the keystore, and open the received PDF to confirm the
+signature panel.
+
 ## Monitoring and Operations
 
 Monitor `EmailLog` rows for `FAILED` status. Use **Admin > Manage Emails** to

@@ -53,6 +53,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
+import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
+import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -216,6 +218,9 @@ public class EmailManager {
                 if (emailData.getIsEncrypted()) {
                     encryptEmail(emailData);
                 }
+                // After encryption and before the sender is built, so the signature covers the
+                // exact bytes that are archived and dispatched.
+                signAttachments(emailData);
                 EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
                 sendWithArchive(loggedInInfo, emailSender, emailLog);
                 return completeAcceptedSend(loggedInInfo, emailLog);
@@ -1109,6 +1114,46 @@ public class EmailManager {
             } catch (IOException e) {
                 logger.error("Failed to create encrypted email attachments", e);
                 throw new EmailSendingException("Failed to create encrypted email attachments", e);
+            }
+        }
+    }
+
+    /**
+     * Cryptographically signs outgoing PDF attachments when PDF signing is configured.
+     *
+     * <p>Runs after optional password encryption, so the signature covers the exact bytes sent
+     * to the patient. Each signed PDF is adopted into the send's working directory, which owns
+     * its cleanup; an unencrypted send has no working directory yet, so one is created here.</p>
+     *
+     * <p>Every attachment on {@code emailData} is expected to be a signable PDF. Signing is
+     * fail-closed: if signing is enabled and any single attachment cannot be signed, the whole
+     * send is aborted rather than delivering a partially signed or unsigned set.</p>
+     *
+     * @param emailData EmailData containing the final attachment list
+     * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
+    void signAttachments(EmailData emailData) throws EmailSendingException {
+        PDFSigningConfig signingConfig = PDFSigningConfig.fromCarlosProperties();
+        List<EmailAttachment> attachments = emailData.getAttachments();
+        if (!signingConfig.isEnabled() || attachments == null || attachments.isEmpty()) {
+            return;
+        }
+
+        ensureWorkingDirectory(emailData);
+        // An encrypted PDF can only be modified with its owner password.
+        String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
+        for (EmailAttachment attachment : attachments) {
+            try {
+                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+                attachmentPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
+                attachmentPDFPath = emailData.getWorkingDirectory().adoptGeneratedPdf(attachmentPDFPath);
+                attachment.setFilePath(attachmentPDFPath.toString());
+            } catch (IOException | IllegalStateException | SecurityException e) {
+                // Exception class only: a signing fault can carry keystore paths or file names.
+                logger.error("Failed to sign an email PDF attachment: {}", e.getClass().getSimpleName());
+                throw new EmailSendingException("Failed to sign email PDF attachment", e);
             }
         }
     }
