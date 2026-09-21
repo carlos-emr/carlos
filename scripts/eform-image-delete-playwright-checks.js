@@ -110,7 +110,10 @@ async function uploadImage(context, recorder, imagePath, name) {
   fs.writeFileSync(imagePath, Buffer.from(onePixelPngBase64, 'base64'));
 
   try {
-    if (config.baseUrl.protocol !== 'https:') {
+if (config.baseUrl.protocol !== 'https:') {
+      if (!isLocalTlsTarget(config.baseUrl)) {
+        throw new Error('Non-local BASE_URL targets must use https');
+      }
       console.log(
         '[warn] BASE_URL is not HTTPS, so this run does NOT go through nginx/ModSecurity. '
         + 'The defect this check pins lives entirely in the application layer, so the '
