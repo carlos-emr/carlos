@@ -83,7 +83,8 @@ public class PatientPortalService implements Closeable {
             "portal returned an unexpected success status";
     // Only established protocol messages may cross the logging/browser boundary.
     private static final Set<String> SAFE_DETAILS = Set.of(
-            "permission denied", "not found", "demographic scope mismatch",
+            "permission denied", "not found", PatientPortalException.ACCOUNT_NOT_FOUND_DETAIL,
+            "unlock secret not found", "demographic scope mismatch",
             "portal account already exists", "pending invite already exists", "invite not found",
             "invite cannot be resent", "accepted invite cannot be revoked",
             "superseded invite cannot be revoked", "source reference was already published",
@@ -91,7 +92,8 @@ public class PatientPortalService implements Closeable {
             "unlock secret cannot be published", "contact review not found",
             "contact review revision conflict", "invalid account access request",
             "unlock secret is temporarily unavailable", "invite preparation conflicts",
-            "invite preparation unavailable", "invite delivery conflicts");
+            "invite preparation unavailable", "invite delivery conflicts",
+            "another invite delivery is being prepared", "invite delivery is not committed");
     private static final String NOT_AN_ARRAY = "portal returned a non-array invite listing";
 
     private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
