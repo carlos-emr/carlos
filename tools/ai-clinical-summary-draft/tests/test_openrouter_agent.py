@@ -56,6 +56,16 @@ class OpenRouterTest(unittest.TestCase):
                         'sources': [{'id': 'note-611', 'patient_id': 'demographic-3001',
                                      'title': 'Signed encounter note (note-611)', 'date': date, 'text': body}]}
 
+    def test_defaults_are_the_configuration_the_quality_gate_validated(self):
+        # QUALITY.md: the only configuration that passed the gate on all three fixtures.
+        self.assertEqual({'model': 'qwen/qwen3.5-27b', 'provider': 'siliconflow', 'temperature': 0.0,
+                          'reasoning_tokens': 0, 'request_bytes': 50000, 'section_passes': False},
+                         {key: agent.DEFAULTS[key] for key in ('model', 'provider', 'temperature',
+                                                               'reasoning_tokens', 'request_bytes',
+                                                               'section_passes')})
+        # Whole-record NHSSYN002 passes measured 176-209 seconds, so 180 rejects a valid summary.
+        self.assertEqual(300, agent.DEFAULTS['timeout_seconds'])
+
     def test_live_contract_cache_and_new_request_id(self):
         first = self.gateway.run(self.request)
         second = self.gateway.run(dict(self.request, request_id=str(uuid4())))
@@ -65,7 +75,7 @@ class OpenRouterTest(unittest.TestCase):
         self.assertEqual(1, self.gateway.cache_hits)
         payload = self.calls[0]
         self.assertEqual({'enabled': False}, payload['reasoning'])
-        self.assertEqual({'only': ['venice'], 'allow_fallbacks': False, 'require_parameters': True,
+        self.assertEqual({'only': ['siliconflow'], 'allow_fallbacks': False, 'require_parameters': True,
                           'data_collection': 'deny', 'zdr': True}, payload['provider'])
         schema = payload['response_format']['json_schema']['schema']
         self.assertEqual(1, schema['properties']['coverage']['maxItems'])
@@ -519,6 +529,13 @@ class OpenRouterTest(unittest.TestCase):
         restored = switch.update_properties(updated, switch.settings('ollama'))
         self.assertIn(agent_setting('ollama'), restored)
         self.assertNotIn(agent_setting('http'), restored)
+
+    def test_switch_refuses_a_budget_below_the_pipeline_floor(self):
+        self.assertIn('clinical.ai_summary_generation.http.name=OpenRouter / qwen/qwen3.5-27b',
+                      switch.update_properties('', switch.settings('openrouter')))
+        switch.settings('openrouter', request_bytes=pipeline.REQUEST_BYTES)
+        with self.assertRaises(ValueError):
+            switch.settings('openrouter', request_bytes=pipeline.REQUEST_BYTES - 1)
 
 
 def agent_setting(value):

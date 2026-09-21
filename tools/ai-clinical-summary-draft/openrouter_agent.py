@@ -34,10 +34,12 @@ REPO = ROOT.parents[1]
 API = "https://openrouter.ai/api/v1/"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 MAX_RATE_LIMIT_WAIT_SECONDS = 120
-DEFAULTS = {"model": "qwen/qwen3.5-397b-a17b", "provider": "venice",
-            "port": 11437, "timeout_seconds": 180, "max_tokens": 16384, "cache_seconds": 900,
-            "temperature": 0.2, "request_bytes": 50000, "reasoning_tokens": 0,
-            "section_passes": True, "section_workers": 2}
+# The configuration QUALITY.md validated on all three fixtures. A whole-record NHSSYN002 pass
+# measured 176-209 seconds, so the response deadline is the permitted maximum rather than 180.
+DEFAULTS = {"model": "qwen/qwen3.5-27b", "provider": "siliconflow",
+            "port": 11437, "timeout_seconds": 300, "max_tokens": 16384, "cache_seconds": 900,
+            "temperature": 0.0, "request_bytes": 50000, "reasoning_tokens": 0,
+            "section_passes": False, "section_workers": 2}
 SECTION_SCOPES = {
     "clinical_overview": "Extract presenting symptoms and relevant past medical, family and social history. "
     "Include all recorded history and relevant negatives. Do not include diagnosis, investigations, examinations, "
@@ -96,8 +98,7 @@ def read_config(path):
                                "section_passes", "section_workers"}) | {"api_key"}
     require(isinstance(config, dict) and required <= set(config) <= set(DEFAULTS) | {"api_key"},
             "Invalid config fields")
-    config.setdefault("section_passes", False)  # Preserve older configurations' single-pass mode.
-    config = dict(DEFAULTS, **config)  # Existing private key files remain compatible.
+    config = dict(DEFAULTS, **config)  # Existing private key files remain compatible and single-pass.
     require(isinstance(config["api_key"], str)
             and re.fullmatch(r"[A-Za-z0-9_-]{20,256}", config["api_key"]), "Invalid API key format")
     require(isinstance(config["model"], str)
