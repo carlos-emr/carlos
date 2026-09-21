@@ -39,7 +39,7 @@ function inbox(url) {
       <span id="refreshed"></span><div id="labdoc_7" data-lab-type="HL7">Other lab</div>
       <div id="labdoc_7" data-lab-type="HRM">${report(false, true)}</div>`;
   }
-  return dependencies + `<form id="inboxSearchForm" method="post" action="${url.pathname + url.search}">
+  return dependencies + `<form id="inboxSearchForm" method="post" action="/inbox">
       <input name="filter" value="kept"></form>
     <input id="totalHRMCount" value="${signed ? 1 : 2}"><input id="totalResultsCount" value="${signed ? 2 : 3}">
     <div id="inboxViewItems">

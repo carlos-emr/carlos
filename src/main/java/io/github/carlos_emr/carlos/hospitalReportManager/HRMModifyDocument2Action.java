@@ -267,9 +267,9 @@ public class HRMModifyDocument2Action extends ActionSupport {
      * unclaimed row ({@code providerNo} of {@code -1}) is claimed rather than duplicated.</p>
      *
      * <p>Replies with {@code clearedCount}: how many routing rows this call actually moved INTO
-     * signed-off. The viewer forwards that number to the Inboxhub, whose Documents/Labs/HRMs
-     * HRM badge counts distinct documents (one for any positive transition) and a list re-fetch does not
-     * recompute them. Reporting a count the server did not clear — for a report already signed
+     * signed-off. The viewer forwards that number to the Inboxhub. Its HRM badge counts distinct
+     * documents (one for any positive transition), and a list re-fetch does not recompute the
+     * stored total. Reporting a count the server did not clear — for a report already signed
      * off, or one with no routing row in the inbox the clinician is looking at — walks that badge
      * below the truth until a full page reload. Zero is a real answer and the Inboxhub honours it.
      *
