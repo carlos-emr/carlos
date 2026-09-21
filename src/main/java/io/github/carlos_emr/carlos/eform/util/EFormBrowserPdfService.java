@@ -41,6 +41,7 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -2384,6 +2385,21 @@ public class EFormBrowserPdfService {
     private static final Set<String> RENDER_CRITICAL_RESOURCE_TYPES =
             Set.of("Document", "Image", "Script", "Stylesheet", "Font", "Media", "XHR", "Fetch");
 
+    // JavaScript MIME essences from https://mimesniff.spec.whatwg.org/#javascript-mime-type.
+    // Include historical types used by clinic assets; a 200 HTML/login response proves no script
+    // loaded and must never license suppressing a duplicate's MIME refusal.
+    private static final Set<String> JAVASCRIPT_MIME_TYPES = Set.of(
+            "application/ecmascript", "application/javascript", "application/x-ecmascript",
+            "application/x-javascript", "text/ecmascript", "text/javascript", "text/javascript1.0",
+            "text/javascript1.1", "text/javascript1.2", "text/javascript1.3", "text/javascript1.4",
+            "text/javascript1.5", "text/jscript", "text/livescript", "text/x-ecmascript", "text/x-javascript");
+
+    private static boolean isJavaScriptMimeType(String mimeType) {
+        int parameters = mimeType.indexOf(';');
+        String essence = parameters < 0 ? mimeType : mimeType.substring(0, parameters);
+        return JAVASCRIPT_MIME_TYPES.contains(essence.trim().toLowerCase(Locale.ROOT));
+    }
+
     /**
      * Render-critical types that carry data rather than a named file.
      *
@@ -2544,9 +2560,12 @@ public class EFormBrowserPdfService {
                     }
                 } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
                         && isLoaded(status)
+                        && (!"Script".equals(resourceType)
+                            || isJavaScriptMimeType(params.path("response").path("mimeType").asText("")))
                         && loadedResourceNames.size() < MAX_TRACKED_REQUEST_URLS) {
                     // A 2xx, or a 304 which means the browser already holds the bytes. A redirect is
                     // neither and must never license downgrading a failure for the same filename.
+                    // Scripts also need executable MIME evidence, including cached responses.
                     String loadedName = resourceBasename(responseUrl);
                     if (loadedName != null) {
                         loadedResourceNames.add(loadedName);

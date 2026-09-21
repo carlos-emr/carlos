@@ -302,17 +302,15 @@ class ClinicalProseWafExclusionRegressionTest {
                 .contains("\"id:1046,phase:1,pass,nolog,chain\"")
                 .contains("SecRule REQUEST_METHOD \"@streq POST\"")
                 .doesNotContain("ctl:ruleRemoveById=")
-                .doesNotContain("ctl:ruleRemoveByTag=");
+                .doesNotContain("ctl:ruleRemoveByTag=")
+                .doesNotContain("ctl:ruleRemoveTargetByTag=");
 
         List<String> targets = Stream.of(rule.split("\\n"))
                 .map(String::trim)
                 .filter(line -> line.startsWith("ctl:"))
                 .map(line -> line.replaceAll("[,\\\\]+$", "").replace("\"", ""))
                 .toList();
-        assertThat(targets).containsExactlyInAnyOrder(
-                "ctl:ruleRemoveTargetByTag=attack-injection-php;ARGS:label",
-                "ctl:ruleRemoveTargetByTag=attack-rce;ARGS:label",
-                "ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:label");
+        assertThat(targets).containsExactly("ctl:ruleRemoveTargetById=933210;ARGS:label");
     }
 
     @Test
