@@ -252,6 +252,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // an eForm with no CSRF token until the guard was added.
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action",
                     "_eform", "w"),
+            // Deletes an image from the eForm Image Library. Same shape and same reason as
+            // DelEForm2Action above: it had no method guard at all, so a GET (which
+            // CSRFGuard does not protect) could delete a file with no token check.
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelImage2Action",
+                    "_eform", "w"),
             // Replaces the shared antenatal risk-list configuration file. The HTTP
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
