@@ -36,6 +36,16 @@ no claim cites; the host records each cited source itself, with the number of
 statements citing it, before this rule is checked. A source that is neither
 cited nor reviewed is never given a review by the host, so the draft is rejected.
 
+Two further host guarantees hold whichever model, provider or local server wrote the
+draft, because they use only the note dates and verbatim note text the host already
+has. They never rewrite model prose. A vital-sign observation set (at least three of
+heart rate, blood pressure, respiratory rate, temperature and oxygen saturation
+recorded together) that no single citing claim reports in full is added back as a
+claim with ID `host-obs-N` under Results and observations, quoting the recorded
+values and saying the host restored it. A date a claim asserts that none of its
+cited notes carries (their own date, a date written in them, or a stated tomorrow or
+48 hours) is recorded as a `date_not_in_cited_sources` validation warning.
+
 Validation severity is `pass`, `warning` or `error`. Source IDs may be empty
 for structural findings; any supplied IDs must resolve. Error findings suppress
 the summary. The UI labels artifact findings separately from runtime structural

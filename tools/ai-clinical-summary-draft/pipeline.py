@@ -3,6 +3,7 @@
 import copy
 import json
 
+import host_checks
 from validate_artifact import require
 
 REQUEST_BYTES = 16000  # Mirrors ClinicalSummaryAgent.requestBytes().
@@ -155,6 +156,12 @@ def merge(outputs, sources):
     return result
 
 
+def finish(output, sources):
+    """Apply the host guarantees to a whole draft: restore omitted observations, then record citations."""
+    restored, _added = host_checks.restore_observations(output, sources)
+    return complete_coverage(restored, sources)
+
+
 def generate(sources, prompt, schema, infer, validate_part, request_bytes=REQUEST_BYTES):
     outputs = []
 
@@ -171,4 +178,4 @@ def generate(sources, prompt, schema, infer, validate_part, request_bytes=REQUES
 
     for part in plan(sources, prompt, schema, request_bytes):
         run(part)
-    return merge(outputs, sources)
+    return finish(merge(outputs, sources), sources)

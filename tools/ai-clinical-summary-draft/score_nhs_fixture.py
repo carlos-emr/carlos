@@ -15,6 +15,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+from host_checks import claim_dates
 import openrouter_agent as agent  # noqa: E402
 
 FIXTURES = ("NHSSYN001", "NHSSYN002", "NHSSYN003")
@@ -47,17 +48,6 @@ def source_dates(fixture):
         dates[f"note-{index}"] = {"iso": iso, "slash": f"{day}/{month}/{year}",
                                   "literal": literal | derived}
     return dates
-
-
-def claim_dates(text):
-    """Dates a claim asserts, normalized to dd/mm/yy for comparison."""
-    # A longer slash run such as "note-10/12/13/14" lists note IDs, and 14/15/18 is no calendar date.
-    found = {f"{day}/{month}/{year}"
-             for day, month, year in re.findall(r"(?<![\d/])(\d{2})/(\d{2})/(\d{2})(?![\d/])", text)
-             if 1 <= int(day) <= 31 and 1 <= int(month) <= 12}
-    for iso in re.findall(r"\b(\d{4})-(\d{2})-(\d{2})\b", text):
-        found.add(f"{iso[2]}/{iso[1]}/{iso[0][2:]}")
-    return found
 
 
 def tokens(text):

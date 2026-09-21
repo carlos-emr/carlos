@@ -754,3 +754,64 @@ hiding omission, as it did for DeepInfra on 09-18. The default stays
 `qwen/qwen3.5-27b` on SiliconFlow. These are one to three runs each on one invented
 record; they rule candidates out, they do not rank them.
 
+# Guarantees that do not depend on the model — 2026-09-21
+
+The prompt had been tuned until one model on one provider passed, and the same
+weights behaved differently elsewhere. A local server will be another such stack.
+Re-scoring every saved NHSSYN002 draft showed that every failure, on every stack,
+was one of three things: a dropped observation set, a misdated claim, or the
+two-anticoagulant conflict. The first two can be settled by the host from facts it
+already holds, so they no longer depend on who wrote the draft.
+
+**Dates.** `host_checks.date_findings` reports a date a claim asserts that none of
+its cited notes carries. It shares its parsing with the scorer and agreed with the
+scorer's date check on all 54 saved drafts (49 clean, 4 with one error, 1 with
+three). A finding becomes a host-owned validation warning; prose is never rewritten.
+
+**Observations.** `host_checks.restore_observations` finds clusters of at least
+three kinds of vital-sign measurement in each note and, where no single claim citing
+that note reports the whole set, adds it back verbatim as a labelled host statement.
+Replayed through `pipeline.finish` over all 52 saved single-pass drafts:
+
+| Model | Provider | Drafts | Gate before | After | Lost the abnormal set, before / after | Restored per draft |
+| --- | --- | --- | --- | --- | --- | --- |
+| 27B | SiliconFlow | 31 | 22 | 22 | 2 / 0 | 4.8 |
+| 27B | Phala | 10 | 4 | 6 | 2 / 0 | 4.5 |
+| 27B | DeepInfra | 4 | 0 | 2 | 4 / 0 | 8.5 |
+| 122B-A10B | SiliconFlow | 1 | 0 | 0 | 1 / 0 | 7.0 |
+| 35B-A3B | Venice, Parasail | 3 | 0 | 0 | 2 / 0 | 6.7 |
+| 397B-A17B | Venice, DeepInfra | 3 | 0 | 0 | 1 / 0 | 5.3 |
+
+No draft was made worse and every resulting artifact still validates. The stacks
+that still fail do so on the anticoagulant conflict alone, or on a date error that
+is now flagged. The older counts include prompts since rejected, which is why
+SiliconFlow shows 22 of 31 rather than its current-prompt record.
+
+## The gate had been passing drafts that dropped most vital signs
+
+Restoring found far more than the one abnormal set. A gate-passing 27B draft of
+NHSSYN001 kept only the blood pressure from each daily set and dropped heart rate,
+respiratory rate, temperature and oxygen saturation for five consecutive days; the
+20-fact ledger never asked for them. Across the saved drafts 273 of 456 observation
+sets were not reported in full. Restoring only sets holding a NEWS2 red-range value
+would add 0.22 statements per draft instead of 5.1, but it builds a clinical
+threshold into the host; the decision taken was to restore every dropped set, which
+builds in none and omits nothing, at the cost of routine statements such as
+"HR 88; BP 135/85; RR 16; Temp 36.8; SpO2 98". A first version wrote its date as
+dd/mm/yy into a draft that used ISO dates and failed that draft's format check; the
+host statement now follows the draft's own format.
+
+The wider seed has more of the same trap. Of 615 observation sets in the 50 charts,
+76 hold a red-range value, in 22 patients, including NHSSYN005 with a heart rate of
+7 and NHSSYN017 with 472.
+
+## Limits
+
+Extraction is pattern matching over English abbreviations. A set written in a form
+it does not recognise is not protected, and a claim that reports a set in words it
+does not recognise gets a redundant restored statement, which is harmless. A set
+the draft reports across two claims is restored as well. These checks are in the
+Python pipeline and gateway; the Java host does not apply them yet, so the
+application's Ollama path is not covered. The anticoagulant conflict still depends
+on the model. No clinician has reviewed the rule or its wording.
+
