@@ -557,3 +557,16 @@ test('revoking without BroadcastChannel refreshes authoritative modern inbox sta
   assert.deepEqual(removed, []);
   assert.deepEqual(closed, []);
 });
+
+test('an unparseable successful reply requires reconciliation before retry', () => {
+  const status = element();
+  const {context, requests, broadcasts, closed} = setup({
+    elements: {signoff7: element(), hrmdoc_7: inboxWindowCard(), signoffstatus7: status},
+  });
+  context.signOffHrm('7');
+  requests[0].error({status: 200, responseText: 'Success<script>oldDecorator()</script>'}, 'parsererror', 'Invalid JSON');
+  assert.match(status.textContent, /Unable to confirm.*Refresh this report and inbox/);
+  assert.equal(broadcasts.length, 0);
+  assert.equal(closed.length, 0);
+  assert(!status.textContent.includes('<script>'));
+});

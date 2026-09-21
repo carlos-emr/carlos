@@ -58,7 +58,13 @@ function hrmModify(data, onResult) {
         },
         error: function (xhr, status, err) {
             console.error('HRM modify request failed:', status, err);
-            onResult(hrmResult(null, "Error encountered - please try again"));
+            // A successful HTTP response that cannot be parsed may follow a committed write
+            // (for example an older backend during an unsupported mixed-version rollout).
+            // Do not invite a duplicate comment or mutation by claiming it is safe to retry.
+            var message = status === 'parsererror' && xhr && xhr.status >= 200 && xhr.status < 300
+                ? "Unable to confirm the change. Refresh this report and inbox before trying again."
+                : "Error encountered - please try again";
+            onResult(hrmResult(null, message));
         }
     });
 }
