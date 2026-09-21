@@ -186,6 +186,44 @@ class CarlosSmsConsentServiceUnitTest {
     }
 
     @Test
+    @DisplayName("evaluate blocks when the only opt-in on record was implied rather than given by the patient")
+    void shouldBlockAsNotExplicit_whenOnlyImpliedConsentIsRecorded() {
+        configureConsentType();
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO))
+                .thenReturn(List.of(consent(CONSENT_ID, CONSENT_TYPE_ID, false, EDITED_AT, false)));
+
+        SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
+
+        assertBlocked(decision, SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_NOT_EXPLICIT", SmsConsentStatus.NOT_EXPLICIT);
+        assertThat(decision.consentId()).isEqualTo(CONSENT_ID);
+    }
+
+    @Test
+    @DisplayName("evaluate relies on the explicit opt-in when a newer implied duplicate exists")
+    void shouldRecordExplicitOptIn_whenNewerImpliedDuplicateExists() {
+        configureConsentType();
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of(
+                consent(CONSENT_ID, CONSENT_TYPE_ID, false, EDITED_AT, true),
+                consent(CONSENT_ID + 1, CONSENT_TYPE_ID, false, EDITED_AT.plusSeconds(3600), false)));
+
+        SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
+
+        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.consentId()).isEqualTo(CONSENT_ID);
+    }
+
+    @Test
+    @DisplayName("evaluate decides a system-test message with no patient by the switch alone")
+    void shouldPermitSystemTest_whenCommandHasNoPatient() {
+        SmsConsentDecisionDto decision = service(true)
+                .evaluate(command(null, SmsMessagePurpose.SYSTEM_TEST));
+
+        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.consentStatus()).isEqualTo(SmsConsentStatus.SYSTEM_TEST);
+        verifyNoInteractions(consentTypeResolver, consentDao);
+    }
+
+    @Test
     @DisplayName("evaluate blocks a missing command without consulting consent records")
     void shouldBlockAsUnknown_whenCommandIsMissing() {
         SmsConsentDecisionDto decision = service(true).evaluate(null);
@@ -245,6 +283,10 @@ class CarlosSmsConsentServiceUnitTest {
 
     /** {@link Consent} exposes no id setter, so a subclass supplies the persisted id the audit snapshot records. */
     private static Consent consent(int id, int consentTypeId, boolean optedOut, Instant editedAt) {
+        return consent(id, consentTypeId, optedOut, editedAt, true);
+    }
+
+    private static Consent consent(int id, int consentTypeId, boolean optedOut, Instant editedAt, boolean explicit) {
         Consent consent = new Consent() {
             @Override
             public Integer getId() {
@@ -254,6 +296,7 @@ class CarlosSmsConsentServiceUnitTest {
         consent.setDemographicNo(DEMOGRAPHIC_NO);
         consent.setConsentTypeId(consentTypeId);
         consent.setOptout(optedOut);
+        consent.setExplicit(explicit);
         consent.setEditDate(editedAt == null ? null : Date.from(editedAt));
         return consent;
     }

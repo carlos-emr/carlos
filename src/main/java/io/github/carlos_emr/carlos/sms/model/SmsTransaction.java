@@ -281,8 +281,28 @@ public class SmsTransaction extends AbstractModel<Long> {
         if (!decision.allowed()) {
             throw new IllegalArgumentException("a permitting consent decision is required");
         }
+        if (decision.consentStatus() == null) {
+            // A send with no recorded consent state is exactly what the audit snapshot exists to rule out.
+            throw new IllegalArgumentException("a permitting consent decision must name the consent state it relied on");
+        }
         applyConsentSnapshot(decision);
         touch();
+    }
+
+    /**
+     * @return {@code true} when the stored snapshot already names the consent state, record and edit date
+     *         the given decision relied on, so recording it again would change nothing
+     */
+    public boolean hasConsentSnapshot(SmsConsentDecisionDto decision) {
+        Objects.requireNonNull(decision, "decision is required");
+        // Epoch millis rather than equals(): a loaded row holds a java.sql.Timestamp, which never equals a Date.
+        Long storedUpdate = consentLastUpdateDate == null ? null : consentLastUpdateDate.getTime();
+        Long decisionUpdate = decision.consentLastUpdateDate() == null
+                ? null
+                : decision.consentLastUpdateDate().toEpochMilli();
+        return consentStatus == decision.consentStatus()
+                && Objects.equals(consentId, decision.consentId())
+                && Objects.equals(storedUpdate, decisionUpdate);
     }
 
     private void applyConsentSnapshot(SmsConsentDecisionDto decision) {

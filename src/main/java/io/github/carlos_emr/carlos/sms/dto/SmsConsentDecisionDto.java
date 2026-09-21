@@ -31,6 +31,10 @@ public record SmsConsentDecisionDto(
         }
     }
 
+    /**
+     * A permit that names no consent state. {@code sms_transaction} rows refuse to record it, so it suits
+     * only tests whose recorder is a fake; a real consent service must use {@link #permitted}.
+     */
     public static SmsConsentDecisionDto permit() {
         return permitted(null, null, null);
     }

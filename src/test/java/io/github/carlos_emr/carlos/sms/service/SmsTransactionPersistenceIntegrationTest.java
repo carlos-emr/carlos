@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -68,7 +69,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     void shouldRejectConflictingIdentifiers_whenDeliveryCallbackMatchesOnlyClientReference() {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic", "999998"),
-                SmsProviderType.STUB, SmsConsentDecisionDto.permit());
+                SmsProviderType.STUB, SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z")));
         outbound.markProviderResult(SmsProviderSendResultDto.accepted("correct-provider-id", SmsStatus.SENT));
         entityManager.flush();
         SmsDeliveryWebhookDto callback = new SmsDeliveryWebhookDto(SmsProviderType.STUB,
@@ -147,7 +148,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB,
-                SmsConsentDecisionDto.permit()
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"))
         );
         String clientReferenceId = outbound.getClientReferenceId();
         assertThat(clientReferenceId).isEqualTo(SmsTransaction.clientReferenceIdFor(outbound.getId()));
@@ -190,7 +191,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB,
-                SmsConsentDecisionDto.permit()
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"))
         );
         Long id = outbound.getId();
         long queuedVersion = outbound.getVersion();

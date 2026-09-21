@@ -168,6 +168,38 @@ class SmsTransactionUnitTest {
     }
 
     @Test
+    @DisplayName("a permitting decision that names no consent state cannot be recorded as the audit snapshot")
+    void shouldRejectPermittedDecision_whenConsentStatusIsMissing() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+
+        assertThatThrownBy(() -> transaction.recordConsentDecision(SmsConsentDecisionDto.permit()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("a decision matches the snapshot only when it relies on the same consent record and edit date")
+    void shouldMatchConsentSnapshot_whenDecisionReliesOnSameRecord() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        Instant editedAt = Instant.parse("2026-09-01T14:30:00Z");
+        transaction.recordConsentDecision(SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt));
+
+        assertThat(transaction.hasConsentSnapshot(
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt))).isTrue();
+        assertThat(transaction.hasConsentSnapshot(
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 9, editedAt))).isFalse();
+        assertThat(transaction.hasConsentSnapshot(
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt.plusSeconds(60)))).isFalse();
+        assertThat(transaction.hasConsentSnapshot(
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.SYSTEM_TEST, null, null))).isFalse();
+    }
+
+    @Test
     @DisplayName("SMS provider result updates status, SMS provider id, and sent timestamp")
     void shouldMarkProviderResult_whenSendIsAccepted() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
