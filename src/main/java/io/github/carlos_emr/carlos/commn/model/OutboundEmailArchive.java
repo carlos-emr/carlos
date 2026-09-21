@@ -65,9 +65,10 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     public static final String SEND_STATUS_ARCHIVED = "ARCHIVED";
 
     /**
-     * The artifact was handed to the transport and the outcome is not yet known. A row that stays
-     * here after a send is an unresolved attempt, not a failure: it is the honest state for a
-     * dispatch whose result CARLOS could not observe.
+     * Dispatch was started and its outcome is not known. Written immediately before the
+     * transport is invoked, so it does not by itself establish that the transport took the
+     * artifact. A row that stays here after a send is an unresolved attempt, not a failure: it
+     * is the honest state for a dispatch whose result CARLOS could not observe.
      */
     public static final String SEND_STATUS_SEND_ATTEMPTED = "SEND_ATTEMPTED";
 
@@ -332,7 +333,7 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     }
 
     /**
-     * Records that the artifact has been handed to the transport, outcome not yet known.
+     * Records that dispatch is starting, outcome not yet known.
      *
      * <p>Stamps {@code sendAttemptedAt} so an unresolved attempt can be told apart from an
      * archive that was never dispatched at all — before this existed, both sat at ARCHIVED.</p>

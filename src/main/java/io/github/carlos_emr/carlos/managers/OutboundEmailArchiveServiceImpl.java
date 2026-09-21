@@ -385,6 +385,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         requireArchiveWriteAuthority(loggedInInfo);
 
         OutboundEmailArchive archive = lockArchiveForAuthorizedCaller(loggedInInfo, archiveId);
+        if (archive.isDeleted()) {
+            // A controlled deletion can land while a slow transport is still in flight. The
+            // tombstone is frozen: a late outcome must not rewrite its status or replace the
+            // deleter's lastUpdateUser stamp. Same refusal as the legal hold transitions.
+            throw new IllegalStateException("Outbound email archive has been deleted");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         switch (outcome) {

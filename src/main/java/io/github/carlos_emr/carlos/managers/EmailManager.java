@@ -441,8 +441,10 @@ public class EmailManager {
 
         try {
             // Preserve the exact attempted message before transport. ARCHIVED describes successful
-            // capture of that immutable artifact; EmailLog remains the source of truth for whether
-            // delivery subsequently succeeded or failed, so failed attempts retain their audit record.
+            // capture of that immutable artifact, so failed attempts retain their audit record.
+            // sendWithArchive then advances the row's send lifecycle, but only best-effort: EmailLog
+            // remains the authoritative record of the send outcome, and the archive status is a
+            // mirror that may lag it at "not known" when a lifecycle write could not be made.
             OutboundEmailArchive archive = outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
             return archive != null ? archive.getId() : null;
         } catch (SecurityException e) {

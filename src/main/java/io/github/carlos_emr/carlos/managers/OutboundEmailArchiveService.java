@@ -76,6 +76,7 @@ public interface OutboundEmailArchiveService {
      * @return the updated archive, or {@code null} when {@code archiveId} is null
      * @throws IllegalArgumentException when no archive matches, the outcome is null, or the
      *         caller carries no provider number
+     * @throws IllegalStateException when the archive has been deleted; a tombstone is frozen
      * @throws SecurityException when the caller lacks {@code _edoc w} or access to the
      *         archive's patient record
      */
@@ -89,7 +90,7 @@ public interface OutboundEmailArchiveService {
      * at send time can report delivery to the recipient, so no such transition exists.</p>
      */
     enum SendOutcome {
-        /** Handed to the transport; result not yet known. */
+        /** Dispatch is starting; result not yet known. */
         ATTEMPTED,
         /** Transport accepted custody. Not proof of delivery. */
         ACCEPTED,

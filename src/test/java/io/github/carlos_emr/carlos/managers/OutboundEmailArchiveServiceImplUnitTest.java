@@ -1388,10 +1388,6 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    /**
-     * Stubs both reads the service performs for a privileged archive change: the scalar
-     * demographic read that the patient-record gate runs on, then the locked row.
-     */
     // --- send lifecycle ---------------------------------------------------------------------
 
     @Test
@@ -1473,6 +1469,29 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(outboundEmailArchiveDao);
     }
 
+    @Test
+    @DisplayName("should refuse to advance the lifecycle of a deleted archive")
+    void shouldRefuseLifecycleChange_whenArchiveIsDeleted() {
+        // A controlled deletion can land while a slow transport is still in flight. The late
+        // outcome must not rewrite the tombstone or replace the deleter's audit stamp.
+        OutboundEmailArchive archive = archiveForDeletion();
+        archive.markDeleted("999001", "duplicate send");
+        stubArchiveLookup(archive);
+
+        assertThatThrownBy(() -> service.recordSendOutcome(loggedInInfo, 888,
+                OutboundEmailArchiveService.SendOutcome.ACCEPTED))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(archive.getSendStatus()).isNotEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSentAt()).isNull();
+        assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
+        verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
+    }
+
+    /**
+     * Stubs both reads the service performs for a privileged archive change: the scalar
+     * demographic read that the patient-record gate runs on, then the locked row.
+     */
     private void stubArchiveLookup(OutboundEmailArchive archive) {
         // The authorization lookup reads only the patient identifier before locking.
         when(outboundEmailArchiveDao.findDemographicNoById(888)).thenReturn(
