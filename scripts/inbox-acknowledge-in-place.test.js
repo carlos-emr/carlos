@@ -350,3 +350,13 @@ test('malformed revocation cannot acknowledge an item', () => {
   assert.deepEqual(inbox.shown(), ['HL7:7']);
   assert.equal(inbox.totals.totalLabsCount, 5);
 });
+
+for (const mode of ['list', 'preview']) {
+  test(mode + ' duplicate HRM routing rows count as one distinct report', () => {
+    const inbox = setup(mode, [['7', 'HRM'], ['8', 'HRM']]);
+    inbox.acknowledge({ action: 'refresh', segmentID: '7', labType: 'HRM', clearedCount: 2 });
+    assert.equal(inbox.totals.totalHRMCount, 4);
+    assert.equal(inbox.totals.totalResultsCount, 14);
+    assert.deepEqual(inbox.shown(), ['HRM:8']);
+  });
+}

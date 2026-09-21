@@ -678,7 +678,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         if (isNaN(typeCount) || typeCount <= 0) { return; }
         // Never below zero: the stored total is a snapshot taken when the page rendered, and
         // an item acknowledged in another window may already be missing from it.
-        const taken = Math.min(typeCount, rows);
+        // CategoryData counts DISTINCT HRM document ids, including when historical duplicate
+        // routing rows exist. Labs count their version routing rows. One HRM notification
+        // names one report, so even a multi-row transition removes only one HRM from the badge.
+        const taken = Math.min(typeCount, labType === 'HRM' ? 1 : rows);
         typeInput.val(typeCount - taken);
 
         const allInput = jQuery('#totalResultsCount');
@@ -870,9 +873,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     /**
      * Takes an acknowledged item off the stored totals, at most once per item.
      *
-     * The totals count ROUTING rows, not the rows drawn in the list: a lab is stored as one
+     * Lab totals count ROUTING rows, not the rows drawn in the list: a lab is stored as one
      * routing row per version and collapsed to a single inbox row, so acknowledging it
-     * clears as many rows as the chain is long. That is why the amount is a parameter and
+     * clears as many rows as the chain is long. HRM totals count distinct documents instead,
+     * so decrementInboxhubStatFor caps a positive HRM transition at one. The amount is a parameter and
      * not assumed to be one — the server is the only party that knows how many it filed.
      *
      * @param {string} segmentId segment id of the acknowledged item

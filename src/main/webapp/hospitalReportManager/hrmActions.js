@@ -156,7 +156,7 @@ function updateSignOffButton(reportId, isSign) {
  *
  * @param {string} reportId HRM document id that was signed off
  * @param {number} clearedCount routing rows the SERVER reported taking out of the inbox. The
- *                 badges count routing rows, so this must not be guessed: zero is a real answer
+ *                 Inboxhub counts a positive HRM transition as one document; zero is a real answer
  *                 (the report was already signed off, or had no row in this inbox) and moving the
  *                 badge anyway walks it below the truth until a full page reload.
  */

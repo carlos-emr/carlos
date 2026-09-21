@@ -155,7 +155,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
      * @param message short status text rendered beside the control that was used
      * @param clearedCount routing rows this call actually took out of the inbox, or null when the
      *        operation does not clear anything. The viewer forwards it to the Inboxhub, whose
-     *        badges count routing rows; see {@link #signOff()} for why guessing is not good enough
+     *        HRM badge counts distinct documents; see {@link #signOff()} for the zero/positive distinction
      * @return {@link #NONE}, because the response body is already written
      */
     // FindSecBugs XSS_SERVLET: the body is Jackson-serialised from a boolean, an int and one of
@@ -268,7 +268,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
      *
      * <p>Replies with {@code clearedCount}: how many routing rows this call actually moved INTO
      * signed-off. The viewer forwards that number to the Inboxhub, whose Documents/Labs/HRMs
-     * badges count routing rows and are adjusted client-side because a list re-fetch does not
+     * HRM badge counts distinct documents (one for any positive transition) and a list re-fetch does not
      * recompute them. Reporting a count the server did not clear — for a report already signed
      * off, or one with no routing row in the inbox the clinician is looking at — walks that badge
      * below the truth until a full page reload. Zero is a real answer and the Inboxhub honours it.
@@ -394,8 +394,8 @@ public class HRMModifyDocument2Action extends ActionSupport {
                     hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
                 } else {
                     for (HRMDocumentToProvider providerMapping : providerMappings) {
-                        // Read the previous state before writing. The inbox badge counts routing rows
-                        // whose signedOff is EXACTLY 0 (HRMDocumentToProviderDao: "signedOff=0"), so
+                        // Read the previous state before writing. The inbox includes reports with routing rows
+                        // whose signedOff is EXACTLY 0 (CategoryData: "hp.signedOff=0"), so
                         // only such a row can leave it. A row whose signedOff is NULL is not counted:
                         // the column is nullable (int(11) DEFAULT NULL) and "signedOff = 0" does not
                         // match NULL in SQL, so legacy rows were never in the badge either. Treating
