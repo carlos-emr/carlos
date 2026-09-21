@@ -45,7 +45,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * RESTful web service for measurement data operations in OpenO EMR.
+ * RESTful web service for measurement data operations in CARLOS EMR.
  * This service provides authenticated access to measurement data through the UI
  * session or OAuth for external integrations, mobile applications, and API consumers.
  * 

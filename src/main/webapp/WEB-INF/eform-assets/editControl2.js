@@ -1787,15 +1787,13 @@ function getMeasures(measure, max) {
     return new Promise(function(resolve) {
         try {
             if (measureInitialTemplateLoading || measureTemplateCatalogLoading || measureTemplateLookupsPending > 0) {
-                measureBatchFailed = true;
-                showMeasurementStatus('The letter template is still loading. Please wait before loading Lab Grid or Vitals.', true);
+                showLetterStatus('rtl-measurement-precondition-status', 'Lab Grid or Vitals was not loaded while the template was loading. Retry after the template finishes.', true);
                 resolve({values: [], dates: [], failed: true});
                 return;
             }
             var editorFrame = document.getElementById(cfg_editorname);
             if (editorFrame && editorFrame.contentDocument && editorFrame.contentDocument.__rtlSourceMode) {
-                measureBatchFailed = true;
-                showMeasurementStatus('Switch back from HTML source view before loading Lab Grid or Vitals.', true);
+                showLetterStatus('rtl-measurement-precondition-status', 'Lab Grid or Vitals was not loaded in HTML source view. Return to the visual editor and retry.', true);
                 resolve({values: [], dates: [], failed: true});
                 return;
             }
@@ -1820,6 +1818,7 @@ function getMeasures(measure, max) {
                 window.setTimeout(flushMeasureRequests, 0);
             }
             pendingMeasureBatch.requests.push({measure: String(measure), max: max, resolve: resolve});
+            showLetterStatus('rtl-measurement-precondition-status', '', false);
         } catch (error) {
             measureBatchFailed = true;
             showMeasurementStatus('Measurements could not be loaded. Check that a patient and letter are open.', true);

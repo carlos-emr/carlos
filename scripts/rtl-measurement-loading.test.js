@@ -62,7 +62,7 @@ function setup() {
   return {context, document, contentDocument, frame, patient, requests, alerts, dirty:()=>dirty};
 }
 function row(type, value, date = '2026-09-12', demographicId = 17) { return {type, dataField:value, dateObserved:date, demographicId}; }
-function notice(fixture) { return fixture.document.getElementById('rtl-measurement-status').textContent; }
+function notice(fixture, id='rtl-measurement-status') { return fixture.document.getElementById(id)?.textContent || ''; }
 
 test('same-click types share one async request bound to the letter patient; insertion preserves requested order', async () => {
   const f = setup();
@@ -237,7 +237,7 @@ test('initial template setup finishes before accepting measurement requests', as
   const f=setup();f.context.measureInitialTemplateLoading=true;
   assert.equal((await f.context.getMeasures('BP',1)).failed,true);
   assert.equal(f.requests.length,0);assert.equal(f.context.measurementHistoryStillLoading(),true);
-  assert.match(notice(f),/template is still loading/);
+  assert.match(notice(f,'rtl-measurement-precondition-status'),/template was loading/);
   f.context.measureInitialTemplateLoading=false;
   const p=f.context.getMeasures('BP',1);await delay(5);
   f.requests[0].respond({BP:[row('BP','120/80')]});
@@ -250,10 +250,12 @@ test('a template-loading rejection remains visible after an older batch succeeds
   assert.equal((await f.context.getMeasures('WT',1)).failed,true);
   f.context.measureInitialTemplateLoading=false;
   f.requests[0].respond({BP:[row('BP','120/80')]});await first;
-  assert.match(notice(f),/not inserted/);
+  assert.match(notice(f,'rtl-measurement-precondition-status'),/Retry after the template finishes/);
+  assert.equal(notice(f),'');
   const retry=f.context.getMeasures('WT',1);await delay(5);
   f.requests[1].respond({WT:[row('WT','70')]});await retry;
   assert.equal(notice(f),'');
+  assert.equal(notice(f,'rtl-measurement-precondition-status'),'');
 });
 
 test('legacy forms without the framework patient field use their own form action before the viewer query', async () => {
@@ -274,3 +276,23 @@ test('a same-tick editor replacement gives the next request a fresh insertion po
   assert.equal(notice(f),'');
   assert.equal(f.contentDocument.body.textContent,'Replacement WT: 70(2026/9); ');
 });
+
+for (const guard of ['template loading','source view']) {
+  test('a rejected click during '+guard+' does not poison an accepted measurement group', async () => {
+    const f=setup();const first=f.context.getMeasures('BP',1);await delay(5);
+    if (guard==='template loading') f.context.measureTemplateCatalogLoading=true;
+    else f.contentDocument.__rtlSourceMode=true;
+    assert.equal((await f.context.getMeasures('WT',1)).failed,true);
+    if (guard==='template loading') f.context.measureTemplateCatalogLoading=false;
+    else f.contentDocument.__rtlSourceMode=false;
+    // Retry is accepted even while the first legitimate request is still pending.
+    const retry=f.context.getMeasures('WT',1);await delay(5);
+    f.requests[0].respond({BP:[row('BP','120/80')]});await first;await delay(5);
+    assert.equal(f.requests.length,2);
+    f.requests[1].respond({WT:[row('WT','70')]});
+    assert.equal((await retry).failed,undefined);
+    assert.equal(notice(f),'');
+    assert.match(f.contentDocument.body.textContent,/120\/80/);
+    assert.match(f.contentDocument.body.textContent,/70/);
+  });
+}
