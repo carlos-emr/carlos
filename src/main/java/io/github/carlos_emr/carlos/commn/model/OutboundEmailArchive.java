@@ -343,9 +343,10 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
      */
     public void recordSendAttempt(String providerNo) {
         requireNotDeleted();
-        if (isSendOutcomeObserved()) {
-            // An observed outcome is terminal. A late or duplicated attempt marker must not
-            // turn it back into "not known" or restamp when the attempt began.
+        if (isSendOutcomeObserved() || SEND_STATUS_SEND_ATTEMPTED.equals(sendStatus)) {
+            // An observed outcome is terminal, and the marker itself is idempotent. A late or
+            // duplicated attempt marker must not turn an outcome back into "not known", nor
+            // replace when the attempt began and who began it.
             return;
         }
         this.sendStatus = SEND_STATUS_SEND_ATTEMPTED;
@@ -415,8 +416,9 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     }
 
     /**
-     * Whether the transport's answer has been recorded. {@code ARCHIVED} and
-     * {@code SEND_ATTEMPTED} both mean "not known", so only these two states are terminal.
+     * Whether the transport's answer has been recorded. Only {@code ACCEPTED} and
+     * {@code SEND_FAILED} are terminal; {@code ARCHIVED} and {@code SEND_ATTEMPTED} both mean
+     * "not known" and can still advance.
      */
     private boolean isSendOutcomeObserved() {
         return SEND_STATUS_ACCEPTED.equals(sendStatus) || SEND_STATUS_SEND_FAILED.equals(sendStatus);

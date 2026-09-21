@@ -65,7 +65,7 @@ public interface OutboundEmailArchiveService {
      * that was never dispatched at all — in a record kept under permanent legal hold.</p>
      *
      * <p>Callers treat this as best-effort bookkeeping: a failure here must never change the
-     * caller's send outcome, because the message may already be in the recipient's hands. An
+     * caller's send outcome, because the message may already be in the transport's custody. An
      * outcome that could not be recorded leaves the row at its previous state, which is why
      * neither {@code ARCHIVED} nor {@code SEND_ATTEMPTED} may be read as "delivery failed".</p>
      *

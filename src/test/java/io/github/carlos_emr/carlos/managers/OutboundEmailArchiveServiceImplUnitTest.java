@@ -1405,6 +1405,24 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep the first attempt stamp when the attempt marker is repeated")
+    void shouldKeepFirstAttemptStamp_whenAttemptMarkerIsRepeated() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+        java.util.Date firstAttemptedAt = archive.getSendAttemptedAt();
+        assertThat(firstAttemptedAt).isNotNull();
+        // Stands in for a different actor repeating the marker: the entity must keep the first.
+        archive.setLastUpdateUser("999001");
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_ATTEMPTED);
+        assertThat(archive.getSendAttemptedAt()).isSameAs(firstAttemptedAt);
+        assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
+    }
+
+    @Test
     @DisplayName("should record acceptance without claiming the recipient received it")
     void shouldRecordAcceptance_whenTransportTookCustody() {
         OutboundEmailArchive archive = archiveUnderLegalHold();
