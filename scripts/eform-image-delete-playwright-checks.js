@@ -152,14 +152,20 @@ async function uploadImage(context, recorder, imagePath, name) {
       const heldToken = new Promise(resolve => { releaseToken = resolve; });
       let sawHeldToken;
       const tokenRequested = new Promise(resolve => { sawHeldToken = resolve; });
-      let tokenMode = scenario === 'token-failure' ? 'fail' : 'hold';
+      let tokenMode = scenario === 'token-failure' ? 'fail'
+        : scenario === 'administration' ? 'fail-once' : 'hold';
+      let transientFailures = 0;
       await managerPage.route('**/csrfguard*', async route => {
         const request = route.request();
         // jQuery loads fragment scripts through XHR; stall only fetchCsrfToken's fetch.
         if (request.resourceType() !== 'fetch' || request.frame() !== managerPage.mainFrame()) {
           return route.continue();
         }
-        if (tokenMode === 'fail') {
+        if (tokenMode === 'fail' || tokenMode === 'fail-once') {
+          if (tokenMode === 'fail-once') {
+            transientFailures++;
+            tokenMode = 'hold';
+          }
           // A valid HTTP response with no token exercises the parse/retry failure path.
           return route.fulfill({status: 200, contentType: 'text/javascript', body: '// no token'});
         }
@@ -220,6 +226,9 @@ async function uploadImage(context, recorder, imagePath, name) {
             timer = setTimeout(() => reject(new Error('Delete did not request a CSRF token')), 15000);
           })]);
           assert(deletePosts === 0, 'Delete posted before the stalled token fetch completed');
+          if (scenario === 'administration') {
+            assert(transientFailures === 1, 'Administration must recover from one failed token fetch');
+          }
         } finally {
           clearTimeout(timer);
           tokenMode = 'pass';

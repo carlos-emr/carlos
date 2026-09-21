@@ -66,9 +66,12 @@
             // delete control broken until the operator reloads.
             // Returns the token, or null if it could not be obtained.
             async function csrfToken() {
+                // AJAX fragments arrive after DOMContentLoaded, so their bootstrap
+                // promise is null. In that case this handler owns both attempts.
+                var bootstrap = window.csrfTokenReady;
                 try {
-                    if (window.csrfTokenReady) {
-                        await window.csrfTokenReady;
+                    if (bootstrap) {
+                        await bootstrap;
                     }
                 } catch (e) {
                     // Bootstrap fetch failed; fall through to the retry below.
@@ -77,13 +80,19 @@
                 if (csrf && csrf.value) {
                     return csrf.value;
                 }
-                try {
-                    await fetchCsrfToken('<%=request.getContextPath()%>');
-                } catch (e) {
-                    return null;
+                var attempts = bootstrap ? 1 : 2;
+                for (var attempt = 0; attempt < attempts; attempt++) {
+                    try {
+                        await fetchCsrfToken('<%=request.getContextPath()%>');
+                    } catch (e) {
+                        // A transient fetch/parse failure can use the remaining attempt.
+                    }
+                    csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+                    if (csrf && csrf.value) {
+                        return csrf.value;
+                    }
                 }
-                csrf = document.querySelector('input[name="CSRF-TOKEN"]');
-                return (csrf && csrf.value) ? csrf.value : null;
+                return null;
             }
 
             async function deleteImg(image) {
