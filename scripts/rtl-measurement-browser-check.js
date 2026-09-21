@@ -467,20 +467,25 @@ async function run() {
       await page.locator('#rtl-template-lookup-status').waitFor({state:'visible'});
     }
     // A failed catalogue must remain visible after unrelated measurement success.
-    await page.evaluate(()=>{document.getElementById('Letter').value='<p>Saved recovery letter</p>';Start();});
+    await page.evaluate(()=>{
+      document.getElementById('Letter').value='<p>Saved recovery letter</p>';
+      document.getElementById('template').innerHTML='<option> loading... </option>';Start();
+    });
     for (let n=0;n<100&&!catalogRequests.length;n++) await page.waitForTimeout(10);
     await catalogRequests.shift().fulfill({status:500,body:'Fixture catalogue failure'});
     await page.waitForFunction(()=>!measurementHistoryStillLoading());
     assert.equal(await body.textContent(),'Saved recovery letter');
+    assert.equal(await page.evaluate(()=>editorStillLoading()),false);
     await page.locator('#rtl-template-catalog-status').waitFor({state:'visible'});
     await page.evaluate(()=>{window.loaded=Promise.all([getMeasures('BP',1)]);});
     await respond({BP:[row('BP','120/80')]});
     await page.locator('#rtl-template-catalog-status').waitFor({state:'visible'});
-    await page.evaluate(()=>Start());
+    await page.evaluate(()=>{document.getElementById('template').innerHTML='<option> loading... </option>';Start();});
     for (let n=0;n<100&&!catalogRequests.length;n++) await page.waitForTimeout(10);
     await catalogRequests.shift().fulfill({contentType:'text/html',body:'<html><body>Session expired</body></html>'});
     await page.waitForFunction(()=>!measurementHistoryStillLoading());
     assert.equal(await body.textContent(),'Saved recovery letter');
+    assert.equal(await page.evaluate(()=>editorStillLoading()),false);
     await page.locator('#rtl-template-catalog-status').waitFor({state:'visible'});
     await page.evaluate(()=>Start());
     for (let n=0;n<100&&!catalogRequests.length;n++) await page.waitForTimeout(10);

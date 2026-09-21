@@ -322,3 +322,13 @@ test('only a successful retry of the rejected type clears its precondition warni
   f.requests[1].respond({BP:[row('BP','120/80')]});await retry;
   assert.equal(notice(f,'rtl-measurement-precondition-status'),'');
 });
+
+test('a queued successful request for the failed type clears the obsolete group failure', async () => {
+  const f=setup();const first=f.context.getMeasures('BP',1);await delay(5);
+  const second=f.context.getMeasures('BP',1);await delay(5);
+  f.requests[0].onerror();assert.equal((await first).failed,true);await delay(5);
+  assert.match(notice(f),/still to retry: BP/);
+  f.requests[1].respond({BP:[row('BP','120/80')]});
+  assert.equal((await second).failed,undefined);
+  assert.equal(notice(f),'');assert.equal(f.context.measureBatchFailed,false);
+});

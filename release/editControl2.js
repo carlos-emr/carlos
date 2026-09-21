@@ -1349,6 +1349,12 @@ function submitFaxButton() {
 			measureTemplateCatalogLoading = true;
 
             function catalogFailed() {
+                var templateSelect = document.getElementById('template');
+                if (templateSelect) {
+                    Array.prototype.forEach.call(templateSelect.options, function(option) {
+                        if (option.textContent.trim() === 'loading...') { option.textContent = 'Templates unavailable'; }
+                    });
+                }
                 showLetterStatus('rtl-template-catalog-status', 'Letter templates could not be loaded. Check the letter before saving; reopen the form to retry loading templates.', true);
                 measureTemplateCatalogLoading = false;
                 loadDefaultTemplate();
@@ -1894,10 +1900,12 @@ function startNextMeasureBatch() {
         });
         measureBatchesPending--;
         activeMeasureBatch = null;
-        if (measureBatchFailed || Object.keys(failedMeasureTypes).length) {
-            showMeasurementStatus('Some requested measurements were not inserted. Please retry Lab Grid or Vitals before saving an incomplete letter. Types still to retry: ' + Object.keys(failedMeasureTypes).join(', ') + '.', true);
-        } else if (!measureBatchesPending) {
-            showMeasurementStatus('', false);
+        var failedTypes = Object.keys(failedMeasureTypes);
+        if (!failedTypes.length) { measureBatchFailed = false; }
+        if (failedTypes.length) {
+            showMeasurementStatus('Some requested measurements were not inserted. Please retry Lab Grid or Vitals before saving an incomplete letter. Types still to retry: ' + failedTypes.join(', ') + '.', true);
+        } else {
+            showMeasurementStatus(measureBatchesPending ? 'Loading measurements. Please wait before saving or printing.' : '', false);
         }
         // Settle callers only after releasing this batch's save/print gate.
         batch.requests.forEach(function(request, index) { request.resolve(histories[index]); });
