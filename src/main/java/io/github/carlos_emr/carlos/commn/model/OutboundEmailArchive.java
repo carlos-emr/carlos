@@ -60,7 +60,8 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     public static final String RETENTION_POLICY_PERMANENT = "PERMANENT";
     /**
      * Artifact captured; dispatch has not been attempted yet. Also the state a row is left in
-     * when CARLOS could not record an outcome, so it never implies "not sent".
+     * when CARLOS could not record an outcome, and the state of every row archived before the
+     * send lifecycle existed, so it never implies "not sent".
      */
     public static final String SEND_STATUS_ARCHIVED = "ARCHIVED";
 
@@ -341,8 +342,9 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
      * @param providerNo provider number responsible for the send
      */
     public void recordSendAttempt(String providerNo) {
-        if (SEND_STATUS_ACCEPTED.equals(sendStatus)) {
-            // Acceptance is terminal. A late or duplicated attempt marker must not erase it.
+        if (isSendOutcomeObserved()) {
+            // An observed outcome is terminal. A late or duplicated attempt marker must not
+            // turn it back into "not known" or restamp when the attempt began.
             return;
         }
         this.sendStatus = SEND_STATUS_SEND_ATTEMPTED;
@@ -360,6 +362,12 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
      * @param providerNo provider number responsible for the send
      */
     public void recordSendAccepted(String providerNo) {
+        if (isSendOutcomeObserved()) {
+            // One archive is one dispatch, so a second outcome contradicts the first rather
+            // than updating it. Keep what was observed first: flipping a recorded refusal to
+            // ACCEPTED would pair a new sentAt with the failed attempt's timestamp.
+            return;
+        }
         Date acceptedAt = new Date();
         this.sendStatus = SEND_STATUS_ACCEPTED;
         if (this.sendAttemptedAt == null) {
@@ -380,8 +388,9 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
      * @param providerNo provider number responsible for the send
      */
     public void recordSendFailure(String providerNo) {
-        if (SEND_STATUS_ACCEPTED.equals(sendStatus)) {
-            // A post-acceptance bookkeeping fault must not rewrite a recorded acceptance.
+        if (isSendOutcomeObserved()) {
+            // A post-acceptance bookkeeping fault must not rewrite a recorded acceptance, and a
+            // repeated failure must not replace the first one's audit stamp.
             return;
         }
         this.sendStatus = SEND_STATUS_SEND_FAILED;
@@ -389,6 +398,14 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
             this.sendAttemptedAt = new Date();
         }
         setLastUpdateUser(providerNo);
+    }
+
+    /**
+     * Whether the transport's answer has been recorded. {@code ARCHIVED} and
+     * {@code SEND_ATTEMPTED} both mean "not known", so only these two states are terminal.
+     */
+    private boolean isSendOutcomeObserved() {
+        return SEND_STATUS_ACCEPTED.equals(sendStatus) || SEND_STATUS_SEND_FAILED.equals(sendStatus);
     }
 
     public String getSendStatus() {

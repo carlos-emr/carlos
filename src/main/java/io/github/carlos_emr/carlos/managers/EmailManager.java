@@ -219,8 +219,13 @@ public class EmailManager {
                     encryptEmail(emailData);
                 }
                 EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
-                sendWithArchive(loggedInInfo, emailSender, emailLog);
-                return completeAcceptedSend(loggedInInfo, emailLog);
+                Integer archiveId = sendWithArchive(loggedInInfo, emailSender, emailLog);
+                // EmailLog is the authoritative record, so its SUCCESS is written first. The
+                // archive write takes a row lock; ahead of this it could hold an accepted send
+                // at PENDING for the length of a lock wait, inviting a duplicate send.
+                EmailSendResult result = completeAcceptedSend(loggedInInfo, emailLog);
+                recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.ACCEPTED);
+                return result;
             } catch (EmailSendingException e) {
                 return completeFailedSend(loggedInInfo, emailLog, e);
             }
@@ -233,14 +238,21 @@ public class EmailManager {
         }
     }
 
-    private void sendWithArchive(LoggedInInfo loggedInInfo, EmailSender sender, EmailLog log)
+    /**
+     * Archives the prepared message, then dispatches it.
+     *
+     * @return the archive identifier once the transport has accepted the message, for the caller
+     *         to record ACCEPTED against after the EmailLog outcome; null when archiving
+     *         produced no row
+     */
+    private Integer sendWithArchive(LoggedInInfo loggedInInfo, EmailSender sender, EmailLog log)
             throws EmailSendingException {
         Integer archiveId = null;
         try {
             archiveId = archiveOutboundEmail(loggedInInfo, sender, log);
             recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.ATTEMPTED);
             sender.sendPrepared();
-            recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.ACCEPTED);
+            return archiveId;
         } catch (EmailSendingException e) {
             // An uncertain outcome stays at ATTEMPTED. Recording FAILED would assert the message
             // did not go out, which is precisely what this path could not establish.
@@ -267,7 +279,8 @@ public class EmailManager {
     /**
      * Advances the archive's send lifecycle without ever changing the send's own outcome.
      *
-     * <p>Strictly best-effort. By the time the ACCEPTED transition runs the message is already
+     * <p>Strictly best-effort, which is also why this never throws: the ACCEPTED call sits
+     * outside any catch. By the time the ACCEPTED transition runs the message is already
      * with the transport, so a bookkeeping fault here must not turn a delivered email into a
      * reported failure — that would prompt a clinician to send a duplicate. A transition that
      * cannot be written leaves the row at its previous state, which the lifecycle constants

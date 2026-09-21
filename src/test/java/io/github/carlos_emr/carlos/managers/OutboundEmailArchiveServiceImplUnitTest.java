@@ -1449,6 +1449,36 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep a recorded acceptance when a late attempt marker arrives")
+    void shouldKeepAcceptance_whenLateAttemptMarkerArrives() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        java.util.Date attemptedAt = archive.getSendAttemptedAt();
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSendAttemptedAt()).isSameAs(attemptedAt);
+    }
+
+    @Test
+    @DisplayName("should keep a recorded failure when a later outcome contradicts it")
+    void shouldKeepFailure_whenLaterOutcomeContradictsIt() {
+        // One archive is one dispatch. A second outcome cannot update the first, only contradict
+        // it, so the first observation stands in both directions.
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_FAILED);
+        assertThat(archive.getSentAt()).isNull();
+    }
+
+    @Test
     @DisplayName("should do nothing when archiving never produced a row")
     void shouldDoNothing_whenArchiveIdIsNull() {
         assertThat(service.recordSendOutcome(loggedInInfo, null,

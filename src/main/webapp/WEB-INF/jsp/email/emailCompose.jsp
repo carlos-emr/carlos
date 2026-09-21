@@ -806,7 +806,9 @@
 
             if (document.getElementById('isEmailStatusRecorded').value === 'true'
                     && !document.getElementById('emailFollowUpWarning')) {
-                setTimeout(() => window.close(), 3000);
+                // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
+                // window closed before anyone could, which made the notice decorative.
+                setTimeout(() => window.close(), 8000);
             }
             return;
         }
