@@ -209,7 +209,9 @@
      "stop"
     ]
    }
-  ]
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "C2-27b-P2-t02",
@@ -246,7 +248,9 @@
      "stop"
     ]
    }
-  ]
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "C3-27b-P2-t0",
@@ -283,7 +287,9 @@
      "stop"
     ]
    }
-  ]
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "C4-27b-P2-t0-sf",
@@ -320,7 +326,9 @@
      "stop"
     ]
    }
-  ]
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "C5-27b-P2-t02-phala",
@@ -357,7 +365,9 @@
      "stop"
     ]
    }
-  ]
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "C6-27b-P2-t0-sf-repeat",
@@ -394,7 +404,9 @@
      "stop"
     ]
    }
-  ]
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "C7-27b-P2-sections",
@@ -486,7 +498,9 @@
      "stop"
     ]
    }
-  ]
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "C8-27b-P2-sections-fixed",
@@ -571,7 +585,9 @@
      "stop"
     ]
    }
-  ]
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "D1-001-P3",
@@ -600,7 +616,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "D2-001-P4",
@@ -629,7 +647,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "D3-001-P5",
@@ -658,7 +678,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "D4-001-P5-phala",
@@ -687,7 +709,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "D5-001-P5-sf-repeat",
@@ -716,7 +740,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "E1-002-P3",
@@ -745,7 +771,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "E2-002-P4",
@@ -774,7 +802,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "E3-002-P5",
@@ -803,7 +833,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "E4-002-P5-phala",
@@ -832,7 +864,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "E5-002-P5-deepinfra",
@@ -861,7 +895,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "F1-003-P4",
@@ -890,7 +926,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "F2-003-P5",
@@ -919,7 +957,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "F3-003-P5-repeat",
@@ -948,7 +988,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "G1-003-committed-prompt",
@@ -977,7 +1019,9 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
  },
  {
   "name": "H1-002-P6-phala",
@@ -1005,7 +1049,10 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
  },
  {
   "name": "H2-002-P6-deepinfra",
@@ -1036,7 +1083,10 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
  },
  {
   "name": "H3-001-P6",
@@ -1064,7 +1114,10 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
  },
  {
   "name": "H4-003-P6",
@@ -1092,7 +1145,10 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
  },
  {
   "name": "H5-002-P6-sf",
@@ -1122,7 +1178,10 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
  },
  {
   "name": "J1-002-P7-sf",
@@ -1150,7 +1209,10 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
  },
  {
   "name": "J2-002-P7-deepinfra",
@@ -1181,7 +1243,10 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
  },
  {
   "name": "K1-001-final",
@@ -1209,7 +1274,10 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
  },
  {
   "name": "K2-003-final",
@@ -1237,7 +1305,10 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
  },
  {
   "name": "L1-002-P9",
@@ -1266,7 +1337,12 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
  },
  {
   "name": "L2-001-P9",
@@ -1293,7 +1369,12 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
  },
  {
   "name": "M1-002-P10",
@@ -1323,7 +1404,12 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
  },
  {
   "name": "N1-002-P11",
@@ -1353,7 +1439,12 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": false
-  }
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
  },
  {
   "name": "N2-003-P11",
@@ -1371,11 +1462,16 @@
   "metrics": {
    "status": "rejected",
    "error": "ValueError: Incomplete or refused completion"
-  }
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
  },
  {
   "name": "P1-002-final",
-  "note": "final: P7 prompt, 16,000 budget",
+  "note": "final: P7 prompt after the host default moved to 16,000; this gateway pass still used 50,000",
   "fixture": "NHSSYN002",
   "status": "structurally_valid",
   "error": null,
@@ -1398,11 +1494,16 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
  },
  {
   "name": "P2-003-final",
-  "note": "final: P7 prompt, 16,000 budget",
+  "note": "final: P7 prompt after the host default moved to 16,000; this gateway pass still used 50,000",
   "fixture": "NHSSYN003",
   "status": "structurally_valid",
   "error": null,
@@ -1425,6 +1526,11 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
  }
 ]

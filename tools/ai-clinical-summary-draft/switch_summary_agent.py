@@ -11,6 +11,7 @@ import time
 from urllib.request import ProxyHandler, build_opener
 
 from openrouter_agent import DEFAULTS, NoRedirect, loads, private_write, read_config, runtime_directory
+from pipeline import REQUEST_BYTES
 from validate_artifact import require
 
 PREFIX = "clinical.ai_summary_generation."
@@ -21,7 +22,7 @@ def settings(agent, port=DEFAULTS["port"], model=DEFAULTS["model"], request_byte
               PREFIX + "agent": agent}
     if agent == "openrouter":
         require(re.fullmatch(r"[a-z0-9._-]+/[a-z0-9._-]+", model), "Invalid model ID")
-        require(type(request_bytes) is int and 10000 <= request_bytes <= 50000, "Invalid request budget")
+        require(type(request_bytes) is int and REQUEST_BYTES <= request_bytes <= 50000, "Invalid request budget")
         values.update({PREFIX + "agent": "http", PREFIX + "http.port": str(port),
                        PREFIX + "http.path": "/v1/clinical-summary",
                        PREFIX + "http.name": "OpenRouter / " + model,
