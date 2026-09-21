@@ -113,12 +113,16 @@ public final class EFormAssetReferences {
             Pattern.CASE_INSENSITIVE);
 
     /**
-     * Only a link element's href loads an asset. An anchor href is navigation, even if a file of
-     * the same name happens to exist in the shared asset directory.
+     * Capture the complete link so its relation can be checked on either side of href.
+     * Only stylesheet links are supported; metadata and navigation links stay as authored.
      */
     private static final Pattern LINK_HREF_REFERENCE = Pattern.compile(
-            "<link\\b[^<>]{0,4096}?\\s+(href)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3",
+            "<link\\b[^<>]{0,4096}?\\s+(href)(\\s*=\\s*)([\"'])([^\"'<>]{1,255})\\3[^<>]{0,4096}>",
             Pattern.CASE_INSENSITIVE);
+
+    /** Consume whole attribute values so text inside another attribute cannot masquerade as rel. */
+    private static final Pattern LINK_ATTRIBUTE = Pattern.compile(
+            "\\s+([A-Za-z_:][A-Za-z0-9_.:-]*)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'=<>`]+))");
 
     /**
      * A bare filename: a name, a dot, an extension, and nothing structural.
@@ -179,9 +183,11 @@ public final class EFormAssetReferences {
         while (matcher.find()) {
             String value = matcher.group(4);
             String replacement = matcher.group();
-            if (isCandidate(value) && isServable(value, resolved, assetExists)) {
+            if ((reference != LINK_HREF_REFERENCE || isStylesheetLink(matcher.group()))
+                    && isCandidate(value) && isServable(value, resolved, assetExists)) {
                 replacement = matcher.group().substring(0, matcher.start(4) - matcher.start())
-                        + IMAGE_PATH_MARKER + value + matcher.group(3);
+                        + IMAGE_PATH_MARKER + value
+                        + matcher.group().substring(matcher.end(4) - matcher.start());
                 changed = true;
             }
             matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
@@ -191,6 +197,24 @@ public final class EFormAssetReferences {
         }
         matcher.appendTail(rewritten);
         return rewritten.toString();
+    }
+
+    private static boolean isStylesheetLink(String link) {
+        Matcher attributes = LINK_ATTRIBUTE.matcher(link);
+        while (attributes.find()) {
+            if ("rel".equalsIgnoreCase(attributes.group(1))) {
+                String relation = attributes.group(2) != null ? attributes.group(2)
+                        : attributes.group(3) != null ? attributes.group(3) : attributes.group(4);
+                for (String token : relation.split("[\\t\\n\\f\\r ]+")) {
+                    if ("stylesheet".equalsIgnoreCase(token)) {
+                        return true;
+                    }
+                }
+                // Like HTML, use the first occurrence if an author repeats the attribute.
+                return false;
+            }
+        }
+        return false;
     }
 
     /**

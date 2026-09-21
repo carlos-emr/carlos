@@ -101,6 +101,35 @@ class EFormAssetReferencesUnitTest {
                     + "<form action=\"instructions.html\"></form>");
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "<LINK HREF='styles.css' REL='StyleSheet' media='print'>",
+                "<link href=\"styles.css\" rel=stylesheet>",
+                "<link rel='alternate \tStyleSheet' title='Print' href='styles.css' />"
+        })
+        @DisplayName("should recognize stylesheet relation tokens regardless of attribute order")
+        void shouldRewriteStylesheetRelations(String html) {
+            assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT))
+                    .isEqualTo(html.replace("styles.css", "${oscar_image_path}styles.css"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "<link rel='canonical' href='instructions.html'>",
+                "<link href='instructions.html' rel='alternate'>",
+                "<link rel='next' href='instructions.html'>",
+                "<link href='styles.css'>",
+                "<link rel='notstylesheet' href='styles.css'>",
+                "<link data-rel='stylesheet' href='styles.css'>",
+                "<link title=\" rel='stylesheet'\" href='styles.css' rel='canonical'>",
+                "<link rel='canonical' rel='stylesheet' href='styles.css'>",
+                "<link rel='preload' href='styles.css' as='style'>"
+        })
+        @DisplayName("should preserve non-stylesheet link relations even when the asset exists")
+        void shouldPreserveNonStylesheetLinks(String html) {
+            assertThat(EFormAssetReferences.normalizeBareAssetReferences(html, PRESENT)).isEqualTo(html);
+        }
+
         @Test
         @DisplayName("should rewrite every reference when a form carries more than one")
         void shouldRewriteEveryReference_whenFormCarriesSeveral() {

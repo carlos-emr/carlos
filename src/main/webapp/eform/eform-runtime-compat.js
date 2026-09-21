@@ -649,7 +649,7 @@
         if (!/^image\/jsignature;base30$/i.test(value.slice("data:".length, comma))) {
             return false;
         }
-        return value.slice(comma + 1).trim() === "";
+        return value.slice(comma + 1) === "";
     }
 
     function installSignatureGuard() {

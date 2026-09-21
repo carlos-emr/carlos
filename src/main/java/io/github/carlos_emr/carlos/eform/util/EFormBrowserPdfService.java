@@ -2681,16 +2681,26 @@ public class EFormBrowserPdfService {
                         name = URLDecoder.decode(
                                 parameter.substring(separator + 1), StandardCharsets.UTF_8);
                     } catch (IllegalArgumentException e) {
-                        // A malformed percent sequence cannot identify an asset; fall through to
-                        // the path segment rather than matching on a half-decoded value.
-                        name = null;
+                        // A malformed filename cannot prove that an asset loaded.
+                        return null;
                     }
                     break;
                 }
             }
         }
         if (name == null || name.isEmpty()) {
-            name = value;
+            // Select the path segment before decoding, and decode exactly once. URLDecoder uses
+            // form-query rules, so protect literal path pluses from becoming spaces.
+            String segment = value.substring(value.lastIndexOf('/') + 1);
+            try {
+                name = URLDecoder.decode(segment.replace("+", "%2B"), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+            // An encoded separator does not identify a single bare asset filename.
+            if (name.indexOf('/') >= 0 || name.indexOf('\\') >= 0) {
+                return null;
+            }
         }
         int lastSlash = name.lastIndexOf('/');
         if (lastSlash >= 0) {

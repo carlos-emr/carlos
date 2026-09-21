@@ -160,7 +160,13 @@ function signaturePage() {
         var resetAfterNotReady = calls.filter(function (call) { return call.verb === 'reset'; }).length;
         attempt('data:image/jsignature;base30,0A_0A', pad, true);
         attempt('data:text/jsignature-foo,', pad, true);
+        var malformedRejected = [];
+        [' ', '\\t', '\\n'].forEach(function (payload) {
+          try { pad.jSignature('setData', 'data:image/jsignature;base30,' + payload); }
+          catch (error) { malformedRejected.push(payload); }
+        });
         window.__signatureResult = {
+          malformedRejected: malformedRejected,
           guardInstalledAtSpySetup: guardInstalledAtSpySetup,
           guardWrapsSpy: guardWrapsSpy,
           resetAfterEmpty: resetAfterEmpty,
@@ -299,7 +305,10 @@ async function main() {
       assert(signature.skipped === 3, `expected three empty base30 loads, got ${signature.skipped}`);
       assert(JSON.stringify(signature.delegated) === JSON.stringify([
         'data:image/jsignature;base30,0A_0A', 'data:text/jsignature-foo,',
-      ]), `populated and unsupported data did not reach the bundled plugin: ${JSON.stringify(signature.delegated)}`);
+        'data:image/jsignature;base30, ', 'data:image/jsignature;base30,\t', 'data:image/jsignature;base30,\n',
+      ]), `populated, unsupported or malformed data did not reach the bundled plugin: ${JSON.stringify(signature.delegated)}`);
+      assert(JSON.stringify(signature.malformedRejected) === JSON.stringify([' ', '\t', '\n']),
+        `malformed signature failures were suppressed: ${JSON.stringify(signature.malformedRejected)}`);
     } catch (error) {
       failures.push(`jSignature compatibility: ${error.message}`);
     }

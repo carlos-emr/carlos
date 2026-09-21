@@ -1054,6 +1054,54 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should correlate encoded duplicate images and scripts while preserving real failures")
+    void shouldCorrelateEncodedDuplicateResources() {
+        String origin = "http://127.0.0.1:8080";
+        List<String> entries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"" + origin + "/carlos/render\",\"status\":200}"),
+                // Failure first: correlation must work independently of event ordering.
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/scan%20(1).png\",\"status\":404}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/eform/displayImage?imagefile=scan+(1).png\",\"status\":200}"),
+                cdpMessage("Network.requestWillBeSent", "\"requestId\":\"script\",\"request\":{\"url\":\"" + origin + "/carlos/clinic%20%5B1%5D.js\",\"method\":\"GET\"}"),
+                cdpMessage("Network.loadingFailed", "\"requestId\":\"script\",\"type\":\"Script\",\"canceled\":false"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"" + origin + "/carlos/eform/displayImage?imagefile=clinic%20%5B1%5D.js\",\"status\":200}"));
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(entries, origin);
+        assertThat(scan.failedCriticalSubresources()).isZero();
+        assertThat(scan.failedSubresources()).isEqualTo(2);
+        assertThat(scan.duplicateScriptFailureNames()).containsExactly("clinic [1].js");
+        String refusal = "Refused to execute script from '" + origin + "/carlos/clinic%20%5B1%5D.js' "
+                + "because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled.";
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(refusal, scan.duplicateScriptFailureNames())).isTrue();
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(refusal, java.util.Set.of())).isFalse();
+
+        List<String> missing = new java.util.ArrayList<>(entries);
+        missing.add(cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/scan%20(2).png\",\"status\":404}"));
+        // A literal path '+' is not the space in the loaded query filename.
+        missing.add(cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/scan+(1).png\",\"status\":404}"));
+        missing.add(cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + origin + "/carlos/scan%ZZ.png\",\"status\":404}"));
+        EFormBrowserPdfService.NetworkGateScan blocked = EFormBrowserPdfService.scanNetworkEvents(missing, origin);
+        assertThat(blocked.failedCriticalSubresources()).isEqualTo(3);
+        assertThat(blocked.failedSubresources()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should decode path filenames once, preserve pluses and reject malformed escapes")
+    void shouldDecodePathBasenameExactlyOnce() {
+        String base = "http://127.0.0.1:8080/carlos/";
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%20%5B1%5D.png?ignored=1#fragment"))
+                .isEqualTo("scan [1].png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan+1.png")).isEqualTo("scan+1.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%2B1.png")).isEqualTo("scan+1.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%2520.png")).isEqualTo("scan%20.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "displayImage?imagefile=scan%2520.png"))
+                .isEqualTo("scan%20.png");
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "scan%ZZ.png")).isNull();
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "displayImage?imagefile=scan%ZZ.png")).isNull();
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "path%2Fscan.png")).isNull();
+        assertThat(EFormBrowserPdfService.resourceBasename(base + "path%5Cscan.png")).isNull();
+    }
+
+    @Test
     @DisplayName("should match the imagefile parameter and the path segment as the same asset")
     void shouldResolveResourceBasename_fromQueryAndPath() {
         assertThat(EFormBrowserPdfService.resourceBasename(
