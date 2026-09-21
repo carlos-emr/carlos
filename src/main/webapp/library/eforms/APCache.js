@@ -89,7 +89,7 @@
 
  getMapping(mappingKey) - Return the mapping associated with mappingKey or null if no mapping exists. 
  
- lookup(key) - Performs a lookup in the cache.
+ lookup(key, timeoutMillis) - Performs a lookup in the cache. Optional timeoutMillis bounds the AJAX request.
     key: if there is a mapping for key then the associated values are retrieved otherwise the value for key is retrieved.    
     
     e.g., retrieve the key "age" defined in the apconfig.xml:
@@ -248,7 +248,7 @@ function createCache(options) {
             }
             return null;
         };
-        this.lookup = function (key) {
+        this.lookup = function (key, timeoutMillis) {
 
             if (this.flushCache) {
                 this.values = {};
@@ -286,6 +286,7 @@ function createCache(options) {
             var rendererEndpointElement = document.getElementById("carlosEformRendererApCacheUrl");
             var rendererEndpoint = rendererEndpointElement == null ? "" : rendererEndpointElement.value;
             jQuery.ajax({
+                timeout: typeof timeoutMillis === "number" ? timeoutMillis : 0,
                 url: rendererEndpoint || "efmformapconfig_lookup",
                 // Renderer identity is capability-bound on the server. Never forward fdid,
                 // demographic, provider, or appointment values from the browser query string.

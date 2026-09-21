@@ -56,7 +56,7 @@ function setup() {
     respond(measurements, status = 200) { this.status = status; this.responseText = JSON.stringify({measurements}); this.onload(); }
   }
   const window = {location:{href:'https://localhost/carlos/eform/efmshowform_data?demographic_no=99'}, setTimeout};
-  const context = vm.createContext({window, document, XMLHttpRequest:Xhr, URL, alert:text=>alerts.push(text), cfg_editorname:'edit', gup:()=>'', setDirtyFlag:()=>dirty++});
+  const context = vm.createContext({window, document, XMLHttpRequest:Xhr, URL, alert:text=>alerts.push(text), cfg_editorname:'edit', gup:(name,url)=>new URL(url||window.location.href).searchParams.get(name)||'', setDirtyFlag:()=>dirty++});
   vm.runInContext(code, context);
   return {context, document, contentDocument, frame, patient, requests, alerts, dirty:()=>dirty};
 }
@@ -227,6 +227,7 @@ test('measurement loading does not block an unrelated form submission', async ()
   const event={target:unrelated,preventDefault:()=>blocked++,stopImmediatePropagation:()=>blocked++};
   f.document.listeners.submit(event);
   f.document.listeners.click({...event,target:{closest:()=>({type:'submit',form:unrelated})}});
+  f.document.listeners.click({...event,target:{closest:()=>({type:'button',name:'PrintButton',form:unrelated})}});
   assert.equal(blocked,0);
   await delay(5);f.requests[0].respond({});await p;
 });
@@ -234,7 +235,7 @@ test('measurement loading does not block an unrelated form submission', async ()
 test('initial template setup finishes before accepting measurement requests', async () => {
   const f=setup();f.context.measureInitialTemplateLoading=true;
   assert.equal((await f.context.getMeasures('BP',1)).failed,true);
-  assert.equal(f.requests.length,0);assert.equal(f.context.measurementHistoryStillLoading(),false);
+  assert.equal(f.requests.length,0);assert.equal(f.context.measurementHistoryStillLoading(),true);
   assert.match(notice(f),/template is still loading/);
   f.context.measureInitialTemplateLoading=false;
   const p=f.context.getMeasures('BP',1);await delay(5);
@@ -252,4 +253,12 @@ test('a template-loading rejection remains visible after an older batch succeeds
   const retry=f.context.getMeasures('WT',1);await delay(5);
   f.requests[1].respond({WT:[row('WT','70')]});await retry;
   assert.equal(notice(f),'');
+});
+
+test('legacy forms without the framework patient field use their own form action before the viewer query', async () => {
+  const f=setup();f.document.body.removeChild(f.patient);
+  f.document.RichTextLetter.action='https://localhost/carlos/eform/addEForm?efmdemographic_no=17';
+  const p=f.context.getMeasures('BP',1);await delay(5);
+  assert.equal(f.requests[0].url,'/carlos/ws/rs/measurements/17');
+  f.requests[0].respond({BP:[row('BP','120/80')]});assert.equal((await p).failed,undefined);
 });

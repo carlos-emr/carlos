@@ -450,7 +450,7 @@ function loadDefaultTemplate() {
 	// Loading it replaces the document; any outstanding insertion then fails
 	// visibly so the user can retry against the fully loaded template.
 	var content = editControlContents(cfg_editorname, true).replace(/<!--RTL measurement insertion-->/g, '');
-	if (content.trim() != '') { measureInitialTemplateLoading = false; return; }
+	if (content.trim() != '') { measureInitialTemplateLoading = false; finishPendingSourceView(); return; }
 	cancelPendingFaxSubmission();
 	measureInitialTemplateLoading = true;
 	// Invalidate markers before navigation starts, including a fast REST response.
@@ -463,14 +463,14 @@ function loadDefaultTemplate() {
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
-		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
+		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); finishPendingSourceView(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
 	} else {
 		var blankTemplate = '<html><head><title>Blank Document Template</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"><style type=\"text/css\">body {font-size: 1em; font-family:\"Times New Roman\", Times, serif; background-color: #FFFFFF;}</style><style type=\"text/css\" media=\"print\">* {color: #000000;}.DoNotPrint {display: none;}</style></head><body contenteditable onLoad=\"document.designMode = \'on\';\"></body></html>';
 		var blankFrame = document.getElementById(cfg_editorname);
 		// srcdoc navigates the iframe too, so the listener has to follow the new Window here as well.
-		blankFrame.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); attachDirtyFlagListener(); };
+		blankFrame.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); attachDirtyFlagListener(); finishPendingSourceView(); };
 		blankFrame.srcdoc = blankTemplate;
 	}
 }
@@ -500,7 +500,7 @@ function loadTemplate(selectname){
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
-		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
+		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); finishPendingSourceView(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
     	}
@@ -533,7 +533,10 @@ function parseTemplate(){
 		var templateMapping = cache.getMapping("template");
 		if (templateMapping != null) {			
 			templateMapping.values = keys;
-			cache.lookup("template");	
+			if (!cache.flushCache && cache.contains("template")) { populateTemplate(); return; }
+			measureTemplateLookupsPending++;
+			try { cache.lookup("template", 15000); }
+			catch (error) { finishTemplateLookup(false); }
 		}		 
 	}
 }
@@ -975,7 +978,30 @@ function submitFaxButton() {
 }
 	
 
-	cache.addMapping({name: "template", cacheResponseHandler: populateTemplate});
+	cache.addMapping({name: "template", cacheResponseHandler: function() {
+        var populated = false;
+        try { populateTemplate(); populated = true; }
+        catch (error) { console.warn('RTL: template population failed.'); }
+        finally { finishTemplateLookup(populated); }
+    }});
+
+    // APCache invokes this as the jQuery request's error handler. Scope template
+    // completion to its lookup type; other cache lookups keep the existing alert.
+    cache.cacheResponseErrorHandler = function() {
+        if (/(^|[?&])oscarAPCacheLookupType=template(&|$)/.test(String(this.data || '') + '&' + String(this.url || ''))) {
+            finishTemplateLookup(false);
+        } else { alert('Please contact an administrator, an error has occurred.'); }
+    };
+
+    function finishTemplateLookup(success) {
+        measureTemplateLookupsPending = Math.max(0, measureTemplateLookupsPending - 1);
+        if (!success) {
+            measureBatchFailed = true;
+            showLookupFailureNotice('template');
+            showMeasurementStatus('Template fields could not be loaded. Select the template again to retry.', true);
+        }
+        finishPendingSourceView();
+    }
 
 // add RTL specific key values 
 // each cache name is an array of key values
@@ -1242,10 +1268,12 @@ function submitFaxButton() {
 	 */
 	function Start() {
 			measureInitialTemplateLoading = true;
+			measureTemplateCatalogLoading = true;
 
 			// Load template <option> elements into the template dropdown
 			$.ajax({
 				url : "efmformrtl_templates",
+                timeout: 15000,
 				success : function(data) {
 					var cleanData = sanitizeHtml(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']});
 					if (cleanData !== null) {
@@ -1263,10 +1291,12 @@ function submitFaxButton() {
 							templateSelect.append(safeOpt);
 						});
 					}
+					measureTemplateCatalogLoading = false;
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {
 					console.error('Failed to load letter templates: ' + status);
+					measureTemplateCatalogLoading = false;
 					loadDefaultTemplate();
 				}
 			});
@@ -1585,10 +1615,13 @@ var measureBatchesPending = 0;
 var measureBatchFailed = false;
 var measureRequestRevision = 0;
 var measureInitialTemplateLoading = false;
+var measureTemplateCatalogLoading = false;
+var measureTemplateLookupsPending = 0;
 var pendingMeasureSourceView = null;
 
 function measurementHistoryStillLoading() {
-    return measureBatchesPending > 0;
+    return measureBatchesPending > 0 || measureInitialTemplateLoading
+        || measureTemplateCatalogLoading || measureTemplateLookupsPending > 0;
 }
 
 function assertMeasurementHistoryReady() {
@@ -1618,7 +1651,10 @@ function showMeasurementStatus(message, failed) {
 
 function measurementPatientId() {
     var field = document.getElementById('demographicNo');
-    var patient = field ? field.value : gup('demographic_no') || gup('efmdemographic_no');
+    var form = measurementLetterForm();
+    var action = form ? form.action : '';
+    var patient = field ? field.value : gup('efmdemographic_no', action) || gup('demographic_no', action)
+        || gup('demographic_no') || gup('efmdemographic_no');
     if (!/^[1-9][0-9]*$/.test(String(patient || ''))) {
         throw new Error('The letter has no patient selected.');
     }
@@ -1656,7 +1692,7 @@ function getMeasures(measure, max) {
     measureRequestRevision++;
     return new Promise(function(resolve) {
         try {
-            if (measureInitialTemplateLoading) {
+            if (measureInitialTemplateLoading || measureTemplateCatalogLoading || measureTemplateLookupsPending > 0) {
                 measureBatchFailed = true;
                 showMeasurementStatus('The letter template is still loading. Please wait before loading Lab Grid or Vitals.', true);
                 resolve({values: [], dates: [], failed: true});
@@ -1725,16 +1761,19 @@ function startNextMeasureBatch() {
         // Settle callers only after releasing this batch's save/print gate.
         batch.requests.forEach(function(request, index) { request.resolve(histories[index]); });
         startNextMeasureBatch();
-        if (!measureBatchesPending && pendingMeasureSourceView) {
-            var transition = pendingMeasureSourceView;
-            pendingMeasureSourceView = null;
-            var frame = document.getElementById(cfg_editorname);
-            if (frame && frame.contentDocument === transition.document) {
-                try { viewsource(transition.source); }
-                catch (error) { showMeasurementStatus('Measurements finished loading, but source view could not be changed. Please retry the source-view control.', true); }
-            }
-        }
+        finishPendingSourceView();
     });
+}
+
+function finishPendingSourceView() {
+    if (measurementHistoryStillLoading() || !pendingMeasureSourceView) { return; }
+    var transition = pendingMeasureSourceView;
+    pendingMeasureSourceView = null;
+    var frame = document.getElementById(cfg_editorname);
+    if (frame && frame.contentDocument === transition.document) {
+        try { viewsource(transition.source); }
+        catch (error) { showMeasurementStatus('Letter loading finished, but source view could not be changed. Please retry the source-view control.', true); }
+    }
 }
 
 function fetchMeasureHistory(batch) {
@@ -1845,7 +1884,7 @@ function insertMeasureBatch(batch, histories) {
 
 function measurementLetterForm() {
     var editor = document.getElementById(cfg_editorname);
-    return editor && editor.closest ? editor.closest('form') : document.RichTextLetter;
+    return (editor && editor.closest ? editor.closest('form') : null) || document.RichTextLetter || null;
 }
 
 // Legacy forms can print before calling saveRTL(), so intercept their controls in
@@ -1854,8 +1893,10 @@ document.addEventListener('click', function(event) {
     if (!event.target.closest) { return; }
     var control = event.target.closest('input, button');
     if (!control) { return; }
+    var letterForm = measurementLetterForm();
+    if (control.form && control.form !== letterForm) { return; }
     var outputControl = /^(SubmitButton|PrintButton|PrintSaveButton|PrintSubmitButton|pdfButton|pdfSaveButton)$/;
-    if ((control.type === 'submit' && control.form === measurementLetterForm())
+    if ((control.type === 'submit' && letterForm && control.form === letterForm)
             || outputControl.test(control.name) || outputControl.test(control.id)) {
         if (typeof cancelPendingFaxSubmission === 'function') { cancelPendingFaxSubmission(); }
         if (!measurementHistoryStillLoading()) { return; }

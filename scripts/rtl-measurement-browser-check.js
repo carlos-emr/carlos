@@ -20,23 +20,25 @@ async function run() {
   const browser = await chromium.launch({executablePath:process.env.CHROME_PATH || undefined,
     args:['--no-sandbox','--disable-dev-shm-usage'],headless:true});
   try {
-    const page = await browser.newPage({timezoneId:'America/Vancouver'}); const errors=[]; const pending=[];
+    const page = await browser.newPage({timezoneId:'America/Vancouver'}); const errors=[]; const pending=[]; const templateRequests=[];
     page.on('pageerror',error=>errors.push(error.message));
     page.on('dialog',dialog=>dialog.accept());
     await page.route('**/*',async route=>{
       const url = new URL(route.request().url());
       if (url.pathname==='/carlos/ws/rs/measurements/17') {pending.push(route); return;}
       const name=url.pathname.split('/').pop();
+      if (name==='efmformapconfig_lookup') {templateRequests.push(route);return;}
       if (name==='fixture') return route.fulfill({contentType:'text/html',body:`<!doctype html><html><head>
 <script src="jquery.js"></script><script src="purify.js"></script><script src="cache.js"></script><script src="image.js"></script></head>
 <body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden"><input id="subject" value="Fixture letter" type="hidden">
 <input id="hasValidRecipient" value="true" type="hidden"><input id="emailConsentStatus" value="Unknown" type="hidden"><input id="emailConsentName" value="Fixture" type="hidden">
-<div id="control1"></div><div id="control2"></div><div id="control3"></div><div id="control4"></div><select id="template"><option value="">Templates</option><option value="default.rtl">Default</option></select>
+<div id="control1"></div><div id="control2"></div><div id="control3"></div><div id="control4"></div><select id="template"><option value="">Templates</option><option value="default.rtl">Default</option><option value="async.rtl">Async</option><option value="failure.rtl">Failure</option></select>
 <script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
 <button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button>
 <button type="button" name="PrintSubmitButton" onclick="window.prints++">Print and submit</button>
 <button type="button" id="PrintSubmitButton" onclick="window.prints++">Print and submit by id</button></form></body></html>`});
       if (assets[name]) return route.fulfill({body:fs.readFileSync(web+assets[name]),contentType:name==='blank.rtl'?'text/html':'text/javascript'});
+      if (name==='async.rtl' || name==='failure.rtl') return route.fulfill({contentType:'text/html',body:'<!doctype html><html><body>##'+(name==='async.rtl'?'asyncField':'failureField')+'##</body></html>'});
       if (name==='default.rtl') return route.fulfill({contentType:'text/html',body:'<!doctype html><html><body>DEFAULT CONTENT</body></html>'});
       return route.abort();
     });
@@ -259,6 +261,42 @@ async function run() {
     assert.equal((await respond({BP:[row('BP','120/80')]}))[0].failed,undefined);
     assert.match(await body.textContent(),/DEFAULT CONTENT/);
     assert.match(await body.textContent(),/120\/80/);
+    // Hold the real APCache response after iframe navigation has completed.
+    await page.evaluate(()=>{
+      jQuery(document).on('ajaxSend.fixture',(_event,_xhr,settings)=>{
+        if (settings.url.includes('efmformapconfig_lookup')) window.templateTimeout=settings.timeout;
+      });
+      document.getElementById('template').selectedIndex=2;loadTemplate('template');
+    });
+    for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);
+    assert.equal(templateRequests.length,1);
+    assert.equal(await body.textContent(),'##asyncField##');
+    assert.equal(await page.evaluate(()=>window.templateTimeout),15000);
+    assert.equal(await page.evaluate(()=>measurementHistoryStillLoading()),true);
+    assert.equal((await page.evaluate(()=>getMeasures('BP',1))).failed,true);
+    assert.equal(pending.length,0);
+    assert.equal(await page.evaluate(()=>{
+      try {editControlContents('edit');return false;} catch(error){return /still loading/.test(error.message);}
+    }),true);
+    await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="template"><input name="asyncField" value="POPULATED">'});
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    assert.equal(await body.textContent(),'POPULATED');
+    await page.evaluate(()=>{window.loaded=Promise.all([getMeasures('BP',1)]);});
+    await respond({BP:[row('BP','120/80')]});
+    assert.match(await body.textContent(),/POPULATED/);assert.match(await body.textContent(),/120\/80/);
+    await page.evaluate(()=>{document.getElementById('template').selectedIndex=3;loadTemplate('template');});
+    for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);
+    assert.equal(templateRequests.length,1);
+    await templateRequests.shift().fulfill({status:500,body:'Fixture lookup failure'});
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    assert.equal(await page.evaluate(()=>measureTemplateLookupsPending),0);
+    await page.locator('#carlos-apcache-lookup-failure').waitFor({state:'visible'});
+    await page.evaluate(()=>{document.getElementById('template').selectedIndex=2;loadTemplate('template');});
+    for (let n=0;n<100&&!templateRequests.length;n++) await page.waitForTimeout(10);
+    assert.equal(templateRequests.length,1);
+    await templateRequests.shift().fulfill({contentType:'text/html',body:'<input name="oscarAPCacheLookupType" value="template"><input name="asyncField" value="POPULATED">'});
+    await page.waitForFunction(()=>!measurementHistoryStillLoading());
+    assert.equal(await body.textContent(),'POPULATED');
     assert.deepEqual(errors,[]);
     console.log('PASS: native Range insertion, request ordering, live caret/typing, serializer and legacy/toolbar print gates, marker cleanup, replaced template, literal measurement text. Chromium '+browser.version());
   } finally {await browser.close();}
