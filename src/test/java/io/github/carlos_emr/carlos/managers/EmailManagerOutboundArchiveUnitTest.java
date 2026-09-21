@@ -349,7 +349,9 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                             .when(smtpSender).sendPrepared();
                 })) {
 
-            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
+            EmailData emailData = emailData();
+
+            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData))
                     .isInstanceOf(SecurityException.class);
 
             // The privilege check runs before hand-off, so this refusal is a definite failure.
