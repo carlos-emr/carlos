@@ -68,10 +68,12 @@
 
 <%
     Integer hrmReportId = Integer.parseInt(request.getParameter("id"));
-    // Access ModelDriven criteria object from request attributes
-    HRMReportCriteria criteria =
-        (io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria) request.getAttribute("criteria");
-    boolean isListView = criteria != null && criteria.getListView() != null ? criteria.getListView() : false;
+    // The ModelDriven HRMReportCriteria is still published as the "criteria" request attribute by
+    // HRMDisplayReport2Action; this page no longer reads it. It used to take listView from there to
+    // decide whether sign-off should clear the inbox, but nothing ever sets that parameter — the
+    // Inboxhub link carries none and oscarMDS/Page.jsp sends "isListView", which does not bind — so
+    // the branch was dead and sign-off silently did nothing. hrmActions.js now decides from the
+    // window shape instead.
     String hrmReportTime = "";
     Integer hrmDuplicateNum = null;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -191,6 +193,24 @@
     // boolean obgynShortcuts = CarlosProperties.getInstance().getProperty("show_obgyn_shortcuts", "false").equalsIgnoreCase("true");
     // String formId = "0";
 
+
+    // Whether oscarMDS/Page.jsp is rendering this viewer inline, which it says so itself with a
+    // <jsp:param>. This used to read jakarta.servlet.include.servlet_path and look for
+    // "oscarMDS/Page.jsp" in it, which can never match: the Servlet specification sets the
+    // jakarta.servlet.include.* attributes to the path of the resource being INCLUDED — this JSP —
+    // not the page performing the include, so the check was always false and the inline view never
+    // got its JavaScript Print button.
+    //
+    // Computed up front because the report container below advertises it to hrmActions.js: in the
+    // inline shape a signed-off report has no window to close, so its card is hidden instead, and
+    // an ordinary top-level report page must not be blanked by mistake.
+    boolean hrmFromInboxPage = "true".equals(request.getParameter("inboxInline"));
+
+    // Whether the INBOX opened this window, which only the inbox links say (inWindow=true, the
+    // same marker labDisplay.jsp uses). window.opener alone cannot stand in for it: ticklerMain,
+    // ticklerDemoMain and the eChart's HRM shortcut all open this very route in a popup, and
+    // closing those on sign-off would take away the revoke affordance they rely on.
+    boolean hrmInInboxWindow = "true".equals(request.getParameter("inWindow"));
 
     String btnDisabled = "disabled";
     String demographicNo = "";
@@ -412,7 +432,8 @@
 <% return;
 } %>
 
-<div id="hrmdoc_<%=hrmReportId%>">
+<div id="hrmdoc_<%=hrmReportId%>" data-inbox-inline="<%=hrmFromInboxPage%>"
+     data-inbox-window="<%=hrmInInboxWindow%>">
     <div id="buttonBox">
         <input type="button" id="msgBtn_<%=hrmReportId%>" value="Msg"
                onclick="popupPatient(700,960,'<%= request.getContextPath() %>/messenger/SendDemoMessage?demographic_no=','msg', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>/>
@@ -461,7 +482,11 @@
                     allDocumentsWithRelationship = (List<HRMDocument>) request.getAttribute("allDocumentsWithRelationship");
                     if (allDocumentsWithRelationship != null && allDocumentsWithRelationship.size() > 1) {
                 %>
-                <span id="similarNotice">CARLOS has also detected that the following reports are similar:
+                <%-- Report-qualified, like similarstatus below it: oscarMDS/Page.jsp <jsp:include>s this
+                     viewer once per inbox result, so a bare id appears many times on that page and
+                     getElementById returns the FIRST one. Marking a later report independent then
+                     erased an earlier report's similar-report list. --%>
+                <span id="similarNotice<%=hrmReportId %>">CARLOS has also detected that the following reports are similar:
 		<%
             List<Integer> seenBefore = new LinkedList<Integer>();
             for (HRMDocument relationshipDocument : allDocumentsWithRelationship) {
@@ -469,7 +494,7 @@
 			<span class="documentLink_status<%=relationshipDocument.getReportStatus() %>"
                   title="<%=relationshipDocument.getReportDate().toString() %>">
 			<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %><a
-                    href="<%=request.getContextPath() %>/hospitalReportManager/Display?id=<%=relationshipDocument.getId() %>&segmentId=<%=relationshipDocument.getId() %> "><% } %>[<%=relationshipDocument.getId() %>]<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %></a><% } %>
+                    href="<%=request.getContextPath() %>/hospitalReportManager/Display?id=<%=relationshipDocument.getId() %>&amp;segmentId=<%=relationshipDocument.getId() %><%=hrmInInboxWindow ? "&amp;inWindow=true" : "" %>"><% } %>[<%=relationshipDocument.getId() %>]<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %></a><% } %>
 			</span>&nbsp;&nbsp;
 		<% seenBefore.add(relationshipDocument.getId().intValue());
         }
@@ -477,6 +502,7 @@
 		 <div class="boxButton">
 		   <input type="button" onClick="makeIndependent('<%=hrmReportId %>')"
                   value="Mark this report as not similar to the other report(s)"/>
+		   <span id="similarstatus<%=hrmReportId %>"></span>
 		 </div>  
 		</span>
                 <% } %>
@@ -629,8 +655,6 @@
                             <% } %>
                         </div>
                         <input type="hidden" id="demofind<%=hrmReportId %>hrm" value="<%=demographicNo%>"/>
-                        <input type="hidden" id="demofind<%=hrmReportId %>hrm" value=""/>
-                        <input type="hidden" id="routetodemo<%=hrmReportId %>hrm" value=""/>
                         <input type="checkbox" id="activeOnly<%=hrmReportId%>hrm" name="activeOnly" checked="checked"
                                value="true" onclick="setupHrmDemoAutoCompletion('<%=hrmReportId%>')">Active
                         Only<br>
@@ -753,21 +777,16 @@
 					<a href="javascript:void(0)" onclick="editCategory('<%=hrmReportId %>');">(edit)</a>
 				</span>
 
+				<%-- Outside both spans on purpose: a failed save leaves the chooser open and
+				     showCategory_ hidden, which is exactly when the reason has to be readable. --%>
+				<span id="categorystatus<%=hrmReportId %>"></span>
+
                     </td>
                 </tr>
                 <tr>
                     <td colspan=2>
                         <form action="<%=request.getContextPath() %>/hospitalReportManager/PrintHRMReport">
                             <input type="hidden" value="<%=hrmReportId %>" name="hrmReportId"/>
-                            <%
-                                // When included from oscarMDS/Page.jsp (the inbox view) via <jsp:include>,
-                                // the Servlet spec exposes the included path in the jakarta.servlet.include.servlet_path
-                                // request attribute. Page.jsp is now under /WEB-INF/jsp/oscarMDS/ (gated), so the
-                                // browser-visible request URI is /documentManager/inboxManage rather than the
-                                // old /oscarMDS/Page.jsp — we must check the include-path attribute instead.
-                                String hrmIncludePath = (String) request.getAttribute("jakarta.servlet.include.servlet_path");
-                                boolean hrmFromInboxPage = hrmIncludePath != null && hrmIncludePath.contains("oscarMDS/Page.jsp");
-                            %>
                             <% if (hrmFromInboxPage) {%>
                             <input type="button" value="Print" onclick="printHrm('<%=hrmReportId%>')"/>
                             <%} else { %>
@@ -785,10 +804,11 @@
                             } else {
                             %>
                             <input type="button" id="signoff<%=hrmReportId %>" value="Sign-Off"
-                                   onClick="signOffHrm('<%=hrmReportId %>', <%=isListView%>)"/>
+                                   onClick="signOffHrm('<%=hrmReportId %>')"/>
                             <%
                                 }
                             %>
+                            <span id="signoffstatus<%=hrmReportId %>"></span>
 
                         </form>
                     </td>

@@ -55,7 +55,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         </h2>
         <div id="collapseSearch" class="accordion-collapse collapse show" aria-labelledby="headingSearch" data-bs-parent="#inbox-hub-search">
             <div class="accordion-body">
-                 <form action="${pageContext.request.contextPath}/web/inboxhub/Inboxhub?method=displayInboxForm" method="post" id="inboxSearchForm" onsubmit="return validatePatientOptions();">
+                 <form action="${pageContext.request.contextPath}/web/inboxhub/Inboxhub?method=displayInboxForm" method="post" id="inboxSearchForm" data-revoke-state="${carlos:forHtmlAttribute(param.inboxhubRevokeState)}" onsubmit="return validatePatientOptions();">
                     <div class="m-2">
                         <input type="hidden" name="query.viewMode" id="btnViewMode" value="${query.viewMode ? 'true' : 'false'}">
 
@@ -412,6 +412,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         setupDatepicker('#startDate', '#clearStartDate');
         setupDatepicker('#endDate', '#clearEndDate');
 
+        restoreInboxhubAfterHrmRevoke();
         inboxSearchFormData = jQuery("#inboxSearchForm").serialize();
         fetchInboxhubData();
 
@@ -575,9 +576,67 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * Senders: oscarMDSIndex.js updateStatus(), hrmActions.js doSignOff()
      * Channel: 'inboxhub-refresh'
      */
+    /**
+     * A revoked HRM sign-off restores routing rows. Re-submit the current search so the server
+     * replaces the totals as well as the result set and clears acknowledgement deduplication.
+     * An AJAX list fetch alone keeps both the old totals and countedAcknowledgedItems.
+     */
+    function refreshInboxhubAfterHrmRevoke() {
+        const form = document.getElementById('inboxSearchForm');
+        let saved = form.querySelector('input[name="inboxhubRevokeState"]');
+        if (!saved) {
+            saved = document.createElement('input');
+            saved.type = 'hidden';
+            saved.name = 'inboxhubRevokeState';
+            form.appendChild(saved);
+        }
+        // Category selection and toolbar modes live outside the form. Carry them in this
+        // request so separate inbox tabs keep independent state.
+        saved.value = JSON.stringify({filter: filter, activeTypeFilter: activeTypeFilter,
+            ackToggleState: ackToggleState, rapidReviewState: rapidReviewState});
+        // This is a resync after a committed mutation. An unfinished patient-search edit
+        // must not let the search validator cancel it and leave counts/deduplication stale.
+        HTMLFormElement.prototype.submit.call(form);
+    }
+
+    /** Restores validated display state before the first AJAX result request after a revoke. */
+    function restoreInboxhubAfterHrmRevoke() {
+        const form = document.getElementById('inboxSearchForm');
+        const raw = form.getAttribute('data-revoke-state');
+        if (!raw) { return; }
+        let state;
+        try {
+            state = JSON.parse(raw);
+        } catch (e) {
+            return;
+        }
+        if (!state || typeof state !== 'object') { return; }
+        const category = new URLSearchParams(typeof state.filter === 'string' ? state.filter : '');
+        const demographic = category.get('demographicFilter');
+        const type = category.get('typeFilter');
+        const suffix = {all: 'all', doc: 'docs', lab: 'hl7s', hrm: 'hrms'};
+        if (/^\d{1,10}$/.test(demographic || '') && Number(demographic) <= 2147483647
+                && Object.prototype.hasOwnProperty.call(suffix, type)) {
+            // Reconstruct only known filter parameters; never append the submitted string itself.
+            filter = '&demographicFilter=' + demographic + '&typeFilter=' + type;
+            const link = document.getElementById('patient' + demographic + suffix[type]);
+            if (link) { link.classList.add('selected'); }
+        }
+        activeTypeFilter = ['DOC', 'HL7', 'HRM'].includes(state.activeTypeFilter)
+            ? state.activeTypeFilter : null;
+        ackToggleState = state.ackToggleState === true;
+        rapidReviewState = state.rapidReviewState === true;
+    }
+
     try {
         const inboxhubRefreshChannel = new BroadcastChannel('inboxhub-refresh');
         inboxhubRefreshChannel.onmessage = function(event) {
+            if (event && event.data && event.data.action === 'hrm-revoked') {
+                if (event.data.labType === 'HRM' && isInboxhubItemToken(event.data.segmentID)) {
+                    refreshInboxhubAfterHrmRevoke();
+                }
+                return;
+            }
             // Senders post {action, segmentID, labType}. A popup running a cached older
             // script can still post the bare string 'refresh'; both must keep working.
             const acknowledgedId = (event && event.data && event.data.segmentID) ? event.data.segmentID : null;
@@ -663,7 +722,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         if (isNaN(typeCount) || typeCount <= 0) { return; }
         // Never below zero: the stored total is a snapshot taken when the page rendered, and
         // an item acknowledged in another window may already be missing from it.
-        const taken = Math.min(typeCount, rows);
+        // CategoryData counts DISTINCT HRM document ids, including when historical duplicate
+        // routing rows exist. Labs count their version routing rows. One HRM notification
+        // names one report, so even a multi-row transition removes only one HRM from the badge.
+        const taken = Math.min(typeCount, labType === 'HRM' ? 1 : rows);
         typeInput.val(typeCount - taken);
 
         const allInput = jQuery('#totalResultsCount');
@@ -855,9 +917,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     /**
      * Takes an acknowledged item off the stored totals, at most once per item.
      *
-     * The totals count ROUTING rows, not the rows drawn in the list: a lab is stored as one
+     * Lab totals count ROUTING rows, not the rows drawn in the list: a lab is stored as one
      * routing row per version and collapsed to a single inbox row, so acknowledging it
-     * clears as many rows as the chain is long. That is why the amount is a parameter and
+     * clears as many rows as the chain is long. HRM totals count distinct documents instead,
+     * so decrementInboxhubStatFor caps a positive HRM transition at one. The amount is a parameter and
      * not assumed to be one — the server is the only party that knows how many it filed.
      *
      * @param {string} segmentId segment id of the acknowledged item
@@ -870,8 +933,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         const key = inboxhubItemKey(segmentId, labType);
         if (key === null) { return; }
         if (countedAcknowledgedItems[key]) { return; }
+        // A zero consumes nothing. Two windows can acknowledge the same item at once: whichever
+        // request commits second finds the rows already out of NEW and reports 0, and that
+        // message can arrive FIRST. Marking the item counted on it discarded the positive count
+        // that followed, leaving the badge high until a full reload. Zero is still a real answer
+        // — it just never moves the total, so there is nothing to record as spent.
+        const clearedRows = clearedRowsFrom(clearedCount);
+        if (clearedRows === 0) { return; }
         countedAcknowledgedItems[key] = true;
-        decrementInboxhubStatFor(labType, clearedRowsFrom(clearedCount));
+        decrementInboxhubStatFor(labType, clearedRows);
     }
 
     /**

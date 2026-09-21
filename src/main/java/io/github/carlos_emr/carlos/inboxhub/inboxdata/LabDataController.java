@@ -201,14 +201,18 @@ public class LabDataController {
                 url.append("/documentManager/ViewShowDocument?inWindow=true");
             }
             else if (labResult.isHRM()) {
-                url.append("/hospitalReportManager/Display?");
+                // inWindow marks a report the INBOX opened, the same way the HL7 and document
+                // links above do. The HRM viewer closes itself after a sign-off only when it sees
+                // this: ticklers and the eChart open the very same route in a popup, and closing
+                // those would take away the revoke affordance they rely on.
+                url.append("/hospitalReportManager/Display?inWindow=true");
                 StringBuilder duplicateLabIds=new StringBuilder();
                 for (Integer duplicateLabId : labResult.getDuplicateLabIds())
                 {
                     if (duplicateLabIds.length()>0) duplicateLabIds.append(',');
                     duplicateLabIds.append(duplicateLabId);
                 }
-                url.append("duplicateLabIds=");
+                url.append("&duplicateLabIds=");
                 url.append(encodeURL(duplicateLabIds.toString()));
                 url.append("&id=");
                 url.append(encodeURL(labResult.getSegmentID()));
