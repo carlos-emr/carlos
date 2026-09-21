@@ -10,10 +10,12 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @Tag("unit")
 class DelImage2ActionUnitTest {
@@ -34,4 +36,22 @@ class DelImage2ActionUnitTest {
                     : "/eform/efmimagemanager");
         }
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"post", "Post", "pOsT"})
+    void shouldRejectNonstandardMethodCase_beforeAnyMutation(String method) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, "/eform/deleteImage");
+        request.addParameter("filename", "fixture.png");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class);
+                MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            assertThat(new DelImage2Action().execute()).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(405);
+            verifyNoInteractions(security);
+        }
+    }
+
 }

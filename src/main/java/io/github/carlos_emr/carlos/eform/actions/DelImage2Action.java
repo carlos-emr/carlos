@@ -61,8 +61,7 @@ public class DelImage2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an HTTP method constant; not a security or authorization decision.
-    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "IMPROPER_UNICODE"}, justification = "PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use. IMPROPER_UNICODE: case-insensitive comparison of an HTTP method constant; not a security or authorization decision")
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String execute() throws IOException {
 
@@ -70,7 +69,7 @@ public class DelImage2Action extends ActionSupport {
         // guard an authenticated _eform writer could delete an image via a
         // token-less GET (e.g. a forged <img src>). Checked before privilege and
         // before any file operation, same shape as the sibling DelEForm2Action.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }

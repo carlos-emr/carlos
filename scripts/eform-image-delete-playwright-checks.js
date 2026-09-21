@@ -149,7 +149,8 @@ async function uploadImage(context, recorder, imagePath, name) {
       let tokenMode = scenario === 'token-failure' ? 'fail' : 'hold';
       await managerPage.route('**/csrfguard*', async route => {
         const request = route.request();
-        if (request.resourceType() === 'script' || request.frame() !== managerPage.mainFrame()) {
+        // jQuery loads fragment scripts through XHR; stall only fetchCsrfToken's fetch.
+        if (request.resourceType() !== 'fetch' || request.frame() !== managerPage.mainFrame()) {
           return route.continue();
         }
         if (tokenMode === 'fail') {
