@@ -140,6 +140,20 @@ in CARLOS as a browser page request; `LogoutBroadcastFilter` then appends its he
 shows that JavaScript to the user as text. That is exactly how the HRM report viewer came to
 print JavaScript beside its comment box.
 
+Every server-side reader of this header in CARLOS goes through `RequestNegotiation.isAjax`:
+
+| Caller | What the misclassification cost |
+|--------|--------------------------------|
+| `LogoutBroadcastFilter` | appended its heartbeat `<script>` to `text/html` AJAX replies |
+| `CsrfGuardScriptInjectionFilter` | injected the CSRFGuard `<script>` tag into AJAX replies |
+| `PrivacyStatementAppendingFilter` | appended the confidentiality statement into AJAX reply bodies |
+| `EctDisplayAction.finalizeForward` | took `forward()` instead of `include()`, so Tomcat 11 truncated the encounter panel at the 8KB buffer boundary |
+| `CaseManagementView2Action.listNotes` | same truncation, for the notes list |
+
+`PrivacyStatementAppendingFilter.HTTP_HEADER_NAME_AJAX_REQUESTED_WITH` and
+`...HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH` remain as deprecated public constants; they name the
+header and the jQuery value correctly, but comparing a raw header against them is the mistake.
+
 ### Property Key Gotchas
 
 CSRFGuard 4.5 has inconsistent property key naming. Several keys differ from what the
