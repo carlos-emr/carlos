@@ -325,6 +325,12 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
+        public SmsTransaction recordConsentDecision(SmsTransaction transaction, SmsConsentDecisionDto decision) {
+            transaction.recordConsentDecision(decision);
+            return transaction;
+        }
+
+        @Override
         public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
             events.add("markSending");
             transaction.markSending(attemptAt);

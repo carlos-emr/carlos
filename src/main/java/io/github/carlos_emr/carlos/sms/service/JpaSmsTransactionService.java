@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -84,6 +85,25 @@ public class JpaSmsTransactionService implements SmsTransactionService {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(decision, "decision is required");
         return applyIfVersionMatches(transaction, "markConsentBlocked", row -> row.markConsentBlocked(decision));
+    }
+
+    @Override
+    @Transactional
+    public SmsTransaction recordConsentDecision(SmsTransaction transaction, SmsConsentDecisionDto decision) {
+        Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
+        Objects.requireNonNull(decision, "decision is required");
+        // The caller sends on this snapshot, so a write the version check dropped must not look like success.
+        AtomicBoolean applied = new AtomicBoolean();
+        SmsTransaction recorded = applyIfVersionMatches(
+                transaction,
+                "recordConsentDecision",
+                row -> row.recordConsentDecision(decision),
+                row -> applied.set(true)
+        );
+        if (!applied.get()) {
+            throw new SmsTransactionClaimConflictException(transaction.getId());
+        }
+        return recorded;
     }
 
     @Override

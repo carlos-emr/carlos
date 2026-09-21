@@ -28,11 +28,13 @@ package io.github.carlos_emr.carlos.sms;
  * @since 2026-09-18
  */
 public enum SmsConsentStatus {
-    /** The patient has a current, non-deleted consent record that is not opted out. */
+    /** The patient has a current, non-deleted, explicit consent record that is not opted out. */
     OPT_IN,
     /** The patient has a current consent record marked opted out. */
     OPT_OUT,
-    /** No usable consent record exists for the patient, or the request named no patient. */
+    /** The patient's only current opt-in was implied rather than given directly, so it does not permit SMS. */
+    NOT_EXPLICIT,
+    /** No consent record exists for the patient, or the request named no patient. */
     UNKNOWN,
     /** No active SMS consent type is configured, so consent cannot be evaluated at all. */
     NOT_CONFIGURED,

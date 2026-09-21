@@ -42,8 +42,9 @@ import java.util.function.BooleanSupplier;
 /**
  * Gates outbound SMS on the patient's current record for the configured SMS consent type.
  * <p>
- * Anything other than a current opt-in blocks the send: SMS consent is never implied. When a patient has
- * several live records for the consent type, any opt-out among them blocks the send. The consent
+ * Anything other than a current explicit opt-in blocks the send: SMS consent is never implied, so a record
+ * with {@code explicit=false} does not permit one. When a patient has several live records for the consent
+ * type, any opt-out among them blocks the send. The consent
  * record is read through {@link ConsentDao} rather than {@code PatientConsentManager} because the
  * manager's lookup requires a {@code LoggedInInfo} for its privilege check and access log, and the queue
  * worker rechecks consent on a scheduler thread that has no session. Authorizing the sender belongs to
@@ -62,6 +63,9 @@ public class CarlosSmsConsentService implements SmsConsentService {
             "SMS consent is not configured; set the sms_communication property to an active consent type.";
     private static final String UNKNOWN_CODE = "SMS_CONSENT_UNKNOWN";
     private static final String UNKNOWN_MESSAGE = "No SMS consent is recorded for this patient.";
+    private static final String NOT_EXPLICIT_CODE = "SMS_CONSENT_NOT_EXPLICIT";
+    private static final String NOT_EXPLICIT_MESSAGE =
+            "Only implied SMS consent is recorded for this patient; record the patient's explicit consent.";
     private static final String OPTED_OUT_CODE = "SMS_CONSENT_OPTED_OUT";
     private static final String OPTED_OUT_MESSAGE = "This patient has opted out of SMS.";
     private static final String SYSTEM_TEST_DISABLED_CODE = "SMS_SYSTEM_TEST_DISABLED";
@@ -94,7 +98,7 @@ public class CarlosSmsConsentService implements SmsConsentService {
 
     @Override
     public SmsConsentDecisionDto evaluate(SmsSendCommand command) {
-        if (command == null || command.demographicNo() == null) {
+        if (command == null) {
             return blockedWithoutRecord(SmsStatus.CONSENT_BLOCKED, UNKNOWN_CODE, UNKNOWN_MESSAGE,
                     SmsConsentStatus.UNKNOWN);
         }
@@ -105,6 +109,10 @@ public class CarlosSmsConsentService implements SmsConsentService {
                     ? SmsConsentDecisionDto.permitted(SmsConsentStatus.SYSTEM_TEST, null, null)
                     : blockedWithoutRecord(SmsStatus.CONSENT_BLOCKED, SYSTEM_TEST_DISABLED_CODE,
                             SYSTEM_TEST_DISABLED_MESSAGE, SmsConsentStatus.SYSTEM_TEST);
+        }
+        if (command.demographicNo() == null) {
+            return blockedWithoutRecord(SmsStatus.CONSENT_BLOCKED, UNKNOWN_CODE, UNKNOWN_MESSAGE,
+                    SmsConsentStatus.UNKNOWN);
         }
 
         Optional<ConsentType> consentType = consentTypeResolver.resolve();
@@ -126,8 +134,16 @@ public class CarlosSmsConsentService implements SmsConsentService {
             return SmsConsentDecisionDto.blocked(SmsStatus.OPTOUT_BLOCKED, OPTED_OUT_CODE, OPTED_OUT_MESSAGE,
                     SmsConsentStatus.OPT_OUT, optOut.get().getId(), lastUpdate(optOut.get()));
         }
-        Consent latestOptIn = records.stream().max(BY_EDIT_DATE).orElseThrow();
-        return SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, latestOptIn.getId(), lastUpdate(latestOptIn));
+        // Every remaining record is an opt-in, but only one the patient gave directly counts. The patient
+        // record always stores explicit consent; an implied row can only come from an import or API caller.
+        Optional<Consent> explicitOptIn = records.stream().filter(Consent::isExplicit).max(BY_EDIT_DATE);
+        if (explicitOptIn.isEmpty()) {
+            Consent implied = records.stream().max(BY_EDIT_DATE).orElseThrow();
+            return SmsConsentDecisionDto.blocked(SmsStatus.CONSENT_BLOCKED, NOT_EXPLICIT_CODE, NOT_EXPLICIT_MESSAGE,
+                    SmsConsentStatus.NOT_EXPLICIT, implied.getId(), lastUpdate(implied));
+        }
+        return SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, explicitOptIn.get().getId(), lastUpdate(explicitOptIn.get()));
     }
 
     private List<Consent> currentRecords(int demographicNo, ConsentType consentType) {

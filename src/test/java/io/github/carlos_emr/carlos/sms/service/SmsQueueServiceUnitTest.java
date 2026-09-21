@@ -256,6 +256,12 @@ class SmsQueueServiceUnitTest {
         }
 
         @Override
+        public SmsTransaction recordConsentDecision(SmsTransaction transaction, SmsConsentDecisionDto decision) {
+            transaction.recordConsentDecision(decision);
+            return transaction;
+        }
+
+        @Override
         public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
             transaction.markSending(attemptAt);
             return transaction;
