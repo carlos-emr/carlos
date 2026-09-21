@@ -1087,5 +1087,1177 @@
    "mixed_date_formats": false,
    "gate_pass": false
   }
+ },
+ {
+  "name": "H1-002-deepinfra-host-checks",
+  "note": "First live runs with the observation and date guarantees.",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "ValueError: Missing, unknown or duplicate source review",
+  "seconds": 32.059,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 0,
+  "host_statements": 0,
+  "completion_tokens": 2767,
+  "cost_usd": 0.009567,
+  "calls": [
+   {
+    "seconds": 32.033,
+    "prompt_tokens": 9127,
+    "completion_tokens": 2767,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00956722,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "H2-002-deepinfra-host-checks",
+  "note": "First live runs with the observation and date guarantees.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 33.585,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 35,
+  "host_statements": 8,
+  "completion_tokens": 2723,
+  "cost_usd": 0.009453,
+  "calls": [
+   {
+    "seconds": 33.281,
+    "prompt_tokens": 9127,
+    "completion_tokens": 2723,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00945282,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 35,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-001a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 35.585,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 31,
+  "host_statements": 7,
+  "completion_tokens": 2495,
+  "cost_usd": 0.008499,
+  "calls": [
+   {
+    "seconds": 34.76,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2495,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00849914,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 31,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-001b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 40.856,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 34,
+  "host_statements": 8,
+  "completion_tokens": 2908,
+  "cost_usd": 0.009573,
+  "calls": [
+   {
+    "seconds": 40.558,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2908,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00957294,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 34,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-002a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 41.328,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 35,
+  "host_statements": 8,
+  "completion_tokens": 2876,
+  "cost_usd": 0.009851,
+  "calls": [
+   {
+    "seconds": 40.506,
+    "prompt_tokens": 9127,
+    "completion_tokens": 2876,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00985062,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 35,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-002b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 44.464,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 39,
+  "host_statements": 10,
+  "completion_tokens": 3004,
+  "cost_usd": 0.010183,
+  "calls": [
+   {
+    "seconds": 43.949,
+    "prompt_tokens": 9127,
+    "completion_tokens": 3004,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01018342,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-003a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 38.468,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 29,
+  "host_statements": 5,
+  "completion_tokens": 2491,
+  "cost_usd": 0.008125,
+  "calls": [
+   {
+    "seconds": 38.193,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2491,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00812474,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-003b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 36.48,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 30,
+  "host_statements": 5,
+  "completion_tokens": 2592,
+  "cost_usd": 0.008387,
+  "calls": [
+   {
+    "seconds": 35.909,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2592,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00838734,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 30,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-001",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 23.912,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 39,
+  "host_statements": 8,
+  "completion_tokens": 3026,
+  "cost_usd": 0.004187,
+  "calls": [
+   {
+    "seconds": 23.499,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3026,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00418685,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-001b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 46.808,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 50,
+  "host_statements": 7,
+  "completion_tokens": 3717,
+  "cost_usd": 0.004878,
+  "calls": [
+   {
+    "seconds": 45.063,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3717,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00487785,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 50,
+   "fact_recall": 0.85,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 1,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-parasail-001c",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "rejected",
+  "error": "ValueError: Unreadable or duplicate clinical claim",
+  "seconds": 28.328,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 0,
+  "host_statements": 0,
+  "completion_tokens": 3325,
+  "cost_usd": 0.004486,
+  "calls": [
+   {
+    "seconds": 28.293,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3325,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00448585,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "S-35b-parasail-002",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 58.407,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 68,
+  "host_statements": 5,
+  "completion_tokens": 5923,
+  "cost_usd": 0.007292,
+  "calls": [
+   {
+    "seconds": 57.681,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5923,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00729205,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 68,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-002b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 49.662,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 60,
+  "host_statements": 8,
+  "completion_tokens": 4476,
+  "cost_usd": 0.005845,
+  "calls": [
+   {
+    "seconds": 48.428,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4476,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00584505,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 60,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-002c",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 47.8,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 56,
+  "host_statements": 8,
+  "completion_tokens": 4597,
+  "cost_usd": 0.005966,
+  "calls": [
+   {
+    "seconds": 46.046,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4597,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00596605,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 56,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-003",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 23.83,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 33,
+  "host_statements": 3,
+  "completion_tokens": 2818,
+  "cost_usd": 0.003769,
+  "calls": [
+   {
+    "seconds": 23.567,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2818,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00376885,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 33,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-003b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 31.73,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 39,
+  "host_statements": 7,
+  "completion_tokens": 2860,
+  "cost_usd": 0.003811,
+  "calls": [
+   {
+    "seconds": 30.961,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2860,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00381085,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 1,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-parasail-003c",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 25.017,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 39,
+  "host_statements": 6,
+  "completion_tokens": 2941,
+  "cost_usd": 0.003892,
+  "calls": [
+   {
+    "seconds": 23.528,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2941,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00389185,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-venice-001a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 16.009,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 41,
+  "host_statements": 7,
+  "completion_tokens": 3282,
+  "cost_usd": 0.006521,
+  "calls": [
+   {
+    "seconds": 15.277,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3282,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0065209375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 41,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 5,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-venice-001b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 18.466,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 54,
+  "host_statements": 8,
+  "completion_tokens": 4026,
+  "cost_usd": 0.006296,
+  "calls": [
+   {
+    "seconds": 18.134,
+    "prompt_tokens": 7739,
+    "completion_tokens": 4026,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0062959375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 54,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-venice-002a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 20.467,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 54,
+  "host_statements": 8,
+  "completion_tokens": 4167,
+  "cost_usd": 0.008061,
+  "calls": [
+   {
+    "seconds": 19.678,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4167,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0080609375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 54,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-venice-002b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 35.547,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 51,
+  "host_statements": 8,
+  "completion_tokens": 4429,
+  "cost_usd": 0.007068,
+  "calls": [
+   {
+    "seconds": 35.096,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4429,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0070684375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 51,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-venice-003a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 14.289,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 38,
+  "host_statements": 5,
+  "completion_tokens": 2928,
+  "cost_usd": 0.005641,
+  "calls": [
+   {
+    "seconds": 13.797,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2928,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0056409375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 38,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 1,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-venice-003b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 14.076,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 40,
+  "host_statements": 6,
+  "completion_tokens": 3063,
+  "cost_usd": 0.00581,
+  "calls": [
+   {
+    "seconds": 13.76,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3063,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0058096875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 40,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-397b-venice-001",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 44.465,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 35,
+  "host_statements": 8,
+  "completion_tokens": 2654,
+  "cost_usd": 0.017747,
+  "calls": [
+   {
+    "seconds": 44.138,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2654,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01774725,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 35,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-397b-venice-002",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 195.439,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 36,
+  "host_statements": 10,
+  "completion_tokens": 2863,
+  "cost_usd": 0.019729,
+  "calls": [
+   {
+    "seconds": 194.566,
+    "prompt_tokens": 9127,
+    "completion_tokens": 2863,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01972875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.955,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-397b-venice-003",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 44.248,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 32,
+  "host_statements": 5,
+  "completion_tokens": 2731,
+  "cost_usd": 0.017044,
+  "calls": [
+   {
+    "seconds": 43.571,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2731,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01704375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 32,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
  }
 ]

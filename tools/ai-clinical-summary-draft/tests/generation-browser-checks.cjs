@@ -21,19 +21,25 @@ const path = require("node:path");
         const context = await browser.newContext({storageState, viewport: {width: 1440, height: 1000}});
         const page = await context.newPage();
         const errors = [];
-        page.on("pageerror", error => errors.push(error.message));
         // Establish program context through the same eChart route used by clinicians.
         await page.goto(new URL("../encounter/IncomingEncounter?demographicNo=" + id, url).href,
             {waitUntil: "domcontentloaded"});
         assert.equal((await page.goto(url + "?demographicNo=" + id)).status(), 200);
+        // Listen from here: the eChart's own unload handler can throw as the browser leaves it,
+        // which is not an error of the page under test.
+        page.on("pageerror", error => errors.push(error.message));
         const button = page.locator("#generate-summary button");
         assert.equal(await button.isEnabled(), true, "Only complete, authorized NHS fixtures are eligible");
         const sourcesBefore = await page.locator(".source").allTextContents();
         const action = await page.locator("#generate-summary").getAttribute("action");
         const endpoint = new URL(action, url).href;
-        assert.equal((await context.request.get(endpoint)).status(), 405);
-        const rejected = await context.request.post(endpoint, {form: {demographicNo: id}});
-        assert.equal(rejected.status(), 403, "Missing CSRF token must fail before inference");
+        // Probe from inside the page. A bare API client is not the logged-in browser, so session
+        // hardening signs it out and the probe would only ever see the login page.
+        const probe = init => page.evaluate(([target, options]) =>
+            fetch(target, options).then(response => response.status), [endpoint, init]);
+        assert.equal(await probe({method: "GET"}), 405);
+        assert.equal(await probe({method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: "demographicNo=" + id}), 403, "Missing CSRF token must fail before inference");
         // Observe submit synchronously so an immediate local failure cannot race the check.
         let pendingChecked = false;
         page.on("console", message => {

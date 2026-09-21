@@ -175,8 +175,9 @@ def merge(outputs, sources):
 
 
 def finish(output, sources):
-    """Apply the host guarantees to a whole draft: restore omitted observations, then record citations."""
+    """Apply the host guarantees to a whole draft: omitted observations, unreported conflicts, then citations."""
     restored, _added = host_checks.restore_observations(output, sources)
+    restored, _added = host_checks.note_medication_conflicts(restored, sources, host_checks.configured_classes())
     return complete_coverage(restored, sources)
 
 

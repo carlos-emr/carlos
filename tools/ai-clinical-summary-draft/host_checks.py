@@ -6,6 +6,8 @@ already has: each note's authoritative date and its verbatim text. They never re
 """
 import copy
 import datetime
+import json
+import os
 import re
 
 RESULTS = {"id": "results_observations", "title": "Results and observations"}
@@ -90,17 +92,25 @@ def reports(claim_text, measurements):
                          claim_text, re.IGNORECASE) for kind, value in measurements)
 
 
+def day_writer(claims):
+    """Write a note's date in the draft's own format, so a host statement never makes the formats mixed."""
+    prose = " ".join(claim["text"] for claim in claims)
+    iso = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b", prose)) and not re.search(r"\b\d{2}/\d{2}/\d{2}\b", prose)
+
+    def write(date):
+        stamp = datetime.date.fromisoformat(date[:10])
+        return stamp.isoformat() if iso else stamp.strftime("%d/%m/%y")
+    return write
+
+
 def restore_observations(output, sources):
     """Add back, verbatim and labelled, each observation set the draft omitted. Returns (output, added)."""
     result = copy.deepcopy(output)
     added = {}
-    prose = " ".join(claim["text"] for claim in result["claims"])
-    # Follow the draft's own date format so a host statement never makes the formats mixed.
-    iso = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b", prose)) and not re.search(r"\b\d{2}/\d{2}/\d{2}\b", prose)
+    write = day_writer(result["claims"])
     for source in sources:
         cited_by = [claim["text"] for claim in result["claims"] if source["id"] in claim["source_ids"]]
-        stamp = datetime.date.fromisoformat(source["date"][:10])
-        day = stamp.isoformat() if iso else stamp.strftime("%d/%m/%y")
+        day = write(source["date"])
         for entry in observation_sets(source["text"]):
             if any(reports(text, entry["measurements"]) for text in cited_by):
                 continue
@@ -122,3 +132,119 @@ def restore_observations(output, sources):
         result["claims"].append(claim)
         section["claim_ids"].append(claim["id"])
     return result, len(added)
+
+
+MEDICATIONS = {"id": "medications_allergies", "title": "Medications and allergies"}
+# An order, not a mention: a dose beside the name, or an ordering verb before it.
+DOSE = r"[^.;\n]{0,40}?\d[\d,.]*\s*(?:mg|mcg|micrograms?|g|units?|iu|ml|mmol)\b"
+ORDERED = r"(?:start|commenc|prescrib|continu|give|administer|initiat)\w*[^.;\n]{0,30}?$"
+# Anchored to the start of a word: an unanchored "stop" is found inside "postoperative".
+CHANGE = r"\b(?:stop|discontinu|ceas|withh|held\b|switch|chang|replac|instead of|convert|transition)"
+REPORTED = r"conflict|discrepan|inconsisten|unresolved"
+NEAR = 60  # Characters either side of a drug name in which a stop or switch counts as recorded for it.
+
+
+_NAME_PATTERNS = {}
+_CLASSES = {}
+
+
+def configured_classes():
+    """The drug-name to ATC-code table named by CARLOS_DRUG_CLASSES, or None so the check is skipped.
+
+    The table is derived from the site's drug reference database and is not committed: the ATC
+    classification belongs to the WHO Collaborating Centre for Drug Statistics Methodology.
+    """
+    path = os.environ.get("CARLOS_DRUG_CLASSES")
+    if not path:
+        return None
+    if path not in _CLASSES:
+        with open(path, encoding="utf-8") as stream:
+            table = json.load(stream)
+        if not (isinstance(table, dict) and all(isinstance(k, str) and isinstance(v, str) and len(v) >= 5
+                                                for k, v in table.items())):
+            raise ValueError("Invalid drug class table")
+        _CLASSES[path] = {name.lower(): code for name, code in table.items()}
+    return _CLASSES[path]
+
+
+def name_pattern(classes):
+    """One compiled alternation per class table; tables hold well over a thousand names."""
+    key = id(classes)
+    if key not in _NAME_PATTERNS:
+        names = sorted(classes, key=len, reverse=True)
+        _NAME_PATTERNS[key] = re.compile(r"\b(" + "|".join(re.escape(name) for name in names) + r")\b", re.IGNORECASE)
+    return _NAME_PATTERNS[key]
+
+
+def drug_mentions(text, classes):
+    """Each class-table name in the text: (name, whether it is ordered there, whether a change is recorded)."""
+    for match in name_pattern(classes).finditer(text):
+        before, after = text[max(0, match.start() - NEAR):match.start()], text[match.end():match.end() + 80]
+        ordered = bool(re.match(DOSE, after, re.IGNORECASE) or re.search(ORDERED, before, re.IGNORECASE))
+        changed = bool(re.search(CHANGE, before + after[:NEAR], re.IGNORECASE))
+        yield match.group(1).lower(), ordered, changed
+
+
+def medication_conflicts(sources, classes):
+    """Two drugs of one class, each ordered somewhere in the record, with no recorded stop or switch.
+
+    The class table maps a drug name to its ATC code; drugs sharing the first five characters are one
+    chemical subgroup, such as the heparins. With no table there is nothing to compare, so no findings.
+    """
+    if not classes:
+        return []
+    groups, changed = {}, set()
+    for source in sources:
+        for name, ordered, change in drug_mentions(source["text"], classes):
+            if ordered:
+                groups.setdefault(classes[name][:5], {}).setdefault(name, []).append(source["id"])
+            if change:
+                changed.add(name)
+    return [{"group": group, "drugs": {name: list(dict.fromkeys(ids)) for name, ids in drugs.items()}}
+            for group, drugs in groups.items() if len(drugs) > 1 and not changed & set(drugs)]
+
+
+def note_medication_conflicts(output, sources, classes):
+    """State each same-class conflict the draft did not report itself. Returns (output, added)."""
+    result = copy.deepcopy(output)
+    write = day_writer(result["claims"])
+    dates = {source["id"]: write(source["date"]) for source in sources}
+    added = []
+    for conflict in medication_conflicts(sources, classes):
+        names = list(conflict["drugs"])
+        if any(all(re.search(r"\b" + re.escape(name) + r"\b", claim["text"], re.IGNORECASE) for name in names)
+               and re.search(REPORTED, claim["text"], re.IGNORECASE) for claim in result["claims"]):
+            continue
+        described = [f"{name} ({', '.join(dict.fromkeys(dates[i] for i in ids))})" for name, ids in conflict["drugs"].items()]
+        text = ("Medication records conflict, as found by the host: " + " and ".join(described)
+                + f" belong to the same drug class (ATC {conflict['group']}) and no note records either being "
+                "stopped, so the record does not show which is intended.")
+        ids = list(dict.fromkeys(i for listed in conflict["drugs"].values() for i in listed))
+        added.append({"id": f"host-med-{len(added) + 1}", "source_ids": ids, "text": text})
+    if not added:
+        return result, 0
+    section = next((row for row in result["sections"] if row["id"] == MEDICATIONS["id"]), None)
+    if section is None:
+        section = dict(MEDICATIONS, claim_ids=[])
+        result["sections"].append(section)
+    for claim in added:
+        result["claims"].append(claim)
+        section["claim_ids"].append(claim["id"])
+    return result, len(added)
+
+
+def undocumented_changes(output, sources, classes):
+    """Claims that say one drug of a conflicting pair was switched or changed when no note records it."""
+    findings = []
+    for conflict in medication_conflicts(sources, classes):
+        names = sorted(conflict["drugs"])
+        for claim in output["claims"]:
+            if claim["id"].startswith("host-"):
+                continue
+            for name in names:
+                match = re.search(r"\b" + re.escape(name) + r"\b", claim["text"], re.IGNORECASE)
+                if match and re.search(r"\b(?:switch|chang|convert|transition|replac)",
+                                       claim["text"][max(0, match.start() - NEAR):match.end() + NEAR], re.IGNORECASE):
+                    findings.append({"claim_id": claim["id"], "drugs": names, "source_ids": list(claim["source_ids"])})
+                    break
+    return findings
