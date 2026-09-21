@@ -18,6 +18,16 @@ import java.util.Set;
 final class ClinicalSummaryAgentProtocol {
     static final int VERSION = 1;
     static final int MAX_REQUEST_BYTES = 60000;
+    /**
+     * Smallest per-request budget an adapter may be configured with.
+     *
+     * <p>The generation prompt is a fixed cost paid on every request, so the budget must leave room
+     * for clinical text beside it. Below this floor a note can be too large to fit yet smaller than
+     * the pipeline's 1024-character split threshold, which makes it unprocessable rather than merely
+     * slow. Rejecting such a budget when the adapter is configured surfaces that as a configuration
+     * error instead of a generation failure on whichever chart happens to contain a mid-sized note.
+     */
+    static final int MIN_REQUEST_BYTES = 16000;
     static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
     static final ObjectMapper JSON = new ObjectMapper()
             .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)

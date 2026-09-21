@@ -484,22 +484,36 @@ it fits comfortably. It also cuts passes sharply: 4, 5 and 3 for the three chart
 rather than 13, 17 and 9 at the old budget with the shorter prompt, which means
 fewer prompt re-sends per summary.
 
-The change was verified by inspection rather than execution, because `mvn test`
-fails in this environment on an unrelated dependency-lock integrity mismatch.
-Each Java reference to the old value was checked: the assertion at
-`AiClinicalSummaryPrototypeAgentUnitTest:179` covers the **HTTP** adapter's
-`http.requestBytes` property default and is unaffected; `:160` calls the real
-default without asserting it, and 16,000 remains inside the permitted range;
-`AiClinicalSummaryPrototypePipelineUnitTest` uses the pipeline floor constant and
-explicit values. **The Java tests still need to be run once the lock issue is
-resolved.**
+## The floor moved too, so an unusable budget is refused
 
-The protocol floor stays at 10,000 so existing HTTP adapter configurations remain
-valid, which leaves a real edge: an operator who configures 10,000 with this
-prompt gets a failure. It now says so — the error names the budget and the prompt
-instead of reporting an unexplained "minimal source portion" problem — and a
-regression test plans all three committed fixtures at the default budget, so
-future prompt growth fails in the suite rather than at runtime.
+Leaving the floor at 10,000 while the prompt needed more was not a narrow edge.
+Measured at 10,000 with the committed prompt, only about 316 characters of note
+text fit beside it, and `split` will not divide a source below 1024 characters, so
+notes of **317 to 1023 characters could not be processed at all** — 24 of the 56
+committed fixture notes, and every one of the three charts. The HTTP adapter's
+`http.requestBytes` defaulted to exactly 10,000, so that was the *default*
+configuration for that adapter, not an unusual one.
+
+`ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES` is now the single floor, used by
+the pipeline, the HTTP adapter's constructor and validation, the `http.requestBytes`
+property default, the `ClinicalSummaryAgent` interface default and the Python
+mirror. A budget below it is rejected when the adapter is configured, rather than
+failing later on whichever chart happens to contain a mid-sized note. Existing
+configurations that pinned 10,000 now fail at startup with a clear message; that
+is deliberate, because they could not have produced a summary.
+
+The failure message in `pipeline.split` also names the budget and the prompt
+instead of reporting an unexplained "minimal source portion" problem, and a
+regression test plans all three committed fixtures at the default budget so future
+prompt growth fails in the suite rather than at runtime.
+
+`mvn test` still fails in this environment on an unrelated dependency-lock
+integrity mismatch, so the Java suite was compiled with `javac` and executed
+directly against a Maven-resolved classpath through a minimal JUnit launcher:
+**all 116 tests in the clinical summary slice pass**, including the web action
+test. Note that `target/classes` holds a stale copy of the prompt resource from
+the last Maven build; source resources must precede it on the classpath, or
+`runtimeAndOfflinePromptContractsRemainAligned` compares against the old file.
 
 ## Final validated configuration
 

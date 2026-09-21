@@ -176,10 +176,15 @@ class AiClinicalSummaryPrototypeAgentUnitTest {
         properties.setProperty("clinical.ai_summary_generation.http.name", "My agent");
         assertThat(ClinicalSummaryAgents.configured(properties)).isInstanceOf(HttpClinicalSummaryAgent.class);
         assertThat(ClinicalSummaryAgents.configured(properties).displayName()).contains("My agent");
-        assertThat(ClinicalSummaryAgents.configured(properties).requestBytes()).isEqualTo(10000);
+        assertThat(ClinicalSummaryAgents.configured(properties).requestBytes())
+                .isEqualTo(ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES);
         properties.setProperty("clinical.ai_summary_generation.http.requestBytes", "50000");
         assertThat(ClinicalSummaryAgents.configured(properties).requestBytes()).isEqualTo(50000);
         properties.setProperty("clinical.ai_summary_generation.http.requestBytes", "60001");
+        assertThatThrownBy(() -> ClinicalSummaryAgents.configured(properties)).isInstanceOf(IllegalArgumentException.class);
+        // A budget the prompt cannot work within is refused here rather than failing on a chart later.
+        properties.setProperty("clinical.ai_summary_generation.http.requestBytes",
+                String.valueOf(ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES - 1));
         assertThatThrownBy(() -> ClinicalSummaryAgents.configured(properties)).isInstanceOf(IllegalArgumentException.class);
         properties.setProperty("clinical.ai_summary_generation.agent", "unsupported");
         assertThatThrownBy(() -> ClinicalSummaryAgents.configured(properties)).isInstanceOf(IllegalArgumentException.class);

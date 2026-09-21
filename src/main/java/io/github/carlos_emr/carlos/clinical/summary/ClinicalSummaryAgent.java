@@ -27,7 +27,7 @@ public interface ClinicalSummaryAgent {
      *
      * @return the per-request budget, between the pipeline floor and {@code MAX_REQUEST_BYTES}
      */
-    default int requestBytes() { return 16000; }
+    default int requestBytes() { return ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES; }
 
     JsonNode generate(JsonNode request) throws IOException;
 }

@@ -17,7 +17,7 @@ import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentP
 /** Bounded model calls over every source, with lossless host assembly rather than a lossy reduce call. */
 final class ClinicalSummaryGenerationPipeline {
     // Serialized bytes, including prompt and schema. Leaves room for output in a 16K context.
-    static final int REQUEST_BYTES = 10000;
+    static final int REQUEST_BYTES = ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES;
     private final ClinicalSummaryAgent agent;
     private final ClinicalSummaryGenerationCache cache;
     private final String identity;
