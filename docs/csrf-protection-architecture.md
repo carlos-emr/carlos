@@ -149,6 +149,11 @@ Every server-side reader of this header in CARLOS goes through `RequestNegotiati
 | `PrivacyStatementAppendingFilter` | appended the confidentiality statement into AJAX reply bodies |
 | `EctDisplayAction.finalizeForward` | took `forward()` instead of `include()`, so Tomcat 11 truncated the encounter panel at the 8KB buffer boundary |
 | `CaseManagementView2Action.listNotes` | same truncation, for the notes list |
+| `providercontrol.jsp` / `provideraddstatus.jsp` | left the appointment-status reply as `text/html` instead of `text/plain`, so the decorating filters appended their script blocks to it |
+| `efmformmanager.jsp` / `efmimagemanager.jsp` | would have re-emitted the jQuery `<script>` tags into an AJAX fragment (these two already split the header; they now share the one implementation) |
+
+JSPs call it fully qualified in a scriptlet:
+`io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request)`.
 
 `PrivacyStatementAppendingFilter.HTTP_HEADER_NAME_AJAX_REQUESTED_WITH` and
 `...HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH` remain as deprecated public constants; they name the
