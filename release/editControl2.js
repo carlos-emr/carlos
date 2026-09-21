@@ -445,15 +445,13 @@ function existsTemplate(template) {
 }
 
 function loadDefaultTemplate() {
-	if (measurementHistoryStillLoading()) {
-		// A temporary insertion marker is not letter content. Revisit the default
-		// after loading settles, provided this is still the same editor document.
-		var frame = document.getElementById(cfg_editorname);
-		pendingMeasureDefaultTemplate = frame ? frame.contentDocument : null;
-		return;
-	}
-	// Skipping loading of default template if the letter already has content.
-	if (editControlContents(cfg_editorname, true).trim() != '') { return; }
+	// Internal measurement markers must not suppress the configured template.
+	// Loading it replaces the document; any outstanding insertion then fails
+	// visibly so the user can retry against the fully loaded template.
+	var content = editControlContents(cfg_editorname, true).replace(/<!--RTL measurement insertion-->/g, '');
+	if (content.trim() != '') { return; }
+	// Invalidate markers before navigation starts, including a fast REST response.
+	document.getElementById(cfg_editorname).contentDocument.body.textContent = '';
 	if (existsTemplate(cfg_template)) {
 		var selected = cfg_template;
 		window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
@@ -767,6 +765,7 @@ function doBreak(){
 }
 
 function viewsource(source) {
+	assertMeasurementHistoryReady();
 	// load the html into a variable, blank the body, import as text, disable gui
 	var html;
 	if (isIE()){
@@ -808,6 +807,7 @@ function viewsource(source) {
 		document.getElementById("control3").style.visibility="visible";
 		document.getElementById("control4").style.visibility="visible";
 	}
+	document.getElementById(cfg_editorname).contentDocument.__rtlSourceMode = !!source;
 	return;
 }
 
@@ -910,13 +910,30 @@ function submitFaxButton() {
 			throw error;
 		}
 	}
-	faxField.value=true;
+	// Leave fax intent unset until the delayed POST actually goes ahead.
+	faxField.value=false;
+	var revision = measureRequestRevision;
+	var letterDocument = document.getElementById(cfg_editorname).contentDocument;
+	var patient = measurementPatientId();
 	serializeFaxLetter();
 	setTimeout(function() {
-		// Measurements or edits can arrive during the legacy one-second delay.
-		// Recheck readiness and serialize the current letter immediately before POST.
-		serializeFaxLetter();
-		document.RichTextLetter.submit();
+		try {
+			if (measureRequestRevision !== revision
+					|| document.getElementById(cfg_editorname).contentDocument !== letterDocument
+					|| measurementPatientId() !== patient) {
+				faxField.value=false;
+				window.needToConfirm=true;
+				alert('The letter changed while preparing the fax. Review it and select Fax again.');
+				return;
+			}
+			serializeFaxLetter();
+			faxField.value=true;
+			document.RichTextLetter.submit();
+		} catch (error) {
+			faxField.value=false;
+			window.needToConfirm=true;
+			alert('The letter could not be prepared for fax. Review it and select Fax again.');
+		}
 	}, 1000);
 }
 	
@@ -1528,7 +1545,7 @@ var measureRequestQueue = [];
 var activeMeasureBatch = null;
 var measureBatchesPending = 0;
 var measureBatchFailed = false;
-var pendingMeasureDefaultTemplate = null;
+var measureRequestRevision = 0;
 
 function measurementHistoryStillLoading() {
     return measureBatchesPending > 0;
@@ -1596,8 +1613,15 @@ function createMeasureBatch() {
  * do not await it. A visible error distinguishes failure from an empty history.
  */
 function getMeasures(measure, max) {
+    measureRequestRevision++;
     return new Promise(function(resolve) {
         try {
+            var editorFrame = document.getElementById(cfg_editorname);
+            if (editorFrame && editorFrame.contentDocument && editorFrame.contentDocument.__rtlSourceMode) {
+                showMeasurementStatus('Switch back from HTML source view before loading Lab Grid or Vitals.', true);
+                resolve({values: [], dates: [], failed: true});
+                return;
+            }
             if (measureBatchFailed && measureBatchesPending > 0) {
                 // A success in another queued batch cannot repair every failed
                 // insertion. Finish that group before accepting a fresh retry.
@@ -1654,14 +1678,6 @@ function startNextMeasureBatch() {
         // Settle callers only after releasing this batch's save/print gate.
         batch.requests.forEach(function(request, index) { request.resolve(histories[index]); });
         startNextMeasureBatch();
-        if (!measureBatchesPending && pendingMeasureDefaultTemplate) {
-            var templateDocument = pendingMeasureDefaultTemplate;
-            pendingMeasureDefaultTemplate = null;
-            window.setTimeout(function() {
-                var frame = document.getElementById(cfg_editorname);
-                if (frame && frame.contentDocument === templateDocument) { loadDefaultTemplate(); }
-            }, 0);
-        }
     });
 }
 

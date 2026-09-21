@@ -31,7 +31,7 @@ async function run() {
 <script src="jquery.js"></script><script src="purify.js"></script><script src="cache.js"></script><script src="image.js"></script></head>
 <body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden"><input id="subject" value="Fixture letter" type="hidden">
 <input id="hasValidRecipient" value="true" type="hidden"><input id="emailConsentStatus" value="Unknown" type="hidden"><input id="emailConsentName" value="Fixture" type="hidden">
-<select id="template"><option value="">Templates</option><option value="default.rtl">Default</option></select>
+<div id="control1"></div><div id="control2"></div><div id="control3"></div><div id="control4"></div><select id="template"><option value="">Templates</option><option value="default.rtl">Default</option></select>
 <script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
 <button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button>
 <button type="button" name="PrintSubmitButton" onclick="window.prints++">Print and submit</button>
@@ -71,6 +71,9 @@ async function run() {
       return page.evaluate(()=>window.loaded);
     }
     await begin(['BP','WT']);
+    assert.equal(await page.evaluate(()=>{
+      try {viewsource(true);return false;} catch(error){return /still loading/.test(error.message);}
+    }),true);
     assert.equal(await page.evaluate(()=>{
       window.originalPrompt=window.prompt;window.consentPrompts=0;
       window.prompt=()=>{window.consentPrompts++;return 'No';};
@@ -145,9 +148,7 @@ async function run() {
       try {submitFaxButton();} finally {window.setTimeout=originalTimer;}
     });
     await begin(['BP']);
-    assert.equal(await page.evaluate(()=>{
-      try {window.deferredFaxSubmit();return false;} catch(error){return /still loading/.test(error.message);}
-    }),true);
+    await page.evaluate(()=>window.deferredFaxSubmit());
     assert.equal(await page.locator('#faxEForm').inputValue(),'false');
     assert.equal(await page.evaluate(()=>window.needToConfirm),true);
     await respond({});
@@ -161,26 +162,46 @@ async function run() {
     await page.waitForFunction(()=>window.faxSubmits===1);
     assert.equal(await page.locator('#faxEForm').inputValue(),'true');
     assert.match(await page.evaluate(()=>window.faxLetter),/LATE EDIT/);
+    // A request which completes during the fax delay still cancels that fax:
+    // its result (or failure notice) must be reviewed before resubmitting.
     await page.evaluate(()=>{
-      const doc=document.getElementById('edit').contentDocument;
-      doc.body.textContent='';doc.getSelection().removeAllRanges();
-      cfg_template='default.rtl';window.loaded=Promise.all([getMeasures('BP',1)]);
-      loadDefaultTemplate();
+      window.saveRTL=()=>editControlContents('edit');
+      const originalTimer=window.setTimeout;
+      window.setTimeout=callback=>{window.deferredFaxSubmit=callback;};
+      try {submitFaxButton();} finally {window.setTimeout=originalTimer;}
     });
-    assert.equal(await body.textContent(),'');
-    await respond({});
-    await page.waitForFunction(()=>document.getElementById('edit').contentDocument?.body?.textContent==='DEFAULT CONTENT');
-    await page.evaluate(()=>{
-      const frame=document.getElementById('edit');window.previousTemplateDocument=frame.contentDocument;
-      window.loaded=Promise.all([getMeasures('BP',1)]);loadDefaultTemplate();
-      frame.srcdoc='<!doctype html><html><body></body></html>';
-    });
-    await page.waitForFunction(()=>{
-      const doc=document.getElementById('edit').contentDocument;
-      return doc!==window.previousTemplateDocument && !!doc?.body;
-    });
-    await respond({});await page.waitForTimeout(20);
-    assert.equal(await body.textContent(),''); // Deferred defaults cannot replace a different document.
+    await begin(['BP']);await respond({});
+    await page.evaluate(()=>window.deferredFaxSubmit());
+    assert.equal(await page.evaluate(()=>window.faxSubmits),1);
+    assert.equal(await page.locator('#faxEForm').inputValue(),'false');
+    // Source mode may not capture a pending marker or accept rich-text results.
+    const beforeSource=await body.innerHTML();
+    await page.evaluate(()=>viewsource(true));
+    const inSource=await body.textContent();
+    assert(!inSource.includes('RTL measurement insertion'));
+    assert.equal((await page.evaluate(()=>getMeasures('BP',1))).failed,true);
+    assert.equal(await body.textContent(),inSource);
+    assert.equal(pending.length,0);
+    await page.evaluate(()=>viewsource(false));
+    assert.equal(await body.innerHTML(),beforeSource);
+    // Both empty and nonempty measurement results must leave the configured
+    // default intact when the initial blank letter is still loading.
+    for (const measurements of [{},{BP:[row('BP','120/80')]}]) {
+      await page.evaluate(()=>{
+        const doc=document.getElementById('edit').contentDocument;
+        doc.body.textContent='';doc.getSelection().removeAllRanges();
+        cfg_template='default.rtl';window.loaded=Promise.all([getMeasures('BP',1)]);
+        loadDefaultTemplate();
+      });
+      await page.waitForFunction(()=>document.getElementById('edit').contentDocument?.body?.textContent==='DEFAULT CONTENT');
+      assert.equal((await respond(measurements))[0].failed,true);
+      assert.equal(await body.textContent(),'DEFAULT CONTENT');
+      await page.locator('#rtl-measurement-status').waitFor({state:'visible'});
+    }
+    await page.evaluate(()=>{window.loaded=Promise.all([getMeasures('BP',1)]);});
+    assert.equal((await respond({BP:[row('BP','120/80')]}))[0].failed,undefined);
+    assert.match(await body.textContent(),/DEFAULT CONTENT/);
+    assert.match(await body.textContent(),/120\/80/);
     assert.deepEqual(errors,[]);
     console.log('PASS: native Range insertion, request ordering, live caret/typing, serializer and legacy/toolbar print gates, marker cleanup, replaced template, literal measurement text. Chromium '+browser.version());
   } finally {await browser.close();}
