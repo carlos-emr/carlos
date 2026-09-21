@@ -188,10 +188,22 @@ final class ClinicalSummaryGenerationPipeline {
         return List.of(left, right);
     }
 
+    static final String UNEXPLAINED = "no statement cites this note and the model gave no reason; recorded by the host.";
+
+    /** Sources the agent neither cited nor reviewed, as recorded by {@link #completeCoverage}. */
+    static List<String> unexplainedSources(JsonNode generated) {
+        List<String> result = new ArrayList<>();
+        for (JsonNode entry : generated.path("coverage")) {
+            if (entry.path("reason").asText().endsWith(UNEXPLAINED)) result.add(entry.path("source_id").asText());
+        }
+        return result;
+    }
+
     /**
      * Records each cited source on the agent's behalf; the agent reviews only sources it did not cite.
-     * An uncited source the agent left unexplained is never given a review here, so it still fails
-     * validation. Malformed output is returned unchanged for validation to reject.
+     * A source the agent neither cited nor reviewed is recorded as exactly that. It is never described
+     * as reviewed by the agent, and it does not fail the draft: a short draft from a weaker stack shows
+     * its gaps instead of showing nothing. Malformed output is returned unchanged for validation to reject.
      */
     static JsonNode completeCoverage(JsonNode generated, JsonNode sources) {
         if (generated == null || !generated.isObject() || !generated.path("claims").isArray()
@@ -199,8 +211,6 @@ final class ClinicalSummaryGenerationPipeline {
             return generated;
         }
         ObjectNode result = generated.deepCopy();
-        Set<String> reviewed = new LinkedHashSet<>();
-        result.get("coverage").forEach(entry -> reviewed.add(entry.path("source_id").asText()));
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (JsonNode claim : result.get("claims")) {
             Set<String> references = new LinkedHashSet<>();
@@ -208,6 +218,15 @@ final class ClinicalSummaryGenerationPipeline {
             references.forEach(reference -> counts.merge(reference, 1, Integer::sum));
         }
         ArrayNode coverage = (ArrayNode) result.get("coverage");
+        // A host record of an unexplained note is stale once a later host statement cites that note.
+        for (int i = coverage.size() - 1; i >= 0; i--) {
+            JsonNode entry = coverage.get(i);
+            if (counts.containsKey(entry.path("source_id").asText()) && entry.path("reason").asText().endsWith(UNEXPLAINED)) {
+                coverage.remove(i);
+            }
+        }
+        Set<String> reviewed = new LinkedHashSet<>();
+        coverage.forEach(entry -> reviewed.add(entry.path("source_id").asText()));
         for (JsonNode entry : coverage) {
             // Citations are a host-known fact; the agent's reason is kept.
             if (entry.isObject() && counts.containsKey(entry.path("source_id").asText())) {
@@ -221,6 +240,10 @@ final class ClinicalSummaryGenerationPipeline {
                 coverage.addObject().put("source_id", id).put("status", "cited")
                         .put("reason", id + ": cited by " + count + (count == 1 ? " statement" : " statements")
                                 + " in this draft; recorded by the host.");
+            }
+            if (count == null && !reviewed.contains(id)) {
+                coverage.addObject().put("source_id", id).put("status", "reviewed_not_cited")
+                        .put("reason", id + ": " + UNEXPLAINED);
             }
         }
         return result;

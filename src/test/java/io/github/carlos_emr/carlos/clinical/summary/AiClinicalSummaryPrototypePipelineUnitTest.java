@@ -23,6 +23,8 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     private int requestBytes = ClinicalSummaryGenerationPipeline.REQUEST_BYTES;
     private boolean reviewsOnlyUncited;
     private boolean citesOnlyFirstSource;
+    private boolean dropsObservations;
+    private boolean misdates;
     private final ClinicalSummaryAgent agent = new ClinicalSummaryAgent() {
         public String displayName() { return "Test full-record agent"; }
         public String cacheIdentity() { return "fixed-test-revision"; }
@@ -43,6 +45,8 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
                 String id = source.get("id").asText();
                 if (citesOnlyFirstSource && !claims.isEmpty()) continue;
                 String text = source.get("text").asText().replace('\n', ' ');
+                if (dropsObservations) text = text.substring(0, text.indexOf(" Observations:"));
+                if (misdates) text = text + " Reviewed again on 19/03/26.";
                 claims.addObject().put("id", "claim-" + id).put("text", text).putArray("source_ids").add(id);
                 ids.add("claim-" + id);
                 if (reviewsOnlyUncited) continue;
@@ -209,7 +213,7 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
         output.putArray("sections");
         output.putArray("coverage").addObject().put("source_id", "source-1").put("status", "reviewed_not_cited")
                 .put("reason", "Admission history.");
-        JsonNode completed = ClinicalSummaryGenerationPipeline.completeCoverage(output, chart(2).get("sources"));
+        JsonNode completed = ClinicalSummaryGenerationPipeline.completeCoverage(output, chart(1).get("sources"));
         assertThat(completed.get("coverage")).hasSize(1);
         assertThat(completed.get("coverage").get(0).get("status").asText()).isEqualTo("cited");
         assertThat(completed.get("coverage").get(0).get("reason").asText()).isEqualTo("Admission history.");
@@ -217,11 +221,49 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     }
 
     @Test
-    void rejectsAnUncitedSourceTheAgentLeftUnexplained() throws Exception {
+    void recordsAnUncitedSourceTheAgentLeftUnexplainedInsteadOfFailingTheDraft() throws Exception {
         reviewsOnlyUncited = true;
         citesOnlyFirstSource = true;
-        // The host records citations; it never manufactures a review for a source the agent ignored.
-        assertThatThrownBy(() -> generate(chart(2))).isInstanceOf(ClinicalSummaryGenerationException.class);
+        var result = generate(chart(2));
+        // The host says exactly what happened; it never describes the note as reviewed by the agent.
+        assertThat(result.getView().get("coverage").toString())
+                .contains("source-2: no statement cites this note and the model gave no reason; recorded by the host.");
+        assertThat(result.getView().get("validation").toString())
+                .contains("sources_not_cited_without_reason", "source-2");
+    }
+
+    @Test
+    void replacesAStaleUnexplainedRecordOnceAHostStatementCitesThatNote() {
+        ObjectNode output = JSON.createObjectNode();
+        output.putArray("claims").addObject().put("id", "c1").put("text", "A.").putArray("source_ids").add("source-1");
+        output.putArray("sections");
+        output.putArray("coverage");
+        JsonNode sources = chart(2).get("sources");
+        ObjectNode first = (ObjectNode) ClinicalSummaryGenerationPipeline.completeCoverage(output, sources);
+        assertThat(ClinicalSummaryGenerationPipeline.unexplainedSources(first)).containsExactly("source-2");
+        ((ArrayNode) first.get("claims")).addObject().put("id", "host-obs-1").put("text", "Restored.")
+                .putArray("source_ids").add("source-2");
+        JsonNode second = ClinicalSummaryGenerationPipeline.completeCoverage(first, sources);
+        assertThat(ClinicalSummaryGenerationPipeline.unexplainedSources(second)).isEmpty();
+        assertThat(second.get("coverage").toString()).contains("source-2: cited by 1 statement in this draft");
+    }
+
+    @Test
+    void restoresADroppedObservationSetAndFlagsAMisdatedStatementInTheGeneratedArtifact() throws Exception {
+        ObjectNode input = chart(1);
+        ((ObjectNode) input.get("sources").get(0)).put("date", "2026-01-05")
+                .put("text", "Recorded finding on 12/01/27 was stable. Observations: HR 2, BP 124/78, RR 1, Temp 36.8, SpO2 98.");
+        dropsObservations = true;
+        var result = generate(input);
+        assertThat(result.getView().get("claims").toString())
+                .contains("restored verbatim by the host because the draft omitted them: HR 2; BP 124/78; RR 1; Temp 36.8; SpO2 98.");
+        assertThat(result.getView().get("validation").toString()).doesNotContain("date_not_in_cited_sources");
+        misdates = true;
+        // A changed note is a new cache key, so the agent runs again.
+        ((ObjectNode) input.get("sources").get(0)).put("text", "Recorded finding on 12/01/27 was unchanged. "
+                + "Observations: HR 2, BP 124/78, RR 1, Temp 36.8, SpO2 98.");
+        assertThat(generate(input).getView().get("validation").toString())
+                .contains("date_not_in_cited_sources", "asserts 19/03/26");
     }
 
     @Test

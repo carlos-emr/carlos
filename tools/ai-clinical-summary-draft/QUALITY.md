@@ -792,17 +792,17 @@ SiliconFlow shows 22 of 31 rather than its current-prompt record.
 Restoring found far more than the one abnormal set. A gate-passing 27B draft of
 NHSSYN001 kept only the blood pressure from each daily set and dropped heart rate,
 respiratory rate, temperature and oxygen saturation for five consecutive days; the
-20-fact ledger never asked for them. Across the saved drafts 273 of 456 observation
+20-fact ledger never asked for them. Across the 52 saved drafts 270 of 440 observation
 sets were not reported in full. Restoring only sets holding a NEWS2 red-range value
-would add 0.22 statements per draft instead of 5.1, but it builds a clinical
+would add about 0.2 statements per draft instead of 5.2, but it builds a clinical
 threshold into the host; the decision taken was to restore every dropped set, which
 builds in none and omits nothing, at the cost of routine statements such as
 "HR 88; BP 135/85; RR 16; Temp 36.8; SpO2 98". A first version wrote its date as
 dd/mm/yy into a draft that used ISO dates and failed that draft's format check; the
 host statement now follows the draft's own format.
 
-The wider seed has more of the same trap. Of 615 observation sets in the 50 charts,
-76 hold a red-range value, in 22 patients, including NHSSYN005 with a heart rate of
+The wider seed has more of the same trap. Of 619 observation sets in the 50 charts,
+77 hold a red-range value, in 22 patients, including NHSSYN005 with a heart rate of
 7 and NHSSYN017 with 472.
 
 ## A short draft now shows its gaps instead of failing
@@ -820,13 +820,19 @@ restored by the host including the abnormal set, no date, leak, duplicate or
 forbidden-assertion defects, and one note recorded as unexplained. It fails the gate
 on the anticoagulant conflict alone.
 
+The Java port's tests then caught a fault in both implementations: a value that
+ended a sentence, as in "SpO2 98.", was skipped, because a following full stop had
+been excluded to avoid reading 36 out of 36.8. A restored statement could therefore
+lose its last value. Only a full stop followed by a digit is excluded now.
+
 ## Limits
 
 Extraction is pattern matching over English abbreviations. A set written in a form
 it does not recognise is not protected, and a claim that reports a set in words it
 does not recognise gets a redundant restored statement, which is harmless. A set
-the draft reports across two claims is restored as well. These checks are in the
-Python pipeline and gateway; the Java host does not apply them yet, so the
-application's Ollama path is not covered. The anticoagulant conflict still depends
-on the model. No clinician has reviewed the rule or its wording.
+the draft reports across two claims is restored as well. The Java host applies the
+same checks to every draft, from either adapter, in `ClinicalSummaryHostChecks`, held
+to the same test cases as `host_checks.py`; the two must be kept aligned by hand. The
+anticoagulant conflict still depends on the model. No clinician has reviewed the rule
+or its wording, and the application has not yet been rebuilt and run with them.
 

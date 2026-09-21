@@ -10,6 +10,7 @@ import java.text.Normalizer;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -90,6 +91,10 @@ public final class ClinicalSummaryGenerationService {
                 if (hit != null) return hit;
             }
             JsonNode generated = new ClinicalSummaryGenerationPipeline(agent, cache, identity).generate(snapshot, request);
+            // Host guarantees that hold whichever stack wrote the draft: restore omitted observations,
+            // then record citations, including of the restored statements.
+            generated = ClinicalSummaryGenerationPipeline.completeCoverage(
+                    ClinicalSummaryHostChecks.restoreObservations(generated, snapshot.get("sources")), snapshot.get("sources"));
             validateGenerated(generated, snapshot.get("sources"), false);
             for (String key : Set.of("sections", "claims", "coverage")) {
                 snapshot.set(key, generated.get(key).deepCopy());
@@ -100,6 +105,21 @@ public final class ClinicalSummaryGenerationService {
             findings.addObject().put("severity", "warning").put("code", "ai_review_required")
                     .put("message", "Unverified AI draft for synthetic testing only. Reference checks do not establish support, clinical accuracy or completeness. Nothing has been saved to the chart.")
                     .putArray("source_ids");
+            for (ClinicalSummaryHostChecks.DateFinding finding
+                    : ClinicalSummaryHostChecks.dateFindings(generated, snapshot.get("sources"))) {
+                ArrayNode cited = findings.addObject().put("severity", "warning").put("code", "date_not_in_cited_sources")
+                        .put("message", "Statement " + finding.claimId() + " asserts " + finding.asserted()
+                                + ", which none of its cited notes carries (" + String.join(", ", finding.allowed()) + ").")
+                        .putArray("source_ids");
+                finding.sourceIds().forEach(cited::add);
+            }
+            List<String> unexplained = ClinicalSummaryGenerationPipeline.unexplainedSources(generated);
+            if (!unexplained.isEmpty()) {
+                ArrayNode notes = findings.addObject().put("severity", "warning").put("code", "sources_not_cited_without_reason")
+                        .put("message", "The draft neither cites nor explains setting aside these notes; read them directly.")
+                        .putArray("source_ids");
+                unexplained.forEach(notes::add);
+            }
             ClinicalSummaryArtifact artifact = new ClinicalSummaryArtifact(snapshot);
             if (cacheKey != null && artifact.isRenderable()) {
                 // Model replacement during inference must not populate the previous revision's cache.
