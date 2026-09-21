@@ -138,16 +138,18 @@ function updateSignOffButton(reportId, isSign) {
 }
 
 /**
- * Tells the inbox a report has been signed off, by BOTH routes.
+ * Tells the inbox a report has been signed off: broadcast first, direct call as the fallback.
  *
- * Both, deliberately: the Inboxhub listens on the BroadcastChannel, while the legacy oscarMDS
- * inbox has no listener at all and can only be reached through window.opener.removeReport().
- * A report opened from either generation has to leave the list, and this viewer cannot tell
- * which one opened it. BroadcastChannel is also the only route that survives
- * Cross-Origin-Opener-Policy, which severs window.opener.
+ * The BroadcastChannel is the primary route. It reaches the Inboxhub's own listener, and it is
+ * the only route that survives Cross-Origin-Opener-Policy, which severs window.opener.
  *
- * Being told twice is safe: the Inboxhub keys counter adjustments per item so the badge moves
- * once, and removing a row that has already gone is a no-op.
+ * The direct call then covers only what the broadcast cannot reach:
+ *   - the legacy oscarMDS inbox, which has no listener on that channel at all;
+ *   - any inbox at all when BroadcastChannel is unavailable.
+ *
+ * A modern Inboxhub that heard the broadcast is deliberately NOT also driven directly. Doing
+ * both notified it twice, and the second notification was not free: see dropFromInboxhubDirectly
+ * for how the first one's re-fetch clears the handled record and makes the listener re-fetch too.
  *
  * The id and type travel together because segment ids are not unique across report types.
  *
