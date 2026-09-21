@@ -20,7 +20,7 @@ async function run() {
   const browser = await chromium.launch({executablePath:process.env.CHROME_PATH || undefined,
     args:['--no-sandbox','--disable-dev-shm-usage'],headless:true});
   try {
-    const page = await browser.newPage(); const errors=[]; const pending=[];
+    const page = await browser.newPage({timezoneId:'America/Vancouver'}); const errors=[]; const pending=[];
     page.on('pageerror',error=>errors.push(error.message));
     page.on('dialog',dialog=>dialog.accept());
     await page.route('**/*',async route=>{
@@ -39,6 +39,13 @@ async function run() {
     });
     await page.goto('http://127.0.0.1:2091/carlos/eform/fixture');
     await page.waitForFunction(()=>document.getElementById('edit').contentDocument.designMode==='on');
+    assert.deepEqual(await page.evaluate(()=>[
+      measurementMonth(Date.parse('2026-09-30T23:30:00-07:00')),
+      measurementMonth(Date.parse('2026-12-31T23:30:00-08:00')),
+      measurementMonth('2026-09-30'),
+    ]),['2026/9','2026/12','2026/9']);
+    assert.equal(await page.evaluate(()=>measurementDateTime('2026-10-01')
+      > measurementDateTime(Date.parse('2026-09-30T23:30:00-07:00'))),true);
     // Load after DOMContentLoaded: toolbar initialization needs a server-rendered form,
     // while its actual action functions can be exercised with this isolated editor.
     await page.addScriptTag({path:web+'/eform/eformFloatingToolbar/eform_floating_toolbar.js'});

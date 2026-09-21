@@ -95,7 +95,7 @@ test('later clicks are queued and results stay before text typed after each mark
 
 test('installed REST epoch dates sort and display alongside ISO dates without stale values', async () => {
   const f = setup(); const p = f.context.getMeasures('ALT',2); await delay(5);
-  f.requests[0].respond({ALT:[row('ALT','older',Date.UTC(2025,11,1)),row('ALT','newer',Date.UTC(2026,8,12))]});
+  f.requests[0].respond({ALT:[row('ALT','older',new Date(2025,11,1).getTime()),row('ALT','newer',new Date(2026,8,12).getTime())]});
   assert.deepEqual(Array.from((await p).values),['newer','older']);
   assert.match(f.contentDocument.body.textContent,/newer\(2026\/9\).*older\(2025\/12\)/);
   assert.equal(f.context.measurementMonth(null),'date unavailable');
@@ -119,6 +119,18 @@ test('a blocked legacy serializer restores the unload warning even when loading 
   assert.equal(f.context.window.needToConfirm,true);
   await delay(5);f.requests[0].onerror();await p;
   assert.equal(f.context.window.needToConfirm,true);
+});
+
+test('a setup failure stays visible after an already-running batch succeeds', async () => {
+  const f=setup(); const first=f.context.getMeasures('BP',1);await delay(5);
+  f.frame.contentDocument=null;
+  assert.equal((await f.context.getMeasures('WT',1)).failed,true);
+  f.frame.contentDocument=f.contentDocument;
+  f.requests[0].respond({BP:[row('BP','120/80')]});await first;
+  assert.match(notice(f),/not inserted/);
+  const retry=f.context.getMeasures('WT',1);await delay(5);
+  f.requests[1].respond({WT:[row('WT','70')]});await retry;
+  assert.equal(notice(f),'');
 });
 
 for (const failure of ['timeout','network','HTTP','invalid JSON','wrong patient']) {

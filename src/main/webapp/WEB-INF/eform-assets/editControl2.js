@@ -1582,6 +1582,7 @@ function getMeasures(measure, max) {
             }
             pendingMeasureBatch.requests.push({measure: String(measure), max: max, resolve: resolve});
         } catch (error) {
+            measureBatchFailed = true;
             showMeasurementStatus('Measurements could not be loaded. Check that a patient and letter are open.', true);
             resolve({values: [], dates: [], failed: true});
         }
@@ -1669,6 +1670,10 @@ function normalizeMeasureHistory(measurements, request, patient) {
 }
 
 function measurementDateTime(value) {
+    // Date-only service values describe local clinical dates. Date.parse would
+    // treat them as UTC and could sort midnight behind the previous evening.
+    var localDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+    if (localDate) { return new Date(Number(localDate[1]), Number(localDate[2]) - 1, Number(localDate[3])).getTime(); }
     var timestamp = typeof value === 'number' ? value : Date.parse(value);
     return Number.isFinite(timestamp) ? timestamp : 0;
 }
@@ -1678,7 +1683,7 @@ function measurementMonth(value) {
     // accept ISO dates from installations with the optional date serializer.
     if (typeof value === 'number' && Number.isFinite(value)) {
         var date = new Date(value);
-        if (!Number.isNaN(date.getTime())) { return date.getUTCFullYear() + '/' + (date.getUTCMonth() + 1); }
+        if (!Number.isNaN(date.getTime())) { return date.getFullYear() + '/' + (date.getMonth() + 1); }
     }
     var parts = /^(\d{4})-(\d{2})-\d{2}/.exec(String(value || ''));
     if (parts) { return parts[1] + '/' + Number(parts[2]); }

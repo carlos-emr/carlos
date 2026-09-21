@@ -125,6 +125,7 @@ public class MeasurementService extends AbstractServiceImpl {
      * @param json ObjectNode containing array of measurement type codes to retrieve
      * @param demoId Integer the patient's demographic ID from the URL path
      * @return MeasurementResponse containing matching measurements and metadata
+     * @throws BadRequestException (HTTP 400) if the patient identifier is missing or nonpositive
      * @throws ForbiddenException if measurement or patient-record access is denied
      * 
      * @see MeasurementResponse
