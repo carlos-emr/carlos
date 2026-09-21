@@ -41,7 +41,8 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "completion_tokens": 6357
  },
  {
   "name": "R2-002-default",
@@ -85,7 +86,8 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "completion_tokens": 6281
  },
  {
   "name": "R3-002-default",
@@ -116,7 +118,8 @@
      null
     ]
    }
-  ]
+  ],
+  "completion_tokens": 5179
  },
  {
   "name": "R4-001-default",
@@ -160,7 +163,8 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "completion_tokens": 3744
  },
  {
   "name": "R5-001-default",
@@ -204,7 +208,8 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "completion_tokens": 3832
  },
  {
   "name": "R6-003-default",
@@ -248,7 +253,8 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
-  }
+  },
+  "completion_tokens": 3455
  },
  {
   "name": "R7-003-default",
@@ -292,6 +298,794 @@
    "cross_section_duplicates": 0,
    "mixed_date_formats": false,
    "gate_pass": true
+  },
+  "completion_tokens": 3660
+ },
+ {
+  "name": "A1-002-uncited-coverage",
+  "note": "Default configuration after the model stopped reviewing cited sources.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 174.158,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 48,
+  "completion_tokens": 4722,
+  "cost_usd": 0.011726,
+  "calls": [
+   {
+    "seconds": 174.037,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4722,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01172575,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 48,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "A2-001-uncited-coverage",
+  "note": "Default configuration after the model stopped reviewing cited sources.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 79.879,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 28,
+  "completion_tokens": 2818,
+  "cost_usd": 0.007571,
+  "calls": [
+   {
+    "seconds": 79.785,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2818,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00757075,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 28,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "A3-003-uncited-coverage",
+  "note": "Default configuration after the model stopped reviewing cited sources.",
+  "fixture": "NHSSYN003",
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 109.145,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 0,
+  "completion_tokens": 1,
+  "cost_usd": 0.001587,
+  "calls": [
+   {
+    "seconds": 109.143,
+    "prompt_tokens": 6339,
+    "completion_tokens": 1,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00158675,
+    "finish_reasons": [
+     null
+    ]
+   }
+  ]
+ },
+ {
+  "name": "A4-003-uncited-coverage",
+  "note": "Default configuration after the model stopped reviewing cited sources.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 180.971,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 34,
+  "completion_tokens": 3253,
+  "cost_usd": 0.008091,
+  "calls": [
+   {
+    "seconds": 180.804,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3253,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00809075,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 34,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "T-qwen3.5-122b-a10b-alibaba-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.171,
+  "model": "qwen/qwen3.5-122b-a10b",
+  "provider": "alibaba",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.17,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-122b-a10b-atlas-cloud-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.163,
+  "model": "qwen/qwen3.5-122b-a10b",
+  "provider": "atlas-cloud",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.162,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-122b-a10b-siliconflow-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 141.955,
+  "model": "qwen/qwen3.5-122b-a10b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 51,
+  "completion_tokens": 6232,
+  "cost_usd": 0.015329,
+  "calls": [
+   {
+    "seconds": 141.83,
+    "prompt_tokens": 9103,
+    "completion_tokens": 6232,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01532934,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 51,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "ward-round-vitals-retained"
+   ],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-27b-alibaba-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.954,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "alibaba",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.952,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-27b-atlas-cloud-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.896,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "atlas-cloud",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.894,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-27b-deepinfra-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 94.271,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 26,
+  "completion_tokens": 3490,
+  "cost_usd": 0.011441,
+  "calls": [
+   {
+    "seconds": 94.234,
+    "prompt_tokens": 9103,
+    "completion_tokens": 3490,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01144078,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 26,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "ward-round-vitals-retained"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-alibaba-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.208,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "alibaba",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.208,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-atlas-cloud-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.17,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "atlas-cloud",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.169,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-deepinfra-002-r2",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)",
+  "seconds": 7.866,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 1.144,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 0.364,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 0.353,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-deepinfra-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)",
+  "seconds": 6.901,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.412,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 0.262,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 0.225,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-parasail-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 153.981,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 46,
+  "completion_tokens": 5042,
+  "cost_usd": 0.006407,
+  "calls": [
+   {
+    "seconds": 153.871,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5042,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00640745,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 46,
+   "fact_recall": 0.864,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-siliconflow-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 112.827,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 0,
+  "completion_tokens": 1874,
+  "cost_usd": 0.005558,
+  "calls": [
+   {
+    "seconds": 112.826,
+    "prompt_tokens": 9103,
+    "completion_tokens": 1874,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00555792,
+    "finish_reasons": [
+     null
+    ]
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-venice-002-r2",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 53.224,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 50,
+  "completion_tokens": 5610,
+  "cost_usd": 0.008537,
+  "calls": [
+   {
+    "seconds": 53.093,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5610,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0085371875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 50,
+   "fact_recall": 0.909,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-venice-002-r3",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "ValueError: Unknown or duplicate reference",
+  "seconds": 41.241,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 0,
+  "completion_tokens": 4988,
+  "cost_usd": 0.00776,
+  "calls": [
+   {
+    "seconds": 41.2,
+    "prompt_tokens": 9103,
+    "completion_tokens": 4988,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0077596875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-venice-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 59.134,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 54,
+  "completion_tokens": 5809,
+  "cost_usd": 0.010106,
+  "calls": [
+   {
+    "seconds": 59.082,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5809,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0101059375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 54,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-397b-a17b-deepinfra-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 160.768,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 39,
+  "completion_tokens": 5227,
+  "cost_usd": 0.019777,
+  "calls": [
+   {
+    "seconds": 160.714,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5227,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01977735,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-397b-a17b-venice-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 14.853,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 20,
+  "completion_tokens": 3473,
+  "cost_usd": 0.022456,
+  "calls": [
+   {
+    "seconds": 14.801,
+    "prompt_tokens": 9103,
+    "completion_tokens": 3473,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.02245575,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 20,
+   "fact_recall": 0.818,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
   }
  }
 ]
