@@ -306,8 +306,11 @@ function launchOptions() {
         if (invalidInputs.length) {
           throw new Error(`FORM REQUIRES INPUT: ${invalidInputs.join(', ')}`);
         }
+        // Wait for the actual Save navigation: some authored Submit buttons delay
+        // form.submit() by two seconds. An already-fired DOMContentLoaded does not
+        // wait for that save and would let Download create a second pending submit.
         await Promise.all([
-          form.waitForLoadState('domcontentloaded'),
+          form.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
           form.click('#remoteSubmitButton'),
         ]);
         await form.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
