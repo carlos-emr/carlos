@@ -36,7 +36,7 @@ async function run() {
 <body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden"><input id="subject" value="Fixture letter" type="hidden">
 <input id="hasValidRecipient" value="true" type="hidden"><input id="emailConsentStatus" value="Unknown" type="hidden"><input id="emailConsentName" value="Fixture" type="hidden">
 <textarea id="Letter" hidden>&lt;p&gt;Saved fixture letter&lt;/p&gt;</textarea><div id="oscar-spinner-screen"></div><div id="oscar-spinner"></div><div id="control1"></div><div id="control2"></div><div id="control3"></div><div id="control4"></div><select id="template"><option value="">Templates</option><option value="default.rtl">Default</option><option value="async.rtl">Async</option><option value="failure.rtl">Failure</option></select>
-<script>window.delayedPrints=0;window.delayedFramePrints=0;window.print=()=>window.delayedPrints++;window.faxSubmits=0;document.RichTextLetter.submit=()=>{window.faxSubmits++;window.submittedLetter=document.getElementById('Letter').value;};window.maximize=()=>{};window.updateAttached=()=>{};window.setDirtyFlag=()=>window.needToConfirm=true;</script><script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
+<script>window.delayedPrints=0;window.delayedFramePrints=0;window.print=()=>window.delayedPrints++;window.faxSubmits=0;document.RichTextLetter.submit=()=>{window.faxSubmits++;window.submittedLetter=document.getElementById('Letter').value;window.submittedPrint=document.getElementById('printHolder')?.value;window.submittedSkipSave=document.getElementById('saveHolder')?.value;};window.maximize=()=>{};window.updateAttached=()=>{};window.setDirtyFlag=()=>window.needToConfirm=true;</script><script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
 <button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button>
 <button type="button" name="PrintSubmitButton" onclick="window.prints++">Print and submit</button>
 <button type="button" id="PrintSubmitButton" onclick="window.prints++">Print and submit by id</button></form></body></html>`});
@@ -68,6 +68,7 @@ async function run() {
     // Load after DOMContentLoaded: toolbar initialization needs a server-rendered form,
     // while its actual action functions can be exercised with this isolated editor.
     await page.addScriptTag({path:web+'/eform/eformFloatingToolbar/eform_floating_toolbar.js'});
+    await page.addScriptTag({path:web+'/library/eforms/printControl.js'});
     async function begin(types) {
       await page.evaluate(types=>{ // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- types are fixed BP/WT arrays below, structured-cloned into a literal function; every network request is fulfilled locally or aborted by the fixture route.
         const doc=document.getElementById('edit').contentDocument;
@@ -114,6 +115,11 @@ async function run() {
       window.saveRTL=()=>editControlContents('edit');
       try {submitFaxButton();return false;} catch(error){return /still loading/.test(error.message);}
     }),true);
+    assert.deepEqual(await page.evaluate(()=>[false,true].map(save=>{
+      let blocked=false;
+      try {submitPrintButton(save);} catch(error) {blocked=/still loading/.test(error.message);}
+      return [blocked,document.getElementById('printHolder').value,document.getElementById('saveHolder').value,window.needToConfirm,window.faxSubmits];
+    })),[[true,'false','false',true,0],[true,'false','false',true,0]]);
     assert.equal(await page.locator('#faxEForm').inputValue(),'false');
     assert.equal(await page.evaluate(()=>window.prints),0);
     assert.equal(await page.evaluate(()=>{
@@ -136,6 +142,12 @@ async function run() {
     assert.equal(await body.textContent(),'BEFORE BP: 120/80(2026/9); WT: 70(2026/9); AFTER TYPED');
     await page.evaluate(()=>{window.delayedPrint();window.delayedFramePrint();});
     assert.deepEqual(await page.evaluate(()=>[window.delayedPrints,window.delayedFramePrints]),[1,1]);
+    assert.deepEqual(await page.evaluate(()=>{
+      submitPrintButton(false);
+      const pdf=[window.submittedPrint,window.submittedSkipSave];
+      document.RichTextLetter.submit();
+      return [pdf,[window.submittedPrint,window.submittedSkipSave]];
+    }),[['true','true'],['false','false']]);
     const saved=await page.evaluate(()=>editControlContents('edit'));
     assert(!saved.includes('RTL measurement insertion'));
     const exported=await page.evaluate(async()=>{

@@ -416,6 +416,12 @@ function cancelLetterOutput() {
     if (typeof clearWorkflowFlags === 'function') { clearWorkflowFlags(); }
     var faxField = document.getElementById('faxEForm');
     if (faxField) { faxField.value = false; }
+    var letterForm = measurementLetterForm();
+    if (letterForm && typeof letterForm.querySelectorAll === 'function') {
+        Array.prototype.forEach.call(letterForm.querySelectorAll('#printHolder, #saveHolder'), function(field) {
+            field.value = 'false';
+        });
+    }
     window.needToConfirm = true;
     if (typeof HideSpin === 'function' && document.getElementById('oscar-spinner-screen')
             && document.getElementById('oscar-spinner')) { HideSpin(); }
