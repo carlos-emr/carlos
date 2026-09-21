@@ -30,11 +30,14 @@ async function run() {
       if (name==='fixture') return route.fulfill({contentType:'text/html',body:`<!doctype html><html><head>
 <script src="jquery.js"></script><script src="purify.js"></script><script src="cache.js"></script><script src="image.js"></script></head>
 <body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden"><input id="subject" value="Fixture letter" type="hidden">
+<input id="hasValidRecipient" value="true" type="hidden"><input id="emailConsentStatus" value="Unknown" type="hidden"><input id="emailConsentName" value="Fixture" type="hidden">
+<select id="template"><option value="">Templates</option><option value="default.rtl">Default</option></select>
 <script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
 <button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button>
 <button type="button" name="PrintSubmitButton" onclick="window.prints++">Print and submit</button>
 <button type="button" id="PrintSubmitButton" onclick="window.prints++">Print and submit by id</button></form></body></html>`});
       if (assets[name]) return route.fulfill({body:fs.readFileSync(web+assets[name]),contentType:name==='blank.rtl'?'text/html':'text/javascript'});
+      if (name==='default.rtl') return route.fulfill({contentType:'text/html',body:'<!doctype html><html><body>DEFAULT CONTENT</body></html>'});
       return route.abort();
     });
     await page.goto('http://127.0.0.1:2091/carlos/eform/fixture');
@@ -69,6 +72,12 @@ async function run() {
     }
     await begin(['BP','WT']);
     assert.equal(await page.evaluate(()=>{
+      window.originalPrompt=window.prompt;window.consentPrompts=0;
+      window.prompt=()=>{window.consentPrompts++;return 'No';};
+      remoteEmail();return window.consentPrompts;
+    }),0);
+    assert.equal(await page.locator('#emailAction').count(),0);
+    assert.equal(await page.evaluate(()=>{
       window.exportCount=0;
       window.saveAs=(blob,name)=>{window.exportCount++;window.exportedLetter={blob,name};};
       try {doExport();return false;} catch(error){return /still loading/.test(error.message);}
@@ -96,6 +105,8 @@ async function run() {
     const body=page.frameLocator('#edit').locator('body');
     await body.click();await body.press('Control+End');await body.press('End');await body.pressSequentially(' TYPED');
     await respond({WT:[row('WT','70')],BP:[row('BP','120/80')]});
+    assert.equal(await page.evaluate(()=>{remoteEmail();window.prompt=window.originalPrompt;return window.consentPrompts;}),1);
+    assert.equal(await page.locator('#emailAction').count(),0);
     assert.equal(await body.textContent(),'BEFORE BP: 120/80(2026/9); WT: 70(2026/9); AFTER TYPED');
     const saved=await page.evaluate(()=>editControlContents('edit'));
     assert(!saved.includes('RTL measurement insertion'));
@@ -150,6 +161,26 @@ async function run() {
     await page.waitForFunction(()=>window.faxSubmits===1);
     assert.equal(await page.locator('#faxEForm').inputValue(),'true');
     assert.match(await page.evaluate(()=>window.faxLetter),/LATE EDIT/);
+    await page.evaluate(()=>{
+      const doc=document.getElementById('edit').contentDocument;
+      doc.body.textContent='';doc.getSelection().removeAllRanges();
+      cfg_template='default.rtl';window.loaded=Promise.all([getMeasures('BP',1)]);
+      loadDefaultTemplate();
+    });
+    assert.equal(await body.textContent(),'');
+    await respond({});
+    await page.waitForFunction(()=>document.getElementById('edit').contentDocument?.body?.textContent==='DEFAULT CONTENT');
+    await page.evaluate(()=>{
+      const frame=document.getElementById('edit');window.previousTemplateDocument=frame.contentDocument;
+      window.loaded=Promise.all([getMeasures('BP',1)]);loadDefaultTemplate();
+      frame.srcdoc='<!doctype html><html><body></body></html>';
+    });
+    await page.waitForFunction(()=>{
+      const doc=document.getElementById('edit').contentDocument;
+      return doc!==window.previousTemplateDocument && !!doc?.body;
+    });
+    await respond({});await page.waitForTimeout(20);
+    assert.equal(await body.textContent(),''); // Deferred defaults cannot replace a different document.
     assert.deepEqual(errors,[]);
     console.log('PASS: native Range insertion, request ordering, live caret/typing, serializer and legacy/toolbar print gates, marker cleanup, replaced template, literal measurement text. Chromium '+browser.version());
   } finally {await browser.close();}

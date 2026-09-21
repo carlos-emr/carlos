@@ -567,6 +567,10 @@ function clearWorkflowFlags() {
  * open the Oscar Email dialog.
  */
 function remoteEmail() {
+    // Reject a pending letter before asking for consent or changing workflow intent.
+    if (editorStillLoading()) {
+        return;
+    }
     if (!document.getElementById("hasValidRecipient") || !document.getElementById("emailConsentStatus") || !document.getElementById("emailConsentName")) {
         alert("Valid recipient or consent parameter is not defined in the EForm.");
         return;
@@ -588,11 +592,6 @@ function remoteEmail() {
         }
     }
 
-    // Check before appending emailEForm=true so an editor-still-loading abort does not leave it on
-    // the form for a later plain Save to ride into the email workflow.
-    if (editorStillLoading()) {
-        return;
-    }
     clearWorkflowFlags();
     setHiddenFormInput("emailAction", "emailEForm", "true");
     remoteSave();

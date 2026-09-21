@@ -445,6 +445,13 @@ function existsTemplate(template) {
 }
 
 function loadDefaultTemplate() {
+	if (measurementHistoryStillLoading()) {
+		// A temporary insertion marker is not letter content. Revisit the default
+		// after loading settles, provided this is still the same editor document.
+		var frame = document.getElementById(cfg_editorname);
+		pendingMeasureDefaultTemplate = frame ? frame.contentDocument : null;
+		return;
+	}
 	// Skipping loading of default template if the letter already has content.
 	if (editControlContents(cfg_editorname, true).trim() != '') { return; }
 	if (existsTemplate(cfg_template)) {
@@ -1521,6 +1528,7 @@ var measureRequestQueue = [];
 var activeMeasureBatch = null;
 var measureBatchesPending = 0;
 var measureBatchFailed = false;
+var pendingMeasureDefaultTemplate = null;
 
 function measurementHistoryStillLoading() {
     return measureBatchesPending > 0;
@@ -1646,6 +1654,14 @@ function startNextMeasureBatch() {
         // Settle callers only after releasing this batch's save/print gate.
         batch.requests.forEach(function(request, index) { request.resolve(histories[index]); });
         startNextMeasureBatch();
+        if (!measureBatchesPending && pendingMeasureDefaultTemplate) {
+            var templateDocument = pendingMeasureDefaultTemplate;
+            pendingMeasureDefaultTemplate = null;
+            window.setTimeout(function() {
+                var frame = document.getElementById(cfg_editorname);
+                if (frame && frame.contentDocument === templateDocument) { loadDefaultTemplate(); }
+            }, 0);
+        }
     });
 }
 
