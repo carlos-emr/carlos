@@ -1047,6 +1047,21 @@
       ]
     },
     {
+      "name": "inbox-preview-acknowledge",
+      "script": "scripts/inbox-preview-acknowledge-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "lab-pdf-footer",
       "script": "scripts/lab-pdf-footer-playwright-checks.js",
       "tiers": [
