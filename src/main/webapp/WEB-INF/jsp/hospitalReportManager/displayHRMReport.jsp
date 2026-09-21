@@ -494,7 +494,7 @@
 			<span class="documentLink_status<%=relationshipDocument.getReportStatus() %>"
                   title="<%=relationshipDocument.getReportDate().toString() %>">
 			<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %><a
-                    href="<%=request.getContextPath() %>/hospitalReportManager/Display?id=<%=relationshipDocument.getId() %>&segmentId=<%=relationshipDocument.getId() %> "><% } %>[<%=relationshipDocument.getId() %>]<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %></a><% } %>
+                    href="<%=request.getContextPath() %>/hospitalReportManager/Display?id=<%=relationshipDocument.getId() %>&amp;segmentId=<%=relationshipDocument.getId() %><%=hrmInInboxWindow ? "&amp;inWindow=true" : "" %>"><% } %>[<%=relationshipDocument.getId() %>]<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %></a><% } %>
 			</span>&nbsp;&nbsp;
 		<% seenBefore.add(relationshipDocument.getId().intValue());
         }
