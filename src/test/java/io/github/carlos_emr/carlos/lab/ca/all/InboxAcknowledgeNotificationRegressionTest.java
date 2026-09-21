@@ -394,6 +394,17 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .as("the close path is row-only again, so closeOnSuccess no longer gates counting")
                 .contains("closeLabAfterMacro(formid, json.acknowledged);")
                 .doesNotContain("inboxNotified");
+
+        // hrmActions.js is the third caller of this contract and was pinned nowhere, so when
+        // the return value was introduced its direct route kept re-fetching unconditionally —
+        // the exact page-boundary and preview-reload cost the flag exists to avoid. Pinned
+        // here alongside labDisplay.jsp so the two cannot drift apart again.
+        assertThat(read(HRM_ACTIONS_JS))
+                .as("the HRM viewer reads the same in-place flag")
+                .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, 'HRM', clearedCount) === true;")
+                .as("and re-fetches only when the inbox could not finish the job itself")
+                .contains("if (!handledInPlace && typeof inbox.fetchInboxhubData === 'function') {\n"
+                        + "            inbox.fetchInboxhubData();");
     }
 
     @Test

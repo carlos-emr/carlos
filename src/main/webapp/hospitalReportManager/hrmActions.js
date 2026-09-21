@@ -217,12 +217,25 @@ function dropFromInboxhubDirectly(reportId, clearedCount) {
         if (!inbox) {
             return false;
         }
+        var handledInPlace = false;
         if (legacyInbox) {
             inbox.refreshCategoryList();
         } else {
-            inbox.dropAcknowledgedInboxhubItem(segmentId, 'HRM', clearedCount);
+            // The return value says whether the inbox dealt with the item AND needs no
+            // re-sync; it answers false while unloaded pages remain, because the inbox pages
+            // by offset and an acknowledgement shifts every later result up a place. The
+            // condition lives in that function's contract so this route, labDisplay.jsp's
+            // and the BroadcastChannel listener cannot drift apart. An Inboxhub from before
+            // the return value existed answers undefined and falls through to the re-fetch,
+            // exactly as this code used to do unconditionally.
+            handledInPlace = inbox.dropAcknowledgedInboxhubItem(segmentId, 'HRM', clearedCount) === true;
         }
-        if (typeof inbox.fetchInboxhubData === 'function') {
+        // Only when the inbox could not finish the job itself. Re-fetching on top of an
+        // in-place drop re-runs the whole search: it costs the clinician their place in the
+        // list, discards every page after the first, and in preview mode reloads every
+        // remaining card's iframe. The legacy inbox has no fetchInboxhubData at all, so its
+        // refreshCategoryList() above is the whole of its refresh.
+        if (!handledInPlace && typeof inbox.fetchInboxhubData === 'function') {
             inbox.fetchInboxhubData();
         }
         return true;
