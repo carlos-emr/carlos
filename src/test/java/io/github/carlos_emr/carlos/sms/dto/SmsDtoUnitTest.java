@@ -79,9 +79,9 @@ class SmsDtoUnitTest {
     }
 
     @Test
-    @DisplayName("legacy consent decision factories leave the consent snapshot empty")
-    void shouldLeaveConsentSnapshotEmpty_forLegacyFactories() {
-        assertThat(SmsConsentDecisionDto.permit())
+    @DisplayName("the snapshot-free blocked factory leaves the consent snapshot empty")
+    void shouldLeaveConsentSnapshotEmpty_forSnapshotFreeBlockedFactory() {
+        assertThat(SmsConsentDecisionDto.blocked(SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN", "blocked"))
                 .extracting(
                         SmsConsentDecisionDto::consentStatus,
                         SmsConsentDecisionDto::consentId,

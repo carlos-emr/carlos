@@ -175,8 +175,17 @@ class SmsTransactionUnitTest {
                 SmsProviderType.STUB
         );
 
-        assertThatThrownBy(() -> transaction.recordConsentDecision(SmsConsentDecisionDto.permit()))
+        SmsConsentDecisionDto permitWithoutConsentState = SmsConsentDecisionDto.permitted(null, null, null);
+
+        assertThatThrownBy(() -> transaction.recordConsentDecision(permitWithoutConsentState))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("every consent status name fits the consent_status VARCHAR(32) column")
+    void shouldFitConsentStatusColumn_forEveryEnumName() {
+        assertThat(SmsConsentStatus.values())
+                .allSatisfy(status -> assertThat(status.name().length()).isLessThanOrEqualTo(32));
     }
 
     @Test

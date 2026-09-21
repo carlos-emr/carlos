@@ -186,6 +186,46 @@ class CarlosSmsConsentServiceUnitTest {
     }
 
     @Test
+    @DisplayName("evaluate blocks on an implied opt-out even when an explicit opt-in exists")
+    void shouldBlockAsOptedOut_whenOptOutIsImpliedAndOptInIsExplicit() {
+        configureConsentType();
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO)).thenReturn(List.of(
+                consent(4000, CONSENT_TYPE_ID, true, EDITED_AT.plusSeconds(3600), false),
+                consent(5000, CONSENT_TYPE_ID, false, EDITED_AT, true)));
+
+        SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
+
+        assertBlocked(decision, SmsStatus.OPTOUT_BLOCKED, "SMS_CONSENT_OPTED_OUT", SmsConsentStatus.OPT_OUT);
+        assertThat(decision.consentId()).isEqualTo(4000);
+    }
+
+    @Test
+    @DisplayName("evaluate reports a lone implied opt-out as an opt-out, not as missing explicit consent")
+    void shouldBlockAsOptedOut_whenOnlyRecordIsImpliedOptOut() {
+        configureConsentType();
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO))
+                .thenReturn(List.of(consent(CONSENT_ID, CONSENT_TYPE_ID, true, EDITED_AT, false)));
+
+        SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
+
+        assertBlocked(decision, SmsStatus.OPTOUT_BLOCKED, "SMS_CONSENT_OPTED_OUT", SmsConsentStatus.OPT_OUT);
+    }
+
+    @Test
+    @DisplayName("evaluate permits on an opt-in whose edit date was never stored")
+    void shouldPermitWithoutEditDate_whenOnlyOptInIsUndated() {
+        configureConsentType();
+        when(consentDao.findByDemographic(DEMOGRAPHIC_NO))
+                .thenReturn(List.of(consent(CONSENT_ID, CONSENT_TYPE_ID, false, null)));
+
+        SmsConsentDecisionDto decision = service(false).evaluate(patientMessage());
+
+        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.consentId()).isEqualTo(CONSENT_ID);
+        assertThat(decision.consentLastUpdateDate()).isNull();
+    }
+
+    @Test
     @DisplayName("evaluate blocks when the only opt-in on record was implied rather than given by the patient")
     void shouldBlockAsNotExplicit_whenOnlyImpliedConsentIsRecorded() {
         configureConsentType();

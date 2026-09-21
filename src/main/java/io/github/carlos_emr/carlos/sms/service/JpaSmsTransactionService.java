@@ -316,6 +316,7 @@ public class JpaSmsTransactionService implements SmsTransactionService {
         }
         SmsTransaction current = smsTransactionDao.find(id);
         if (current == null) {
+            LOGGER.warn("SMS transaction {} {} skipped: the row no longer exists.", id, context);
             return claimed;
         }
         if (current.getVersion() != claimed.getVersion()) {

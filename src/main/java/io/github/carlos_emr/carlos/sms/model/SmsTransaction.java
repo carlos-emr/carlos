@@ -66,6 +66,7 @@ public class SmsTransaction extends AbstractModel<Long> {
     private static final int MAX_ERROR_MESSAGE_LENGTH = 1024;
     private static final int MAX_CLAIM_TOKEN_LENGTH = 64;
     private static final String WEBHOOK_REQUIRED_MESSAGE = "webhook is required";
+    private static final String DECISION_REQUIRED_MESSAGE = "decision is required";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -258,7 +259,7 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     public void markConsentBlocked(SmsConsentDecisionDto decision) {
-        Objects.requireNonNull(decision, "decision is required");
+        Objects.requireNonNull(decision, DECISION_REQUIRED_MESSAGE);
         if (decision.allowed()) {
             throw new IllegalArgumentException("a blocking consent decision is required");
         }
@@ -277,7 +278,7 @@ public class SmsTransaction extends AbstractModel<Long> {
      * Blocking decisions go through {@link #markConsentBlocked}, which records the same snapshot.
      */
     public void recordConsentDecision(SmsConsentDecisionDto decision) {
-        Objects.requireNonNull(decision, "decision is required");
+        Objects.requireNonNull(decision, DECISION_REQUIRED_MESSAGE);
         if (!decision.allowed()) {
             throw new IllegalArgumentException("a permitting consent decision is required");
         }
@@ -294,7 +295,7 @@ public class SmsTransaction extends AbstractModel<Long> {
      *         the given decision relied on, so recording it again would change nothing
      */
     public boolean hasConsentSnapshot(SmsConsentDecisionDto decision) {
-        Objects.requireNonNull(decision, "decision is required");
+        Objects.requireNonNull(decision, DECISION_REQUIRED_MESSAGE);
         // Epoch millis rather than equals(): a loaded row holds a java.sql.Timestamp, which never equals a Date.
         Long storedUpdate = consentLastUpdateDate == null ? null : consentLastUpdateDate.getTime();
         Long decisionUpdate = decision.consentLastUpdateDate() == null

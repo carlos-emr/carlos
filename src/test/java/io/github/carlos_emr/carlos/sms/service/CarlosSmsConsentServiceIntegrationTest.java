@@ -148,7 +148,39 @@ class CarlosSmsConsentServiceIntegrationTest extends CarlosTestBase {
         assertThat(reloaded.getStatus()).isEqualTo(SmsStatus.QUEUED);
         assertThat(reloaded.getConsentStatus()).isEqualTo(SmsConsentStatus.OPT_IN);
         assertThat(reloaded.getConsentId()).isEqualTo(consented.getId());
-        assertThat(reloaded.getConsentLastUpdateDate()).isNotNull();
+        // The reloaded row and the reloaded Consent must agree, or every dispatch would rewrite the snapshot.
+        assertThat(reloaded.hasConsentSnapshot(consentService.evaluate(patientMessage()))).isTrue();
+    }
+
+    @Test
+    @DisplayName("blocks as not explicit and persists that snapshot when the stored opt-in was implied")
+    void shouldPersistNotExplicitSnapshot_whenStoredOptInIsImplied() {
+        Consent implied = persistConsent(configureSmsConsentType(), false, false, false);
+        JpaSmsTransactionService recorder =
+                new JpaSmsTransactionService(smsTransactionDao, mock(ApplicationEventPublisher.class));
+
+        SmsConsentDecisionDto decision = consentService.evaluate(patientMessage());
+        SmsTransaction recorded = recorder.recordOutboundAttempt(patientMessage(), SmsProviderType.STUB, decision);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(decision.allowed()).isFalse();
+        SmsTransaction reloaded = entityManager.find(SmsTransaction.class, recorded.getId());
+        assertThat(reloaded.getStatus()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
+        assertThat(reloaded.getConsentStatus()).isEqualTo(SmsConsentStatus.NOT_EXPLICIT);
+        assertThat(reloaded.getConsentReasonCode()).isEqualTo("SMS_CONSENT_NOT_EXPLICIT");
+        assertThat(reloaded.getConsentId()).isEqualTo(implied.getId());
+    }
+
+    @Test
+    @DisplayName("blocks as unknown when the patient's stored SMS opt-in was withdrawn by soft delete")
+    void shouldBlockAsUnknown_whenStoredOptInIsSoftDeleted() {
+        persistConsent(configureSmsConsentType(), false, true, true);
+
+        SmsConsentDecisionDto decision = consentService.evaluate(patientMessage());
+
+        assertThat(decision.allowed()).isFalse();
+        assertThat(decision.consentStatus()).isEqualTo(SmsConsentStatus.UNKNOWN);
     }
 
     private ConsentType configureSmsConsentType() {
@@ -173,14 +205,21 @@ class CarlosSmsConsentServiceIntegrationTest extends CarlosTestBase {
     }
 
     private Consent persistConsent(ConsentType consentType, boolean optedOut) {
+        return persistConsent(consentType, optedOut, true, false);
+    }
+
+    private Consent persistConsent(ConsentType consentType, boolean optedOut, boolean explicit, boolean deleted) {
         Consent consent = new Consent();
         consent.setDemographicNo(DEMOGRAPHIC_NO);
         consent.setConsentTypeId(consentType.getId());
-        consent.setExplicit(true);
+        consent.setExplicit(explicit);
         consent.setOptout(optedOut);
+        consent.setDeleted(deleted);
         consent.setEditDate(new Date());
         entityManager.persist(consent);
         entityManager.flush();
+        // Detach so the service reads the row back from the table, as it does in production.
+        entityManager.clear();
         return consent;
     }
 

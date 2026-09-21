@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsInboundWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.event.SmsSendFailedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -96,8 +97,10 @@ class JpaSmsTransactionServiceUnitTest {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
         SmsSendCommand command = SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998");
 
+        SmsConsentDecisionDto permitWithoutConsentState = SmsConsentDecisionDto.permitted(null, null, null);
+
         assertThatThrownBy(() -> recorder.recordOutboundAttempt(
-                command, SmsProviderType.STUB, SmsConsentDecisionDto.permit()))
+                command, SmsProviderType.STUB, permitWithoutConsentState))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(smsTransactionDao, never()).persist(any());
@@ -172,8 +175,13 @@ class JpaSmsTransactionServiceUnitTest {
         SmsConsentDecisionDto decision = SmsConsentDecisionDto.permitted(
                 SmsConsentStatus.OPT_IN, 9, Instant.parse("2026-09-10T09:00:00Z"));
 
-        assertThatThrownBy(() -> recorder.recordConsentDecision(claimed, decision))
-                .isInstanceOf(SmsTransactionClaimConflictException.class);
+        try (LogCapture logs = LogCapture.forLogger(JpaSmsTransactionService.class)) {
+            assertThatThrownBy(() -> recorder.recordConsentDecision(claimed, decision))
+                    .isInstanceOf(SmsTransactionClaimConflictException.class);
+
+            // The worker stays silent on a claim conflict, so the recorder must say why the write was dropped.
+            assertThat(logs.messages()).anySatisfy(message -> assertThat(message).contains("42"));
+        }
     }
 
     @Test

@@ -128,6 +128,16 @@ $SQL carlos < /scripts/demo-hrm-report.sql
 # install does.
 echo 'Enabling digital signatures on the demo facility...'
 $SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
+# development.sql truncate-reloads consentType and property with the old
+# snapshot, which has no SMS consent type and no sms_communication property,
+# so every SMS would be blocked as SMS_CONSENT_NOT_CONFIGURED and the consent
+# would be missing from the patient record. Re-apply the migration that seeds
+# them; every statement in it is idempotent. The glob survives a renumbering.
+echo 'Restoring the SMS consent type and sms_communication property...'
+for f in "${MIG}"/common/V*__add_sms_consent.sql; do
+  [ -f "$f" ] || { echo "ERROR: no V*__add_sms_consent.sql under ${MIG}/common" >&2; exit 1; }
+  $SQL carlos < "$f"
+done
 # Administration fixtures for the data-backed Administration screens the demo
 # snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
 # (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only
