@@ -631,9 +631,23 @@ public class HRMModifyDocument2Action extends ActionSupport {
             // been activated against this one.
             HRMDocumentSubClass newActiveSubClass = hrmDocumentSubClassDao.find(Integer.parseInt(subClassId));
             if (newActiveSubClass != null && documentId.equals(newActiveSubClass.getHrmDocumentId())) {
+                // Deactivate-then-activate is two separately committed DAO calls: AbstractDaoImpl
+                // is class-level @Transactional and this action is not, so a failure between them
+                // leaves the report with NO active sub-class — it loses its classification, and
+                // the viewer skips its reload on failure so nothing on screen says so. Remember
+                // what was active and put it back rather than leave the report worse than it
+                // started. Not a transaction: a compensating restore, scoped to this one method.
+                List<HRMDocumentSubClass> previouslyActive =
+                        hrmDocumentSubClassDao.getActiveSubClassesByDocumentId(documentId);
+
                 hrmDocumentSubClassDao.setAllSubClassesForDocumentAsInactive(documentId);
                 newActiveSubClass.setActive(true);
-                hrmDocumentSubClassDao.merge(newActiveSubClass);
+                try {
+                    hrmDocumentSubClassDao.merge(newActiveSubClass);
+                } catch (Exception e) {
+                    restorePreviouslyActiveSubClasses(previouslyActive);
+                    throw e;
+                }
                 success = true;
             } else {
                 MiscUtils.getLogger().warn("Refused to activate an HRM sub-class that does not belong to the requested report");
@@ -645,6 +659,30 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
 
         return writeResult(success);
+    }
+
+    /**
+     * Puts back the sub-classes that were active before a failed switch.
+     *
+     * <p>Best effort by design: the switch has already failed and is about to be reported as
+     * such, so a failure to restore must not replace that reply with a different error. It is
+     * logged and the original failure stands.</p>
+     *
+     * @param previouslyActive the rows read before deactivation, possibly empty
+     */
+    private void restorePreviouslyActiveSubClasses(List<HRMDocumentSubClass> previouslyActive) {
+        if (previouslyActive == null) {
+            return;
+        }
+        for (HRMDocumentSubClass subClass : previouslyActive) {
+            try {
+                subClass.setActive(true);
+                hrmDocumentSubClassDao.merge(subClass);
+            } catch (Exception e) {
+                MiscUtils.getLogger().error(
+                        "Failed to restore the previously active HRM sub-class after a failed switch.", e);
+            }
+        }
     }
 
     /**

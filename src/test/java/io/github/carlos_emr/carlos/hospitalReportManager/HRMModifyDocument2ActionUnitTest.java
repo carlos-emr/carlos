@@ -36,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
@@ -652,6 +653,38 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(unclaimed.getProviderNo()).isEqualTo("999998");
         assertThat(unclaimed.getSignedOff()).isEqualTo(1);
         assertThat(response.getContentAsString()).contains("\"clearedCount\":1");
+    }
+
+    @Test
+    @DisplayName("should restore the previously active sub-class when the switch fails")
+    void shouldRestorePreviouslyActiveSubClass_whenSwitchFails() throws Exception {
+        // Deactivate-then-activate is two separately committed DAO calls, so a failure between
+        // them left the report with NO active sub-class — it lost its classification, and the
+        // viewer skips its reload on failure so nothing on screen said so.
+        HRMDocumentSubClass target = new HRMDocumentSubClass();
+        target.setHrmDocumentId(7);
+        HRMDocumentSubClass wasActive = new HRMDocumentSubClass();
+        wasActive.setHrmDocumentId(7);
+        wasActive.setActive(true);
+
+        when(hrmDocumentSubClassDao.find(55)).thenReturn(target);
+        when(hrmDocumentSubClassDao.getActiveSubClassesByDocumentId(7))
+                .thenReturn(java.util.List.of(wasActive));
+        // same(), not equals(): AbstractModel.equals compares ids, and these are unsaved.
+        doThrow(new RuntimeException("database down")).when(hrmDocumentSubClassDao).merge(same(target));
+
+        request.addParameter("method", "makeActiveSubClass");
+        request.addParameter("reportId", "7");
+        request.addParameter("subClassId", "55");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"success\":false");
+        assertThat(wasActive.isActive())
+                .as("the report must not be left with no active sub-class")
+                .isTrue();
+        verify(hrmDocumentSubClassDao).merge(same(wasActive));
     }
 
     @Test
