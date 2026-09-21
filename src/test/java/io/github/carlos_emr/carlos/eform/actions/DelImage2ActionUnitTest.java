@@ -25,10 +25,11 @@ class DelImage2ActionUnitTest {
     void shouldRestoreScheduleShellOnly_whenFlagIsExactlyEnabled(String flag) {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/eform/deleteImage");
         if (flag != null) request.addParameter("scheduleNav", flag);
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
         try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class);
                 MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class))
-                    .thenReturn(mock(SecurityInfoManager.class));
+                    .thenReturn(security);
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             String target = new DelImage2Action().getRedirectTarget();
             assertThat(target).isEqualTo("1".equals(flag)
