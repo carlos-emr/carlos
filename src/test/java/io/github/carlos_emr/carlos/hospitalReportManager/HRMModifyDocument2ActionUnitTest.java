@@ -11,6 +11,8 @@ import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClassDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
@@ -236,6 +238,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         // disagree, so a failed write reports zero.
         when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), anyString()))
                 .thenThrow(new RuntimeException("boom"));
+        stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
         request.addParameter("signedOff", "1");
@@ -267,6 +270,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         mapping.setSignedOff(0);
         when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
                 .thenReturn(mapping);
+        stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
         request.addParameter("signedOff", "1");
@@ -290,6 +294,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         mapping.setSignedOff(1);
         when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
                 .thenReturn(mapping);
+        stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
         request.addParameter("signedOff", "1");
@@ -309,6 +314,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         mapping.setSignedOff(1);
         when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
                 .thenReturn(mapping);
+        stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
         request.addParameter("signedOff", "0");
@@ -326,6 +332,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         // badge had never counted — signing off a standalone report does exactly this.
         when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), anyString()))
                 .thenReturn(null);
+        stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
         request.addParameter("signedOff", "1");
@@ -378,6 +385,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         legacyRow.setSignedOff(null);
         when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(eq(7), eq("999998")))
                 .thenReturn(legacyRow);
+        stubReportExists(7);
         request.addParameter("method", "signOff");
         request.addParameter("reportId", "7");
         request.addParameter("signedOff", "1");
@@ -501,5 +509,69 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_hrm)");
         verifyNoInteractions(hrmDocumentCommentDao);
+    }
+
+    /**
+     * Makes report 7 a real HRM document.
+     *
+     * <p>signOff refuses an id that names nothing, so every test that expects the routing row to
+     * be reached has to say the report exists.</p>
+     */
+    private void stubReportExists(int reportId) {
+        when(hrmDocumentDao.find(reportId)).thenReturn(new HRMDocument());
+    }
+
+    @Test
+    @DisplayName("should reject sign-off when the report id names no document")
+    void shouldRejectSignOff_whenReportIdNamesNoDocument() throws Exception {
+        // Parsing used to be the only check. With no routing row to update, signOff PERSISTS one
+        // pointing at a document that does not exist; HRMResultsData then walks every routing row
+        // and calls hrmDocumentDao.findById(id).get(0) with no emptiness guard, so one forged
+        // sign-off throws on every later inbox load for that provider.
+        when(hrmDocumentDao.find(4242)).thenReturn(null);
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "4242");
+        request.addParameter("signedOff", "1");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString()).contains("\"success\":false");
+        verify(hrmDocumentToProviderDao, never()).persist(any(HRMDocumentToProvider.class));
+        verify(hrmDocumentToProviderDao, never()).merge(any(HRMDocumentToProvider.class));
+    }
+
+    @Test
+    @DisplayName("should reject sign-off when the report id is not a number")
+    void shouldRejectSignOff_whenReportIdIsNotANumber() throws Exception {
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "seven");
+        request.addParameter("signedOff", "1");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(hrmDocumentToProviderDao);
+    }
+
+    @Test
+    @DisplayName("should report failure when clearing the existing demographic link throws")
+    void shouldReportFailure_whenClearingExistingDemographicLinkThrows() throws Exception {
+        // Writing the new link after a failed cleanup leaves the report on the old chart AND the
+        // new one while the reply says "Success" — an HRM report on two patients at once.
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(7))
+                .thenThrow(new RuntimeException("database down"));
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("reportId", "7");
+        request.addParameter("demographicNo", "123");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"success\":false");
+        verify(hrmDocumentToDemographicDao, never()).merge(any(HRMDocumentToDemographic.class));
+        verify(hrmDocumentToDemographicDao, never()).persist(any(HRMDocumentToDemographic.class));
     }
 }

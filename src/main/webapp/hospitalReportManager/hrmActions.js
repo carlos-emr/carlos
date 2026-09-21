@@ -100,6 +100,11 @@ function doSignOff(reportId, isSign) {
             return;
         }
 
+        // A previous attempt may have left its reason in signoffstatus; a successful revoke keeps
+        // the page open, so without this the clinician reads a stale failure beside a button that
+        // now says the opposite.
+        showHrmStatus("signoffstatus" + reportId, "");
+
         // Keep the button truthful first: on the inline inbox card and on any window that does
         // not close, this is the only feedback the clinician gets.
         updateSignOffButton(reportId, isSign);
@@ -251,8 +256,13 @@ function closeOrHideHrmReport(reportId) {
     // ticklerDemoMain and the eChart's HRM shortcut all open this route in a popup too, and
     // closing those on sign-off takes away the revoke affordance they rely on. The inbox links
     // say so explicitly with inWindow=true, which the page republishes here.
-    if (card && card.getAttribute('data-inbox-window') === 'true'
-            && window.opener && window.opener !== window) {
+    //
+    // The marker is the WHOLE test. Also requiring window.opener reintroduced the COOP case the
+    // broadcast exists for: a severed opener left a signed-off report sitting open, since it is
+    // neither framed nor inline and so matched nothing below either. window.close() is a no-op
+    // on a top-level page the script did not open, so the marker alone is still the guard the
+    // tickler and eChart popups need — they never carry it.
+    if (card && card.getAttribute('data-inbox-window') === 'true') {
         window.close();
         return;
     }

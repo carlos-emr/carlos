@@ -393,3 +393,39 @@ test('a failed category update leaves the label and the picker as they were', ()
   assert.equal(label.textContent, 'Radiology');
   assert.equal(chooser.style.display, undefined);
 });
+
+test('a marked inbox popup closes even when COOP has severed window.opener', () => {
+  // Cross-Origin-Opener-Policy can null out window.opener, which is the reason the broadcast
+  // exists at all. Requiring an opener as well as the marker meant such a popup matched neither
+  // this branch nor the inline one, so a signed-off report just sat there open. window.close()
+  // is a no-op on a top-level page the script did not open, so the marker alone is guard enough.
+  const {context, requests, closed} = setup({
+    elements: {signoff7: element(), hrmdoc_7: inboxWindowCard()},
+    windowShape: {opener: null},
+  });
+
+  context.signOffHrm('7');
+  requests[0].success({success: true, message: 'Success', clearedCount: 1});
+
+  assert.equal(closed.length, 1, 'the inbox popup must close even with no opener to notify');
+});
+
+test('a successful retry clears the error the previous sign-off left behind', () => {
+  // A revoke keeps the page open, so a stale failure would sit beside a button that now says
+  // the opposite of what just happened.
+  const status = element();
+  const button = element();
+  const {context, requests} = setup({
+    elements: {signoff7: button, signoffstatus7: status},
+  });
+
+  context.signOffHrm('7');
+  requests[0].success({success: false, message: 'Error encountered'});
+  assert.equal(status.textContent, 'Error encountered');
+
+  context.revokeSignOffHrm('7');
+  requests[1].success({success: true, message: 'Success'});
+
+  assert.equal(status.textContent, '', 'the stale failure must not outlive the retry');
+  assert.equal(button.value, 'Sign-Off');
+});

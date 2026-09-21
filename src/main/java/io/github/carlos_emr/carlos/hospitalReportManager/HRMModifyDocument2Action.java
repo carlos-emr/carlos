@@ -299,10 +299,30 @@ public class HRMModifyDocument2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        // The id must name a real HRM document before a routing row is created for it. Parsing
+        // was the only check, so an authorised caller could sign off any integer; with no routing
+        // row to update, the branch below PERSISTS one pointing at nothing. HRMResultsData then
+        // walks every routing row and calls hrmDocumentDao.findById(id).get(0) with no emptiness
+        // guard, so one forged sign-off throws IndexOutOfBoundsException on every subsequent
+        // inbox load for that provider — a persistent denial of the inbox, not a bad row.
+        Integer reportId;
+        try {
+            reportId = Integer.valueOf(reportIds[0].trim());
+        } catch (NumberFormatException e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return writeResult(false, FAILURE_MESSAGE);
+        }
+        // intValue() deliberately: AbstractDaoImpl declares both find(Object) and find(int), and
+        // an Integer would silently bind to the Object overload rather than the primary-key
+        // lookup the rest of this class uses.
+        if (hrmDocumentDao.find(reportId.intValue()) == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return writeResult(false, FAILURE_MESSAGE);
+        }
+
         boolean success = false;
         int clearedCount = 0;
         try {
-            Integer reportId = Integer.parseInt(reportIds[0]);
             int signedOff = signedOffValue;
             HRMDocumentToProvider providerMapping = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(reportId, providerNo);
             if (providerMapping == null) {
@@ -465,8 +485,9 @@ public class HRMModifyDocument2Action extends ActionSupport {
      * Links one HRM report to a patient, replacing any existing link.
      *
      * <p>Reads {@code reportId} and {@code demographicNo}. Existing links are cleared first so a
-     * report is never attached to two charts; a failure to clear them is deliberately tolerated,
-     * because the new link is the clinically important half of the operation.</p>
+     * report is never attached to two charts, and a failure to clear them fails the whole
+     * operation: writing the new link anyway would leave the report on both patients' charts
+     * while reporting success.</p>
      *
      * @return {@link #NONE}; the JSON status body is written directly
      * @throws IOException if the response body cannot be written
@@ -481,16 +502,18 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
         try {
-            try {
-                List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
+            // No inner catch. Clearing the existing links is not a best-effort preliminary: if it
+            // fails and the new link is written anyway, the report is attached to the old chart
+            // AND the new one, and the JSON still says "Success". An HRM report showing on two
+            // patients' charts is a worse outcome than a failed match the clinician can retry,
+            // and the viewer only re-enables the patient buttons on success. Same class as the
+            // swallowed catch removed from updateCategory.
+            List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
 
-                if (currentMappingList != null) {
-                    for (HRMDocumentToDemographic currentMapping : currentMappingList) {
-                        hrmDocumentToDemographicDao.remove(currentMapping);
-                    }
+            if (currentMappingList != null) {
+                for (HRMDocumentToDemographic currentMapping : currentMappingList) {
+                    hrmDocumentToDemographicDao.remove(currentMapping);
                 }
-            } catch (Exception e) {
-                // Do nothing
             }
 
             HRMDocumentToDemographic demographicMapping = new HRMDocumentToDemographic();
