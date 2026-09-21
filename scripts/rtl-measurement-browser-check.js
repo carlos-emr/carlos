@@ -29,7 +29,7 @@ async function run() {
       const name=url.pathname.split('/').pop();
       if (name==='fixture') return route.fulfill({contentType:'text/html',body:`<!doctype html><html><head>
 <script src="jquery.js"></script><script src="purify.js"></script><script src="cache.js"></script><script src="image.js"></script></head>
-<body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden">
+<body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden"><input id="subject" value="Fixture letter" type="hidden">
 <script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
 <button type="button" name="PrintSaveButton" onclick="window.prints++">Print and save</button>
 <button type="button" name="PrintSubmitButton" onclick="window.prints++">Print and submit</button>
@@ -68,6 +68,12 @@ async function run() {
       return page.evaluate(()=>window.loaded);
     }
     await begin(['BP','WT']);
+    assert.equal(await page.evaluate(()=>{
+      window.exportCount=0;
+      window.saveAs=(blob,name)=>{window.exportCount++;window.exportedLetter={blob,name};};
+      try {doExport();return false;} catch(error){return /still loading/.test(error.message);}
+    }),true);
+    assert.equal(await page.evaluate(()=>window.exportCount),0);
     await page.locator('[name=PrintSaveButton]').click();
     await page.locator('[name=PrintSubmitButton]').click();
     await page.locator('#PrintSubmitButton').click();
@@ -93,6 +99,11 @@ async function run() {
     assert.equal(await body.textContent(),'BEFORE BP: 120/80(2026/9); WT: 70(2026/9); AFTER TYPED');
     const saved=await page.evaluate(()=>editControlContents('edit'));
     assert(!saved.includes('RTL measurement insertion'));
+    const exported=await page.evaluate(async()=>{
+      doExport();return {count:window.exportCount,name:window.exportedLetter.name,html:await window.exportedLetter.blob.text()};
+    });
+    assert.equal(exported.count,1);assert.equal(exported.name,'Fixture letter.rtl');
+    assert.match(exported.html,/120\/80/);assert(!exported.html.includes('RTL measurement insertion'));
     assert.equal(await page.locator('#faxEForm').inputValue(),'false');
     assert.equal(await page.evaluate(()=>{
       window.saveRTL=()=>{throw new Error('Serialization failed');};

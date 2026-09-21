@@ -739,6 +739,7 @@ function doTable() {
 }
 
 function doExport() {
+	assertMeasurementHistoryReady();
 	var blob = new Blob([document.getElementById('edit').contentWindow.document.documentElement.outerHTML], { type: 'text/html;charset=utf-8'}); 
 	saveAs(blob, document.getElementById('subject').value+'.rtl');
 }
