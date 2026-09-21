@@ -33,7 +33,7 @@ async function run() {
       if (name==='efmformapconfig_lookup') {templateRequests.push(route);return;}
       if (name==='fixture') return route.fulfill({contentType:'text/html',body:`<!doctype html><html><head>
 <script src="jquery.js"></script><script src="purify.js"></script><script src="cache.js"></script><script src="image.js"></script></head>
-<body><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden"><input id="subject" value="Fixture letter" type="hidden">
+<body><iframe id="unrelated-frame" srcdoc="&lt;p&gt;Other frame&lt;/p&gt;" hidden></iframe><form name="RichTextLetter" action="/carlos/eform/addEForm?demographic_no=17"><input id="demographicNo" value="17" type="hidden"><input id="faxEForm" value="false" type="hidden"><input id="subject" value="Fixture letter" type="hidden">
 <input id="hasValidRecipient" value="true" type="hidden"><input id="emailConsentStatus" value="Unknown" type="hidden"><input id="emailConsentName" value="Fixture" type="hidden">
 <textarea id="Letter" hidden>&lt;p&gt;Saved fixture letter&lt;/p&gt;</textarea><div id="oscar-spinner-screen"></div><div id="oscar-spinner"></div><div id="control1"></div><div id="control2"></div><div id="control3"></div><div id="control4"></div><select id="template"><option value="">Templates</option><option value="default.rtl">Default</option><option value="async.rtl">Async</option><option value="failure.rtl">Failure</option></select>
 <script>window.delayedPrints=0;window.delayedFramePrints=0;window.print=()=>window.delayedPrints++;window.faxSubmits=0;document.RichTextLetter.submit=()=>{window.faxSubmits++;window.submittedLetter=document.getElementById('Letter').value;window.submittedPrint=document.getElementById('printHolder')?.value;window.submittedSkipSave=document.getElementById('saveHolder')?.value;};window.maximize=()=>{};window.updateAttached=()=>{};window.setDirtyFlag=()=>window.needToConfirm=true;</script><script src="editor.js"></script><script>cfg_layout='[edit-area]';cfg_filesrc='';insertEditControl();document.getElementById('edit').src='blank.rtl';window.prints=0;</script>
@@ -455,6 +455,28 @@ async function run() {
     assert.equal((await respond({BP:[row('BP','125/80')]}))[0].failed,true);
     assert.equal(await body.textContent(),'BEFORE EDITED AFTER');
     assert(!((await body.innerHTML()).includes('RTL measurement')));
+    // Legacy callers may insert a separator between same-tick measurement calls.
+    // Preserve each call's caret rather than moving both results before that text.
+    await page.evaluate(()=>{
+      const doc=document.getElementById('edit').contentDocument;
+      doc.body.textContent='START END';
+      const range=doc.createRange();range.setStart(doc.body.firstChild,6);range.collapse(true);
+      const selection=doc.getSelection();selection.removeAllRanges();selection.addRange(range);
+      window.firstInterleaved=getMeasures('BP',1);
+      doHtml('MIDDLE ');
+      window.secondInterleaved=getMeasures('WT',1);
+    });
+    for (let n=0;n<100&&!pending.length;n++) await page.waitForTimeout(10);
+    assert.equal(pending.length,1);
+    assert.deepEqual(pending[0].request().postDataJSON().types,['BP']);
+    await pending.shift().fulfill({contentType:'application/json',body:JSON.stringify({measurements:{BP:[row('BP','120/80')]}})});
+    assert.equal((await page.evaluate(()=>window.firstInterleaved)).failed,undefined);
+    for (let n=0;n<100&&!pending.length;n++) await page.waitForTimeout(10);
+    assert.equal(pending.length,1);
+    assert.deepEqual(pending[0].request().postDataJSON().types,['WT']);
+    await pending.shift().fulfill({contentType:'application/json',body:JSON.stringify({measurements:{WT:[row('WT','70')]}})});
+    assert.equal((await page.evaluate(()=>window.secondInterleaved)).failed,undefined);
+    assert.equal(await body.textContent(),'START BP: 120/80(2026/9); MIDDLE WT: 70(2026/9); END');
     // The retained IE detection path also parses only once after navigation.
     await page.evaluate(()=>{
       window.originalIsIE=isIE;window.isIE=()=>true;
@@ -535,6 +557,7 @@ async function run() {
     await catalogRequests.shift().fulfill({contentType:'text/html',body:'<option value="">Templates</option><option value="blank.rtl">Blank</option>'});
     await page.waitForFunction(()=>!measurementHistoryStillLoading());
     await page.locator('#rtl-template-catalog-status').waitFor({state:'hidden'});
+    assert.equal(await page.frameLocator('#unrelated-frame').locator('body').textContent(),'Other frame');
     assert.deepEqual(errors,[]);
     console.log('PASS: native Range insertion, request ordering, live caret/typing, serializer and legacy/toolbar print gates, marker cleanup, replaced template, literal measurement text. Chromium '+browser.version());
   } finally {await browser.close();}

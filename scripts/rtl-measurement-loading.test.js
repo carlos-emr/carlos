@@ -340,3 +340,15 @@ test('legacy history limits preserve omitted/all, zero, and explicit counts with
     assert.equal(result.values.length,count,'max='+String(max));
   }
 });
+
+test('same-tick measurement calls preserve content inserted between their positions', async () => {
+  const f=setup();const first=f.context.getMeasures('BP',1);
+  const separator=f.contentDocument.createElement('span');separator.textContent=' MIDDLE ';
+  f.contentDocument.body.appendChild(separator);
+  const second=f.context.getMeasures('WT',1);await delay(5);
+  assert.deepEqual(f.requests[0].body.types,['BP']);
+  f.requests[0].respond({BP:[row('BP','120/80')]});await first;await delay(5);
+  assert.deepEqual(f.requests[1].body.types,['WT']);
+  f.requests[1].respond({WT:[row('WT','70')]});await second;
+  assert.match(f.contentDocument.body.textContent,/120\/80.*MIDDLE.*70/);
+});

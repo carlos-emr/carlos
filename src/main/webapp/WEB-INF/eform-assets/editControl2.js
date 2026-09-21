@@ -401,16 +401,7 @@ function Select(selectname){
   	}
 }
 
-/**
- * Turns designMode on in the editor iframe's CURRENT document. Every template load (blank.rtl or a
- * clinic .rtl) navigates the iframe, and the parent's iframe.onload handler runs BEFORE the template's
- * own <body onload="document.designMode='on'"> has executed, so parseTemplate() reached
- * seteditControlContents() with designMode still off. That function refuses to write into a
- * non-designMode iframe (it is the guard that stops saved letters vanishing), logged a console error
- * on every new letter, and dropped the parsed template — harmless for the empty blank.rtl, but a
- * clinic template with letterhead and ##placeholders## never populated. Enabling it here, before the
- * parse, is order-independent: the template's own onload then finds it already on.
- */
+/** Clear legacy and toolbar output intent after a blocked letter action. */
 function cancelLetterOutput() {
     cancelPendingFaxSubmission();
     if (typeof clearWorkflowFlags === 'function') { clearWorkflowFlags(); }
@@ -484,6 +475,7 @@ function guardLetterPrint(targetWindow) {
 }
 guardLetterPrint(window);
 
+/** Enable the current iframe document before parsing or restoring letter content. */
 function enableEditorDesignMode() {
 	var frame = document.getElementById(cfg_editorname);
 	var frameDoc;
@@ -538,7 +530,7 @@ function loadDefaultTemplate() {
 	document.getElementById(cfg_editorname).contentDocument.body.textContent = '';
 	if (existsTemplate(cfg_template)) {
 		var selected = cfg_template;
-		window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
+		document.getElementById(cfg_editorname).contentWindow.location = cfg_filesrc + selected;
 		document.getElementById('subject').value = cfg_template == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));		
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
@@ -576,7 +568,7 @@ function loadTemplate(selectname){
 			}
 		});
 		//document.getElementById(cfg_editorname).src = cfg_filesrc + selected + '.html' ; //FF != IE
-		window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
+		document.getElementById(cfg_editorname).contentWindow.location = cfg_filesrc + selected;
 		document.getElementById('subject').value = selected == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));		
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
@@ -1818,9 +1810,23 @@ function createMeasureBatch() {
         marker: marker, startMarker: startMarker, selectionSnapshot: selectionSnapshot, requests: []};
 }
 
+function measureBatchHasCurrentCaret(batch) {
+    var selection = batch.document.getSelection();
+    if (!selection || !selection.rangeCount) {
+        var body = batch.document.body;
+        return batch.marker.parentNode === body && body.childNodes[body.childNodes.length - 1] === batch.marker;
+    }
+    var range = selection.getRangeAt(0);
+    if (!range.collapsed) { return false; }
+    var insertion = batch.document.createRange();
+    insertion.setStartAfter(batch.marker);
+    insertion.collapse(true);
+    return range.compareBoundaryPoints(0, insertion) === 0;
+}
+
 /**
- * Queue a measurement type for the current letter. Same-tick Lab Grid/Vitals calls
- * use one authenticated JSON request; batches run serially in click order.
+ * Queue a measurement type for the current letter. Consecutive same-tick calls
+ * at one insertion point share a request; batches run serially in click order.
  * The promise always settles, including failure, because legacy sidebar callers
  * do not await it. A visible error distinguishes failure from an empty history.
  */
@@ -1854,7 +1860,8 @@ function getMeasures(measure, max) {
                 resolve({values: [], dates: [], failed: true});
                 return;
             }
-            if (pendingMeasureBatch && !measureBatchIsCurrent(pendingMeasureBatch)) { flushMeasureRequests(); }
+            if (pendingMeasureBatch && (!measureBatchIsCurrent(pendingMeasureBatch)
+                    || !measureBatchHasCurrentCaret(pendingMeasureBatch))) { flushMeasureRequests(); }
             if (!pendingMeasureBatch) {
                 pendingMeasureBatch = createMeasureBatch();
                 if (!continuingGroup) { measureBatchFailed = false; }
