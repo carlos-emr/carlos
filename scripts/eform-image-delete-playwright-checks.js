@@ -51,6 +51,7 @@ const {
   createRecorder,
   getLaunchOptions,
   gotoApp,
+  isLocalTlsTarget,
   login,
   validateBaseUrl,
   wirePage,
@@ -117,7 +118,14 @@ async function uploadImage(context, recorder, imagePath, name) {
       );
     }
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1400, height: 900 } });
+    // Never unconditionally: see isLocalTlsTarget in playwright-harness.js. A
+    // non-loopback ALLOW_NON_LOCAL_BASE_URL target must still present a
+    // certificate the browser trusts, so a forged/expired cert on such a host
+    // fails this check instead of posting TEST_PASSWORD to it unverified.
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: isLocalTlsTarget(config.baseUrl),
+      viewport: { width: 1400, height: 900 },
+    });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
 
