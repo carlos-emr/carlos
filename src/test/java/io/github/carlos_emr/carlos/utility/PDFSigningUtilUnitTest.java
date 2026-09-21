@@ -155,6 +155,55 @@ class PDFSigningUtilUnitTest {
     }
 
     @Test
+    @DisplayName("should sign a third-party restricted PDF when handed an unrelated send password")
+    void shouldSignThirdPartyRestrictedPdf_whenHandedUnrelatedSendPassword() throws Exception {
+        // An uploaded document its author restricted: opens with no password, but has its own
+        // owner password. The send password is for the encrypted message PDF, not for this file,
+        // and offering it to PDFBox is rejected outright.
+        Path restricted = tempDir.resolve("third-party-" + System.nanoTime() + ".pdf");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.protect(new org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy(
+                    "authors-owner-password", "", new org.apache.pdfbox.pdmodel.encryption.AccessPermission()));
+            document.save(restricted.toFile());
+        }
+        assertThatThrownBy(() -> Loader.loadPDF(restricted.toFile(), "send-password").close())
+                .isInstanceOf(InvalidPasswordException.class);
+
+        Path signed = PDFSigningUtil.signPDF(restricted, createSigningFixture().config(), "send-password");
+        generatedOutputs.add(signed);
+
+        try (PDDocument document = Loader.loadPDF(signed.toFile())) {
+            assertThat(document.getSignatureDictionaries()).hasSize(1);
+        }
+        assertThat(verifySignature(signed)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should leave no output behind when PDFBox refuses the document")
+    void shouldLeaveNoOutputBehind_whenPdfBoxRefusesTheDocument() throws Exception {
+        // PDFBox rejects a page-less document with IllegalStateException, not IOException.
+        Path empty = tempDir.resolve("empty-" + System.nanoTime() + ".pdf");
+        try (PDDocument document = new PDDocument()) {
+            document.save(empty.toFile());
+        }
+        Path output = tempDir.resolve("signed-output.pdf");
+        PDFSigningConfig config = createSigningFixture().config();
+
+        try (org.mockito.MockedStatic<PathValidationUtils> paths = org.mockito.Mockito.mockStatic(
+                PathValidationUtils.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            paths.when(() -> PathValidationUtils.createSecureTempFile(
+                            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(".pdf")))
+                    .thenAnswer(call -> Files.createFile(output).toFile());
+
+            assertThatThrownBy(() -> PDFSigningUtil.signPDF(empty, config))
+                    .isInstanceOf(IOException.class)
+                    .hasMessage("Failed to sign PDF document");
+        }
+        assertThat(output).doesNotExist();
+    }
+
+    @Test
     @DisplayName("should fail closed when enabled config is incomplete")
     void shouldFailClosed_whenEnabledConfigIsIncomplete() throws IOException {
         Path source = writeSinglePagePdf();

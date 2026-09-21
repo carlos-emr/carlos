@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -1145,16 +1146,37 @@ public class EmailManager {
         // An encrypted PDF can only be modified with its owner password.
         String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
         for (EmailAttachment attachment : attachments) {
+            Path signedPDFPath = null;
             try {
                 Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
-                attachmentPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
-                attachmentPDFPath = emailData.getWorkingDirectory().adoptGeneratedPdf(attachmentPDFPath);
-                attachment.setFilePath(attachmentPDFPath.toString());
-            } catch (IOException | IllegalStateException | SecurityException e) {
-                // Exception class only: a signing fault can carry keystore paths or file names.
-                logger.error("Failed to sign an email PDF attachment: {}", e.getClass().getSimpleName());
+                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
+                attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
+            } catch (IOException | RuntimeException e) {
+                // Any RuntimeException, not a chosen few: one that escaped would skip
+                // completeFailedSend and strand the EmailLog at PENDING behind a 500.
+                deleteUnadoptedSignedPdf(signedPDFPath);
+                // The cause chain is what tells an operator whether the keystore, its password or
+                // the certificate is at fault. It names server paths, never the attachment: the
+                // attachment's own file name can identify a patient, so it is left out.
+                logger.error("Failed to sign an email PDF attachment", e);
                 throw new EmailSendingException("Failed to sign email PDF attachment", e);
             }
+        }
+    }
+
+    /**
+     * Removes a signed PDF that the working directory never took ownership of. It holds the
+     * patient's document and nothing else would ever delete it.
+     */
+    private void deleteUnadoptedSignedPdf(Path signedPDFPath) {
+        if (signedPDFPath == null || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(signedPDFPath);
+        } catch (IOException | RuntimeException cleanupFailure) {
+            logger.warn("Signed email PDF could not be removed after a failed send: {}",
+                    cleanupFailure.getClass().getSimpleName());
         }
     }
 

@@ -30,6 +30,7 @@ import java.util.GregorianCalendar;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
@@ -97,18 +98,32 @@ public final class PDFSigningUtil {
             document.addSignature(signature, new CmsDetachedSignature(signingMaterial), signatureOptions);
             document.saveIncremental(output);
             return signedPDFPath;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            // RuntimeException too: PDFBox refuses an empty document with IllegalStateException,
+            // and an output left behind here is never adopted by a working directory.
             deletePartialSignedPDF(signedPDFPath, e);
             throw new IOException("Failed to sign PDF document", e);
         }
     }
 
+    /**
+     * Opens the PDF without a password first, and only then with the supplied one.
+     *
+     * <p>The caller's password belongs to the send, not to this file: an email can carry an
+     * encrypted message PDF alongside attachments CARLOS never encrypted. Offering the send
+     * password to an uploaded PDF that a third party restricted with its own owner password is
+     * rejected outright, although that same file opens, and signs, with no password at all.</p>
+     */
     private static PDDocument loadPDF(Path pdfPath, String ownerPassword) throws IOException {
         File pdfFile = PathValidationUtils.resolveTrustedPath(pdfPath.toFile());
-        if (ownerPassword == null || ownerPassword.isEmpty()) {
+        try {
             return Loader.loadPDF(pdfFile);
+        } catch (InvalidPasswordException passwordRequired) {
+            if (ownerPassword == null || ownerPassword.isEmpty()) {
+                throw passwordRequired;
+            }
+            return Loader.loadPDF(pdfFile, ownerPassword);
         }
-        return Loader.loadPDF(pdfFile, ownerPassword);
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: keystore path is a server-side configuration value validated as an existing file before use.
@@ -200,7 +215,7 @@ public final class PDFSigningUtil {
         }
     }
 
-    private static void deletePartialSignedPDF(Path signedPDFPath, IOException signingFailure) {
+    private static void deletePartialSignedPDF(Path signedPDFPath, Exception signingFailure) {
         try {
             Files.deleteIfExists(signedPDFPath);
         } catch (IOException deleteFailure) {
@@ -289,7 +304,9 @@ public final class PDFSigningUtil {
                 generator.addCertificates(new JcaCertStore(Arrays.asList(signingMaterial.certificateChain())));
 
                 CMSSignedData signedData = generator.generate(new InputStreamTypedData(content), false);
-                return signedData.getEncoded();
+                // DER, as ISO 32000-1 12.8.3.3.1 requires. The default is indefinite-length BER,
+                // which lenient readers accept and strict validators reject.
+                return signedData.getEncoded("DER");
             } catch (CMSException | GeneralSecurityException | IllegalArgumentException | OperatorCreationException e) {
                 throw new IOException("Failed to create detached PDF signature", e);
             }

@@ -133,7 +133,13 @@ pdf.signing.key.alias=...
 ```
 
 `pdf.signing.key.password` defaults to the keystore password. The signer name,
-reason, location and contact shown in the reader are optional.
+reason, location and contact shown in the reader are optional. Passwords are
+used exactly as written, so a trailing space after the value makes the keystore
+unreadable.
+
+Property changes take effect after a Tomcat restart. The keystore file itself is
+read on every send, so a keystore replaced in place at the same path takes
+effect immediately.
 
 Signing is fail-closed. Once enabled, a missing keystore, a wrong password, a
 key that does not match its certificate, or a certificate whose key usage
@@ -142,6 +148,21 @@ rather than delivering an unsigned file. Every attachment on the email is
 signed, so every attachment must be a PDF. Send a non-PHI test message after
 enabling it or rotating the keystore, and open the received PDF to confirm the
 signature panel.
+
+Two situations stop sends once signing is on, and both show in **Admin > Manage
+Emails** as "Failed to sign email PDF attachment", with the cause in the server
+log:
+
+- **The certificate expires, or is not yet valid.** Validity is checked on
+  every send, so from the expiry date until the keystore is replaced every
+  email with an attachment fails. That includes every encrypted-message email,
+  because the message itself travels as a signed PDF. Track the expiry date and
+  rotate ahead of it.
+- **A source PDF needs a password to open**, most often an uploaded document
+  that a third party protected with its own password. CARLOS cannot sign what
+  it cannot open, so that document cannot be emailed while signing is enabled.
+  A document that is only restricted (it opens without a password but limits
+  printing or editing) is signed normally.
 
 ## Monitoring and Operations
 
