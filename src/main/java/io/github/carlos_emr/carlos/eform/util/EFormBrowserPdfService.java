@@ -2699,7 +2699,7 @@ public class EFormBrowserPdfService {
                 }
             }
         }
-        if (name == null || name.isEmpty()) {
+        if (name == null) {
             // Select the path segment before decoding, and decode exactly once. URLDecoder uses
             // form-query rules, so protect literal path pluses from becoming spaces.
             String segment = value.substring(value.lastIndexOf('/') + 1);
@@ -2708,14 +2708,11 @@ public class EFormBrowserPdfService {
             } catch (IllegalArgumentException e) {
                 return null;
             }
-            // An encoded separator does not identify a single bare asset filename.
-            if (name.indexOf('/') >= 0 || name.indexOf('\\') >= 0) {
-                return null;
-            }
         }
-        int lastSlash = name.lastIndexOf('/');
-        if (lastSlash >= 0) {
-            name = name.substring(lastSlash + 1);
+        // Neither a decoded query value nor a decoded path segment may name a nested path.
+        // Do not strip separators: doing so could make a rejected asset request match a loaded file.
+        if (name.indexOf('/') >= 0 || name.indexOf('\\') >= 0) {
+            return null;
         }
         return name.isEmpty() ? null : name;
     }

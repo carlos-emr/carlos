@@ -1105,6 +1105,22 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(EFormBrowserPdfService.resourceBasename(base + "path%5Cscan.png")).isNull();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"missing%2Flogo.png", "missing%5Clogo.png", "missing/logo.png", ""})
+    @DisplayName("should keep invalid query filenames critical even when the basename loaded")
+    void shouldRejectInvalidQueryFilename_whenBasenameLoaded(String queryName) {
+        String failedUrl = GATE_BASE_URL + "/logo.png?imagefile=" + queryName;
+        assertThat(EFormBrowserPdfService.resourceBasename(failedUrl)).isNull();
+        List<String> entries = List.of(
+                responseReceivedJson("Document", MAIN_DOC_URL, 200),
+                responseReceivedJson("Image", failedUrl, 404),
+                responseReceivedJson("Image", GATE_BASE_URL + "/displayImage?imagefile=logo.png", 200));
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(
+                entries, EFormBrowserPdfService.originOf(GATE_BASE_URL));
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isZero();
+    }
+
     @Test
     @DisplayName("should retain a failed clinical fetch even when another query on that route loaded")
     void shouldRetainClinicalFetchFailure_whenAnotherQuerySucceeds() {
