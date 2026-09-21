@@ -175,8 +175,21 @@ public class SmsQueueProcessingService {
         return DispatchOutcome.SENT;
     }
 
-    private enum DispatchOutcome { SENT, ROW_CHANGED_UNDER_CLAIM, SNAPSHOT_WRITE_FAILED }
+    /** What became of a claimed row whose dispatch-time consent recheck permitted the send. */
+    private enum DispatchOutcome {
+        /** The send was attempted and its result recorded; the row counts as processed. */
+        SENT,
+        /** The row changed or vanished under the claim: nothing sent, and the next row may be tried. */
+        ROW_CHANGED_UNDER_CLAIM,
+        /** The consent snapshot could not be written: nothing sent, and draining stops for this run. */
+        SNAPSHOT_WRITE_FAILED
+    }
 
+    /**
+     * Reschedules a claimed row whose consent recheck threw, using the normal retry backoff, or fails it for
+     * manual review at the retry limit. Never throws: a row that cannot be rescheduled stays {@code SENDING}
+     * for stale recovery so the other SMS providers' queues still drain.
+     */
     private void deferAfterConsentCheckFailure(SmsTransaction claimed) {
         try {
             if (!retryPolicy.canRetry(claimed)) {
