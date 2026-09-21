@@ -417,7 +417,7 @@ public class LoginFilter implements Filter {
         // Retrieve existing session without creating new one
         HttpSession session = httpRequest.getSession(false);
         // Redirect to logout page if no valid authenticated session exists
-        if (session == null || session.getAttribute("user") == null) {
+        if (session == null || !hasAuthenticatedUser(session)) {
 
             // If the requested resource is not exempt, redirect to logout page
             // SECURITY: Root directory auto-exemption was removed to prevent
@@ -630,9 +630,34 @@ public class LoginFilter implements Filter {
         return requestURI.equals(contextPath) || requestURI.equals(contextPath + "/");
     }
 
+    /**
+     * Reports whether the session carries usable authenticated-provider state.
+     *
+     * <p>This is the single definition of "logged in" for the canonical gate. A present but blank
+     * {@code user} attribute is treated as unauthenticated: {@code Login2Action} stores the
+     * provider number as {@code strAuth[0] != null ? strAuth[0].trim() : ""}, so an empty string is
+     * a representable session state, and downstream defence-in-depth checks such as
+     * {@code PMMFilter} already fail closed on blank users. Accepting blank here would let that
+     * state reach Struts action execution, because Struts terminates the filter chain before the
+     * later per-module filters run.</p>
+     *
+     * @param session the current session; never {@code null} at the call sites below
+     * @return {@code true} only when a non-blank {@code user} attribute is present
+     */
+    private static boolean hasAuthenticatedUser(HttpSession session) {
+        Object user = session.getAttribute("user");
+        if (user == null) {
+            return false;
+        }
+
+        // Non-String values are not produced by the login flow, but a non-blank foreign type is
+        // still more authenticated state than none; only blank text counts as unauthenticated.
+        return !(user instanceof String userValue) || !userValue.isBlank();
+    }
+
     private boolean requiresFacilitySelection(HttpSession session) {
         return session != null
-                && session.getAttribute("user") != null
+                && hasAuthenticatedUser(session)
                 && Boolean.TRUE.equals(session.getAttribute(SessionConstants.PENDING_FACILITY_SELECTION));
     }
 

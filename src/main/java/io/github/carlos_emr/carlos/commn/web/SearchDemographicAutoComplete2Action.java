@@ -196,6 +196,18 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                 ? new HashMap<>()
                 : providerDao.getProviderSummariesByIds(providerNos);
 
+        // Batch-load the next appointments in a single query: this list is up to 100 rows and the
+        // schedule's quick search issues a request per keystroke, so a per-row lookup would be
+        // 100 queries a keystroke.
+        Map<Integer, String> nextAppointments = new HashMap<>();
+        if (workflowEnhance) {
+            List<Integer> demographicNos = new ArrayList<>();
+            for (Demographic demo : list) {
+                demographicNos.add(demo.getDemographicNo());
+            }
+            nextAppointments = AppointmentUtil.getNextAppointments(demographicNos);
+        }
+
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
@@ -226,7 +238,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             h.put("alert", alertText);
 
             if (workflowEnhance) {
-                h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
+                h.put("nextAppointment", nextAppointments.getOrDefault(demo.getDemographicNo(), ""));
 
                 if (demographicCust != null) {
                     String cust1 = StringUtils.trimToNull(demographicCust.getNurse());

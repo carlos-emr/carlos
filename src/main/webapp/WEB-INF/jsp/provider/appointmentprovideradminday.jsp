@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@page import="io.github.carlos_emr.carlos.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -2004,7 +2005,7 @@
 
                                                                   String demographicAlert = dCust != null && dCust.getAlert() != null ? dCust.getAlert() : "";
                                                                   String demographicNotes = dCust != null && dCust.getNotes() != null
-                                                                          ? SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>")
+                                                                          ? DemographicXml.userNotesText(dCust.getNotes())
                                                                           : "";
 
                                                                   String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
@@ -2140,10 +2141,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) { %>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !DemographicXml.userNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= DemographicXml.userNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }
@@ -2198,10 +2199,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) {%>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !DemographicXml.userNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= DemographicXml.userNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }

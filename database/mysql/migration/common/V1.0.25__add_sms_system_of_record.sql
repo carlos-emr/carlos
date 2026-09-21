@@ -49,16 +49,17 @@ CREATE TABLE sms_provider_rate_limit (
   PRIMARY KEY (provider_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-INSERT INTO secObjectName (objectName, description, orgapplicable)
+-- Preserve reference rows already present in an adopted database.
+INSERT IGNORE INTO secObjectName (objectName, description, orgapplicable)
 VALUES ('_msgSMS', 'Read SMS message bodies', 0);
 
-INSERT INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no)
+INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no)
 VALUES
   ('admin', '_msgSMS', 'x', 0, '999998'),
   ('doctor', '_msgSMS', 'x', 0, '999998');
 
 -- Default send limit is enforced in JpaSmsSendRateLimitService at 5 SMS/5 seconds until SMS provider limits are confirmed.
-INSERT INTO sms_provider_rate_limit (
+INSERT IGNORE INTO sms_provider_rate_limit (
   provider_type,
   send_count,
   window_started_at,

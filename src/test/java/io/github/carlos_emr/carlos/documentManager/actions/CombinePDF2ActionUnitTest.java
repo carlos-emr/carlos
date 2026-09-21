@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -72,6 +73,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private CtlDocumentDao ctlDocumentDao;
+    private OutboundEmailArchiveDao archiveDao;
     private DocumentDao documentDao;
     private DemographicDao demographicDao;
     private ProgramManager programManager;
@@ -86,6 +88,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
         securityInfoManager = mock(SecurityInfoManager.class);
         ctlDocumentDao = mock(CtlDocumentDao.class);
         documentDao = mock(DocumentDao.class);
+        archiveDao = mock(OutboundEmailArchiveDao.class);
         demographicDao = mock(DemographicDao.class);
         programManager = mock(ProgramManager.class);
         programManager2 = mock(ProgramManager2.class);
@@ -115,7 +118,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
                 documentDao,
                 demographicDao,
                 programManager,
-                programManager2);
+                programManager2, archiveDao);
     }
 
     @AfterEach
@@ -127,6 +130,28 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().remove("FILTER_ON_FACILITY");
         } else {
             CarlosProperties.getInstance().setProperty("FILTER_ON_FACILITY", previousFacilityFilter);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should refuse archive IDs and filename aliases before resolving or combining files")
+    void shouldRefuseArchive_beforeResolvingFiles(boolean filenameAlias) {
+        Document document = new Document();
+        document.setDocumentNo(321);
+        document.setDocfilename("archive.eml");
+        when(documentDao.find(321)).thenReturn(document);
+        when(ctlDocumentDao.findByDocumentNos(List.of(321)))
+                .thenReturn(List.of(demographicLink(321, 123)));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
+        when(archiveDao.existsByDocumentNo(321)).thenReturn(!filenameAlias);
+        when(archiveDao.existsByFileName("archive.eml")).thenReturn(filenameAlias);
+        try (MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths =
+                     mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            paths.verifyNoInteractions();
         }
     }
 

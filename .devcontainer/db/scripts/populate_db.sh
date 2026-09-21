@@ -128,4 +128,11 @@ $SQL carlos < /scripts/demo-hrm-report.sql
 # install does.
 echo 'Enabling digital signatures on the demo facility...'
 $SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
+# Administration fixtures for the data-backed Administration screens the demo
+# snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
+# (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only
+# `locktest` login and must follow it (it attaches to provider 999996).
+echo 'Loading Administration test fixtures...'
+$SQL carlos < /scripts/admin_test_data.sql
+$SQL carlos < /scripts/admin_test_account.sql
 echo 'Database initialization complete!'

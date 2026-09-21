@@ -158,7 +158,7 @@
         <action name="appointment/addappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
             <result name="success">/WEB-INF/jsp/appointment/addappointment.jsp</result>
         </action>
-        <action name="appointment/editappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+        <action name="appointment/editappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewEditAppointmentWrite2Action">
             <result name="success">/WEB-INF/jsp/appointment/editappointment.jsp</result>
         </action>
         <action name="appointment/appointmentsearch" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">

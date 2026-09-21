@@ -12,14 +12,20 @@
  */
 package io.github.carlos_emr.carlos.deb;
 
+import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.logging.Log;
+import org.flywaydb.core.api.logging.LogCreator;
+import org.flywaydb.core.api.logging.LogFactory;
 import org.flywaydb.core.api.output.MigrateResult;
+import org.flywaydb.core.internal.logging.slf4j.Slf4jLogCreator;
 
 /**
  * Minimal Flyway front end for the Debian package's {@code carlos-ctl db-*} verbs.
@@ -129,7 +135,15 @@ public final class FlywayRunner {
         final String user = requireEnv("FLYWAY_USER");
         final String password = System.getenv("FLYWAY_PASSWORD");
 
+        // Flyway resets LogFactory on each operation. Register its configured
+        // console hook, rather than a one-time setLogCreator override that the
+        // reset discards. Our delegate keeps the WAR's existing SLF4J backend.
+        final ExistingObjectNotes notes = new ExistingObjectNotes(new Slf4jLogCreator());
+        if ("migrate".equals(command)) {
+            LogFactory.setFallbackLogCreator(notes);
+        }
         final Flyway flyway = Flyway.configure(FlywayRunner.class.getClassLoader())
+                .loggers("migrate".equals(command) ? "console" : "auto")
                 .dataSource(url, user, password == null ? "" : password)
                 .locations(locations)
                 .baselineVersion(BASELINE_VERSION)
@@ -153,6 +167,7 @@ public final class FlywayRunner {
                 .cleanDisabled(true)
                 .load();
 
+        int exitCode = 0;
         try {
             switch (command) {
                 case "info":
@@ -193,7 +208,70 @@ public final class FlywayRunner {
             // includes process input follows one rule.
             System.err.println("flyway " + command.replaceAll("[^\\x20-\\x7e]", "?")
                     + " failed: " + e.getMessage());
-            System.exit(1);
+            exitCode = 1;
+        } finally {
+            notes.printSummary(System.out);
+        }
+        if (exitCode != 0) {
+            System.exit(exitCode);
+        }
+    }
+
+    /**
+     * MariaDB returns 1060/1061 as JDBC warnings for successful IF NOT EXISTS
+     * statements. Flyway prints those Notes as WARN because their SQL state is
+     * not 00000. Summarize just those two expected no-ops; do not change SQL,
+     * published migration checksums, server note settings or exception handling.
+     * In particular, an unguarded duplicate index/column still fails migration,
+     * and duplicate DATA (1062), truncation and other warnings pass through.
+     */
+    static final class ExistingObjectNotes implements LogCreator {
+        private static final Pattern INDEX = Pattern.compile(
+                "DB: Duplicate key name '[^\\r\\n]+' \\(SQL State: 42000 - Error Code: 1061\\)");
+        private static final Pattern COLUMN = Pattern.compile(
+                "DB: Duplicate column name '[^\\r\\n]+' \\(SQL State: 42S21 - Error Code: 1060\\)");
+        private final LogCreator delegate;
+        private int indexes;
+        private int columns;
+
+        ExistingObjectNotes(LogCreator delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Log createLogger(Class<?> type) {
+            final Log original = delegate.createLogger(type);
+            // Match the SQL-warning emitter, not arbitrary application messages.
+            // An upstream logger/format change leaves warnings visible by default.
+            if (!"org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor".equals(type.getName())) {
+                return original;
+            }
+            return new Log() {
+                @Override public boolean isDebugEnabled() { return original.isDebugEnabled(); }
+                @Override public void debug(String message) { original.debug(message); }
+                @Override public void info(String message) { original.info(message); }
+                @Override public void notice(String message) { original.notice(message); }
+                @Override public void error(String message) { original.error(message); }
+                @Override public void error(String message, Exception exception) {
+                    original.error(message, exception);
+                }
+                @Override public void warn(String message) {
+                    if (message != null && INDEX.matcher(message).matches()) {
+                        indexes++;
+                    } else if (message != null && COLUMN.matcher(message).matches()) {
+                        columns++;
+                    } else {
+                        original.warn(message);
+                    }
+                }
+            };
+        }
+
+        void printSummary(PrintStream output) {
+            if (indexes + columns > 0) {
+                output.printf("schema setup: %d index(es) and %d column(s) were already present; "
+                        + "kept their existing definitions.%n", indexes, columns);
+            }
         }
     }
 

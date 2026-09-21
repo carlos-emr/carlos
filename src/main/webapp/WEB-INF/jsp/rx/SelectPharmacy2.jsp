@@ -246,112 +246,30 @@
                             HideSpin(true);
                         }, "json");
 					}
-                    var pharmacyNameKey = new RegExp($("#pharmacySearch").val(), "i");
-                    var pharmacyCityKey = new RegExp($("#pharmacyCitySearch").val(), "i");
-                    var pharmacyPostalCodeKey = new RegExp($("#pharmacyPostalCodeSearch").val(), "i");
-                    var pharmacyFaxKey = new RegExp($("#pharmacyFaxSearch").val(), "i");
-                    var pharmacyPhoneKey = new RegExp($("#pharmacyPhoneSearch").val(), "i");
-                    var pharmacyAddressKey = new RegExp($("#pharmacyAddressSearch").val(), "i");
-
-                    $("#pharmacySearch").keyup(function () {
-                        updateSearchKeys();
-                        $(".pharmacyItem").hide();
-                        $.each($(".pharmacyName"), function (key, value) {
-                            if ($(value).html().toLowerCase().search(pharmacyNameKey) >= 0) {
-                                if ($(value).siblings(".city").html().search(pharmacyCityKey) >= 0) {
-                                    if ($(value).siblings(".postalCode").html().search(pharmacyPostalCodeKey) >= 0) {
-                                        if ($(value).siblings(".fax").html().search(pharmacyFaxKey) >= 0) {
-                                            if ($(value).siblings(".fax").html().search(pharmacyAddressKey) >= 0) {
-                                                $(value).parent().show();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                    const pharmacyFilters = [
+                        ['#pharmacySearch', '.pharmacyName'],
+                        ['#pharmacyAddressSearch', '.address'],
+                        ['#pharmacyCitySearch', '.city'],
+                        ['#pharmacyPostalCodeSearch', '.postalCode'],
+                        ['#pharmacyFaxSearch', '.fax'],
+                        ['#pharmacyPhoneSearch', '.phone']
+                    ];
+                    function filterPharmacies() {
+                        const filters = pharmacyFilters.map(function(pair) {
+                            return { column: pair[1], value: String($(pair[0]).val() || '').toLocaleLowerCase() };
                         });
-                    });
-
-                    $("#pharmacyCitySearch").keyup(function () {
-                        updateSearchKeys();
-                        $(".pharmacyItem").hide();
-                        $.each($(".city"), function (key, value) {
-                            if ($(value).html().toLowerCase().search(pharmacyCityKey) >= 0) {
-                                if ($(value).siblings(".pharmacyName").html().search(pharmacyNameKey) >= 0) {
-                                    if ($(value).siblings(".postalCode").html().search(pharmacyPostalCodeKey) >= 0) {
-                                        if ($(value).siblings(".fax").html().search(pharmacyFaxKey) >= 0) {
-                                            if ($(value).siblings(".fax").html().search(pharmacyAddressKey) >= 0) {
-                                                $(value).parent().show();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                        $('.pharmacyItem').each(function() {
+                            const row = $(this);
+                            // These fields are literal text searches. Read displayed text,
+                            // not HTML, and apply every column on every input event.
+                            row.toggle(filters.every(function(filter) {
+                                return row.find(filter.column).text().toLocaleLowerCase().includes(filter.value);
+                            }));
                         });
-                    });
-
-                    $("#pharmacyPostalCodeSearch").keyup(function () {
-                        updateSearchKeys();
-                        $(".pharmacyItem").hide();
-                        $.each($(".postalCode"), function (key, value) {
-                            if ($(value).html().toLowerCase().search(pharmacyPostalCodeKey) >= 0) {
-                                if ($(value).siblings(".pharmacyName").html().search(pharmacyNameKey) >= 0) {
-                                    if ($(value).siblings(".city").html().search(pharmacyCityKey) >= 0) {
-                                        if ($(value).siblings(".fax").html().search(pharmacyFaxKey) >= 0) {
-                                            $(value).parent().show();
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    });
-
-                    $("#pharmacyFaxSearch").keyup(function () {
-                        updateSearchKeys();
-                        $(".pharmacyItem").hide();
-                        $.each($(".fax"), function (key, value) {
-                            if ($(value).html().search(pharmacyFaxKey) >= 0 || $(value).html().split("-").join("").search(pharmacyFaxKey) >= 0) {
-                                if ($(value).siblings(".pharmacyName").html().search(pharmacyNameKey) >= 0) {
-                                    if ($(value).siblings(".city").html().search(pharmacyCityKey) >= 0) {
-                                        if ($(value).siblings(".postalCode").html().search(pharmacyPostalCodeKey) >= 0) {
-                                            $(value).parent().show();
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    });
-
-                    $("#pharmacyPhoneSearch").keyup(function () {
-                        updateSearchKeys();
-                        $(".pharmacyItem").hide();
-                        $.each($(".phone"), function (key, value) {
-                            if ($(value).html().search(pharmacyPhoneKey) >= 0 || $(value).html().split("-").join("").search(pharmacyPhoneKey) >= 0) {
-                                if ($(value).siblings(".pharmacyName").html().search(pharmacyNameKey) >= 0) {
-                                    if ($(value).siblings(".city").html().search(pharmacyCityKey) >= 0) {
-                                        if ($(value).siblings(".postalCode").html().search(pharmacyPostalCodeKey) >= 0) {
-                                            $(value).parent().show();
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    });
-
-                    $("#pharmacyAddressSearch").keyup(function () {
-                        updateSearchKeys()
-                        $(".pharmacyItem").hide();
-                        $.each($(".address"), function (key, value) {
-                            if ($(value).html().search(pharmacyAddressKey) >= 0 || $(value).html().split("-").join("").search(pharmacyAddressKey) >= 0) {
-                                if ($(value).siblings(".pharmacyName").html().search(pharmacyNameKey) >= 0) {
-                                    if ($(value).siblings(".city").html().search(pharmacyCityKey) >= 0) {
-                                        if ($(value).siblings(".postalCode").html().search(pharmacyPostalCodeKey) >= 0) {
-                                            $(value).parent().show();
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    });
+                    }
+                    $(pharmacyFilters.map(function(pair) { return pair[0]; }).join(', '))
+                        .on('input', filterPharmacies);
+                    filterPharmacies();
 
                     $(".pharmacyItem").click(function () {
                         var pharmId = $(this).attr("pharmId");
@@ -406,14 +324,7 @@
                     });
 
 
-                    function updateSearchKeys() {
-                        pharmacyNameKey = new RegExp($("#pharmacySearch").val(), "i");
-                        pharmacyCityKey = new RegExp($("#pharmacyCitySearch").val(), "i");
-                        pharmacyPostalCodeKey = new RegExp($("#pharmacyPostalCodeSearch").val(), "i");
-                        pharmacyFaxKey = new RegExp($("#pharmacyFaxSearch").val(), "i");
-                        pharmacyPhoneKey = new RegExp($("#pharmacyPhoneSearch").val(), "i");
-                        pharmacyAddressKey = new RegExp($("#pharmacyAddressSearch").val(), "i");
-                    }
+
                 })
             })(jQuery);
 

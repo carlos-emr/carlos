@@ -33,14 +33,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer2;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -68,6 +73,15 @@ class DemographicSoapContractUnitTest extends CarlosUnitTestBase {
     @Mock
     private DemographicManager demographicManager;
 
+    /**
+     * These are delegation-contract tests, not RBAC tests, so the gate is stubbed open. The
+     * privilege enforcement itself -- including the per-patient search filter, which returns an
+     * empty list rather than throwing when a patient is unreadable -- is covered by
+     * {@code AbstractWsPrivilegeUnitTest}.
+     */
+    @Mock
+    private SecurityInfoManager securityInfoManager;
+
     private LoggedInInfo loggedInInfo;
     private DemographicWs service;
 
@@ -81,6 +95,10 @@ class DemographicSoapContractUnitTest extends CarlosUnitTestBase {
             }
         };
         injectDependency(service, "demographicManager", demographicManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        lenient().when(securityInfoManager.hasPrivilege(
+                        any(LoggedInInfo.class), anyString(), anyString(), nullable(String.class)))
+                .thenReturn(true);
     }
 
     @Test

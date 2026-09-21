@@ -79,10 +79,9 @@
 	<bean id="jakarta.xml.ws.WebServiceContext"
 	      class="org.apache.cxf.jaxws.context.WebServiceContextImpl"/>
 	
-	<!-- Dependencies use @Autowired. Setter autowiring would populate the inherited
-	     Map<String, Object> properties with every bean, instantiating request-only
-	     actions at startup. initialize() supplies the WS-Security properties. -->
-	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" autowire="no" />
+	<!-- Use annotated injection only: byType also autowires WSS4J's Map<String, Object>
+	     properties setter, eagerly creating unrelated request-dependent beans at startup. -->
+	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" />
 	<bean id="oscarUsernameTokenValidator" class="io.github.carlos_emr.carlos.webserv.OscarUsernameTokenValidator" autowire="byType" />
 	<bean id="loopbackOnlyInInterceptor" class="io.github.carlos_emr.carlos.webserv.LoopbackOnlyInInterceptor" />
 

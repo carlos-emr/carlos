@@ -136,7 +136,29 @@ public interface NioFileManager {
      */
     public boolean isOscarDocument(String fileName);
 
+    /**
+     * Creates an owner-only file directly under the application-managed temporary root.
+     * Orphans are recovered by {@link ApplicationTempPurgeJob}.
+     */
+    Path createManagedTempFile(String prefix, String suffix) throws IOException;
+
     public Path createTempFile(final String fileName, ByteArrayOutputStream os) throws IOException;
+
+    /**
+     * Stages an existing file into a private temp directory by streaming it, never holding it
+     * in memory.
+     *
+     * <p>Prefer this over {@link #createTempFile(String, ByteArrayOutputStream)} whenever the
+     * source is already a file. That overload requires the caller to buffer the whole document
+     * and then copies the buffer again, so a large scanned fax costs twice its size in heap per
+     * concurrent request — enough repeated previews will exhaust the application.
+     *
+     * @param fileName name to give the staged copy; only its basename is used
+     * @param source   the file to copy
+     * @return the staged copy's path, inside a fresh application-temp directory
+     * @throws IOException if the copy fails
+     */
+    public Path createTempFileFrom(final String fileName, java.nio.file.Path source) throws IOException;
 
 }
  

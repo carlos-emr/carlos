@@ -25,6 +25,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,6 +44,86 @@ import static org.assertj.core.api.Assertions.assertThat;
 class EmailAttachmentSettingsUnitTest {
     private static final String MAX_LENGTH_EMAIL = "a".repeat(64) + "@" + "b".repeat(63)
             + "." + "c".repeat(63) + "." + "d".repeat(61);
+
+    @Nested
+    @DisplayName("request factory")
+    class RequestFactory {
+
+        @Test
+        @DisplayName("should retain encryption and manual-send defaults when request parameters are absent")
+        void shouldUseSecureManualDefaults_whenParametersAreAbsent() {
+            EmailAttachmentSettings settings = fromRequest(new MockHttpServletRequest());
+
+            assertThat(settings.isEmailEncrypted()).isTrue();
+            assertThat(settings.isEmailAttachmentEncrypted()).isTrue();
+            assertThat(settings.isEmailAutoSend()).isFalse();
+            assertThat(settings.deleteEFormAfterEmail()).isFalse();
+            assertThat(settings.openAfterEmail()).isFalse();
+            assertThat(settings.attachEFormItSelf()).isTrue();
+            assertThat(settings.senderEmail()).isNull();
+            assertThat(settings.subjectEmail()).isNull();
+            assertThat(settings.bodyEmail()).isNull();
+            assertThat(settings.encryptedMessageEmail()).isNull();
+            assertThat(settings.emailPatientChartOption()).isNull();
+        }
+
+        @Test
+        @DisplayName("should sanitize untrusted email fields before creating attachment settings")
+        void shouldSanitizeEmailFields_whenBuildingFromRequest() {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("senderEmail", "user@example.com");
+            request.setParameter("subjectEmail", "Safe\r\nSubject\u0085\u2028\u2029" + "x".repeat(201));
+            request.setParameter("bodyEmail", "b".repeat(10001));
+            request.setParameter("encryptedMessageEmail", "e".repeat(10001));
+            request.setParameter("emailPatientChartOption", "addFullNote");
+
+            EmailAttachmentSettings settings = fromRequest(request);
+
+            assertThat(settings.senderEmail()).isEqualTo("user@example.com");
+            assertThat(settings.subjectEmail()).isEqualTo("SafeSubject" + "x".repeat(189));
+            assertThat(settings.bodyEmail()).isEqualTo("b".repeat(10000));
+            assertThat(settings.encryptedMessageEmail()).isEqualTo("e".repeat(10000));
+            assertThat(settings.emailPatientChartOption()).isEqualTo("addFullNote");
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = {254, 255})
+        @DisplayName("should apply the sender-address length boundary through the request factory")
+        void shouldValidateSenderLength_whenBuildingFromRequest(int length) {
+            String email = MAX_LENGTH_EMAIL + (length == 255 ? "d" : "");
+            assertThat(email).hasSize(length);
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("senderEmail", email);
+
+            assertThat(fromRequest(request).senderEmail()).isEqualTo(length == 254 ? email : null);
+        }
+
+        @Test
+        @DisplayName("should reject unsupported options and keep sending manual for unrecognized flags")
+        void shouldRejectUnsupportedOptions_whenBuildingFromRequest() {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("senderEmail", "user@example.com\r\nBcc: other@example.com");
+            request.setParameter("emailPatientChartOption", "<script>alert(1)</script>");
+            request.setParameter("autoSendEmail", "TRUE");
+            request.setParameter("deleteEFormAfterSendingEmail", "1");
+            request.setParameter("enableEmailEncryption", "garbage");
+            request.setParameter("encryptEmailAttachments", "garbage");
+
+            EmailAttachmentSettings settings = fromRequest(request);
+
+            assertThat(settings.senderEmail()).isNull();
+            assertThat(settings.emailPatientChartOption()).isNull();
+            assertThat(settings.isEmailAutoSend()).isFalse();
+            assertThat(settings.deleteEFormAfterEmail()).isFalse();
+            assertThat(settings.isEmailEncrypted()).isTrue();
+            assertThat(settings.isEmailAttachmentEncrypted()).isTrue();
+        }
+
+        private EmailAttachmentSettings fromRequest(MockHttpServletRequest request) {
+            return EmailAttachmentSettings.of(request, "12", "34", new String[0],
+                    new String[0], new String[0], new String[0], new String[0]);
+        }
+    }
 
     @Nested
     @DisplayName("validateEmail")

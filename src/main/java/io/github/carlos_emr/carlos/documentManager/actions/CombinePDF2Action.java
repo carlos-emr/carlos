@@ -58,6 +58,8 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -87,6 +89,8 @@ public class CombinePDF2Action extends ActionSupport {
     private final transient DemographicDao demographicDao;
     private final transient ProgramManager programManager;
     private final transient ProgramManager2 programManager2;
+
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     /**
      * Authorizes access to every requested eDoc and streams their combined PDF.
@@ -164,6 +168,13 @@ public class CombinePDF2Action extends ActionSupport {
                     return NONE;
                 }
                 documents.add(document);
+            }
+            for (Document document : documents) {
+                if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, document.getDocumentNo())
+                        || OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, document.getDocfilename())) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    return NONE;
+                }
             }
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
             Path filePath;
@@ -386,7 +397,8 @@ public class CombinePDF2Action extends ActionSupport {
                 SpringUtils.getBean(DocumentDao.class),
                 SpringUtils.getBean(DemographicDao.class),
                 SpringUtils.getBean(ProgramManager.class),
-                SpringUtils.getBean(ProgramManager2.class));
+                SpringUtils.getBean(ProgramManager2.class),
+                SpringUtils.getBean(OutboundEmailArchiveDao.class));
     }
 
     CombinePDF2Action(
@@ -395,7 +407,9 @@ public class CombinePDF2Action extends ActionSupport {
             DocumentDao documentDao,
             DemographicDao demographicDao,
             ProgramManager programManager,
-            ProgramManager2 programManager2) {
+            ProgramManager2 programManager2,
+            OutboundEmailArchiveDao outboundEmailArchiveDao) {
+        this.outboundEmailArchiveDao = outboundEmailArchiveDao;
         this.securityInfoManager = securityInfoManager;
         this.ctlDocumentDao = ctlDocumentDao;
         this.documentDao = documentDao;

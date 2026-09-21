@@ -37,6 +37,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
@@ -55,6 +56,9 @@ import org.springframework.stereotype.Component;
 @Path("/demographics/merge")
 @Component("demographicMergeService")
 @Consumes(MediaType.APPLICATION_JSON)
+// XML stays first so a request without an explicit Accept keeps the representation the
+// XML-only AbstractServiceImpl contract gave legacy callers; JSON is negotiated, not default.
+@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 public class DemographicMergeService extends AbstractServiceImpl {
 
 
