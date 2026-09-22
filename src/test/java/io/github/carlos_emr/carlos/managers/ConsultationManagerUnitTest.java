@@ -69,7 +69,9 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -398,11 +400,16 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
     class GetRequest {
 
         @Test
+        void shouldReturnNull_whenRequestDoesNotExist() {
+            assertThat(consultationManager.getRequest(mockLoggedInInfo, TEST_REQUEST_ID)).isNull();
+        }
+
+        @Test
         @DisplayName("should return consultation request when valid ID provided")
         void shouldReturnConsultationRequest_whenValidIdProvided() {
             // Given
             ConsultationRequest expected = createRequestWithId(TEST_REQUEST_ID);
-            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(expected);
+            when(mockConsultRequestDao.findWithAssociations(TEST_REQUEST_ID)).thenReturn(expected);
 
             // When
             ConsultationRequest result = consultationManager.getRequest(mockLoggedInInfo, TEST_REQUEST_ID);
@@ -410,7 +417,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             // Then
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(TEST_REQUEST_ID);
-            verify(mockConsultRequestDao).find(TEST_REQUEST_ID);
+            verify(mockConsultRequestDao).findWithAssociations(TEST_REQUEST_ID);
         }
 
         @Test
@@ -418,7 +425,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         void shouldCheckReadPrivilege_whenGettingRequest() {
             // Given
             ConsultationRequest request = createRequestWithId(TEST_REQUEST_ID);
-            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(request);
+            when(mockConsultRequestDao.findWithAssociations(TEST_REQUEST_ID)).thenReturn(request);
 
             // When
             consultationManager.getRequest(mockLoggedInInfo, TEST_REQUEST_ID);
@@ -630,6 +637,15 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
             // Then - extras should be batch persisted since they are new
             verify(mockConsultationRequestExtDao).batchPersistAtomically(any());
+        }
+
+        @Test
+        @DisplayName("should be transactional to keep lazy relationships managed while saving")
+        void shouldBeTransactional_whenSavingConsultationRequest() throws Exception {
+            Method method = ConsultationManagerImpl.class.getMethod("saveConsultationRequest",
+                    LoggedInInfo.class, ConsultationRequest.class);
+
+            assertThat(method.getAnnotation(Transactional.class)).isNotNull();
         }
     }
 
@@ -1378,7 +1394,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             ConsultationRequest request = createRequestWithId(TEST_REQUEST_ID);
             request.setReasonForReferral("Heart palpitations");
             request.setClinicalInfo("Patient reports irregular heartbeat");
-            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(request);
+            when(mockConsultRequestDao.findWithAssociations(TEST_REQUEST_ID)).thenReturn(request);
             when(mockConsultationRequestExtDao.getConsultationRequestExts(TEST_REQUEST_ID))
                 .thenReturn(Collections.emptyList());
 
@@ -1394,7 +1410,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         void shouldArchiveExtensionRecords_alongWithRequest() {
             // Given
             ConsultationRequest request = createRequestWithId(TEST_REQUEST_ID);
-            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(request);
+            when(mockConsultRequestDao.findWithAssociations(TEST_REQUEST_ID)).thenReturn(request);
 
             List<ConsultationRequestExt> exts = new ArrayList<>();
             exts.add(createExt(1, TEST_REQUEST_ID, "appointmentYear", "2026"));
@@ -1414,7 +1430,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should do nothing when request does not exist")
         void shouldDoNothing_whenRequestDoesNotExist() {
             // Given
-            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(null);
+            when(mockConsultRequestDao.findWithAssociations(TEST_REQUEST_ID)).thenReturn(null);
 
             // When
             consultationManager.archiveConsultationRequest(TEST_REQUEST_ID);
@@ -1437,7 +1453,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
                 throw new RuntimeException("Failed to set specialist ID", e);
             }
             request.setProfessionalSpecialist(specialist);
-            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(request);
+            when(mockConsultRequestDao.findWithAssociations(TEST_REQUEST_ID)).thenReturn(request);
             when(mockProfessionalSpecialistDao.find(TEST_SPECIALIST_ID)).thenReturn(specialist);
             when(mockConsultationRequestExtDao.getConsultationRequestExts(TEST_REQUEST_ID))
                 .thenReturn(Collections.emptyList());
@@ -1448,6 +1464,14 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             // Then - persist the archive, then merge with specialist
             verify(mockConsultationRequestArchiveDao).persist(any());
             verify(mockConsultationRequestArchiveDao).merge(any());
+        }
+
+        @Test
+        @DisplayName("should be transactional to keep lazy relationships managed while archiving")
+        void shouldBeTransactional_whenArchivingConsultationRequest() throws Exception {
+            Method method = ConsultationManagerImpl.class.getMethod("archiveConsultationRequest", Integer.class);
+
+            assertThat(method.getAnnotation(Transactional.class)).isNotNull();
         }
     }
 
@@ -1518,7 +1542,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should handle mix of new and existing extras")
-        void shouldHandleMixOfNewAndExistingExtras() {
+        void shouldHandleMixedExtras_whenNewAndExistingKeysProvided() {
             // Given
             ConsultationRequestExt existing = createExt(1, TEST_REQUEST_ID, "appointmentYear", "2025");
             when(mockConsultationRequestExtDao.getConsultationRequestExts(TEST_REQUEST_ID))

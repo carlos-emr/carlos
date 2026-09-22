@@ -27,12 +27,17 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
 <%--
-  newEncounterHeader.jsp is a fragment 
-  loaded from newEncounterLayout.jsp
-  the new is misleading as the code is circa
-  @since 2008
+  Purpose: Render the patient identity and utility links above the encounter.
+  Features: Identity copying, calculator navigation and configured chart links.
+  The calculator menu resolves clinical defaults server-side using the originating
+  chart's record reference instead of including age or sex in the header URL.
+  Parameters: EctSessionBean and the authenticated session supply the encounter
+  and provider context; there are no direct request parameters for this fragment.
+  @since 2026-09-17
 --%>
+
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -79,6 +84,7 @@
     String popupPatientAge = demographic == null ? "" : String.valueOf(demographic.getAge());
     pageContext.setAttribute("popupPatientSex", popupPatientSex);
     pageContext.setAttribute("popupPatientAge", popupPatientAge);
+    pageContext.setAttribute("popupDemographicNo", demoNo);
 
 %>
 
@@ -157,38 +163,42 @@ function fallbackCopy(text) {
             <carlos:encode value='<%=demographic.getAgeAsOf(new Date(), request.getLocale())%>' context="html"/>
          </div>
       <c:if test="<%=(demographic.getHin() != null && !demographic.getHin().isEmpty())%>">
-         <div id="patient-hin" class="copyable" onclick="copyToClip('<carlos:encode value='<%= demographic.getHin() %>' context="javaScriptAttribute"/>',this)">
-            <div class="label">
+         <button type="button" id="patient-hin" class="copyable"
+              onclick="copyToClip('<carlos:encode value='<%= demographic.getHin() %>' context="javaScriptAttribute"/>',this)">
+            <span class="label">
               <fmt:message key="demographic.patient.context.hin"/>
-            </div>
+            </span>
             (<carlos:encode value='<%= demographic.getHcType() %>' context="html"/>)
             <carlos:encode value='<%= demographic.getHin() %>' context="html"/>&nbsp;
             <carlos:encode value='<%= demographic.getVer() %>' context="html"/>
-         </div>
+         </button>
       </c:if>
       <c:if test="<%=(demographic.getPhone() != null && !demographic.getPhone().isEmpty())%>">
-         <div id="patient-phone" class="copyable" title="" onclick="copyToClip('<carlos:encode value='<%= demographic.getPhone() %>' context="javaScriptAttribute"/>',this)">
-            <div class="label">
+         <button type="button" id="patient-phone" class="copyable"
+              title="" onclick="copyToClip('<carlos:encode value='<%= demographic.getPhone() %>' context="javaScriptAttribute"/>',this)">
+            <span class="label">
               <fmt:message key="demographic.demographicaddrecordhtm.formPhone"/>
-            </div>
+            </span>
             <carlos:encode value='<%= demographic.getPhone() %>' context="html"/>
-         </div>
+         </button>
       </c:if>
       <c:if test="<%=(demographic.getCellPhone() != null && !demographic.getCellPhone().isEmpty())%>">
-         <div id="patient-cell-phone" class="copyable" title="" onclick="copyToClip('<carlos:encode value='<%= demographic.getCellPhone() %>' context="javaScriptAttribute"/>',this)">
-            <div class="label">
+         <button type="button" id="patient-cell-phone" class="copyable"
+              title="" onclick="copyToClip('<carlos:encode value='<%= demographic.getCellPhone() %>' context="javaScriptAttribute"/>',this)">
+            <span class="label">
               <fmt:message key="demographic.demographicaddrecordhtm.formPhoneCell"/>
-            </div>
+            </span>
             <carlos:encode value='<%= demographic.getCellPhone() %>' context="html"/>
-         </div>
+         </button>
       </c:if>
       <c:if test="<%=(demographic.getEmail() != null && !demographic.getEmail().isEmpty())%>">
-         <div id="patient-email" class="copyable" onclick="copyToClip('<carlos:encode value='<%= demographic.getEmail() %>' context="javaScriptAttribute"/>',this)">
-            <div class="label">
+         <button type="button" id="patient-email" class="copyable"
+              onclick="copyToClip('<carlos:encode value='<%= demographic.getEmail() %>' context="javaScriptAttribute"/>',this)">
+            <span class="label">
               <fmt:message key="demographic.demographicaddrecordhtm.formEMail"/>
-            </div>
+            </span>
             <carlos:encode value='<%= demographic.getEmail() %>' context="html"/>
-         </div>
+         </button>
       </c:if>
          <div id="patient-next-appointment">
             <div class="label"><a href="${ctx}/demographic/DemographicApptHistory?demographic_no=<%=demoNo%>&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25" title="<fmt:message key="eform.groups.page.viewAll"/>" target="_blank">
@@ -222,11 +232,31 @@ function fallbackCopy(text) {
    </div>
 </div>
 <div id="header-bottom-row">
+    <div>
+        <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}"
+           onclick="window.open('${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}', 'ClinicalCalculators', 'width=800,height=650,scrollbars=yes,resizable=yes'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
+    </div>
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
         <div>
         <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScript(ctx)}/commons/omdDiseaseList.jsp?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
     </div>
     <%}%>
+
+    <%-- The chart's clinical calculators (encounter/ViewCalculators). The older
+         encounterLayout offered them from its navigation column; this layout,
+         the default since the new chart landed, had no control that reached them
+         at all, so the calculators were unreachable from the chart (found while
+         resolving issue #3665 findings 8 and 9). Same popup as the Index2 layout.
+         The href is the real route, not javascript:void(0): the click opens the
+         popup and returns false, so a plain click behaves like the other header
+         popups, while a middle-click or keyboard follow still reaches the page
+         (and the anchor is a link, not a button dressed as one -- Sonar S6844). --%>
+    <div>
+        <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewCalculators?sex=${carlos:forUriComponent(popupPatientSex)}&amp;age=${carlos:forUriComponent(popupPatientAge)}"
+           id="chartCalculatorsLink"
+           title="<fmt:message key="encounter.Index.calculators"/>"
+           onClick="popupPage(350,280,'calculatorWin','${carlos:forJavaScript(ctx)}/encounter/ViewCalculators?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
+    </div>
 
     <div>
         <%=getEChartLinks() %>

@@ -105,7 +105,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailSenderFactory = mock(EmailSenderFactory.class);
         emailSender = mock(EmailSender.class);
         loggedInInfo = new LoggedInInfo();
-        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager);
+        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
 
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
@@ -244,7 +244,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(emailLog.getConsentOverride()).isTrue();
         assertThat(emailLog.getConsentOverrideReason())
                 .isEqualTo("Patient verbally confirmed email consent");
-        verify(emailSender).send();
+        verify(emailSender).sendPrepared();
         verify(emailLogDao).transitionEmailStatus(
                 eq(emailLog.getId()), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS), eq(""), any(Date.class));
     }
@@ -268,7 +268,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(repeatedAttempt.getConsentStatus()).isEqualTo(EmailConsentStatus.OPT_OUT);
         verify(emailConsentResolver, times(2)).resolve(loggedInInfo, 123);
         verify(emailSenderFactory).create(any(), any(), any());
-        verify(emailSender).send();
+        verify(emailSender).sendPrepared();
     }
 
     @Test
@@ -290,7 +290,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.SUCCESS);
         verify(emailConfigDao).encryptCredentialsIfUnchanged(eq(10), eq("{\"password\":\"smtp-secret\"}"), any());
         verify(emailSenderFactory).create(any(), same(config), any());
-        verify(emailSender).send();
+        verify(emailSender).sendPrepared();
         assertPasswordDecrypts(config, "smtp-secret");
     }
 

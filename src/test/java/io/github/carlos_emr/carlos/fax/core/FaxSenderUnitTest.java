@@ -27,7 +27,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.ConnectException;
@@ -38,7 +37,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao;
@@ -58,7 +56,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -237,7 +234,7 @@ class FaxSenderUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should mark fax as ERROR when path validation fails with IllegalArgumentException")
-        void shouldMarkFaxAsError_whenPathValidationFailsWithIllegalArgument() throws Exception {
+        void shouldMarkFaxAsError_whenPathValidationFailsWithIllegalArgument() {
             // Given
             FaxConfig config = createActiveFaxConfig("5551112222");
             FaxJob waitingJob = createWaitingFaxJob(2, ""); // empty filename triggers IllegalArgumentException
@@ -307,7 +304,10 @@ class FaxSenderUnitTest extends CarlosUnitTestBase {
 
             // Then
             assertThat(waitingJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
-            assertThat(waitingJob.getStatusString()).isEqualTo("Invalid credentials");
+            // The provider's own message is deliberately NOT surfaced here. statusString is
+            // displayed in the fax UI, and a provider exception can carry recipient numbers or
+            // account detail; the full exception goes to the server log instead.
+            assertThat(waitingJob.getStatusString()).isEqualTo("Problem communicating with fax service");
             verify(faxJobDao).merge(waitingJob);
             verify(faxClientLogDao).merge(clientLog);
             assertThat(clientLog.getResult()).isEqualTo("ERROR");
@@ -393,7 +393,9 @@ class FaxSenderUnitTest extends CarlosUnitTestBase {
             faxSender.send();
 
             // Then
-            assertThat(waitingJob.getStatusString()).isEqualTo("PROBLEM COMMUNICATING WITH WEB SERVICE");
+            // Same generic string as every other provider failure: a null exception message is
+            // not a distinct case now that the message is never shown.
+            assertThat(waitingJob.getStatusString()).isEqualTo("Problem communicating with fax service");
             assertThat(waitingJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
         }
     }
@@ -641,7 +643,7 @@ class FaxSenderUnitTest extends CarlosUnitTestBase {
 
             // Then: Path traversal is neutralized - result is safely under document dir
             assertThat(resolved).isNotNull();
-            assertThat(resolved.getFileName().toString()).isEqualTo("passwd");
+            assertThat(resolved.getFileName()).hasToString("passwd");
             assertThat(resolved.toFile().getCanonicalPath())
                     .startsWith(tempDocumentDir.toFile().getCanonicalPath());
         }

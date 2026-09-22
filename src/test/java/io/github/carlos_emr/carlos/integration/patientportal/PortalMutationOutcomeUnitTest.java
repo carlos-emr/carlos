@@ -60,7 +60,7 @@ class PortalMutationOutcomeUnitTest {
             "{\"id\":1,\"clinic_id\":\"clinic\",\"demographic_no\":123,\"locked_at\":null,\"force_password_reset\":false}",
             "{\"id\":1,\"clinic_id\":\"clinic\",\"demographic_no\":123,\"locked_at\":\"2026-08-01T00:00:00Z\",\"force_password_reset\":true}",
             "{\"id\":1,\"locked_at\":null,\"force_password_reset\":true}"})
-    void rejectsUnconfirmedUnlock(String body) {
+    void shouldRejectUnlock_whenUnconfirmed(String body) {
         assertThatThrownBy(() -> service(body).unlockAccount(123, staff))
                 .isInstanceOf(PatientPortalException.class)
                 .extracting(e -> ((PatientPortalException) e).kind())
@@ -69,7 +69,7 @@ class PortalMutationOutcomeUnitTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void rejectsOppositeAccessState(boolean enabled) {
+    void shouldRejectAccessChange_whenStateIsOpposite(boolean enabled) {
         String opposite = enabled ? "disabled" : "active";
         assertThatThrownBy(() -> service("{\"id\":1,\"status\":\"" + opposite
                 + "\",\"force_password_reset\":false}").setAccountAccess(123, enabled, "staff_action", staff))
@@ -78,19 +78,27 @@ class PortalMutationOutcomeUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"pending", "accepted"})
-    void rejectsUnconfirmedRevocation(String status) {
-        assertThatThrownBy(() -> service(invite(7, status)).revokeInvite(7, staff))
+    void shouldRejectRevocation_whenUnconfirmed(String status) {
+        assertThatThrownBy(() -> service(invite(7, status)).revokeInvite(123, 7, staff))
                 .isInstanceOf(PatientPortalException.class);
     }
 
     @Test
-    void rejectsRevocationForDifferentInvite() {
-        assertThatThrownBy(() -> service(invite(8, "revoked")).revokeInvite(7, staff))
+    void shouldRejectRevocation_forDifferentInvite() {
+        assertThatThrownBy(() -> service(invite(8, "revoked")).revokeInvite(123, 7, staff))
                 .isInstanceOf(PatientPortalException.class);
     }
 
     @Test
-    void rejectsResendThatDoesNotSupersedeTheSelectedInvite() {
+    void shouldRejectRevocation_forAnotherPatient() {
+        assertThatThrownBy(() -> service(invite(7, "revoked")).revokeInvite(124, 7, staff))
+                .isInstanceOf(PatientPortalException.class)
+                .extracting(error -> ((PatientPortalException) error).kind())
+                .isEqualTo(PatientPortalException.Kind.MALFORMED_RESPONSE);
+    }
+
+    @Test
+    void shouldRejectResend_whenItDoesNotSupersedeTheSelectedInvite() {
         assertThatThrownBy(() -> service(issuedInvite(8, "pending", 6)).resendInvite(7, staff))
                 .isInstanceOf(PatientPortalException.class)
                 .extracting(error -> ((PatientPortalException) error).kind())
@@ -98,7 +106,7 @@ class PortalMutationOutcomeUnitTest {
     }
 
     @Test
-    void rejectsUnlockSecretTransitionForDifferentRecordOrState() {
+    void shouldRejectUnlockSecretTransition_forDifferentRecordOrState() {
         assertThatThrownBy(
                         () -> service("{\"id\":12,\"status\":\"available\"}")
                                 .publishUnlockSecret(11, staff))
@@ -114,7 +122,7 @@ class PortalMutationOutcomeUnitTest {
     }
 
     @Test
-    void rejectsUnlockSecretCreatedForDifferentSourceOrState() {
+    void shouldRejectUnlockSecret_whenCreatedForDifferentSourceOrState() {
         assertThatThrownBy(
                         () -> service(secret("other-message", "pending"))
                                 .createUnlockSecret(123, "message-1", null, staff))
@@ -126,7 +134,7 @@ class PortalMutationOutcomeUnitTest {
     }
 
     @Test
-    void rejectsContactDecisionThatDoesNotConfirmTheRequest() {
+    void shouldRejectContactDecision_whenItDoesNotConfirmTheRequest() {
         assertThatThrownBy(
                         () -> service("{\"id\":4,\"status\":\"reviewed\","
                                         + "\"decision\":\"approved\"}")
@@ -140,7 +148,7 @@ class PortalMutationOutcomeUnitTest {
     }
 
     @Test
-    void acceptsConfirmedSecurityChanges() {
+    void shouldAcceptSecurityChanges_whenConfirmed() {
         assertThat(service("{\"id\":1,\"clinic_id\":\"clinic\",\"demographic_no\":123,"
                 + "\"locked_at\":null,\"force_password_reset\":true}").unlockAccount(123, staff).forcePasswordReset()).isTrue();
         for (boolean enabled : new boolean[] {true, false}) {
@@ -148,7 +156,7 @@ class PortalMutationOutcomeUnitTest {
             assertThat(service("{\"id\":1,\"status\":\"" + status + "\",\"force_password_reset\":false}")
                     .setAccountAccess(123, enabled, "staff_action", staff).status()).isEqualTo(status);
         }
-        assertThat(service(invite(7, "revoked")).revokeInvite(7, staff).status()).isEqualTo("revoked");
+        assertThat(service(invite(7, "revoked")).revokeInvite(123, 7, staff).status()).isEqualTo("revoked");
         assertThat(service(issuedInvite(8, "pending", 7)).resendInvite(7, staff)
                 .invite().supersedesInviteId()).isEqualTo(7L);
         assertThat(service(secret("message-1", "pending"))
@@ -188,7 +196,7 @@ class PortalMutationOutcomeUnitTest {
     }
 
     @Test
-    void secretRenderingDoesNotExposeMessageReference() {
+    void shouldNotExposeMessageReference_whenSecretIsRendered() {
         var secret = new PatientPortalUnlockSecretDto(1, true, PortalSecret.of("synthetic-secret"),
                 "patient-123-message-456", "pending");
         assertThat(secret.toString()).doesNotContain("synthetic-secret", "patient-123-message-456");

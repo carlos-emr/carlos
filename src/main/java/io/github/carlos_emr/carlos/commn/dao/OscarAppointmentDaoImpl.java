@@ -64,6 +64,28 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
+    public List<Appointment> findRecurringSeries(Appointment anchor, Date endDate) {
+        return entityManager.createQuery("SELECT a FROM Appointment a WHERE a.providerNo=:provider "
+                + "AND a.appointmentDate BETWEEN :start AND :end "
+                + "AND a.startTime=:startTime AND a.endTime=:endTime "
+                + "AND a.demographicNo=:demographic AND a.programId=:program "
+                + "AND COALESCE(a.name,'')=COALESCE(:name,'') "
+                + "AND COALESCE(a.notes,'')=COALESCE(:notes,'') "
+                + "AND COALESCE(a.reason,'')=COALESCE(:reason,'') "
+                + "AND COALESCE(a.creator,'')=COALESCE(:creator,'') "
+                + "AND (a.createDateTime=:created OR (a.createDateTime IS NULL AND :created IS NULL)) "
+                + "ORDER BY a.appointmentDate, a.id", Appointment.class)
+                .setParameter("provider", anchor.getProviderNo())
+                .setParameter("start", anchor.getAppointmentDate()).setParameter("end", endDate)
+                .setParameter("startTime", anchor.getStartTime()).setParameter("endTime", anchor.getEndTime())
+                .setParameter("demographic", anchor.getDemographicNo()).setParameter("program", anchor.getProgramId())
+                .setParameter("name", anchor.getName()).setParameter("notes", anchor.getNotes())
+                .setParameter("reason", anchor.getReason()).setParameter("creator", anchor.getCreator())
+                .setParameter("created", anchor.getCreateDateTime()).setMaxResults(367)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
+    @Override
     public Appointment findForUpdate(Integer appointmentNo) {
         if (appointmentNo == null) {
             return null;
@@ -404,6 +426,25 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter(1, demographicId);
         query.setMaxResults(1);
         return getSingleResultOrNull(query);
+    }
+
+    @Override
+    public Map<Integer, Date> findNextAppointmentDates(Collection<Integer> demographicIds) {
+        Map<Integer, Date> nextAppointmentDates = new HashMap<>();
+        if (demographicIds == null || demographicIds.isEmpty()) {
+            return nextAppointmentDates;
+        }
+        // The same predicate as findNextAppointment(Integer), aggregated: MIN over the rows that
+        // query orders by is the date its first row carries. Keep the two in step.
+        Query query = entityManager.createQuery(
+                "SELECT appt.demographicNo, MIN(appt.appointmentDate) FROM Appointment appt WHERE appt.demographicNo IN (:demographicIds) AND appt.status NOT LIKE '%C%' AND (appt.appointmentDate > CURRENT_DATE OR (appt.appointmentDate = CURRENT_DATE AND appt.startTime >= CURRENT_TIME)) GROUP BY appt.demographicNo");
+        query.setParameter("demographicIds", demographicIds);
+        for (Object[] row : (List<Object[]>) query.getResultList()) {
+            if (row[0] != null && row[1] != null) {
+                nextAppointmentDates.put(((Number) row[0]).intValue(), (Date) row[1]);
+            }
+        }
+        return nextAppointmentDates;
     }
 
     @Override

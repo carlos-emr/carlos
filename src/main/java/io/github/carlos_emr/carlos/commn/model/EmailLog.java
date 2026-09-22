@@ -267,7 +267,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         this.fromEmail = fromEmail;
         this.toEmail = toEmail != null ? String.join(";", toEmail) : "";
         this.subject = subject;
-        this.body = Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
+        this.body = body == null ? null : Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
         this.status = status;
         this.timestamp = new Date();
     }
@@ -364,10 +364,10 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * Gets the email body content.
      * The body is stored as Base64-encoded bytes and automatically decoded when retrieved.
      * 
-     * @return String the decoded email body content
+     * @return String the decoded email body content, or empty when the stored value is null
      */
     public String getBody() {
-        return new String(Base64.decodeBase64(body), StandardCharsets.UTF_8);
+        return body == null ? "" : new String(Base64.decodeBase64(body), StandardCharsets.UTF_8);
     }
 
     /**
@@ -377,7 +377,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @param body String the email body content to encode and store
      */
     public void setBody(String body) {
-        this.body = Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
+        this.body = body == null ? null : Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -438,10 +438,10 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * Gets the encrypted message content.
      * The encrypted message is stored as Base64-encoded bytes and automatically decoded.
      * 
-     * @return String the decoded encrypted message content
+     * @return String the decoded encrypted message content, or empty when the stored value is null
      */
     public String getEncryptedMessage() {
-        return new String(Base64.decodeBase64(encryptedMessage), StandardCharsets.UTF_8);
+        return encryptedMessage == null ? "" : new String(Base64.decodeBase64(encryptedMessage), StandardCharsets.UTF_8);
     }
 
     /**
@@ -451,7 +451,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @param encryptedMessage String the encrypted message content to encode and store
      */
     public void setEncryptedMessage(String encryptedMessage) {
-        this.encryptedMessage = Base64.encodeBase64(encryptedMessage.getBytes(StandardCharsets.UTF_8));
+        this.encryptedMessage = encryptedMessage == null ? null : Base64.encodeBase64(encryptedMessage.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -551,10 +551,10 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * Internal comments are stored as Base64-encoded bytes and automatically decoded.
      * Used for staff notes that are not part of the clinical record.
      * 
-     * @return String the decoded internal comment
+     * @return String the decoded internal comment, or empty when the stored value is null
      */
     public String getInternalComment() {
-        return new String(Base64.decodeBase64(internalComment), StandardCharsets.UTF_8);
+        return internalComment == null ? "" : new String(Base64.decodeBase64(internalComment), StandardCharsets.UTF_8);
     }
 
     /**
@@ -564,7 +564,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @param internalComment String the internal comment to encode and store
      */
     public void setInternalComment(String internalComment) {
-        this.internalComment = Base64.encodeBase64(internalComment.getBytes(StandardCharsets.UTF_8));
+        this.internalComment = internalComment == null ? null : Base64.encodeBase64(internalComment.getBytes(StandardCharsets.UTF_8));
     }
 
     /**

@@ -36,6 +36,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
@@ -46,6 +48,7 @@ import java.util.Set;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 import jakarta.servlet.ServletContext;
@@ -64,6 +67,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @Tag("unit")
@@ -147,6 +151,36 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         } else {
             CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", originalBaseDocumentDir);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("Failed streamed temp copy removes its private directory")
+    void shouldRemoveTempDirectory_whenStreamedCopyFails(boolean partialFileCreated) throws IOException {
+        Path applicationRoot = Path.of(System.getProperty("java.io.tmpdir"),
+                PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+        Path copyDirectory = Files.createDirectory(tempDir.resolve("failed-copy"));
+        Path destination = copyDirectory.resolve("clinical-document.pdf");
+        Path missingSource = tempDir.resolve("missing-clinical-document.pdf");
+        IOException copyFailure = new IOException("Synthetic streamed-copy failure");
+
+        // Inspect only the directory owned by this invocation. Other tests and JVM forks
+        // legitimately create/remove entries in the shared carlos-temp root concurrently.
+        try (MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
+            files.when(() -> Files.createTempDirectory(eq(applicationRoot), anyString()))
+                    .thenReturn(copyDirectory);
+            files.when(() -> Files.copy(missingSource, destination, StandardCopyOption.REPLACE_EXISTING))
+                    .thenAnswer(invocation -> {
+                        if (partialFileCreated) {
+                            Files.writeString(destination, "Synthetic partial document");
+                        }
+                        throw copyFailure;
+                    });
+            assertThatThrownBy(() -> nioFileManager.createTempFileFrom("clinical-document.pdf", missingSource))
+                    .isSameAs(copyFailure);
+        }
+        assertThat(destination).doesNotExist();
+        assertThat(copyDirectory).doesNotExist();
     }
 
     @Test
@@ -720,6 +754,55 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             deleteQuietly(scratch.resolve(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
             deleteQuietly(victim);
             deleteQuietly(scratch);
+        }
+    }
+
+    @Test
+    @DisplayName("should create purge-managed owner-only temporary files")
+    void shouldCreateManagedTempFile_underApplicationPurgeRoot() throws Exception {
+        Path managedFile = nioFileManager.createManagedTempFile("smtp-snapshot-", ".tmp");
+        try {
+            assertThat(managedFile.getParent().getFileName())
+                    .hasToString(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+            if (managedFile.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                assertThat(Files.getPosixFilePermissions(managedFile))
+                        .containsExactlyInAnyOrder(
+                                PosixFilePermission.OWNER_READ,
+                                PosixFilePermission.OWNER_WRITE);
+            }
+        } finally {
+            Files.deleteIfExists(managedFile);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"../escape-", "sub/file-", "sub\\file-", "/absolute-"})
+    void shouldRejectManagedTempFile_whenPrefixContainsPathComponents(String prefix) {
+        assertThatThrownBy(() -> nioFileManager.createManagedTempFile(prefix, ".tmp"))
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.FileValidationException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/../escape", "/file", "\\file"})
+    void shouldRejectManagedTempFile_whenSuffixContainsPathComponents(String suffix) {
+        assertThatThrownBy(() -> nioFileManager.createManagedTempFile("smtp-", suffix))
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.FileValidationException.class);
+    }
+
+    @Test
+    void shouldRefuseManagedTempFile_whenPrivatePermissionsAreUnsupported() {
+        try (var files = mockStatic(Files.class, invocation -> {
+            if (invocation.getMethod().getName().equals("createTempFile")) {
+                throw new UnsupportedOperationException("synthetic non-POSIX filesystem");
+            }
+            return invocation.callRealMethod();
+        })) {
+            assertThatThrownBy(() -> nioFileManager.createManagedTempFile("smtp-", ".tmp"))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Owner-only temporary files require POSIX")
+                    .hasCauseInstanceOf(UnsupportedOperationException.class);
+            files.verify(() -> Files.createTempFile(any(Path.class), anyString(), anyString(),
+                    any(java.nio.file.attribute.FileAttribute[].class)));
         }
     }
 

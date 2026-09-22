@@ -94,7 +94,7 @@ $(document).ready(function() {
          in place only invited the pattern being copied back. --%>
 
     // Exclude #dataConfirmed from contentLink handler
-    $(document).on("click", 'a.contentLink:not(#dataConfirmed)', function(e) {
+    $(document).on("click", '#dynamic-content a.contentLink:not(#dataConfirmed)', function(e) {
         var href = $(this).attr("href");
         // Only AJAX-load a real URL. Several eForm admin controls are
         // href="javascript:void(0);" anchors that do their work in their own

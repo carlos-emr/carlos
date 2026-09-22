@@ -32,14 +32,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -73,33 +78,125 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(scratchPadDao);
     }
 
-    @Test
-    @DisplayName("should save scratchpad for session user when providerNo request parameter is absent")
-    void shouldSaveScratchpadForSessionUser_whenProviderNoParameterIsAbsent() throws Exception {
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "save"})
+    @DisplayName("should save for the session provider with the default or explicit save operation")
+    void shouldSaveScratchpadForSessionUser_whenProviderNoParameterIsAbsent(String method) throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter json = new StringWriter();
 
+        when(request.getParameter("method")).thenReturn(method);
         when(request.getParameter("id")).thenReturn("0");
         when(request.getParameter("scratchpad")).thenReturn("test note");
         when(request.getParameter("windowId")).thenReturn("window-1");
         when(response.getWriter()).thenReturn(new PrintWriter(json));
-        when(scratchPadDao.findByProviderNo("999998")).thenReturn(null);
-        doAnswer(invocation -> {
-            ScratchPad scratchPad = invocation.getArgument(0);
-            scratchPad.setId(1);
-            return null;
-        }).when(scratchPadDao).persist(any(ScratchPad.class));
+        ScratchPad saved = new ScratchPad();
+        saved.setId(1);
+        saved.setText("test note");
+        when(scratchPadDao.saveIfCurrent("999998", 0, "test note"))
+                .thenReturn(new ScratchPadDao.SaveResult(saved, false));
+        assertThat(createAction(request, response).execute()).isEqualTo("none");
+        verify(scratchPadDao).saveIfCurrent("999998", 0, "test note");
+        assertThat(json.toString()).contains("\"success\":true", "\"id\":\"1\"", "\"text\":\"test note\"");
+    }
 
-        Scratch2Action action = createAction(request, response);
+    @Test
+    void shouldRejectSave_whenTextParameterMissing() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("0");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        assertThat(createAction(request, response).execute()).isEqualTo("none");
+        verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(scratchPadDao);
+        assertThat(json.toString()).contains("\"success\":false");
+    }
 
-        ArgumentCaptor<ScratchPad> scratchPadCaptor = ArgumentCaptor.forClass(ScratchPad.class);
+    @Test
+    void shouldSaveEmptyText_whenProviderDeliberatelyClearsScratchpad() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn("");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        ScratchPad saved = new ScratchPad();
+        saved.setId(8);
+        saved.setText("");
+        when(scratchPadDao.saveIfCurrent("999998", 7, ""))
+                .thenReturn(new ScratchPadDao.SaveResult(saved, false));
+        assertThat(createAction(request, response).execute()).isEqualTo("none");
+        verify(scratchPadDao).saveIfCurrent("999998", 7, "");
+        assertThat(json.toString()).contains("\"id\":\"8\"", "\"text\":\"\"");
+    }
 
-        assertThat(action.execute()).isNull();
-        verify(scratchPadDao).persist(scratchPadCaptor.capture());
-        assertThat(scratchPadCaptor.getValue().getProviderNo()).isEqualTo("999998");
-        assertThat(scratchPadCaptor.getValue().getText()).isEqualTo("test note");
-        assertThat(json.toString()).contains("\"id\":\"1\"", "\"text\":\"test note\"", "\"windowId\":\"window-1\"");
+    @Test
+    void shouldRejectSaveWithoutAdvancingRevision_whenEditorIsStale() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn("local text");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(scratchPadDao.saveIfCurrent("999998", 7, "local text"))
+                .thenReturn(new ScratchPadDao.SaveResult(null, true));
+        createAction(request, response).execute();
+        verify(response).setStatus(HttpServletResponse.SC_CONFLICT);
+        assertThat(json.toString()).contains("\"success\":false").doesNotContain("\"id\":", "local text");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "-1", "abc", "2147483648"})
+    void shouldRejectRevisionBeforePersistence_whenInvalid(String revision) throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter("id")).thenReturn(revision);
+        when(request.getParameter("scratchpad")).thenReturn("local text");
+        when(response.getWriter()).thenReturn(new PrintWriter(new StringWriter()));
+        createAction(request, response).execute();
+        verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(scratchPadDao);
+    }
+
+    @Test
+    void shouldReturnLiteralJsonText_whenSavingSpecialCharacters() throws Exception {
+        String text = "  A+B %20 &amp; <note>\n";
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn(text);
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        ScratchPad saved = new ScratchPad();
+        saved.setId(8);
+        saved.setText(text);
+        when(scratchPadDao.saveIfCurrent("999998", 7, text))
+                .thenReturn(new ScratchPadDao.SaveResult(saved, false));
+        createAction(request, response).execute();
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(json.toString()).get("text").asText()).isEqualTo(text);
+    }
+
+    @Test
+    void shouldReportFailureWithoutPrivateDetails_whenPersistenceFails() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn("private note");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(scratchPadDao.saveIfCurrent("999998", 7, "private note"))
+                .thenThrow(new IllegalStateException("private database detail"));
+        try (LogCapture capture = LogCapture.forLogger(Scratch2Action.class)) {
+            createAction(request, response).execute();
+            verify(response).setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(json.toString()).contains("\"success\":false").doesNotContain("private note", "private database detail");
+            assertThat(capture.messages()).isNotEmpty().allSatisfy(message ->
+                    assertThat(message).doesNotContain("private note", "private database detail"));
+        }
     }
 
     @Test
@@ -145,7 +242,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         try (LogCapture capture = LogCapture.forLogger(Scratch2Action.class)) {
             Scratch2Action action = createAction(request, response);
 
-            assertThat(action.execute()).isNull();
+            assertThat(action.execute()).isEqualTo("none");
 
             verify(response).setStatus(HttpServletResponse.SC_FORBIDDEN);
             verifyNoInteractions(scratchPadDao);
@@ -163,6 +260,74 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldDenyVersionRead_whenOwnedByAnotherProvider() throws Exception {
+        HttpServletRequest request = mockRequest("GET", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter("id")).thenReturn("7");
+        ScratchPad stored = new ScratchPad();
+        stored.setProviderNo("123456");
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        assertThat(createAction(request, response).showVersion()).isEqualTo("none");
+        verify(response).setStatus(404);
+        verify(request, never()).setAttribute(any(), any());
+    }
+
+    @Test
+    void shouldDenyVersionDelete_whenOwnedByAnotherProvider() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("providerNo")).thenReturn("123456");
+        ScratchPad stored = new ScratchPad();
+        stored.setProviderNo("123456");
+        stored.setStatus(true);
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        createAction(request, response).delete();
+        verify(response).setStatus(404);
+        assertThat(stored.isStatus()).isTrue();
+        verify(scratchPadDao, never()).merge(any());
+        assertThat(json.toString()).contains("\"success\":false");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldShowOwnedVersion_whenDispatchedAsRead(String httpMethod) throws Exception {
+        HttpServletRequest request = mockRequest(httpMethod, "999998");
+        when(request.getParameter("method")).thenReturn("showVersion");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter("id")).thenReturn("7");
+        ScratchPad stored = new ScratchPad();
+        stored.setProviderNo("999998");
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        assertThat(createAction(request, response).execute()).isEqualTo("scratchPadVersion");
+        verify(request).setAttribute("ScratchPad", stored);
+    }
+
+    @Test
+    void shouldAvoidDatabase_whenVersionRequestIsAnonymous() throws Exception {
+        HttpServletRequest request = mockRequest("GET", null);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        assertThat(createAction(request, response).showVersion()).isEqualTo("none");
+        verify(response).setStatus(401);
+        verifyNoInteractions(scratchPadDao);
+        assertThat(json.toString()).contains("\"success\":false", "Session provider required");
+    }
+
+    @Test
+    void shouldRejectDelete_whenCalledDirectlyWithGet() throws Exception {
+        HttpServletRequest request = mockRequest("GET", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(response.getWriter()).thenReturn(new PrintWriter(new StringWriter()));
+        createAction(request, response).delete();
+        verify(response).setStatus(405);
+        verifyNoInteractions(scratchPadDao);
+    }
+
     /**
      * Creates a mocked request with the supplied HTTP method and session provider number.
      *
@@ -174,9 +339,98 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpSession session = mock(HttpSession.class);
         when(request.getMethod()).thenReturn(httpMethod);
-        when(request.getSession()).thenReturn(session);
+        when(request.getSession(false)).thenReturn(session);
         when(session.getAttribute("user")).thenReturn(providerNo);
         return request;
+    }
+
+    @Test
+    void shouldReportDeleteSuccess_afterPersistingOwnedVersion() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(request.getParameter("method")).thenReturn("delete");
+        when(request.getParameter("id")).thenReturn("7");
+        ScratchPad stored = new ScratchPad();
+        stored.setId(7);
+        stored.setProviderNo("999998");
+        stored.setStatus(true);
+        stored.setDateTime(java.sql.Date.valueOf("2026-08-01"));
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        createAction(request, response).execute();
+        verify(scratchPadDao).merge(stored);
+        assertThat(stored.isStatus()).isFalse();
+        assertThat(json.toString()).contains("\"success\":true", "\"id\":\"7\"");
+    }
+
+    @Test
+    void shouldReportDeleteFailure_whenPersistenceFails() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        when(request.getParameter("id")).thenReturn("7");
+        ScratchPad stored = new ScratchPad();
+        stored.setId(7);
+        stored.setProviderNo("999998");
+        when(scratchPadDao.find(7)).thenReturn(stored);
+        doThrow(new IllegalStateException("database unavailable"))
+                .when(scratchPadDao).merge(stored);
+        createAction(request, response).delete();
+        verify(response).setStatus(500);
+        assertThat(json.toString()).contains("\"success\":false").doesNotContain("database unavailable");
+    }
+
+    @Test
+    void shouldRejectVersionId_beforeDatabaseLookup() throws Exception {
+        HttpServletRequest request = mockRequest("GET", "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter("id")).thenReturn("not-an-id");
+        assertThat(createAction(request, response).showVersion()).isEqualTo("none");
+        verify(response).setStatus(400);
+        verifyNoInteractions(scratchPadDao);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"POST,showVersion,405", "PUT,showVersion,405", "GET,delete,405", "HEAD,delete,405",
+            "GET,save,405", "POST,unexpected,400", "GET,unexpected,400"})
+    void shouldRejectWithoutSaving_whenRequestedOperationCannotRun(String httpMethod, String method,
+            int status) throws Exception {
+        HttpServletRequest request = mockRequest(httpMethod, "999998");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("method")).thenReturn(method);
+        when(request.getParameter("id")).thenReturn("7");
+        when(request.getParameter("scratchpad")).thenReturn("Must not be saved");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        assertThat(createAction(request, response).execute()).isEqualTo("none");
+        verify(response).setStatus(status);
+        verifyNoInteractions(scratchPadDao);
+        assertThat(json.toString()).contains("\"success\":false");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"execute,missing", "showVersion,missing", "delete,missing",
+            "execute,blank", "showVersion,blank", "delete,blank",
+            "execute,absent", "showVersion,absent", "delete,absent"})
+    void shouldRejectBeforeRequestProcessing_whenSessionProviderUnavailable(String entryPoint, String sessionState) throws Exception {
+        HttpServletRequest request = mockRequest("POST", "blank".equals(sessionState) ? " " : null);
+        if ("absent".equals(sessionState)) when(request.getSession(false)).thenReturn(null);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+        Scratch2Action action = createAction(request, response);
+        String result = switch (entryPoint) {
+            case "showVersion" -> action.showVersion();
+            case "delete" -> action.delete();
+            default -> action.execute();
+        };
+        assertThat(result).isEqualTo("none");
+        verify(response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        verify(request, never()).getParameter(anyString());
+        verifyNoInteractions(scratchPadDao);
+        assertThat(json.toString()).contains("\"success\":false");
     }
 
     /**

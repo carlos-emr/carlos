@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -62,6 +64,7 @@ public final class PathValidationUtils {
             "Invalid filename: must not include a path.";
     private static final String BLOCKED_EXTENSION_MESSAGE =
             "Invalid filename: file extension .%s not allowed.";
+    private static final String INVALID_FIELD_EMPTY_LOG = "Invalid {}: null or empty";
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
             "jsp", "jspx", "war", "class", "jar", "jnlp");
 
@@ -320,7 +323,7 @@ public final class PathValidationUtils {
     public static String validatePathComponent(String value, String label) {
         String field = label == null || label.trim().isEmpty() ? "path component" : label;
         if (value == null || value.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
         if (value.indexOf('\0') >= 0) {
@@ -403,11 +406,7 @@ public final class PathValidationUtils {
      * @throws SecurityException if the file is outside the allowed directory
      */
     public static File validateChildPath(File file, File allowedDir) {
-        if (file == null) {
-            throw new SecurityException("File is null");
-        }
-        validateWithinDirectory(file, allowedDir);
-        return file;
+        return validateExistingPath(file, allowedDir);
     }
 
     /**
@@ -475,14 +474,16 @@ public final class PathValidationUtils {
     public static File validateConfiguredDirectory(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured directory");
         }
 
         try {
             File directory = new File(configuredPath).getCanonicalFile();
             if (!directory.isDirectory()) {
-                logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                }
                 throw new SecurityException("Configured path is not a directory");
             }
             return directory;
@@ -535,14 +536,16 @@ public final class PathValidationUtils {
     public static File resolveConfiguredDirectory(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured directory");
         }
 
         try {
             File directory = new File(configuredPath).getCanonicalFile();
             if (directory.exists() && !directory.isDirectory()) {
-                logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                }
                 throw new SecurityException("Configured path is not a directory");
             }
             return directory;
@@ -600,14 +603,16 @@ public final class PathValidationUtils {
     public static File validateConfiguredFile(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured file" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured file");
         }
 
         try {
             File file = new File(configuredPath).getCanonicalFile();
             if (!file.isFile()) {
-                logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                }
                 throw new SecurityException("Configured path is not a file");
             }
             return file;
@@ -629,14 +634,16 @@ public final class PathValidationUtils {
     public static File resolveConfiguredFile(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured file" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured file");
         }
 
         try {
             File file = new File(configuredPath).getCanonicalFile();
             if (file.exists() && !file.isFile()) {
-                logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                }
                 throw new SecurityException("Configured path is not a file");
             }
             return file;
@@ -722,6 +729,62 @@ public final class PathValidationUtils {
         } catch (IllegalArgumentException e) {
             throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
         }
+    }
+
+    /**
+     * Validates that the path string resolves to a file within the allowed directory.
+     * Convenience overload that constructs the {@link File} internally, avoiding a
+     * bare {@code new File(taintedPath)} at the call site and keeping the taint sink
+     * inside this utility where SpotBugs can track containment.
+     *
+     * @param path the file path to validate; must be non-null and non-empty
+     * @param allowedDir the directory the resolved file must be within
+     * @return the validated File
+     * @throws SecurityException if the path is null/empty or resolves outside allowedDir
+     */
+    public static File validateExistingPath(String path, File allowedDir) {
+        if (path == null || path.isBlank()) {
+            throw new SecurityException("File path is null or empty");
+        }
+        return validateExistingPath(new File(path), allowedDir);
+    }
+
+    /**
+     * Returns DOCUMENT_DIR as a canonical directory, failing closed when it is not configured.
+     *
+     * @return the canonical DOCUMENT_DIR directory
+     * @throws IOException if DOCUMENT_DIR is unavailable or cannot be canonicalized
+     */
+    public static File getRequiredDocumentDirectory() throws IOException {
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (documentDir == null || documentDir.isBlank()) {
+            throw new IOException("DOCUMENT_DIR not configured; rejecting file access");
+        }
+        File canonicalDocumentDir = new File(documentDir).getCanonicalFile();
+        if (!canonicalDocumentDir.isDirectory()) {
+            throw new IOException("DOCUMENT_DIR is not an existing directory; rejecting file access");
+        }
+        return canonicalDocumentDir;
+    }
+
+    /**
+     * Validates that the path string is contained within DOCUMENT_DIR, which must be configured.
+     * Use this for application-created lab file paths that must fail closed when
+     * DOCUMENT_DIR is unavailable.
+     *
+     * <p><strong>Containment only.</strong> Like {@link #validateExistingPath(File, File)}, this
+     * canonicalizes and checks directory containment; it does <em>not</em> assert that the target
+     * exists or is a regular file. Callers that need those guarantees must still check
+     * {@link File#exists()} / {@link File#isFile()} themselves. It does require DOCUMENT_DIR itself
+     * to be a configured, existing directory.</p>
+     *
+     * @param path the file path to validate; must be non-null and non-empty
+     * @return the validated File, contained within DOCUMENT_DIR
+     * @throws IOException if DOCUMENT_DIR is unavailable or cannot be canonicalized
+     * @throws SecurityException if the path is null/empty or resolves outside DOCUMENT_DIR
+     */
+    public static File validateExistingDocumentPath(String path) throws IOException {
+        return validateExistingPath(path, getRequiredDocumentDirectory());
     }
 
     // ========================================================================

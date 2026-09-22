@@ -54,7 +54,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 @Tag("patient-portal")
 class PortalWebBoundaryRegressionUnitTest {
     @Test
-    void shouldReturnJsonWhenConfiguredPortalBeanCannotInitialize() throws Exception {
+    void shouldReturnJson_whenConfiguredPortalBeanCannotInitialize() throws Exception {
         var security = mock(SecurityInfoManager.class);
         var resolver = mock(PortalStaffContextResolver.class);
         var session = mock(LoggedInInfo.class);
@@ -85,7 +85,7 @@ class PortalWebBoundaryRegressionUnitTest {
     }
 
     @Test
-    void shouldNotUnlockPatientWhoseScopedPermissionIsDenied() throws Exception {
+    void shouldNotUnlockPatient_whenScopedPermissionIsDenied() throws Exception {
         var security = mock(SecurityInfoManager.class);
         var portal = mock(PatientPortalService.class);
         var resolver = mock(PortalStaffContextResolver.class);
@@ -112,7 +112,7 @@ class PortalWebBoundaryRegressionUnitTest {
     }
 
     @Test
-    void shouldNotDescribeRejectedServiceCredentialsAsNoPatientAccount() throws Exception {
+    void shouldNotDescribeRejectedServiceCredentials_asNoPatientAccount() throws Exception {
         var security = mock(SecurityInfoManager.class);
         var portal = mock(PatientPortalService.class);
         var resolver = mock(PortalStaffContextResolver.class);

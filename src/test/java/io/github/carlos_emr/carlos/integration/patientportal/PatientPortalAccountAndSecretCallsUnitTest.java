@@ -612,6 +612,46 @@ class PatientPortalAccountAndSecretCallsUnitTest {
         }
 
         @Test
+        @DisplayName("should tell an absent portal account apart from a rejected identity")
+        void shouldKeepAccountAbsentDetail_whenPortalReportsNoAccount() {
+            assertThatThrownBy(
+                            () ->
+                                    service(new ScriptedExchange()
+                                                    .reply(
+                                                            404,
+                                                            "{\"detail\": \"portal account not found\"}"))
+                                            .findAccount(
+                                                    123,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_ACCOUNT_MANAGE)))
+                    .isInstanceOfSatisfying(
+                            PatientPortalException.class,
+                            exception -> {
+                                assertThat(exception.kind())
+                                        .isEqualTo(Kind.NOT_FOUND_OR_UNAUTHENTICATED);
+                                assertThat(exception.isAccountAbsent()).isTrue();
+                            });
+        }
+
+        @Test
+        @DisplayName("should keep a rejected identity ambiguous")
+        void shouldNotReportAccountAbsent_whenPortalRejectsTheIdentity() {
+            assertThatThrownBy(
+                            () ->
+                                    service(new ScriptedExchange()
+                                                    .reply(404, "{\"detail\": \"not found\"}"))
+                                            .findAccount(
+                                                    123,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_ACCOUNT_MANAGE)))
+                    .isInstanceOfSatisfying(
+                            PatientPortalException.class,
+                            exception -> assertThat(exception.isAccountAbsent()).isFalse());
+        }
+
+        @Test
         @DisplayName("should reject a success status carrying an empty body")
         void shouldMapMalformedResponse_whenSuccessBodyIsEmpty() {
             assertThatThrownBy(

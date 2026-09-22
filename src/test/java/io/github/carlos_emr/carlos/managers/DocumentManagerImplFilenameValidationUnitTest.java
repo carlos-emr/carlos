@@ -190,6 +190,7 @@ class DocumentManagerImplFilenameValidationUnitTest extends CarlosUnitTestBase {
 
     private DocumentManagerImpl newDocumentManager() {
         DocumentManagerImpl manager = new DocumentManagerImpl();
+        injectDependency(manager, "outboundEmailArchiveDao", mock(io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao.class));
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "documentDao", documentDao);
         injectDependency(manager, "ctlDocumentDao", ctlDocumentDao);

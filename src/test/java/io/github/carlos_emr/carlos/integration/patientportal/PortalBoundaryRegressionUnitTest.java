@@ -61,7 +61,7 @@ class PortalBoundaryRegressionUnitTest {
     }
 
     @Test
-    void shouldRedactMalformedJsonTokenFromExceptionChain() {
+    void shouldRedactMalformedJsonToken_fromExceptionChain() {
         Throwable failure = catchThrowable(() -> service("{\"secret\":SyntheticSecretToken123}")
                 .createUnlockSecret(123, "message-1", null, staff()));
         assertThat(failure).isInstanceOf(PatientPortalException.class);
@@ -71,21 +71,21 @@ class PortalBoundaryRegressionUnitTest {
     }
 
     @Test
-    void shouldRejectFractionalIdentifier() throws Exception {
+    void shouldRejectIdentifier_whenFractional() throws Exception {
         var value = mapper.readTree("{\"id\":1.9}");
         assertThatThrownBy(() -> PortalJson.requiredLong(value, "id"))
                 .isInstanceOf(PortalContractException.class);
     }
 
     @Test
-    void shouldRejectOverflowingIdentifier() throws Exception {
+    void shouldRejectIdentifier_whenOverflowing() throws Exception {
         var value = mapper.readTree("{\"id\":18446744073709551617}");
         assertThatThrownBy(() -> PortalJson.requiredInt(value, "id"))
                 .isInstanceOf(PortalContractException.class);
     }
 
     @Test
-    void shouldRejectMissingPassphrase() {
+    void shouldRejectSecret_whenPassphraseMissing() {
         assertThatThrownBy(() -> service("{\"id\":1,\"created\":true,\"status\":\"pending\"}")
                 .createUnlockSecret(123, "message-1", null, staff()))
                 .isInstanceOf(PatientPortalException.class);
@@ -93,7 +93,7 @@ class PortalBoundaryRegressionUnitTest {
 
     @ParameterizedTest
     @ValueSource(ints = {429, 503})
-    void shouldNotReplayMutationAfterTransientFailure(int failureStatus) throws Exception {
+    void shouldNotReplayMutation_afterTransientFailure(int failureStatus) throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicInteger calls = new AtomicInteger();
         server.createContext("/mutate", exchange -> {
@@ -115,7 +115,7 @@ class PortalBoundaryRegressionUnitTest {
     }
 
     @Test
-    void shouldAbortOversizedResponseWithoutDrainingItsTail() throws Exception {
+    void shouldAbortOversizedResponse_withoutDrainingItsTail() throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/large", exchange -> {
             exchange.sendResponseHeaders(200, 0);
@@ -151,20 +151,20 @@ class PortalBoundaryRegressionUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"null", "0", "true", "[]", "{}", "\"\"", "\"  \""})
-    void rejectsInvalidCredentialValues(String secret) {
+    void shouldRejectCredential_whenValueIsInvalid(String secret) {
         assertThatThrownBy(() -> service("{\"id\":1,\"created\":true,\"status\":\"pending\",\"secret\":" + secret + "}")
                 .createUnlockSecret(123, "message-1", null, staff()))
                 .isInstanceOf(PatientPortalException.class);
     }
 
     @Test
-    void rejectsTrailingContent() {
+    void shouldRejectBody_withTrailingContent() {
         assertThatThrownBy(() -> service("[] {} ").listInvites(123, staff()))
                 .isInstanceOf(PatientPortalException.class);
     }
 
     @Test
-    void withholdsArbitraryTextInErrorDetails() {
+    void shouldWithholdArbitraryText_fromErrorDetails() {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
                 PortalSecret.of("synthetic-service-token-0000000001"),
                 PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary", Duration.ofSeconds(1),
@@ -178,7 +178,7 @@ class PortalBoundaryRegressionUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"sha256/first", "sha256/%%%%", ",,", "sha256/AAAA"})
-    void rejectsInvalidPinConfiguration(String pins) {
+    void shouldRejectConfiguration_whenPinIsInvalid(String pins) {
         var values = java.util.Map.of(PatientPortalSettings.BASE_URL_KEY, "https://portal.example",
                 PatientPortalSettings.CLINIC_ID_KEY, "clinic",
                 PatientPortalSettings.SERVICE_TOKEN_KEY,
@@ -191,14 +191,14 @@ class PortalBoundaryRegressionUnitTest {
     }
 
     @Test
-    void distinguishesPartialConfigurationFromAbsentPortal() {
+    void shouldDistinguishPartialConfiguration_fromAbsentPortal() {
         assertThat(PatientPortalSettings.isConfigured(key -> null)).isFalse();
         assertThat(PatientPortalSettings.isConfigured(key ->
                 PatientPortalSettings.BASE_URL_KEY.equals(key) ? "https://portal.example" : null)).isTrue();
     }
 
     @Test
-    void rejectsMissingUnlockState() {
+    void shouldRejectUnlockResponse_whenStateMissing() {
         assertThatThrownBy(() -> service("{\"id\":1,\"force_password_reset\":true}")
                 .unlockAccount(123, staff())).isInstanceOf(PatientPortalException.class);
     }
@@ -213,7 +213,7 @@ class PortalBoundaryRegressionUnitTest {
     }
 
     @Test
-    void redactsMalformedHttpStatusFromTransportExceptionChain() throws Exception {
+    void shouldRedactMalformedHttpStatus_fromTransportExceptionChain() throws Exception {
         try (var server = new java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress());
                 var workers = java.util.concurrent.Executors.newSingleThreadExecutor();
                 var transport = new PatientPortalHttpClientExchange(Duration.ofSeconds(1), Duration.ofSeconds(1), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {

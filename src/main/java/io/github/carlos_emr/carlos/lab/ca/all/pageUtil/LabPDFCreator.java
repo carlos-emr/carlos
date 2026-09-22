@@ -188,8 +188,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
         }
 
         //Create the document we are going to write to
-        document = new Document();
-        PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
+        document = new Document(PageSize.LETTER);
+        PdfWriter writer = PdfWriterFactory.newInstanceWithWrappedFooter(document, os, FontSettings.HELVETICA_10PT);
 
         try {
             // Add this class's onEndPage handler to the factory-installed PdfPageEventForwarder
@@ -201,7 +201,6 @@ public class LabPDFCreator extends PdfPageEventHelper {
                 writer.setPageEvent(this);
             }
 
-            document.setPageSize(PageSize.LETTER);
             document.addTitle("CARLOS Laboratory Report");
             document.addCreator("CARLOS EMR");
             document.open();

@@ -39,6 +39,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -1248,6 +1249,78 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isEqualTo(0);
+        }
+    }
+
+    // ========================================================================
+    // findNextAppointmentDates
+    // ========================================================================
+
+    /**
+     * Tests for {@link OscarAppointmentDao#findNextAppointmentDates(java.util.Collection)}, the
+     * batched form the patient search uses instead of one
+     * {@link OscarAppointmentDao#findNextAppointment(Integer)} per result row. It must pick the
+     * same appointment the single-patient query picks.
+     */
+    @Nested
+    @DisplayName("findNextAppointmentDates")
+    @Tag("read")
+    @Tag("query")
+    class FindNextAppointmentDates {
+
+        @Test
+        @DisplayName("should return the earliest future date for each patient in one call")
+        void shouldReturnEarliestFutureDate_perPatient() {
+            // Given
+            createAndPersist(nextWeek, PROVIDER_NO, 2101, "t");
+            createAndPersist(tomorrow, PROVIDER_NO, 2101, "t");
+            createAndPersist(nextWeek, PROVIDER_NO, 2102, "t");
+
+            // When
+            Map<Integer, Date> result = oscarAppointmentDao.findNextAppointmentDates(List.of(2101, 2102));
+
+            // Then
+            assertThat(result).hasSize(2);
+            assertThat(result.get(2101)).isInSameDayAs(tomorrow);
+            assertThat(result.get(2102)).isInSameDayAs(nextWeek);
+        }
+
+        @Test
+        @DisplayName("should agree with the single-patient query")
+        void shouldReturnTheSameDate_asFindNextAppointment() {
+            // Given
+            createAndPersist(lastWeek, PROVIDER_NO, 2103, "t");
+            createAndPersist(nextWeek, PROVIDER_NO, 2103, "t");
+            createAndPersist(tomorrow, PROVIDER_NO, 2103, "C"); // cancelled - excluded by both
+
+            // When
+            Appointment single = oscarAppointmentDao.findNextAppointment(2103);
+            Map<Integer, Date> batched = oscarAppointmentDao.findNextAppointmentDates(List.of(2103));
+
+            // Then
+            assertThat(single).isNotNull();
+            assertThat(batched.get(2103)).isInSameDayAs(single.getAppointmentDate());
+        }
+
+        @Test
+        @DisplayName("should hold no entry for a patient with only past or cancelled appointments")
+        void shouldOmitPatient_whenNoFutureAppointmentExists() {
+            // Given
+            createAndPersist(lastWeek, PROVIDER_NO, 2104, "t");
+            createAndPersist(nextWeek, PROVIDER_NO, 2105, "C");
+
+            // When
+            Map<Integer, Date> result = oscarAppointmentDao.findNextAppointmentDates(List.of(2104, 2105, 2106));
+
+            // Then
+            assertThat(result).doesNotContainKeys(2104, 2105, 2106);
+        }
+
+        @Test
+        @DisplayName("should return an empty map for no patients")
+        void shouldReturnEmptyMap_forEmptyInput() {
+            assertThat(oscarAppointmentDao.findNextAppointmentDates(List.of())).isEmpty();
+            assertThat(oscarAppointmentDao.findNextAppointmentDates(null)).isEmpty();
         }
     }
 }

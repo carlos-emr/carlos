@@ -95,6 +95,22 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
         return entity;
     }
 
+    @Test
+    @DisplayName("should match literal percent, underscore and escape characters in fax searches")
+    void shouldMatchLiteralMetacharacters_whenSearchingFaxRecipients() {
+        createServiceSpecialist(3618, 36181);
+        createServiceSpecialist(3618, 36182);
+        ProfessionalSpecialist exact = entityManager.find(ProfessionalSpecialist.class, 36181);
+        exact.setLastName("Review!_% Clinic");
+        exact.setFaxNumber("6135550100");
+        ProfessionalSpecialist other = entityManager.find(ProfessionalSpecialist.class, 36182);
+        other.setLastName("Review!ABC Clinic");
+        other.setFaxNumber("6135550101");
+        entityManager.flush();
+        assertThat(dao.searchSpecialistsWithService("Review!_%", 20))
+                .extracting(row -> ((ProfessionalSpecialist) row[0]).getId()).containsExactly(36181);
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

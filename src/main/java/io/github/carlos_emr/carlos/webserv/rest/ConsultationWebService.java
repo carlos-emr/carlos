@@ -51,12 +51,16 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.apache.commons.lang3.StringUtils;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import java.util.Objects;
+import java.util.Set;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
@@ -124,6 +128,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
     ConsultationManager consultationManager;
 
     @Autowired
+    OutboundEmailArchiveDao outboundEmailArchiveDao;
+
+    @Autowired
     CaseManagementManager caseManagementManager;
 
     @Autowired
@@ -131,6 +138,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     private DocumentManager documentManager;
+
 
     @Autowired
     ProviderDao providerDao;
@@ -180,6 +188,16 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return rp;
     }
 
+    /**
+     * Loads a stored request for a positive ID, or initializes a new request for
+     * the supplied demographic for a nonpositive ID. Includes form choice lists.
+     *
+     * @param requestId existing request ID, or a nonpositive ID for a new request
+     * @param demographicId patient identifier used when initializing a new request
+     * @param datesAsTimestamp whether date values should serialize as timestamps
+     * @return the request details and form choices
+     * @throws WebApplicationException with HTTP 404 if a positive ID is not found
+     */
     @GET
     @Path("/getRequest")
     @Produces(MediaType.APPLICATION_JSON)
@@ -187,7 +205,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
 
         if (requestId > 0) {
-            request = requestConverter.getAsTransferObject(getLoggedInInfo(), consultationManager.getRequest(getLoggedInInfo(), requestId));
+            ConsultationRequest stored = getRequiredRequest(requestId);
+            request = requestConverter.getAsTransferObject(getLoggedInInfo(), stored);
             request.setAttachments(getRequestAttachments(requestId, request.getDemographicId(), ConsultationAttachmentTo1.ATTACHED));
         } else {
             request.setDemographicId(demographicId);
@@ -224,6 +243,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return request;
     }
 
+    private ConsultationRequest getRequiredRequest(Integer requestId) {
+        ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+        if (stored == null) {
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
+                    .entity("Consultation request not found").build());
+        }
+        return stored;
+    }
+
     @GET
     @Path("/getRequestAttachments")
     @Produces(MediaType.APPLICATION_JSON)
@@ -243,12 +271,20 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return attachments;
     }
 
+    /**
+     * Creates a consultation for a caller with {@code _con} write privilege.
+     *
+     * @param data consultation request to create; outbound archive eDoc attachments are refused
+     * @return the created consultation or a bad-request response for invalid input
+     * @throws SecurityException if write privilege is missing or an archive eDoc is attached
+     */
     @POST
     @Path("/createConsultation")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response createConsultation(ConsultationRequestTo1 data) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireConsultationPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
 
         if (data.getId() != null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Please use /updateConsultation service for existing consultations").build();
@@ -259,6 +295,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\", \"serviceId\", \"urgency\", \"status\"").build();
         }
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
         ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data);
 
@@ -275,12 +312,20 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return Response.ok().entity(data).build();
     }
 
+    /**
+     * Updates a consultation for a caller with {@code _con} update privilege.
+     *
+     * @param data consultation request to update; outbound archive eDoc attachments are refused
+     * @return the updated consultation or a bad-request response for invalid input
+     * @throws SecurityException if update privilege is missing or an archive eDoc is attached
+     */
     @POST
     @Path("/updateConsultation")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response updateConsultation(ConsultationRequestTo1 data) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireConsultationPrivilege(loggedInInfo, SecurityInfoManager.UPDATE);
 
         if (data.getId() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Please use /createConsultation service for new consultations").build();
@@ -291,16 +336,19 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\" \"serviceId\" \"urgency\" \"status\"").build();
         }
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
-        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, consultationManager.getRequest(loggedInInfo, data.getId()));
+        ConsultationRequest stored = consultationManager.getRequest(loggedInInfo, data.getId());
+        if (stored == null) {
+            return Response.status(Response.Status.NOT_FOUND).entity("Consultation request not found").build();
+        }
+        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, stored);
 
         request.setProfessionalSpecialist(data.getProfessionalSpecialist() == null ? null : consultationManager.getProfessionalSpecialist(data.getProfessionalSpecialist().getId()));
         consultationManager.saveConsultationRequest(loggedInInfo, request);
 
-        //save attachments
-        if (!data.getAttachments().isEmpty()) {
-            saveRequestAttachments(data);
-        }
+        // An empty submitted set detaches ordinary documents; null leaves attachments unchanged.
+        saveRequestAttachments(data);
 
         // Sets the extras, if any exist, to the data being returned so the user gets all up to date info
         if (!request.getExtras().isEmpty()) {
@@ -450,19 +498,32 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return attachments;
     }
 
+    /**
+     * Creates or updates a consultation response.
+     *
+     * @param data response to save; outbound archive eDoc attachments are refused
+     * @return the saved response
+     * @throws SecurityException if the caller lacks write privilege for a new response, update
+     *                           privilege for an existing response, or attaches an archive eDoc
+     */
     @POST
     @Path("/saveResponse")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public ConsultationResponseTo1 saveResponse(ConsultationResponseTo1 data) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireConsultationPrivilege(loggedInInfo,
+                data.getId() == null ? SecurityInfoManager.WRITE : SecurityInfoManager.UPDATE);
         ConsultationResponse response = null;
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
         if (data.getId() == null) { //new consultation response
-            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data);
+            response = responseConverter.getAsDomainObject(loggedInInfo, data);
         } else {
-            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data, consultationManager.getResponse(getLoggedInInfo(), data.getId()));
+            response = responseConverter.getAsDomainObject(
+                    loggedInInfo, data, consultationManager.getResponse(loggedInInfo, data.getId()));
         }
-        consultationManager.saveConsultationResponse(getLoggedInInfo(), response);
+        consultationManager.saveConsultationResponse(loggedInInfo, response);
         if (data.getId() == null) data.setId(response.getId());
 
         //save attachments
@@ -856,8 +917,21 @@ public class ConsultationWebService extends AbstractServiceImpl {
     }
 
     private void saveRequestAttachments(ConsultationRequestTo1 request) {
+        List<ConsultationAttachmentTo1> newAttachments = request.getAttachments();
+        List<ConsultDocs> currentDocs = consultationManager.getConsultRequestDocs(getLoggedInInfo(), request.getId());
+        if (newAttachments == null || currentDocs == null) return;
+
+        // Resolve preservation before creating any uploaded eDocs. If the archive lookup fails,
+        // the request aborts without leaving a newly-created but unattached document behind.
+        Set<Integer> preservedArchiveDocumentNos = findOutboundEmailArchiveDocumentNos(
+                currentDocs.stream()
+                        .filter(Objects::nonNull)
+                        .filter(doc -> ConsultDocs.DOCTYPE_DOC.equals(doc.getDocType()))
+                        .map(ConsultDocs::getDocumentNo)
+                        .toList());
+
         List<ConsultationAttachmentTo1> goodAttachments = new ArrayList<>();
-        for (ConsultationAttachmentTo1 attachment : request.getAttachments()) {
+        for (ConsultationAttachmentTo1 attachment : newAttachments) {
 
             if (attachment.getDocument() != null && attachment.getDocument().getId() == null) {
                 if (StringUtils.isNotEmpty(attachment.getDocument().getFileName()) && attachment.getDocument().getFileContents().length > 0) {
@@ -892,14 +966,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
         request.setAttachments(goodAttachments);
 
-        List<ConsultationAttachmentTo1> newAttachments = request.getAttachments();
-        List<ConsultDocs> currentDocs = consultationManager.getConsultRequestDocs(getLoggedInInfo(), request.getId());
-        if (newAttachments == null || currentDocs == null) return;
-
-        //first assume all current docs detached (set delete)
-        for (ConsultDocs doc : currentDocs) {
-            doc.setDeleted(ConsultDocs.DELETED);
-        }
+        newAttachments = request.getAttachments();
 
         List<String> uniqueAttachments = new ArrayList<>();
         //compare current & new, remove from current list the unchanged ones - no need to update them
@@ -927,7 +994,11 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultDocs doc : currentDocs) {
-            consultationManager.saveConsultRequestDoc(getLoggedInInfo(), doc);
+            if (!isPreservedArchiveDocument(doc.getDocType(), doc.getDocumentNo(), preservedArchiveDocumentNos)) {
+                // Only omitted attachments are dirty: unchanged managed entities must stay active.
+                doc.setDeleted(ConsultDocs.DELETED);
+                consultationManager.saveConsultRequestDoc(getLoggedInInfo(), doc);
+            }
         }
     }
 
@@ -936,10 +1007,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
         List<ConsultResponseDoc> currentDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
         if (newAttachments == null || currentDocs == null) return;
 
-        //first assume all current docs detached (set delete)
-        for (ConsultResponseDoc doc : currentDocs) {
-            doc.setDeleted(ConsultResponseDoc.DELETED);
-        }
+        Set<Integer> preservedArchiveDocumentNos = findOutboundEmailArchiveDocumentNos(
+                currentDocs.stream()
+                        .filter(Objects::nonNull)
+                        .filter(doc -> ConsultResponseDoc.DOCTYPE_DOC.equals(doc.getDocType()))
+                        .map(ConsultResponseDoc::getDocumentNo)
+                        .toList());
 
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
@@ -958,8 +1031,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
-            consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
+            if (!isPreservedArchiveDocument(doc.getDocType(), doc.getDocumentNo(), preservedArchiveDocumentNos)) {
+                // Only omitted attachments are dirty: unchanged managed entities must stay active.
+                doc.setDeleted(ConsultResponseDoc.DELETED);
+                consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
+            }
         }
+    }
+
+    private static boolean isPreservedArchiveDocument(String documentType, Integer documentNo,
+            Set<Integer> preservedDocumentNos) {
+        return ConsultDocs.DOCTYPE_DOC.equals(documentType) && preservedDocumentNos.contains(documentNo);
     }
 
     private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,
@@ -977,5 +1059,55 @@ public class ConsultationWebService extends AbstractServiceImpl {
             throwable = throwable.getCause();
         }
         return false;
+    }
+
+    private void requireConsultationPrivilege(LoggedInInfo loggedInInfo, String privilege) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", privilege, null)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+    }
+
+    /**
+     * Refuses an attempt to attach an outbound email archive eDoc to a consultation.
+     *
+     * <p>Consultation attachments are stored as links to eDocs, so an archive artifact can be
+     * named here like any other document. Attaching one puts a legal record of patient email into
+     * a referral package that is then faxed or printed to a third party, outside the access
+     * controls and audit trail the archive workflow enforces.</p>
+     *
+     * <p>Only {@code TYPE_DOC} attachments name an eDoc; other types cannot be archives and are
+     * filtered out before the query.</p>
+     */
+    private void assertNoOutboundEmailArchiveAttachments(List<ConsultationAttachmentTo1> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+        List<Integer> documentNos = attachments.stream()
+                .filter(Objects::nonNull)
+                .filter(attachment -> ConsultationAttachmentTo1.TYPE_DOC.equals(attachment.getDocumentType()))
+                .map(ConsultationAttachmentTo1::getDocumentNo)
+                .toList();
+        if (documentNos.isEmpty()) {
+            return;
+        }
+        if (!findOutboundEmailArchiveDocumentNos(documentNos).isEmpty()) {
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
+        }
+    }
+
+    /**
+     * Resolves archive-owned eDocs in one query, normalizing the DAO's legacy nullable contract.
+     *
+     * <p>Consultation attachment updates replace the relationship set. Archive eDocs are hidden
+     * from the ordinary attachment picker, so they are normally absent from the submitted set;
+     * preserving their existing relationship here prevents that omission from becoming a silent
+     * detach outside the controlled archive workflow.</p>
+     */
+    private Set<Integer> findOutboundEmailArchiveDocumentNos(List<Integer> documentNos) {
+        if (documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+        return archiveDocumentNos != null ? archiveDocumentNos : Set.of();
     }
 }

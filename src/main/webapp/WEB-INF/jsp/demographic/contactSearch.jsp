@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+Purpose: Search the contact directory and return a selection to the opener.
+Features: Paged search and punctuation-safe JSON handoff, with a legacy form fallback.
+Parameters: form, elementId and elementName identify opener fields; keyword,
+            search_mode, orderby and list select results; limit1/limit2 and submit
+            control paging and search submission.
+@since 2026.08 punctuation-safe selection handoff
+--%>
+
 <%@ page import="java.util.*,java.sql.*, java.net.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -117,8 +126,10 @@
             function serializePopupData(data1, data2) {
                 var id1 = '<carlos:encode value='<%= elementId %>' context="javaScriptBlock"/>';
                 var id2 = '<carlos:encode value='<%= elementName %>' context="javaScriptBlock"/>';
-                var data = '{"' + id1 + '":"' + data1 + '","' + id2 + '":"' + data2 + '"}';
-                opener.popUpData(data);
+                var data = {};
+                data[id1] = data1;
+                data[id2] = data2;
+                opener.popUpData(JSON.stringify(data));
                 self.close();
             }
 
@@ -178,7 +189,7 @@
             %>
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
-                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
+                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="htmlAttribute"/>">
                 <td></td>
                 <td>${carlos:forHtml(contact.lastName)}</td>
                 <td>${carlos:forHtml(contact.firstName)}</td>

@@ -31,11 +31,12 @@ import java.util.Locale;
  * status code. Three mappings matter and are easy to get wrong:
  *
  * <ul>
- *   <li>{@code 404} is <b>ambiguous by design</b>, and three-way. The portal fails closed on a bad
- *       service token, missing or invalid staff assertion, or a clinic mismatch, and returns the
- *       same {@code 404} it returns for an unknown record and for a patient who simply has no
- *       portal account yet. Staff-facing copy must preserve this ambiguity; a {@code 404} on every
- *       call can indicate a configuration problem.
+ *   <li>{@code 404} is <b>ambiguous by design</b>. The portal fails closed on a bad service token,
+ *       missing or invalid staff assertion, or a clinic mismatch, and returns the same {@code 404}
+ *       it returns for an unknown record. Staff-facing copy must preserve this ambiguity; a
+ *       {@code 404} on every call can indicate a configuration problem. The one exception is a
+ *       patient with no portal account yet: the portal says so only after authenticating the
+ *       caller, and {@link #isAccountAbsent()} reports it.
  *   <li>{@code 409} is a real business outcome, not a transport error. The patient already has an
  *       account, or a contact review moved on. Retrying is wrong; re-reading state and
  *       re-presenting it to the user is right.
@@ -69,13 +70,19 @@ public class PatientPortalException extends RuntimeException {
     private static final String MALFORMED_MESSAGE =
             "patient portal call to %s returned a body CARLOS could not read (HTTP %d)";
 
+    /** The portal's {@code 404} detail for an authenticated lookup of a patient with no account. */
+    public static final String ACCOUNT_NOT_FOUND_DETAIL = "portal account not found";
+
     /** Why the call failed, derived from the portal's documented status codes. */
     public enum Kind {
         /** {@code 400} — the request contradicted itself, e.g. a demographic scope mismatch. */
         BAD_REQUEST,
         /** {@code 403} — authenticated, but the provider lacks the portal permission. */
         PERMISSION_DENIED,
-        /** {@code 404} — unknown record, no portal account yet, or a rejected identity. */
+        /**
+         * {@code 404} — unknown record or a rejected identity. Also a patient with no portal
+         * account yet, which {@link #isAccountAbsent()} tells apart.
+         */
         NOT_FOUND_OR_UNAUTHENTICATED,
         /** {@code 409} — the requested state transition conflicts with current portal state. */
         CONFLICT,
@@ -179,6 +186,20 @@ public class PatientPortalException extends RuntimeException {
     /** @return an allowlisted contract detail, or null when absent or withheld */
     public String detail() {
         return detail;
+    }
+
+    /**
+     * Whether the portal confirmed that this patient has no portal account.
+     *
+     * <p>A portal {@code 404} is usually ambiguous, but this one is not: a rejected service
+     * identity answers {@code "not found"}, while an authenticated lookup for a patient who has
+     * not activated answers {@link #ACCOUNT_NOT_FOUND_DETAIL}. That is the normal state of every
+     * invited patient, so callers must not report it as a connection fault.
+     *
+     * @return true only for the portal's explicit no-account answer
+     */
+    public boolean isAccountAbsent() {
+        return kind == Kind.NOT_FOUND_OR_UNAUTHENTICATED && ACCOUNT_NOT_FOUND_DETAIL.equals(detail);
     }
 
     /**

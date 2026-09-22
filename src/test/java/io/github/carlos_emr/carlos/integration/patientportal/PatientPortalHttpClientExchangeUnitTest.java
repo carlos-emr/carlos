@@ -271,7 +271,7 @@ class PatientPortalHttpClientExchangeUnitTest {
         }
     }
     @Test
-    void acceptsResponseExactlyAtLimit() throws Exception {
+    void shouldAcceptResponse_whenExactlyAtLimit() throws Exception {
         String body = "x".repeat(PatientPortalHttpClientExchange.MAX_RESPONSE_CHARS);
         respond("/exact", 200, body);
         // This checks body size, not timing. Allow scheduling delays on a loaded build host.
