@@ -57,6 +57,51 @@ public interface OutboundEmailArchiveService {
     OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException;
 
     /**
+     * Advances an archive's send lifecycle to record what the transport actually did.
+     *
+     * <p>An archive is created before dispatch, so on its own it only proves the message was
+     * captured. Without these transitions every row stays at {@code ARCHIVED} forever, making an
+     * email that was accepted for delivery indistinguishable from one that was refused and one
+     * that was never dispatched at all — in a record kept under permanent legal hold.</p>
+     *
+     * <p>Callers treat this as best-effort bookkeeping: a failure here must never change the
+     * caller's send outcome, because the message may already be in the transport's custody. An
+     * outcome that could not be recorded leaves the row at its previous state, which is why
+     * neither {@code ARCHIVED} nor {@code SEND_ATTEMPTED} may be read as "delivery failed".</p>
+     *
+     * @param loggedInInfo current user context: authorizes the write and supplies the row's
+     *        {@code lastUpdateUser}. The transition itself is not audit-logged
+     * @param archiveId persisted archive identifier; null means archiving never produced a row,
+     *        so there is no lifecycle to advance and the call is a no-op
+     * @param outcome lifecycle transition to apply
+     * @return the updated archive, or {@code null} when {@code archiveId} is null. It is
+     *         detached once this call's transaction ends: read its scalar fields only, not its
+     *         lazy associations
+     * @throws IllegalArgumentException when no archive matches, the outcome is null, or the
+     *         caller carries no provider number
+     * @throws IllegalStateException when the archive has been deleted; a tombstone is frozen
+     * @throws SecurityException when the caller lacks {@code _edoc w} or access to the
+     *         archive's patient record
+     */
+    OutboundEmailArchive recordSendOutcome(LoggedInInfo loggedInInfo, Integer archiveId, SendOutcome outcome);
+
+    /**
+     * Send lifecycle transitions available to {@link #recordSendOutcome}.
+     *
+     * <p>Deliberately narrower than the status constants on the model: transports report that
+     * they tried, that custody was accepted, or that they failed. Nothing available to CARLOS
+     * at send time can report delivery to the recipient, so no such transition exists.</p>
+     */
+    enum SendOutcome {
+        /** Dispatch is starting; result not yet known. */
+        ATTEMPTED,
+        /** Transport accepted custody. Not proof of delivery. */
+        ACCEPTED,
+        /** Transport refused the artifact, or failed before taking it. */
+        FAILED
+    }
+
+    /**
      * Returns an archive's metadata for an authorized caller, refusing deleted archives.
      *
      * <p>Metadata only. The stored artifact is read through
