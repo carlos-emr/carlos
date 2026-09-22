@@ -29,11 +29,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import org.h2.tools.RunScript;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -45,8 +47,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * The seed is what every clinic gets on upgrade, so widening it (another role, or a grant on
  * {@code _admin.sms} beyond admin) is a privilege change that must be deliberate. The grants are
- * pinned by reading the file, and the guards by executing it against H2 in MySQL mode, because the
- * H2 test schema is built from the entity mappings and never runs the Flyway files.
+ * pinned by reading the file, and the guards by executing the file verbatim against H2 in MySQL mode,
+ * because the H2 test schema is built from the entity mappings and never runs the Flyway files.
  *
  * @since 2026-09-22
  */
@@ -73,6 +75,8 @@ class SmsSecurityObjectsMigrationUnitTest {
         String sql = migrationSql();
 
         assertThat(matches(OBJECT_ROW, sql, 1)).containsExactlyInAnyOrder("_sms", "_admin.sms");
+        assertThat(matches(OBJECT_ROW, sql, 2)).containsExactlyInAnyOrder(
+                "Send patient text messages and view SMS history", "Configure and manage SMS");
     }
 
     @Test
@@ -110,10 +114,9 @@ class SmsSecurityObjectsMigrationUnitTest {
         try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:sms_sec_fresh;MODE=MySQL");
              Statement statement = connection.createStatement()) {
             createSecurityTables(statement);
-            String migration = migrationSql();
 
-            statement.execute(migration);
-            statement.execute(migration);
+            applyMigration(connection);
+            applyMigration(connection);
 
             assertThat(rows(statement, "SELECT objectName FROM secObjectName ORDER BY objectName"))
                     .containsExactly("_admin.sms", "_sms");
@@ -134,7 +137,7 @@ class SmsSecurityObjectsMigrationUnitTest {
             statement.execute("INSERT INTO secObjPrivilege VALUES ('doctor', '_sms', 'r', 0, '999998')");
             statement.execute("INSERT INTO secObjPrivilege VALUES ('admin', '_sms', 'o', 0, '999998')");
 
-            statement.execute(migrationSql());
+            applyMigration(connection);
 
             assertThat(rows(statement,
                     "SELECT CONCAT(roleUserGroup, ' ', objectName, ' ', privilege) FROM secObjPrivilege "
@@ -152,7 +155,7 @@ class SmsSecurityObjectsMigrationUnitTest {
             statement.execute("INSERT INTO secObjectName VALUES ('_sms', 'clinic wording', 0)");
             statement.execute("INSERT INTO secObjectName VALUES ('_admin.sms', 'clinic wording', 0)");
 
-            statement.execute(migrationSql());
+            applyMigration(connection);
 
             assertThat(rows(statement, "SELECT description FROM secObjectName ORDER BY objectName"))
                     .containsExactly("clinic wording", "clinic wording");
@@ -174,7 +177,7 @@ class SmsSecurityObjectsMigrationUnitTest {
     }
 
     private static List<String> rows(Statement statement, String query) throws SQLException {
-        List<String> values = new java.util.ArrayList<>();
+        List<String> values = new ArrayList<>();
         try (var results = statement.executeQuery(query)) {
             while (results.next()) {
                 values.add(results.getString(1));
@@ -183,7 +186,19 @@ class SmsSecurityObjectsMigrationUnitTest {
         return values;
     }
 
+    /** Runs the file exactly as shipped, comments and all, through H2's own script parser. */
+    private static void applyMigration(Connection connection) throws IOException, SQLException {
+        try (var reader = Files.newBufferedReader(migrationPath(), StandardCharsets.UTF_8)) {
+            RunScript.execute(connection, reader);
+        }
+    }
+
+    /** The file with line comments stripped, for the pinning regexes only; never executed. */
     private static String migrationSql() throws IOException {
+        return Files.readString(migrationPath(), StandardCharsets.UTF_8).replaceAll("(?m)--.*$", "");
+    }
+
+    private static Path migrationPath() throws IOException {
         try (Stream<Path> files = Files.list(COMMON_MIGRATIONS)) {
             List<Path> candidates = files
                     .filter(p -> p.getFileName().toString().matches("V1\\.0\\.\\d+__add_sms_security_objects\\.sql"))
@@ -191,13 +206,13 @@ class SmsSecurityObjectsMigrationUnitTest {
             assertThat(candidates).as("exactly one SMS security objects migration").hasSize(1);
             // A renumber must be loud: the number was chosen to sit above every open claim at the time.
             assertThat(candidates.get(0).getFileName().toString()).startsWith("V1.0.31__");
-            return withoutComments(Files.readString(candidates.get(0), StandardCharsets.UTF_8));
+            return candidates.get(0);
         }
     }
 
     private static List<String> grants(String sql) {
         Matcher m = GRANT_ROW.matcher(sql);
-        List<String> rows = new java.util.ArrayList<>();
+        List<String> rows = new ArrayList<>();
         while (m.find()) {
             rows.add(m.group(1) + " " + m.group(2) + " " + m.group(3));
         }
@@ -206,14 +221,11 @@ class SmsSecurityObjectsMigrationUnitTest {
 
     private static List<String> matches(Pattern pattern, String sql, int group) {
         Matcher m = pattern.matcher(sql);
-        List<String> found = new java.util.ArrayList<>();
+        List<String> found = new ArrayList<>();
         while (m.find()) {
             found.add(m.group(group));
         }
         return found;
     }
 
-    private static String withoutComments(String sql) {
-        return sql.replaceAll("(?m)--.*$", "");
-    }
 }
