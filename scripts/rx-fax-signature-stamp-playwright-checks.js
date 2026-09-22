@@ -571,20 +571,20 @@ async function runChecks(context) {
     // by cleanupFixtures.
     const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 30000 });
     const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()), { timeout: 30000 });
-    await modalFrame.locator('#faxButton').click();
 
     let faxRequest = null;
     let faxBody = '';
     let faxStatus = 0;
     try {
-      // Await both together: awaited one after the other, a click that produces no round trip
-      // times both out at once and the second, still-unhandled rejection kills the process before
-      // the fixture cleanup runs.
+      // Observe both waiters and the click together. A disabled button can hold the
+      // click open until the waiters time out; leaving either rejection unhandled
+      // would terminate Node before the fixture cleanup runs.
       // Capture the request the moment its waiter resolves, so a fax whose response never comes
       // still records which script it posted.
       const [, faxResponse] = await Promise.all([
         faxRequestPromise.then((captured) => { faxRequest = captured; return captured; }),
         faxResponsePromise,
+        modalFrame.locator('#faxButton').click(),
       ]);
       faxStatus = faxResponse.status();
       faxBody = await faxResponse.text().catch(() => '');

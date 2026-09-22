@@ -99,11 +99,7 @@ public class PortalInvite2Action extends PortalJsonAction {
                 return notFound(response, "invite_not_verified",
                         "The selected invitation could not be verified for this patient. Refresh the panel.");
             }
-            PatientPortalInviteDto invite = portal.revokeInvite(inviteId, staff);
-            if (invite.id() != inviteId || invite.demographicNo() != patient) {
-                return portalFailure(response, PatientPortalException.ofMalformedResponse(200,
-                        "/internal/carlos/invites/{id}/revoke", null));
-            }
+            PatientPortalInviteDto invite = portal.revokeInvite(patient, inviteId, staff);
             ObjectNode payload = newPayload();
             payload.put("ok", true);
             payload.put("inviteId", invite.id());

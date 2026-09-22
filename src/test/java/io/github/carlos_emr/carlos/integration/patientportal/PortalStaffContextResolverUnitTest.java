@@ -238,7 +238,7 @@ class PortalStaffContextResolverUnitTest {
     }
 
     @Test
-    void patientScopeDoesNotInheritGlobalGrantOverScopedDenial() {
+    void shouldNotInheritGlobalGrant_overScopedDenial() {
         grant(PortalStaffContextResolver.OBJECT_INVITE);
         assertThatThrownBy(() -> resolver.resolveForPatient(loggedInInfo,
                 Set.of(PortalStaffContextResolver.OBJECT_INVITE), 123))
@@ -246,7 +246,7 @@ class PortalStaffContextResolverUnitTest {
     }
 
     @Test
-    void patientScopeUsesOnlyPermissionsGrantedForThatPatient() {
+    void shouldUseOnlyPermissions_grantedForThatPatient() {
         grant(PortalStaffContextResolver.OBJECT_SECRET);
         when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_INVITE),
                 eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);

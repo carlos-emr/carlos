@@ -57,6 +57,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
     void setUp() throws Exception {
         createAndRegisterMock(SecurityInfoManager.class);
         createAndRegisterMock(JavaMailSender.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
         originalKey = EncryptionKeyTestSupport.seedFreshKey();
     }
 

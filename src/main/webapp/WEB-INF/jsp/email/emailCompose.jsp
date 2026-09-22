@@ -657,12 +657,26 @@
                                                  aria-labelledby="emailAttachmentHeader${loop.count}"
                                                  data-bs-parent="#emailAttachmentList">
                                                 <div class="accordion-body">
-                                                    <object id="emailAttachmentPDF${loop.count}"
-                                                            data="${carlos:forHtmlAttribute(ctx)}/previewDocs?method=renderPDF&amp;previewToken=${carlos:forHtmlAttribute(carlos:forUriComponent(emailAttachment.previewToken))}"
-                                                            type="application/pdf" width="100%" height="500">
-                                                        <%-- Accessible fallback shown when the browser cannot render the inline PDF preview. --%>
-                                                        <p class="text-muted mb-0">${carlos:forHtml(emailAttachment.fileName)}</p>
-                                                    </object>
+                                                    <%-- iframe, not <object>: the packaged CSP sets object-src 'none',
+                                                         which silently blanks an <object>-based PDF preview. --%>
+                                                    <%-- The title carries the filename: this loop renders one frame per
+                                                         attachment, and a shared title makes them indistinguishable in a
+                                                         screen reader's frame list. --%>
+                                                    <iframe id="emailAttachmentPDF${loop.count}"
+                                                            title="Attachment preview: ${carlos:forHtmlAttribute(emailAttachment.fileName)}"
+                                                            src="${carlos:forHtmlAttribute(ctx)}/previewDocs?method=renderPDF&amp;previewToken=${carlos:forHtmlAttribute(carlos:forUriComponent(emailAttachment.previewToken))}"
+                                                            style="width: 100%; height: 500px; border: 0;"></iframe>
+                                                    <%-- Outside the iframe on purpose. Unlike <object>, which this preview
+                                                         used to be, an iframe's child markup is ignored by every browser
+                                                         that supports iframes — so a fallback nested inside it can never
+                                                         be reached. A sibling link to the same URL is reachable whether
+                                                         or not the inline PDF renders. --%>
+                                                    <p class="text-muted mb-0 mt-1">
+                                                        <a href="${carlos:forHtmlAttribute(ctx)}/previewDocs?method=renderPDF&amp;previewToken=${carlos:forHtmlAttribute(carlos:forUriComponent(emailAttachment.previewToken))}"
+                                                           target="_blank" rel="noopener">
+                                                            ${carlos:forHtml(emailAttachment.fileName)}
+                                                        </a>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>

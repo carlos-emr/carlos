@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -285,7 +285,7 @@ public class DemographicEdit2Action extends ActionSupport {
             nurse = StringUtils.defaultString(demographicCust.getNurse());
             alert = StringUtils.defaultString(demographicCust.getAlert());
             midwife = StringUtils.defaultString(demographicCust.getMidwife());
-            notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
+            notes = DemographicXml.userNotesText(demographicCust.getNotes());
             notes = notes == null ? "" : notes;
         }
 
@@ -294,11 +294,11 @@ public class DemographicEdit2Action extends ActionSupport {
         if (demographic != null) {
             String fd = demographic.getFamilyDoctor();
             if (fd != null) {
-                rd = SxmlMisc.getXmlContent(StringUtils.trimToEmpty(fd), "rd");
+                rd = DemographicXml.referralDoctor(StringUtils.trimToEmpty(fd));
                 rd = (rd != null && !"null".equals(rd)) ? rd : "";
-                rdohip = SxmlMisc.getXmlContent(StringUtils.trimToEmpty(fd), "rdohip");
+                rdohip = DemographicXml.referralDoctorOhip(StringUtils.trimToEmpty(fd));
                 rdohip = (rdohip != null && !"null".equals(rdohip)) ? rdohip : "";
-                family_doc = SxmlMisc.getXmlContent(StringUtils.trimToEmpty(fd), "family_doc");
+                family_doc = DemographicXml.familyDoc(StringUtils.trimToEmpty(fd));
                 family_doc = family_doc != null ? family_doc : "";
             }
         }

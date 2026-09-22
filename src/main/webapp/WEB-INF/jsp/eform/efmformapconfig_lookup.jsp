@@ -18,6 +18,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.DatabaseAP" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormLoader" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.ApCacheLookupParameterResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
@@ -36,9 +37,11 @@
         return;
     }
 
-    // Validate fid: must be digits to prevent NumberFormatException in EForm constructor
-    String fid = request.getParameter("fid");
-    if (fid == null || !fid.matches("\\d+")) {
+    // Validate fid: must be digits to prevent NumberFormatException in EForm constructor.
+    // Accepts fid (the add/edit viewer's query string) or efmfid (the save result view's
+    // form-action query string, which APCache.js forwards verbatim); see the resolver.
+    String fid = ApCacheLookupParameterResolver.resolveFid(request);
+    if (fid == null) {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid fid");
         return;
     }
@@ -50,7 +53,7 @@
     EFormLoader loader = EFormLoader.getInstance();
     DatabaseAP ap;
     String provider_no = (String) session.getAttribute("user");
-    String demographic_no = request.getParameter("demographic_no");
+    String demographic_no = ApCacheLookupParameterResolver.resolveDemographicNo(request);
     // Load the eForm by its actual fid (from the URL parameter) to get the correct
     // AP configuration. Previously hardcoded to "1" which broke when the RTL eForm
     // had any other fid (e.g., after database re-seeding).

@@ -89,7 +89,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FaxConfigDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicContactDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
@@ -354,7 +353,6 @@
         // A null demo varialbe means that this iteration is a postback. This script need not be run on postback.
         if (demo != null && "true".equals(props.getProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"))) {
 
-            ContactSpecialtyDao contactSpecialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
             List<DemographicContact> demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, Integer.parseInt(demo));
             HashSet<ConsultationServices> consultationServices = new HashSet<ConsultationServices>();
             List<DemographicContact> healthCareTeam = new ArrayList<DemographicContact>();
@@ -392,21 +390,9 @@
             } else if (currentSpecialistIdInt < 0) {
 
                 // this ProfessionalSpecialist needs to have a DemographicContact created.
-                String service = consultUtil.getService();
-
-                ContactSpecialty contactSpecialty = contactSpecialtyDao.findBySpecialty(service);
-
-                if (contactSpecialty == null) {
-                    contactSpecialty = contactSpecialtyDao.findBySpecialty("other");
-                }
-
-                service = contactSpecialty.getId() + "";
-
-                if (service == null) {
-                    service = "";
-                }
-
-                DemographicContact demographicContact = addDemographicContact(loggedInInfo, demo, (currentSpecialistIdInt * -1), service);
+                String role = consultUtil.getHealthCareTeamRole();
+                DemographicContact demographicContact = addDemographicContact(
+                        loggedInInfo, demo, (currentSpecialistIdInt * -1), role);
 
                 demographicContactDao.persist(demographicContact);
                 demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, Integer.parseInt(demo));
@@ -3404,7 +3390,8 @@ if (userAgent != null) {
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
 
-                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null) {
+                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null
+                                        && healthCareTeam[specialist]) {
                                     document.EctConsultationFormRequest2Form.annotation.value = healthCareTeam[specialist].note;
                                     document.EctConsultationFormRequest2Form.phone.value = healthCareTeam[specialist].phoneNum;
                                     document.EctConsultationFormRequest2Form.fax.value = healthCareTeam[specialist].specFax;

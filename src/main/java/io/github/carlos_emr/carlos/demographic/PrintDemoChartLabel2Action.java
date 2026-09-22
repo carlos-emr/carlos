@@ -29,12 +29,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -46,13 +43,11 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarDocumentCreator;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -87,7 +82,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO
  * @see io.github.carlos_emr.carlos.managers.ProgramManager2
  * @see io.github.carlos_emr.carlos.managers.SecurityInfoManager
- * @see io.github.carlos_emr.OscarDocumentCreator
+ * @see DemographicLabelPdf
  * @since 2026-01-24
  */
 public class PrintDemoChartLabel2Action extends ActionSupport {
@@ -114,7 +109,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      *   <li>Determines which label template to use (ChartLabel or SexualHealthClinicLabel)</li>
      *   <li>Loads the label template XML from user home directory or classpath</li>
      *   <li>Gathers demographic and program context parameters</li>
-     *   <li>Generates PDF using JasperReports via OscarDocumentCreator</li>
+     *   <li>Generates PDF using JasperReports</li>
      *   <li>Streams PDF to response with optional JavaScript for automatic printing</li>
      * </ol>
      *
@@ -127,7 +122,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      * User Properties Consulted:
      * <ul>
      *   <li>DEFAULT_PRINTER_PDF_CHART_LABEL - Configured printer name for automatic printing</li>
-     *   <li>DEFAULT_PRINTER_PDF_LABEL_SILENT_PRINT - Whether to print silently without dialog ("yes"/"no")</li>
+     *   <li>DEFAULT_PRINTER_PDF_CHART_LABEL_SILENT_PRINT - Whether to print silently without dialog ("yes"/"no")</li>
      * </ul>
      *
      * Template Resolution:
@@ -145,11 +140,14 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        String demographicNo = DemographicLabelAccess.authorizeRead(loggedInInfo,
+                request.getParameter("demographic_no"), response, securityInfoManager);
+        if (demographicNo == null) {
+            return NONE;
         }
 
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -157,24 +155,19 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
         String defaultPrinterName = "";
-        Boolean silentPrint = false;
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_CHART_LABEL);
         if (prop != null) {
             defaultPrinterName = prop.getValue();
         }
-        prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_LABEL_SILENT_PRINT);
-        if (prop != null) {
-            if (prop.getValue().equalsIgnoreCase("yes")) {
-                silentPrint = true;
-            }
-        }
+        prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_CHART_LABEL_SILENT_PRINT);
+        boolean silentPrint = prop != null && "yes".equalsIgnoreCase(prop.getValue());
         String exportPdfJavascript = null;
 
         if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
             exportPdfJavascript = "var params = this.getPrintParams();"
                     + "params.pageHandling=params.constants.handling.none;"
-                    + "params.printerName='" + defaultPrinterName + "';";
-            if (silentPrint == true) {
+                    + "params.printerName='" + io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(defaultPrinterName) + "';";
+            if (silentPrint) {
                 exportPdfJavascript += "params.interactive=params.constants.interactionLevel.silent;";
             }
             exportPdfJavascript += "this.print(params);";
@@ -191,19 +184,13 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
 
         if (labelFile == null) {
             logger.warn("requested invalid label : {}", LogSafe.sanitize(request.getParameter("labelName"))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            // Mapping in struts-demographic.xml has no <result name="success">; return NONE
-            // to suppress result resolution rather than raising ConfigurationException.
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown label template");
             return NONE;
         }
 
-        //patient
-        String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
-        if (classpath == null)
-            classpath = (String) request.getSession().getServletContext().getAttribute("com.ibm.websphere.servlet.application.classpath");
-        System.setProperty("jasper.reports.compile.class.path", classpath);
 
-        HashMap<String, String> parameters = new HashMap<String, String>();
-        parameters.put("demo", request.getParameter("demographic_no"));
+        HashMap<String, Object> parameters = new HashMap<>();
+        parameters.put("demo", demographicNo);
 
         ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
@@ -216,85 +203,19 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
             }
         }
 
-        ServletOutputStream sos = null;
         InputStream ins = null;
 
         try {
-            try {
-                ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + File.separator + labelFile)));
-            } catch (FileNotFoundException ex1) {
-                logger.warn(labelFile + " not found in user's home directory. Using default instead (classpath)", ex1);
-            }
-
-            if (ins == null) {
-                try {
-                    ins = getClass().getResourceAsStream("/oscar/oscarDemographic/" + labelFile);
-                    logger.debug("loading from : /oscar/oscarDemographic/" + labelFile);
-                } catch (Exception ex1) {
-                    MiscUtils.getLogger().error("Error", ex1);
-                }
-            }
-
-            try {
-                sos = response.getOutputStream();
-            } catch (IOException ex) {
-                MiscUtils.getLogger().error("Error", ex);
-            }
-
-            response.setHeader("Content-disposition", getHeader(response).toString());
-            OscarDocumentCreator osc = new OscarDocumentCreator();
-
-            try (Connection connection = LegacyJdbcQuery.getConnection()) {
-                osc.fillDocumentStream(parameters, sos, "pdf", ins, connection, exportPdfJavascript);
-            }
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            if (ins != null) {
-                try {
-                    ins.close();
-                } catch (IOException e) {
-                    MiscUtils.getLogger().error("Error", e);
-                }
-            }
+            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + File.separator + labelFile)));
+        } catch (FileNotFoundException | SecurityException ex) {
+            logger.debug("Chart label override absent; using bundled template");
+        }
+        if (ins == null) {
+            ins = getClass().getResourceAsStream("/oscar/oscarDemographic/" + labelFile);
         }
 
-        // Action writes PDF bytes directly to response.getOutputStream() above, so return
-        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
-        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
-        // and the global exception result would render errorpage.jsp on top of the PDF bytes
-        // already written to the response (visible as a stray "0" from errorData.statusCode).
+        DemographicLabelPdf.write(response, parameters, ins, exportPdfJavascript);
         return NONE;
     }
 
-    /**
-     * Constructs HTTP response headers for PDF download with inline display disposition.
-     *
-     * This method configures the HTTP response to display the PDF inline in the browser
-     * rather than forcing a download. It sets appropriate cache control headers to prevent
-     * caching of the generated label document.
-     *
-     * Headers Set:
-     * <ul>
-     *   <li>Cache-Control: max-age=0 - Prevents browser caching</li>
-     *   <li>Expires: 0 - Sets expiration to epoch time</li>
-     *   <li>Content-Type: application/pdf - Identifies response as PDF document</li>
-     *   <li>Content-Disposition: inline; filename=label_.pdf - Displays inline with default filename</li>
-     * </ul>
-     *
-     * @param response HttpServletResponse the servlet response to configure headers on
-     * @return StringBuilder containing the Content-Disposition header value in format "inline; filename=label_.pdf"
-     */
-    private StringBuilder getHeader(HttpServletResponse response) {
-        StringBuilder strHeader = new StringBuilder();
-        strHeader.append("label_");
-        strHeader.append(".pdf");
-        response.setHeader("Cache-Control", "max-age=0");
-        response.setDateHeader("Expires", 0);
-        response.setContentType("application/pdf");
-        StringBuilder sbContentDispValue = new StringBuilder();
-        sbContentDispValue.append("inline; filename="); //inline - display
-        sbContentDispValue.append(strHeader);
-        return sbContentDispValue;
-    }
 }

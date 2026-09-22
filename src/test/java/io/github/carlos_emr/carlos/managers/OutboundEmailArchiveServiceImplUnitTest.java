@@ -60,6 +60,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
@@ -72,6 +73,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -84,6 +86,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     private static final String PROVIDER_NO = "999998";
     private static final byte[] RFC822_BYTES = "Subject: Test\r\n\r\nBody".getBytes(StandardCharsets.UTF_8);
 
+    private OutboundEmailArchiveReadAuditService readAuditService;
     private DocumentManager documentManager;
     private EmailLogDao emailLogDao;
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
@@ -96,6 +99,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        readAuditService = mock(OutboundEmailArchiveReadAuditService.class);
         documentManager = mock(DocumentManager.class);
         emailLogDao = mock(EmailLogDao.class);
         outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
@@ -104,7 +108,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         ctlDocumentDao = mock(CtlDocumentDao.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
-        service = new OutboundEmailArchiveServiceImpl(documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager);
+        service = new OutboundEmailArchiveServiceImpl(documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager, readAuditService);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         allowControlledDeletion();
@@ -1129,6 +1133,251 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         OutboundEmailArchive archive = archiveUnderLegalHold();
         archive.releaseLegalHold(PROVIDER_NO);
         return archive;
+    }
+
+    // --- read API ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("should authorize the caller before loading the archive row")
+    void shouldAuthorizeCaller_beforeLoadingTheArchiveRow() {
+        // The ordering property, pinned deliberately. Loading first and authorizing from the
+        // loaded row would still reject, but it would hydrate a row -- and on the artifact path
+        // take its lock -- for a caller with no right to the patient. The scalar demographic
+        // read exists so the gate runs before either.
+        when(outboundEmailArchiveDao.findDemographicNoById(888)).thenReturn(123);
+        allowArchiveRead();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getActiveArchive(loggedInInfo, 888))
+                .isInstanceOf(SecurityException.class);
+
+        verify(outboundEmailArchiveDao, never()).findForRead(anyInt());
+        verify(outboundEmailArchiveDao, never()).findForUpdate(anyInt());
+    }
+
+    @Test
+    @DisplayName("should reject archive metadata read without eDoc read authority")
+    void shouldRejectArchiveRead_withoutEdocReadAuthority() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getActiveArchive(loggedInInfo, 888))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_edoc)");
+
+        verify(outboundEmailArchiveDao, never()).findForRead(anyInt());
+        verify(outboundEmailArchiveDao, never()).findDemographicNoById(anyInt());
+    }
+
+    @Test
+    @DisplayName("should return archive metadata for an authorized caller")
+    void shouldReturnArchiveMetadata_forAuthorizedCaller() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveRead(archive);
+
+        assertThat(service.getActiveArchive(loggedInInfo, 888)).isSameAs(archive);
+        // Metadata reads take no lock; only artifact reads do.
+        verify(outboundEmailArchiveDao, never()).findForUpdate(anyInt());
+    }
+
+    @Test
+    @DisplayName("should reject archive metadata read when the archive is deleted")
+    void shouldRejectArchiveRead_whenArchiveIsDeleted() {
+        OutboundEmailArchive archive = archiveForDeletion();
+        archive.markDeleted(PROVIDER_NO, "duplicate send");
+        stubArchiveRead(archive);
+
+        assertThatThrownBy(() -> service.getActiveArchive(loggedInInfo, 888))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("should read the archived artifact under lock when size and hash match")
+    void shouldReadArchivedArtifact_whenSizeAndHashMatch(@TempDir Path documentDir) throws Exception {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveArtifactRead(archive);
+        Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), RFC822_BYTES);
+
+        withDocumentDir(documentDir, () -> {
+            assertThat(service.readArchivedArtifact(loggedInInfo, 888)).isEqualTo(RFC822_BYTES);
+            // Locked, so a controlled deletion cannot remove the file mid-read.
+            verify(outboundEmailArchiveDao).findForUpdate(888);
+        });
+    }
+
+    @Test
+    @DisplayName("should refuse the artifact when stored bytes no longer match the recorded hash")
+    void shouldRefuseArtifact_whenStoredBytesDoNotMatchRecordedHash(@TempDir Path documentDir) throws Exception {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveArtifactRead(archive);
+        // Same length, different content: only the hash can catch this, which is the point of
+        // recording one. A size check alone would hand back tampered PHI.
+        byte[] tampered = new byte[RFC822_BYTES.length];
+        System.arraycopy(RFC822_BYTES, 0, tampered, 0, RFC822_BYTES.length);
+        tampered[0] = (byte) (tampered[0] ^ 0xFF);
+        Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), tampered);
+
+        withDocumentDir(documentDir, () ->
+                assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                        .isInstanceOf(IOException.class)
+                        .hasMessage("Archived artifact hash does not match archive metadata"));
+
+        verifyIntegrityFailureAudit();
+    }
+
+    @Test
+    @DisplayName("should refuse the artifact when stored size does not match archive metadata")
+    void shouldRefuseArtifact_whenStoredSizeDoesNotMatchMetadata(@TempDir Path documentDir) throws Exception {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveArtifactRead(archive);
+        Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), "truncated".getBytes(StandardCharsets.UTF_8));
+
+        withDocumentDir(documentDir, () ->
+                assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                        .isInstanceOf(IOException.class)
+                        .hasMessage("Archived artifact size does not match archive metadata"));
+
+        verifyIntegrityFailureAudit();
+    }
+
+    private void verifyIntegrityFailureAudit() {
+        verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
+    }
+
+    @Test
+    @DisplayName("should refuse the artifact when it exceeds the maximum read size")
+    void shouldRefuseArtifact_whenItExceedsMaximumReadSize(@TempDir Path documentDir) throws Exception {
+        OutboundEmailArchiveServiceImpl boundedService = new OutboundEmailArchiveServiceImpl(
+                documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao,
+                outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager, readAuditService, 4L);
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveArtifactRead(archive);
+        Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), RFC822_BYTES);
+
+        withDocumentDir(documentDir, () ->
+                assertThatThrownBy(() -> boundedService.readArchivedArtifact(loggedInInfo, 888))
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining("exceeds maximum read size"));
+        verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.READ_FAILURE);
+        verify(readAuditService, never()).recordAccess(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
+    }
+
+    @Test
+    @DisplayName("should reject read limits that cannot be represented by the byte buffer")
+    void shouldRejectReadLimits_thatCannotBeRepresentedByByteBuffer() {
+        assertThatThrownBy(() -> new OutboundEmailArchiveServiceImpl(
+                documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao,
+                outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager, readAuditService,
+                (long) Integer.MAX_VALUE + 1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Maximum archived artifact read size");
+    }
+
+    @Test
+    @DisplayName("should refuse the artifact when the stored file is missing")
+    void shouldRefuseArtifact_whenStoredFileIsMissing(@TempDir Path documentDir) throws Exception {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveArtifactRead(archive);
+
+        withDocumentDir(documentDir, () ->
+                assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                        .isInstanceOf(IOException.class));
+        verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.READ_FAILURE);
+        verify(readAuditService, never()).recordAccess(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
+    }
+
+    @Test
+    void shouldRefuseBytes_whenReadAuditCannotBePersisted(@TempDir Path documentDir) throws Exception {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveArtifactRead(archive);
+        Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), RFC822_BYTES);
+        doThrow(new IllegalStateException("audit unavailable")).when(readAuditService).recordAccess(
+                loggedInInfo, 888, 321, 123, OutboundEmailArchiveReadAuditService.Event.ARTIFACT_READ);
+        withDocumentDir(documentDir, () -> assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                .isInstanceOf(IllegalStateException.class).hasMessage("audit unavailable"));
+    }
+
+    @Test
+    void shouldExposeAuditFailure_whenIntegrityAuditCannotBePersisted(@TempDir Path documentDir) throws Exception {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveArtifactRead(archive);
+        Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), new byte[] {1});
+        IllegalStateException auditFailure = new IllegalStateException("audit unavailable");
+        doThrow(auditFailure).when(readAuditService).recordAccess(
+                loggedInInfo, 888, 321, 123, OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
+        withDocumentDir(documentDir, () -> assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                .isInstanceOf(IOException.class).satisfies(error ->
+                        assertThat(error.getSuppressed()).containsExactly(auditFailure)));
+    }
+
+    @Test
+    void shouldAuditMetadata_beforeReturningArchive() {
+        stubArchiveRead(archiveUnderLegalHold());
+        service.getActiveArchive(loggedInInfo, 888);
+        verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.METADATA_READ);
+    }
+
+    @Test
+    void shouldRejectArtifactRead_beforeLockingUnauthorizedPatient() {
+        stubArchiveArtifactRead(archiveUnderLegalHold());
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+        assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                .isInstanceOf(SecurityException.class);
+        verify(outboundEmailArchiveDao, never()).findForUpdate(anyInt());
+        verifyNoInteractions(readAuditService);
+    }
+
+    @Test
+    void shouldRejectGrowingFile_afterReadingExpectedBytes(@TempDir Path documentDir) throws Exception {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveArtifactRead(archive);
+        Path path = documentDir.resolve(archive.getDocument().getDocfilename());
+        Files.write(path, RFC822_BYTES);
+        java.nio.channels.FileChannel channel = mock(java.nio.channels.FileChannel.class);
+        when(channel.size()).thenReturn((long) RFC822_BYTES.length);
+        java.util.concurrent.atomic.AtomicInteger reads = new java.util.concurrent.atomic.AtomicInteger();
+        when(channel.read(any(java.nio.ByteBuffer.class))).thenAnswer(invocation -> {
+            java.nio.ByteBuffer buffer = invocation.getArgument(0);
+            if (reads.getAndIncrement() == 0) {
+                buffer.put(RFC822_BYTES);
+                return RFC822_BYTES.length;
+            }
+            buffer.put((byte) 1);
+            return 1;
+        });
+        try (var channels = org.mockito.Mockito.mockStatic(java.nio.channels.FileChannel.class)) {
+            channels.when(() -> java.nio.channels.FileChannel.open(path,
+                    java.nio.file.StandardOpenOption.READ, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                    .thenReturn(channel);
+            withDocumentDir(documentDir, () -> assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                    .isInstanceOf(IOException.class).hasMessage("Archived artifact size changed while reading"));
+        }
+        verifyIntegrityFailureAudit();
+        verify(readAuditService, never()).recordAccess(loggedInInfo, 888, 321, 123,
+                OutboundEmailArchiveReadAuditService.Event.ARTIFACT_READ);
+    }
+
+    private void allowArchiveRead() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)).thenReturn(true);
+    }
+
+    /** Stubs the demographic gate and the unlocked row read used by metadata reads. */
+    private void stubArchiveRead(OutboundEmailArchive archive) {
+        allowArchiveRead();
+        when(outboundEmailArchiveDao.findDemographicNoById(888)).thenReturn(123);
+        when(outboundEmailArchiveDao.findForRead(888)).thenReturn(archive);
+    }
+
+    /** Stubs the demographic gate and the locked row read used by artifact reads. */
+    private void stubArchiveArtifactRead(OutboundEmailArchive archive) {
+        allowArchiveRead();
+        when(outboundEmailArchiveDao.findDemographicNoById(888)).thenReturn(123);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
     }
 
     private String sha256Hex(byte[] input) {

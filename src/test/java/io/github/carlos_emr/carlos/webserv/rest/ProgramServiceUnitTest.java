@@ -38,7 +38,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Date;
 
@@ -71,7 +70,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ProgramTo1;
  * <p>Verifies the {@code _pmm_management} read privilege check added to the
  * program JAX-RS endpoints (issue #2798). Uses a testable subclass that
  * overrides {@code getLoggedInInfo()} to bypass the CXF HTTP request context,
- * with dependencies injected via reflection.</p>
+ * with constructor-injected dependencies.</p>
  *
  * @since 2026-06-29
  * @see ProgramService
@@ -97,26 +96,16 @@ class ProgramServiceUnitTest extends CarlosUnitTestBase {
     private ProgramService service;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         loggedInInfo.setIp("127.0.0.1");
 
-        service = new ProgramService() {
+        service = new ProgramService(mockProgramManager, mockAdmissionManager, mockSecurityInfoManager) {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;
             }
         };
-
-        inject("programManager", mockProgramManager);
-        inject("admissionManager", mockAdmissionManager);
-        inject("securityInfoManager", mockSecurityInfoManager);
-    }
-
-    private void inject(String fieldName, Object value) throws Exception {
-        Field field = ProgramService.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(service, value);
     }
 
     /**

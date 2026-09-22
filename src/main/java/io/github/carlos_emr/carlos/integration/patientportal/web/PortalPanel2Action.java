@@ -58,6 +58,9 @@ import org.apache.struts2.ServletActionContext;
  * invitations", and reporting that to someone merely lacking the privilege would be a lie the UI
  * would faithfully display.
  *
+ * <p>An explicit {@code "account": null} is different again: the portal confirmed that the patient
+ * has no portal account, which is the normal state before activation and leaves {@code ok} true.
+ *
  * <p>Absence is therefore overloaded, and a caller has to read the error markers to disambiguate: a
  * section is also dropped when the portal read failed, in which case {@code invitesError} and
  * {@code invitesErrorKind} (or the account equivalents) are present alongside. Treating a missing
@@ -211,7 +214,11 @@ public class PortalPanel2Action extends PortalJsonAction {
         }
     }
 
-    /** A 404 cannot distinguish an absent account from rejected service credentials. */
+    /**
+     * Adds the account, or an explicit {@code "account": null} when the portal confirms the patient
+     * has none. That is a complete answer, not a failed read: it is the state of every patient who
+     * has not activated yet. Any other 404 stays ambiguous and is reported as unavailable.
+     */
     private boolean addAccount(
             PatientPortalService portal, ObjectNode payload, int demographicNo,
             PatientPortalStaffContext staff) {
@@ -229,6 +236,10 @@ public class PortalPanel2Action extends PortalJsonAction {
             node.put("disabledReason", account.disabledReason());
             return true;
         } catch (PatientPortalException exception) {
+            if (exception.isAccountAbsent()) {
+                payload.putNull("account");
+                return true;
+            }
             payload.put("accountError", SECTION_UNAVAILABLE);
             payload.put("accountErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
             logger.log(

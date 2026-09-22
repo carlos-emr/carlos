@@ -29,32 +29,20 @@ class AppointmentJspRoutingUnitTest {
             "function\\s+popupFocusPage\\s*\\([^)]*\\)\\s*\\{[\\s\\S]*?return\\s+popup;\\s*}");
 
     @Test
-    void shouldRouteLiveAppointmentCallers_directlyToFinalTargets() throws IOException {
+    void shouldRouteEditAndReceipt_toValidatedTargets() throws IOException {
         String editAppointment = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/editappointment.jsp");
-        String addAppointment = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/addappointment.jsp");
-        String editRepeat = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp");
-        String repeat = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentrepeatbooking.jsp");
-        String groupRecords = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentgrouprecords.jsp");
-        String addRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentaddarecord.jsp");
-        String updateRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentupdatearecord.jsp");
-        String providerDay = readJspContent("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
-        String demographicApptHistory = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/demographicappthistory.jsp");
-        String ticklerAdd = readJspContent("src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp");
-        String addAlternateContact = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/AddAlternateContact.jsp");
-        String oscarJs = readJspContent("src/main/webapp/share/javascript/Oscar.js");
         String globalJs = readJspContent("src/main/webapp/js/global.js");
-        String schedulingStruts = readJspContent("src/main/webapp/WEB-INF/classes/struts-scheduling.xml");
 
-        assertThat(editAppointment).contains("/demographic/DemographicSearch");
-        assertThat(editAppointment).contains("/appointment/UpdateRecord");
-        assertThat(editAppointment).contains("/appointment/DeleteRecord");
-        assertThat(editAppointment).contains("/appointment/appointmentgrouprecords");
-        assertThat(editAppointment).contains("/appointment/CutRecord");
-        assertThat(editAppointment).contains("/appointment/appointmentcopyrecord");
-        assertThat(editAppointment).contains("/appointment/appointmentviewrecordcard");
-        assertThat(editAppointment).doesNotContain("/appointment/appointmentcontrol");
-        assertThat(editAppointment).contains("/appointment/appointmenteditrepeatbooking");
-        assertThat(editAppointment).doesNotContain("appointmenteditrepeatbooking.jsp");
+        assertThat(editAppointment).contains("/demographic/DemographicSearch")
+                .contains("/appointment/UpdateRecord")
+                .contains("/appointment/DeleteRecord")
+                .contains("/appointment/appointmentgrouprecords")
+                .contains("/appointment/CutRecord")
+                .contains("/appointment/appointmentcopyrecord")
+                .contains("/appointment/appointmentviewrecordcard")
+                .doesNotContain("/appointment/appointmentcontrol")
+                .contains("/appointment/appointmenteditrepeatbooking")
+                .doesNotContain("appointmenteditrepeatbooking.jsp");
         String printReceiptButton = extractInputElement(editAppointment, "printReceiptButton");
         assertThat(printReceiptButton)
                 .as("the receipt update must use the same validated submit path as a normal update")
@@ -75,56 +63,87 @@ class AppointmentJspRoutingUnitTest {
         assertThat(globalJs)
                 .as("popupFocusPage must return the reserved window so callers can manage its lifecycle")
                 .containsPattern(POPUP_FOCUS_PAGE_RETURN_PATTERN);
+    }
 
-        assertThat(addAppointment).contains("/appointment/AddRecord");
-        assertThat(addAppointment).contains("/appointment/appointmentgrouprecords");
-        assertThat(addAppointment).contains("/demographic/DemographicSearch");
-        assertThat(addAppointment).doesNotContain("/appointment/appointmentcontrol");
-        assertThat(addAppointment).contains("/appointment/appointmentrepeatbooking");
-        assertThat(addAppointment).contains("id=\"addButton\" class=\"btn btn-primary\"");
-        assertThat(addAppointment).contains("formaction=\"<%=request.getContextPath()%>/appointment/AddRecord\"");
-        assertThat(addAppointment).doesNotContain("appointmentrepeatbooking.jsp");
+    @Test
+    void shouldRouteAddAppointment_toFinalTargets() throws IOException {
+        String addAppointment = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/addappointment.jsp");
 
-        assertThat(editRepeat).contains("action=\"<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking\"");
-        assertThat(editRepeat).doesNotContain("action=\"appointmenteditrepeatbooking.jsp\"");
+        assertThat(addAppointment).contains("/appointment/AddRecord")
+                .contains("/appointment/appointmentgrouprecords")
+                .contains("/demographic/DemographicSearch")
+                .doesNotContain("/appointment/appointmentcontrol")
+                .contains("/appointment/appointmentrepeatbooking")
+                .contains("id=\"addButton\" class=\"btn btn-primary\"")
+                .contains("formaction=\"<%=request.getContextPath()%>/appointment/AddRecord\"")
+                .doesNotContain("appointmentrepeatbooking.jsp");
+    }
 
-        assertThat(repeat).contains("action=\"<%=request.getContextPath() %>/appointment/appointmentrepeatbooking\"");
-        assertThat(repeat).doesNotContain("action=\"appointmentrepeatbooking.jsp\"");
+    @Test
+    void shouldRouteRepeatAndGroup_toFinalTargets() throws IOException {
+        String editRepeat = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp");
+        String repeat = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentrepeatbooking.jsp");
+        String groupRecords = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentgrouprecords.jsp");
 
-        assertThat(groupRecords).contains("action=\"<%=request.getContextPath() %>/appointment/appointmentgrouprecords\"");
-        assertThat(groupRecords).doesNotContain("action=\"appointmentgrouprecords.jsp\"");
+        assertThat(editRepeat).contains("action=\"<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking\"")
+                .doesNotContain("action=\"appointmenteditrepeatbooking.jsp\"");
 
-        assertThat(addRecord).contains("/appointment/printappointment?appointment_no=");
-        assertThat(addRecord).contains("pageContext.request.contextPath");
-        assertThat(addRecord).contains("carlos:forJavaScript(carlos:forUriComponent(apptId))");
-        assertThat(addRecord).doesNotContain("printappointment.jsp?appointment_no=");
+        assertThat(repeat).contains("<jsp:forward page=\"/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp\"/>")
+                .doesNotContain("action=\"appointmentrepeatbooking.jsp\"");
 
-        assertThat(updateRecord).contains("/appointment/printappointment?appointment_no=");
-        assertThat(updateRecord).containsAnyOf("request.getContextPath()", "pageContext.request.contextPath");
-        assertThat(updateRecord).contains("pageContext.request.contextPath");
-        assertThat(updateRecord).contains("carlos:forJavaScript(carlos:forUriComponent(appointmentNo))");
-        assertThat(updateRecord)
+        assertThat(groupRecords).contains("action=\"<%=request.getContextPath() %>/appointment/appointmentgrouprecords\"")
+                .doesNotContain("action=\"appointmentgrouprecords.jsp\"");
+    }
+
+    @Test
+    void shouldRouteReceiptResults_toDedicatedWindow() throws IOException {
+        String addRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentaddarecord.jsp");
+        String updateRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentupdatearecord.jsp");
+
+        assertThat(addRecord).contains("/appointment/printappointment?appointment_no=")
+                .contains("pageContext.request.contextPath")
+                .contains("carlos:forJavaScript(carlos:forUriComponent(apptId))")
+                .doesNotContain("printappointment.jsp?appointment_no=");
+
+        assertThat(updateRecord).contains("/appointment/printappointment?appointment_no=")
+                .containsAnyOf("request.getContextPath()", "pageContext.request.contextPath")
+                .contains("pageContext.request.contextPath")
+                .contains("carlos:forJavaScript(carlos:forUriComponent(appointmentNo))")
                 .as("the update result must reuse the dedicated receipt window, not its own attachment window")
-                .contains("popupFocusPage(350, 750,", "'appointmentReceipt'");
-        assertThat(updateRecord).doesNotContain("printappointment.jsp?appointment_no=");
+                .contains("popupFocusPage(350, 750,", "'appointmentReceipt'")
+                .doesNotContain("printappointment.jsp?appointment_no=");
+    }
 
-        assertThat(providerDay).contains("/appointment/addappointment?");
-        assertThat(providerDay).contains("/appointment/editappointment?");
-        assertThat(providerDay).doesNotContain("/appointment/appointmentcontrol");
-        assertThat(providerDay).contains("return ctx + '/appointment/addappointment'");
-        assertThat(providerDay).doesNotContain("/appointment/addappointment.jsp");
+    @Test
+    void shouldRouteLiveCallers_toFinalTargets() throws IOException {
+        String providerDay = readJspContent("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
+        String demographicApptHistory = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/demographicappthistory.jsp");
+        String ticklerAdd = readJspContent("src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp");
+        String addAlternateContact = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/AddAlternateContact.jsp");
 
-        assertThat(demographicApptHistory).contains("/appointment/editappointment?demographic_no=");
-        assertThat(demographicApptHistory).doesNotContain("/appointment/appointmentcontrol");
+        assertThat(providerDay).contains("/appointment/addappointment?")
+                .contains("/appointment/editappointment?")
+                .doesNotContain("/appointment/appointmentcontrol")
+                .contains("return ctx + '/appointment/addappointment'")
+                .doesNotContain("/appointment/addappointment.jsp");
 
-        assertThat(ticklerAdd).contains("action=\"<%= request.getContextPath() %>/demographic/DemographicSearch\"");
-        assertThat(ticklerAdd).contains("name=\"displaymode\" value=\"Search \"");
-        assertThat(ticklerAdd).doesNotContain("/appointment/appointmentcontrol");
+        assertThat(demographicApptHistory).contains("/appointment/editappointment?demographic_no=")
+                .doesNotContain("/appointment/appointmentcontrol");
 
-        assertThat(addAlternateContact).contains("action=\"<%= request.getContextPath() %>/demographic/DemographicSearch\"");
-        assertThat(addAlternateContact).contains("name=\"displaymode\"");
-        assertThat(addAlternateContact).contains("value=\"Search \"");
-        assertThat(addAlternateContact).doesNotContain("/appointment/appointmentcontrol");
+        assertThat(ticklerAdd).contains("action=\"<%= request.getContextPath() %>/demographic/DemographicSearch\"")
+                .contains("name=\"displaymode\" value=\"Search \"")
+                .doesNotContain("/appointment/appointmentcontrol");
+
+        assertThat(addAlternateContact).contains("action=\"<%= request.getContextPath() %>/demographic/DemographicSearch\"")
+                .contains("name=\"displaymode\"")
+                .contains("value=\"Search \"")
+                .doesNotContain("/appointment/appointmentcontrol");
+    }
+
+    @Test
+    void shouldReservePopupRoutes_withoutLegacyDispatcher() throws IOException {
+        String oscarJs = readJspContent("src/main/webapp/share/javascript/Oscar.js");
+        String schedulingStruts = readJspContent("src/main/webapp/WEB-INF/classes/struts-scheduling.xml");
 
         Matcher forceWindowPathsMatcher = FORCE_WINDOW_PATHS_PATTERN.matcher(oscarJs);
         assertThat(forceWindowPathsMatcher.find())
@@ -132,11 +151,8 @@ class AppointmentJspRoutingUnitTest {
                 .isTrue();
         String forceWindowPathsBody = forceWindowPathsMatcher.group("body");
         assertThat(forceWindowPathsBody)
-                .as("forceWindowPaths should include the 'addappointment' route")
-                .contains("'addappointment'");
-        assertThat(forceWindowPathsBody)
-                .as("forceWindowPaths should include the 'editappointment' route")
-                .contains("'editappointment'");
+                .as("forceWindowPaths should include both appointment popup routes")
+                .contains("'addappointment'", "'editappointment'");
         assertThat(oscarJs).doesNotContain("appointmentcontrol.jsp");
 
         assertThat(schedulingStruts).doesNotContain("<action name=\"appointment/appointmentcontrol\"");

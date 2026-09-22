@@ -28,12 +28,22 @@
       * Include this fragment exactly once per page — duplicate includes
         load csrfTokenFetch.js twice and register two DOMContentLoaded
         handlers (idempotent, but wasteful).
+      * Content-Security-Policy: the bootstrap below is an INLINE script, so
+        a page that sets a script-src without 'unsafe-inline' silently gets
+        no CSRF token and every save fails with an error the user never
+        sees. Such a page must generate a nonce, put 'nonce-<value>' in its
+        own script-src, and expose the same value as the "cspNonce" request
+        attribute BEFORE this include. The nonce attribute is then emitted
+        here; pages that set no attribute are unaffected.
 --%>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <script type="text/javascript"
         src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/csrfTokenFetch.js"></script>
 <input type="hidden" name="CSRF-TOKEN" value="">
-<script>
+<%-- Emitted only when the including page published a nonce; otherwise absent, as before. --%>
+<script<%= request.getAttribute("cspNonce") == null ? ""
+        : " nonce=\"" + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(
+                String.valueOf(request.getAttribute("cspNonce"))) + "\"" %>>
     window.csrfTokenReady = null;
     document.addEventListener("DOMContentLoaded", function () {
         window.csrfTokenReady =

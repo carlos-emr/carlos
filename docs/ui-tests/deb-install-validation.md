@@ -17,8 +17,18 @@ The two checks added since, `echart-print-playwright-checks.js` and
 `clinical-freetext-playwright-checks.js`, were run on 2026-09-12 against a
 2026.09.0~snapshot22 package built from the #3623 branch (DrugRef and the eForm
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
-through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
-has not been re-run on a later snapshot.
+through the packaged front door, with `EXPECT_FRONT_DOOR=true`. On 2026-09-16, PR #2545 validation ran against an installed snapshot22 package
+in an Ubuntu 26.04 VM through nginx/WAF: 76 distinct browser scripts passed
+across the broad run and targeted retests, including the isolated login phase.
+The first eChart print attempt exposed an initialization race in the harness;
+waiting for chart lock initialization to complete fixed it, and two reruns
+passed all 15 PDF cases. The external eForm corpus was unavailable; the stored
+"Signature trick" template and one unbilled-report link were absent from the
+dataset, and the DrugRef database rebuild was deliberately disabled.
+Logs also exposed an outstanding DrugRef dependency defect: XML-RPC serialization
+of `java.sql.Date` throws from `Date.toInstant()`, so inactive-drug dates can be
+silently omitted despite a passing drug-search check. These results are not an
+all-clear for that separate dependency.
 
 That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
@@ -367,8 +377,11 @@ Do not continue on a failing check — every later step assumes this baseline.
 `install-demo-data=true` in the preseed above makes the installer load the
 package's own demonstration dataset (`carlos-ctl demo-data`): the additive
 per-province patient snapshot, the referral-specialist and provider-link
-seeds, the name sanitization, and the Rich Text Letter chain including the
-attachment-route fix. Being additive (`INSERT IGNORE` only), it never touches
+seeds, the name sanitization, the Rich Text Letter chain including the
+attachment-route fix, and the synthetic Administration fixtures
+(`admin_test_data.sql`: the `Local Test -` rows behind the data-backed
+Administration screens; the devcontainer-only `locktest` login is not
+shipped). Being additive (`INSERT IGNORE` only), it never touches
 the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
 (The devcontainer counterpart is `.devcontainer/db/scripts/populate_db.sh`;
 if the two ever disagree about the RTL chain, that script and
@@ -464,6 +477,55 @@ records the application's explicit completeness refusal and its issue report;
 it does not approve omitted content to obtain a PDF.
 
 ## 6. Run the suite
+
+The nullable-consultation check stages a specialist whose ID differs from the
+request ID, then verifies contact details in the form, extracted PDF text, and
+REST response. It also checks missing-request HTTP 404 and a request with no
+specialist. Run it with health-care-team mode both enabled and disabled when
+validating changes to consultation associations; restart the application after
+changing that property. The script restores the request and removes its owned
+specialist and any unreferenced health-care-team contact it created, including on
+cancellation. A referenced contact is retained and causes cleanup to fail visibly.
+The health-care-team run also covers installations without an `other` specialty
+entry; the form must render with an unspecified role instead of failing.
+
+`email-recovery-playwright-checks.js` creates two synthetic email logs for demo
+patient 1 (`EMAIL_RECOVERY_DEMO_NO` overrides this). It checks the in-flight-send
+recovery guard, stale-delivery warning and resolution, fresh compose passphrases,
+and server-acknowledged cancellation. It does not send email and removes only its
+owned logs. With no sender configured, it also requires an explicit warning and
+disabled Send button. Both checks require a disposable local database and reject
+non-loopback `MYSQL_HOST` values. Email recovery also requires a loopback
+`BASE_URL`, even when the shared remote-target opt-in is set, because its
+fixtures belong to the local database.
+
+For a 6 GiB validation guest, set `CARLOS_JAVA_XMS="2g"` and
+`CARLOS_JAVA_XMX="2g"` in the VM environment file before starting the browser
+suite, then restart the application. Monitor guest available memory as well as
+host memory; a 4 GiB fixed heap leaves too little room for MariaDB and Chromium
+in that guest. Stop the VM before compiling on the host.
+
+Before staging fixtures, verify that `MYSQL_DATABASE` matches `CARLOS_DB_NAME`
+in `/etc/carlos-emr/carlos-emr.env` and the generated application's `db_name`
+property. A browser session against one database cannot validate fixtures staged
+in another. Install all three matching package versions together; upgrading only
+the main package can remove older DrugRef and renderer packages because their
+dependencies require an exact version match.
+
+> **A runner now exists, and is not yet the documented procedure.**
+> `scripts/run-playwright-suite.js` reads `scripts/playwright-suite.json` and does
+> what the loop at the end of this section does, plus tier selection, a JUnit
+> report, exit code 2 for a check that skipped for a missing fixture rather than
+> failed, and a refusal to run the database-mutating checks against a non-local
+> target. It has unit tests but has **not yet been run against a deployment**, so
+> the loop below is still the authoritative procedure. The first validation run
+> should compare the two and then replace the loop here:
+>
+> ```bash
+> node scripts/run-playwright-suite.js --tier core --tier front-door --junit /tmp/playwright.xml
+> ```
+>
+> See [playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
 
 Environment contract (one block, exported before every script):
 
@@ -590,6 +652,28 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 #     DRUGREF_UPDATE_TIMEOUT_SEC=3600 \
 #     timeout 3900 node scripts/drugref-update-playwright-checks.js
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
+# First Nations stored-XSS check (first-nations-encoding-playwright-checks.js). It seeds an
+# attribute-breaking payload into this patient's demographicExt First Nations fields, asserts the
+# rendered inputs carry it back whole with no markup, and restores the original rows byte for byte
+# (via HEX/UNHEX, so a stored tab, newline, backslash, empty string or SQL NULL survives). The
+# restore runs from the finally AND from SIGINT/SIGTERM/SIGHUP handlers, because the loop below
+# runs every check under `timeout --foreground` and a hard timeout would otherwise strand the
+# payload in the record; a restore that cannot complete fails the run rather than warning, and
+# names the demographic to repair by hand. MYSQL_HOST goes through the usual loopback guard, so a
+# non-loopback target needs ALLOW_NON_LOCAL_MYSQL_HOST=true.
+# Defaults to the lowest demographic_no in the database, so the export is only needed to pin a
+# different patient. The check always asserts the gate route
+# (/demographic/ViewManageFirstNationsModule); it additionally asserts the patient master record
+# when FIRST_NATIONS_MODULE=true in /etc/carlos-emr/carlos.properties (then `carlos-ctl restart`),
+# which is the path a clinician actually sees -- set it if you want that half covered, since the
+# property ships false and the module is simply absent from the master record without it.
+# The community <option> half is skipped, and says so in its PASS line, on an install that
+# already has a firstNationCommunity lookup list (the DAO caches it) or that runs
+# showBandNumberOnly=true (the control is not rendered at all). Because the fixture deletes its
+# seeded list with direct SQL, it cannot fire the DAO's @CacheEvict: a running CARLOS can keep
+# serving that deleted list until a lookup-list write or cache expiry, so run the community half
+# at most once per application start and `carlos-ctl restart` before repeating it.
+export FIRST_NATIONS_DEMOGRAPHIC_NO=1
 # A browser failure may be the first symptom of the JVM being killed and
 # restarted. Record the service counter so the suite cannot finish green after
 # silently testing two different application processes.
@@ -629,6 +713,17 @@ suite_failed=0
 #                                query is the only row written and a finally removes it.)
 #   MEASUREMENT_DEMOGRAPHIC_NO=1 MEASUREMENT_GROUP=Anthropometrics MEASUREMENT_TYPE=WT
 #                                (measurement-validation)
+#   NEXT_APPT_DEMOGRAPHIC_NO=1 NEXT_APPT_PROVIDER_NO=999998
+#                                (next-appointment-lookup, issue #2651: the patient search's next
+#                                appointment column. ONE PREREQUISITE the dataset does not provide --
+#                                the field is rendered only when workflow_enhance is true, which the
+#                                package ships false, so set it in /etc/carlos-emr/carlos.properties
+#                                and `carlos-ctl restart` before the loop; the check reports SKIP (exit 2)
+#                                with that instruction when it is off. The legacy loop below treats every
+#                                nonzero exit as FAIL, so enabling the property is required for this loop.
+#                                The separate run-playwright-suite.js runner records SKIP as non-failing;
+#                                require PASS for this check to confirm the column was exercised. It seeds one
+#                                appointment for tomorrow and deletes it in a finally.)
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
@@ -883,6 +978,38 @@ Notes on the contract:
   eChart checks (nginx `Server` header; warning when absent, failure with
   `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
   mistaken for coverage of 1100/1131.
+- **`login-failure-host-header-playwright-checks.js` must be run through `:443`.**
+  It fetches `/loginfailed` twice over a raw socket, once with the real `Host`
+  and once with an attacker-controlled one, and requires the two bodies to be
+  byte-identical; it then parses the page in the browser and requires no
+  `<base>` element, `document.baseURI` still equal to the page's own URL, the
+  favicon and `global.js` resolved under the servlet context path, and the
+  `errormsg` still rendered HTML-encoded. Going straight to Tomcat on
+  `127.0.0.1:18080` skips nginx, so it cannot see a front-door rewrite
+  re-introducing a Host-derived `<base href>` — the construct this pins. Its
+  default `BASE_URL` is bare Tomcat, so it says which layer it actually covered
+  rather than letting a standalone run read as full coverage: no nginx `Server`
+  header on the response prints a WARNING and stamps the PASS line accordingly,
+  and `EXPECT_FRONT_DOOR=true` makes that absence a failure — the same signal
+  and spelling as the eChart and clinical-freetext checks. Like `echart-print`,
+  it relaxes certificate verification only for loopback, so a non-loopback
+  target opted in through `ALLOW_NON_LOCAL_BASE_URL` must present a certificate
+  the runtime trusts, and a plain-`http` non-loopback `BASE_URL` is refused
+  outright — over cleartext there is no certificate for either bound to act on.
+  Without those an on-path attacker would supply both halves of its
+  byte-for-byte comparison and every assertion would pass vacuously. It is pre-auth and read-only (every request is a GET; no login, no
+  fixture, no database access), so it needs no credentials and leaves nothing
+  behind. A front door that answers 400/421 to the spoofed `Host` is reported on
+  stdout and treated as a pass: the bad value never reached the application, and
+  the DOM assertions still run against the legitimate `Host`. That excuse is
+  narrow on purpose — it needs the nginx `Server` header **on that same spoofed
+  response** *and* one of those two statuses, since nginx may serve the
+  legitimate request while the spoofed one reaches a different upstream that
+  answers 400/421 itself. Any other difference between the two responses, an
+  application-generated 404 or 500 included, is the application answering
+  differently because of the `Host` header, which is the defect under test, so
+  the check asserts on it (status first, then the bodies) instead of excusing
+  it.
 - **`echart-playwright-checks.js` allows 90 seconds for note pagination to settle.**
   The chart loads 20 entries per one-second poll, including eForms and other
   chart entries as well as encounter notes. A populated fixture can legitimately
@@ -1124,3 +1251,124 @@ maintenance to retain their IDs and specialist assignments. The current
 consultation settings offer Add/Delete, without a re-enable control. Automatic
 repair cannot infer which existing inactive services were deliberately disabled.
 Published migration checksums remain unchanged.
+
+### PR #3666 install recovery regression validation (2026-09-13)
+
+The published `2026.08.0-alpha12` DEBs were checksum-verified and tested in an
+Ubuntu 26.04 VM with 2 vCPUs, 8 GiB RAM and no guest swap. With MariaDB
+unavailable, a real apt reinstall returned success while both clinical and
+DrugRef schemas had zero tables and no recovery marker; reboot did not repair
+that state. The same packages installed successfully when MariaDB was available.
+This reproduces the packaging failure, but does not establish the original
+Desktop tester's cause or implicate the 8 GiB allocation.
+
+The follow-up fixes were tested with the published main/DrugRef application
+payloads, PR Python tooling, maintainer-script source and systemd units. The
+maintainer script retained the published package's generated debhelper section;
+the new provisioner was explicitly enabled. This was a source overlay on an
+existing disposable VM with new test schemas, not a newly built snapshot23 DEB
+or a clean Ubuntu Desktop installation. The original site configuration and
+dependencies were retained and backed up for restoration; this follow-up kept
+the site's pre-existing 2 GiB maximum Java heap. The earlier published-package
+positive control also passed with a 4 GiB heap on the same 8 GiB VM.
+
+| Regression | Observed fixed behavior |
+| --- | --- |
+| Configure while MariaDB is unavailable | `dpkg-reconfigure` exits 0, records the reason and requested options, and displays the incomplete-install error |
+| Reboot after that outage | Creates the clinical schema with 23 migrations, replaces the seeded administrator credential, clears the marker and starts the EMR |
+| Requested demo-data load blocked by its real file lock | `finish-install` exits 1, keeps the marker and leaves the demo completion table absent |
+| Same demo failure in the maintainer script | Configure exits 0 but keeps the incomplete marker and displays the error |
+| Manual migration of a nonempty fixture schema without Flyway history | Exits 1, keeps the marker, leaves the fixture unchanged and does not start the stopped EMR |
+| Retry after removing the demo lock | Loads the requested dataset, records its completion, clears the install marker and starts the service |
+| Injected credential replacement failure with real systemd | Verifies the service is stopped and disabled; both guards remain; a manual start is blocked |
+| Reboot with the credential guard and disabled service | Verifies the already-replaced credential, re-enables the service, removes the guard and queues the EMR start |
+| Two marker-free boot invocations | No-op; generated administrator credential file remains unchanged |
+| Real DrugRef dataset with its marker temporarily renamed | Warns about a potentially incomplete/older seed, preserves data and requests backup/administrator review |
+
+Automated coverage comprises 592 passing Node script tests, including the
+recovery harness's 31 Python behavioral tests. Fault injection covers required
+step return codes and exceptions, marker write/delete failures, credential
+containment and re-enablement, failed service starts, and DrugRef query failures.
+It also covers the cases a concurrent or gated repair creates: a second
+finish-install refused while one holds the lock, a boot-time recovery that
+yields to whoever holds it, a masked unit when the
+credential guard cannot be written and its unmasking once the credential is
+replaced, a unit left merely disabled with no sentinel to key recovery from,
+and an OSCAR 19 import in progress (refused by hand, left pending at boot,
+with a missing guard failing closed).
+Shell syntax, Python compilation and manpage checks pass. Systemd verifies the
+CARLOS units; Ubuntu emits unrelated deprecation warnings for its XFS units.
+
+Final `carlos-ctl check` passes with 431 clinical tables and 18 DrugRef tables.
+Playwright passes generated login/first-password reset, prescribing search
+(`amox`: 47 results, HTTP 200), eChart writes/autosave and application-health
+routes through nginx/ModSecurity. No automatic JVM restart or kernel OOM kill
+was observed; the VM had no swap. These checks use existing backup/drill history
+and do not claim a new backup/restore drill. An initial missing-DrugRef failure
+was traced to the test overlay hiding the companion webapp; the overlay was
+corrected with the published DrugRef payload before the passing final checks.
+
+### PR #3666 existing-schema note regression validation (2026-09-13)
+
+The Debian Flyway launcher now summarizes successful guarded statements that
+find an existing index (1061) or column (1060). Published migration SQL and
+checksums are unchanged. Only those exact JDBC messages from Flyway's SQL-warning
+logger are counted; other warnings, error logs and migration failures retain
+their existing handling. A Flyway logger/message-format change leaves the
+unrecognized warnings visible. The package build tests this behavior against
+the WAR's actual Flyway API, including its logging-configuration resets.
+
+Real JDBC tests on MariaDB 11.8 verify all of these boundaries:
+
+| Fixture | Result |
+| --- | --- |
+| Guarded existing index and column | Exit 0; one informational summary counts both |
+| Duplicate-data and truncation warnings in the same successful migration | 1062 and 1265 warning messages remain visible |
+| Unguarded duplicate index | Exit 1; 1061 failure remains visible |
+| Unguarded duplicate column | Exit 1; 1060 failure remains visible |
+| Duplicate-data insert | Exit 1; 1062 failure remains visible |
+| Invalid SQL | Exit 1; 1064 failure remains visible |
+
+The fresh Ontario demo schema was created through a real `dpkg-reconfigure` in
+the same Ubuntu 26.04 VM, with 8 GiB RAM, 2 vCPUs, no swap and a 4 GiB Java heap.
+It applied all 23 migrations, validated the schema and loaded the demonstration
+dataset. The seven duplicate-index and 21 duplicate-column warning lines were
+replaced with:
+
+```text
+schema setup: 7 index(es) and 21 column(s) were already present; kept their existing definitions.
+```
+
+This uses the checksum-verified published alpha12 main/DrugRef payloads, the PR's
+installer source overlay and the newly compiled launcher, with a new test
+schema on an existing VM. It is not a newly built or published DEB. MariaDB
+version/deprecation warnings remain visible. The launcher build/test, 18
+install-recovery tests, five packaging regressions and both province migration
+version checks pass.
+
+The host subsequently crashed during application deployment. The saved log
+confirms migration validation and demo loading, but the configure command's
+final result and browser acceptance were interrupted and are not recorded as
+passes. The host reboot cleared the RAM-backed test payload. No persistent
+kernel panic/OOM record was found in the previous boot's journal, so these
+results do not establish the crash's cause. Further VM work must run without
+concurrent compilation and with host memory pressure monitored.
+
+After recovering the same published payload to persistent storage, the 8 GiB
+VM resumed without concurrent compilation. MariaDB recovered the new schema
+with 23 successful migrations, 3,000 demo patients, 431 clinical tables and the
+demo completion marker; DrugRef retained 18 tables. `carlos-ctl check` and
+Playwright passed generated login/password reset, prescribing (`amox`: 47
+results, HTTP 200), eChart writes/autosave and application-health routes. At
+completion, the EMR was active with zero automatic restarts and about 4.0 GiB
+service memory; the guest kernel check found no OOM kill. Existing backup/drill
+history was checked; no new backup/restore drill was performed.
+
+The host was subsequently restarted after a second reported OOM crash. The
+five-second host monitor's last persisted samples showed approximately 10.6
+GiB available, zero swap use and zero memory PSI. The previous-boot journal
+again contained no persistent OOM/panic event. These readings do not establish
+which virtualization layer exhausted memory. The application acceptance tests
+completed before this interruption, but the overall host/VM environment cannot
+be declared stable from this run. Compilation and VM operation must remain
+separate, and nested-VM checks are paused pending the outer memory budget.

@@ -51,9 +51,13 @@ must be rebuilt or explicitly reconciled before adopting this migration: Flyway
 [archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
 retirement semantics, and failure investigation.
 
+`V1.0.30__patient_portal_security_objects.sql` seeds the `_portal.*` and `_admin.portal`
+security objects used by the patient portal client and grants them to `admin` only.
+`V1.0.29` is not skipped: `release/2026.08` holds it and it arrives with that forward-merge.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.28`
-(also the highest shared one), so the next free version for ANY location is `V1.0.29`
-(see `../README.md`).
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.30`
+(also the highest shared one) and `V1.0.29` is taken by `release/2026.08`, so the next free
+version for ANY location is `V1.0.31` (see `../README.md`).

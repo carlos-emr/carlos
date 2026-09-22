@@ -22,13 +22,11 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -36,6 +34,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountAcknowledgementDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
@@ -142,6 +143,10 @@ class PortalAccountAndPanelActionUnitTest {
 
     private PatientPortalAccountAcknowledgementDto acknowledgement() {
         return new PatientPortalAccountAcknowledgementDto(5L, "active", true, null);
+    }
+
+    private JsonNode payload() throws IOException {
+        return new ObjectMapper().readTree(response.getContentAsString());
     }
 
     @Nested
@@ -259,6 +264,24 @@ class PortalAccountAndPanelActionUnitTest {
                     .contains("connection needs checking");
         }
 
+        @Test
+        @DisplayName("should say the patient has no portal account when the portal confirms it")
+        void shouldReportNoPortalAccount_whenUnlockFindsNoAccount() throws Exception {
+            request.setParameter("method", "unlock");
+            when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
+                    .thenThrow(
+                            PatientPortalException.ofStatus(
+                                    404, "/x", "portal account not found"));
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(response.getContentAsString())
+                    .contains("\"reason\":\"no_portal_account\"")
+                    .contains("does not have a patient portal account")
+                    .doesNotContain("connection needs checking");
+        }
+
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
         @DisplayName("should re-enable without demanding a reason")
@@ -272,7 +295,7 @@ class PortalAccountAndPanelActionUnitTest {
             accountAction().execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-            var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+            JsonNode payload = payload();
             assertThat(payload.has("forcePasswordReset")).isTrue();
             assertThat(payload.get("forcePasswordReset").booleanValue()).isEqualTo(forcePasswordReset);
         }
@@ -304,7 +327,10 @@ class PortalAccountAndPanelActionUnitTest {
             panelAction().execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-            assertThat(response.getContentAsString()).contains("invites").contains("account");
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isTrue();
+            assertThat(payload.get("invites").size()).isEqualTo(1);
+            assertThat(payload.get("account").get("accountId").longValue()).isEqualTo(5L);
         }
 
         @Test
@@ -335,8 +361,10 @@ class PortalAccountAndPanelActionUnitTest {
 
             panelAction().execute();
 
-            assertThat(response.getContentAsString()).doesNotContain("invites");
-            assertThat(response.getContentAsString()).contains("account");
+            JsonNode payload = payload();
+            assertThat(payload.has("invites")).isFalse();
+            assertThat(payload.has("invitesError")).isFalse();
+            assertThat(payload.get("account").get("accountId").longValue()).isEqualTo(5L);
             verify(patientPortalService, never()).listInvites(anyInt(), any());
         }
 
@@ -371,6 +399,25 @@ class PortalAccountAndPanelActionUnitTest {
         }
 
         @Test
+        @DisplayName("should report a complete panel with no account when the portal confirms it")
+        void shouldReportNoAccount_whenThePortalConfirmsTheAccountIsAbsent() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(
+                            PatientPortalException.ofStatus(
+                                    404, "/x", "portal account not found"));
+
+            panelAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString())
+                    .contains("\"ok\":true")
+                    .contains("\"account\":null")
+                    .doesNotContain("accountError");
+        }
+
+        @Test
         @DisplayName("should report a portal outage as unavailable, not as an absent account")
         void shouldReportUnavailable_whenTheAccountLookupFailsForAnotherReason() throws Exception {
             request.setMethod("GET");
@@ -396,9 +443,10 @@ class PortalAccountAndPanelActionUnitTest {
 
             panelAction().execute();
 
-            assertThat(response.getContentAsString())
-                    .contains("inviteId")
-                    .contains("accountError");
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isFalse();
+            assertThat(payload.get("invites").get(0).has("inviteId")).isTrue();
+            assertThat(payload.get("accountError").asText()).isEqualTo("unavailable");
         }
     }
 
@@ -425,11 +473,11 @@ class PortalAccountAndPanelActionUnitTest {
             when(patientPortalService.listInvites(anyInt(), any()))
                     .thenThrow(
                             PatientPortalException.ofTransportFailure(
-                                    "/x/{id}", new java.io.IOException("down")));
+                                    "/x/{id}", new IOException("down")));
             when(patientPortalService.findAccount(anyInt(), any()))
                     .thenThrow(
                             PatientPortalException.ofTransportFailure(
-                                    "/y/{id}", new java.io.IOException("down")));
+                                    "/y/{id}", new IOException("down")));
 
             panelAction().execute();
 
@@ -486,10 +534,10 @@ class PortalAccountAndPanelActionUnitTest {
 
             panelAction().execute();
 
-            assertThat(response.getContentAsString())
-                    .contains("invites")
-                    .doesNotContain("accountState")
-                    .doesNotContain("accountError");
+            JsonNode payload = payload();
+            assertThat(payload.has("invites")).isTrue();
+            assertThat(payload.has("account")).isFalse();
+            assertThat(payload.has("accountError")).isFalse();
             verify(patientPortalService, never()).findAccount(anyInt(), any());
         }
 

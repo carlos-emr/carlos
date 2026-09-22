@@ -79,7 +79,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         // whole loop, so a single unguarded dereference there blanks the entire
         // Consultations tab rather than degrading one row.
         Query query = entityManager.createQuery(
-                "select cr from ConsultationRequest cr where cr.demographicId = ?1");
+                "select cr from ConsultationRequest cr left join fetch cr.professionalSpecialist where cr.demographicId = ?1");
         query.setParameter(1, demoNo);
 
         List<ConsultationRequest> results = query.getResultList();
@@ -91,7 +91,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
         	StringBuilder sql = new StringBuilder("SELECT cr " +
 					"FROM ConsultationRequest cr " +
-                    "LEFT JOIN cr.professionalSpecialist specialist " +
+                    "LEFT JOIN FETCH cr.professionalSpecialist specialist " +
                     "LEFT JOIN ConsultationServices service ON cr.serviceId = service.serviceId " +
                     "LEFT JOIN ConsultationRequestExt ext ON cr.id = ext.requestId AND ext.key = 'ereferral_service' " +
 					"LEFT JOIN Demographic d on cr.demographicId = d.demographicNo " +

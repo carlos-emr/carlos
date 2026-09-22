@@ -24,6 +24,8 @@ Template: carlos-emr/bind-ip
 Type: string
 Default: 0.0.0.0
 Description: Address the CARLOS EMR front door should listen on:
+ Enter an IPv4 or IPv6 address, not a host name. For IPv6 loopback use ::1.
+ .
  0.0.0.0 serves every network interface, which is what a clinic server
  normally needs.
  .
@@ -141,3 +143,24 @@ Description: CARLOS EMR is installed
  /usr/share/doc/carlos-emr/README.Debian before putting patient data on this
  system — in particular the sections on backups, which are stored on this host
  only until you configure an offsite repository.
+
+Template: carlos-emr/install-incomplete
+Type: error
+Description: CARLOS EMR is installed but is NOT ready to use
+ The package could not finish all requested database provisioning steps.
+ The schema, administrator credential, database settings or requested demo data
+ may be incomplete. The EMR and prescribing lookups may be unavailable.
+ .
+ Read the installation output for the failed step. When the filesystem is
+ writable, it is also recorded in /var/lib/carlos-emr/.install-incomplete.
+ Existing data is preserved; do not delete databases to retry this repair.
+ .
+ Fix the reported cause, then finish the install with:
+ .
+ sudo carlos-ctl finish-install
+ .
+ It checks database settings, accounts, the schema, the administrator credential
+ and the demonstration dataset if requested. A failed step returns an error and
+ keeps the install pending. Boot retries require the marker and never migrate
+ a populated schema that fails validation. Check the result with
+ "sudo carlos-ctl check"; follow any separate DrugRef recovery instructions.

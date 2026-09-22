@@ -83,7 +83,8 @@ public class PatientPortalService implements Closeable {
             "portal returned an unexpected success status";
     // Only established protocol messages may cross the logging/browser boundary.
     private static final Set<String> SAFE_DETAILS = Set.of(
-            "permission denied", "not found", "demographic scope mismatch",
+            "permission denied", "not found", PatientPortalException.ACCOUNT_NOT_FOUND_DETAIL,
+            "unlock secret not found", "demographic scope mismatch",
             "portal account already exists", "pending invite already exists", "invite not found",
             "invite cannot be resent", "accepted invite cannot be revoked",
             "superseded invite cannot be revoked", "source reference was already published",
@@ -91,7 +92,8 @@ public class PatientPortalService implements Closeable {
             "unlock secret cannot be published", "contact review not found",
             "contact review revision conflict", "invalid account access request",
             "unlock secret is temporarily unavailable", "invite preparation conflicts",
-            "invite preparation unavailable", "invite delivery conflicts");
+            "invite preparation unavailable", "invite delivery conflicts",
+            "another invite delivery is being prepared", "invite delivery is not committed");
     private static final String NOT_AN_ARRAY = "portal returned a non-array invite listing";
 
     private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
@@ -339,14 +341,24 @@ public class PatientPortalService implements Closeable {
                 inviteId);
     }
 
-    /** Revokes a pending invite. */
-    public PatientPortalInviteDto revokeInvite(long inviteId, PatientPortalStaffContext staff) {
+    /**
+     * Revokes a pending invite.
+     *
+     * <p>The revoke path carries only the invite id, so unlike the patient-scoped paths the
+     * generic scope check cannot bind the response to a patient. The caller states which
+     * patient the invite belongs to and the response must agree.
+     */
+    public PatientPortalInviteDto revokeInvite(
+            int demographicNo, long inviteId, PatientPortalStaffContext staff) {
         return fetch(
                 POST, INVITE_REVOKE_PATH, null, OK, staff,
                 node -> {
                     PatientPortalInviteDto invite = PatientPortalInviteDto.fromJson(node);
                     if (invite.id() != inviteId || !"revoked".equals(invite.status())) {
                         throw new PortalContractException("portal did not confirm the selected invitation was revoked");
+                    }
+                    if (invite.demographicNo() != demographicNo) {
+                        throw new PortalContractException("portal response has a different patient scope");
                     }
                     return invite;
                 }, inviteId);
@@ -750,8 +762,8 @@ public class PatientPortalService implements Closeable {
      *     contract failure; never carrying a credential or a patient identifier in its message
      */
     // FindSecBugs FORMAT_STRING_MANIPULATION: the format is a parameter, but of a *private*
-    // method whose twelve call sites all pass a private static final *_PATH constant, so it is
-    // never caller-chosen. Every one of those formats takes only %d, so no caller-supplied string
+    // method reached only through fetch, whose call sites all pass a private static final *_PATH
+    // constant, so it is never caller-chosen. Every one of those formats takes only %d, so no caller-supplied string
     // can reach a format position at all; PatientPortalServiceUnitTest asserts that reflectively,
     // and adding a %s fails there rather than shipping. See docs/static-analysis-workflows.md.
     @SuppressFBWarnings(

@@ -2,15 +2,17 @@
 <jasperReport name="label" pageWidth="300" pageHeight="74" columnWidth="270" leftMargin="15" rightMargin="0" topMargin="0" bottomMargin="4">
 	<parameter name="demo" class="java.lang.String">
 	</parameter>
-	<queryString>
+	<query>
 		<![CDATA[SELECT d.demographic_no, d.first_name, d.last_name,
 			if(trim(ifnull(d.hin,''))='', 'N/A', d.hin) as hin,
 			CONCAT(d.year_of_birth, '-' ,d.month_of_birth, '-', d.date_of_birth) as birthday, d.sex,
 			year(from_days(datediff(now(),STR_TO_DATE(CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth),'%Y-%m-%d')))) as age,
-			current_date as curr_date, p.name as program_name
-			FROM demographic d, program_provider pp, program p
-			where d.provider_no = pp.provider_no and pp.program_id = p.id and d.demographic_no = $P{demo}]]>
-	</queryString>
+			current_date as curr_date, coalesce(p.name, '') as program_name
+			FROM demographic d
+			LEFT JOIN program_provider pp ON d.provider_no = pp.provider_no
+			LEFT JOIN program p ON pp.program_id = p.id
+			WHERE d.demographic_no = $P{demo}]]>
+	</query>
 	<field name="demographic_no" class="java.lang.String" />
 	<field name="first_name" class="java.lang.String" />
 	<field name="last_name" class="java.lang.String" />

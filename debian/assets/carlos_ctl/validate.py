@@ -8,7 +8,7 @@ import os
 import re
 import time
 
-from . import config, dbops, util
+from . import config, dbops, provision, util
 from .util import (
     BACKUP_ENV, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RESET, YELLOW, need_root, out, run,
 )
@@ -63,6 +63,38 @@ def _curl(args, timeout=20):
     return cp
 
 
+def _check_process_ownership():
+    """Check this unit's process, never an unrelated JVM on the host."""
+    main_pid = out(["systemctl", "show", "-p", "MainPID", "--value", "carlos-emr"])
+    if not main_pid or main_pid == "0":
+        _bad("carlos-emr is not running — the application JVM's user cannot be verified")
+    else:
+        # user:32 so a long account name is not silently truncated into a
+        # mismatch against the expected value.
+        owner = out(["ps", "-o", "user:32=", "-p", main_pid])
+        if not owner:
+            _bad(f"the carlos-emr main process ({main_pid}) exited while it was being probed")
+        elif owner == "root":
+            _bad(f"the application JVM is running as ROOT (pid {main_pid})")
+        elif owner != "carlos":
+            _bad(f"the application JVM runs as {owner!r}, expected 'carlos' (pid {main_pid})")
+        else:
+            _ok(f"application JVM runs as: {owner}")
+
+
+def _check_front_door(bind_ip: str) -> None:
+    try:
+        missing = config._front_door_missing(bind_ip, wait=0)
+    except config.FrontDoorProbeError as exc:
+        _bad(f"cannot verify nginx front-door listeners: {exc}")
+        return
+    if not missing:
+        _ok(f"nginx is listening on {bind_ip}:80 and {bind_ip}:443")
+    else:
+        _bad(f"nginx is not listening on {', '.join(missing)} — the front door is not "
+             "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
+
+
 def cmd_check(argv) -> int:
     global _failures
     _failures = 0
@@ -70,12 +102,44 @@ def cmd_check(argv) -> int:
     # the WAF policy): without it half the probes false-failed with
     # misleading diagnoses instead of one clear message.
     need_root("check")
-    s = config.load()
+    # config.load() EXITS on an invalid CARLOS_DB_NAME or CARLOS_PROVINCE, and
+    # "the configuration could not be applied" is one of the reasons the
+    # installer records — so that exit is exactly the case where an operator
+    # most needs the unfinished-install line and the command that fixes it.
+    # Report it there too, then let the exit stand: with no settings loaded
+    # there is nothing further this command can probe.
+    try:
+        s = config.load()
+    except SystemExit:
+        if provision.pending():
+            print("\ninstallation")
+            _bad(f"this installation never finished: {provision.reason()}. "
+                 "The configuration above must be fixed first, then finish the "
+                 "install with 'sudo carlos-ctl finish-install'")
+        raise
     print(f"\nCARLOS EMR deployment check ({s.server_name})\n")
 
+    # First, because it explains most of what follows: the installer records
+    # this marker when a provisioning step did not run, and an install that
+    # ended there has no schema, no administrator credential and a stopped
+    # EMR — which then reads as a dozen unrelated failures below.
+    if provision.pending():
+        print("installation")
+        _bad(f"this installation never finished: {provision.reason()}. "
+             "Nothing is lost — finish it with 'sudo carlos-ctl finish-install' "
+             "(it resumes where the installer stopped, and runs itself at the "
+             "next boot)")
+        print()
+
     print("services")
+    # Kept for the DrugRef probe far below, which is a probe of THIS service:
+    # DrugRef is a second webapp in the same Tomcat.
+    emr_running = False
     for unit in ("mariadb", "nginx", "carlos-emr"):
-        if run(["systemctl", "is-active", "--quiet", unit]).returncode == 0:
+        active = run(["systemctl", "is-active", "--quiet", unit]).returncode == 0
+        if unit == "carlos-emr":
+            emr_running = active
+        if active:
             _ok(f"{unit} is running")
         else:
             _bad(f"{unit} is NOT running (systemctl status {unit})")
@@ -86,26 +150,18 @@ def cmd_check(argv) -> int:
     # to come back at the next reboot.
     for unit in ("carlos-emr.service", "carlos-emr-backup.timer",
                  "carlos-emr-backup-verify.timer", "carlos-emr-cert-renew.timer"):
-        if run(["systemctl", "is-enabled", "--quiet", unit], capture_output=True).returncode == 0:
-            _ok(f"{unit} is enabled")
-        elif unit == "carlos-emr.service" and os.path.exists(
+        if unit == "carlos-emr.service" and os.path.exists(
                 os.path.join("/var/lib/carlos-emr", ".seed-credential-live")):
-            _bad(f"{unit} is DISABLED because the seeded administrator credential is still "
-                 "live — it will NOT start at the next boot. Run 'carlos-ctl bootstrap-admin' "
-                 "(it re-enables the unit), then 'systemctl start carlos-emr'")
+            _bad(f"{unit} has a seeded-credential guard that blocks starts. "
+                 "Run 'carlos-ctl finish-install' to verify the credential, "
+                 "clear the guard and re-enable the service.")
+        elif run(["systemctl", "is-enabled", "--quiet", unit], capture_output=True).returncode == 0:
+            _ok(f"{unit} is enabled")
         else:
             _bad(f"{unit} is NOT enabled")
 
     print("\nprocess ownership")
-    # The whole point of the user split — prove it at runtime rather than
-    # trusting that the unit files still say what they said at install time.
-    owners = set(out(["ps", "-o", "user=", "-C", "java"]).split())
-    if not owners:
-        _bad("no java process found")
-    elif "root" in owners:
-        _bad(f"a java process is running as ROOT: {' '.join(owners)}")
-    else:
-        _ok(f"application JVM runs as: {' '.join(owners)}")
+    _check_process_ownership()
 
     print("\nnetwork exposure")
     # Tomcat must not be reachable except on loopback: anything else is a
@@ -126,10 +182,12 @@ def cmd_check(argv) -> int:
              "/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf")
     elif addrs:
         _ok(f"MariaDB listens on loopback only ({', '.join(addrs)})")
-    if _listener("443"):
-        _ok("nginx is listening on 443")
-    else:
-        _bad("nothing is listening on 443")
+    # The front door must be bound where the configuration says, on BOTH
+    # ports. A reload whose bind failed leaves the master holding a half-set
+    # (443 without 80, or the old wildcard 80) while every worker still serves
+    # the previous configuration — and "something is on 443" was green on
+    # exactly that broken host.
+    _check_front_door(s.bind_ip)
     # The MariaDB drop-in leans on AppArmor as the file-access control (it is
     # why secure_file_priv is not set there), so this check asserts the
     # profile is actually loaded and enforcing rather than assuming it.
@@ -252,7 +310,7 @@ def cmd_check(argv) -> int:
     # Probe the address nginx actually listens on: with a non-default
     # CARLOS_BIND_IP nothing answers on loopback and every front-door check
     # would false-fail on a healthy install.
-    probe_ip = s.bind_ip if s.bind_ip not in ("", "0.0.0.0", "::") else "127.0.0.1"
+    probe_ip = {"": "127.0.0.1", "0.0.0.0": "127.0.0.1", "::": "::1"}.get(s.bind_ip, s.bind_ip)
     resolve = ["--resolve", f"{s.server_name}:443:{probe_ip}"]
     url = f"https://{s.server_name}/carlos/"
     # Retry a while before calling it down: deploying this webapp takes about
@@ -402,6 +460,14 @@ def cmd_check(argv) -> int:
                      "empty dataset (journalctl -u carlos-emr | grep -i hikari)")
             else:
                 _ok("DrugRef answers a live drug lookup over XML-RPC")
+        elif not emr_running:
+            # DrugRef is a second webapp in the EMR's Tomcat, so a stopped EMR
+            # is a silent DrugRef. Saying "is the context deployed?" here sent
+            # an alpha tester looking at DrugRef when the real failure — an
+            # install whose schema was never created — was two sections down.
+            _bad("DrugRef is not answering XML-RPC on loopback because carlos-emr is NOT "
+                 "running: DrugRef shares that Tomcat. Fix the service (see 'services' "
+                 "above); DrugRef comes back with it")
         else:
             _bad("DrugRef is not answering XML-RPC on loopback (is the /drugref2 context "
                  "deployed? carlos-ctl logs | grep drugref2)")
@@ -411,10 +477,23 @@ def cmd_check(argv) -> int:
     print("\ndatabase")
     if dbops.db_root_ok():
         _ok("MariaDB reachable as root over the unix socket")
-        n = out(["mariadb", "--protocol=socket", "--user=root", "-N", "-B", "-e",
-                 f"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{s.db_name}'"])
-        if n.isdigit() and int(n) > 100:
+        # A COUNT that FAILED and a COUNT that returned zero are different
+        # answers, and out() renders both as "" — which reported a database
+        # that could not be queried as one with no tables. Same discipline the
+        # demo-data guards already apply.
+        cp = dbops.db_root(
+            ["-N", "-B", "-e", "SELECT COUNT(*) FROM information_schema.tables "
+             f"WHERE table_schema='{s.db_name}'"], capture_output=True)
+        n = cp.stdout.strip() if cp.returncode == 0 else ""
+        if cp.returncode != 0:
+            _bad(f"could not count the tables in {s.db_name}: "
+                 f"{cp.stderr.strip() or 'the query failed'}")
+        elif n.isdigit() and int(n) > 100:
             _ok(f"{s.db_name} has {n} tables")
+        elif n == "0":
+            _bad(f"{s.db_name} has NO tables: the schema was never created. The install "
+                 "did not finish — run 'sudo carlos-ctl finish-install' (it creates the "
+                 "schema, replaces the seeded credential and starts the EMR)")
         else:
             _bad(f"{s.db_name} has only {n or 0} tables — has the schema been migrated?")
         n = out(["mariadb", "--protocol=socket", "--user=root", "-N", "-B", "-e",
@@ -423,7 +502,8 @@ def cmd_check(argv) -> int:
             _ok(f"flyway_schema_history has {n} successful migration(s)")
         else:
             _bad("flyway_schema_history is empty or missing — the application's boot-time "
-                 "schema gate will fail")
+                 "schema gate will fail ('carlos-ctl finish-install' on an install that "
+                 "never provisioned, 'carlos-ctl db-info' otherwise)")
     else:
         _bad("cannot reach MariaDB as root over the unix socket")
 
