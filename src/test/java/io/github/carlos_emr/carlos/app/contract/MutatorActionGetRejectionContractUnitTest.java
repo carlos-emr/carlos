@@ -251,11 +251,10 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
                     "_form", "w"),
             // --- patient portal ---
-            // Issues, resends, and revokes portal invitations against the external portal service.
-            // Registered with the other unconditional portal mutators. Unconditional: reading the invite list belongs to a
-            // separate read action, so every route on this class mutates and the method check runs
-            // before authorization. A GET that reached create would mint a token and silently
-            // revoke the patient's existing one.
+            // Revokes portal invitations against the external portal service; create and resend
+            // answer 503 until durable delivery is wired, but the routes remain mutators.
+            // Unconditional: reading the invite list belongs to a separate read action, so every
+            // route on this class mutates and the method check runs before authorization.
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
                     "_portal.invite", "w"),
             // Clears a lockout or disables an account. Unconditional for the same reason: the panel
