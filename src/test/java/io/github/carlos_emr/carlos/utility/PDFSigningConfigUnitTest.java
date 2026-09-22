@@ -25,7 +25,7 @@ class PDFSigningConfigUnitTest {
 
     @Test
     @DisplayName("should create config from Carlos properties")
-    void shouldCreateConfigFromCarlosProperties() {
+    void shouldCreateConfig_fromCarlosProperties() {
         Map<String, String> overrides = new HashMap<>();
         overrides.put(PDFSigningConfig.ENABLED_PROPERTY, "YES");
         overrides.put(PDFSigningConfig.KEYSTORE_PATH_PROPERTY, " /secure/signing.p12 ");
@@ -56,7 +56,7 @@ class PDFSigningConfigUnitTest {
 
     @Test
     @DisplayName("should trim optional values and apply signing defaults")
-    void shouldTrimOptionalValuesAndApplySigningDefaults() {
+    void shouldTrimOptionalValues_andApplySigningDefaults() {
         PDFSigningConfig config = new PDFSigningConfig(
                 true,
                 " /tmp/pdf-signing.p12 ",
@@ -82,7 +82,7 @@ class PDFSigningConfigUnitTest {
 
     @Test
     @DisplayName("should defensively copy credential arrays")
-    void shouldDefensivelyCopyCredentialArrays() {
+    void shouldCopyCredentialArrays_defensively() {
         char[] keystorePassword = "keystore-password".toCharArray();
         char[] keyPassword = "key-password".toCharArray();
         PDFSigningConfig config = new PDFSigningConfig(
@@ -110,7 +110,7 @@ class PDFSigningConfigUnitTest {
 
     @Test
     @DisplayName("should validate required fields only when signing is enabled")
-    void shouldValidateRequiredFieldsOnlyWhenSigningEnabled() {
+    void shouldValidateRequiredFields_onlyWhenSigningEnabled() {
         PDFSigningConfig disabledConfig = new PDFSigningConfig(
                 false, null, null, null, null, null, null, null, null, null);
         PDFSigningConfig missingPath = new PDFSigningConfig(

@@ -6,59 +6,44 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.Security;
 import java.security.SignatureException;
-import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
+import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.cms.CMSException;
-import org.bouncycastle.cms.CMSProcessableByteArray;
-import org.bouncycastle.cms.CMSSignedData;
-import org.bouncycastle.cms.SignerInformation;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.util.Store;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1Primitive;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
+
+import io.github.carlos_emr.carlos.test.util.PdfSigningTestSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
 
 @Tag("unit")
 @Tag("fast")
 @Tag("pdf")
 @DisplayName("PDFSigningUtil")
 class PDFSigningUtilUnitTest {
-    private static final char[] KEYSTORE_PASSWORD = "changeit".toCharArray();
-    private static final String KEY_ALIAS = "pdf-signing";
-    private static final String BC_PROVIDER = BouncyCastleProvider.PROVIDER_NAME;
-
     @TempDir
     Path tempDir;
 
@@ -88,11 +73,9 @@ class PDFSigningUtilUnitTest {
 
     @Test
     @DisplayName("should add detached CMS signature to a PDF")
-    void shouldAddDetachedCmsSignatureToPdf() throws Exception {
+    void shouldAddDetachedCmsSignature_toPdf() throws Exception {
         Path source = writeSinglePagePdf();
-        SigningFixture signingFixture = createSigningFixture();
-
-        Path signed = PDFSigningUtil.signPDF(source, signingFixture.config());
+        Path signed = PDFSigningUtil.signPDF(source, enabledConfig());
         generatedOutputs.add(signed);
 
         assertThat(signed).exists().isNotEqualTo(source);
@@ -102,13 +85,13 @@ class PDFSigningUtilUnitTest {
             assertThat(signature.getName()).isEqualTo("CARLOS Test Signer");
             assertThat(signature.getReason()).isEqualTo("Unit test signature");
         }
-        assertThat(verifySignature(signed)).isTrue();
+        assertThat(PdfSigningTestSupport.verifyDetachedSignature(signed, null)).isTrue();
     }
 
     @Test
     @DisplayName("should fail signature verification when signed content is tampered")
     void shouldFailVerification_whenSignedContentIsTampered() throws Exception {
-        Path signed = PDFSigningUtil.signPDF(writeSinglePagePdf(), createSigningFixture().config());
+        Path signed = PDFSigningUtil.signPDF(writeSinglePagePdf(), enabledConfig());
         generatedOutputs.add(signed);
 
         byte[] signedBytes = Files.readAllBytes(signed);
@@ -116,19 +99,22 @@ class PDFSigningUtilUnitTest {
         try (PDDocument document = Loader.loadPDF(signed.toFile())) {
             signature = document.getSignatureDictionaries().get(0);
         }
-        byte[] signedContent = signature.getSignedContent(signedBytes);
-        signedContent[0] = (byte) (signedContent[0] ^ 0x01);
+        // Flip one byte inside the signed range, on a copy the verifier will read back.
+        int firstSignedByte = (int) signature.getByteRange()[0];
+        signedBytes[firstSignedByte] = (byte) (signedBytes[firstSignedByte] ^ 0x01);
+        Path tampered = tempDir.resolve("tampered.pdf");
+        Files.write(tampered, signedBytes);
 
-        assertThat(verifyCmsSignature(signature.getContents(signedBytes), signedContent)).isFalse();
+        assertThat(PdfSigningTestSupport.verifyDetachedSignature(tampered, null)).isFalse();
     }
 
     @Test
     @DisplayName("should sign encrypted PDF using the PDF password")
-    void shouldSignEncryptedPdfUsingPdfPassword() throws Exception {
+    void shouldSignEncryptedPdf_usingPdfPassword() throws Exception {
         Path encrypted = PDFEncryptionUtil.encryptPDF(writeSinglePagePdf(), "s3cret");
         generatedOutputs.add(encrypted);
 
-        Path signed = PDFSigningUtil.signPDF(encrypted, createSigningFixture().config(), "s3cret");
+        Path signed = PDFSigningUtil.signPDF(encrypted, enabledConfig(), "s3cret");
         generatedOutputs.add(signed);
 
         assertThatThrownBy(() -> Loader.loadPDF(signed.toFile()).close())
@@ -137,27 +123,27 @@ class PDFSigningUtilUnitTest {
             assertThat(document.isEncrypted()).isTrue();
             assertThat(document.getSignatureDictionaries()).hasSize(1);
         }
-        assertThat(verifySignature(signed, "s3cret")).isTrue();
+        assertThat(PdfSigningTestSupport.verifyDetachedSignature(signed, "s3cret")).isTrue();
     }
 
     @Test
     @DisplayName("should sign unencrypted PDF when a password is supplied")
     void shouldSignUnencryptedPdf_whenPasswordIsSupplied() throws Exception {
         Path signed = PDFSigningUtil.signPDF(
-                writeSinglePagePdf(), createSigningFixture().config(), "unused-password");
+                writeSinglePagePdf(), enabledConfig(), "unused-password");
         generatedOutputs.add(signed);
 
         try (PDDocument document = Loader.loadPDF(signed.toFile())) {
             assertThat(document.isEncrypted()).isFalse();
             assertThat(document.getSignatureDictionaries()).hasSize(1);
         }
-        assertThat(verifySignature(signed)).isTrue();
+        assertThat(PdfSigningTestSupport.verifyDetachedSignature(signed, null)).isTrue();
     }
 
     @Test
     @DisplayName("should write the signature as definite-length DER")
     void shouldWriteSignatureAsDefiniteLengthDer_forStrictValidators() throws Exception {
-        Path signed = PDFSigningUtil.signPDF(writeSinglePagePdf(), createSigningFixture().config());
+        Path signed = PDFSigningUtil.signPDF(writeSinglePagePdf(), enabledConfig());
         generatedOutputs.add(signed);
 
         byte[] pdfBytes = Files.readAllBytes(signed);
@@ -169,11 +155,11 @@ class PDFSigningUtilUnitTest {
         // (30 80 ...), which lenient readers accept and strict validators reject.
         assertThat(contents[0] & 0xff).isEqualTo(0x30);
         assertThat(contents[1] & 0xff).isNotEqualTo(0x80);
-        org.bouncycastle.asn1.ASN1Primitive cms;
-        try (org.bouncycastle.asn1.ASN1InputStream input = new org.bouncycastle.asn1.ASN1InputStream(contents)) {
+        ASN1Primitive cms;
+        try (ASN1InputStream input = new ASN1InputStream(contents)) {
             cms = input.readObject();
         }
-        byte[] asWritten = java.util.Arrays.copyOf(contents, cms.getEncoded().length);
+        byte[] asWritten = Arrays.copyOf(contents, cms.getEncoded().length);
         assertThat(cms.getEncoded("DER")).isEqualTo(asWritten);
     }
 
@@ -186,20 +172,19 @@ class PDFSigningUtilUnitTest {
         Path restricted = tempDir.resolve("third-party-" + System.nanoTime() + ".pdf");
         try (PDDocument document = new PDDocument()) {
             document.addPage(new PDPage());
-            document.protect(new org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy(
-                    "authors-owner-password", "", new org.apache.pdfbox.pdmodel.encryption.AccessPermission()));
+            document.protect(new StandardProtectionPolicy("authors-owner-password", "", new AccessPermission()));
             document.save(restricted.toFile());
         }
         assertThatThrownBy(() -> Loader.loadPDF(restricted.toFile(), "send-password").close())
                 .isInstanceOf(InvalidPasswordException.class);
 
-        Path signed = PDFSigningUtil.signPDF(restricted, createSigningFixture().config(), "send-password");
+        Path signed = PDFSigningUtil.signPDF(restricted, enabledConfig(), "send-password");
         generatedOutputs.add(signed);
 
         try (PDDocument document = Loader.loadPDF(signed.toFile())) {
             assertThat(document.getSignatureDictionaries()).hasSize(1);
         }
-        assertThat(verifySignature(signed)).isTrue();
+        assertThat(PdfSigningTestSupport.verifyDetachedSignature(signed, null)).isTrue();
     }
 
     @Test
@@ -211,12 +196,10 @@ class PDFSigningUtilUnitTest {
             document.save(empty.toFile());
         }
         Path output = tempDir.resolve("signed-output.pdf");
-        PDFSigningConfig config = createSigningFixture().config();
+        PDFSigningConfig config = enabledConfig();
 
-        try (org.mockito.MockedStatic<PathValidationUtils> paths = org.mockito.Mockito.mockStatic(
-                PathValidationUtils.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
-            paths.when(() -> PathValidationUtils.createSecureTempFile(
-                            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(".pdf")))
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            paths.when(() -> PathValidationUtils.createSecureTempFile(anyString(), eq(".pdf")))
                     .thenAnswer(call -> Files.createFile(output).toFile());
 
             assertThatThrownBy(() -> PDFSigningUtil.signPDF(empty, config))
@@ -231,7 +214,7 @@ class PDFSigningUtilUnitTest {
     void shouldFailClosed_whenEnabledConfigIsIncomplete() throws IOException {
         Path source = writeSinglePagePdf();
         PDFSigningConfig config = new PDFSigningConfig(
-                true, null, null, null, KEY_ALIAS, null, null, null, null, null);
+                true, null, null, null, PdfSigningTestSupport.KEY_ALIAS, null, null, null, null, null);
 
         assertThatThrownBy(() -> PDFSigningUtil.signPDF(source, config))
                 .isInstanceOf(IllegalStateException.class)
@@ -241,13 +224,14 @@ class PDFSigningUtilUnitTest {
     @Test
     @DisplayName("should fail closed when private key does not match certificate")
     void shouldFailClosed_whenPrivateKeyDoesNotMatchCertificate() throws Exception {
-        KeyPair privateKeyPair = createKeyPair();
-        KeyPair certificateKeyPair = createKeyPair();
-        SigningFixture signingFixture = createSigningFixture(
-                privateKeyPair.getPrivate(), createSelfSignedCertificate(certificateKeyPair));
+        KeyPair privateKeyPair = PdfSigningTestSupport.createKeyPair("RSA", 2048);
+        KeyPair certificateKeyPair = PdfSigningTestSupport.createKeyPair("RSA", 2048);
+        PDFSigningConfig config = PdfSigningTestSupport.enabledConfig(tempDir.resolve("mismatch.p12"),
+                privateKeyPair.getPrivate(),
+                PdfSigningTestSupport.createSelfSignedCertificate(certificateKeyPair, "SHA256withRSA"));
         Path source = writeSinglePagePdf();
 
-        assertThatThrownBy(() -> PDFSigningUtil.signPDF(source, signingFixture.config()))
+        assertThatThrownBy(() -> PDFSigningUtil.signPDF(source, config))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("Failed to load PDF signing key material")
                 .hasRootCauseInstanceOf(SignatureException.class);
@@ -256,132 +240,22 @@ class PDFSigningUtilUnitTest {
     @Test
     @DisplayName("should fail closed when signing key algorithm is unsupported")
     void shouldFailClosed_whenSigningKeyAlgorithmIsUnsupported() throws Exception {
-        KeyPair keyPair = createKeyPair("DSA", 2048);
-        SigningFixture signingFixture = createSigningFixture(
-                keyPair.getPrivate(), createSelfSignedCertificate(keyPair, "SHA256withDSA"));
+        KeyPair keyPair = PdfSigningTestSupport.createKeyPair("DSA", 2048);
+        PDFSigningConfig config = PdfSigningTestSupport.enabledConfig(tempDir.resolve("dsa.p12"),
+                keyPair.getPrivate(), PdfSigningTestSupport.createSelfSignedCertificate(keyPair, "SHA256withDSA"));
         Path source = writeSinglePagePdf();
 
-        assertThatThrownBy(() -> PDFSigningUtil.signPDF(source, signingFixture.config()))
+        assertThatThrownBy(() -> PDFSigningUtil.signPDF(source, config))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("Failed to load PDF signing key material")
                 .hasRootCauseInstanceOf(IllegalArgumentException.class);
     }
 
     private Path writeSinglePagePdf() throws IOException {
-        Path pdf = tempDir.resolve("sample-" + System.nanoTime() + ".pdf");
-        try (PDDocument document = new PDDocument()) {
-            document.addPage(new PDPage());
-            document.save(pdf.toFile());
-        }
-        return pdf;
+        return PdfSigningTestSupport.writeSinglePagePdf(tempDir.resolve("sample-" + System.nanoTime() + ".pdf"));
     }
 
-    private SigningFixture createSigningFixture() throws Exception {
-        ensureBouncyCastleProvider();
-        KeyPair keyPair = createKeyPair();
-        return createSigningFixture(keyPair.getPrivate(), createSelfSignedCertificate(keyPair));
-    }
-
-    private KeyPair createKeyPair() throws Exception {
-        return createKeyPair("RSA", 2048);
-    }
-
-    private KeyPair createKeyPair(String algorithm, int keySize) throws Exception {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(algorithm);
-        keyPairGenerator.initialize(keySize);
-        return keyPairGenerator.generateKeyPair();
-    }
-
-    private X509Certificate createSelfSignedCertificate(KeyPair keyPair) throws Exception {
-        return createSelfSignedCertificate(keyPair, "SHA256withRSA");
-    }
-
-    private X509Certificate createSelfSignedCertificate(KeyPair keyPair, String signingAlgorithm) throws Exception {
-        ensureBouncyCastleProvider();
-        X500Name subject = new X500Name("CN=CARLOS Test Signer");
-        Instant now = Instant.now();
-        ContentSigner signer = new JcaContentSignerBuilder(signingAlgorithm)
-                .setProvider(BC_PROVIDER)
-                .build(keyPair.getPrivate());
-        X509CertificateHolder certificateHolder = new JcaX509v3CertificateBuilder(
-                subject,
-                BigInteger.valueOf(now.toEpochMilli()),
-                Date.from(now.minus(1, ChronoUnit.DAYS)),
-                Date.from(now.plus(365, ChronoUnit.DAYS)),
-                subject,
-                keyPair.getPublic())
-                .build(signer);
-        X509Certificate certificate = new JcaX509CertificateConverter()
-                .setProvider(BC_PROVIDER)
-                .getCertificate(certificateHolder);
-        certificate.verify(keyPair.getPublic());
-        return certificate;
-    }
-
-    private SigningFixture createSigningFixture(PrivateKey privateKey, X509Certificate certificate) throws Exception {
-        Path keystorePath = tempDir.resolve("pdf-signing.p12");
-        KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        keyStore.load(null, KEYSTORE_PASSWORD);
-        keyStore.setKeyEntry(KEY_ALIAS, privateKey, KEYSTORE_PASSWORD, new Certificate[]{certificate});
-        try (OutputStream output = Files.newOutputStream(keystorePath)) {
-            keyStore.store(output, KEYSTORE_PASSWORD);
-        }
-
-        PDFSigningConfig config = new PDFSigningConfig(
-                true,
-                keystorePath.toString(),
-                "PKCS12",
-                KEYSTORE_PASSWORD,
-                KEY_ALIAS,
-                null,
-                "CARLOS Test Signer",
-                "Unit test signature",
-                "Test Clinic",
-                "test@example.com");
-        return new SigningFixture(config);
-    }
-
-    private boolean verifySignature(Path signedPdf) throws Exception {
-        return verifySignature(signedPdf, null);
-    }
-
-    private boolean verifySignature(Path signedPdf, String password) throws Exception {
-        byte[] pdfBytes = Files.readAllBytes(signedPdf);
-        try (PDDocument document = password == null
-                ? Loader.loadPDF(signedPdf.toFile())
-                : Loader.loadPDF(signedPdf.toFile(), password)) {
-            PDSignature signature = document.getSignatureDictionaries().get(0);
-            return verifyCmsSignature(signature.getContents(pdfBytes), signature.getSignedContent(pdfBytes));
-        }
-    }
-
-    private boolean verifyCmsSignature(byte[] signatureContents, byte[] signedContent) throws Exception {
-        // A PDF reserves a fixed-size /Contents slot, so bytes follow the CMS blob: zeros in a
-        // plain PDF, ciphertext in an encrypted one, where PDFBox encrypts the placeholder before
-        // the signature is written over its front. Read from a stream so only the first DER
-        // object is parsed: the byte[] constructor rejects that tail as "extra data" from
-        // BouncyCastle 1.85 on.
-        CMSSignedData signedData = new CMSSignedData(new CMSProcessableByteArray(signedContent),
-                new java.io.ByteArrayInputStream(signatureContents));
-        SignerInformation signerInformation = signedData.getSignerInfos().getSigners().iterator().next();
-        Store<X509CertificateHolder> certificates = signedData.getCertificates();
-        Object certificateMatch = certificates.getMatches(signerInformation.getSID()).iterator().next();
-        X509CertificateHolder certificateHolder = (X509CertificateHolder) certificateMatch;
-        try {
-            return signerInformation.verify(new org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder()
-                    .setProvider(BC_PROVIDER)
-                    .build(certificateHolder));
-        } catch (CMSException e) {
-            return false;
-        }
-    }
-
-    private static void ensureBouncyCastleProvider() {
-        if (Security.getProvider(BC_PROVIDER) == null) {
-            Security.addProvider(new BouncyCastleProvider());
-        }
-    }
-
-    private record SigningFixture(PDFSigningConfig config) {
+    private PDFSigningConfig enabledConfig() throws Exception {
+        return PdfSigningTestSupport.enabledRsaConfig(tempDir.resolve("pdf-signing-" + System.nanoTime() + ".p12"));
     }
 }

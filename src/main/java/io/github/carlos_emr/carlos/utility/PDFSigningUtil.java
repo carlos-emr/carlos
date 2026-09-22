@@ -50,6 +50,8 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 
 /**
  * Applies certificate-backed detached signatures to PDF files.
+ *
+ * @since 2026-07-22
  */
 public final class PDFSigningUtil {
     private static final String PROVIDER_NAME = BouncyCastleProvider.PROVIDER_NAME;
@@ -58,10 +60,31 @@ public final class PDFSigningUtil {
     private PDFSigningUtil() {
     }
 
+    /**
+     * Signs a PDF that opens without a password. See
+     * {@link #signPDF(Path, PDFSigningConfig, String)} for the contract.
+     */
     public static Path signPDF(Path pdfPath, PDFSigningConfig config) throws IOException {
         return signPDF(pdfPath, config, null);
     }
 
+    /**
+     * Adds a detached CMS signature to a PDF, leaving the source file untouched.
+     *
+     * <p>Which path comes back decides ownership. With signing disabled the <em>input</em> path
+     * is returned unchanged and nothing is written. With signing enabled the result is a
+     * <em>new</em> owner-only temp file under {@code java.io.tmpdir} that the caller must adopt
+     * into a working directory or delete; on any failure that file is already removed.</p>
+     *
+     * @param pdfPath the PDF to sign; opened read-only, never modified
+     * @param config signing configuration; disabled or null means no-op
+     * @param ownerPassword password to open the PDF with if it will not open without one, for
+     *        example the send passphrase of a PDF CARLOS encrypted; ignored otherwise
+     * @return the input path when signing is disabled, otherwise the signed temp file
+     * @throws IOException when the keystore cannot be loaded or validated, the PDF cannot be
+     *         opened (including a wrong or missing password), or signing fails
+     * @throws IllegalStateException when signing is enabled but the configuration is incomplete
+     */
     public static Path signPDF(Path pdfPath, PDFSigningConfig config, String ownerPassword) throws IOException {
         if (pdfPath == null) {
             throw new IOException("PDF path is required for signing");
@@ -93,7 +116,7 @@ public final class PDFSigningUtil {
             if (config.getContact() != null) {
                 signature.setContactInfo(config.getContact());
             }
-            signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now(ZoneId.systemDefault())));
+            signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now(ZoneId.systemDefault()))); // NOSONAR java:S2143 - PDSignature.setSignDate takes java.util.Calendar
 
             document.addSignature(signature, new CmsDetachedSignature(signingMaterial), signatureOptions);
             document.saveIncremental(output);
@@ -232,31 +255,17 @@ public final class PDFSigningUtil {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: JCA algorithm names are ASCII identifiers ("RSA", "EC"); this is an intended case-insensitive match, not a trust decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "JCA algorithm names are ASCII identifiers; intended case-insensitive match, not a trust decision")
     private static String signatureAlgorithm(PrivateKey privateKey) {
         String keyAlgorithm = privateKey.getAlgorithm();
-        if (equalsAsciiIgnoreCase(keyAlgorithm, "rsa")) {
+        if ("RSA".equalsIgnoreCase(keyAlgorithm)) {
             return "SHA256withRSA";
         }
-        if (equalsAsciiIgnoreCase(keyAlgorithm, "ec") || equalsAsciiIgnoreCase(keyAlgorithm, "ecdsa")) {
+        if ("EC".equalsIgnoreCase(keyAlgorithm) || "ECDSA".equalsIgnoreCase(keyAlgorithm)) {
             return "SHA256withECDSA";
         }
         throw new IllegalArgumentException("Unsupported PDF signing key algorithm: " + keyAlgorithm);
-    }
-
-    private static boolean equalsAsciiIgnoreCase(String candidate, String expectedLowerCase) {
-        if (candidate.length() != expectedLowerCase.length()) {
-            return false;
-        }
-        for (int i = 0; i < candidate.length(); i++) {
-            char candidateChar = candidate.charAt(i);
-            if (candidateChar >= 'A' && candidateChar <= 'Z') {
-                candidateChar = (char) (candidateChar + ('a' - 'A'));
-            }
-            if (candidateChar != expectedLowerCase.charAt(i)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     @SuppressWarnings("java:S6206") // Mutable certificate chain array requires defensive copies.

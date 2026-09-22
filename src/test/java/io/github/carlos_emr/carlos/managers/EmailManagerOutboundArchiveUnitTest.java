@@ -27,8 +27,10 @@ import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
@@ -37,19 +39,25 @@ import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.util.PdfSigningTestSupport;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
 import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -60,7 +68,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -264,20 +274,20 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     @DisplayName("should hand the sender the signed attachment when PDF signing is enabled")
     void shouldHandSenderSignedAttachment_whenPdfSigningIsEnabled() throws Exception {
         when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
-        java.nio.file.Path source = writeSinglePagePdf("source");
-        java.nio.file.Path signed = writeSinglePagePdf("signedPDF_");
+        Path source = writeSinglePagePdf("source");
+        Path signed = writeSinglePagePdf("signedPDF_");
         EmailData emailData = emailDataWithAttachment(source);
-        List<String> pathSeenBySender = new java.util.ArrayList<>();
+        List<String> pathSeenBySender = new ArrayList<>();
 
-        try (org.mockito.MockedStatic<PDFSigningConfig> config =
-                        org.mockito.Mockito.mockStatic(PDFSigningConfig.class, org.mockito.Mockito.CALLS_REAL_METHODS);
-                org.mockito.MockedStatic<PDFSigningUtil> signer = org.mockito.Mockito.mockStatic(PDFSigningUtil.class);
+        try (MockedStatic<PDFSigningConfig> config =
+                        mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
                 MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> {
                     // The sender is built with the attachment list itself, so the paths it holds at
                     // construction are what get archived and dispatched.
                     for (Object argument : context.arguments()) {
                         if (argument instanceof List<?> attachments && !attachments.isEmpty()
-                                && attachments.get(0) instanceof io.github.carlos_emr.carlos.commn.model.EmailAttachment first) {
+                                && attachments.get(0) instanceof EmailAttachment first) {
                             pathSeenBySender.add(first.getFilePath());
                         }
                     }
@@ -285,7 +295,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                             .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
                 })) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(enabledSigningConfig());
-            signer.when(() -> PDFSigningUtil.signPDF(any(java.nio.file.Path.class), any(PDFSigningConfig.class), any()))
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
                     .thenReturn(signed);
 
             EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
@@ -299,8 +309,8 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                     eq(source.toRealPath()), any(PDFSigningConfig.class), any()));
             assertThat(source).exists();
         } finally {
-            java.nio.file.Files.deleteIfExists(source);
-            java.nio.file.Files.deleteIfExists(signed);
+            Files.deleteIfExists(source);
+            Files.deleteIfExists(signed);
         }
     }
 
@@ -312,14 +322,14 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             injectDependency(invocation.getArgument(0), "id", 71);
             return null;
         }).when(emailLogDao).persist(any(EmailLog.class));
-        java.nio.file.Path source = writeSinglePagePdf("source");
+        Path source = writeSinglePagePdf("source");
 
-        try (org.mockito.MockedStatic<PDFSigningConfig> config =
-                        org.mockito.Mockito.mockStatic(PDFSigningConfig.class, org.mockito.Mockito.CALLS_REAL_METHODS);
-                org.mockito.MockedStatic<PDFSigningUtil> signer = org.mockito.Mockito.mockStatic(PDFSigningUtil.class);
+        try (MockedStatic<PDFSigningConfig> config =
+                        mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
                 MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> { })) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(enabledSigningConfig());
-            signer.when(() -> PDFSigningUtil.signPDF(any(java.nio.file.Path.class), any(PDFSigningConfig.class), any()))
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
                     .thenThrow(new IOException("Failed to load PDF signing key material"));
 
             EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailDataWithAttachment(source));
@@ -331,32 +341,8 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThat(smtpSenders.constructed()).isEmpty();
             verifyNoInteractions(outboundEmailArchiveService, javaMailSender);
         } finally {
-            java.nio.file.Files.deleteIfExists(source);
+            Files.deleteIfExists(source);
         }
-    }
-
-    private EmailData emailDataWithAttachment(java.nio.file.Path pdf) {
-        EmailData emailData = emailData();
-        emailData.setAttachments(new java.util.ArrayList<>(List.of(new io.github.carlos_emr.carlos.commn.model.EmailAttachment(
-                "document.pdf", pdf.toString(),
-                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC, 1))));
-        return emailData;
-    }
-
-    private static PDFSigningConfig enabledSigningConfig() {
-        return new PDFSigningConfig(true, "unused.p12", "PKCS12", "changeit".toCharArray(),
-                "signer", null, null, null, null, null);
-    }
-
-    /** A real one-page PDF in the secure temp directory, where the signer's own output would be. */
-    private static java.nio.file.Path writeSinglePagePdf(String prefix) throws IOException {
-        java.nio.file.Path pdf = io.github.carlos_emr.carlos.utility.PathValidationUtils
-                .createSecureTempFile(prefix, ".pdf").toPath();
-        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
-            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
-            document.save(pdf.toFile());
-        }
-        return pdf;
     }
 
     @Test
@@ -1036,4 +1022,20 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         when(providerManager.getProvider(loggedInInfo, PROVIDER_NO)).thenReturn(new Provider());
         return providerManager;
     }
+    private EmailData emailDataWithAttachment(Path pdf) {
+        EmailData emailData = emailData();
+        emailData.setAttachments(new ArrayList<>(List.of(new EmailAttachment("document.pdf", pdf.toString(), DocumentType.DOC, 1))));
+        return emailData;
+    }
+
+    private static PDFSigningConfig enabledSigningConfig() {
+        return new PDFSigningConfig(true, "unused.p12", "PKCS12", "changeit".toCharArray(),
+                "signer", null, null, null, null, null);
+    }
+
+    /** A real one-page PDF in the secure temp directory, where the signer's own output would be. */
+    private static Path writeSinglePagePdf(String prefix) throws IOException {
+        return PdfSigningTestSupport.writeSinglePagePdf(PathValidationUtils.createSecureTempFile(prefix, ".pdf").toPath());
+    }
+
 }

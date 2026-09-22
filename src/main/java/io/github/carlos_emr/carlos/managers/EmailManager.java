@@ -1124,7 +1124,9 @@ public class EmailManager {
      *
      * <p>Runs after optional password encryption, so the signature covers the exact bytes sent
      * to the patient. Each signed PDF is adopted into the send's working directory, which owns
-     * its cleanup; an unencrypted send has no working directory yet, so one is created here.</p>
+     * its cleanup. The compose flow always supplies that directory and {@code sendEmailInternal}
+     * decides who closes it; only a caller that builds {@code EmailData} directly arrives
+     * without one, and then it is created here, never closed here.</p>
      *
      * <p>Every attachment on {@code emailData} is expected to be a signable PDF. Signing is
      * fail-closed: if signing is enabled and any single attachment cannot be signed, the whole
@@ -1170,8 +1172,9 @@ public class EmailManager {
      * patient's document and nothing else would ever delete it.
      */
     private void deleteUnadoptedSignedPdf(Path signedPDFPath, Path sourcePDFPath) {
-        // signPDF hands back its input when signing is off. That cannot happen on this path, but
-        // the source may itself sit under the temp directory, so never rely on the guard alone.
+        // Two guards. The source-path check: signPDF hands back its input when signing is off,
+        // which cannot happen on this path but is cheap to refuse. The temp-directory check: the
+        // source may itself sit under the temp directory, so equality is checked first.
         if (signedPDFPath == null || signedPDFPath.equals(sourcePDFPath)
                 || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
             return;

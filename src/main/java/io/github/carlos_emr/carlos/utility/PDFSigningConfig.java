@@ -10,7 +10,10 @@ import java.util.Arrays;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * Configuration for certificate-backed PDF signatures.
+ * Server-side configuration for certificate-backed signing of outgoing email PDFs, read from
+ * the {@code pdf.signing.*} properties.
+ *
+ * @since 2026-07-22
  */
 @SuppressWarnings("java:S6206") // Mutable credential arrays require defensive copies.
 public final class PDFSigningConfig {
@@ -145,26 +148,9 @@ public final class PDFSigningConfig {
     }
 
     private static boolean configuredBooleanProperty(CarlosProperties properties, String key) {
-        String value = configuredProperty(properties, key, "").trim();
-        return equalsAsciiIgnoreCase(value, "true")
-                || equalsAsciiIgnoreCase(value, "yes")
-                || equalsAsciiIgnoreCase(value, "on");
-    }
-
-    private static boolean equalsAsciiIgnoreCase(String candidate, String expectedLowerCase) {
-        if (candidate.length() != expectedLowerCase.length()) {
-            return false;
-        }
-        for (int i = 0; i < candidate.length(); i++) {
-            char candidateChar = candidate.charAt(i);
-            if (candidateChar >= 'A' && candidateChar <= 'Z') {
-                candidateChar = (char) (candidateChar + ('a' - 'A'));
-            }
-            if (candidateChar != expectedLowerCase.charAt(i)) {
-                return false;
-            }
-        }
-        return true;
+        // The same true/yes/on markers as every other CARLOS boolean. This key ships uncommented,
+        // so the missing-key warning that configuredProperty avoids cannot fire for it.
+        return properties.isPropertyActive(key);
     }
 
     private static char[] toOptionalPassword(String value) {

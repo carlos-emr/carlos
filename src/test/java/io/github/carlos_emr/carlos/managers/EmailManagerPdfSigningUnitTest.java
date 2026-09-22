@@ -22,39 +22,15 @@
 
 package io.github.carlos_emr.carlos.managers;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.KeyStore;
-import java.security.Security;
-import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.cms.CMSProcessableByteArray;
-import org.bouncycastle.cms.CMSSignedData;
-import org.bouncycastle.cms.SignerInformation;
-import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -68,6 +44,7 @@ import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.util.PdfSigningTestSupport;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
 import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
@@ -112,7 +89,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
             createEmailManager().signAttachments(emailData);
 
             assertThat(emailData.getAttachments().get(0).getFilePath()).isEqualTo(source.toString());
-            // Signing is the only reason an unencrypted send needs a working directory.
+            // A directly built EmailData has no working directory until signing creates one.
             assertThat(emailData.getWorkingDirectory()).isNull();
             signer.verifyNoInteractions();
         }
@@ -257,7 +234,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
         emailData.setIsEncrypted(true);
         emailData.setIsAttachmentEncrypted(true);
         emailData.setPassword("correct horse battery staple");
-        PDFSigningConfig realConfig = selfSignedSigningConfig();
+        PDFSigningConfig realConfig = PdfSigningTestSupport.enabledRsaConfig(tempDir.resolve("pdf-signing.p12"));
 
         try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS)) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(realConfig);
@@ -272,15 +249,12 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> Loader.loadPDF(sent.toFile()).close())
                     .isInstanceOf(InvalidPasswordException.class);
 
-            byte[] sentBytes = Files.readAllBytes(sent);
             try (PDDocument opened = Loader.loadPDF(sent.toFile(), "correct horse battery staple")) {
                 assertThat(opened.isEncrypted()).isTrue();
                 assertThat(opened.getSignatureDictionaries()).hasSize(1);
-                PDSignature signature = opened.getSignatureDictionaries().get(0);
-                // The signature must verify over the exact bytes that would be attached.
-                assertThat(verifiesAgainstEmbeddedCertificate(
-                        signature.getContents(sentBytes), signature.getSignedContent(sentBytes))).isTrue();
             }
+            // The signature must verify over the exact bytes that would be attached.
+            assertThat(PdfSigningTestSupport.verifyDetachedSignature(sent, "correct horse battery staple")).isTrue();
 
             // The working directory owns every intermediate file, and the source is never touched.
             emailData.getWorkingDirectory().close();
@@ -299,62 +273,13 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
     }
 
     private PDFSigningConfig signingConfig(boolean enabled) {
+        // Complete enough to pass validateEnabled(); the signer itself is stubbed in these tests.
         return new PDFSigningConfig(enabled, "unused.p12", "PKCS12", "changeit".toCharArray(),
-                null, null, null, null, null, null);
-    }
-
-    private PDFSigningConfig selfSignedSigningConfig() throws Exception {
-        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-            Security.addProvider(new BouncyCastleProvider());
-        }
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        KeyPair keyPair = generator.generateKeyPair();
-
-        X500Name subject = new X500Name("CN=CARLOS Test Signer");
-        Instant now = Instant.now();
-        X509CertificateHolder holder = new JcaX509v3CertificateBuilder(
-                subject, BigInteger.valueOf(now.toEpochMilli()),
-                Date.from(now.minus(1, ChronoUnit.DAYS)), Date.from(now.plus(30, ChronoUnit.DAYS)),
-                subject, keyPair.getPublic())
-                .build(new JcaContentSignerBuilder("SHA256withRSA")
-                        .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate()));
-        X509Certificate certificate = new JcaX509CertificateConverter()
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).getCertificate(holder);
-
-        char[] keystorePassword = "changeit".toCharArray();
-        Path keystorePath = tempDir.resolve("pdf-signing.p12");
-        KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        keyStore.load(null, keystorePassword);
-        keyStore.setKeyEntry("signer", keyPair.getPrivate(), keystorePassword, new Certificate[]{certificate});
-        try (OutputStream output = Files.newOutputStream(keystorePath)) {
-            keyStore.store(output, keystorePassword);
-        }
-        return new PDFSigningConfig(true, keystorePath.toString(), "PKCS12", keystorePassword,
-                "signer", null, "CARLOS Test Signer", "Unit test signature", null, null);
-    }
-
-    private boolean verifiesAgainstEmbeddedCertificate(byte[] signatureContents, byte[] signedContent)
-            throws Exception {
-        // Stream constructor: bytes follow the CMS blob in its fixed-size /Contents slot (zeros,
-        // or ciphertext in an encrypted PDF), and the byte[] constructor rejects them.
-        CMSSignedData signedData = new CMSSignedData(
-                new CMSProcessableByteArray(signedContent), new ByteArrayInputStream(signatureContents));
-        SignerInformation signer = signedData.getSignerInfos().getSigners().iterator().next();
-        X509CertificateHolder certificate = (X509CertificateHolder)
-                signedData.getCertificates().getMatches(signer.getSID()).iterator().next();
-        return signer.verify(new JcaSimpleSignerInfoVerifierBuilder()
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(certificate));
+                "signer", null, null, null, null, null);
     }
 
     private Path writeSinglePagePdf(String name) throws IOException {
-        Path pdf = tempDir.resolve(name);
-        try (PDDocument document = new PDDocument()) {
-            document.addPage(new PDPage());
-            document.save(pdf.toFile());
-        }
-        assertThat(Files.size(pdf)).isPositive();
-        return pdf;
+        return PdfSigningTestSupport.writeSinglePagePdf(tempDir.resolve(name));
     }
 
     private static void closeWorkingDirectory(EmailData emailData) {
