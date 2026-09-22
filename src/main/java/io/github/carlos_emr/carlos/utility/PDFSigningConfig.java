@@ -13,7 +13,7 @@ import io.github.carlos_emr.CarlosProperties;
  * Server-side configuration for certificate-backed signing of outgoing email PDFs, read from
  * the {@code pdf.signing.*} properties.
  *
- * @since 2026-07-22
+ * @since 2026-09-21
  */
 @SuppressWarnings("java:S6206") // Mutable credential arrays require defensive copies.
 public final class PDFSigningConfig {

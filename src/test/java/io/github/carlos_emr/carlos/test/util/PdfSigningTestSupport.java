@@ -69,14 +69,14 @@ import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
  */
 public final class PdfSigningTestSupport {
 
-    public static final char[] KEYSTORE_PASSWORD = "changeit".toCharArray();
+    private static final char[] KEYSTORE_PASSWORD = "changeit".toCharArray();
     public static final String KEY_ALIAS = "pdf-signing";
-    public static final String PROVIDER = BouncyCastleProvider.PROVIDER_NAME;
+    private static final String PROVIDER = BouncyCastleProvider.PROVIDER_NAME;
 
     private PdfSigningTestSupport() {
     }
 
-    public static void ensureBouncyCastleProvider() {
+    private static void ensureBouncyCastleProvider() {
         if (Security.getProvider(PROVIDER) == null) {
             Security.addProvider(new BouncyCastleProvider());
         }
@@ -129,6 +129,15 @@ public final class PdfSigningTestSupport {
         }
         return new PDFSigningConfig(true, keystorePath.toString(), "PKCS12", KEYSTORE_PASSWORD, KEY_ALIAS, null,
                 "CARLOS Test Signer", "Unit test signature", "Test Clinic", "test@example.com");
+    }
+
+    /**
+     * An enabled configuration for tests that stub the signer. Complete enough to pass
+     * {@code validateEnabled()}; the keystore it names does not exist.
+     */
+    public static PDFSigningConfig stubbedEnabledConfig() {
+        return new PDFSigningConfig(true, "unused.p12", "PKCS12", KEYSTORE_PASSWORD, KEY_ALIAS,
+                null, null, null, null, null);
     }
 
     /** An enabled configuration backed by a fresh RSA-2048 self-signed key at {@code keystorePath}. */

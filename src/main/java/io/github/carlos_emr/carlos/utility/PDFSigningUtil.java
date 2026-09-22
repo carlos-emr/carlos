@@ -51,7 +51,7 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 /**
  * Applies certificate-backed detached signatures to PDF files.
  *
- * @since 2026-07-22
+ * @since 2026-09-21
  */
 public final class PDFSigningUtil {
     private static final String PROVIDER_NAME = BouncyCastleProvider.PROVIDER_NAME;

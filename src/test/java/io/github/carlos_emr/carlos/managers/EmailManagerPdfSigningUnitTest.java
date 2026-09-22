@@ -84,12 +84,12 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
 
         try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class)) {
-            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(signingConfig(false));
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(disabledConfig());
 
             createEmailManager().signAttachments(emailData);
 
             assertThat(emailData.getAttachments().get(0).getFilePath()).isEqualTo(source.toString());
-            // A directly built EmailData has no working directory until signing creates one.
+            // Signing is disabled and this send is unencrypted, so nothing has created one.
             assertThat(emailData.getWorkingDirectory()).isNull();
             signer.verifyNoInteractions();
         }
@@ -105,7 +105,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
                 MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
-            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(signingConfig(true));
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
             paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
             // Unencrypted send: no owner password may be handed to the signer.
             signer.when(() -> PDFSigningUtil.signPDF(eq(source), any(PDFSigningConfig.class), isNull()))
@@ -136,7 +136,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
                 MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
-            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(signingConfig(true));
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
             paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
             signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
                     .thenReturn(signed);
@@ -160,7 +160,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
                 MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
-            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(signingConfig(true));
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
             paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
             signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
                     .thenThrow(new IOException("keystore /etc/carlos-emr/pdf-signing.p12 unreadable"));
@@ -189,7 +189,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
 
         try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class)) {
-            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(signingConfig(true));
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
             signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
                     .thenReturn(signed);
 
@@ -210,7 +210,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
 
         try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class)) {
-            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(signingConfig(true));
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
             signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
                     .thenThrow(new ClassCastException("malformed dictionary"));
 
@@ -272,10 +272,8 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
         return emailData;
     }
 
-    private PDFSigningConfig signingConfig(boolean enabled) {
-        // Complete enough to pass validateEnabled(); the signer itself is stubbed in these tests.
-        return new PDFSigningConfig(enabled, "unused.p12", "PKCS12", "changeit".toCharArray(),
-                "signer", null, null, null, null, null);
+    private static PDFSigningConfig disabledConfig() {
+        return new PDFSigningConfig(false, null, null, null, null, null, null, null, null, null);
     }
 
     private Path writeSinglePagePdf(String name) throws IOException {
