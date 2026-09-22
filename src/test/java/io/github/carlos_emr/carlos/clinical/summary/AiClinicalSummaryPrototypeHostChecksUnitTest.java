@@ -265,6 +265,31 @@ class AiClinicalSummaryPrototypeHostChecksUnitTest {
     }
 
     @Test
+    void settlesADuplicateIdAStraySectionAndOneUnsupportedStatementAndRecordsEach() {
+        ArrayNode sources = sources("note-9", "2026-01-05", BLOCK);
+        ObjectNode output = JSON.createObjectNode();
+        ArrayNode claims = output.putArray("claims");
+        claims.addObject().put("id", "c5").put("text", "The knee replacement was reviewed.").putArray("source_ids").add("note-9");
+        claims.addObject().put("id", "c5").put("text", "The patient was alert and oriented.").putArray("source_ids").add("note-9");
+        claims.addObject().put("id", "c6").put("text", "Zebras migrate seasonally across savannah.").putArray("source_ids").add("note-9");
+        claims.addObject().put("id", "c7").put("text", "Review was planned for tomorrow.").putArray("source_ids").add("note-9");
+        ArrayNode sections = output.putArray("sections");
+        sections.addObject().put("id", "social_history").put("title", "Social history").putArray("claim_ids").add("c7");
+        sections.addObject().put("id", "plan_follow_up").put("title", "Plan").putArray("claim_ids").add("c5").add("c6").add("c6");
+        output.putArray("coverage");
+        ClinicalSummaryHostChecks.Tolerated result = ClinicalSummaryHostChecks.tolerateStructure(output, sources);
+        assertThat(result.output().get("claims").toString()).contains("\"c5-2\"").doesNotContain("Zebras");
+        assertThat(result.output().get("sections").toString()).isEqualTo(
+                "[{\"id\":\"plan_follow_up\",\"title\":\"Plan and follow-up\",\"claim_ids\":[\"c5\",\"c5-2\"]},"
+                + "{\"id\":\"clinical_overview\",\"title\":\"Clinical overview\",\"claim_ids\":[\"c7\"]}]");
+        assertThat(result.notes()).containsExactly(
+                "Statement c5 shared its ID with another; the second is now c5-2.",
+                "Statement c6 shared no word with the notes it cited and was dropped: \"Zebras migrate seasonally across savannah.\"",
+                "Section social_history is not one of the five clinical sections; its statements are under Clinical overview.");
+        assertThat(ClinicalSummaryHostChecks.tolerateStructure(result.output(), sources).notes()).isEmpty();
+    }
+
+    @Test
     void leavesMalformedOutputForValidationToReject() {
         ObjectNode malformed = JSON.createObjectNode().put("claims", "not an array");
         assertThat(ClinicalSummaryHostChecks.restoreObservations(malformed, sources("note-9", "2026-01-05", BLOCK)))

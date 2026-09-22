@@ -1,5 +1,6 @@
 # Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later.
 """Bounded full-record passes, shared by the standalone runner and its quality checks."""
+from concurrent.futures import ThreadPoolExecutor
 import copy
 import json
 
@@ -181,20 +182,23 @@ def finish(output, sources):
     return complete_coverage(restored, sources)
 
 
-def generate(sources, prompt, schema, infer, validate_part, request_bytes=REQUEST_BYTES):
-    outputs = []
+PARALLEL_PASSES = 3  # A long chart's passes are independent; run them side by side, in planned order.
 
+
+def generate(sources, prompt, schema, infer, validate_part, request_bytes=REQUEST_BYTES, workers=PARALLEL_PASSES):
     def run(part):
         try:
             output = infer(part)
         except OutputLimitError:
-            for smaller in split(part):
-                run(smaller)
-            return
+            return [item for smaller in split(part) for item in run(smaller)]
         output = complete_coverage(output, part)
         validate_part(part, output)
-        outputs.append(output)
+        return [output]
 
-    for part in plan(sources, prompt, schema, request_bytes):
-        run(part)
+    parts = plan(sources, prompt, schema, request_bytes)
+    if len(parts) == 1 or workers <= 1:
+        outputs = [item for part in parts for item in run(part)]
+    else:
+        with ThreadPoolExecutor(max_workers=min(workers, len(parts))) as pool:
+            outputs = [item for items in pool.map(run, parts) for item in items]
     return finish(merge(outputs, sources), sources)

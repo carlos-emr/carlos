@@ -70,7 +70,17 @@ for evaluation and audit, not for display: a repaired statement is validated lik
 every other and is not badged on screen. A restatement the model omits in its
 answer is dropped. The host also records `statement_names_person_or_identifier` and
 `statements_restate_each_other` validation warnings. Neither the merge nor the
-repair rewrites anything silently. The Java host applies all of this for both
+repair rewrites anything silently.
+
+Formatting faults that would otherwise discard a whole draft are settled and
+recorded as `statements_settled_by_host` warnings, one sentence each: a duplicate
+claim ID is renumbered (`c5` → `c5-2`), a section outside the fixed five is folded
+into Clinical overview, a wrong title or a statement listed twice in one section is
+corrected, and a single statement sharing no word with the notes it cites is
+dropped and quoted in the warning. A reference to a statement that never existed,
+a repeated citation within a statement, and host metadata echoed as prose still
+fail the draft. A long chart's passes run side by side, three at a time, and are
+assembled in planned order. The Java host applies all of this for both
 adapters, using the agent's optional repair operation (see AGENT_API.md).
 
 Validation severity is `pass`, `warning` or `error`. Source IDs may be empty

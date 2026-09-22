@@ -38,11 +38,11 @@ public final class ClinicalSummaryGenerationService {
             "\\bhr\\b", "heart rate", "\\bbp\\b", "blood pressure", "\\brr\\b", "respiratory rate",
             "\\bspo2\\b", "oxygen saturation", "\\bhf\\b", "heart failure", "\\bf/u\\b", "follow up",
             "\\bwks?\\b", "weeks", "\\bsmok(?:e|es|ed|ing|er|ers)\\b", "smoking");
-    private static final Pattern SOURCE_METADATA = Pattern.compile(
+    static final Pattern SOURCE_METADATA = Pattern.compile(
             "(?i)(?:\\b(source (?:note|admission|patient) id|demographic (?:number|id)|"
                     + "recorded gender identity|synthetic nhs test patient|imported development fixture|"
                     + "silver data|nmc number|gmc number|fixture revision)\\b|\\b(?:subject|type)\\s*:)");
-    private static final Set<String> COMMON_WORDS = Set.of(
+    static final Set<String> COMMON_WORDS = Set.of(
             "about", "after", "also", "and", "are", "been", "being", "clinical", "current", "for",
             "from", "had", "has", "have", "into", "more", "new", "noted", "patient", "recorded",
             "report", "reported", "source", "that", "the", "their", "there", "this", "was", "were",
@@ -99,7 +99,8 @@ public final class ClinicalSummaryGenerationService {
                 ClinicalSummaryArtifact hit = cache.get(cacheKey);
                 if (hit != null) return hit;
             }
-            JsonNode generated = new ClinicalSummaryGenerationPipeline(agent, cache, identity).generate(snapshot, request);
+            ClinicalSummaryGenerationPipeline pipeline = new ClinicalSummaryGenerationPipeline(agent, cache, identity);
+            JsonNode generated = pipeline.generate(snapshot, request);
             // Host guarantees that hold whichever stack wrote the draft: restore omitted observations,
             // state unreported same-class drug conflicts, let the agent rewrite what the host can
             // still fault, then record citations, including of the host's own statements.
@@ -144,6 +145,10 @@ public final class ClinicalSummaryGenerationService {
                         .put("message", "Statement " + finding.claimId() + " describes a switch or change between "
                                 + String.join(" and ", finding.drugs()) + ", which no note records.").putArray("source_ids");
                 finding.sourceIds().forEach(cited::add);
+            }
+            for (String note : pipeline.tolerated()) {
+                findings.addObject().put("severity", "warning").put("code", "statements_settled_by_host")
+                        .put("message", note).putArray("source_ids");
             }
             int repaired = ClinicalSummaryRepair.repairedCount(generated);
             if (repaired > 0) {
@@ -271,7 +276,7 @@ public final class ClinicalSummaryGenerationService {
                 .replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
     }
 
-    private static Set<String> words(String value) {
+    static Set<String> words(String value) {
         Set<String> result = new HashSet<>();
         String expanded = Normalizer.normalize(value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
         for (var entry : LEXICAL_EXPANSIONS.entrySet()) expanded = expanded.replaceAll(entry.getKey(), entry.getValue());

@@ -26,6 +26,8 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     private boolean dropsObservations;
     private boolean misdates;
     private boolean namesStaff;
+    private boolean duplicateIds;
+    private int slowMs;
     private JsonNode repairRequest;
     private String repairReply;
     private java.util.Map<String, String> classes;
@@ -34,9 +36,16 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
         public String cacheIdentity() { return "fixed-test-revision"; }
         public int requestBytes() { return requestBytes; }
         public JsonNode generate(JsonNode request) throws IOException {
-            requests.add(request.deepCopy());
+            int call;
+            synchronized (requests) {
+                requests.add(request.deepCopy());
+                call = requests.size();
+            }
+            if (slowMs > 0) {
+                try { Thread.sleep(slowMs); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            }
             assertThat(JSON.writeValueAsBytes(request).length).isLessThanOrEqualTo(requestBytes);
-            if (requests.size() == failOnCall) throw new IOException("Test failure");
+            if (call == failOnCall) throw new IOException("Test failure");
             if (outputLimitBytes > 0 && JSON.writeValueAsBytes(request.get("sources")).length > outputLimitBytes) {
                 throw new ClinicalSummaryOutputLimitException();
             }
@@ -52,8 +61,9 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
                 if (dropsObservations) text = text.substring(0, text.indexOf(" Observations:"));
                 if (misdates) text = text + " Reviewed again on 19/03/26.";
                 if (namesStaff) text = "Nurse Ada Example recorded: " + text;
-                claims.addObject().put("id", "claim-" + id).put("text", text).putArray("source_ids").add(id);
-                ids.add("claim-" + id);
+                String claimId = duplicateIds ? "claim-source-1" : "claim-" + id;
+                claims.addObject().put("id", claimId).put("text", text).putArray("source_ids").add(id);
+                ids.add(claimId);
                 if (reviewsOnlyUncited) continue;
                 coverage.addObject().put("source_id", id).put("status", "cited").put("reason", "Recorded findings from " + id);
             }
@@ -322,6 +332,26 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
         var result = generate(input);
         assertThat(String.valueOf(result.getClaimsById().get("host-med-1").get("text"))).startsWith("Medication records conflict, as found by the host: tinzaparin (05/01/26) and enoxaparin (06/01/26)");
         assertThat(String.valueOf(result.getClaimsById().get("host-med-1").get("source_ids"))).isEqualTo("[source-1, source-2]");
+    }
+
+    @Test
+    void aFormattingFaultIsSettledAndRecordedInsteadOfDiscardingTheDraft() throws Exception {
+        duplicateIds = true;
+        var result = generate(chart(2));
+        assertThat(result.getClaimsById()).hasSize(2).containsKey("claim-source-1-2");
+        assertThat(result.getView().get("validation").toString())
+                .contains("statements_settled_by_host", "Statement claim-source-1 shared its ID with another");
+    }
+
+    @Test
+    void aLongChartsPassesRunSideBySide() throws Exception {
+        slowMs = 400;
+        long started = System.nanoTime();
+        assertThat(generate(chart(75)).getClaimsById()).hasSize(75);
+        int passes = requests.size();
+        assertThat(passes).isGreaterThan(2);
+        long elapsedMs = (System.nanoTime() - started) / 1_000_000;
+        assertThat(elapsedMs).isLessThan((long) passes * slowMs);
     }
 
     @Test

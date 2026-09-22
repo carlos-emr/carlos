@@ -12,12 +12,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentProtocol.JSON;
 
 /** Bounded model calls over every source, with lossless host assembly rather than a lossy reduce call. */
 final class ClinicalSummaryGenerationPipeline {
     // Serialized bytes, including prompt and schema. Leaves room for output in a 16K context.
     static final int REQUEST_BYTES = ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES;
+    /** Passes of one chart run side by side; mirrors pipeline.PARALLEL_PASSES. */
+    static final int PARALLEL_PASSES = 3;
+    private final List<String> tolerated = new ArrayList<>();
+
+    /** One sentence per formatting fault the host settled during generation, for the validation record. */
+    List<String> tolerated() { synchronized (tolerated) { return List.copyOf(tolerated); } }
     private final ClinicalSummaryAgent agent;
     private final ClinicalSummaryGenerationCache cache;
     private final String identity;
@@ -53,7 +63,44 @@ final class ClinicalSummaryGenerationPipeline {
         }
         List<ObjectNode> requests = new ArrayList<>();
         if (!clinicalSources.isEmpty()) partition(clinicalRequest, requests);
-        for (ObjectNode part : requests) run(snapshot, part, requests.size() > 1, outputs);
+        if (requests.size() <= 1) {
+            for (ObjectNode part : requests) run(snapshot, part, false, outputs);
+        } else {
+            // A long chart's passes are independent; run them side by side, assembled in planned order.
+            ExecutorService pool = Executors.newFixedThreadPool(Math.min(PARALLEL_PASSES, requests.size()));
+            try {
+                List<Future<List<JsonNode>>> futures = new ArrayList<>();
+                for (ObjectNode part : requests) {
+                    futures.add(pool.submit(() -> {
+                        List<JsonNode> own = new ArrayList<>();
+                        run(snapshot, part, true, own);
+                        return own;
+                    }));
+                }
+                // Wait for every pass before reporting a failure, so nothing is still in flight
+                // against the cache or the agent once this method returns.
+                ExecutionException failed = null;
+                for (Future<List<JsonNode>> future : futures) {
+                    try {
+                        List<JsonNode> own = future.get();
+                        if (failed == null) outputs.addAll(own);
+                    } catch (ExecutionException failure) {
+                        if (failed == null) failed = failure;
+                    }
+                }
+                if (failed != null) {
+                    Throwable cause = failed.getCause();
+                    if (cause instanceof IOException io) throw io;
+                    if (cause instanceof RuntimeException runtime) throw runtime;
+                    throw new IOException("Generation failed", cause);
+                }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Generation interrupted", interrupted);
+            } finally {
+                pool.shutdownNow();
+            }
+        }
         return outputs.size() == 1 ? outputs.getFirst() : merge(outputs, snapshot.get("sources"));
     }
 
@@ -153,8 +200,12 @@ final class ClinicalSummaryGenerationPipeline {
             for (ObjectNode smaller : split(request)) run(snapshot, smaller, true, outputs);
             return;
         }
-        // Identical statements are folded, with every citation, rather than failing the draft.
-        generated = completeCoverage(ClinicalSummaryHostChecks.mergeIdenticalClaims(generated), part.get("sources"));
+        // Identical statements are folded with every citation, and formatting faults are settled
+        // and recorded, rather than failing the draft.
+        ClinicalSummaryHostChecks.Tolerated settled = ClinicalSummaryHostChecks.tolerateStructure(
+                ClinicalSummaryHostChecks.mergeIdenticalClaims(generated), part.get("sources"));
+        synchronized (tolerated) { tolerated.addAll(settled.notes()); }
+        generated = completeCoverage(settled.output(), part.get("sources"));
         ClinicalSummaryGenerationService.validateGenerated(generated, part.get("sources"), true);
         for (String field : List.of("sections", "claims", "coverage")) part.set(field, generated.get(field).deepCopy());
         ClinicalSummaryArtifact validated = new ClinicalSummaryArtifact(part);

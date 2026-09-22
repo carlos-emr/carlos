@@ -258,5 +258,41 @@ class DuplicateClaimsTest(unittest.TestCase):
         self.assertEqual((output, 0), host_checks.merge_contained_claims(output))
 
 
+class ToleratedStructureTest(unittest.TestCase):
+    def test_a_duplicate_claim_id_is_renumbered_and_its_section_membership_kept(self):
+        output = {"claims": [{"id": "c5", "text": "The knee replacement was reviewed.", "source_ids": ["note-9"]},
+                             {"id": "c5", "text": "The patient was alert and oriented.", "source_ids": ["note-9"]},
+                             {"id": "c6", "text": "Review was planned for tomorrow.", "source_ids": ["note-9"]}],
+                  "sections": [{"id": "plan_follow_up", "title": "Plan and follow-up", "claim_ids": ["c5", "c6"]}],
+                  "coverage": []}
+        fixed, notes = host_checks.tolerate_structure(output, [source()])
+        self.assertEqual(["c5", "c5-2", "c6"], [claim["id"] for claim in fixed["claims"]])
+        self.assertEqual(["c5", "c5-2", "c6"], fixed["sections"][0]["claim_ids"])
+        self.assertEqual(["Statement c5 shared its ID with another; the second is now c5-2."], notes)
+        validate_generated(dict(fixed, coverage=[{"source_id": "note-9", "status": "cited", "reason": "r"}]), [source()])
+
+    def test_a_section_outside_the_fixed_five_or_with_a_wrong_title_is_folded_into_the_overview(self):
+        output = {"claims": [{"id": "c1", "text": "A.", "source_ids": ["note-9"]},
+                             {"id": "c2", "text": "B.", "source_ids": ["note-9"]}],
+                  "sections": [{"id": "social_history", "title": "Social history", "claim_ids": ["c1"]},
+                               {"id": "plan_follow_up", "title": "Plan", "claim_ids": ["c2", "c2"]}],
+                  "coverage": []}
+        fixed, notes = host_checks.tolerate_structure(output, [source()])
+        self.assertEqual([{"id": "plan_follow_up", "title": "Plan and follow-up", "claim_ids": ["c2"]},
+                          {"id": "clinical_overview", "title": "Clinical overview", "claim_ids": ["c1"]}],
+                         fixed["sections"])
+        self.assertEqual(["Section social_history is not one of the five clinical sections; its statements are "
+                          "under Clinical overview."], notes)
+
+    def test_one_statement_with_no_word_from_its_cited_notes_is_dropped_and_named(self):
+        output = draft(("The knee replacement was reviewed.", ["note-9"]),
+                       ("Zebras migrate seasonally across savannah.", ["note-9"]))
+        fixed, notes = host_checks.tolerate_structure(output, [source()])
+        self.assertEqual(["c1"], [claim["id"] for claim in fixed["claims"]])
+        self.assertEqual(["Statement c2 shared no word with the notes it cited and was dropped: "
+                          "\"Zebras migrate seasonally across savannah.\""], notes)
+        self.assertEqual((fixed, []), host_checks.tolerate_structure(fixed, [source()]))
+
+
 if __name__ == "__main__":
     unittest.main()
