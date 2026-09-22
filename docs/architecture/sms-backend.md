@@ -40,7 +40,7 @@ A direct-send response reflects the persisted result, including a delivery webho
 
 Run `mvn '-Dtest=**/sms/**/*Test' test` for the module's unit, persistence and competing-transaction tests. Tests use synthetic data. There is no browser flow to validate until a UI/API entry point is implemented.
 
-Schema installation uses `V1.0.25__add_sms_system_of_record.sql` and `V1.0.31__add_sms_security_objects.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before this migration: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
+Schema installation uses `V1.0.25__add_sms_system_of_record.sql` and `V1.0.31__add_sms_security_objects.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before `V1.0.25`: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
 
 ## Security objects
 
@@ -60,7 +60,7 @@ SMS has three security objects. A role's grant is a ladder, `x` > `w` > `u` > `r
 
 The actions that check `_sms` and `_admin.sms` arrive with #3836, #3838, #3839 and #3841. They follow the security-check rules in `CLAUDE.md` and `docs/soap-rbac-hardening.md`: the paren-form `SecurityException` message, and the patient's `demographicNo` rather than `null` whenever the patient is known. Two things for the first of those PRs to settle, because the current code does not:
 
-- A Struts action's refusal is handled as a 403 only if its package maps `java.lang.SecurityException` to `securityError`; otherwise the exception reaches the container error page. The messenger and eform packages map nothing today.
+- A Struts action's refusal is handled as a 403 only if its package maps `java.lang.SecurityException` to a `securityError` global result (see `struts-form.xml`); otherwise the exception reaches the container error page. The messenger and eform packages define neither the mapping nor the result today, and `carlos-default` supplies no result, so both must be added.
 - `CarlosSmsMessageBodyAuthorizationService` throws `commn.exception.AccessDeniedException`, which no Struts package maps to a refusal.
 
 ## Required before real SMS traffic
