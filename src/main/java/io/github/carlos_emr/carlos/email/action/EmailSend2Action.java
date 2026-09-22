@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.email.action;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
@@ -592,6 +593,14 @@ public class EmailSend2Action extends ActionSupport {
         if (!encrypted && attachmentEncrypted) {
             throw new EmailSendValidationException(
                     "Attachment encryption requires message encryption");
+        }
+        if (encrypted) {
+            try {
+                PortalEmailDeliveryService.isEnabled();
+            } catch (PatientPortalConfigurationException malformed) {
+                // Refuse here, before the compose state is consumed, so the draft survives.
+                throw new EmailSendValidationException(getText("email.compose.portal.misconfigured"));
+            }
         }
     }
 

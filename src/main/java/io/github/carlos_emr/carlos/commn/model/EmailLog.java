@@ -187,9 +187,21 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * the recovery page, never back in the resend flow.
      */
     public boolean isPortalDeliveryUnresolved() {
-        return portalDeliveryState != null && (status == EmailStatus.PENDING
-                || (portalDeliveryState != PortalDeliveryState.PUBLISHED
-                    && portalDeliveryState != PortalDeliveryState.REVOKED));
+        if (portalDeliveryState == null) {
+            return false;
+        }
+        if (status == EmailStatus.PENDING) {
+            return true;
+        }
+        // A published password for a failed email, or a revoked one for a delivered email, is a
+        // contradiction staff must see, not a finished delivery.
+        if (portalDeliveryState == PortalDeliveryState.PUBLISHED) {
+            return status == EmailStatus.FAILED;
+        }
+        if (portalDeliveryState == PortalDeliveryState.REVOKED) {
+            return status == EmailStatus.SUCCESS;
+        }
+        return true;
     }
     public void setPortalDeliveryState(PortalDeliveryState value) { portalDeliveryState = value; }
     public String getPortalSourceReference() { return portalSourceReference; }

@@ -100,6 +100,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 public class EmailManager {
     private static final String ARCHIVE_FAILURE_MESSAGE = "Failed to archive outbound email";
     private static final String SEND_FAILURE_MESSAGE = "Failed to send email";
+    private static final String SENDER_CONFIG_FAILURE_MESSAGE = "The email sender could not be set up from its configuration";
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
     private static final String EMAIL_AUDIT_CONTENT = "Email";
     private static final String UNKNOWN_NAME_PART = "Unknown";
@@ -243,7 +244,9 @@ public class EmailManager {
                     throw e;
                 }
                 if (portalResult.isTransportAccepted()) {
-                    var completed = completeAcceptedSend(loggedInInfo, emailLog);
+                    // Keep the portal's "publish pending" note: the outbox shows it with SUCCESS.
+                    var completed = completeAcceptedSend(loggedInInfo, emailLog,
+                            portalResult.isFollowUpRequired() ? emailLog.getErrorMessage() : "");
                     recordArchiveSendOutcome(loggedInInfo, archiveId.get(), SendOutcome.ACCEPTED);
                     return EmailSendResult.accepted(completed.getEmailLog(), completed.isTransportOutcomeRecorded(),
                             completed.isFollowUpRequired() || portalResult.isFollowUpRequired());
@@ -288,7 +291,7 @@ public class EmailManager {
         } catch (SecurityException e) {
             throw e;
         } catch (RuntimeException e) {
-            throw new EmailSendingException(SEND_FAILURE_MESSAGE, e);
+            throw new EmailSendingException(SENDER_CONFIG_FAILURE_MESSAGE, e);
         }
     }
 
@@ -534,11 +537,19 @@ public class EmailManager {
     }
 
     private EmailSendResult completeAcceptedSend(LoggedInInfo loggedInInfo, EmailLog emailLog) {
+        return completeAcceptedSend(loggedInInfo, emailLog, "");
+    }
+
+    /**
+     * @param outcomeNote stored with SUCCESS; empty unless the accepted send still needs staff
+     *                    attention, such as a portal password that is not yet published
+     */
+    private EmailSendResult completeAcceptedSend(LoggedInInfo loggedInInfo, EmailLog emailLog, String outcomeNote) {
         boolean outcomeRecorded;
         boolean followUpRequired = false;
         try {
             emailLog = updateEmailStatus(
-                    loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
+                    loggedInInfo, emailLog, EmailStatus.SUCCESS, outcomeNote);
             outcomeRecorded = EmailStatus.SUCCESS.equals(emailLog.getStatus());
         } catch (RuntimeException statusUpdateFailure) {
             // Transport has already accepted the message. Propagating a 500 would invite the
@@ -789,6 +800,11 @@ public class EmailManager {
      */
     public boolean isManuallyResolvable(EmailLog emailLog) {
         if (emailLog == null) {
+            return false;
+        }
+        // Portal recovery owns these: resolving one by hand could turn a known failure into an
+        // unknown outcome and invite publishing a password for an email that was never sent.
+        if (emailLog.isPortalDeliveryUnresolved()) {
             return false;
         }
         if (EmailStatus.FAILED.equals(emailLog.getStatus())) {
@@ -1147,7 +1163,7 @@ public class EmailManager {
         // Fail closed: an empty password produces a PDF anyone can open. The compose action blanks
         // the password when portal delivery owns it, so a disagreement about that setting between
         // the two reads must stop the send rather than encrypt with nothing.
-        if (StringUtils.isNullOrEmpty(emailData.getPassword())) {
+        if (emailData.getPassword() == null || emailData.getPassword().isBlank()) {
             throw new EmailSendingException("Email encryption requires a password");
         }
         ensureWorkingDirectory(emailData);

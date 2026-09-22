@@ -153,6 +153,36 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
         verifyNoInteractions(emailManager);
     }
 
+    @Test
+    @DisplayName("should refuse an encrypted send before consuming the draft when the portal setting is malformed")
+    void shouldRefuseEncryptedSendKeepingTheDraft_whenPortalSettingIsMalformed() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("message", "Confidential note.");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "true");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+        doReturn("PORTAL_SETTING_INVALID").when(action).getText("email.compose.portal.misconfigured");
+
+        try (MockedStatic<io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService> portal =
+                     mockStatic(io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService.class)) {
+            portal.when(io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService::isEnabled)
+                    .thenThrow(new io.github.carlos_emr.carlos.integration.patientportal
+                            .PatientPortalConfigurationException("patient_portal.email.enabled must be true or false"));
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        }
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString()).contains("PORTAL_SETTING_INVALID");
+        verifyNoInteractions(emailManager);
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"   "})

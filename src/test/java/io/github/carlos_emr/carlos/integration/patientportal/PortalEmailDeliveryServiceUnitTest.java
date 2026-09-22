@@ -354,4 +354,35 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         assertThat(log.getBody()).isEqualTo("Localized notice.\n\nEmail 45");
         assertThat(data.getBody()).isEqualTo(log.getBody());
     }
+
+    @Test void shouldReportContradictions_asInconsistentAndUnresolved() {
+        stored(PortalDeliveryState.PUBLISHED); log.setStatus(EmailStatus.FAILED);
+        assertThat(PortalEmailDeliveryService.classify(log)).isEqualTo(PortalEmailDeliveryService.RecoveryView.INCONSISTENT);
+        assertThat(log.isPortalDeliveryUnresolved()).isTrue();
+        stored(PortalDeliveryState.REVOKED); log.setStatus(EmailStatus.SUCCESS);
+        assertThat(PortalEmailDeliveryService.classify(log)).isEqualTo(PortalEmailDeliveryService.RecoveryView.INCONSISTENT);
+        assertThat(log.isPortalDeliveryUnresolved()).isTrue();
+        stored(PortalDeliveryState.PUBLISHED); log.setStatus(EmailStatus.SUCCESS);
+        assertThat(log.isPortalDeliveryUnresolved()).isFalse();
+        stored(PortalDeliveryState.REVOKED); log.setStatus(EmailStatus.FAILED);
+        assertThat(log.isPortalDeliveryUnresolved()).isFalse();
+    }
+
+    @Test void shouldReportAcceptedWithPublicationPending_whenRecoveryChangedStateDuringTheSend() {
+        when(logs.transitionPortalDelivery(log, PortalDeliveryState.SENDING, PortalDeliveryState.SENT, 77L)).thenReturn(false);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
+        assertThat(outcome.isTransportAccepted()).isTrue();
+        assertThat(outcome.isFollowUpRequired()).isTrue();
+        assertThat(operations).containsExactly("create", "encrypt", "send");
+    }
+
+    @Test void shouldClearThePendingNote_afterPublishingOnRetry() {
+        stored(PortalDeliveryState.SENT); log.setStatus(EmailStatus.SUCCESS);
+        log.setErrorMessage(PortalEmailDeliveryService.PUBLISH_PENDING);
+        // The row is already SUCCESS, so the PENDING compare-and-set cannot match.
+        when(logs.transitionEmailStatus(eq(45), eq(EmailStatus.PENDING), any(), anyString(), any())).thenReturn(0);
+        delivery.recover(user, 45, "retry", false);
+        verify(logs).transitionEmailStatus(eq(45), eq(EmailStatus.SUCCESS), eq(EmailStatus.SUCCESS), eq(""), eq(log.getTimestamp()));
+        assertThat(log.getErrorMessage()).isEmpty();
+    }
 }
