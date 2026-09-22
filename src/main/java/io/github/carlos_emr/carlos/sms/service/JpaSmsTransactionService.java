@@ -189,8 +189,13 @@ public class JpaSmsTransactionService implements SmsTransactionService {
             smsTransactionDao.flush();
         } else {
             requireMatchingDeliveryTarget(transaction, webhook);
+            // Publish only on the transition into FAILED, so replayed or ignored callbacks stay silent.
+            SmsStatus statusBefore = transaction.getStatus();
             transaction.markDeliveryEvent(webhook);
             smsTransactionDao.merge(transaction);
+            if (statusBefore != SmsStatus.FAILED) {
+                publishIfTerminalFailure(transaction);
+            }
         }
         return transaction;
     }
