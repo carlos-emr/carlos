@@ -363,6 +363,53 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return changeLegalHold(loggedInInfo, archiveId, reason, OutboundEmailArchiveLegalHoldEvent.ACTION_PLACED);
     }
 
+    @Override
+    @Transactional
+    public OutboundEmailArchive recordSendOutcome(LoggedInInfo loggedInInfo, Integer archiveId, SendOutcome outcome) {
+        if (archiveId == null) {
+            // The archive could not be created, so there is no lifecycle to advance. Callers
+            // record this bookkeeping without branching on whether archiving got that far.
+            return null;
+        }
+        if (outcome == null) {
+            throw new IllegalArgumentException("Send outcome is required");
+        }
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
+                || loggedInInfo.getLoggedInProviderNo().isBlank()) {
+            throw new IllegalArgumentException("Send outcome provider number is required");
+        }
+
+        // Write authority, not the admin gate: this is the same caller who just archived the
+        // artifact, recording what their own send did. Re-checked rather than assumed, so a
+        // privilege revoked mid-send cannot quietly keep writing to the record.
+        requireArchiveWriteAuthority(loggedInInfo);
+
+        OutboundEmailArchive archive = lockArchiveForAuthorizedCaller(loggedInInfo, archiveId);
+        if (archive.isDeleted()) {
+            // A controlled deletion can land while a slow transport is still in flight. The
+            // tombstone is frozen: a late outcome must not rewrite its status or replace the
+            // deleter's lastUpdateUser stamp. Same refusal as the legal hold transitions.
+            throw new IllegalStateException("Outbound email archive has been deleted");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+
+        switch (outcome) {
+            case ATTEMPTED -> archive.recordSendAttempt(providerNo);
+            case ACCEPTED -> archive.recordSendAccepted(providerNo);
+            case FAILED -> archive.recordSendFailure(providerNo);
+            // Refuse rather than silently skip: an unhandled transition would leave the row
+            // claiming a state the transport never reported.
+            default -> throw new IllegalArgumentException("Unsupported send outcome: " + outcome);
+        }
+
+        outboundEmailArchiveDao.merge(archive);
+
+        // Deliberately not audited through LogAction. The send is already audited by EmailManager,
+        // and two more lifecycle rows per email would bury the entries that record access to patient
+        // data without adding anything the archive row does not already state.
+        return archive;
+    }
+
     /**
      * Shared transition for both legal hold directions.
      *
@@ -496,7 +543,6 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         archive.setByteSize((long) artifactBytes.length);
         archive.setStorageType(OutboundEmailArchive.STORAGE_TYPE_EDOC);
         archive.setRetentionPolicy(OutboundEmailArchive.RETENTION_POLICY_PERMANENT);
-        archive.setSendStatus(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
         archive.setLastUpdateUser(buildContext.providerNo());
 
         for (OutboundEmailArchiveAttachment attachment : safeArchiveAttachmentList(buildContext.attachments())) {
