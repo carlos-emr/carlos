@@ -2,7 +2,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
-import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -22,7 +22,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit") @Tag("security")
 class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
-    private final PortalEmailDelivery delivery = mock(PortalEmailDelivery.class);
+    private final PortalEmailDeliveryService delivery = mock(PortalEmailDeliveryService.class);
     private final LoggedInInfo user = new LoggedInInfo();
     private final EmailLog stored = new EmailLog();
     private MockHttpServletRequest request;
@@ -30,8 +30,6 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        mockedBeans.put(SecurityInfoManager.class, security);
-        mockedBeans.put(PortalEmailDelivery.class, delivery);
         when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
         when(delivery.findForRecovery(user, 45)).thenReturn(stored);
     }
@@ -40,21 +38,23 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
         execute("GET", "45");
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(request.getAttribute("emailLog")).isSameAs(stored);
-        assertThat(request.getAttribute("portalRecoveryTooRecent")).isEqualTo(false);
+        assertThat(request.getAttribute("recoveryView")).isEqualTo("INCONSISTENT");
         verify(delivery, never()).recover(any(), anyInt(), any(), anyBoolean());
     }
 
-    @Test void shouldFlagRecentPendingSend_forGet() throws Exception {
+    @Test void shouldAskToWait_forRecentPendingSend() throws Exception {
         stored.setStatus(EmailLog.EmailStatus.PENDING);
         stored.setTimestamp(new Date());
+        stored.setPortalDeliveryState(EmailLog.PortalDeliveryState.READY);
         execute("GET", "45");
-        assertThat(request.getAttribute("portalRecoveryTooRecent")).isEqualTo(true);
+        assertThat(request.getAttribute("recoveryView")).isEqualTo("WAIT");
     }
 
-    @Test void shouldDispatchToRecovery_forPost() throws Exception {
+    @Test void shouldRecoverThenRedirectToTheReadOnlyPage_forPost() throws Exception {
         execute("POST", "45");
-        assertThat(response.getStatus()).isEqualTo(200);
         verify(delivery).recover(user, 45, "confirmSent", true);
+        assertThat(response.getStatus()).isEqualTo(302);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/email/portalDelivery?emailLogId=45");
     }
 
     @Test void shouldRejectRequest_whenEmailReadPrivilegeIsMissing() throws Exception {
@@ -91,8 +91,16 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(delivery);
     }
 
-    @Test void shouldReturnBadRequest_whenRecoveryRejectsTheOperation() throws Exception {
-        when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(new IllegalArgumentException("not yet"));
+    @Test void shouldShowTheReasonAndCurrentState_whenRecoveryIsRefused() throws Exception {
+        when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(refused("email.portalDelivery.error.stateChanged", true));
+        execute("POST", "45");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.stateChanged");
+        assertThat(request.getAttribute("emailLog")).isSameAs(stored);
+    }
+
+    @Test void shouldReturnBadRequest_whenRecoveryRefusesAnInvalidOperation() throws Exception {
+        when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(refused("email.portalDelivery.error.operationNotAvailable", false));
         execute("POST", "45");
         assertThat(response.getStatus()).isEqualTo(400);
     }
@@ -101,8 +109,18 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
         when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(new IllegalStateException("portal outage secret=x"));
         execute("POST", "45");
         assertThat(response.getStatus()).isEqualTo(503);
-        assertThat(request.getAttribute("portalRecoveryError")).isEqualTo(true);
+        assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.unavailable");
         assertThat(response.getContentAsString()).doesNotContain("secret");
+    }
+
+    @Test void shouldReturnNotFound_whenEmailHasNoPortalDelivery() throws Exception {
+        when(delivery.findForRecovery(user, 45)).thenThrow(new IllegalArgumentException("Portal email not found"));
+        execute("GET", "45");
+        assertThat(response.getStatus()).isEqualTo(404);
+    }
+
+    private static PortalEmailDeliveryService.RecoveryRefusedException refused(String key, boolean conflict) {
+        return new PortalEmailDeliveryService.RecoveryRefusedException(key, conflict);
     }
 
     private void execute(String method, String emailLogId) throws Exception {
@@ -115,7 +133,7 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             sessions.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(user);
-            new PortalEmailDelivery2Action().execute();
+            new PortalEmailDelivery2Action(security, delivery).execute();
         }
     }
 }

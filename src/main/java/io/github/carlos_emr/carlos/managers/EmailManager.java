@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
@@ -136,7 +137,7 @@ public class EmailManager {
     private ProviderManager2 providerManager;
     private final SecurityInfoManager securityInfoManager;
     @Autowired
-    private io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery portalEmailDelivery;
+    private PortalEmailDeliveryService portalEmailDelivery;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
@@ -198,7 +199,7 @@ public class EmailManager {
 
             sanitizeEmailFields(emailData);
             boolean portalPassword = emailData.getIsEncrypted()
-                    && io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery.isEnabled();
+                    && PortalEmailDeliveryService.isEnabled();
             if (portalPassword) {
                 emailData.setPassword("");
                 emailData.setPasswordClue("");
@@ -232,8 +233,7 @@ public class EmailManager {
                     portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
                             () -> encryptEmail(emailData),
                             () -> archiveId.set(sendWithArchive(loggedInInfo,
-                                    emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData),
-                                    emailLog)));
+                                    createSenderBeforeTransport(loggedInInfo, emailLog, emailData), emailLog)));
                 } catch (SecurityException e) {
                     // sendWithArchive records a refusal it raises itself; a refusal before
                     // transport (portal authorization) still leaves the row PENDING.
@@ -273,6 +273,22 @@ public class EmailManager {
             }
             emailData.setPassword("");
             emailData.setPasswordClue("");
+        }
+    }
+
+    /**
+     * Builds the sender for the portal path. It runs after the portal state has moved to SENDING,
+     * so a construction fault is reported as a definite failure: the transport was never reached,
+     * and classifying it as uncertain would make staff reconcile a send that cannot have happened.
+     */
+    private EmailSender createSenderBeforeTransport(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailData emailData)
+            throws EmailSendingException {
+        try {
+            return emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
+        } catch (SecurityException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new EmailSendingException(SEND_FAILURE_MESSAGE, e);
         }
     }
 
@@ -1128,6 +1144,12 @@ public class EmailManager {
      * @throws EmailSendingException if PDF encryption fails
      */
     void encryptEmail(EmailData emailData) throws EmailSendingException {
+        // Fail closed: an empty password produces a PDF anyone can open. The compose action blanks
+        // the password when portal delivery owns it, so a disagreement about that setting between
+        // the two reads must stop the send rather than encrypt with nothing.
+        if (StringUtils.isNullOrEmpty(emailData.getPassword())) {
+            throw new EmailSendingException("Email encryption requires a password");
+        }
         ensureWorkingDirectory(emailData);
         // Encrypt message and attachment
         List<EmailAttachment> encryptableAttachments = new ArrayList<>();
@@ -1271,6 +1293,7 @@ public class EmailManager {
                     result.getIsEncrypted(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResult.applyConsentSnapshot(result);
             emailStatusResult.setResolvable(isManuallyResolvable(result));
+            emailStatusResult.setPortalPasswordPending(result.isPortalDeliveryUnresolved());
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

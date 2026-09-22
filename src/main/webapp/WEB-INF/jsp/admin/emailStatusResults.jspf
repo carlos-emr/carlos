@@ -69,6 +69,15 @@
                     </c:if>
                 </td>
             </tr>
+            <c:if test="${emailStatusResult.portalPasswordPending}">
+                <tr>
+                    <th><fmt:message key="email.admin.label.portalPassword"/></th>
+                    <td>
+                        <span class="badge bg-warning text-dark"><fmt:message key="email.admin.label.portalPasswordPending"/></span>
+                        <a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/email/portalDelivery?emailLogId=${carlos:forUriComponent(emailStatusResult.logId)}"><fmt:message key="email.compose.portal.checkDelivery"/></a>
+                    </td>
+                </tr>
+            </c:if>
         </table>
         
         <table class="table table-borderless">

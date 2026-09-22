@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.email.admin;
 
+import java.io.UncheckedIOException;
+import java.io.IOException;
 import io.github.carlos_emr.carlos.managers.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
@@ -348,15 +350,14 @@ public class ManageEmails2Action extends ActionSupport {
             return showEmailComposeError(getLocalizedMessage("admin.manageEmails.pendingTooRecent"));
         }
 
-        if (emailLog != null) {
-            var portalState = emailLog.getPortalDeliveryState();
-            if (portalState != null && (emailLog.getStatus() == EmailStatus.PENDING
-                    || (portalState != EmailLog.PortalDeliveryState.PUBLISHED
-                        && portalState != EmailLog.PortalDeliveryState.REVOKED))) {
-                var delivery = SpringUtils.getBean(io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery.class);
-                request.setAttribute("emailLog", delivery.findForRecovery(loggedInInfo, emailLog.getId()));
-                return "portalRecovery";
+        // Recovery has one owner, which also handles its authorization and portal errors.
+        if (emailLog != null && emailLog.isPortalDeliveryUnresolved()) {
+            try {
+                response.sendRedirect(request.getContextPath() + "/email/portalDelivery?emailLogId=" + emailLog.getId());
+            } catch (IOException redirectFailure) {
+                throw new UncheckedIOException(redirectFailure);
             }
+            return NONE;
         }
 
         if (emailLog == null || emailLog.getDemographic() == null || emailLog.getDemographic().getDemographicNo() == null) {

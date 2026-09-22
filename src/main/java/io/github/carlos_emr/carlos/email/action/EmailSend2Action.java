@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.email.action;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
@@ -754,7 +755,7 @@ public class EmailSend2Action extends ActionSupport {
             EmailComposeSubmissionState composeState,
             boolean needsPdfPassword
     ) {
-        if (!needsPdfPassword || io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery.isEnabled()) {
+        if (!needsPdfPassword || PortalEmailDeliveryService.isEnabled()) {
             return "";
         }
 
@@ -817,6 +818,9 @@ public class EmailSend2Action extends ActionSupport {
      * @return the localized secure-message notice for the encrypted email body
      */
     protected String encryptedBodyNotice() {
-        return getText("email.compose.msg.encryptedBodyNotice");
+        // With portal delivery the patient finds the password in the portal, not a separate channel.
+        return getText(PortalEmailDeliveryService.isEnabled()
+                ? "email.compose.msg.portalPasswordBodyNotice"
+                : "email.compose.msg.encryptedBodyNotice");
     }
 }

@@ -40,7 +40,9 @@ class PortalEmailDeliveryDaoIntegrationTest extends CarlosTestBase {
             assertThat(logs.transitionPortalDelivery(log, PortalDeliveryState.READY, PortalDeliveryState.SENDING, 77L)).isTrue();
             assertThat(logs.transitionPortalDelivery(log, PortalDeliveryState.SENDING, PortalDeliveryState.SENT, 77L)).isTrue();
             assertThat(logs.transitionPortalDelivery(log, PortalDeliveryState.SENT, PortalDeliveryState.PUBLISHED, 77L)).isTrue();
-            assertThat(logs.find(log.getId()).getPortalDeliveryState()).isEqualTo(PortalDeliveryState.PUBLISHED);
+            var stored = logs.find(log.getId());
+            assertThat(stored.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.PUBLISHED);
+            assertThat(stored.getBody()).isEqualTo("Portal notice.\n\nEmail " + log.getId());
         } finally { logs.remove(log.getId()); }
     }
 
@@ -63,6 +65,7 @@ class PortalEmailDeliveryDaoIntegrationTest extends CarlosTestBase {
         log.setPasswordClue("legacy clue"); logs.persist(log); logs.detach(log);
         log.setPortalSourceReference("email-" + java.util.UUID.randomUUID());
         log.setPortalOrigin("https://portal.example.org"); log.setPortalClinicId("clinic");
+        log.setBody("Portal notice.\n\nEmail " + log.getId());
         return log;
     }
 }

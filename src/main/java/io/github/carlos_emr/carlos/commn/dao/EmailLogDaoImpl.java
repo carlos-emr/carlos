@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.nio.charset.StandardCharsets;
+import org.apache.commons.codec.binary.Base64;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -47,8 +49,11 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     public boolean initializePortalDelivery(EmailLog log) {
         return entityManager.createQuery("UPDATE EmailLog e SET e.portalDeliveryState = :state, "
                 + "e.portalSourceReference = :source, e.portalOrigin = :origin, e.portalClinicId = :clinic, "
-                + "e.password = '', e.passwordClue = '' WHERE e.id = :id AND e.portalDeliveryState IS NULL")
+                + "e.body = :body, e.password = '', e.passwordClue = '' "
+                + "WHERE e.id = :id AND e.portalDeliveryState IS NULL")
                 .setParameter("state", EmailLog.PortalDeliveryState.PREPARING)
+                // Same encoding as EmailLog.setBody, so the stored body reads back as the one sent.
+                .setParameter("body", Base64.encodeBase64(log.getBody().getBytes(StandardCharsets.UTF_8)))
                 .setParameter("source", log.getPortalSourceReference())
                 .setParameter("origin", log.getPortalOrigin()).setParameter("clinic", log.getPortalClinicId())
                 .setParameter("id", log.getId()).executeUpdate() == 1;
