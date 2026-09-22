@@ -20,8 +20,9 @@ MEASUREMENTS = (
     ("temp", r"\b(?:temp(?:erature)?)\b", r"\d{2}(?:\.\d)?"),
     ("spo2", r"\b(?:SpO2|SaO2|O2 sats?|sats?|oxygen saturations?)\b", r"\d{2,3}"),
 )
-# A value may end a sentence ("SpO2 98."), but "36" is never read out of "36.8".
-FINDER = re.compile("|".join(f"(?P<{kind}>{label}{JOIN}(?P<{kind}_value>{value})(?![\\d/]|\\.\\d))"
+# A value may end a sentence ("SpO2 98.") or a unit ("RR 16/min"), but "36" is never read out of "36.8"
+# and "124" never out of "124/78".
+FINDER = re.compile("|".join(f"(?P<{kind}>{label}{JOIN}(?P<{kind}_value>{value})(?!\\d|/\\d|\\.\\d))"
                              for kind, label, value in MEASUREMENTS), re.IGNORECASE)
 LABELS = {kind: label for kind, label, _value in MEASUREMENTS}
 MAX_GAP = 80  # Characters between neighbouring measurements of one observation set.
@@ -88,7 +89,7 @@ def observation_sets(text):
 
 def reports(claim_text, measurements):
     """Whether one claim states every measurement of a set beside a recognizable label."""
-    return all(re.search(LABELS[kind] + r"[^.;]{0,40}?(?<![\d/.])" + re.escape(value) + r"(?![\d/])",
+    return all(re.search(LABELS[kind] + r"[^.;]{0,40}?(?<![\d/.])" + re.escape(value) + r"(?!\d|/\d|\.\d)",
                          claim_text, re.IGNORECASE) for kind, value in measurements)
 
 
@@ -248,3 +249,120 @@ def undocumented_changes(output, sources, classes):
                     findings.append({"claim_id": claim["id"], "drugs": names, "source_ids": list(claim["source_ids"])})
                     break
     return findings
+
+
+STOP = {"about", "after", "also", "and", "are", "been", "being", "for", "from", "had", "has", "have", "into",
+        "more", "new", "noted", "patient", "recorded", "report", "reported", "source", "that", "the", "their",
+        "there", "this", "was", "were", "with", "without", "the", "on", "of", "in", "to", "a", "an", "at", "by"}
+TITLE = (r"(?:Nurse|Dr\.?|Doctor|Consultant|Registrar|Therapist|Physio(?:therapist)?|Pharmacist|Midwife|Sister|"
+         r"Surgeon|Anaesthetist|Radiographer|Dietitian|Paramedic|HCA|SHO|Mr|Mrs|Ms|Miss)")
+NAME_PART = r"(?:[A-Z][A-Za-z'\-]+|van|der|de|al)"
+STAFF = re.compile(TITLE + r"[ \t]+(" + NAME_PART + r"(?:[ \t]+" + NAME_PART + r"){1,3})")
+IDENTITY = (r"NHS\s*(?:No\.?|number)[:\s]*(\d{9,10})", r"\bDOB[:\s]*(\d{2}/\d{2}/\d{2,4})",
+            r"\b(\d{1,3})[- ]year[- ]old\b", r"\b(\d{1,3})[ \t]*[MF]\b(?![a-z])")
+
+
+def staff_names(sources):
+    """Names that follow a professional title in the notes; the notes are the host's own record of staff."""
+    return {match.group(1) for source in sources for match in STAFF.finditer(source["text"])}
+
+
+def identity_terms(sources, patient_label=None):
+    """NHS numbers, dates of birth and ages written in the notes, plus the patient's name from the host."""
+    terms = set()
+    for source in sources:
+        for pattern in IDENTITY:
+            for match in re.finditer(pattern, source["text"], re.IGNORECASE):
+                value = match.group(1)
+                if value.isdigit() and len(value) <= 3:
+                    terms.update({f"{value}-year-old", f"{value} year old"})
+                else:
+                    terms.add(value)
+    if patient_label:
+        label = re.sub(r"^FAKE-\w+\s+", "", patient_label)
+        terms.add(label)
+        if ", " in label:
+            last, first = label.split(", ", 1)
+            terms.add(f"{first} {last}")
+    return terms
+
+
+def name_findings(output, sources, patient_label=None):
+    """Claims that name a member of staff or carry a patient identifier."""
+    terms = staff_names(sources) | identity_terms(sources, patient_label)
+    findings = []
+    for claim in output["claims"]:
+        hit = sorted(term for term in terms if term in claim["text"])
+        if hit:
+            findings.append({"claim_id": claim["id"], "terms": hit})
+    return findings
+
+
+def tokens(text):
+    """Words, numbers with decimals, and whole dates; trailing punctuation never makes a word distinct."""
+    # An ISO date is the same fact as its dd/mm/yy form.
+    text = re.sub(r"\b(\d{4})-(\d{2})-(\d{2})\b", lambda m: f"{m.group(3)}/{m.group(2)}/{m.group(1)[2:]}", text)
+    return set(re.findall(r"\d{2}/\d{2}/\d{2,4}|[a-z]+|\d+(?:\.\d+)?", text.lower())) - STOP
+
+
+def _drop_claims(result, dropped):
+    result["claims"] = [claim for claim in result["claims"] if claim["id"] not in dropped]
+    for section in result["sections"]:
+        section["claim_ids"] = [cid for cid in section["claim_ids"] if cid not in dropped]
+    result["sections"] = [section for section in result["sections"] if section["claim_ids"]]
+
+
+def merge_identical_claims(output):
+    """Fold statements with identical text into one carrying every citation. Returns (output, merged)."""
+    result = copy.deepcopy(output)
+    first, dropped = {}, set()
+    for claim in result["claims"]:
+        key = re.sub(r"\s+", " ", claim["text"]).strip().casefold()
+        if key in first:
+            kept = first[key]
+            kept["source_ids"] = list(dict.fromkeys(kept["source_ids"] + claim["source_ids"]))
+            dropped.add(claim["id"])
+        else:
+            first[key] = claim
+    if dropped:
+        _drop_claims(result, dropped)
+    return result, len(dropped)
+
+
+def near_duplicates(output):
+    """Pairs of claims in different sections that restate one fact: (longer id, shorter id, jaccard, containment)."""
+    section_of = {cid: section["id"] for section in output["sections"] for cid in section["claim_ids"]}
+    pairs = []
+    claims = output["claims"]
+    for i, one in enumerate(claims):
+        for two in claims[i + 1:]:
+            if section_of.get(one["id"]) == section_of.get(two["id"]):
+                continue
+            a, b = tokens(one["text"]), tokens(two["text"])
+            if not a or not b:
+                continue
+            jaccard = len(a & b) / len(a | b)
+            containment = len(a & b) / min(len(a), len(b))
+            # Two statements restate one fact only if the shorter's numbers and dates all appear in
+            # the longer; the same template of words on two days with different values is two facts.
+            shorter_numbers = {token for token in (b if len(a) >= len(b) else a) if token[0].isdigit()}
+            longer_numbers = {token for token in (a if len(a) >= len(b) else b) if token[0].isdigit()}
+            if jaccard >= 0.30 and containment >= 0.60 and shorter_numbers <= longer_numbers:
+                longer, shorter = (one, two) if len(a) >= len(b) else (two, one)
+                pairs.append((longer["id"], shorter["id"], round(jaccard, 2), round(containment, 2)))
+    return pairs
+
+
+def merge_contained_claims(output):
+    """Fold a statement whose every word is in a longer statement elsewhere into that statement. Returns (output, merged)."""
+    result = copy.deepcopy(output)
+    by_id = {claim["id"]: claim for claim in result["claims"]}
+    dropped = set()
+    for longer, shorter, _jaccard, containment in near_duplicates(result):
+        if containment >= 1.0 and shorter not in dropped and longer not in dropped:
+            kept = by_id[longer]
+            kept["source_ids"] = list(dict.fromkeys(kept["source_ids"] + by_id[shorter]["source_ids"]))
+            dropped.add(shorter)
+    if dropped:
+        _drop_claims(result, dropped)
+    return result, len(dropped)

@@ -295,7 +295,8 @@ it never includes the API key or reasoning text. A structurally valid result is 
 a clinical pass. Compare omissions and unsupported statements manually.
 
 Saved gateway configurations accept `temperature` (0–2), `request_bytes`
-(10,000–50,000), and `reasoning_tokens` (0 disables reasoning). Old key files remain
+(10,000–50,000), `reasoning_tokens` (0 disables reasoning), and the booleans
+`host_merge_duplicates` and `host_repair` (both default on; see QUALITY.md). Old key files remain
 compatible. Restart the gateway after changing its private config; rerun the switch
 helper if changing its model or context settings. `/health` exposes these nonsecret
 settings. A requested reasoning budget is provider-dependent; the total response

@@ -2259,5 +2259,2509 @@
    "mixed_date_formats": false,
    "gate_pass": true
   }
+ },
+ {
+  "name": "X-base2-001a",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 25.922,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 42,
+  "host_statements": 9,
+  "completion_tokens": 2989,
+  "cost_usd": 0.00415,
+  "calls": [
+   {
+    "seconds": 25.423,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2989,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00414985,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 42,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-001b",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 42.657,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 48,
+  "host_statements": 9,
+  "completion_tokens": 3175,
+  "cost_usd": 0.004336,
+  "calls": [
+   {
+    "seconds": 42.244,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3175,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00433585,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 48,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-001c",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 46.339,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 51,
+  "host_statements": 8,
+  "completion_tokens": 3810,
+  "cost_usd": 0.004971,
+  "calls": [
+   {
+    "seconds": 42.956,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3810,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00497085,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 51,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 3,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-base2-002a",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 89.752,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 58,
+  "host_statements": 1,
+  "completion_tokens": 5300,
+  "cost_usd": 0.006669,
+  "calls": [
+   {
+    "seconds": 89.219,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5300,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00666905,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 58,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-002b",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 56.511,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 59,
+  "host_statements": 5,
+  "completion_tokens": 5089,
+  "cost_usd": 0.006458,
+  "calls": [
+   {
+    "seconds": 55.863,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5089,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00645805,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 59,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-002c",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 68.211,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 54,
+  "host_statements": 7,
+  "completion_tokens": 4988,
+  "cost_usd": 0.006357,
+  "calls": [
+   {
+    "seconds": 66.602,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4988,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00635705,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 54,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-003a",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 28.867,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 33,
+  "host_statements": 3,
+  "completion_tokens": 2846,
+  "cost_usd": 0.003797,
+  "calls": [
+   {
+    "seconds": 28.593,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2846,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00379685,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 33,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-003b",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 49.925,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 35,
+  "host_statements": 3,
+  "completion_tokens": 2985,
+  "cost_usd": 0.003936,
+  "calls": [
+   {
+    "seconds": 49.161,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2985,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00393585,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 35,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-base2-003c",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 62.689,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 40,
+  "host_statements": 3,
+  "completion_tokens": 3230,
+  "cost_usd": 0.004181,
+  "calls": [
+   {
+    "seconds": 62.065,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3230,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00418085,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 40,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-both-001a",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 46.324,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 48,
+  "host_statements": 8,
+  "completion_tokens": 3699,
+  "cost_usd": 0.004997,
+  "calls": [
+   {
+    "seconds": 37.025,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3627,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00478785,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 8.238,
+    "prompt_tokens": 917,
+    "completion_tokens": 72,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00020955,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 48,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-001b",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 32.041,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 44,
+  "host_statements": 9,
+  "completion_tokens": 3230,
+  "cost_usd": 0.004476,
+  "calls": [
+   {
+    "seconds": 29.4,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3182,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00434285,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.575,
+    "prompt_tokens": 570,
+    "completion_tokens": 48,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0001335,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 44,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-001c",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 28.187,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 38,
+  "host_statements": 7,
+  "completion_tokens": 3068,
+  "cost_usd": 0.004336,
+  "calls": [
+   {
+    "seconds": 26.51,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2996,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00415685,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 0.939,
+    "prompt_tokens": 714,
+    "completion_tokens": 72,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0001791,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 38,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-002a",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 49.396,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 58,
+  "host_statements": 8,
+  "completion_tokens": 4570,
+  "cost_usd": 0.006095,
+  "calls": [
+   {
+    "seconds": 46.645,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4504,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00587305,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.274,
+    "prompt_tokens": 1042,
+    "completion_tokens": 66,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0002223,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 58,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-both-002b",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 71.678,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 53,
+  "host_statements": 10,
+  "completion_tokens": 4275,
+  "cost_usd": 0.005801,
+  "calls": [
+   {
+    "seconds": 66.842,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4205,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00557405,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.056,
+    "prompt_tokens": 1046,
+    "completion_tokens": 70,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0002269,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 53,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-both-002c",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 56.748,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 60,
+  "host_statements": 8,
+  "completion_tokens": 4732,
+  "cost_usd": 0.006101,
+  "calls": [
+   {
+    "seconds": 55.752,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4732,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00610105,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 60,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-003a",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 47.554,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 36,
+  "host_statements": 6,
+  "completion_tokens": 2794,
+  "cost_usd": 0.003836,
+  "calls": [
+   {
+    "seconds": 38.678,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2788,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00373885,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 7.766,
+    "prompt_tokens": 606,
+    "completion_tokens": 6,
+    "reasoning_tokens": 0,
+    "cost_usd": 9.69e-05,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-003b",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 38.006,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 41,
+  "host_statements": 2,
+  "completion_tokens": 3416,
+  "cost_usd": 0.004367,
+  "calls": [
+   {
+    "seconds": 37.413,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3416,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00436685,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 41,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-003c",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 38.768,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 36,
+  "host_statements": 5,
+  "completion_tokens": 2941,
+  "cost_usd": 0.003955,
+  "calls": [
+   {
+    "seconds": 37.372,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2874,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00382485,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 0.916,
+    "prompt_tokens": 423,
+    "completion_tokens": 67,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00013045,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-001a",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 45.886,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 51,
+  "host_statements": 8,
+  "completion_tokens": 3998,
+  "cost_usd": 0.005269,
+  "calls": [
+   {
+    "seconds": 35.952,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3907,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00506785,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 8.864,
+    "prompt_tokens": 732,
+    "completion_tokens": 91,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0002008,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 51,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-001b",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 37.488,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 46,
+  "host_statements": 8,
+  "completion_tokens": 3938,
+  "cost_usd": 0.005467,
+  "calls": [
+   {
+    "seconds": 35.543,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3847,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00500785,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.06,
+    "prompt_tokens": 2453,
+    "completion_tokens": 91,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00045895,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 46,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 1,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-both2-001c",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 63.256,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 47,
+  "host_statements": 9,
+  "completion_tokens": 3307,
+  "cost_usd": 0.004831,
+  "calls": [
+   {
+    "seconds": 60.716,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3231,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00439185,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.239,
+    "prompt_tokens": 2423,
+    "completion_tokens": 76,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00043945,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 47,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-002a",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 41.164,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 2,
+  "merged_statements": 0,
+  "claims": 44,
+  "host_statements": 8,
+  "completion_tokens": 3909,
+  "cost_usd": 0.005517,
+  "calls": [
+   {
+    "seconds": 38.216,
+    "prompt_tokens": 9127,
+    "completion_tokens": 3762,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00513105,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.898,
+    "prompt_tokens": 1594,
+    "completion_tokens": 147,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0003861,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 44,
+   "fact_recall": 0.909,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-002b",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 43.894,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 50,
+  "host_statements": 8,
+  "completion_tokens": 3987,
+  "cost_usd": 0.005462,
+  "calls": [
+   {
+    "seconds": 40.027,
+    "prompt_tokens": 9127,
+    "completion_tokens": 3887,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00525605,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 2.889,
+    "prompt_tokens": 708,
+    "completion_tokens": 100,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0002062,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 50,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-002c",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 92.064,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 57,
+  "host_statements": 3,
+  "completion_tokens": 5050,
+  "cost_usd": 0.006419,
+  "calls": [
+   {
+    "seconds": 90.427,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5050,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00641905,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 57,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-003a",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 32.875,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 46,
+  "host_statements": 1,
+  "completion_tokens": 3899,
+  "cost_usd": 0.00485,
+  "calls": [
+   {
+    "seconds": 32.456,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3899,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00484985,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 46,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-003b",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 28.374,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 36,
+  "host_statements": 4,
+  "completion_tokens": 2910,
+  "cost_usd": 0.003923,
+  "calls": [
+   {
+    "seconds": 26.843,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2852,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00380285,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.049,
+    "prompt_tokens": 414,
+    "completion_tokens": 58,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0001201,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-003c",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 32.899,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 42,
+  "host_statements": 4,
+  "completion_tokens": 2564,
+  "cost_usd": 0.003515,
+  "calls": [
+   {
+    "seconds": 30.753,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2564,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00351485,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 42,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-merge-001a",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 50.283,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 52,
+  "host_statements": 2,
+  "completion_tokens": 4714,
+  "cost_usd": 0.005875,
+  "calls": [
+   {
+    "seconds": 48.668,
+    "prompt_tokens": 7739,
+    "completion_tokens": 4714,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00587485,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 52,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 5,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-001b",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 25.123,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 39,
+  "host_statements": 9,
+  "completion_tokens": 2653,
+  "cost_usd": 0.003814,
+  "calls": [
+   {
+    "seconds": 23.555,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2653,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00381385,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-merge-001c",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 39.633,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 44,
+  "host_statements": 8,
+  "completion_tokens": 3158,
+  "cost_usd": 0.004319,
+  "calls": [
+   {
+    "seconds": 39.216,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3158,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00431885,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 44,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-002a",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 66.731,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 64,
+  "host_statements": 8,
+  "completion_tokens": 4923,
+  "cost_usd": 0.006292,
+  "calls": [
+   {
+    "seconds": 64.338,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4923,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00629205,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 64,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-002b",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 46.748,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 59,
+  "host_statements": 8,
+  "completion_tokens": 4853,
+  "cost_usd": 0.006222,
+  "calls": [
+   {
+    "seconds": 45.857,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4853,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00622205,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 59,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-002c",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 49.367,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 57,
+  "host_statements": 10,
+  "completion_tokens": 4451,
+  "cost_usd": 0.00582,
+  "calls": [
+   {
+    "seconds": 46.057,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4451,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00582005,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 57,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-merge-003a",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 24.3,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 39,
+  "host_statements": 6,
+  "completion_tokens": 2279,
+  "cost_usd": 0.00323,
+  "calls": [
+   {
+    "seconds": 23.659,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2279,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00322985,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-merge-003b",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 45.902,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 34,
+  "host_statements": 4,
+  "completion_tokens": 2833,
+  "cost_usd": 0.003784,
+  "calls": [
+   {
+    "seconds": 44.471,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2833,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00378385,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 34,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-003c",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 37.576,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 36,
+  "host_statements": 4,
+  "completion_tokens": 2933,
+  "cost_usd": 0.003884,
+  "calls": [
+   {
+    "seconds": 37.281,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2933,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00388385,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-001a",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 51.059,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 50,
+  "host_statements": 9,
+  "completion_tokens": 4081,
+  "cost_usd": 0.005701,
+  "calls": [
+   {
+    "seconds": 44.801,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3699,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00485985,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 5.209,
+    "prompt_tokens": 3062,
+    "completion_tokens": 382,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0008413,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 50,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-001b",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 36.254,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 45,
+  "host_statements": 8,
+  "completion_tokens": 3795,
+  "cost_usd": 0.005368,
+  "calls": [
+   {
+    "seconds": 30.884,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3467,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00462785,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 3.763,
+    "prompt_tokens": 2749,
+    "completion_tokens": 328,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00074035,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 45,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-001c",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 47.091,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 43,
+  "host_statements": 9,
+  "completion_tokens": 3119,
+  "cost_usd": 0.004377,
+  "calls": [
+   {
+    "seconds": 45.813,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3109,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00426985,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 0.527,
+    "prompt_tokens": 645,
+    "completion_tokens": 10,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00010675,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 43,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-002a",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 52.769,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 61,
+  "host_statements": 8,
+  "completion_tokens": 4798,
+  "cost_usd": 0.006269,
+  "calls": [
+   {
+    "seconds": 50.127,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4743,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00611205,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.256,
+    "prompt_tokens": 680,
+    "completion_tokens": 55,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000157,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 61,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-002b",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 51.857,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 64,
+  "host_statements": 8,
+  "completion_tokens": 4892,
+  "cost_usd": 0.006261,
+  "calls": [
+   {
+    "seconds": 48.815,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4892,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00626105,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 64,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-002c",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 68.682,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 65,
+  "host_statements": 1,
+  "completion_tokens": 6043,
+  "cost_usd": 0.007643,
+  "calls": [
+   {
+    "seconds": 63.411,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5918,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00728705,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 2.308,
+    "prompt_tokens": 1540,
+    "completion_tokens": 125,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000356,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 65,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-repair-003a",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 17.589,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 29,
+  "host_statements": 6,
+  "completion_tokens": 1795,
+  "cost_usd": 0.002746,
+  "calls": [
+   {
+    "seconds": 16.202,
+    "prompt_tokens": 6339,
+    "completion_tokens": 1795,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00274585,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-003b",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 27.706,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 37,
+  "host_statements": 5,
+  "completion_tokens": 2890,
+  "cost_usd": 0.003841,
+  "calls": [
+   {
+    "seconds": 27.096,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2890,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00384085,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 37,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-003c",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 39.918,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 38,
+  "host_statements": 6,
+  "completion_tokens": 3155,
+  "cost_usd": 0.004369,
+  "calls": [
+   {
+    "seconds": 37.502,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3065,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00401585,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.981,
+    "prompt_tokens": 1756,
+    "completion_tokens": 90,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0003534,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 38,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 1,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
  }
 ]

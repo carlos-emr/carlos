@@ -58,6 +58,16 @@ as a claim with ID `host-med-N` under Medications and allergies, and a claim tha
 describes a switch no note records gets an `undocumented_medication_change` warning.
 With no table the check is skipped. The Java host does not apply this check yet.
 
+The gateway may also fold statements whose text is identical into one carrying every
+citation, and may make one small further model call to rewrite statements the host
+faulted (a date no cited note carries, a named person or patient identifier, an
+undocumented medication change, a restatement of another section's statement). A
+rewrite is kept only if the host can no longer fault it and the draft still
+validates; it keeps its citations and takes the ID prefix `repaired-`, so a viewer
+can mark it. A restatement the model omits in its answer is dropped. The host also
+records `statement_names_person_or_identifier` and `statements_restate_each_other`
+validation warnings. Neither the merge nor the repair rewrites anything silently.
+
 Validation severity is `pass`, `warning` or `error`. Source IDs may be empty
 for structural findings; any supplied IDs must resolve. Error findings suppress
 the summary. The UI labels artifact findings separately from runtime structural

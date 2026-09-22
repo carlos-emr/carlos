@@ -76,6 +76,14 @@ class ObservationSetsTest(unittest.TestCase):
         self.assertEqual([("hr", "88"), ("rr", "16"), ("temp", "36.8")],
                          host_checks.observation_sets("HR 88. RR 16. Temp 36.8.")[0]["measurements"])
 
+    def test_a_rate_written_per_minute_is_recognised_in_notes_and_in_claims(self):
+        # Observed live: "RR 16/min" was not recognised, so the host restored a set the draft had reported.
+        found = host_checks.observation_sets("Obs: HR 82 bpm, BP 128/78 mmHg, RR 16/min, Temp 36.8, SpO2 97% on air.")
+        self.assertEqual([("hr", "82"), ("bp", "128/78"), ("rr", "16"), ("temp", "36.8"), ("spo2", "97")],
+                         found[0]["measurements"])
+        claim = "Observations on 08/01/26 showed HR 82 bpm, BP 128/78 mmHg, RR 16/min, Temp 36.8°C, and SpO2 97% on air."
+        self.assertTrue(host_checks.reports(claim, found[0]["measurements"]))
+
     def test_fewer_than_three_kinds_or_measurements_far_apart_are_not_a_set(self):
         self.assertEqual([], host_checks.observation_sets("BP 120/80 today, HR 70."))
         far = "HR 70 on arrival. " + "Unrelated narrative. " * 8 + "BP 120/80 later. " + "More narrative. " * 8 + "RR 16."
@@ -188,6 +196,66 @@ class MedicationConflictsTest(unittest.TestCase):
                          host_checks.undocumented_changes(output, self.sources(), CLASSES))
         documented = self.sources("Switched from tinzaparin to enoxaparin 40 mg SC once daily.")
         self.assertEqual([], host_checks.undocumented_changes(output, documented, CLASSES))
+
+
+NOTE = ("Pt: Andrew Michael Edwards, 19M. NHS number 928876615. DOB: 18/03/04.\n"
+        "Reviewed by Nurse Saoirse Keogh at 10:00 with Dr Cai Hopkins.\nSaoirse Keogh \nNMC 1234\nPlan: mobilise.")
+
+
+class NameFindingsTest(unittest.TestCase):
+    def test_staff_names_come_from_titles_in_the_notes_and_identity_from_the_notes_and_label(self):
+        self.assertEqual({"Saoirse Keogh", "Cai Hopkins"}, host_checks.staff_names([source(NOTE)]))
+        self.assertEqual({"928876615", "18/03/04", "19-year-old", "19 year old", "Andrew Michael Edwards",
+                          "Edwards, Andrew Michael"},
+                         host_checks.identity_terms([source(NOTE)], "FAKE-NHS Edwards, Andrew Michael"))
+
+    def test_a_claim_naming_staff_or_the_patient_is_reported_and_a_role_only_claim_is_not(self):
+        output = draft(("Nurse Saoirse Keogh reviewed the patient, a 19-year-old.", ["note-9"]),
+                       ("The nurse reviewed the patient and planned mobilisation.", ["note-9"]))
+        self.assertEqual([{"claim_id": "c1", "terms": ["19-year-old", "Saoirse Keogh"]}],
+                         host_checks.name_findings(output, [source(NOTE)], "FAKE-NHS Edwards, Andrew Michael"))
+
+
+class DuplicateClaimsTest(unittest.TestCase):
+    def test_identical_statements_are_merged_with_their_citations_instead_of_failing_the_draft(self):
+        output = draft(("HR 2 was recorded.", ["note-9"]), ("HR 2 was recorded.", ["note-10"]),
+                       ("Other.", ["note-9"]))
+        output["sections"] = [{"id": "results_observations", "title": "Results and observations", "claim_ids": ["c1"]},
+                              {"id": "plan_follow_up", "title": "Plan and follow-up", "claim_ids": ["c2", "c3"]}]
+        merged, count = host_checks.merge_identical_claims(output)
+        self.assertEqual(1, count)
+        self.assertEqual([{"id": "c1", "text": "HR 2 was recorded.", "source_ids": ["note-9", "note-10"]},
+                          {"id": "c3", "text": "Other.", "source_ids": ["note-9"]}], merged["claims"])
+        self.assertEqual([["c1"], ["c3"]], [row["claim_ids"] for row in merged["sections"]])
+        self.assertEqual((merged, 0), host_checks.merge_identical_claims(merged))
+
+    def test_a_statement_wholly_contained_in_another_section_s_statement_is_folded_into_it(self):
+        output = draft(("On 05/01/26 nimodipine 60 mg was started for RCVS.", ["note-9"]),
+                       ("Nimodipine 60 mg was started.", ["note-10"]))
+        output["sections"] = [{"id": "medications_allergies", "title": "Medications and allergies", "claim_ids": ["c1"]},
+                              {"id": "active_problems", "title": "Active problems", "claim_ids": ["c2"]}]
+        merged, count = host_checks.merge_contained_claims(output)
+        self.assertEqual(1, count)
+        self.assertEqual(["c1"], [claim["id"] for claim in merged["claims"]])
+        self.assertEqual(["note-9", "note-10"], merged["claims"][0]["source_ids"])
+        self.assertEqual([["c1"]], [row["claim_ids"] for row in merged["sections"]])
+
+    def test_the_same_template_of_words_on_two_days_with_different_values_is_not_a_duplicate(self):
+        output = draft(("Pre-operative vital signs on 20/12/25 were heart rate 72 bpm, blood pressure 124/78 mmHg, "
+                        "respiratory rate 16 br/min, temperature 36.8 and SpO2 98%.", ["note-1"]),
+                       ("Observations on 05/01/26 were heart rate 2 bpm, blood pressure 124/78 mmHg, respiratory "
+                        "rate 1 br/min, temperature 36.8 and SpO2 98%.", ["note-9"]))
+        output["sections"] = [{"id": "results_observations", "title": "Results and observations", "claim_ids": ["c1"]},
+                              {"id": "clinical_overview", "title": "Clinical overview", "claim_ids": ["c2"]}]
+        self.assertEqual([], host_checks.near_duplicates(output))
+
+    def test_a_near_duplicate_across_sections_is_reported_but_not_removed(self):
+        output = draft(("On 05/01/26 nimodipine 60 mg four-hourly was started for RCVS with dietary advice.", ["note-9"]),
+                       ("Nimodipine 60 mg four-hourly was started for RCVS on the ward.", ["note-9"]))
+        output["sections"] = [{"id": "medications_allergies", "title": "Medications and allergies", "claim_ids": ["c1"]},
+                              {"id": "active_problems", "title": "Active problems", "claim_ids": ["c2"]}]
+        self.assertEqual([("c1", "c2")], [(a, b) for a, b, _j, _c in host_checks.near_duplicates(output)])
+        self.assertEqual((output, 0), host_checks.merge_contained_claims(output))
 
 
 if __name__ == "__main__":

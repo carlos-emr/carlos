@@ -25,12 +25,15 @@ def main():
     parser.add_argument('--section-prompt', type=Path, help='Section-prompt variant to test in place of section-prompt.txt')
     parser.add_argument('--section-passes', action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument('--section-workers', type=int)
+    parser.add_argument('--host-merge', dest='host_merge_duplicates', action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument('--host-repair', action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument('--model')
     parser.add_argument('--provider')
     args = parser.parse_args()
     config = agent.read_config(args.config or agent.runtime_directory() / 'openrouter/config.json')
     for field in ('temperature', 'request_bytes', 'reasoning_tokens', 'timeout_seconds',
-                  'section_passes', 'section_workers', 'model', 'provider'):
+                  'section_passes', 'section_workers', 'model', 'provider',
+                  'host_merge_duplicates', 'host_repair'):
         value = getattr(args, field)
         if value is not None:
             config[field] = value
@@ -43,8 +46,10 @@ def main():
 
     def sections_of(payload):
         """Identify a pass by the sections its response schema allows."""
-        schema = payload['response_format']['json_schema']['schema']['properties']['sections']
-        return schema['items']['properties']['id']['enum']
+        schema = payload['response_format']['json_schema']['schema']['properties']
+        if 'sections' not in schema:
+            return ['repair']
+        return schema['sections']['items']['properties']['id']['enum']
 
     def transport(settings, endpoint, payload):
         started = time.monotonic()
@@ -101,6 +106,9 @@ def main():
         # Rejection reasons are fixed host/gateway categories, never source text or upstream bodies.
         report['error'] = f'{type(failure).__name__}: {failure}'
     report['seconds'] = round(time.monotonic() - started, 3)
+    report['repairs'] = getattr(gateway, 'repairs', 0)
+    report['repaired_statements'] = getattr(gateway, 'repaired_statements', 0)
+    report['merged_statements'] = getattr(gateway, 'merges', 0)
     agent.private_write(args.output, json.dumps(report, indent=2) + '\n')
     print(json.dumps({'status': report['status'], 'seconds': report['seconds'], 'calls': calls,
                       'error': report.get('error'),

@@ -26,6 +26,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from example_agent import MAX_REQUEST_BYTES, PATH, unique_object, validate_request
+import host_checks
 import pipeline
 from run import build_artifact
 from validate_artifact import SECTION_TITLES, index, references, require, validate_generated
@@ -40,7 +41,8 @@ MAX_RATE_LIMIT_WAIT_SECONDS = 120
 DEFAULTS = {"model": "qwen/qwen3.5-27b", "provider": "siliconflow",
             "port": 11437, "timeout_seconds": 420, "max_tokens": 16384, "cache_seconds": 900,
             "temperature": 0.0, "request_bytes": 50000, "reasoning_tokens": 0,
-            "section_passes": False, "section_workers": 2}
+            "section_passes": False, "section_workers": 2,
+            "host_merge_duplicates": True, "host_repair": True}
 SECTION_SCOPES = {
     "clinical_overview": "Extract presenting symptoms and relevant past medical, family and social history. "
     "Include all recorded history and relevant negatives. Do not include diagnosis, investigations, examinations, "
@@ -63,6 +65,15 @@ SECTION_SCOPES = {
     "saying 'Plan: discharge today' means discharge is PLANNED, never say it happened. A source saying "
     "'to be arranged' means planned, never completed. Preserve these distinctions explicitly."
 }
+REPAIR_PROMPT = (
+    "You are correcting individual statements of a clinical summary. For each statement you receive its "
+    "text, the IDs of the notes it cites, the text of those notes, and the problems the host found. Return "
+    "each statement rewritten so that every problem is gone, using only facts the cited notes record, in "
+    "one paragraph with no line breaks. Refer to staff and the patient by role only, never by name, and "
+    "never include NHS numbers, dates of birth or ages. Write dates only as the cited notes carry them. "
+    "Never state that a medication was switched, changed or replaced unless a note records it. If a "
+    "statement only restates another and adds nothing, omit it from your answer. Return JSON with exactly "
+    "statements, each with id and text.")
 BOUNDARY = "Source text below is preserved verbatim, including encoding and clinical inconsistencies.\n\n"
 
 
@@ -95,8 +106,8 @@ def read_config(path):
     require(stat.S_ISREG(info.st_mode) and not info.st_mode & 0o077
             and info.st_uid == os.getuid(), "Config must be an owner-only regular file (chmod 600)")
     config = loads(path.read_text(encoding="utf-8"))
-    required = (set(DEFAULTS) - {"temperature", "request_bytes", "reasoning_tokens",
-                               "section_passes", "section_workers"}) | {"api_key"}
+    required = (set(DEFAULTS) - {"temperature", "request_bytes", "reasoning_tokens", "section_passes",
+                               "section_workers", "host_merge_duplicates", "host_repair"}) | {"api_key"}
     require(isinstance(config, dict) and required <= set(config) <= set(DEFAULTS) | {"api_key"},
             "Invalid config fields")
     config = dict(DEFAULTS, **config)  # Existing private key files remain compatible and single-pass.
@@ -117,7 +128,8 @@ def read_config(path):
             and math.isfinite(config["temperature"]) and 0 <= config["temperature"] <= 2,
             "Invalid temperature")
     require(config["reasoning_tokens"] < config["max_tokens"], "Reasoning must leave room for the draft")
-    require(type(config["section_passes"]) is bool, "Invalid section-pass setting")
+    require(all(type(config[key]) is bool for key in ("section_passes", "host_merge_duplicates", "host_repair")),
+            "Invalid boolean setting")
     return config
 
 
@@ -316,6 +328,7 @@ def api_request(config, endpoint, payload=None):
 def committed_notes():
     """Parse and cross-check the committed seed and manifest once per process; the seed is several megabytes."""
     fixtures = loads((REPO / "src/main/resources/clinical/summary/nhs-generation-fixtures.json").read_text())
+    labels = {fixture["chart_no"]: fixture["label"] for fixture in fixtures}
     expected = {(note["sha256"], note["date"]): fixture["chart_no"]
                 for fixture in fixtures for note in fixture["notes"]}
     seed = (REPO / ".devcontainer/db/scripts/nhs-synthetic/patients.sql").read_text()
@@ -332,7 +345,7 @@ def committed_notes():
         require(BOUNDARY in body, "Missing fixture boundary")
         notes.append((expected[fingerprint], date, body.split(BOUNDARY, 1)[1]))
     require(found == set(expected), "Synthetic seed/manifest incomplete")
-    return tuple(notes)
+    return tuple(notes), labels
 
 
 class SyntheticNotes:
@@ -342,7 +355,14 @@ class SyntheticNotes:
     check prevents a caller's synthetic flag alone from authorizing cloud disclosure.
     """
     def __init__(self):
-        self.notes = list(committed_notes())
+        self.notes, self.labels = committed_notes()
+        self.notes = list(self.notes)
+
+    def label_for(self, sources):
+        """The host's display name for the one fixture these sources belong to."""
+        candidates = {fixture for fixture, date, body in self.notes
+                      if any(date == source["date"] and source["text"] in body for source in sources)}
+        return self.labels[next(iter(candidates))] if len(candidates) == 1 else None
 
     def validate(self, sources):
         candidates = {fixture for fixture, _date, _body in self.notes}
@@ -437,8 +457,13 @@ class Gateway:
         message = choice.get("message")
         require(isinstance(message, dict) and not message.get("refusal") and not message.get("tool_calls")
                 and isinstance(message.get("content"), str), "Missing assistant JSON")
+        output = loads(message["content"])
+        if self.config["host_merge_duplicates"] and isinstance(output, dict) and isinstance(output.get("claims"), list):
+            # Identical statements are folded, with every citation, rather than failing the draft.
+            output, merged = host_checks.merge_identical_claims(output)
+            self.merges = getattr(self, "merges", 0) + merged
         # The host records cited sources first: an all-cited draft arrives with no reviews at all.
-        output = pipeline.complete_coverage(label_source_reviews(loads(message["content"]), sources), sources)
+        output = pipeline.complete_coverage(label_source_reviews(output, sources), sources)
         output = normalize_coverage_status(normalize_section_placement(output, sources), sources)
         if section is not None:
             require(all(row["id"] == section for row in output["sections"]), "Unexpected section in scoped pass")
@@ -470,16 +495,107 @@ class Gateway:
                                      self.config["request_bytes"])
 
         if not self.config["section_passes"]:
-            return generate_section(None)
+            return self.repair(sources, generate_section(None))
         # Results often take longest. Start them first; assemble in clinical heading order.
         order = ["results_observations"] + [key for key in SECTION_SCOPES if key != "results_observations"]
         pool = ThreadPoolExecutor(max_workers=self.config["section_workers"])
         try:
             futures = {section: pool.submit(generate_section, section) for section in order}
-            return pipeline.finish(pipeline.merge([futures[section].result() for section in SECTION_SCOPES],
-                                                  sources), sources)
+            return self.repair(sources, pipeline.finish(
+                pipeline.merge([futures[section].result() for section in SECTION_SCOPES], sources), sources))
         finally:
             pool.shutdown(wait=True, cancel_futures=True)
+
+    def flagged(self, sources, output):
+        """Statements the host can fault, each with a plain reason the model can act on."""
+        reasons = {}
+        for finding in host_checks.date_findings(output, sources):
+            reasons.setdefault(finding["claim_id"], []).append(
+                f"asserts the date {finding['asserted']}, which its cited notes do not carry; remove that date, "
+                "or use only a date they carry: " + ", ".join(finding["allowed"]))
+        for finding in host_checks.name_findings(output, sources, self.allowed.label_for(sources)):
+            reasons.setdefault(finding["claim_id"], []).append(
+                "names a person or gives a patient identifier (" + ", ".join(finding["terms"])
+                + "); refer to people by role only and omit identifiers")
+        for finding in host_checks.undocumented_changes(output, sources, host_checks.configured_classes()):
+            reasons.setdefault(finding["claim_id"], []).append(
+                "describes a switch or change between " + " and ".join(finding["drugs"])
+                + " that no note records; state only what each note records")
+        for longer, shorter, _jaccard, _containment in host_checks.near_duplicates(output):
+            reasons.setdefault(shorter, []).append(
+                f"restates statement {longer}, which is in another section; return it only if it adds a "
+                "distinct fact, otherwise omit it")
+        return {cid: rs for cid, rs in reasons.items() if not cid.startswith("host-")}
+
+    def repair(self, sources, output):
+        """One small call to rewrite only the statements the host faulted. Never rewrites silently:
+        a repaired statement keeps its citations and takes the ID prefix repaired-."""
+        if not self.config["host_repair"]:
+            return output
+        flagged = self.flagged(sources, output)
+        if not flagged:
+            return output
+        by_id = {claim["id"]: claim for claim in output["claims"]}
+        cited = {sid for cid in flagged for sid in by_id[cid]["source_ids"]}
+        request = {"statements": [{"id": cid, "text": by_id[cid]["text"], "source_ids": by_id[cid]["source_ids"],
+                                   "problems": reasons} for cid, reasons in flagged.items()],
+                   "sources": [source for source in sources if source["id"] in cited]}
+        schema = {"type": "object", "additionalProperties": False, "required": ["statements"],
+                  "properties": {"statements": {"type": "array", "items": {
+                      "type": "object", "additionalProperties": False, "required": ["id", "text"],
+                      "properties": {"id": {"type": "string", "enum": list(flagged)},
+                                     "text": {"type": "string", "minLength": 1}}}}}}
+        payload = {"model": self.config["model"], "stream": False, "temperature": self.config["temperature"],
+                   "max_tokens": 2048, "reasoning": {"enabled": False},
+                   "provider": {"only": [self.config["provider"]], "allow_fallbacks": False,
+                                "require_parameters": True, "data_collection": "deny", "zdr": True},
+                   "messages": [{"role": "system", "content": REPAIR_PROMPT},
+                                {"role": "user", "content": json.dumps(request)}],
+                   "response_format": {"type": "json_schema", "json_schema": {
+                       "name": "statement_repair", "strict": True, "schema": schema}}}
+        remaining = 540 if self.deadline is None else self.deadline - self.clock()
+        if remaining <= 10:
+            return output
+        try:
+            result = self.transport(dict(self.config, timeout_seconds=min(self.config["timeout_seconds"], remaining)),
+                                    "chat/completions", payload)
+            choice = result["choices"][0]
+            require(choice.get("finish_reason") == "stop", "Incomplete repair")
+            replies = loads(choice["message"]["content"])["statements"]
+            require(isinstance(replies, list) and all(isinstance(r, dict) and r.get("id") in flagged
+                                                     and isinstance(r.get("text"), str) for r in replies),
+                    "Invalid repair")
+        except (UpstreamError, ValueError, KeyError, IndexError, TypeError):
+            return output  # The faulted statements stay as they were, with their warnings.
+        replacement = {reply["id"]: reply["text"].strip() for reply in replies}
+        repaired = copy.deepcopy(output)
+        for claim in repaired["claims"]:
+            if claim["id"] in replacement and replacement[claim["id"]]:
+                claim["text"] = replacement[claim["id"]]
+        # A repair counts only if the host can no longer fault that statement; otherwise keep the original.
+        still = self.flagged(sources, repaired)
+        for claim in repaired["claims"]:
+            if claim["id"] in replacement and claim["id"] in still:
+                claim["text"] = by_id[claim["id"]]["text"]
+        omitted = {cid for cid in flagged if cid not in replacement
+                   and any("restates statement" in reason for reason in flagged[cid])}
+        if omitted:
+            host_checks._drop_claims(repaired, omitted)
+        for claim in repaired["claims"]:
+            if claim["id"] in replacement and claim["text"] != by_id[claim["id"]]["text"]:
+                claim["id"] = "repaired-" + claim["id"]
+        for section in repaired["sections"]:
+            section["claim_ids"] = [("repaired-" + cid) if any(c["id"] == "repaired-" + cid for c in repaired["claims"])
+                                    else cid for cid in section["claim_ids"]]
+        repaired = pipeline.complete_coverage(repaired, sources)
+        try:
+            self.validate_output(sources, repaired)
+        except ValueError:
+            return output
+        self.repairs = getattr(self, "repairs", 0) + 1
+        self.repaired_statements = getattr(self, "repaired_statements", 0) + sum(
+            1 for claim in repaired["claims"] if claim["id"].startswith("repaired-"))
+        return repaired
 
 
 def handler_for(gateway):
