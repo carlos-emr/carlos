@@ -63,6 +63,48 @@ not respond to cancellation retains its slot until it actually exits, preventing
 unbounded replacement threads. A timed-out mutation may already have applied;
 check current state before retrying.
 
+## Inviting a patient
+
+Staff invite a patient from the **Patient portal** link on the demographic record. The link appears
+only when the portal is configured and the user holds `_portal.invite` or `_portal.account` read for
+the patient. Sending also needs `_portal.invite` and `_email` write.
+
+Two settings are required, and invitations are refused until both are set:
+
+| Property | Meaning |
+|---|---|
+| `patient_portal.public_base_url` | The address patients open, `https://` only. It is not the pinned internal API origin and usually differs from it. |
+| `patient_portal.invite.sender_email` | The sender address of an active CARLOS email account. |
+
+The portal's two-phase contract decides the order of every invitation. `PortalInviteDeliveryService`
+records each step in `patient_portal_invite_delivery` before the next network call:
+
+1. **Prepare.** The portal returns an inactive code for a new operation id. A lost response is
+   retried once with the same operation id, which the portal answers with the same code.
+2. **Store.** The email carrying the code is written to `emailLog` as `PENDING`. This is the durable
+   job the portal requires before it activates anything.
+3. **Commit.** Inside `EmailManager.DispatchGate`, after the email row exists and before any transport
+   work, CARLOS calls `commit-delivery` with `delivery_reference=emaillog:<id>`. The portal activates the
+   code and starts its seven-day lifetime. If the commit fails for any reason, nothing is sent.
+4. **Send.** The normal email stack sends the message, and the attempt records `SENT`, `SEND_FAILED`
+   or `SEND_UNCERTAIN`.
+
+An attempt stopped before the commit is `ABANDONED`, and CARLOS revokes the prepared code on the
+portal: a live preparation otherwise blocks every new invitation for the patient until it expires.
+After the commit, CARLOS never revokes on uncertainty; a refused send is fixed by a resend, which
+issues a new code and keeps the old one valid until the replacement is committed.
+
+The email links to `<public_base_url>/auth/activate` and carries the code as text. The code is never
+placed in a URL, a log, or a browser-visible message, and CARLOS does not store it anywhere except the
+email itself. The email passes through the same consent gate as every patient email: `OPT_IN`, or
+`UNKNOWN` with a documented override reason. Text-message invitations are reserved until CARLOS has
+an SMS provider.
+
+An attempt that did not finish shows as incomplete on the page. After 15 minutes without a change,
+staff can resolve it: **Stop and withdraw the code** before the commit, or **It arrived** / **It did
+not arrive; revoke it** after it. Recovery re-checks that the patient and the portal connection match
+the attempt. Nothing runs in the background.
+
 ## Verification
 
 Run the CARLOS regression suite:

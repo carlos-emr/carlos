@@ -89,6 +89,38 @@ class PatientPortalSpringWiringUnitTest {
      * The load-bearing assertion. If any bean in that file loses {@code lazy-init}, this fails —
      * which is the only warning anyone gets before an unconfigured clinic cannot start CARLOS.
      */
+    /**
+     * The invite service is wired by bean name to component-scanned classes. Those names come from the
+     * class names, so a rename would break invitations at first use rather than at start-up; this pins
+     * each referenced name to the class that must register it.
+     */
+    @Test
+    @DisplayName("should reference collaborators by the names their classes register under")
+    void shouldReferenceScannedCollaborators_byTheirDerivedBeanNames() {
+        java.util.Map<String, Class<?>> expected = java.util.Map.of(
+                "emailManager", io.github.carlos_emr.carlos.managers.EmailManager.class,
+                "patientPortalInviteDeliveryDaoImpl",
+                io.github.carlos_emr.carlos.commn.dao.PatientPortalInviteDeliveryDaoImpl.class,
+                "emailConfigDaoImpl", io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl.class,
+                "emailLogDaoImpl", io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl.class);
+        try (GenericApplicationContext context = contextWithSecurityManager()) {
+            var arguments = context.getBeanFactory().getBeanDefinition("portalInviteDeliveryService")
+                    .getConstructorArgumentValues().getIndexedArgumentValues().values();
+            java.util.Set<String> referenced = new java.util.HashSet<>();
+            for (var argument : arguments) {
+                referenced.add(((org.springframework.beans.factory.config.RuntimeBeanReference) argument.getValue())
+                        .getBeanName());
+            }
+            assertThat(referenced).containsAll(expected.keySet());
+            expected.forEach((name, type) -> assertThat(
+                    org.springframework.context.annotation.AnnotationBeanNameGenerator.INSTANCE.generateBeanName(
+                            new org.springframework.beans.factory.annotation.AnnotatedGenericBeanDefinition(type),
+                            context.getDefaultListableBeanFactory()))
+                    .as("bean name registered by %s", type.getSimpleName())
+                    .isEqualTo(name));
+        }
+    }
+
     @Test
     @DisplayName("should start cleanly on a server with no portal configured")
     void shouldRefreshContext_whenNoPortalIsConfigured() {
