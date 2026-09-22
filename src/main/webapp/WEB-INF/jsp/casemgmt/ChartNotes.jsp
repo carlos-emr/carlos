@@ -467,9 +467,8 @@
                 <legend><fmt:message key="encounter.templateSearch.legend"/></legend>
 
                 <fmt:message key="encounter.templateSearch.namePlaceholder" var="templateNamePlaceholder"/>
-                <img alt="<fmt:message key="encounter.msgFind"/>"
-                     src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/edit-find.png">
-                <label for="enTemplate" class="sr-only"><fmt:message key="encounter.templateSearch.namePlaceholder"/></label>
+                <label for="enTemplate"><img alt="${carlos:forHtmlAttribute(templateNamePlaceholder)}"
+                     src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/edit-find.png"></label>
                 <input id="enTemplate" placeholder="${carlos:forHtmlAttribute(templateNamePlaceholder)}"
                        size="16" type="text" value=""
                        onkeypress="return grabEnterGetTemplate(event)">
