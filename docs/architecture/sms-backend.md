@@ -44,7 +44,7 @@ Schema installation uses `V1.0.25__add_sms_system_of_record.sql` and `V1.0.31__a
 
 ## Security objects
 
-SMS has three security objects. `SecurityInfoManager.hasPrivilege` treats a role's grant as a ladder (`x` > `w` > `u` > `r`; `d` is separate and matched exactly), so a role granted `w` also satisfies an `r` check, and `(roleUserGroup, objectName)` is unique: one grant per role and object.
+SMS has three security objects. A role's grant is a ladder, `x` > `w` > `u` > `r`, so a role granted `w` also passes an `r` check; `d` sits outside the ladder and only `d` or `x` satisfies it. `(roleUserGroup, objectName)` is the primary key of `secObjPrivilege`, so a role has one grant per object.
 
 | Object | Purpose | Ask for | Seeded default |
 | --- | --- | --- | --- |
@@ -52,13 +52,16 @@ SMS has three security objects. `SecurityInfoManager.hasPrivilege` treats a role
 | `_admin.sms` | SMS configuration and the operational views (queue backlog, failures) | `w` to change, `r` to view | `admin`: `x` |
 | `_msgSMS` | Reading a stored message body through `SmsMessageBodyReadService` (audited) | `r`, plus `_demographic` `r` when the transaction has a patient | `admin` and `doctor`: `x` |
 
-Only `_msgSMS` is enforced today, by `CarlosSmsMessageBodyAuthorizationService`. `_sms` and `_admin.sms` are seeded ahead of the code (`V1.0.31__add_sms_security_objects.sql`) so the grants exist before the first gate ships; nothing checks them yet. `_msgSMS` is seeded by `V1.0.25`. Grants take effect on the next request: privileges are read from `secObjPrivilege` on every check and nothing caches them, so no restart is needed after the migration. Both migrations leave an existing clinic row untouched, including an `o` (no-rights) row. On the unscoped rows the migrations write, `o` at equal priority is absence of rights for that role only, and a provider who also holds a role with a grant still passes. A patient-scoped `_sms$<demographicNo>` row is different: once any of the caller's roles appears in the scoped rows, a bare `o` on one of them denies the whole check and locks the session, whatever the unscoped grants say. A clinic that wants a role to view history without sending grants it `r` on `_sms`. `_admin` = `x` confers nothing on `_admin.sms`; dotted objects need their own row.
+- Only `_msgSMS` is enforced today, by `CarlosSmsMessageBodyAuthorizationService`. `_sms` and `_admin.sms` are seeded ahead of the code (`V1.0.31__add_sms_security_objects.sql`) so the grants exist before the first gate ships; nothing checks them yet. `_msgSMS` is seeded by `V1.0.25`.
+- Both migrations leave any existing clinic row for a role and object untouched, whatever its privilege.
+- Grants take effect on the next request: privileges are read from `secObjPrivilege` on every check and nothing caches them, so no restart is needed after the migration.
+- A clinic that wants a role to view history without sending grants it `r` on `_sms`.
+- `_admin` = `x` confers nothing on `_admin.sms`; a dotted object needs its own row.
 
-Rules for the send, history, configuration and operational actions when they land, all from `docs/soap-rbac-hardening.md` and `CLAUDE.md`:
+The actions that check `_sms` and `_admin.sms` arrive with #3836, #3838, #3839 and #3841. They follow the security-check rules in `CLAUDE.md` and `docs/soap-rbac-hardening.md`: the paren-form `SecurityException` message, and the patient's `demographicNo` rather than `null` whenever the patient is known. Two things for the first of those PRs to settle, because the current code does not:
 
-- A failed check throws `SecurityException("missing required sec object (_sms)")`, the paren form, in Struts actions and REST or SOAP services alike. In a Struts action `CarlosExceptionMappingInterceptor` treats any `SecurityException` as a refusal (403, logged at WARN without a stack trace) and uses the paren-form message only to name the object in the log; another exception type is treated as a server error.
-- The existing `_msgSMS` gate throws the CARLOS `commn.exception.AccessDeniedException`, a plain `RuntimeException` that no Struts package maps to a refusal. A Struts action that surfaces that gate must catch it and rethrow the paren-form `SecurityException`, or the denial renders as a 500.
-- Pass the `demographicNo` to the `_sms` and `_demographic` checks whenever the patient is known, never `null`: `hasPrivilege` consults the patient-specific `$<id>` rows only on the scoped call. Many legacy actions still pass `null`; do not copy them.
+- A Struts action's refusal is handled as a 403 only if its package maps `java.lang.SecurityException` to `securityError`; otherwise the exception reaches the container error page. The messenger and eform packages map nothing today.
+- `CarlosSmsMessageBodyAuthorizationService` throws `commn.exception.AccessDeniedException`, which no Struts package maps to a refusal.
 
 ## Required before real SMS traffic
 
