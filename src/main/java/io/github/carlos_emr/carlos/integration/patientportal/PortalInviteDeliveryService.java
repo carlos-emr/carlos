@@ -141,9 +141,10 @@ public class PortalInviteDeliveryService {
      * @param confirmReplace whether an existing pending invitation may be replaced
      * @param consentOverride whether staff documented consent that the chart records as unknown
      * @param consentOverrideReason the documented reason, required with {@code consentOverride}
+     * @param withdrawStale whether staff confirmed withdrawing this patient's stuck earlier attempts
      */
-    public record InviteRequest(
-            Channel channel, boolean confirmReplace, boolean consentOverride, String consentOverrideReason) {
+    public record InviteRequest(Channel channel, boolean confirmReplace, boolean consentOverride,
+            String consentOverrideReason, boolean withdrawStale) {
     }
 
     private final PatientPortalService portal;
@@ -187,7 +188,8 @@ public class PortalInviteDeliveryService {
     /**
      * Invites a patient. When a pending invitation exists, {@code confirmReplace} turns this into a
      * resend of it; without confirmation the request is refused, because replacing an invitation
-     * silently would strand a code the patient may already hold.
+     * silently would strand a code the patient may already hold. A stuck earlier attempt is withdrawn
+     * first when staff confirm it; see {@link #withdrawStaleAttempts}.
      *
      * @return the attempt as recorded; its state says how far delivery got
      * @throws PortalInviteException when the invitation is refused before any portal call
@@ -200,6 +202,7 @@ public class PortalInviteDeliveryService {
         PortalInviteContact contact = PortalInviteContact.from(patient);
         EmailData email = emails.request(user, patient.getDemographicNo(), contact.email(), request);
         requireConsent(user, email);
+        withdrawStaleAttempts(patient, staff, request.withdrawStale());
         Optional<PatientPortalInviteDto> pending = pendingInvite(patient.getDemographicNo(), staff);
         if (pending.isPresent()) {
             if (!request.confirmReplace()) {
@@ -221,6 +224,7 @@ public class PortalInviteDeliveryService {
         PortalInviteContact contact = PortalInviteContact.from(patient);
         EmailData email = emails.request(user, patient.getDemographicNo(), contact.email(), request);
         requireConsent(user, email);
+        withdrawStaleAttempts(patient, staff, request.withdrawStale());
         boolean pending = portal.listInvites(patient.getDemographicNo(), staff).stream()
                 .anyMatch(invite -> invite.id() == inviteId && STATUS_PENDING.equals(invite.status()));
         if (!pending) {
@@ -241,8 +245,7 @@ public class PortalInviteDeliveryService {
                 || row.getDemographicNo().intValue() != patient.getDemographicNo()) {
             throw new PortalInviteException(Reason.DELIVERY_NOT_FOUND);
         }
-        if (!portalSettings.baseUrl().equals(row.getPortalOrigin())
-                || !portalSettings.clinicId().equals(row.getClinicId())) {
+        if (!onCurrentConnection(row)) {
             throw new PortalInviteException(Reason.PORTAL_CONNECTION_CHANGED);
         }
         if (!decisionsFor(row.getState()).contains(decision)) {
@@ -253,7 +256,13 @@ public class PortalInviteDeliveryService {
         }
         return switch (decision) {
             case ABANDON -> abandonByStaff(row, patient, staff);
-            case CONFIRM_SENT -> confirm(row, State.SENT, Outcome.CONFIRMED_SENT, EMAIL_CONFIRMED_SENT);
+            case CONFIRM_SENT -> {
+                PatientPortalInviteDelivery sent =
+                        confirm(row, State.SENT, Outcome.CONFIRMED_SENT, EMAIL_CONFIRMED_SENT);
+                Integer emailLogId = sent.getEmailLogId();
+                EmailLog emailLog = emailLogId == null ? null : emailLogs.find(emailLogId.intValue());
+                yield recordOnChart(user, sent, emailLog, true);
+            }
             case CONFIRM_NOT_SENT -> confirmNotSent(row, staff);
         };
     }
@@ -323,7 +332,7 @@ public class PortalInviteDeliveryService {
         } finally {
             email.setBody("");
         }
-        return settle(row.getId(), result, inviteId, staff, demographicNo);
+        return settle(user, row.getId(), result, inviteId, staff, demographicNo);
     }
 
     private PatientPortalPreparedInviteDto prepare(int demographicNo, PortalInviteContact contact,
@@ -402,8 +411,8 @@ public class PortalInviteDeliveryService {
         }
     }
 
-    private PatientPortalInviteDelivery settle(Long deliveryId, EmailSendResult result, long inviteId,
-            PatientPortalStaffContext staff, int demographicNo) {
+    private PatientPortalInviteDelivery settle(LoggedInInfo user, Long deliveryId, EmailSendResult result,
+            long inviteId, PatientPortalStaffContext staff, int demographicNo) {
         PatientPortalInviteDelivery row = deliveries.find(deliveryId);
         if (row == null) {
             throw new PortalInviteException(Reason.STATE_CHANGED);
@@ -412,7 +421,9 @@ public class PortalInviteDeliveryService {
         return switch (row.getState()) {
             case COMMITTED -> {
                 if (result.isTransportAccepted()) {
-                    yield advance(deliveryId, State.COMMITTED, State.SENT, r -> r.setOutcome(null));
+                    PatientPortalInviteDelivery sent =
+                            advance(deliveryId, State.COMMITTED, State.SENT, r -> r.setOutcome(null));
+                    yield recordOnChart(user, sent, result.getEmailLog(), false);
                 }
                 if (result.isDeliveryUnconfirmed()) {
                     yield advance(deliveryId, State.COMMITTED, State.SEND_UNCERTAIN,
@@ -445,7 +456,61 @@ public class PortalInviteDeliveryService {
         }
     }
 
+    /**
+     * Records a sent invitation on the patient's chart, without its code (see
+     * {@link PortalInviteEmailComposer#chartNote}). The email has already gone, so a failure here never
+     * undoes the send; the attempt records it, and the page asks staff to add the note by hand.
+     */
+    private PatientPortalInviteDelivery recordOnChart(LoggedInInfo user, PatientPortalInviteDelivery row,
+            EmailLog emailLog, boolean confirmedByStaff) {
+        if (emailLog != null && emailLog.getToEmail() != null && emailLog.getToEmail().length > 0) {
+            try {
+                emailManager.addEmailNote(user, emailLog, emails.chartNote(emailLog.getToEmail()[0],
+                        row.getSupersededInviteId() != null, confirmedByStaff));
+                return row;
+            } catch (RuntimeException exception) {
+                logger.warn("patient portal invitation chart note could not be written: {}",
+                        exception.getClass().getSimpleName());
+            }
+        }
+        PatientPortalInviteDelivery updated = deliveries.advance(row.getId(), State.SENT, State.SENT,
+                r -> r.setOutcome(Outcome.CHART_NOTE_FAILED));
+        return updated != null ? updated : row;
+    }
+
     // --- recovery --------------------------------------------------------------------------------
+
+    /**
+     * Withdraws this patient's attempts that stopped before their code was activated and have been idle
+     * for {@link #RECOVERY_MIN_AGE}. Such an attempt usually leaves a prepared code on the portal, which
+     * blocks every new invitation for the patient until it expires, so it is cleared at the moment staff
+     * next try to invite. Staff confirm it first: without {@code withdraw} the request is refused.
+     * An attempt on a different portal connection is left alone; it cannot block this one.
+     *
+     * @throws PortalInviteException {@link Reason#STALE_ATTEMPT_EXISTS} when one exists and
+     *     {@code withdraw} is false
+     */
+    private void withdrawStaleAttempts(Demographic patient, PatientPortalStaffContext staff, boolean withdraw) {
+        List<PatientPortalInviteDelivery> unfinished =
+                deliveries.findUnfinishedByDemographic(patient.getDemographicNo());
+        List<PatientPortalInviteDelivery> stale = unfinished == null ? List.of() : unfinished.stream()
+                .filter(row -> decisionsFor(row.getState()).contains(Decision.ABANDON))
+                .filter(this::onCurrentConnection)
+                .filter(this::isRecoverable)
+                .toList();
+        if (stale.isEmpty()) {
+            return;
+        }
+        if (!withdraw) {
+            throw new PortalInviteException(Reason.STALE_ATTEMPT_EXISTS);
+        }
+        stale.forEach(row -> abandonByStaff(row, patient, staff));
+    }
+
+    private boolean onCurrentConnection(PatientPortalInviteDelivery row) {
+        return portalSettings.baseUrl().equals(row.getPortalOrigin())
+                && portalSettings.clinicId().equals(row.getClinicId());
+    }
 
     private PatientPortalInviteDelivery abandonByStaff(PatientPortalInviteDelivery row, Demographic patient,
             PatientPortalStaffContext staff) {

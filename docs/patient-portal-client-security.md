@@ -122,6 +122,20 @@ staff can resolve it: **Stop and withdraw the code** before the commit, or **It 
 not arrive; revoke it** after it. Recovery re-checks that the patient and the portal connection match
 the attempt. Nothing runs in the background.
 
+An attempt stuck before the commit usually leaves a prepared code on the portal, which blocks every new
+invitation for that patient until it expires. So when staff next invite or resend, an attempt stuck that
+way for 15 minutes on the same portal connection is refused with `stale_attempt_exists`; the page asks
+whether to withdraw it, and on confirmation (`withdrawStale=true`) withdraws it exactly as **Stop and
+withdraw the code** would, then sends. Nothing from such an attempt reached the patient. An attempt
+whose code went live is never withdrawn this way: only staff can know whether its email arrived.
+
+A sent invitation is recorded on the patient's chart as a short signed note naming the address it went
+to, never the email itself: a chart note is permanent, and the email carries the account credential. The
+note is written when the send succeeds, or when staff confirm an uncertain one arrived. If the note
+cannot be written, the invitation stays sent and the attempt records `chart_note_failed`, which the page
+shows so staff can add the note by hand. Other patient emails can copy their full content to the chart;
+portal invitations must never be switched to that.
+
 ## Verification
 
 Run the CARLOS regression suite:

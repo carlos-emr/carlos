@@ -80,4 +80,15 @@ public class PatientPortalInviteDeliveryDaoImpl extends AbstractDaoImpl<PatientP
                 .setMaxResults(limit)
                 .getResultList();
     }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+    public List<PatientPortalInviteDelivery> findUnfinishedByDemographic(int demographicNo) {
+        return entityManager
+                .createQuery("SELECT d FROM PatientPortalInviteDelivery d WHERE d.demographicNo = :demographicNo "
+                        + "AND d.state IN :states ORDER BY d.createdAt, d.id", PatientPortalInviteDelivery.class)
+                .setParameter("demographicNo", demographicNo)
+                .setParameter("states", State.unfinished())
+                .getResultList();
+    }
 }

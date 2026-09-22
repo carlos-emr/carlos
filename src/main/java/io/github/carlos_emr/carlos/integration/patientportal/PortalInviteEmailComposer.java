@@ -108,6 +108,26 @@ class PortalInviteEmailComposer {
         return email;
     }
 
+    /**
+     * The chart note recording a sent invitation. It never holds the code: a chart note is permanent,
+     * and the code activates the patient's account.
+     *
+     * @param recipient the address the invitation went to
+     * @param replacement whether the invitation replaced an earlier one
+     * @param confirmedByStaff whether staff confirmed the arrival of an email whose send was uncertain
+     */
+    String chartNote(String recipient, boolean replacement, boolean confirmedByStaff) {
+        StringBuilder note = new StringBuilder("Patient portal invitation emailed to ").append(recipient).append('.');
+        if (replacement) {
+            note.append(" It replaced an earlier invitation, whose code no longer works.");
+        }
+        if (confirmedByStaff) {
+            note.append(" Staff confirmed the email arrived.");
+        }
+        return note.append("\nThe invitation code is not recorded in CARLOS. If the patient loses the email, ")
+                .append("resend the invitation from the Patient portal page.").toString();
+    }
+
     /** @return the plain-text body carrying {@code inviteCode}; the code is text, never part of a URL */
     String body(String inviteCode) {
         return "Hello,\n\n"

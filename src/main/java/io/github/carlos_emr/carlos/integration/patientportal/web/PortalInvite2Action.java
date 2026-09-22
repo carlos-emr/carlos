@@ -51,7 +51,9 @@ import org.apache.struts2.ServletActionContext;
  * <p>{@code method=create} invites the patient by email; when a pending invitation exists it requires
  * {@code confirmReplace=true} and then resends that invitation. {@code method=resend} replaces the
  * invitation named by {@code inviteId}. Both run {@link PortalInviteDeliveryService}, which commits the
- * invitation on the portal only once the email carrying it is durable. {@code method=recover} applies a
+ * invitation on the portal only once the email carrying it is durable. Both answer
+ * {@code stale_attempt_exists} while an earlier attempt is stuck before activation, until staff confirm
+ * with {@code withdrawStale=true}. {@code method=recover} applies a
  * staff {@code decision} to the attempt named by {@code deliveryId}. {@code method=revoke} withdraws an
  * invitation.
  *
@@ -181,7 +183,8 @@ public class PortalInvite2Action extends PortalJsonAction {
         PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(session,
                 Set.of(PortalStaffContextResolver.OBJECT_INVITE), patient);
         InviteRequest invite = new InviteRequest(channel, "true".equals(request.getParameter("confirmReplace")),
-                "true".equals(request.getParameter("consentOverride")), overrideReason);
+                "true".equals(request.getParameter("consentOverride")), overrideReason,
+                "true".equals(request.getParameter("withdrawStale")));
         try {
             PatientPortalInviteDelivery row = switch (method) {
                 case METHOD_CREATE -> invites.invite(session, demographic, staff, invite);

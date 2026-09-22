@@ -46,6 +46,9 @@ public class PortalInviteException extends RuntimeException {
         MISSING_HEALTH_CARD("missing_health_card",
                 "This patient has no health card number on their chart. The portal asks for it at activation."),
         CONSENT_BLOCKED("consent_blocked", null),
+        STALE_ATTEMPT_EXISTS("stale_attempt_exists",
+                "An earlier invitation attempt for this patient did not finish. Withdraw it to send a new "
+                        + "invitation."),
         PENDING_INVITE_EXISTS("pending_invite_exists",
                 "This patient already has a pending invitation. Resend it, or confirm that it should be replaced."),
         INVITE_NOT_PENDING("invite_not_pending",
