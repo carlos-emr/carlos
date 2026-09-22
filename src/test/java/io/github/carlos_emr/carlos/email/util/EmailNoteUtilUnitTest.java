@@ -79,7 +79,7 @@ class EmailNoteUtilUnitTest {
         String note = noteUtil(emailLog).createNote();
 
         assertThat(note).contains(
-                "Consent: Unknown (consent #55); override reason: "
+                "Consent: Confirmation Required (consent #55); override reason: "
                         + "Provider confirmed verbal consent");
     }
 
