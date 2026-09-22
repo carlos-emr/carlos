@@ -989,3 +989,46 @@ on screen, because it is validated like every other statement and the original w
 never shown. Restored observations and host conflict statements stay labelled in
 their text, because they are the host's words, not the model's.
 
+# The default configuration over all 50 charts — 2026-09-22
+
+`qwen/qwen3.5-27b` on SiliconFlow, temperature 0, one whole-record pass per
+50,000 bytes, every host guarantee on and inline repair, over every committed
+chart ([run records](quality/2026-09-22/exploratory-runs.json)). 47 of the charts
+had never been used to tune anything. Total cost $0.44; median $0.010 per chart.
+
+**40 of 50 produced a valid draft. 10 were rejected.**
+
+On the 40: the three labelled charts pass the ledger gate with full critical
+recall; after the host's checks and repair, **no draft has a residual
+host-detectable fault** (no named person, unsupported date, restatement or
+undocumented switch remain). The host restored 101 observation sets across 28
+charts (one chart needed 14), stated 7 drug conflicts in 7 charts, made 19 repair
+calls that rewrote 13 statements, and recorded 5 notes as neither cited nor
+explained. Median wall time 183 seconds, range 63 to 395; six drafts took over 300
+seconds; 30 charts fitted one pass and 10 needed two.
+
+The ten rejections, by cause:
+
+| Cause | Charts | What happened |
+| --- | --- | --- |
+| Duplicate claim identifier | 008, 025 | Two statements shared an ID; the host rejects the whole draft |
+| Invalid clinical section | 024 | A section outside the fixed five, or an empty one |
+| One unsupported statement | 010 | One claim shared no word with its cited notes; the whole draft was rejected |
+| Provider returned one to three tokens | 015, 018, 019 | Charts of 60 to 66 notes; finish reason missing; the provider dropped the response |
+| Timed out | 044, 049 | 22 and 35 notes, one pass each, no answer in 420 seconds |
+| Gateway budget exhausted | 017 | 70 notes, three passes: 122 and 261 seconds, then the third could not finish inside 540 |
+
+The first three causes are the model's formatting, not its clinical content, and
+each is something the host could settle deterministically instead of discarding the
+draft: renumber a duplicate ID, place a stray section's statements in Clinical
+overview (as the gateway already does for unassigned claims), and drop one
+unsupported statement with a warning naming it. That would have turned 4 of the 10
+rejections into drafts. The other six are the provider: three dropped responses and
+three timeouts, all but one on charts of 35 notes or more. The 27B stack's 120 to
+260 seconds per pass leaves a 60-note chart no room inside the gateway's 540-second
+budget.
+
+The clinical content of the 47 unlabelled drafts has not been checked against any
+ledger; "no residual host-detectable fault" says the host found nothing to flag,
+not that the drafts are right.
+
