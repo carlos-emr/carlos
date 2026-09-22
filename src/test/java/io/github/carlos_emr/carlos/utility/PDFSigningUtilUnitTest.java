@@ -57,15 +57,17 @@ class PDFSigningUtilUnitTest {
     }
 
     @Test
-    @DisplayName("should leave source untouched when signing is disabled")
-    void shouldReturnSourcePath_whenSigningDisabled() throws IOException {
+    @DisplayName("should refuse to sign when signing is disabled")
+    void shouldRefuseToSign_whenSigningDisabled() throws IOException {
+        // Whether to sign is the caller's decision. Handing the input back here would make a
+        // returned path mean two different things, and only one of them is a file to own.
         Path source = writeSinglePagePdf();
         PDFSigningConfig config = new PDFSigningConfig(
                 false, null, null, null, null, null, null, null, null, null);
 
-        Path result = PDFSigningUtil.signPDF(source, config);
-
-        assertThat(result).isEqualTo(source);
+        assertThatThrownBy(() -> PDFSigningUtil.signPDF(source, config))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("PDF signing is not enabled");
         try (PDDocument document = Loader.loadPDF(source.toFile())) {
             assertThat(document.getSignatureDictionaries()).isEmpty();
         }

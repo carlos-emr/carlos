@@ -72,28 +72,28 @@ public final class PDFSigningUtil {
     /**
      * Adds a detached CMS signature to a PDF, leaving the source file untouched.
      *
-     * <p>Which path comes back decides ownership. With signing disabled the <em>input</em> path
-     * is returned unchanged and nothing is written. With signing enabled the result is a
-     * <em>new</em> owner-only temp file under {@code java.io.tmpdir} that the caller must adopt
-     * into a working directory or delete; on any failure that file is already removed.</p>
+     * <p>The result is always a <em>new</em> owner-only temp file under {@code java.io.tmpdir}
+     * that the caller must adopt into a working directory or delete; on any failure that file
+     * is already removed. Deciding whether to sign at all is the caller's job: this refuses a
+     * disabled configuration rather than handing the input back, so a returned path can only
+     * ever mean "you own this file".</p>
      *
      * @param pdfPath the PDF to sign; opened read-only, never modified
-     * @param config signing configuration; disabled or null means no-op
+     * @param config signing configuration; must be enabled and complete
      * @param ownerPassword password to open the PDF with if it will not open without one, for
      *        example the send passphrase of a PDF CARLOS encrypted; ignored otherwise
-     * @return the input path when signing is disabled, otherwise the signed temp file
+     * @return the signed temp file
      * @throws IOException when the keystore cannot be loaded or validated, the PDF cannot be
      *         opened (including a wrong or missing password), or signing fails
-     * @throws IllegalStateException when signing is enabled but the configuration is incomplete
+     * @throws IllegalStateException when signing is not enabled, or is enabled but incomplete
      */
     public static Path signPDF(Path pdfPath, PDFSigningConfig config, String ownerPassword) throws IOException {
         if (pdfPath == null) {
             throw new IOException("PDF path is required for signing");
         }
         if (config == null || !config.isEnabled()) {
-            return pdfPath;
+            throw new IllegalStateException("PDF signing is not enabled");
         }
-
         config.validateEnabled();
         ensureBouncyCastleProvider();
 

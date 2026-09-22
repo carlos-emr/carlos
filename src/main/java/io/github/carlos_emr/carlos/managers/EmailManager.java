@@ -1197,9 +1197,12 @@ public class EmailManager {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     void signAttachments(EmailData emailData) throws EmailSendingException {
-        PDFSigningConfig signingConfig = PDFSigningConfig.fromCarlosProperties();
         List<EmailAttachment> attachments = emailData.getAttachments();
-        if (!signingConfig.isEnabled() || attachments == null || attachments.isEmpty()) {
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+        PDFSigningConfig signingConfig = PDFSigningConfig.fromCarlosProperties();
+        if (!signingConfig.isEnabled()) {
             return;
         }
 
@@ -1207,16 +1210,15 @@ public class EmailManager {
         // An encrypted PDF can only be modified with its owner password.
         String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
         for (EmailAttachment attachment : attachments) {
-            Path attachmentPDFPath = null;
             Path signedPDFPath = null;
             try {
-                attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
                 signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
                 attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
             } catch (IOException | RuntimeException e) {
                 // Any RuntimeException, not a chosen few: one that escaped would skip
                 // completeFailedSend and strand the EmailLog at PENDING behind a 500.
-                deleteUnadoptedSignedPdf(signedPDFPath, attachmentPDFPath);
+                deleteUnadoptedSignedPdf(signedPDFPath);
                 // The cause chain is what tells an operator whether the keystore, its password or
                 // the certificate is at fault. It names server paths, never the attachment: the
                 // attachment's own file name can identify a patient, so it is left out.
@@ -1230,12 +1232,10 @@ public class EmailManager {
      * Removes a signed PDF that the working directory never took ownership of. It holds the
      * patient's document and nothing else would ever delete it.
      */
-    private void deleteUnadoptedSignedPdf(Path signedPDFPath, Path sourcePDFPath) {
-        // Two guards. The source-path check: signPDF hands back its input when signing is off,
-        // which cannot happen on this path but is cheap to refuse. The temp-directory check: the
-        // source may itself sit under the temp directory, so equality is checked first.
-        if (signedPDFPath == null || signedPDFPath.equals(sourcePDFPath)
-                || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
+    private void deleteUnadoptedSignedPdf(Path signedPDFPath) {
+        // signPDF only ever returns a temp file it created, so anything else here is a bug and
+        // is left alone rather than deleted.
+        if (signedPDFPath == null || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
             return;
         }
         try {
