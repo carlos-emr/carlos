@@ -104,7 +104,7 @@ public final class LocaleUtils {
             try {
                 ResourceBundle.getBundle(BASE_NAME, candidate, NO_FALLBACK_CONTROL);
                 return candidate;
-            } catch (MissingResourceException e) {
+            } catch (MissingResourceException _) {
                 // No bundle for this preference; try the browser's next choice.
             }
         }
@@ -118,13 +118,13 @@ public final class LocaleUtils {
     public static String getMessage(Locale locale, String key) {
         try {
             return ResourceBundle.getBundle(BASE_NAME, locale).getString(key);
-        } catch (MissingResourceException var5) {
+        } catch (MissingResourceException _) {
             String message = "Resource not found. BASE_NAME=" + BASE_NAME + ", Locale=" + locale + ", key=" + key;
             logger.error(message);
 
             try {
                 return ResourceBundle.getBundle(BASE_NAME, DEFAULT_LOCALE).getString(key);
-            } catch (MissingResourceException var4) {
+            } catch (MissingResourceException _) {
                 message = "Resource not found. BASE_NAME=" + BASE_NAME + ", DEFAULT_LOCALE=" + DEFAULT_LOCALE + ", key=" + key;
                 logger.error(message);
                 return key;

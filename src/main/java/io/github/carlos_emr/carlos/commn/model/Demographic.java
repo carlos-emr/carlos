@@ -1795,7 +1795,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         try {
             return ResourceBundle.getBundle("oscarResources",
                     locale == null ? Locale.ENGLISH : locale, NO_FALLBACK_CONTROL);
-        } catch (MissingResourceException e) {
+        } catch (MissingResourceException _) {
             return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH, NO_FALLBACK_CONTROL);
         }
     }
@@ -1807,7 +1807,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private static String getRes(ResourceBundle bundle, String key, String fallback) {
         try {
             return bundle.getString(key);
-        } catch (MissingResourceException e) {
+        } catch (MissingResourceException _) {
             return fallback;
         }
     }
@@ -1912,6 +1912,51 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             sb.append("</div>");
         }
 
+        appendContactDetails(sb, carlosRes);
+
+        //--> next appointment date
+        sb.append("<div id='patient-next-appointment'>");
+        sb.append("<div class='label'>");
+        String apptHref = contextPath + "/demographic/DemographicApptHistory?demographic_no="
+                + SafeEncode.forUriComponent(String.valueOf(getDemographicNo()))
+                + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
+        String apptHistoryTitle = getRes(carlosRes, "global.viewAppointmentHistory", "Appointment History");
+        sb.append("<a href=\"").append(SafeEncode.forHtmlAttribute(apptHref))
+                .append("\" title='").append(SafeEncode.forHtmlAttribute(apptHistoryTitle))
+                .append("' target='_blank'>");
+        String nAppt = getRes(carlosRes, "global.nextAppointment", "Next Appt.");
+        sb.append(nAppt);
+        sb.append("</a>");
+        sb.append("</div>");
+        String unknown = getRes(carlosRes, "demographic.demographicaddrecordhtm.formNewsLetter.optUnknown", "Unknown");
+        if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
+            sb.append(SafeEncode.forHtmlContent(getNextAppointment()));
+        } else {
+            sb.append(SafeEncode.forHtmlContent(unknown));
+        }
+        sb.append("</div>");
+
+        //--> most responsible practitioner (last item, pushed to right via CSS)
+        sb.append("<div id='patient-mrp'>");
+        sb.append("<div class='label'>");
+        String mrpLabel = getRes(carlosRes, "demographic.demographiceditdemographic.formMRP", "MRP");
+        sb.append(mrpLabel);
+        sb.append("</div>");
+        Provider mrp = getMrp();
+        if (mrp != null) {
+            sb.append(SafeEncode.forHtmlContent(mrp.getFormattedName()));
+        } else {
+            sb.append(SafeEncode.forHtmlContent(unknown));
+        }
+        sb.append("</div>");
+
+        sb.append("</div>");
+
+        return sb.toString();
+    }
+
+    /** Appends optional contact fields using the caller-selected message bundle. */
+    private void appendContactDetails(StringBuilder sb, ResourceBundle carlosRes) {
         //--> phone
         if (getPhone() != null && !getPhone().isEmpty()) {
             sb.append("<div id='patient-phone' class='copyable' title='")
@@ -1954,46 +1999,6 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             sb.append(SafeEncode.forHtmlContent(getEmail()));
             sb.append("</div>");
         }
-
-        //--> next appointment date
-        sb.append("<div id='patient-next-appointment'>");
-        sb.append("<div class='label'>");
-        String apptHref = contextPath + "/demographic/DemographicApptHistory?demographic_no="
-                + SafeEncode.forUriComponent(String.valueOf(getDemographicNo()))
-                + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
-        String apptHistoryTitle = getRes(carlosRes, "global.viewAppointmentHistory", "Appointment History");
-        sb.append("<a href=\"").append(SafeEncode.forHtmlAttribute(apptHref))
-                .append("\" title='").append(SafeEncode.forHtmlAttribute(apptHistoryTitle))
-                .append("' target='_blank'>");
-        String nAppt = getRes(carlosRes, "global.nextAppointment", "Next Appt.");
-        sb.append(nAppt);
-        sb.append("</a>");
-        sb.append("</div>");
-        String unknown = getRes(carlosRes, "demographic.demographicaddrecordhtm.formNewsLetter.optUnknown", "Unknown");
-        if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
-            sb.append(SafeEncode.forHtmlContent(getNextAppointment()));
-        } else {
-            sb.append(SafeEncode.forHtmlContent(unknown));
-        }
-        sb.append("</div>");
-
-        //--> most responsible practitioner (last item, pushed to right via CSS)
-        sb.append("<div id='patient-mrp'>");
-        sb.append("<div class='label'>");
-        String mrpLabel = getRes(carlosRes, "demographic.demographiceditdemographic.formMRP", "MRP");
-        sb.append(mrpLabel);
-        sb.append("</div>");
-        Provider mrp = getMrp();
-        if (mrp != null) {
-            sb.append(SafeEncode.forHtmlContent(mrp.getFormattedName()));
-        } else {
-            sb.append(SafeEncode.forHtmlContent(unknown));
-        }
-        sb.append("</div>");
-
-        sb.append("</div>");
-
-        return sb.toString();
     }
 
     @Override

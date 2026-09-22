@@ -1355,7 +1355,8 @@ the application's own absolute URLs (`https://127.0.0.1/carlos/...`) point back
 at 443 and every subresource fails with `ERR_CONNECTION_REFUSED`, which looks
 like a broken page and is only the test setup.
 
-**Before and after, measured on the same install.** The pre-fix WAR (the commit
+**Historical container results (original revision, superseded by the review follow-up below).**
+Before and after were measured on the same install. The pre-fix WAR (the commit
 before the change) and the fixed WAR were each exploded over
 `/usr/share/carlos-emr/webapp/carlos` and the service restarted, and the chart
 header was read with an `en-CA` browser and an `fr-CA` browser:
@@ -1371,7 +1372,7 @@ header was read with an `en-CA` browser and an `fr-CA` browser:
 The pre-fix French column is the report: the JSP half of the header translated
 and the Java half did not.
 
-**Checks run against the fixed package** (`EXPECT_FRONT_DOOR=true`):
+**Historical checks run against the original fixed package** (`EXPECT_FRONT_DOOR=true`):
 `encounter-header-i18n` PASS, `clinical-calculators` PASS, `echart` PASS,
 `master-record-tabs` PASS (17 items opened, 1 skipped by policy).
 `encounter-header-i18n` was also run against the pre-fix package as a negative

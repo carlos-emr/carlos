@@ -469,8 +469,9 @@
                 <fmt:message key="encounter.templateSearch.namePlaceholder" var="templateNamePlaceholder"/>
                 <img alt="<fmt:message key="encounter.msgFind"/>"
                      src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/edit-find.png">
+                <label for="enTemplate" class="sr-only"><fmt:message key="encounter.templateSearch.namePlaceholder"/></label>
                 <input id="enTemplate" placeholder="${carlos:forHtmlAttribute(templateNamePlaceholder)}"
-                       tabindex="6" size="16" type="text" value=""
+                       size="16" type="text" value=""
                        onkeypress="return grabEnterGetTemplate(event)">
 
                 <div class="enTemplate_name_auto_complete" id="enTemplate_list" style="z-index: 1; display: none">

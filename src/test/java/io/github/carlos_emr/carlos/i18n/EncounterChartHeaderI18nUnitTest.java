@@ -58,7 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Encounter chart header i18n coverage")
 @Tag("unit")
 @Tag("i18n")
-class EncounterChartHeaderI18nTest {
+class EncounterChartHeaderI18nUnitTest {
 
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
 
@@ -84,6 +84,14 @@ class EncounterChartHeaderI18nTest {
             "global.copiedToClipboard",
             "global.viewAppointmentHistory"
     };
+
+    // Only these newly introduced strings are pending verified translations.
+    // Equality with English is not a general test for translation correctness.
+    private static final Set<String> PENDING_TRANSLATION_KEYS = Set.of(
+            "encounter.templateSearch.legend",
+            "encounter.templateSearch.namePlaceholder",
+            "encounter.templateSearch.overlayPlaceholder",
+            "global.copiedToClipboard");
 
     @Test
     @DisplayName("should resolve every chart header and template search key in every shipped locale")
@@ -121,12 +129,13 @@ class EncounterChartHeaderI18nTest {
                         .as("oscarResources_%s.properties should translate %s", locale, key)
                         .isNotBlank()
                         .doesNotStartWith("[EN] ");
-                if (bundle.getProperty(key).equals(english.getProperty(key))) {
+                if (PENDING_TRANSLATION_KEYS.contains(key)) {
+                    assertThat(bundle.getProperty(key)).isEqualTo(english.getProperty(key));
                     String source = Files.readString(MODULE_ROOT.resolve(
                             "src/main/resources/oscarResources_" + locale + ".properties"));
-                    assertThat(Pattern.compile("(?m)^# TODO: translate\\R" + Pattern.quote(key) + "=")
+                    assertThat(Pattern.compile("(?m)^\\h*# TODO: translate\\h*\\R(?:\\h*\\R)*\\h*" + Pattern.quote(key) + "\\h*[=:]")
                             .matcher(source).find())
-                            .as("English placeholder %s in %s needs an immediate translation marker", key, locale)
+                            .as("English placeholder %s in %s needs a translation marker", key, locale)
                             .isTrue();
                 }
             }
@@ -201,7 +210,7 @@ class EncounterChartHeaderI18nTest {
 
     private static Properties loadBundle(String locale) throws IOException {
         String resource = "/oscarResources_" + locale + ".properties";
-        try (InputStream is = EncounterChartHeaderI18nTest.class.getResourceAsStream(resource)) {
+        try (InputStream is = EncounterChartHeaderI18nUnitTest.class.getResourceAsStream(resource)) {
             assertThat(is).as("resource %s must exist on the classpath", resource).isNotNull();
             Properties p = new Properties();
             p.load(is);
