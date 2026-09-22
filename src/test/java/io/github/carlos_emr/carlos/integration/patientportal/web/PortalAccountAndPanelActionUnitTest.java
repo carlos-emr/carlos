@@ -37,12 +37,14 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountAcknowledgementDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInviteDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -447,6 +449,60 @@ class PortalAccountAndPanelActionUnitTest {
             assertThat(payload.get("ok").booleanValue()).isFalse();
             assertThat(payload.get("invites").get(0).has("inviteId")).isTrue();
             assertThat(payload.get("accountError").asText()).isEqualTo("unavailable");
+        }
+    }
+
+    @Nested
+    @DisplayName("panel delivery attempts")
+    class PanelDeliveries {
+
+        private final PortalInviteDeliveryService invites = mock(PortalInviteDeliveryService.class);
+
+        private PatientPortalAccountDto account() {
+            return new PatientPortalAccountDto(
+                    5L, "maplecreek", DEMOGRAPHIC_NO, "active", false, false, null, null);
+        }
+
+        private PortalPanel2Action panelWithDeliveries() {
+            return new PortalPanel2Action(securityInfoManager, patientPortalService, staffContextResolver, invites);
+        }
+
+        @Test
+        @DisplayName("should list the patient's recent delivery attempts from CARLOS")
+        void shouldListDeliveries_fromCarlos() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(404, "/x", "portal account not found"));
+            PatientPortalInviteDelivery row = new PatientPortalInviteDelivery("inv-1", DEMOGRAPHIC_NO, "clinic",
+                    "https://portal-api.example", PatientPortalInviteDelivery.Channel.EMAIL, null, "999998");
+            row.setState(PatientPortalInviteDelivery.State.SEND_UNCERTAIN);
+            when(invites.recentFor(DEMOGRAPHIC_NO)).thenReturn(List.of(row));
+            when(invites.isRecoverable(row)).thenReturn(true);
+
+            panelWithDeliveries().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isTrue();
+            assertThat(payload.get("deliveries").size()).isEqualTo(1);
+            assertThat(payload.get("deliveries").get(0).get("state").asText()).isEqualTo("send_uncertain");
+            assertThat(payload.get("deliveries").get(0).get("decisions").get(0).asText()).isEqualTo("confirmSent");
+        }
+
+        @Test
+        @DisplayName("should report the deliveries section unavailable rather than empty when it cannot be read")
+        void shouldReportDeliveriesUnavailable_whenTheReadFails() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
+            when(invites.recentFor(DEMOGRAPHIC_NO)).thenThrow(new IllegalStateException("database unavailable"));
+
+            panelWithDeliveries().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isFalse();
+            assertThat(payload.has("deliveries")).isFalse();
+            assertThat(payload.get("deliveriesError").asText()).isEqualTo("unavailable");
         }
     }
 

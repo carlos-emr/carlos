@@ -23,11 +23,13 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInviteDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -100,7 +102,15 @@ public class PortalPanel2Action extends PortalJsonAction {
             SecurityInfoManager securityInfoManager,
             PatientPortalService patientPortalService,
             PortalStaffContextResolver staffContextResolver) {
-        super(patientPortalService);
+        this(securityInfoManager, patientPortalService, staffContextResolver, null);
+    }
+
+    PortalPanel2Action(
+            SecurityInfoManager securityInfoManager,
+            PatientPortalService patientPortalService,
+            PortalStaffContextResolver staffContextResolver,
+            PortalInviteDeliveryService inviteService) {
+        super(patientPortalService, inviteService);
         this.securityInfoManager = securityInfoManager;
         this.staffContextResolver = staffContextResolver;
     }
@@ -162,6 +172,9 @@ public class PortalPanel2Action extends PortalJsonAction {
         if (mayReadInvites && !addInvites(portal, payload, demographicNo, staff)) {
             complete = false;
         }
+        if (mayReadInvites && !addDeliveries(payload, demographicNo)) {
+            complete = false;
+        }
         if (mayReadAccount && !addAccount(portal, payload, demographicNo, staff)) {
             complete = false;
         }
@@ -210,6 +223,30 @@ public class PortalPanel2Action extends PortalJsonAction {
                     "invites",
                     exception.kind(),
                     exception);
+            return false;
+        }
+    }
+
+    /**
+     * Adds the patient's recent invitation delivery attempts, newest first. They are read from CARLOS,
+     * not the portal, so an unfinished delivery stays visible, with its recovery options, while the portal
+     * is unreachable.
+     */
+    private boolean addDeliveries(ObjectNode payload, int demographicNo) {
+        PortalInviteDeliveryService invites = inviteDeliveryService();
+        if (invites == null) {
+            return true;
+        }
+        try {
+            ArrayNode deliveries = payload.putArray("deliveries");
+            for (PatientPortalInviteDelivery row : invites.recentFor(demographicNo)) {
+                InviteDeliveryJson.write(deliveries.addObject(), row, invites);
+            }
+            return true;
+        } catch (RuntimeException exception) {
+            payload.remove("deliveries");
+            payload.put("deliveriesError", SECTION_UNAVAILABLE);
+            logger.warn(SECTION_FAILED_LOG, "deliveries", exception.getClass().getSimpleName());
             return false;
         }
     }
