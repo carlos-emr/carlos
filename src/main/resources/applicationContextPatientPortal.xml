@@ -92,4 +92,32 @@
         <constructor-arg ref="securityInfoManagerImpl"/>
     </bean>
 
+    <!--
+      Invitation delivery (issue #3854). The invite settings never throw: an unset public URL or
+      sender only makes the workflow refuse to send, so it cannot stop the rest of the portal
+      integration. The service is created only after PatientPortalSettings.isConfigured(), like every
+      other portal action, because it holds the portal client.
+
+      The component-scanned collaborators register under names derived from their classes; the
+      wiring test pins those names.
+    -->
+    <bean id="portalInviteSettings"
+          class="io.github.carlos_emr.carlos.integration.patientportal.PortalInviteSettings"
+          factory-method="fromCarlosProperties"
+          lazy-init="true"
+          autowire-candidate="false"/>
+
+    <bean id="portalInviteDeliveryService"
+          class="io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService"
+          lazy-init="true"
+          autowire-candidate="false">
+        <constructor-arg index="0" ref="patientPortalService"/>
+        <constructor-arg index="1" ref="patientPortalSettings"/>
+        <constructor-arg index="2" ref="portalInviteSettings"/>
+        <constructor-arg index="3" ref="emailManager"/>
+        <constructor-arg index="4" ref="patientPortalInviteDeliveryDaoImpl"/>
+        <constructor-arg index="5" ref="emailConfigDaoImpl"/>
+        <constructor-arg index="6" ref="emailLogDaoImpl"/>
+    </bean>
+
 </beans>
