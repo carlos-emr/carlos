@@ -44,9 +44,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Pins the default grants seeded for the SMS security objects.
  * <p>
  * The seed is what every clinic gets on upgrade, so widening it (another role, or a grant on
- * {@code _admin.sms} beyond admin) is a privilege change that must be deliberate. The grants are pinned by
- * reading the file, and the guards by executing it against H2 in MySQL mode, because the H2 test schema is
- * built from the entity mappings and never runs the Flyway files.
+ * {@code _admin.sms} beyond admin) is a privilege change that must be deliberate. The grants are
+ * pinned by reading the file, and the guards by executing it against H2 in MySQL mode, because the
+ * H2 test schema is built from the entity mappings and never runs the Flyway files.
  *
  * @since 2026-09-22
  */
@@ -125,12 +125,12 @@ class SmsSecurityObjectsMigrationUnitTest {
     }
 
     @Test
-    @DisplayName("leaves a clinic's narrower or revoked grant alone")
+    @DisplayName("leaves a clinic's narrower or no-rights grant alone")
     void shouldPreserveExistingGrants_whenClinicAlreadyDecided() throws Exception {
         try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:sms_sec_existing;MODE=MySQL");
              Statement statement = connection.createStatement()) {
             createSecurityTables(statement);
-            // The clinic already gave doctors history only, and deliberately gave admin nothing on _sms.
+            // The clinic already gave doctors history only, and gave admin an 'o' (no-rights) row on _sms.
             statement.execute("INSERT INTO secObjPrivilege VALUES ('doctor', '_sms', 'r', 0, '999998')");
             statement.execute("INSERT INTO secObjPrivilege VALUES ('admin', '_sms', 'o', 0, '999998')");
 
