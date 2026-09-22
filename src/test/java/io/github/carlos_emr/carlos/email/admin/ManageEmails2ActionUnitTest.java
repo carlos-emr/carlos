@@ -367,6 +367,26 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
+    @DisplayName("should send an unresolved portal email to recovery instead of the resend composer")
+    void shouldRedirectToPortalRecovery_whenPortalDeliveryIsUnresolved() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog accepted = new EmailLog();
+        org.springframework.test.util.ReflectionTestUtils.setField(accepted, "id", 42);
+        accepted.setStatus(EmailLog.EmailStatus.SUCCESS);
+        accepted.setPortalDeliveryState(EmailLog.PortalDeliveryState.SENT);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(accepted);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("none");
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/email/portalDelivery?emailLogId=42");
+        verifyNoInteractions(demographicManager, documentAttachmentManager, formsManager);
+    }
+
+    @Test
     @DisplayName("should not warn when resending an email already recorded as failed")
     void shouldNotWarn_whenResendingFailedEmail() {
         // The whole point of PENDING is that it is distinguishable from FAILED. A genuinely failed

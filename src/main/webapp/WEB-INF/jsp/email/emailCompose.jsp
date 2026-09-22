@@ -19,9 +19,23 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDelivery" %>
-<% request.setAttribute("portalEmailEnabled", PortalEmailDelivery.isEnabled()); %>
-<c:set var="portalDeliveryNeedsRecovery" value="${not empty emailLog.portalDeliveryState and (emailLog.status eq 'PENDING' or (emailLog.portalDeliveryState ne 'PUBLISHED' and emailLog.portalDeliveryState ne 'REVOKED'))}"/>
+<%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService" %>
+<%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException" %>
+<%
+    // A malformed setting must not break unencrypted email. Treat it as portal delivery so no
+    // manual password is collected; the send path refuses encrypted email until it is fixed.
+    boolean portalEmailMisconfigured = false;
+    boolean portalEmailEnabled;
+    try {
+        portalEmailEnabled = PortalEmailDeliveryService.isEnabled();
+    } catch (PatientPortalConfigurationException malformed) {
+        portalEmailEnabled = true;
+        portalEmailMisconfigured = true;
+    }
+    request.setAttribute("portalEmailEnabled", portalEmailEnabled);
+    request.setAttribute("portalEmailMisconfigured", portalEmailMisconfigured);
+%>
+<c:set var="portalDeliveryNeedsRecovery" value="${not empty emailLog and emailLog.portalDeliveryUnresolved}"/>
 
 
 <html>
@@ -523,10 +537,11 @@
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
                     <div class="card-body" id="encryptionOptions">
-                        <c:if test="${portalEmailEnabled}">
-                            <p>When this email is sent encrypted, the patient finds its password in their Portal after signing in with MFA.
-                                Select one email address recorded for this patient. Their Portal account must be ready to use.
-                                An email with no message and no encrypted attachments is sent unencrypted, with no Portal password.</p>
+                        <c:if test="${portalEmailMisconfigured}">
+                            <div class="alert alert-danger" role="alert"><fmt:message key="email.compose.portal.misconfigured"/></div>
+                        </c:if>
+                        <c:if test="${portalEmailEnabled and not portalEmailMisconfigured}">
+                            <p><fmt:message key="email.compose.portal.notice"/></p>
                         </c:if>
                         <div class="container">
                             <%-- The message content itself now lives in the single "Message" field above;
@@ -734,8 +749,8 @@
             <c:choose>
                 <c:when test="${portalDeliveryNeedsRecovery}">
                     <div class="alert alert-warning" role="alert">
-                        <p>The email's Portal password update needs attention. Check its delivery state before sending another email.</p>
-                        <a href="${ctx}/email/portalDelivery?emailLogId=${carlos:forUriComponent(emailLog.id)}">Check email delivery and Portal password</a>
+                        <p><fmt:message key="email.compose.portal.needsRecovery"/></p>
+                        <a href="${ctx}/email/portalDelivery?emailLogId=${carlos:forUriComponent(emailLog.id)}"><fmt:message key="email.compose.portal.checkDelivery"/></a>
                     </div>
                 </c:when>
                 <c:when test="${ isEmailSuccessful }">

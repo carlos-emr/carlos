@@ -180,6 +180,17 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     private String portalClinicId;
 
     public PortalDeliveryState getPortalDeliveryState() { return portalDeliveryState; }
+
+    /**
+     * True when portal password delivery for this email is not finished: the password is neither
+     * published nor revoked, or the transport status was never recorded. Such an email belongs on
+     * the recovery page, never back in the resend flow.
+     */
+    public boolean isPortalDeliveryUnresolved() {
+        return portalDeliveryState != null && (status == EmailStatus.PENDING
+                || (portalDeliveryState != PortalDeliveryState.PUBLISHED
+                    && portalDeliveryState != PortalDeliveryState.REVOKED));
+    }
     public void setPortalDeliveryState(PortalDeliveryState value) { portalDeliveryState = value; }
     public String getPortalSourceReference() { return portalSourceReference; }
     public void setPortalSourceReference(String value) { portalSourceReference = value; }

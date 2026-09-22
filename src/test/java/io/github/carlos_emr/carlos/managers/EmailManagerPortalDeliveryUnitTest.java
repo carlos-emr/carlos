@@ -36,7 +36,7 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo user;
     private EmailConfig config;
     private final AtomicReference<String> encryptedWith = new AtomicReference<>();
-    private MockedStatic<PortalEmailDelivery> enabled;
+    private MockedStatic<PortalEmailDeliveryService> enabled;
     private MockedStatic<PatientPortalSettings> configuration;
 
     @BeforeEach
@@ -58,7 +58,7 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         injectDependency(manager, "emailConfigDao", configs);
         injectDependency(manager, "demographicManager", demographics);
         injectDependency(manager, "providerManager", providers);
-        injectDependency(manager, "portalEmailDelivery", new PortalEmailDelivery(security, logs));
+        injectDependency(manager, "portalEmailDelivery", new PortalEmailDeliveryService(security, logs));
         mockedBeans.put(PatientPortalService.class, portal);
 
         user = new LoggedInInfo();
@@ -105,8 +105,8 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         archive.setId(ARCHIVE_ID);
         when(archives.archive(eq(user), any())).thenReturn(archive);
 
-        enabled = mockStatic(PortalEmailDelivery.class);
-        enabled.when(PortalEmailDelivery::isEnabled).thenReturn(true);
+        enabled = mockStatic(PortalEmailDeliveryService.class);
+        enabled.when(PortalEmailDeliveryService::isEnabled).thenReturn(true);
         configuration = mockStatic(PatientPortalSettings.class);
         configuration.when(PatientPortalSettings::fromCarlosProperties).thenReturn(settings);
     }
@@ -183,6 +183,30 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         verify(logs).transitionEmailStatus(eq(LOG_ID), eq(EmailLog.EmailStatus.PENDING),
                 eq(EmailLog.EmailStatus.FAILED), anyString(), any());
         verifyNoInteractions(portal, factory, sender, archives);
+    }
+
+    @Test
+    @DisplayName("should report not sent and revoke the password when the sender cannot be built")
+    void shouldReportNotSentAndRevoke_whenSenderCannotBeBuilt() throws Exception {
+        givenConsent(EmailLog.EmailConsentStatus.OPT_IN);
+        when(factory.create(eq(user), eq(config), any())).thenThrow(new IllegalStateException("bad sender config"));
+
+        var result = manager.sendEmail(user, encryptedEmail());
+
+        assertThat(result.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+        assertThat(result.getPortalDeliveryState()).isEqualTo(EmailLog.PortalDeliveryState.REVOKED);
+        verify(portal).revokeUnlockSecret(eq(SECRET_ID), eq("email_not_sent"), any());
+        verifyNoInteractions(sender, archives);
+    }
+
+    @Test
+    @DisplayName("should refuse to encrypt with a blank password")
+    void shouldRefuseToEncrypt_whenPasswordIsBlank() {
+        var data = encryptedEmail();
+        data.setPassword("");
+
+        assertThatThrownBy(() -> new EmailManager(consent, factory, security, archives).encryptEmail(data))
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.EmailSendingException.class);
     }
 
     private void givenConsent(EmailLog.EmailConsentStatus state) {
