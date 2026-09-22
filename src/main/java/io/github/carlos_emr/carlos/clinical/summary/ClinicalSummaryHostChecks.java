@@ -174,10 +174,7 @@ public final class ClinicalSummaryHostChecks {
         if (!wellFormed(generated)) return (ObjectNode) generated;
         ObjectNode result = generated.deepCopy();
         ArrayNode claims = (ArrayNode) result.get("claims");
-        StringBuilder prose = new StringBuilder();
-        claims.forEach(claim -> prose.append(claim.path("text").asText()).append(' '));
-        // Follow the draft's own date format so a host statement never makes the formats mixed.
-        boolean iso = ISO_DATE.matcher(prose).find() && !ANY_SLASH_DATE.matcher(prose).find();
+        boolean iso = writesIsoDates(claims);
         Map<String, ObjectNode> added = new LinkedHashMap<>();
         for (JsonNode source : sources) {
             String id = source.path("id").asText();
@@ -225,6 +222,328 @@ public final class ClinicalSummaryHostChecks {
             members.add(claim.get("id").asText());
         }
         return result;
+    }
+
+    /** Follow the draft's own date format so a host statement never makes the formats mixed. */
+    private static boolean writesIsoDates(JsonNode claims) {
+        StringBuilder prose = new StringBuilder();
+        claims.forEach(claim -> prose.append(claim.path("text").asText()).append(' '));
+        return ISO_DATE.matcher(prose).find() && !ANY_SLASH_DATE.matcher(prose).find();
+    }
+
+    // ---- names and identifiers -------------------------------------------------------------
+
+    private static final String TITLE = "(?:Nurse|Dr\\.?|Doctor|Consultant|Registrar|Therapist|Physio(?:therapist)?|Pharmacist|"
+            + "Midwife|Sister|Surgeon|Anaesthetist|Radiographer|Dietitian|Paramedic|HCA|SHO|Mr|Mrs|Ms|Miss)";
+    private static final String NAME_PART = "(?:[A-Z][A-Za-z'\\-]+|van|der|de|al)";
+    private static final Pattern STAFF = Pattern.compile(TITLE + "[ \\t]+(" + NAME_PART + "(?:[ \\t]+" + NAME_PART + "){1,3})");
+    private static final Pattern[] IDENTITY = {
+        Pattern.compile("NHS\\s*(?:No\\.?|number)[:\\s]*(\\d{9,10})", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("\\bDOB[:\\s]*(\\d{2}/\\d{2}/\\d{2,4})", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("\\b(\\d{1,3})[- ]year[- ]old\\b", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("\\b(\\d{1,3})[ \\t]*[MF]\\b(?![a-z])"),
+    };
+
+    /** A claim that names a member of staff or carries a patient identifier. */
+    public record NameFinding(String claimId, List<String> terms) { }
+
+    /** Names that follow a professional title in the notes; the notes are the host's own record of staff. */
+    static Set<String> staffNames(JsonNode sources) {
+        Set<String> names = new LinkedHashSet<>();
+        for (JsonNode source : sources) {
+            Matcher match = STAFF.matcher(source.path("text").asText());
+            while (match.find()) names.add(match.group(1));
+        }
+        return names;
+    }
+
+    /** NHS numbers, dates of birth and ages written in the notes, plus the patient's name from the host. */
+    static Set<String> identityTerms(JsonNode sources, String patientLabel) {
+        Set<String> terms = new LinkedHashSet<>();
+        for (JsonNode source : sources) {
+            for (Pattern pattern : IDENTITY) {
+                Matcher match = pattern.matcher(source.path("text").asText());
+                while (match.find()) {
+                    String value = match.group(1);
+                    if (value.matches("\\d{1,3}")) {
+                        terms.add(value + "-year-old");
+                        terms.add(value + " year old");
+                    } else {
+                        terms.add(value);
+                    }
+                }
+            }
+        }
+        if (patientLabel != null && !patientLabel.isBlank()) {
+            String label = patientLabel.replaceFirst("^FAKE-\\w+\\s+", "");
+            terms.add(label);
+            int comma = label.indexOf(", ");
+            if (comma > 0) terms.add(label.substring(comma + 2) + " " + label.substring(0, comma));
+        }
+        return terms;
+    }
+
+    /** Claims that name a member of staff or carry a patient identifier. */
+    public static List<NameFinding> nameFindings(JsonNode generated, JsonNode sources, String patientLabel) {
+        List<NameFinding> findings = new ArrayList<>();
+        if (!wellFormed(generated)) return findings;
+        Set<String> terms = new LinkedHashSet<>(staffNames(sources));
+        terms.addAll(identityTerms(sources, patientLabel));
+        for (JsonNode claim : generated.get("claims")) {
+            String text = claim.path("text").asText();
+            List<String> hit = new ArrayList<>(new TreeSet<>(terms.stream().filter(text::contains).toList()));
+            if (!hit.isEmpty()) findings.add(new NameFinding(claim.path("id").asText(), hit));
+        }
+        return findings;
+    }
+
+    // ---- duplicate statements ----------------------------------------------------------------
+
+    private static final Set<String> STOP = Set.of("about", "after", "also", "and", "are", "been", "being", "for",
+            "from", "had", "has", "have", "into", "more", "new", "noted", "patient", "recorded", "report", "reported",
+            "source", "that", "the", "their", "there", "this", "was", "were", "with", "without", "on", "of", "in",
+            "to", "a", "an", "at", "by");
+    private static final Pattern TOKEN = Pattern.compile("\\d{2}/\\d{2}/\\d{2,4}|[a-z]+|\\d+(?:\\.\\d+)?");
+
+    /** A statement in one section that restates a statement in another. */
+    public record Restatement(String longer, String shorter) { }
+
+    /** Words, numbers with decimals, and whole dates; an ISO date is the same fact as its dd/mm/yy form. */
+    static Set<String> tokens(String text) {
+        String normalized = ISO_DATE.matcher(text).replaceAll(m -> m.group(3) + "/" + m.group(2) + "/" + m.group(1).substring(2));
+        Set<String> found = new LinkedHashSet<>();
+        Matcher match = TOKEN.matcher(normalized.toLowerCase());
+        while (match.find()) {
+            if (!STOP.contains(match.group())) found.add(match.group());
+        }
+        return found;
+    }
+
+    /** Fold statements with identical text into one carrying every citation. */
+    public static ObjectNode mergeIdenticalClaims(JsonNode generated) {
+        if (!wellFormed(generated)) return (ObjectNode) generated;
+        ObjectNode result = generated.deepCopy();
+        Map<String, ObjectNode> first = new LinkedHashMap<>();
+        Set<String> dropped = new LinkedHashSet<>();
+        for (JsonNode claim : result.get("claims")) {
+            String key = claim.path("text").asText().replaceAll("\\s+", " ").strip().toLowerCase(java.util.Locale.ROOT);
+            ObjectNode kept = first.get(key);
+            if (kept == null) {
+                first.put(key, (ObjectNode) claim);
+            } else {
+                addCitations(kept, claim);
+                dropped.add(claim.path("id").asText());
+            }
+        }
+        dropClaims(result, dropped);
+        return result;
+    }
+
+    /**
+     * Pairs of claims in different sections that restate one fact. Two statements restate one fact
+     * only if the shorter's numbers and dates all appear in the longer; the same template of words
+     * on two days with different values is two facts.
+     */
+    public static List<Restatement> nearDuplicates(JsonNode generated) {
+        List<Restatement> pairs = new ArrayList<>();
+        if (!wellFormed(generated)) return pairs;
+        Map<String, String> sectionOf = new LinkedHashMap<>();
+        for (JsonNode section : generated.get("sections")) {
+            for (JsonNode id : section.path("claim_ids")) sectionOf.put(id.asText(), section.path("id").asText());
+        }
+        List<JsonNode> claims = new ArrayList<>();
+        generated.get("claims").forEach(claims::add);
+        for (int i = 0; i < claims.size(); i++) {
+            for (int j = i + 1; j < claims.size(); j++) {
+                JsonNode one = claims.get(i);
+                JsonNode two = claims.get(j);
+                if (java.util.Objects.equals(sectionOf.get(one.path("id").asText()), sectionOf.get(two.path("id").asText()))) continue;
+                Set<String> a = tokens(one.path("text").asText());
+                Set<String> b = tokens(two.path("text").asText());
+                if (a.isEmpty() || b.isEmpty()) continue;
+                Set<String> shared = new LinkedHashSet<>(a);
+                shared.retainAll(b);
+                Set<String> union = new LinkedHashSet<>(a);
+                union.addAll(b);
+                double jaccard = (double) shared.size() / union.size();
+                double containment = (double) shared.size() / Math.min(a.size(), b.size());
+                JsonNode longer = a.size() >= b.size() ? one : two;
+                JsonNode shorter = longer == one ? two : one;
+                Set<String> shorterNumbers = numbers(longer == one ? b : a);
+                Set<String> longerNumbers = numbers(longer == one ? a : b);
+                if (jaccard >= 0.30 && containment >= 0.60 && longerNumbers.containsAll(shorterNumbers)) {
+                    pairs.add(new Restatement(longer.path("id").asText(), shorter.path("id").asText()));
+                }
+            }
+        }
+        return pairs;
+    }
+
+    private static Set<String> numbers(Set<String> tokens) {
+        Set<String> result = new LinkedHashSet<>();
+        for (String token : tokens) if (Character.isDigit(token.charAt(0))) result.add(token);
+        return result;
+    }
+
+    private static void addCitations(ObjectNode kept, JsonNode from) {
+        ArrayNode citations = (ArrayNode) kept.get("source_ids");
+        Set<String> present = new LinkedHashSet<>();
+        citations.forEach(id -> present.add(id.asText()));
+        for (JsonNode id : from.path("source_ids")) if (present.add(id.asText())) citations.add(id.asText());
+    }
+
+    /** Removes the given claims and their section memberships; sections left empty are removed. */
+    static void dropClaims(ObjectNode result, Set<String> dropped) {
+        if (dropped.isEmpty()) return;
+        ArrayNode claims = (ArrayNode) result.get("claims");
+        for (int i = claims.size() - 1; i >= 0; i--) if (dropped.contains(claims.get(i).path("id").asText())) claims.remove(i);
+        ArrayNode sections = (ArrayNode) result.get("sections");
+        for (int s = sections.size() - 1; s >= 0; s--) {
+            ArrayNode ids = (ArrayNode) sections.get(s).path("claim_ids");
+            for (int i = ids.size() - 1; i >= 0; i--) if (dropped.contains(ids.get(i).asText())) ids.remove(i);
+            if (ids.isEmpty()) sections.remove(s);
+        }
+    }
+
+    // ---- same-class medication conflicts -----------------------------------------------------
+
+    private static final String MEDICATIONS_ID = "medications_allergies";
+    private static final String MEDICATIONS_TITLE = "Medications and allergies";
+    /** An order, not a mention: a dose beside the name, or an ordering verb before it. */
+    private static final Pattern DOSE = Pattern.compile("^[^.;\\n]{0,40}?\\d[\\d,.]*\\s*(?:mg|mcg|micrograms?|g|units?|iu|ml|mmol)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ORDERED = Pattern.compile("(?:start|commenc|prescrib|continu|give|administer|initiat)\\w*[^.;\\n]{0,30}?$", Pattern.CASE_INSENSITIVE);
+    /** Anchored to the start of a word: an unanchored "stop" is found inside "postoperative". */
+    private static final Pattern CHANGE = Pattern.compile("\\b(?:stop|discontinu|ceas|withh|held\\b|switch|chang|replac|instead of|convert|transition)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SWITCH = Pattern.compile("\\b(?:switch|chang|convert|transition|replac)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern REPORTED = Pattern.compile("conflict|discrepan|inconsisten|unresolved", Pattern.CASE_INSENSITIVE);
+    /** Characters either side of a drug name in which a stop or switch counts as recorded for it. */
+    private static final int NEAR = 60;
+    private static final Map<Map<String, String>, Pattern> NAME_PATTERNS = new java.util.WeakHashMap<>();
+
+    /** Two drugs of one ATC chemical subgroup, each ordered in the record, with no recorded stop or switch. */
+    public record Conflict(String group, Map<String, List<String>> drugs) { }
+
+    /** A claim that says one drug of a conflicting pair was switched or changed when no note records it. */
+    public record ChangeFinding(String claimId, List<String> drugs, List<String> sourceIds) { }
+
+    private static synchronized Pattern namePattern(Map<String, String> classes) {
+        return NAME_PATTERNS.computeIfAbsent(classes, table -> {
+            List<String> names = new ArrayList<>(table.keySet());
+            names.sort(Comparator.comparingInt(String::length).reversed());
+            StringBuilder alternation = new StringBuilder("\\b(");
+            for (int i = 0; i < names.size(); i++) {
+                if (i > 0) alternation.append('|');
+                alternation.append(Pattern.quote(names.get(i)));
+            }
+            return Pattern.compile(alternation.append(")\\b").toString(), Pattern.CASE_INSENSITIVE);
+        });
+    }
+
+    /** The class table maps a lower-case drug name to its ATC code; the first five characters are the subgroup. */
+    public static List<Conflict> medicationConflicts(JsonNode sources, Map<String, String> classes) {
+        List<Conflict> conflicts = new ArrayList<>();
+        if (classes == null || classes.isEmpty()) return conflicts;
+        Map<String, Map<String, List<String>>> groups = new LinkedHashMap<>();
+        Set<String> changed = new LinkedHashSet<>();
+        Pattern names = namePattern(classes);
+        for (JsonNode source : sources) {
+            String text = source.path("text").asText();
+            Matcher match = names.matcher(text);
+            while (match.find()) {
+                String name = match.group(1).toLowerCase(java.util.Locale.ROOT);
+                String before = text.substring(Math.max(0, match.start() - NEAR), match.start());
+                String after = text.substring(match.end(), Math.min(text.length(), match.end() + 80));
+                boolean ordered = DOSE.matcher(after).find() || ORDERED.matcher(before).find();
+                boolean change = CHANGE.matcher(before + after.substring(0, Math.min(after.length(), NEAR))).find();
+                if (ordered) {
+                    List<String> ids = groups.computeIfAbsent(classes.get(name).substring(0, 5), g -> new LinkedHashMap<>())
+                            .computeIfAbsent(name, n -> new ArrayList<>());
+                    if (!ids.contains(source.path("id").asText())) ids.add(source.path("id").asText());
+                }
+                if (change) changed.add(name);
+            }
+        }
+        for (Map.Entry<String, Map<String, List<String>>> group : groups.entrySet()) {
+            if (group.getValue().size() > 1 && group.getValue().keySet().stream().noneMatch(changed::contains)) {
+                conflicts.add(new Conflict(group.getKey(), group.getValue()));
+            }
+        }
+        return conflicts;
+    }
+
+    /** States each same-class conflict the draft did not report itself, without asserting a resolution. */
+    public static ObjectNode noteMedicationConflicts(JsonNode generated, JsonNode sources, Map<String, String> classes) {
+        if (!wellFormed(generated)) return (ObjectNode) generated;
+        ObjectNode result = generated.deepCopy();
+        List<ObjectNode> added = new ArrayList<>();
+        boolean iso = writesIsoDates(result.get("claims"));
+        Map<String, String> dates = new LinkedHashMap<>();
+        for (JsonNode source : sources) {
+            LocalDate stamp = parse(source.path("date").asText());
+            dates.put(source.path("id").asText(), stamp == null ? "" : iso ? stamp.toString() : stamp.format(SLASH));
+        }
+        for (Conflict conflict : medicationConflicts(sources, classes)) {
+            boolean reported = false;
+            for (JsonNode claim : result.get("claims")) {
+                String text = claim.path("text").asText();
+                if (REPORTED.matcher(text).find() && conflict.drugs().keySet().stream().allMatch(name ->
+                        Pattern.compile("\\b" + Pattern.quote(name) + "\\b", Pattern.CASE_INSENSITIVE).matcher(text).find())) {
+                    reported = true;
+                }
+            }
+            if (reported) continue;
+            List<String> described = new ArrayList<>();
+            Set<String> cited = new LinkedHashSet<>();
+            for (Map.Entry<String, List<String>> drug : conflict.drugs().entrySet()) {
+                Set<String> when = new LinkedHashSet<>();
+                drug.getValue().forEach(id -> when.add(dates.get(id)));
+                described.add(drug.getKey() + " (" + String.join(", ", when) + ")");
+                cited.addAll(drug.getValue());
+            }
+            ObjectNode claim = result.objectNode().put("id", "host-med-" + (added.size() + 1));
+            ArrayNode citations = claim.putArray("source_ids");
+            cited.forEach(citations::add);
+            claim.put("text", "Medication records conflict, as found by the host: " + String.join(" and ", described)
+                    + " belong to the same drug class (ATC " + conflict.group() + ") and no note records either being "
+                    + "stopped, so the record does not show which is intended.");
+            added.add(claim);
+        }
+        if (added.isEmpty()) return result;
+        ArrayNode sections = (ArrayNode) result.get("sections");
+        ArrayNode members = null;
+        for (JsonNode section : sections) {
+            if (MEDICATIONS_ID.equals(section.path("id").asText()) && section.path("claim_ids").isArray()) members = (ArrayNode) section.get("claim_ids");
+        }
+        if (members == null) members = sections.addObject().put("id", MEDICATIONS_ID).put("title", MEDICATIONS_TITLE).putArray("claim_ids");
+        for (ObjectNode claim : added) {
+            ((ArrayNode) result.get("claims")).add(claim);
+            members.add(claim.get("id").asText());
+        }
+        return result;
+    }
+
+    /** Claims that say one drug of a conflicting pair was switched or changed when no note records it. */
+    public static List<ChangeFinding> undocumentedChanges(JsonNode generated, JsonNode sources, Map<String, String> classes) {
+        List<ChangeFinding> findings = new ArrayList<>();
+        if (!wellFormed(generated)) return findings;
+        for (Conflict conflict : medicationConflicts(sources, classes)) {
+            List<String> names = new ArrayList<>(new TreeSet<>(conflict.drugs().keySet()));
+            for (JsonNode claim : generated.get("claims")) {
+                if (claim.path("id").asText().startsWith("host-")) continue;
+                String text = claim.path("text").asText();
+                for (String name : names) {
+                    Matcher match = Pattern.compile("\\b" + Pattern.quote(name) + "\\b", Pattern.CASE_INSENSITIVE).matcher(text);
+                    if (match.find() && SWITCH.matcher(text.substring(Math.max(0, match.start() - NEAR),
+                            Math.min(text.length(), match.end() + NEAR))).find()) {
+                        List<String> cited = new ArrayList<>();
+                        claim.path("source_ids").forEach(id -> cited.add(id.asText()));
+                        findings.add(new ChangeFinding(claim.path("id").asText(), names, cited));
+                        break;
+                    }
+                }
+            }
+        }
+        return findings;
     }
 
     private static boolean wellFormed(JsonNode generated) {

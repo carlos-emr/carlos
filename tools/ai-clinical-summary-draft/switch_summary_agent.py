@@ -32,6 +32,9 @@ def settings(agent, port=DEFAULTS["port"], model=DEFAULTS["model"], request_byte
         require(agent == "ollama", "Unknown agent")
         values.update({PREFIX + "ollama.port": "11436", PREFIX + "ollama.model": "qwen3.5:2b",
                        PREFIX + "ollama.timeoutSeconds": "1800"})
+    classes = os.environ.get("CARLOS_DRUG_CLASSES")
+    if classes:
+        values[PREFIX + "drugClasses"] = classes  # The same site table the gateway uses.
     return values
 
 

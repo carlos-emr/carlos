@@ -121,7 +121,37 @@ There is no claim-count, character, citation-count or source-count cap. Return z
 claims and sections only when the supplied portion contains no clinical facts.
 There are at most five sections. A source that is neither cited nor reviewed is
 recorded by the host as unexplained and raised as a validation warning; it does not
-fail the draft. Coverage reasons must be source-specific. See
+fail the draft. Coverage reasons must be source-specific.
+
+## Repair operation (contract version 2, optional)
+
+After the host has applied its own checks it may `POST` to the agent path with
+`/repair` appended. The host decides which statements are faulted and whether a
+rewrite is accepted; the agent only writes. An agent that does not implement the
+operation answers 404, and the host keeps the faulted statements with their
+warnings. Request:
+
+```json
+{
+  "contract_version": 2,
+  "request_id": "<uuid>",
+  "workflow": "patient-overview",
+  "data_classification": "verified-synthetic",
+  "instructions": "<the fixed repair instructions the host and agent share>",
+  "statements": [
+    { "id": "c7", "text": "<the faulted statement>", "source_ids": ["note-123"],
+      "problems": ["names a person or gives a patient identifier (Saoirse Keogh); refer to people by role only"] }
+  ],
+  "sources": [ <only the notes those statements cite, in the generate-request shape> ]
+}
+```
+
+Response: `contract_version`, `request_id`, `status` (`completed`) and `statements`,
+each with `id` and `text`. A statement the agent omits is one it judged to restate
+another; the host drops it only if that was the problem raised. The host keeps a
+rewrite only if it can no longer fault it and the draft still validates, and gives
+it the ID prefix `repaired-`. The synthetic gateway validates the notes against the
+committed corpus before any cloud request, as for generation. See
 [CONTRACT.md](CONTRACT.md) for all rendering invariants.
 
 Do not return sources, model names, timestamps, patient context, fact ledger or

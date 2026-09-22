@@ -22,6 +22,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
@@ -65,6 +66,7 @@ SECTION_SCOPES = {
     "saying 'Plan: discharge today' means discharge is PLANNED, never say it happened. A source saying "
     "'to be arranged' means planned, never completed. Preserve these distinctions explicitly."
 }
+REPAIR_CONTRACT_VERSION = 2
 REPAIR_PROMPT = (
     "You are correcting individual statements of a clinical summary. For each statement you receive its "
     "text, the IDs of the notes it cites, the text of those notes, and the problems the host found. Return "
@@ -483,26 +485,58 @@ class Gateway:
         require(request["instructions"].strip() == self.prompt.strip()
                 and request["output_schema"] == self.schema, "Unexpected prompt or schema")
         self.allowed.validate(request["sources"])  # Before cache lookup or network access.
-        output = self.generate(request["sources"])
+        # A host calling this operation repairs through the repair operation below, deciding itself
+        # what is faulted and what to accept; only the standalone runner repairs inline.
+        output = self.generate(request["sources"], repair=False)
         self.validate_output(request["sources"], output)
         return {"contract_version": 1, "request_id": request["request_id"],
                 "status": "completed", "output": output}
 
-    def generate(self, sources):
+    def run_repair(self, request):
+        """Contract version 2: rewrite the faulted statements a host sends, on the notes they cite."""
+        self.deadline = self.clock() + 540
+        require(isinstance(request, dict) and set(request) == {"contract_version", "request_id", "workflow",
+                "data_classification", "instructions", "statements", "sources"}, "Invalid repair request fields")
+        require(request["contract_version"] == REPAIR_CONTRACT_VERSION and request["workflow"] == "patient-overview"
+                and request["data_classification"] == "verified-synthetic", "Unsupported repair contract")
+        require(isinstance(request["request_id"], str) and request["instructions"] == REPAIR_PROMPT,
+                "Unexpected repair instructions")
+        uuid.UUID(request["request_id"])
+        validate_request({"contract_version": 1, "request_id": request["request_id"], "workflow": request["workflow"],
+                          "data_classification": request["data_classification"], "instructions": self.prompt,
+                          "output_schema": self.schema, "sources": request["sources"]})
+        self.allowed.validate(request["sources"])
+        known = {source["id"] for source in request["sources"]}
+        statements = request["statements"]
+        require(isinstance(statements, list) and 0 < len(statements) <= 64, "Invalid statements")
+        for statement in statements:
+            require(isinstance(statement, dict) and set(statement) == {"id", "text", "source_ids", "problems"}
+                    and re.fullmatch(r"[A-Za-z0-9_-]{1,80}", str(statement["id"]))
+                    and isinstance(statement["text"], str) and statement["text"].strip()
+                    and isinstance(statement["source_ids"], list) and statement["source_ids"]
+                    and set(statement["source_ids"]) <= known
+                    and isinstance(statement["problems"], list) and statement["problems"]
+                    and all(isinstance(problem, str) and 0 < len(problem) <= 400 for problem in statement["problems"]),
+                    "Invalid statement")
+        replies = self.rewrite(request["sources"], statements)
+        return {"contract_version": REPAIR_CONTRACT_VERSION, "request_id": request["request_id"],
+                "status": "completed", "statements": [{"id": cid, "text": text} for cid, text in replies.items()]}
+
+    def generate(self, sources, repair=True):
         def generate_section(section):
             return pipeline.generate(sources, self.prompt, self.schema,
                                      lambda part: self.infer(part, section), self.validate_output,
                                      self.config["request_bytes"])
 
         if not self.config["section_passes"]:
-            return self.repair(sources, generate_section(None))
+            return self.repair(sources, generate_section(None)) if repair else generate_section(None)
         # Results often take longest. Start them first; assemble in clinical heading order.
         order = ["results_observations"] + [key for key in SECTION_SCOPES if key != "results_observations"]
         pool = ThreadPoolExecutor(max_workers=self.config["section_workers"])
         try:
             futures = {section: pool.submit(generate_section, section) for section in order}
-            return self.repair(sources, pipeline.finish(
-                pipeline.merge([futures[section].result() for section in SECTION_SCOPES], sources), sources))
+            merged = pipeline.finish(pipeline.merge([futures[section].result() for section in SECTION_SCOPES], sources), sources)
+            return self.repair(sources, merged) if repair else merged
         finally:
             pool.shutdown(wait=True, cancel_futures=True)
 
@@ -527,23 +561,15 @@ class Gateway:
                 "distinct fact, otherwise omit it")
         return {cid: rs for cid, rs in reasons.items() if not cid.startswith("host-")}
 
-    def repair(self, sources, output):
-        """One small call to rewrite only the statements the host faulted. Never rewrites silently:
-        a repaired statement keeps its citations and takes the ID prefix repaired-."""
-        if not self.config["host_repair"]:
-            return output
-        flagged = self.flagged(sources, output)
-        if not flagged:
-            return output
-        by_id = {claim["id"]: claim for claim in output["claims"]}
-        cited = {sid for cid in flagged for sid in by_id[cid]["source_ids"]}
-        request = {"statements": [{"id": cid, "text": by_id[cid]["text"], "source_ids": by_id[cid]["source_ids"],
-                                   "problems": reasons} for cid, reasons in flagged.items()],
-                   "sources": [source for source in sources if source["id"] in cited]}
+    def rewrite(self, sources, statements):
+        """The model call behind repair: faulted statements in, {id: text} out. The caller decides acceptance."""
+        ids = [statement["id"] for statement in statements]
+        cited = {sid for statement in statements for sid in statement["source_ids"]}
+        request = {"statements": statements, "sources": [source for source in sources if source["id"] in cited]}
         schema = {"type": "object", "additionalProperties": False, "required": ["statements"],
                   "properties": {"statements": {"type": "array", "items": {
                       "type": "object", "additionalProperties": False, "required": ["id", "text"],
-                      "properties": {"id": {"type": "string", "enum": list(flagged)},
+                      "properties": {"id": {"type": "string", "enum": ids},
                                      "text": {"type": "string", "minLength": 1}}}}}}
         payload = {"model": self.config["model"], "stream": False, "temperature": self.config["temperature"],
                    "max_tokens": 2048, "reasoning": {"enabled": False},
@@ -554,20 +580,33 @@ class Gateway:
                    "response_format": {"type": "json_schema", "json_schema": {
                        "name": "statement_repair", "strict": True, "schema": schema}}}
         remaining = 540 if self.deadline is None else self.deadline - self.clock()
-        if remaining <= 10:
+        require(remaining > 10, "No time left for repair")
+        result = self.transport(dict(self.config, timeout_seconds=min(self.config["timeout_seconds"], remaining)),
+                                "chat/completions", payload)
+        choice = result["choices"][0]
+        require(choice.get("finish_reason") == "stop", "Incomplete repair")
+        replies = loads(choice["message"]["content"])["statements"]
+        require(isinstance(replies, list) and all(isinstance(r, dict) and r.get("id") in ids
+                                                 and isinstance(r.get("text"), str) and r["text"].strip()
+                                                 and "\n" not in r["text"] and "\r" not in r["text"] for r in replies),
+                "Invalid repair")
+        return {reply["id"]: reply["text"].strip() for reply in replies}
+
+    def repair(self, sources, output):
+        """One small call to rewrite only the statements the host faulted. Never rewrites silently:
+        a repaired statement keeps its citations and takes the ID prefix repaired-."""
+        if not self.config["host_repair"]:
             return output
+        flagged = self.flagged(sources, output)
+        if not flagged:
+            return output
+        by_id = {claim["id"]: claim for claim in output["claims"]}
+        statements = [{"id": cid, "text": by_id[cid]["text"], "source_ids": by_id[cid]["source_ids"],
+                       "problems": reasons} for cid, reasons in flagged.items()]
         try:
-            result = self.transport(dict(self.config, timeout_seconds=min(self.config["timeout_seconds"], remaining)),
-                                    "chat/completions", payload)
-            choice = result["choices"][0]
-            require(choice.get("finish_reason") == "stop", "Incomplete repair")
-            replies = loads(choice["message"]["content"])["statements"]
-            require(isinstance(replies, list) and all(isinstance(r, dict) and r.get("id") in flagged
-                                                     and isinstance(r.get("text"), str) for r in replies),
-                    "Invalid repair")
+            replacement = self.rewrite(sources, statements)
         except (UpstreamError, ValueError, KeyError, IndexError, TypeError):
             return output  # The faulted statements stay as they were, with their warnings.
-        replacement = {reply["id"]: reply["text"].strip() for reply in replies}
         repaired = copy.deepcopy(output)
         for claim in repaired["claims"]:
             if claim["id"] in replacement and replacement[claim["id"]]:
@@ -625,7 +664,7 @@ def handler_for(gateway):
 
         def do_POST(self):
             self.connection.settimeout(10)
-            if self.path != PATH:
+            if self.path not in (PATH, PATH + "/repair"):
                 self.respond(404, {"error": "Not found"})
                 return
             try:
@@ -636,7 +675,7 @@ def handler_for(gateway):
                 raw = self.rfile.read(length)
                 require(len(raw) == length, "Incomplete request")
                 started, hits = time.monotonic(), gateway.cache_hits
-                output = gateway.run(loads(raw))
+                output = gateway.run_repair(loads(raw)) if self.path.endswith("/repair") else gateway.run(loads(raw))
                 require(len(json.dumps(output).encode("utf-8")) <= MAX_RESPONSE_BYTES, "Oversized output")
                 self.respond(200, output)
                 print(f"Completed pass in {time.monotonic() - started:.1f}s; "

@@ -117,6 +117,8 @@ clinical.ai_summary_generation.http.path=/v1/clinical-summary
 clinical.ai_summary_generation.http.name=OpenRouter / qwen/qwen3.5-27b
 clinical.ai_summary_generation.http.timeoutSeconds=600
 clinical.ai_summary_generation.http.requestBytes=50000
+# Optional: the site's drug-name to ATC-code table for the same-class conflict check.
+clinical.ai_summary_generation.drugClasses=/path/to/drug-classes.json
 ```
 
 ## Speed, caching and output checks

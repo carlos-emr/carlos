@@ -25,6 +25,10 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     private boolean citesOnlyFirstSource;
     private boolean dropsObservations;
     private boolean misdates;
+    private boolean namesStaff;
+    private JsonNode repairRequest;
+    private String repairReply;
+    private java.util.Map<String, String> classes;
     private final ClinicalSummaryAgent agent = new ClinicalSummaryAgent() {
         public String displayName() { return "Test full-record agent"; }
         public String cacheIdentity() { return "fixed-test-revision"; }
@@ -47,12 +51,18 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
                 String text = source.get("text").asText().replace('\n', ' ');
                 if (dropsObservations) text = text.substring(0, text.indexOf(" Observations:"));
                 if (misdates) text = text + " Reviewed again on 19/03/26.";
+                if (namesStaff) text = "Nurse Ada Example recorded: " + text;
                 claims.addObject().put("id", "claim-" + id).put("text", text).putArray("source_ids").add(id);
                 ids.add("claim-" + id);
                 if (reviewsOnlyUncited) continue;
                 coverage.addObject().put("source_id", id).put("status", "cited").put("reason", "Recorded findings from " + id);
             }
             return output;
+        }
+        public JsonNode repair(JsonNode request) throws IOException {
+            repairRequest = request.deepCopy();
+            if (repairReply == null) return null;
+            return JSON.readTree(repairReply);
         }
     };
 
@@ -79,7 +89,7 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
         var chart = new ClinicalSummaryArtifact(node);
         try (MockedStatic<SyntheticSummaryScope> scope = mockStatic(SyntheticSummaryScope.class)) {
             scope.when(() -> SyntheticSummaryScope.isEligible(chart)).thenReturn(true);
-            return new ClinicalSummaryGenerationService(agent, cache).generate(chart);
+            return new ClinicalSummaryGenerationService(agent, cache, () -> classes).generate(chart);
         }
     }
 
@@ -264,6 +274,45 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
                 + "Observations: HR 2, BP 124/78, RR 1, Temp 36.8, SpO2 98.");
         assertThat(generate(input).getView().get("validation").toString())
                 .contains("date_not_in_cited_sources", "asserts 19/03/26");
+    }
+
+    @Test
+    void aFaultedStatementIsRepairedByTheAgentOrKeptWithItsWarning() throws Exception {
+        ObjectNode input = chart(1);
+        ((ObjectNode) input.get("sources").get(0)).put("text", "Reviewed by Nurse Ada Example. Recorded finding one was stable.");
+        namesStaff = true;
+        repairReply = "{\"statements\":[{\"id\":\"claim-source-1\",\"text\":\"The nurse recorded: Reviewed by the nurse. Recorded finding one was stable.\"}]}";
+        var result = generate(input);
+        assertThat(repairRequest.get("contract_version").asInt()).isEqualTo(2);
+        assertThat(repairRequest.get("statements").get(0).get("problems").get(0).asText()).contains("names a person");
+        assertThat(repairRequest.get("sources")).hasSize(1);
+        assertThat(result.getClaimsById().keySet()).containsExactly("repaired-claim-source-1");
+        assertThat(result.getView().get("validation").toString()).contains("statements_repaired", "1 statement was rewritten")
+                .doesNotContain("statement_names_person_or_identifier");
+        // A rewrite the host can still fault is not accepted; the warning stays.
+        repairReply = "{\"statements\":[{\"id\":\"claim-source-1\",\"text\":\"Nurse Ada Example still recorded finding one.\"}]}";
+        ((ObjectNode) input.get("sources").get(0)).put("text", "Reviewed by Nurse Ada Example. Recorded finding one was unchanged.");
+        var kept = generate(input);
+        assertThat(kept.getClaimsById().keySet()).containsExactly("claim-source-1");
+        assertThat(kept.getView().get("validation").toString()).contains("statement_names_person_or_identifier", "Ada Example")
+                .doesNotContain("statements_repaired");
+        // An agent without the operation leaves the draft as it was.
+        repairReply = null;
+        ((ObjectNode) input.get("sources").get(0)).put("text", "Reviewed by Nurse Ada Example. Recorded finding one was steady.");
+        assertThat(generate(input).getClaimsById().keySet()).containsExactly("claim-source-1");
+    }
+
+    @Test
+    void anUnreportedSameClassConflictGetsAHostStatementWhenTheSiteSuppliesTheClassTable() throws Exception {
+        ObjectNode input = chart(2);
+        ((ObjectNode) input.get("sources").get(0)).put("date", "2026-01-05").put("text", "Post-op plan: Tinzaparin 4,500 units SC once daily for thromboprophylaxis.");
+        ((ObjectNode) input.get("sources").get(1)).put("date", "2026-01-06").put("text", "Ward round plan: start enoxaparin 40 mg SC once daily for thromboprophylaxis.");
+        assertThat(generate(input).getClaimsById().keySet()).doesNotContain("host-med-1");
+        classes = java.util.Map.of("tinzaparin", "B01AB10", "enoxaparin", "B01AB05");
+        ((ObjectNode) input.get("sources").get(1)).put("text", "Ward round plan: start enoxaparin 40 mg SC once daily for thromboprophylaxis. ");
+        var result = generate(input);
+        assertThat(String.valueOf(result.getClaimsById().get("host-med-1").get("text"))).startsWith("Medication records conflict, as found by the host: tinzaparin (05/01/26) and enoxaparin (06/01/26)");
+        assertThat(String.valueOf(result.getClaimsById().get("host-med-1").get("source_ids"))).isEqualTo("[source-1, source-2]");
     }
 
     @Test

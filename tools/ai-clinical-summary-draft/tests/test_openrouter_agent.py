@@ -190,7 +190,13 @@ class OpenRouterTest(unittest.TestCase):
             self.gateway.schema, request['sources'])}}})['choices'][0]['message']['content'])['claims'][0]['text']
         self.fixed = 'The nurse recorded ' + original
         repairing = agent.Gateway(dict(self.config, cache_seconds=0, host_repair=True), transport=transport)
-        output = repairing.run(request)['output']
+        # The host path never repairs inline: a host repairs through the repair operation.
+        hosted = repairing.run(request)['output']
+        self.assertEqual(1, len(calls))
+        self.assertTrue(hosted['claims'][0]['text'].startswith('Nurse Saoirse Keogh recorded'))
+        calls.clear()
+        repairing.allowed.validate(request['sources'])
+        output = repairing.generate(request['sources'])
         self.assertEqual(2, len(calls))
         self.assertEqual(self.fixed, output['claims'][0]['text'])
         self.assertEqual('repaired-c0', output['claims'][0]['id'])
@@ -199,10 +205,32 @@ class OpenRouterTest(unittest.TestCase):
         # A rewrite the host can still fault is not accepted.
         self.fixed = 'Nurse Saoirse Keogh again recorded ' + original
         calls.clear()
-        kept = agent.Gateway(dict(self.config, cache_seconds=0, host_repair=True), transport=transport).run(request)['output']
+        kept = agent.Gateway(dict(self.config, cache_seconds=0, host_repair=True), transport=transport).generate(request['sources'])
         self.assertEqual(2, len(calls))
         self.assertTrue(kept['claims'][0]['text'].startswith('Nurse Saoirse Keogh recorded'))
         self.assertEqual('c0', kept['claims'][0]['id'])
+
+    def test_the_repair_operation_rewrites_what_a_host_sends_and_checks_the_contract(self):
+        def transport(config, endpoint, payload):
+            asked = json.loads(payload['messages'][1]['content'])
+            self.assertEqual(['note-1'], [s['id'] for s in asked['sources']])
+            return {'model': config['model'], 'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(
+                {'statements': [{'id': 'c7', 'text': 'The nurse reviewed the patient.'}]})}}]}
+        gateway = agent.Gateway(dict(self.config, cache_seconds=0), transport=transport)
+        sources = self.two_note_request()['sources']
+        request = {'contract_version': 2, 'request_id': str(uuid4()), 'workflow': 'patient-overview',
+                   'data_classification': 'verified-synthetic', 'instructions': agent.REPAIR_PROMPT,
+                   'statements': [{'id': 'c7', 'text': 'Nurse Saoirse Keogh reviewed the patient.', 'source_ids': ['note-1'],
+                                   'problems': ['names a person']}],
+                   'sources': sources}
+        reply = gateway.run_repair(request)
+        self.assertEqual({'contract_version': 2, 'request_id': request['request_id'], 'status': 'completed',
+                          'statements': [{'id': 'c7', 'text': 'The nurse reviewed the patient.'}]}, reply)
+        for broken in (dict(request, instructions='rewrite freely'), dict(request, contract_version=1),
+                       dict(request, statements=[dict(request['statements'][0], source_ids=['note-9'])]),
+                       dict(request, sources=[dict(sources[0], text='not the committed text')])):
+            with self.subTest(broken=[k for k in broken if broken[k] != request[k]]), self.assertRaises(ValueError):
+                gateway.run_repair(broken)
 
     def test_cache_expires_and_can_be_disabled(self):
         self.gateway.run(self.request)
