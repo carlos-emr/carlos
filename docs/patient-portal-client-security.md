@@ -67,7 +67,13 @@ check current state before retrying.
 
 Staff invite a patient from the **Patient portal** link on the demographic record. The link appears
 only when the portal is configured and the user holds `_portal.invite` or `_portal.account` read for
-the patient. Sending also needs `_portal.invite` and `_email` write.
+the patient. Sending, and resolving an unfinished delivery, also need `_portal.invite` and `_email`
+write, the same email privilege the rest of CARLOS requires to create or close an outbox row.
+
+`V1.0.31` grants `doctor` full `_portal.invite` and read-only `_portal.account`, because `doctor` is the
+only non-admin role the baseline grants `_email`. Unlocking a portal account stays with `admin`, where
+`V1.0.30` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
+in Administration > Security lets them revoke and resolve invitations without being able to send one.
 
 Two settings are required, and invitations are refused until both are set:
 
@@ -95,8 +101,15 @@ After the commit, CARLOS never revokes on uncertainty; a refused send is fixed b
 issues a new code and keeps the old one valid until the replacement is committed.
 
 The email links to `<public_base_url>/auth/activate` and carries the code as text. The code is never
-placed in a URL, a log, or a browser-visible message, and CARLOS does not store it anywhere except the
-email itself. The email passes through the same consent gate as every patient email: `OPT_IN`, or
+placed in a URL, a log, or a browser-visible message.
+
+The code is a credential that activates a patient's account, so CARLOS keeps it no longer than it must.
+It lives in the outbox row only between the store and the send, which is the window the portal's
+contract requires; once the send resolves either way, the stored body is replaced with a note saying the
+code is not kept. Reopening a portal invitation in the email compose window is refused outright, so the
+message history cannot hand the credential to a reader who holds email access but no portal rights. A
+patient who never received their email gets a resend, which issues a new code; CARLOS never re-sends the
+stored one. The email passes through the same consent gate as every patient email: `OPT_IN`, or
 `UNKNOWN` with a documented override reason. Text-message invitations are reserved until CARLOS has
 an SMS provider.
 

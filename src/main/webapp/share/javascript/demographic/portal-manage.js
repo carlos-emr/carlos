@@ -135,8 +135,16 @@
         }
         var body = result.payload;
         if (body && body.ok) {
-            var state = body.delivery ? text('deliveries.state.' + body.delivery.state) : text('done');
-            showStatus(state, true);
+            // An attempt that stopped short still answers 200: the request was handled, the invitation was
+            // not necessarily delivered. Only a sent one is good news, and its state label alone does not
+            // tell staff what to do, so the attempt's own explanation is shown with it.
+            var delivery = body.delivery;
+            var sent = !delivery || delivery.state === 'sent';
+            var message = delivery ? text('deliveries.state.' + delivery.state) : text('done');
+            if (delivery && delivery.message) {
+                message += ' ' + delivery.message;
+            }
+            showStatus(message, sent);
         } else {
             showStatus(body && body.message ? body.message : text('error.generic'), false);
         }

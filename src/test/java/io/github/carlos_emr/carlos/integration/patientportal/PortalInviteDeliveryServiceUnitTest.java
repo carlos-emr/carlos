@@ -177,6 +177,14 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should drop the code from the stored email once the send has resolved")
+        void shouldForgetTheCode_afterTheSendResolves() {
+            service.invite(user, patient(), staff, emailRequest());
+
+            verify(emailLogs).replaceBody(EMAIL_LOG, PortalInviteDeliveryService.CODE_FORGOTTEN);
+        }
+
+        @Test
         @DisplayName("should recover a lost prepare response by retrying with the same operation id")
         void shouldRetryPrepare_withTheSameOperationId() {
             when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
@@ -411,6 +419,57 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @DisplayName("interruptions")
+    class Interruptions {
+
+        @Test
+        @DisplayName("should keep a lost prepare response resolvable rather than finishing the attempt")
+        void shouldLeaveAttemptOpen_whenThePrepareOutcomeIsUnknown() {
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/prepare", null));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(PatientPortalException.class);
+
+            PatientPortalInviteDelivery row = onlyRow();
+            assertThat(row.getState()).isEqualTo(State.PREPARING);
+            assertThat(row.getState().isTerminal()).isFalse();
+            assertThat(PortalInviteDeliveryService.decisionsFor(row.getState())).contains(Decision.ABANDON);
+            assertThat(row.getErrorMessage()).isEqualTo(PortalInviteDeliveryService.PREPARE_UNKNOWN);
+        }
+
+        @Test
+        @DisplayName("should record an uncertain send and keep the live token when the send throws")
+        void shouldRecordUncertainSend_whenTheSendThrows() {
+            when(emailManager.sendEmailWithResult(any(), any(), any(EmailManager.DispatchGate.class)))
+                    .thenAnswer(invocation -> {
+                        EmailManager.DispatchGate gate = invocation.getArgument(2);
+                        gate.beforeDispatch(emailLog());
+                        throw new IllegalStateException("mail session died");
+                    });
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(IllegalStateException.class);
+
+            assertThat(onlyRow().getState()).isEqualTo(State.SEND_UNCERTAIN);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should withdraw the token when the send throws before the gate runs")
+        void shouldAbandon_whenTheSendThrowsBeforeTheGate() {
+            when(emailManager.sendEmailWithResult(any(), any(), any(EmailManager.DispatchGate.class)))
+                    .thenThrow(new RuntimeException("missing required sec object (_email)"));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(RuntimeException.class);
+
+            assertThat(onlyRow().getState()).isEqualTo(State.ABANDONED);
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+        }
+    }
+
+    @Nested
     @DisplayName("recovery")
     class Recovery {
 
@@ -512,8 +571,29 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should refuse recovery against a different portal connection")
-        void shouldRefuse_whenPortalConnectionChanged() {
+        @DisplayName("should refuse recovery against a different clinic on the same portal")
+        void shouldRefuse_whenTheClinicChanged() {
+            PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofHours(1));
+            PatientPortalSettings otherClinic = PatientPortalSettings.fromProperties(Map.of(
+                    PatientPortalSettings.BASE_URL_KEY, "https://portal-api.clinic.example",
+                    PatientPortalSettings.CLINIC_ID_KEY, "othertown",
+                    PatientPortalSettings.SERVICE_TOKEN_KEY, "t".repeat(32),
+                    PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY,
+                    PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
+                    PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN));
+            service = new PortalInviteDeliveryService(portal, otherClinic,
+                    new PortalInviteSettings("https://portal.clinic.example", "clinic@example.invalid"),
+                    emailManager, deliveries, mock(EmailConfigDao.class), emailLogs, clockAtNow());
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.ABANDON, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.PORTAL_CONNECTION_CHANGED));
+            verifyNoInteractions(portal);
+        }
+
+        @Test
+        @DisplayName("should refuse recovery against a different portal address")
+        void shouldRefuse_whenThePortalAddressChanged() {
             PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofHours(1));
             service = new PortalInviteDeliveryService(portal, portalSettings("https://other-portal.clinic.example"),
                     new PortalInviteSettings("https://portal.clinic.example", "clinic@example.invalid"),
@@ -592,6 +672,8 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     try {
                         gate.beforeDispatch(log);
                     } catch (EmailSendingException refused) {
+                        // completeFailedSend records a definite failure on the outbox row.
+                        log.setStatus(EmailStatus.FAILED);
                         return EmailSendResult.failed(log, true);
                     }
                     bodyAtSend = email.getBody();

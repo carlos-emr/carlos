@@ -140,10 +140,12 @@ public class PortalInvite2Action extends PortalJsonAction {
 
     private String deliver(HttpServletRequest request, HttpServletResponse response, LoggedInInfo session,
             int patient, String method) throws IOException {
-        boolean sends = !METHOD_RECOVER.equals(method);
-        if (sends && !securityInfoManager.hasPrivilege(session, "_email", SecurityInfoManager.WRITE, null)) {
+        // Every route here writes to the email outbox: sending creates a row, and resolving an
+        // unfinished delivery closes one, which is the privilege ManageEmails requires to do the same.
+        if (!securityInfoManager.hasPrivilege(session, "_email", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
+        boolean sends = !METHOD_RECOVER.equals(method);
         long inviteId = 0;
         if (METHOD_RESEND.equals(method)) {
             inviteId = positiveLong(request.getParameter("inviteId"));

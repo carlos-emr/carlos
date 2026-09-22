@@ -21,6 +21,16 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.PatientPortalInviteDeliveryDaoImpl;
+import io.github.carlos_emr.carlos.managers.EmailManager;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.AnnotatedGenericBeanDefinition;
+import org.springframework.beans.factory.config.RuntimeBeanReference;
+import org.springframework.context.annotation.AnnotationBeanNameGenerator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -90,6 +100,10 @@ class PatientPortalSpringWiringUnitTest {
      * which is the only warning anyone gets before an unconfigured clinic cannot start CARLOS.
      */
     /**
+     * The load-bearing assertion. If any bean in that file loses {@code lazy-init}, this fails —
+     * which is the only warning anyone gets before an unconfigured clinic cannot start CARLOS.
+     */
+    /**
      * The invite service is wired by bean name to component-scanned classes. Those names come from the
      * class names, so a rename would break invitations at first use rather than at start-up; this pins
      * each referenced name to the class that must register it.
@@ -97,24 +111,24 @@ class PatientPortalSpringWiringUnitTest {
     @Test
     @DisplayName("should reference collaborators by the names their classes register under")
     void shouldReferenceScannedCollaborators_byTheirDerivedBeanNames() {
-        java.util.Map<String, Class<?>> expected = java.util.Map.of(
-                "emailManager", io.github.carlos_emr.carlos.managers.EmailManager.class,
+        Map<String, Class<?>> expected = Map.of(
+                "emailManager", EmailManager.class,
                 "patientPortalInviteDeliveryDaoImpl",
-                io.github.carlos_emr.carlos.commn.dao.PatientPortalInviteDeliveryDaoImpl.class,
-                "emailConfigDaoImpl", io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl.class,
-                "emailLogDaoImpl", io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl.class);
+                PatientPortalInviteDeliveryDaoImpl.class,
+                "emailConfigDaoImpl", EmailConfigDaoImpl.class,
+                "emailLogDaoImpl", EmailLogDaoImpl.class);
         try (GenericApplicationContext context = contextWithSecurityManager()) {
             var arguments = context.getBeanFactory().getBeanDefinition("portalInviteDeliveryService")
                     .getConstructorArgumentValues().getIndexedArgumentValues().values();
-            java.util.Set<String> referenced = new java.util.HashSet<>();
+            Set<String> referenced = new HashSet<>();
             for (var argument : arguments) {
-                referenced.add(((org.springframework.beans.factory.config.RuntimeBeanReference) argument.getValue())
+                referenced.add(((RuntimeBeanReference) argument.getValue())
                         .getBeanName());
             }
             assertThat(referenced).containsAll(expected.keySet());
             expected.forEach((name, type) -> assertThat(
-                    org.springframework.context.annotation.AnnotationBeanNameGenerator.INSTANCE.generateBeanName(
-                            new org.springframework.beans.factory.annotation.AnnotatedGenericBeanDefinition(type),
+                    AnnotationBeanNameGenerator.INSTANCE.generateBeanName(
+                            new AnnotatedGenericBeanDefinition(type),
                             context.getDefaultListableBeanFactory()))
                     .as("bean name registered by %s", type.getSimpleName())
                     .isEqualTo(name));

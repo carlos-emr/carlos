@@ -203,17 +203,17 @@ class PortalInvite2ActionDeliveryUnitTest {
     }
 
     @Test
-    @DisplayName("should not require email write to resolve a delivery")
-    void shouldRecover_withoutEmailWrite() throws Exception {
+    @DisplayName("should require email write to resolve a delivery, which closes an outbox row")
+    void shouldRefuseRecovery_withoutEmailWrite() throws Exception {
         when(security.hasPrivilege(any(), eq("_email"), anyString(), isNull())).thenReturn(false);
         request.setParameter("method", "recover");
         request.setParameter("deliveryId", "9");
         request.setParameter("decision", "abandon");
-        when(invites.recover(any(), any(), eq(9L), eq(Decision.ABANDON), any())).thenReturn(delivery(State.ABANDONED));
 
         execute();
 
-        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(invites);
     }
 
     @Test

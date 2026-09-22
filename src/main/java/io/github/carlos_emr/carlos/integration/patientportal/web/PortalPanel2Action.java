@@ -233,11 +233,13 @@ public class PortalPanel2Action extends PortalJsonAction {
      * is unreachable.
      */
     private boolean addDeliveries(ObjectNode payload, int demographicNo) {
-        PortalInviteDeliveryService invites = inviteDeliveryService();
-        if (invites == null) {
-            return true;
-        }
         try {
+            // Resolved inside the try: the invite settings are validated when their bean is created, so a
+            // mistyped public URL must cost this section rather than the account and invitation sections.
+            PortalInviteDeliveryService invites = inviteDeliveryService();
+            if (invites == null) {
+                return true;
+            }
             ArrayNode deliveries = payload.putArray("deliveries");
             for (PatientPortalInviteDelivery row : invites.recentFor(demographicNo)) {
                 InviteDeliveryJson.write(deliveries.addObject(), row, invites);
