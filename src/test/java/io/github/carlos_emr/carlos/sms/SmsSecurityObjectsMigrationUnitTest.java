@@ -71,6 +71,12 @@ class SmsSecurityObjectsMigrationUnitTest {
             "SELECT\\s+'([a-z_]+)'\\s*,\\s*'(_[A-Za-z.]+)'\\s*,\\s*'([rwudx])'\\s*,\\s*0\\s*,\\s*'999998'\\s+FROM\\s+DUAL",
             Pattern.CASE_INSENSITIVE);
 
+    private static final String GRANT_ROWS_QUERY = """
+            SELECT CONCAT(roleUserGroup, ' ', objectName, ' ', privilege) FROM secObjPrivilege
+             ORDER BY objectName, roleUserGroup""";
+    private static final String OBJECT_NAMES_QUERY = "SELECT objectName FROM secObjectName ORDER BY objectName";
+    private static final String DESCRIPTIONS_QUERY = "SELECT description FROM secObjectName ORDER BY objectName";
+
     @Test
     @DisplayName("seeds exactly the _sms and _admin.sms object names")
     void shouldSeedSmsObjectNames_forAdminUiListing() throws IOException {
@@ -120,11 +126,9 @@ class SmsSecurityObjectsMigrationUnitTest {
             applyMigration(connection);
             applyMigration(connection);
 
-            assertThat(rows(statement, "SELECT objectName FROM secObjectName ORDER BY objectName"))
+            assertThat(rows(statement, OBJECT_NAMES_QUERY))
                     .containsExactly("_admin.sms", "_sms");
-            assertThat(rows(statement,
-                    "SELECT CONCAT(roleUserGroup, ' ', objectName, ' ', privilege) FROM secObjPrivilege "
-                            + "ORDER BY objectName, roleUserGroup"))
+            assertThat(rows(statement, GRANT_ROWS_QUERY))
                     .containsExactly("admin _admin.sms x", "admin _sms x", "doctor _sms x");
         }
     }
@@ -141,9 +145,7 @@ class SmsSecurityObjectsMigrationUnitTest {
 
             applyMigration(connection);
 
-            assertThat(rows(statement,
-                    "SELECT CONCAT(roleUserGroup, ' ', objectName, ' ', privilege) FROM secObjPrivilege "
-                            + "ORDER BY objectName, roleUserGroup"))
+            assertThat(rows(statement, GRANT_ROWS_QUERY))
                     .containsExactly("admin _admin.sms x", "admin _sms o", "doctor _sms r");
         }
     }
@@ -159,11 +161,9 @@ class SmsSecurityObjectsMigrationUnitTest {
 
             applyMigration(connection);
 
-            assertThat(rows(statement, "SELECT description FROM secObjectName ORDER BY objectName"))
+            assertThat(rows(statement, DESCRIPTIONS_QUERY))
                     .containsExactly("clinic wording", "clinic wording");
-            assertThat(rows(statement,
-                    "SELECT CONCAT(roleUserGroup, ' ', objectName, ' ', privilege) FROM secObjPrivilege "
-                            + "ORDER BY objectName, roleUserGroup"))
+            assertThat(rows(statement, GRANT_ROWS_QUERY))
                     .containsExactly("admin _admin.sms x", "admin _sms x", "doctor _sms x");
         }
     }
@@ -171,11 +171,20 @@ class SmsSecurityObjectsMigrationUnitTest {
     private static void createSecurityTables(Statement statement) throws SQLException {
         // Column shapes from V1__baseline_schema.sql; the composite key is what makes "one grant per
         // role and object" a hard rule rather than a convention.
-        statement.execute("CREATE TABLE secObjectName (objectName VARCHAR(100) NOT NULL DEFAULT '', "
-                + "description VARCHAR(60), orgapplicable TINYINT DEFAULT 0, PRIMARY KEY (objectName))");
-        statement.execute("CREATE TABLE secObjPrivilege (roleUserGroup VARCHAR(30) NOT NULL DEFAULT '', "
-                + "objectName VARCHAR(100) NOT NULL DEFAULT '', privilege VARCHAR(100) NOT NULL DEFAULT '|0|', "
-                + "priority INT DEFAULT 0, provider_no VARCHAR(6), PRIMARY KEY (roleUserGroup, objectName))");
+        statement.execute("""
+                CREATE TABLE secObjectName (
+                    objectName VARCHAR(100) NOT NULL DEFAULT '',
+                    description VARCHAR(60),
+                    orgapplicable TINYINT DEFAULT 0,
+                    PRIMARY KEY (objectName))""");
+        statement.execute("""
+                CREATE TABLE secObjPrivilege (
+                    roleUserGroup VARCHAR(30) NOT NULL DEFAULT '',
+                    objectName VARCHAR(100) NOT NULL DEFAULT '',
+                    privilege VARCHAR(100) NOT NULL DEFAULT '|0|',
+                    priority INT DEFAULT 0,
+                    provider_no VARCHAR(6),
+                    PRIMARY KEY (roleUserGroup, objectName))""");
     }
 
     private static List<String> rows(Statement statement, String query) throws SQLException {
