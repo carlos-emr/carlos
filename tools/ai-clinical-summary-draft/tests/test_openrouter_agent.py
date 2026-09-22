@@ -484,18 +484,22 @@ class OpenRouterTest(unittest.TestCase):
         self.assertFalse(schema['additionalProperties'])
         self.assertEqual(['note-611'], schema['properties']['coverage']['items']['properties']['source_id']['enum'])
 
-    def test_duplicate_references_still_rejected_before_caching(self):
+    def test_a_duplicate_citation_is_still_rejected_but_a_repeated_membership_is_settled(self):
         baseline = self.gateway.run(self.request)['output']
         self.gateway.cache.clear()
         self.gateway.cache_bytes = 0
-        for collection, field in (('claims', 'source_ids'), ('sections', 'claim_ids')):
-            output = copy.deepcopy(baseline)
-            output[collection][0][field] *= 2
-            self.gateway.transport = lambda *_args: {'model': self.config['model'], 'choices': [
-                {'finish_reason': 'stop', 'message': {'content': json.dumps(output)}}]}
-            with self.subTest(collection=collection), self.assertRaises(ValueError):
-                self.gateway.run(self.request)
-            self.assertFalse(self.gateway.cache)
+        output = copy.deepcopy(baseline)
+        output['claims'][0]['source_ids'] *= 2
+        self.gateway.transport = lambda *_args: {'model': self.config['model'], 'choices': [
+            {'finish_reason': 'stop', 'message': {'content': json.dumps(output)}}]}
+        with self.assertRaises(ValueError):
+            self.gateway.run(self.request)
+        self.assertFalse(self.gateway.cache)
+        # A statement listed twice in its section is a formatting slip, settled and recorded.
+        output = copy.deepcopy(baseline)
+        output['sections'][0]['claim_ids'] *= 2
+        settled = self.gateway.run(dict(self.request, request_id=str(uuid4())))['output']
+        self.assertEqual(baseline['sections'], settled['sections'])
 
     def test_overlapping_headings_place_each_unchanged_claim_once(self):
         baseline = self.gateway.run(self.request)['output']

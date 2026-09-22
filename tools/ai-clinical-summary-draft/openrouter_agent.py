@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import getpass
 import hashlib
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
 import os
@@ -390,7 +390,15 @@ class Gateway:
         self.cache_lock = threading.Lock()
         self.cache_bytes = 0
         self.cache_hits = 0
-        self.deadline = None
+        self._run = threading.local()  # A host may send a long chart's passes side by side.
+
+    @property
+    def deadline(self):
+        return getattr(self._run, "deadline", None)
+
+    @deadline.setter
+    def deadline(self, value):
+        self._run.deadline = value
 
     def validate_output(self, sources, output):
         bundle = {"patient_context": {"id": sources[0]["patient_id"],
@@ -461,9 +469,13 @@ class Gateway:
                 and isinstance(message.get("content"), str), "Missing assistant JSON")
         output = loads(message["content"])
         if self.config["host_merge_duplicates"] and isinstance(output, dict) and isinstance(output.get("claims"), list):
-            # Identical statements are folded, with every citation, rather than failing the draft.
+            # Formatting faults are settled and recorded rather than failing the draft, and identical
+            # statements are folded with every citation.
             output, merged = host_checks.merge_identical_claims(output)
-            self.merges = getattr(self, "merges", 0) + merged
+            output, tolerated = host_checks.tolerate_structure(output, sources)
+            with self.cache_lock:
+                self.merges = getattr(self, "merges", 0) + merged
+                self.tolerated = getattr(self, "tolerated", []) + tolerated
         # The host records cited sources first: an all-cited draft arrives with no reviews at all.
         output = pipeline.complete_coverage(label_source_reviews(output, sources), sources)
         output = normalize_coverage_status(normalize_section_placement(output, sources), sources)
@@ -579,10 +591,20 @@ class Gateway:
                                 {"role": "user", "content": json.dumps(request)}],
                    "response_format": {"type": "json_schema", "json_schema": {
                        "name": "statement_repair", "strict": True, "schema": schema}}}
-        remaining = 540 if self.deadline is None else self.deadline - self.clock()
-        require(remaining > 10, "No time left for repair")
-        result = self.transport(dict(self.config, timeout_seconds=min(self.config["timeout_seconds"], remaining)),
-                                "chat/completions", payload)
+        for attempt in range(3):
+            remaining = 540 if self.deadline is None else self.deadline - self.clock()
+            require(remaining > 10, "No time left for repair")
+            try:
+                result = self.transport(dict(self.config, timeout_seconds=min(self.config["timeout_seconds"], remaining)),
+                                        "chat/completions", payload)
+                break
+            except RateLimitError as error:
+                # A repair follows a generation call closely, which some providers rate limit.
+                delay = max(2 ** (attempt + 1), error.retry_after or 0)
+                if attempt == 2 or delay > MAX_RATE_LIMIT_WAIT_SECONDS or delay > remaining - 10:
+                    raise
+                print(f"Provider rate limited repair; retry {attempt + 1}/2 in {delay}s", flush=True)
+                time.sleep(delay)
         choice = result["choices"][0]
         require(choice.get("finish_reason") == "stop", "Incomplete repair")
         replies = loads(choice["message"]["content"])["statements"]
@@ -735,7 +757,7 @@ def main():
             print("API key accepted. No model inference requested; model access is checked on generation.")
             return
         gateway = Gateway(config)
-        with HTTPServer(("127.0.0.1", config["port"]), handler_for(gateway)) as server:
+        with ThreadingHTTPServer(("127.0.0.1", config["port"]), handler_for(gateway)) as server:
             print(f"OpenRouter synthetic gateway: 127.0.0.1:{config['port']} / {config['model']}; "
                   f"provider {config['provider']}; "
                   f"memory cache {config['cache_seconds']}s. Keep this terminal open.", flush=True)

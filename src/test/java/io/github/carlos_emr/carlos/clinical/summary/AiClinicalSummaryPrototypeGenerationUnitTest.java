@@ -219,15 +219,20 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     }
 
     @Test
-    void rejectsMetadataClaimsAndUngroundedCitations() {
+    void rejectsMetadataClaimsAndDropsAnUngroundedStatement() throws Exception {
         for (String metadata : new String[]{"Source note ID: imported-note-1", "Demographic number: 3003",
                 "Subject: GP contact for discharge planning", "Type: Medicine Inpatients"}) {
             ((ObjectNode) generated.get("claims").get(0)).put("text", metadata);
             assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
         }
 
+        // One statement sharing no word with its cited notes is dropped and named, not the whole draft.
+        String dropped = generated.get("claims").get(0).get("id").asText();
         ((ObjectNode) generated.get("claims").get(0)).put("text", "Migraine with photophobia is worsening.");
-        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
+        ClinicalSummaryArtifact draft = generator().generate(chart);
+        assertThat(draft.getClaimsById()).doesNotContainKey(dropped);
+        assertThat(draft.getView().get("validation").toString())
+                .contains("statements_settled_by_host", "Migraine with photophobia is worsening.");
     }
 
     @Test
@@ -264,10 +269,12 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     }
 
     @Test
-    void rejectsUncontrolledSectionsAndRepeatedCoverageReasons() {
+    void foldsAnUncontrolledSectionIntoTheOverviewAndRejectsRepeatedCoverageReasons() throws Exception {
         ((ObjectNode) generated.get("sections").get(0)).put("id", "patient_identity")
                 .put("title", "Patient Identity");
-        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
+        ClinicalSummaryArtifact folded = generator().generate(chart);
+        assertThat(folded.getView().get("sections").toString()).contains("clinical_overview").doesNotContain("patient_identity");
+        assertThat(folded.getView().get("validation").toString()).contains("Section patient_identity is not one of the five");
 
         ((ObjectNode) generated.get("sections").get(0)).put("id", "clinical_overview")
                 .put("title", "Clinical overview");

@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentProtocol.JSON;
 
 /**
  * Deterministic checks that hold whichever model, provider or local server wrote the draft.
@@ -544,6 +545,106 @@ public final class ClinicalSummaryHostChecks {
             }
         }
         return findings;
+    }
+
+    // ---- formatting faults settled instead of discarding the draft ---------------------------
+
+    private static final Map<String, String> SECTION_TITLES = new LinkedHashMap<>();
+    static {
+        SECTION_TITLES.put("clinical_overview", "Clinical overview");
+        SECTION_TITLES.put("active_problems", "Active problems");
+        SECTION_TITLES.put("medications_allergies", "Medications and allergies");
+        SECTION_TITLES.put("results_observations", "Results and observations");
+        SECTION_TITLES.put("plan_follow_up", "Plan and follow-up");
+    }
+
+    /** A draft with its formatting faults settled, and one sentence per settlement for the validation record. */
+    public record Tolerated(ObjectNode output, List<String> notes) { }
+
+    /**
+     * Settles the model's formatting faults that would otherwise discard a whole draft: a duplicate
+     * claim ID is renumbered, a section outside the fixed five is folded into Clinical overview, a
+     * wrong title or repeated membership is corrected, and a statement sharing no word with the notes
+     * it cites is dropped and named. A reference to a statement that never existed is left for
+     * validation to reject, and a statement under several headings for placement to resolve.
+     */
+    public static Tolerated tolerateStructure(JsonNode generated, JsonNode sources) {
+        List<String> notes = new ArrayList<>();
+        if (!wellFormed(generated)) return new Tolerated((ObjectNode) generated, notes);
+        ObjectNode result = generated.deepCopy();
+        Set<String> seen = new LinkedHashSet<>();
+        Map<String, List<String>> renamed = new LinkedHashMap<>();
+        for (JsonNode claim : result.get("claims")) {
+            if (!claim.isObject() || !claim.path("id").isTextual()) return new Tolerated((ObjectNode) generated, List.of());
+            String id = claim.get("id").asText();
+            if (seen.contains(id)) {
+                Set<String> taken = new LinkedHashSet<>(seen);
+                renamed.values().forEach(taken::addAll);
+                String candidate = id;
+                for (int n = 2; taken.contains(candidate); n++) candidate = id + "-" + n;
+                notes.add("Statement " + id + " shared its ID with another; the second is now " + candidate + ".");
+                renamed.computeIfAbsent(id, key -> new ArrayList<>()).add(candidate);
+                ((ObjectNode) claim).put("id", candidate);
+            }
+            seen.add(claim.get("id").asText());
+        }
+        Map<String, Set<String>> sourceWords = new LinkedHashMap<>();
+        for (JsonNode source : sources) {
+            sourceWords.put(source.path("id").asText(), ClinicalSummaryGenerationService.words(
+                    source.path("title").asText() + " " + source.path("date").asText() + " " + source.path("text").asText()));
+        }
+        Set<String> dropped = new LinkedHashSet<>();
+        for (JsonNode claim : result.get("claims")) {
+            if (!claim.path("text").isTextual() || !claim.path("source_ids").isArray()) continue;
+            // Host metadata echoed as prose is a scope fault validation must still reject, not settle.
+            if (ClinicalSummaryGenerationService.SOURCE_METADATA.matcher(claim.get("text").asText()).find()) continue;
+            Set<String> cited = new LinkedHashSet<>();
+            claim.get("source_ids").forEach(id -> cited.addAll(sourceWords.getOrDefault(id.asText(), Set.of())));
+            Set<String> own = ClinicalSummaryGenerationService.words(claim.get("text").asText());
+            own.removeAll(ClinicalSummaryGenerationService.COMMON_WORDS);
+            if (!own.isEmpty() && !cited.isEmpty() && own.stream().noneMatch(cited::contains)) {
+                dropped.add(claim.get("id").asText());
+                notes.add("Statement " + claim.get("id").asText() + " shared no word with the notes it cited and was dropped: \""
+                        + claim.get("text").asText() + "\"");
+            }
+        }
+        ArrayNode claims = (ArrayNode) result.get("claims");
+        for (int i = claims.size() - 1; i >= 0; i--) if (dropped.contains(claims.get(i).path("id").asText())) claims.remove(i);
+        ArrayNode sections = JSON.createArrayNode();
+        List<String> overviewExtra = new ArrayList<>();
+        for (JsonNode section : result.get("sections")) {
+            if (!section.isObject() || !section.path("claim_ids").isArray()) return new Tolerated((ObjectNode) generated, List.of());
+            List<String> ids = new ArrayList<>();
+            for (JsonNode member : section.get("claim_ids")) {
+                List<String> candidates = new ArrayList<>(List.of(member.asText()));
+                candidates.addAll(renamed.getOrDefault(member.asText(), List.of()));
+                for (String candidate : candidates) if (!dropped.contains(candidate) && !ids.contains(candidate)) ids.add(candidate);
+            }
+            String id = section.path("id").asText();
+            if (!SECTION_TITLES.containsKey(id)) {
+                if (!ids.isEmpty()) {
+                    notes.add("Section " + id + " is not one of the five clinical sections; its statements are under Clinical overview.");
+                }
+                for (String member : ids) if (!overviewExtra.contains(member)) overviewExtra.add(member);
+                continue;
+            }
+            if (!ids.isEmpty()) {
+                ArrayNode members = sections.addObject().put("id", id).put("title", SECTION_TITLES.get(id)).putArray("claim_ids");
+                ids.forEach(members::add);
+            }
+        }
+        if (!overviewExtra.isEmpty()) {
+            ArrayNode members = null;
+            for (JsonNode section : sections) if ("clinical_overview".equals(section.path("id").asText())) members = (ArrayNode) section.get("claim_ids");
+            if (members == null) {
+                members = sections.addObject().put("id", "clinical_overview").put("title", SECTION_TITLES.get("clinical_overview")).putArray("claim_ids");
+            }
+            Set<String> present = new LinkedHashSet<>();
+            members.forEach(member -> present.add(member.asText()));
+            for (String member : overviewExtra) if (present.add(member)) members.add(member);
+        }
+        result.set("sections", sections);
+        return new Tolerated(result, notes);
     }
 
     private static boolean wellFormed(JsonNode generated) {

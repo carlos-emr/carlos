@@ -366,3 +366,79 @@ def merge_contained_claims(output):
     if dropped:
         _drop_claims(result, dropped)
     return result, len(dropped)
+
+
+SECTION_TITLES = {"clinical_overview": "Clinical overview", "active_problems": "Active problems",
+                  "medications_allergies": "Medications and allergies",
+                  "results_observations": "Results and observations", "plan_follow_up": "Plan and follow-up"}
+
+
+def tolerate_structure(output, sources):
+    """Settle the model's formatting faults that would otherwise discard a whole draft.
+
+    A duplicate claim ID is renumbered, a section outside the fixed five is folded into Clinical
+    overview, a wrong title or repeated or unknown membership is corrected, and a statement sharing
+    no word with the notes it cites is dropped and named. Returns (output, notes) where each note is
+    a sentence for the validation record; nothing is changed silently.
+    """
+    from validate_artifact import COMMON_WORDS, SOURCE_METADATA, words
+    result = copy.deepcopy(output)
+    notes = []
+    if not (isinstance(result, dict) and isinstance(result.get("claims"), list)
+            and isinstance(result.get("sections"), list)):
+        return result, notes
+    seen, renamed = set(), {}
+    for claim in result["claims"]:
+        if not isinstance(claim, dict) or not isinstance(claim.get("id"), str):
+            return output, []
+        if claim["id"] in seen:
+            new_id, n = claim["id"], 2
+            while new_id in seen or new_id in renamed.values():
+                new_id = f"{claim['id']}-{n}"
+                n += 1
+            notes.append(f"Statement {claim['id']} shared its ID with another; the second is now {new_id}.")
+            renamed.setdefault(claim["id"], []).append(new_id)
+            claim["id"] = new_id
+        seen.add(claim["id"])
+    source_words = {s["id"]: words(" ".join(str(s.get(k, "")) for k in ("title", "date", "text"))) for s in sources}
+    dropped = set()
+    for claim in result["claims"]:
+        if not isinstance(claim.get("text"), str) or not isinstance(claim.get("source_ids"), list):
+            continue
+        if SOURCE_METADATA.search(claim["text"]):
+            continue  # Host metadata echoed as prose is a scope fault validation must still reject.
+        cited = set().union(*(source_words.get(sid, set()) for sid in claim["source_ids"]))
+        own = words(claim["text"]) - COMMON_WORDS
+        if own and cited and not own & cited:
+            dropped.add(claim["id"])
+            notes.append(f"Statement {claim['id']} shared no word with the notes it cited and was dropped: "
+                         f"\"{claim['text']}\"")
+    result["claims"] = [claim for claim in result["claims"] if claim["id"] not in dropped]
+    sections, overview_extra = [], []
+    for section in result["sections"]:
+        if not isinstance(section, dict) or not isinstance(section.get("claim_ids"), list):
+            return output, []
+        # A renumbered statement follows its original; a dropped one leaves; a repeat within the
+        # section is one membership. A reference to a statement that never existed is left for
+        # validation to reject, and a statement under several headings for placement to resolve.
+        ids = []
+        for cid in section["claim_ids"]:
+            for candidate in [cid] + renamed.get(cid, []):
+                if candidate not in dropped and candidate not in ids:
+                    ids.append(candidate)
+        if section.get("id") not in SECTION_TITLES:
+            if ids:
+                notes.append(f"Section {section.get('id')} is not one of the five clinical sections; its "
+                             "statements are under Clinical overview.")
+            overview_extra += [cid for cid in ids if cid not in overview_extra]
+            continue
+        if ids:
+            sections.append({"id": section["id"], "title": SECTION_TITLES[section["id"]], "claim_ids": ids})
+    if overview_extra:
+        overview = next((s for s in sections if s["id"] == "clinical_overview"), None)
+        if overview is None:
+            overview = {"id": "clinical_overview", "title": SECTION_TITLES["clinical_overview"], "claim_ids": []}
+            sections.append(overview)
+        overview["claim_ids"] += [cid for cid in overview_extra if cid not in overview["claim_ids"]]
+    result["sections"] = sections
+    return result, notes

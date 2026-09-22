@@ -109,6 +109,7 @@ def main():
     report['repairs'] = getattr(gateway, 'repairs', 0)
     report['repaired_statements'] = getattr(gateway, 'repaired_statements', 0)
     report['merged_statements'] = getattr(gateway, 'merges', 0)
+    report['tolerated'] = getattr(gateway, 'tolerated', [])
     agent.private_write(args.output, json.dumps(report, indent=2) + '\n')
     print(json.dumps({'status': report['status'], 'seconds': report['seconds'], 'calls': calls,
                       'error': report.get('error'),
