@@ -1,4 +1,5 @@
-# Browser-harness and source-contract tests; no browser, VM, database or secrets required.
+# Browser-harness/source-contract tests and an isolated Chromium editor fixture.
+# No VM, running application, database or secrets required.
 # Licensed under the repository's LICENSE.
 name: Script Regressions
 
@@ -33,3 +34,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Run all script regressions
         run: npm run test:scripts
+      - name: Install Chromium for the isolated RTL fixture
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Check RTL measurement loading in Chromium
+        run: node scripts/rtl-measurement-browser-check.js
