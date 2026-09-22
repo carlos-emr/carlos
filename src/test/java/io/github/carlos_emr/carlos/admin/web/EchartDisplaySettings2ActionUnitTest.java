@@ -94,13 +94,23 @@ class EchartDisplaySettings2ActionUnitTest {
     }
 
     @Test
-    void shouldDefaultVisible_andIgnoreSaveParameterOnGet() {
-        request.setParameter("dboperation", "Save");
+    void shouldDefaultVisible_whenViewingWithoutSaveIntent() {
         when(security.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(true);
         new EchartDisplaySettings2Action().execute();
         assertThat(request.getAttribute("displayOceanUI")).isEqualTo(true);
         assertThat(request.getAttribute("saved")).isEqualTo(false);
         verifyNoInteractions(ocean);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRejectSaveIntent_onReadMethodsWithoutDaoAccess(String method) {
+        request.setMethod(method);
+        request.setParameter("dboperation", "Save");
+        assertThat(new EchartDisplaySettings2Action().execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(ocean, preferences, security);
     }
 
     @Test

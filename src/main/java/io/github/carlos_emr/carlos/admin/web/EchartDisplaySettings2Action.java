@@ -52,9 +52,11 @@ public class EchartDisplaySettings2Action extends ActionSupport {
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         String method = request.getMethod();
-        if (!"GET".equals(method) && !"HEAD".equals(method) && !"POST".equals(method)) {
+        boolean saveIntent = "Save".equals(request.getParameter("dboperation"));
+        if ((!"GET".equals(method) && !"HEAD".equals(method) && !"POST".equals(method))
+                || (saveIntent && !"POST".equals(method))) {
             ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            ServletActionContext.getResponse().setHeader("Allow", "GET, HEAD, POST");
+            ServletActionContext.getResponse().setHeader("Allow", saveIntent ? "POST" : "GET, HEAD, POST");
             return NONE;
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -66,7 +68,7 @@ public class EchartDisplaySettings2Action extends ActionSupport {
         }
 
         var key = SystemPreferences.ECHART_PREFERENCE_KEYS.echart_show_ocean;
-        boolean saved = "POST".equals(method) && "Save".equals(request.getParameter("dboperation"));
+        boolean saved = "POST".equals(method) && saveIntent;
         boolean displayOcean;
         if (saved) {
             displayOcean = "true".equals(request.getParameter(key.name()));
