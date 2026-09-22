@@ -341,14 +341,24 @@ public class PatientPortalService implements Closeable {
                 inviteId);
     }
 
-    /** Revokes a pending invite. */
-    public PatientPortalInviteDto revokeInvite(long inviteId, PatientPortalStaffContext staff) {
+    /**
+     * Revokes a pending invite.
+     *
+     * <p>The revoke path carries only the invite id, so unlike the patient-scoped paths the
+     * generic scope check cannot bind the response to a patient. The caller states which
+     * patient the invite belongs to and the response must agree.
+     */
+    public PatientPortalInviteDto revokeInvite(
+            int demographicNo, long inviteId, PatientPortalStaffContext staff) {
         return fetch(
                 POST, INVITE_REVOKE_PATH, null, OK, staff,
                 node -> {
                     PatientPortalInviteDto invite = PatientPortalInviteDto.fromJson(node);
                     if (invite.id() != inviteId || !"revoked".equals(invite.status())) {
                         throw new PortalContractException("portal did not confirm the selected invitation was revoked");
+                    }
+                    if (invite.demographicNo() != demographicNo) {
+                        throw new PortalContractException("portal response has a different patient scope");
                     }
                     return invite;
                 }, inviteId);
@@ -752,8 +762,8 @@ public class PatientPortalService implements Closeable {
      *     contract failure; never carrying a credential or a patient identifier in its message
      */
     // FindSecBugs FORMAT_STRING_MANIPULATION: the format is a parameter, but of a *private*
-    // method whose twelve call sites all pass a private static final *_PATH constant, so it is
-    // never caller-chosen. Every one of those formats takes only %d, so no caller-supplied string
+    // method reached only through fetch, whose call sites all pass a private static final *_PATH
+    // constant, so it is never caller-chosen. Every one of those formats takes only %d, so no caller-supplied string
     // can reach a format position at all; PatientPortalServiceUnitTest asserts that reflectively,
     // and adding a %s fails there rather than shipping. See docs/static-analysis-workflows.md.
     @SuppressFBWarnings(

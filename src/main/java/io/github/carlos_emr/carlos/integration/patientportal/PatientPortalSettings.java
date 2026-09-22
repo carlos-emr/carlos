@@ -258,13 +258,6 @@ public record PatientPortalSettings(
         return Set.copyOf(parsed);
     }
 
-    /**
-     * @return {@code true} when the deployment requires a specific portal public key
-     */
-    public boolean isPinned() {
-        return !certificatePins.isEmpty();
-    }
-
     private static String requireValue(String value, String key) {
         if (value == null || value.isBlank()) {
             throw new PatientPortalConfigurationException(
