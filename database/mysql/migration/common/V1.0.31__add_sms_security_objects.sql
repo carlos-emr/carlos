@@ -3,7 +3,7 @@
 -- message body, V1.0.25) already exists and is unchanged.
 --
 -- Every statement is idempotent so a partially applied or re-run migration is safe, and an
--- existing clinic grant, including an intentional denial, is preserved.
+-- existing clinic grant, including a narrower one or an 'o' (no-rights) row, is preserved.
 --
 -- Numbered V1.0.31 because V1.0.29 and V1.0.30 were held by open PRs (#3763, #3746, #3478,
 -- #3681) when this was written; see database/mysql/migration/common/README.md.
@@ -24,9 +24,11 @@ SELECT '_admin.sms', 'Configure and manage SMS', 0
 -- Default grants mirror `_email` / `_admin.email` (and `_msgSMS` from V1.0.25): admin and
 -- doctor hold all rights on `_sms`; only admin may configure and operate SMS. No other role
 -- gets anything until a clinic grants it. `_email`'s inert '-1' template row is deliberately
--- not copied: getPrivilegeProp only matches real role names and the provider number. A clinic wanting a role that can view SMS history
--- but not send gives it 'r': SecurityInfoManager treats a grant as a ladder (x > w > u > r),
--- and a history view asks for 'r' while sending asks for 'w'.
+-- not copied: getPrivilegeProp only matches real role names and the provider number.
+--
+-- A clinic wanting a role that can view SMS history but not send gives it 'r':
+-- SecurityInfoManager treats a grant as a ladder (x > w > u > r), and a history view asks
+-- for 'r' while sending asks for 'w'.
 --
 -- CARLOS does not infer dotted-object privileges: `admin` = 'x' on `_admin` confers nothing
 -- on `_admin.sms`, so the explicit row below is required (see V1.0.28 for the same trap).

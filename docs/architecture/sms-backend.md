@@ -54,7 +54,7 @@ SMS has three security objects. `SecurityInfoManager.hasPrivilege` treats a role
 
 Only `_msgSMS` is enforced today, by `CarlosSmsMessageBodyAuthorizationService`. `_sms` and `_admin.sms` are seeded ahead of the code (`V1.0.31__add_sms_security_objects.sql`) so the grants exist before the first gate ships; nothing checks them yet. `_msgSMS` is seeded by `V1.0.25`. Both migrations leave an existing clinic row untouched, including an `o` (no-rights) row; note that `o` withholds the right for that role only, and a provider who also holds a role with a grant still passes. A clinic that wants a role to view history without sending grants it `r` on `_sms`. `_admin` = `x` confers nothing on `_admin.sms`; dotted objects need their own row.
 
-When the send and history actions land: a Struts action that fails a check throws the paren form, `throw new SecurityException("missing required sec object (_sms)");`, and must also require `_demographic` `r` for the patient. Service-layer checks throw `AccessDeniedException` instead, as the `_msgSMS` gate does.
+When the send and history actions land: a Struts action that fails a check throws the paren form, `throw new SecurityException("missing required sec object (_sms)");`, and must also require `_demographic` `r` for the patient, as every patient-scoped action does. Service-layer checks throw `AccessDeniedException` instead, as the `_msgSMS` gate does.
 
 ## Required before real SMS traffic
 
