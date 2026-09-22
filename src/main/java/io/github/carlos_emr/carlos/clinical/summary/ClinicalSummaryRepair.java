@@ -86,16 +86,19 @@ final class ClinicalSummaryRepair {
     }
 
     /**
-     * Applies an agent's answer. Returns the draft unchanged when the agent does not support repair,
+     * Applies an agent's answer. {@code sources} is the host's evidence for the checks and
+     * {@code agentSources} the same notes as the agent may see them. Returns the draft unchanged
+     * when the agent does not support repair,
      * fails, or answers unusably; a rewrite the host can still fault is not accepted.
      */
-    static JsonNode apply(ClinicalSummaryAgent agent, JsonNode generated, JsonNode sources, String patientLabel,
-                          Map<String, String> classes) {
+    static JsonNode apply(ClinicalSummaryAgent agent, JsonNode generated, JsonNode sources, JsonNode agentSources,
+                          String patientLabel, Map<String, String> classes) {
         Map<String, List<String>> flagged = flagged(generated, sources, patientLabel, classes);
         if (flagged.isEmpty()) return generated;
         JsonNode reply;
         try {
-            reply = agent.repair(request(generated, sources, flagged));
+            // The agent receives the notes as generation sent them, never the host's evidence copy.
+            reply = agent.repair(request(generated, agentSources, flagged));
         } catch (IOException | RuntimeException failed) {
             return generated;  // The faulted statements stay as they were, with their warnings.
         }

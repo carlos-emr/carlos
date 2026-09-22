@@ -280,26 +280,35 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     void aFaultedStatementIsRepairedByTheAgentOrKeptWithItsWarning() throws Exception {
         ObjectNode input = chart(1);
         ((ObjectNode) input.get("sources").get(0)).put("text", "Reviewed by Nurse Ada Example. Recorded finding one was stable.");
+        // The host identity travels in evidence but is never sent to an agent, for repair either.
+        ((ObjectNode) input.get("patient_context")).put("id", "demographic-3001");
+        input.get("sources").forEach(source -> ((ObjectNode) source).put("patient_id", "demographic-3001"));
+        ((ArrayNode) input.get("sources")).insert(0, JSON.createObjectNode().put("id", "identity")
+                .put("patient_id", "demographic-3001").put("title", "Patient identity (identity)")
+                .put("date", "Current record").put("text", "Demographic number: 3001\nName: Synthetic full record"));
+        ((ArrayNode) input.get("coverage")).addObject().put("source_id", "identity")
+                .put("status", "reviewed_not_cited").put("reason", "Patient identity only");
         namesStaff = true;
-        repairReply = "{\"statements\":[{\"id\":\"claim-source-1\",\"text\":\"The nurse recorded: Reviewed by the nurse. Recorded finding one was stable.\"}]}";
+        repairReply = "{\"statements\":[{\"id\":\"claim-1\",\"text\":\"The nurse recorded: Reviewed by the nurse. Recorded finding one was stable.\"}]}";
         var result = generate(input);
         assertThat(repairRequest.get("contract_version").asInt()).isEqualTo(2);
         assertThat(repairRequest.get("statements").get(0).get("problems").get(0).asText()).contains("names a person");
         assertThat(repairRequest.get("sources")).hasSize(1);
-        assertThat(result.getClaimsById().keySet()).containsExactly("repaired-claim-source-1");
+        assertThat(repairRequest.get("sources").get(0).get("text").asText()).doesNotContain("Imported development fixture");
+        assertThat(result.getClaimsById().keySet()).containsExactly("repaired-claim-1");
         assertThat(result.getView().get("validation").toString()).contains("statements_repaired", "1 statement was rewritten")
                 .doesNotContain("statement_names_person_or_identifier");
         // A rewrite the host can still fault is not accepted; the warning stays.
-        repairReply = "{\"statements\":[{\"id\":\"claim-source-1\",\"text\":\"Nurse Ada Example still recorded finding one.\"}]}";
-        ((ObjectNode) input.get("sources").get(0)).put("text", "Reviewed by Nurse Ada Example. Recorded finding one was unchanged.");
+        repairReply = "{\"statements\":[{\"id\":\"claim-1\",\"text\":\"Nurse Ada Example still recorded finding one.\"}]}";
+        ((ObjectNode) input.get("sources").get(1)).put("text", "Reviewed by Nurse Ada Example. Recorded finding one was unchanged.");
         var kept = generate(input);
-        assertThat(kept.getClaimsById().keySet()).containsExactly("claim-source-1");
+        assertThat(kept.getClaimsById().keySet()).containsExactly("claim-1");
         assertThat(kept.getView().get("validation").toString()).contains("statement_names_person_or_identifier", "Ada Example")
                 .doesNotContain("statements_repaired");
         // An agent without the operation leaves the draft as it was.
         repairReply = null;
-        ((ObjectNode) input.get("sources").get(0)).put("text", "Reviewed by Nurse Ada Example. Recorded finding one was steady.");
-        assertThat(generate(input).getClaimsById().keySet()).containsExactly("claim-source-1");
+        ((ObjectNode) input.get("sources").get(1)).put("text", "Reviewed by Nurse Ada Example. Recorded finding one was steady.");
+        assertThat(generate(input).getClaimsById().keySet()).containsExactly("claim-1");
     }
 
     @Test
