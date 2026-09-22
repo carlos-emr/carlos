@@ -759,7 +759,7 @@ class MutatorActionGetRejectionContractUnitTest {
     }
 
     @Test
-    void discoversNewPortalMutatorUsingSharedMethodGuard(
+    void shouldDiscoverNewPortalMutator_usingSharedMethodGuard(
             @org.junit.jupiter.api.io.TempDir Path sourceRoot) throws Exception {
         Path source = sourceRoot.resolve(
                 "io/github/carlos_emr/carlos/integration/patientportal/web/FuturePortal2Action.java");

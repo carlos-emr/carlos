@@ -667,7 +667,7 @@ class PatientPortalSettingsUnitTest {
     }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 65536, 2147483647})
-    void rejectsInvalidEndpointPortAsConfigurationFailure(int port) {
+    void shouldRejectEndpointPort_whenInvalid(int port) {
         Map<String, String> properties = validProperties();
         properties.put(BASE_URL_KEY, "https://portal.example:" + port);
         assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
@@ -677,7 +677,7 @@ class PatientPortalSettingsUnitTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {1, 443, 65535})
-    void acceptsValidExplicitEndpointPorts(int port) {
+    void shouldAcceptEndpointPort_whenExplicitAndValid(int port) {
         Map<String, String> properties = validProperties();
         String url = "https://portal.example:" + port;
         properties.put(BASE_URL_KEY, url);

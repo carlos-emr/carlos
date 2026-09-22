@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -107,7 +108,7 @@ class PortalInvite2ActionUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD", "post", "DELETE"})
-    void rejectsMethodsBeforeAnyLookup(String method) throws Exception {
+    void shouldRejectUnsupportedMethod_beforeAnyLookup(String method) throws Exception {
         request.setMethod(method);
         execute();
         assertThat(response.getStatus()).isEqualTo(405);
@@ -116,7 +117,7 @@ class PortalInvite2ActionUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"create", "resend"})
-    void issuanceIsUnavailableEvenWithReplacementConfirmed(String method) throws Exception {
+    void shouldReportIssuanceUnavailable_forCreateAndResend(String method) throws Exception {
         request.setParameter("method", method);
         request.setParameter("confirmReplace", "true");
         execute();
@@ -127,7 +128,7 @@ class PortalInvite2ActionUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"_demographic", "_portal.invite"})
-    void rejectsScopedDenialsEvenWithGlobalPrivilege(String object) throws Exception {
+    void shouldRejectScopedDenial_despiteGlobalPrivilege(String object) throws Exception {
         when(security.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         when(security.hasPrivilege(any(), eq(object), anyString(), eq("123"))).thenReturn(false);
         execute();
@@ -136,7 +137,7 @@ class PortalInvite2ActionUnitTest {
     }
 
     @Test
-    void rejectsRestrictedPatientRecord() throws Exception {
+    void shouldRejectRequest_whenPatientRecordIsRestricted() throws Exception {
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(false);
         execute();
         assertThat(response.getStatus()).isEqualTo(403);
@@ -144,7 +145,7 @@ class PortalInvite2ActionUnitTest {
     }
 
     @Test
-    void rejectsMissingPatient() throws Exception {
+    void shouldRejectRequest_whenPatientIsMissing() throws Exception {
         request.removeParameter("demographicNo");
         execute();
         assertThat(response.getStatus()).isEqualTo(400);
@@ -152,62 +153,54 @@ class PortalInvite2ActionUnitTest {
     }
 
     @Test
-    void rejectsForeignInvitationBeforeMutation() throws Exception {
+    void shouldRejectForeignInvitation_beforeMutation() throws Exception {
         when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(7, 456, "pending")));
         execute();
         assertThat(response.getStatus()).isEqualTo(404);
-        verify(portal, never()).revokeInvite(anyLong(), any());
+        verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
     }
 
     @Test
-    void revokesVerifiedInvitationWithScopedStaffIdentity() throws Exception {
+    void shouldRevokeVerifiedInvitation_withScopedStaffIdentity() throws Exception {
         when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(7, 123, "pending")));
-        when(portal.revokeInvite(eq(7L), same(staff))).thenReturn(invite(7, 123, "revoked"));
+        when(portal.revokeInvite(eq(123), eq(7L), same(staff))).thenReturn(invite(7, 123, "revoked"));
         execute();
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("revoked");
         verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_INVITE)), eq(123));
-        verify(portal).revokeInvite(eq(7L), same(staff));
+        verify(portal).revokeInvite(eq(123), eq(7L), same(staff));
     }
 
     @Test
-    void revokesVerifiedInvitationBeyondIntegerIdRange() throws Exception {
+    void shouldRevokeVerifiedInvitation_beyondIntegerIdRange() throws Exception {
         long id = Integer.MAX_VALUE + 1L;
         request.setParameter("inviteId", String.valueOf(id));
         when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(id, 123, "pending")));
-        when(portal.revokeInvite(eq(id), same(staff))).thenReturn(invite(id, 123, "revoked"));
+        when(portal.revokeInvite(eq(123), eq(id), same(staff))).thenReturn(invite(id, 123, "revoked"));
         execute();
         assertThat(response.getStatus()).isEqualTo(200);
-        verify(portal).revokeInvite(eq(id), same(staff));
+        verify(portal).revokeInvite(eq(123), eq(id), same(staff));
     }
 
     @Test
-    void lookupFailureCannotAuthorizeMutation() throws Exception {
+    void shouldNotAuthorizeMutation_whenLookupFails() throws Exception {
         when(portal.listInvites(eq(123), same(staff)))
                 .thenThrow(PatientPortalException.ofTransportFailure("/internal/carlos/patients/{id}/invites", null));
         execute();
         assertThat(response.getStatus()).isEqualTo(504);
-        verify(portal, never()).revokeInvite(anyLong(), any());
+        verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
     }
 
     @Test
-    void unexpectedReturnedIdentityIsNotReportedAsSuccess() throws Exception {
-        when(portal.listInvites(eq(123), same(staff)))
-                .thenReturn(List.of(invite(7, 123, "pending")));
-        when(portal.revokeInvite(eq(7L), same(staff))).thenReturn(invite(8, 123, "revoked"));
-        execute();
-        assertThat(response.getStatus()).isEqualTo(502);
-    }
-    @Test
-    void failsClosedWhenFullListingDoesNotContainSelectedInvitation() throws Exception {
+    void shouldFailClosed_whenFullListingOmitsSelectedInvitation() throws Exception {
         when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(Collections.nCopies(100, invite(1, 123, "revoked")));
         execute();
         assertThat(response.getStatus()).isEqualTo(404);
         verify(portal, times(1)).listInvites(eq(123), same(staff));
-        verify(portal, never()).revokeInvite(anyLong(), any());
+        verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
     }
 }

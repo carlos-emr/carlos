@@ -523,10 +523,12 @@ class PortalAccountAndPanelActionUnitTest {
 
             panelAction().execute();
 
-            assertThat(response.getContentAsString())
-                    .contains("invites")
-                    .doesNotContain("accountState")
-                    .doesNotContain("accountError");
+            com.fasterxml.jackson.databind.JsonNode payload =
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                            .readTree(response.getContentAsString());
+            assertThat(payload.has("invites")).isTrue();
+            assertThat(payload.has("account")).isFalse();
+            assertThat(payload.has("accountError")).isFalse();
             verify(patientPortalService, never()).findAccount(anyInt(), any());
         }
 

@@ -418,7 +418,7 @@ class PatientPortalInviteCallsUnitTest {
             RecordingExchange exchange = new RecordingExchange(200, INVITE_JSON.replace("pending", "revoked"));
             PatientPortalService service = new PatientPortalService(settings(), exchange);
 
-            PatientPortalInviteDto invite = service.revokeInvite(7L, staff());
+            PatientPortalInviteDto invite = service.revokeInvite(123, 7L, staff());
 
             assertThat(exchange.captured.getRequestUri())
                     .contains("/internal/carlos/invites/7/revoke");
