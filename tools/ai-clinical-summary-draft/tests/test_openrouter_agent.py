@@ -43,7 +43,8 @@ def completion(config, _endpoint, payload):
 
 class OpenRouterTest(unittest.TestCase):
     def setUp(self):
-        self.config = dict(agent.DEFAULTS, api_key='test-key-never-a-real-secret', section_passes=False)
+        self.config = dict(agent.DEFAULTS, api_key='test-key-never-a-real-secret', section_passes=False,
+                           host_repair=False)
         self.calls = []
         self.now = 0
         def transport(config, endpoint, payload):
@@ -60,10 +61,12 @@ class OpenRouterTest(unittest.TestCase):
     def test_defaults_are_the_configuration_the_quality_gate_validated(self):
         # QUALITY.md: the only configuration that passed the gate on all three fixtures.
         self.assertEqual({'model': 'qwen/qwen3.5-27b', 'provider': 'siliconflow', 'temperature': 0.0,
-                          'reasoning_tokens': 0, 'request_bytes': 50000, 'section_passes': False},
+                          'reasoning_tokens': 0, 'request_bytes': 50000, 'section_passes': False,
+                          'host_merge_duplicates': True, 'host_repair': True},
                          {key: agent.DEFAULTS[key] for key in ('model', 'provider', 'temperature',
                                                                'reasoning_tokens', 'request_bytes',
-                                                               'section_passes')})
+                                                               'section_passes', 'host_merge_duplicates',
+                                                               'host_repair')})
         # Whole-record passes measured 176-209 seconds on 2026-09-18 and 204-288 on 2026-09-21,
         # so neither 180 nor 300 leaves room; the ceiling stays inside the 540-second gateway budget.
         self.assertEqual(420, agent.DEFAULTS['timeout_seconds'])
@@ -140,6 +143,66 @@ class OpenRouterTest(unittest.TestCase):
         self.assertIn(restored[0]['id'], next(section['claim_ids'] for section in output['sections']
                                               if section['id'] == 'results_observations'))
         self.gateway.validate_output(sources, output)
+
+    def two_note_request(self):
+        notes = [note for note in self.gateway.allowed.notes if note[0] == 'NHSSYN002'][:2]
+        sources = [dict(self.request['sources'][0], id=f'note-{i + 1}', patient_id='demographic-3002',
+                        title=f'Signed encounter note (note-{i + 1})', date=date, text=body)
+                   for i, (_fixture, date, body) in enumerate(notes)]
+        return dict(self.request, request_id=str(uuid4()), sources=sources)
+
+    def test_identical_statements_fail_the_draft_unless_the_host_merges_them(self):
+        def duplicating(config, endpoint, payload):
+            result = completion(config, endpoint, payload)
+            output = json.loads(result['choices'][0]['message']['content'])
+            output['claims'][1]['text'] = output['claims'][0]['text']
+            result['choices'][0]['message']['content'] = json.dumps(output)
+            return result
+        strict = agent.Gateway(dict(self.config, cache_seconds=0, host_merge_duplicates=False), transport=duplicating)
+        with self.assertRaisesRegex(ValueError, 'duplicate clinical claim'):
+            strict.run(self.two_note_request())
+        merging = agent.Gateway(dict(self.config, cache_seconds=0, host_merge_duplicates=True), transport=duplicating)
+        output = merging.run(self.two_note_request())['output']
+        model_claims = [claim for claim in output['claims'] if not claim['id'].startswith('host-')]
+        self.assertEqual(1, len(model_claims))
+        self.assertEqual(['note-1', 'note-2'], model_claims[0]['source_ids'])
+        self.assertEqual({'note-1', 'note-2'}, {entry['source_id'] for entry in output['coverage']})
+
+    def test_a_faulted_statement_is_repaired_in_one_small_call_or_kept_with_its_warning(self):
+        calls = []
+        def transport(config, endpoint, payload):
+            calls.append(payload)
+            schema = payload['response_format']['json_schema']['schema']['properties']
+            if 'statements' in schema:
+                asked = json.loads(payload['messages'][1]['content'])
+                self.assertEqual(['c0'], [s['id'] for s in asked['statements']])
+                self.assertIn('names a person', asked['statements'][0]['problems'][0])
+                return {'model': config['model'], 'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(
+                    {'statements': [{'id': 'c0', 'text': self.fixed}]})}}]}
+            result = completion(config, endpoint, payload)
+            output = json.loads(result['choices'][0]['message']['content'])
+            output['claims'][0]['text'] = 'Nurse Saoirse Keogh recorded ' + output['claims'][0]['text']
+            result['choices'][0]['message']['content'] = json.dumps(output)
+            return result
+        request = self.two_note_request()
+        original = json.loads(completion(self.config, '', {'messages': [None, {'content': json.dumps(
+            {'sources': request['sources']})}], 'response_format': {'json_schema': {'schema': agent.openrouter_schema(
+            self.gateway.schema, request['sources'])}}})['choices'][0]['message']['content'])['claims'][0]['text']
+        self.fixed = 'The nurse recorded ' + original
+        repairing = agent.Gateway(dict(self.config, cache_seconds=0, host_repair=True), transport=transport)
+        output = repairing.run(request)['output']
+        self.assertEqual(2, len(calls))
+        self.assertEqual(self.fixed, output['claims'][0]['text'])
+        self.assertEqual('repaired-c0', output['claims'][0]['id'])
+        self.assertIn('repaired-c0', output['sections'][0]['claim_ids'])
+        self.assertEqual(1, repairing.repairs)
+        # A rewrite the host can still fault is not accepted.
+        self.fixed = 'Nurse Saoirse Keogh again recorded ' + original
+        calls.clear()
+        kept = agent.Gateway(dict(self.config, cache_seconds=0, host_repair=True), transport=transport).run(request)['output']
+        self.assertEqual(2, len(calls))
+        self.assertTrue(kept['claims'][0]['text'].startswith('Nurse Saoirse Keogh recorded'))
+        self.assertEqual('c0', kept['claims'][0]['id'])
 
     def test_cache_expires_and_can_be_disabled(self):
         self.gateway.run(self.request)

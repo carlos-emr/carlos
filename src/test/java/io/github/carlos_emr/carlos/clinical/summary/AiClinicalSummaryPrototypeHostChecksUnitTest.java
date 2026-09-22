@@ -87,6 +87,17 @@ class AiClinicalSummaryPrototypeHostChecksUnitTest {
     }
 
     @Test
+    void recognisesARateWrittenPerMinuteInNotesAndInClaims() {
+        ArrayNode sources = sources("note-15", "2026-01-08",
+                "Obs: HR 82 bpm, BP 128/78 mmHg, RR 16/min, Temp 36.8, SpO2 97% on air.");
+        assertThat(ClinicalSummaryHostChecks.observationSets(sources.get(0).get("text").asText()))
+                .extracting(ClinicalSummaryHostChecks.ObservationSet::text).containsExactly("HR 82; BP 128/78; RR 16; Temp 36.8; SpO2 97");
+        ObjectNode reported = draft("Observations on 08/01/26 showed HR 82 bpm, BP 128/78 mmHg, RR 16/min, "
+                + "Temp 36.8\u00b0C, and SpO2 97% on air.", "note-15");
+        assertThat(ClinicalSummaryHostChecks.restoreObservations(reported, sources)).isEqualTo(reported);
+    }
+
+    @Test
     void ignoresFewerThanThreeKindsAndMeasurementsFarApart() {
         assertThat(ClinicalSummaryHostChecks.observationSets("BP 120/80 today, HR 70.")).isEmpty();
         String far = "HR 70 on arrival. " + "Unrelated narrative. ".repeat(8) + "BP 120/80 later. "

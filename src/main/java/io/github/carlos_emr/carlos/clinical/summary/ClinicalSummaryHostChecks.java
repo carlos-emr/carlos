@@ -65,8 +65,9 @@ public final class ClinicalSummaryHostChecks {
             if (finder.length() > 0) finder.append('|');
             finder.append("(?<").append(measurement[0]).append('>').append(measurement[1]).append(JOIN)
                     .append("(?<").append(measurement[0]).append("Value>").append(measurement[2])
-                    // A value may end a sentence ("SpO2 98."), but "36" is never read out of "36.8".
-                    .append(")(?![\\d/]|\\.\\d))");
+                    // A value may end a sentence ("SpO2 98.") or a unit ("RR 16/min"), but "36" is never
+                    // read out of "36.8" and "124" never out of "124/78".
+                    .append(")(?!\\d|/\\d|\\.\\d))");
         }
         FINDER = Pattern.compile(finder.toString(), Pattern.CASE_INSENSITIVE);
     }
@@ -162,7 +163,7 @@ public final class ClinicalSummaryHostChecks {
     private static boolean reports(String claimText, List<String[]> measurements) {
         for (String[] measurement : measurements) {
             Pattern stated = Pattern.compile(LABELS.get(measurement[0]) + "[^.;]{0,40}?(?<![\\d/.])"
-                    + Pattern.quote(measurement[1]) + "(?![\\d/])", Pattern.CASE_INSENSITIVE);
+                    + Pattern.quote(measurement[1]) + "(?!\\d|/\\d|\\.\\d)", Pattern.CASE_INSENSITIVE);
             if (!stated.matcher(claimText).find()) return false;
         }
         return true;

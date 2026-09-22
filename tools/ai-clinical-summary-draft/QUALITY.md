@@ -907,3 +907,64 @@ host because the draft omitted them" preamble is heavy; a host badge would read
 better. The Java host applies the observation and date guarantees but not yet the
 drug-conflict one, which the application currently gets only through the gateway.
 
+# Getting the fast stack to pass more often — 2026-09-21
+
+Three ideas were tried separately on 35B-A3B via Parasail, nine runs each (three per
+labelled patient), then together. All runs are in the run log with names beginning
+`X-`. Provider variation between batches turned out to be as large as the effects,
+so the decisive comparison is the last pair, run in the same hour.
+
+1. **Merge identical statements** instead of rejecting the draft. Zero time. Live it
+   never fired: no counted run produced two identical statements, and the one
+   baseline rejection ("Unreadable or duplicate clinical claim") may have been a
+   line break rather than a duplicate, since a rejected draft is not saved. It is
+   kept on because it is tested and costs nothing, not because it was shown to help.
+2. **Detect the remaining faults on the host.** Staff names come from titles in the
+   notes ("Nurse Wei Wang"), identifiers from the notes and the patient's own label.
+   Against the ledgers' hand-written lists the host found every staff name in all
+   three fixtures. Over 78 saved drafts it agreed with the scorer on names in 78 and
+   on cross-section restatements in 77; the one extra was a genuine restatement. The
+   host's restatement rule additionally requires the shorter statement's numbers
+   and dates to appear in the longer, because the same template of words on two
+   days with different values is two facts, and reads an ISO date as its dd/mm/yy
+   form. Detection alone changes no pass rate; it produces validation warnings and
+   is what makes the next idea precise.
+3. **One targeted repair call.** Only the faulted statements go back, with their
+   cited notes and a plain reason. A rewrite is kept only if the host can no longer
+   fault it, and it takes the ID prefix `repaired-`.
+
+| Batch | Pass | Median wall | Repair calls | Repaired statements | What still failed |
+| --- | --- | --- | --- | --- | --- |
+| Baseline, earlier | 6 of 9 | 32 s | — | — | date and identity, restatement, one rejected |
+| Idea 1 alone | 4 of 9 | 46 s | — | — | staff names in four runs, one date |
+| Idea 3 alone | 7 of 9 | 47 s | 6, 0.5–5.2 s | 13 | one date, one restatement |
+| 1+2+3, first version | 7 of 9 | 46 s | 7, 0.9–8.2 s | 3 | two dates |
+| Baseline, same hour as below | 6 of 9 | 50 s | — | — | staff names in three runs |
+| 1+2+3, after two fixes | **8 of 9** | 41 s | 6, 17 s in total | 7 | one restatement |
+
+The idea-1 batch failed on staff names that the baseline batch nine minutes earlier
+never produced, with identical settings; merging cannot cause that. Nine runs per
+batch is not enough to rank a change smaller than that variation, which is why the
+final pair was run side by side.
+
+The first combined batch left two date errors standing. Both were the model writing
+"reviewed again at admission on 09/01/26" against the pre-operative note, which
+carries no such date; the repair reason told the model which dates the note carried
+but not to drop the date, and it re-asserted one. The reason now says to remove the
+date or use only a carried one. The restatement failure was a host fault: "RR 16/min"
+was not recognised as a reported value, so the host restored a set the draft had
+reported and created a restatement of the draft's own statement. A value may now be
+followed by a unit; both implementations and their tests were corrected.
+
+The remaining failure in the final batch is the gate disagreeing with a chosen
+policy: the draft reported three of five measurements, the host restored the full
+set, and the scorer's looser word-matching counts that pair as a restatement. The
+host's own rule does not, and it still finds every restatement the scorer finds on
+the section-pass controls. The scorer is left unchanged as the independent measure.
+
+**Result: on the fast stack, eight of nine in the same hour that the baseline
+managed six of nine, at a median 41 seconds, with the repair call adding about
+three seconds when it runs.** Both switches are now the gateway defaults. Repaired
+statements are marked by ID but not yet badged on screen; the Java host has none
+of this, so the application gets it only through the gateway.
+

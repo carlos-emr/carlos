@@ -75,6 +75,13 @@ def build_artifact(bundle, generated, model, artifact_id, timestamp, allow_empty
             "source_ids": finding["source_ids"]}
            for finding in host_checks.undocumented_changes(generated, bundle["sources"],
                                                            host_checks.configured_classes())]
+        + [{"severity": "warning", "code": "statement_names_person_or_identifier",
+            "message": "Statement " + finding["claim_id"] + " names a person or carries a patient identifier ("
+                       + ", ".join(finding["terms"]) + ").", "source_ids": []}
+           for finding in host_checks.name_findings(generated, bundle["sources"], bundle["patient_context"].get("label"))]
+        + [{"severity": "warning", "code": "statements_restate_each_other",
+            "message": "Statement " + shorter + " restates statement " + longer + " in another section.",
+            "source_ids": []} for longer, shorter, _j, _c in host_checks.near_duplicates(generated)]
         + [{"severity": "warning", "code": "sources_not_cited_without_reason",
             "message": "The draft neither cites nor explains setting aside these notes; read them directly.",
             "source_ids": unexplained} for unexplained in [pipeline.unexplained_sources(generated)] if unexplained]
