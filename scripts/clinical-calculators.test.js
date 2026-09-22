@@ -304,10 +304,19 @@ test('the calculators are reached by clicking, never by their URL', () => {
   // The DEFAULT chart layout (newEncounterLayout) renders newEncounterHeader.jsp,
   // not navigation.jsp; it had no calculators control at all until #3665, so
   // the opener above found nothing on a packaged install. Both layouts must
-  // keep the control, and the header's must be the onclick the opener looks for.
+  // keep the control, and the header's must carry the onclick the opener looks
+  // for. The header briefly carried TWO such controls (phc007 reported the pair);
+  // it now carries exactly one, and it is the demo= form, which resolves sex and
+  // age from the record instead of putting them in the URL.
   const header = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'), 'utf8');
-  assert.match(header, /onClick="popupPage\([^"]*\/encounter\/ViewCalculators\?sex=/,
-    'the default chart header must offer the calculators through popupPage(), which the opener clicks');
+  const headerMarkup = header.replace(/<%--[\s\S]*?--%>/g, '');
+  const openers = headerMarkup.match(/on[Cc]lick="[^"]*\/encounter\/ViewCalculators[^"]*"/g) || [];
+  assert.equal(openers.length, 1,
+    `the default chart header must offer exactly one calculators control, found ${openers.length}`);
+  assert.match(openers[0], /window\.open\(/,
+    'the calculators control must open a popup, which is what the opener above clicks');
+  assert.match(openers[0], /ViewCalculators\?demo=/,
+    'the calculators control must resolve the patient from the record, not from sex/age in the URL');
   assert.ok(!/page\.goto\(/.test(SOURCE),
     'entering by address would skip the chart header opener this check exists to exercise');
   assert.ok(!/ViewOsteoporoticFracture|ViewSimpleCalculator/.test(SOURCE),

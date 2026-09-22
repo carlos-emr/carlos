@@ -1,5 +1,6 @@
 <%-- edit-view.jsp: Read-only demographic display (extracted from demographiceditdemographic.jsp lines 1513-2609) --%>
 <%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ page import="java.net.*" %>
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
@@ -430,7 +431,7 @@
                                                                 </h3>
                                                                 <ul>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
-                                                                        <span class="info"><%=demographic.getRosterStatusDisplay()%></span>
+                                                                        <span class="info"><%=demographic.getRosterStatusDisplay(LocaleUtils.resolveBundleLocale(request))%></span>
                                                                     </li>
                                                                     <%if ("RO".equals(demographic.getRosterStatus()) || "TE".equals(demographic.getRosterStatus())) { %>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>:</span>

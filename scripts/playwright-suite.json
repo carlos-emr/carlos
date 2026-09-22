@@ -2068,6 +2068,24 @@
       ]
     },
     {
+      "name": "encounter-header-i18n",
+      "script": "scripts/encounter-header-i18n-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "HEADER_I18N_SEARCH",
+        "HEADER_I18N_DEMOGRAPHIC_NO",
+        "HEADER_I18N_TIMEOUT_MS"
+      ],
+      "notes": "Walks the chart twice against one server, with a French browser and an English one, and asserts the two headers differ. A single-language check cannot see a header that answers in the server's locale."
+    },
+    {
       "name": "echart-note-editor",
       "script": "scripts/echart-note-editor-playwright-checks.js",
       "tiers": [

@@ -32,6 +32,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Locale;
@@ -41,12 +42,21 @@ import java.util.ResourceBundle;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 public final class LocaleUtils {
     private static Logger logger = MiscUtils.getLogger();
     private static final Locale DEFAULT_LOCALE;
     public static String BASE_NAME;
     private static HashMap<String, TreeMap<String, String>> provinceCache;
+
+    /**
+     * Bundle lookup that does not fall back to the JVM default locale, so "no bundle for this
+     * locale" is a miss we can act on rather than a silent switch to whatever language the
+     * server happens to be running in.
+     */
+    private static final ResourceBundle.Control NO_FALLBACK_CONTROL =
+            ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES);
 
     public LocaleUtils() {
     }
@@ -56,7 +66,48 @@ public final class LocaleUtils {
     }
 
     public static String getMessage(ServletRequest request, String key) {
-        return getMessage(request.getLocale(), key);
+        return getMessage(resolveBundleLocale(request), key);
+    }
+
+    /**
+     * Resolves the locale a page should be rendered in from the browser's {@code Accept-Language}
+     * preferences, the same way the JSTL {@code fmt} taglib resolves {@code <fmt:message>}: the
+     * first preference that actually has a bundle wins, otherwise English.
+     *
+     * <p>Java code that renders user-facing text must use this rather than the JVM default locale or
+     * {@code LocaleContextHolder}. CARLOS has no Spring {@code LocaleResolver} in the Struts/JSP
+     * request path, so those both report the <em>server's</em> locale — a French clinician on an
+     * English-defaulted server would get the JSP text translated and the Java-built text not, in
+     * the same header.</p>
+     *
+     * <p>Plain {@code ResourceBundle.getBundle(name, locale)} is not enough on its own either: for
+     * an unsupported first preference (say {@code de-DE,fr}) it falls back to the JVM default
+     * locale instead of trying the next preference, which is the same server-locale leak one step
+     * removed.</p>
+     *
+     * @param request current request; {@code null} is tolerated and yields the English fallback
+     * @return the locale to load {@link #BASE_NAME} with; never {@code null}
+     */
+    public static Locale resolveBundleLocale(ServletRequest request) {
+        if (request instanceof HttpServletRequest httpRequest) {
+            String acceptLanguage = httpRequest.getHeader("Accept-Language");
+            // Without a preference, getLocales() supplies the container's default locale.
+            // Treat that as an absent browser preference, not a supported language choice.
+            if (acceptLanguage == null || acceptLanguage.isBlank()) {
+                return DEFAULT_LOCALE;
+            }
+        }
+        Enumeration<Locale> preferred = request == null ? null : request.getLocales();
+        while (preferred != null && preferred.hasMoreElements()) {
+            Locale candidate = preferred.nextElement();
+            try {
+                ResourceBundle.getBundle(BASE_NAME, candidate, NO_FALLBACK_CONTROL);
+                return candidate;
+            } catch (MissingResourceException e) {
+                // No bundle for this preference; try the browser's next choice.
+            }
+        }
+        return DEFAULT_LOCALE;
     }
 
     public static String getMessage(String localeString, String key) {

@@ -1328,3 +1328,55 @@ which virtualization layer exhausted memory. The application acceptance tests
 completed before this interruption, but the overall host/VM environment cannot
 be declared stable from this run. Compilation and VM operation must remain
 separate, and nested-VM checks are paused pending the outer memory budget.
+
+### Encounter chart header i18n validation (2026-09-20)
+
+Validation of the phc007 report on the chart header (findings 41-43 in
+[app-findings-log.md](app-findings-log.md)), run against a packaged install
+rather than the devcontainer, because the report was made against a package.
+
+**Environment deviations from the runbook above.** The host had no LXD, so the
+target was an Ubuntu 26.04 **container** running systemd (`--privileged`, the
+host's cgroup2 hierarchy bind-mounted at `/sys/fs/cgroup`; Ubuntu 26.04's
+systemd refuses to boot on a cgroup v1 hierarchy). `carlos-emr` was built with
+`SKIP_DRUGREF=1 SKIP_EFORM_RENDERER=1` and installed alone, so `carlos-ctl
+check` reports `NOTE carlos-emr-drugref is not installed` — prescribing lookups
+were not exercised and are not claimed. Everything else in that check passed,
+including the WAF blocking a probe SQLi and the 23 Flyway migrations. nginx and
+MariaDB are not started by `apt` inside a container, so the postinst ended with
+the package's own `install-incomplete` marker (`reason=nginx did not bind the
+configured front-door listeners`); `carlos-ctl finish-install` completed the
+install exactly as the marker instructs. That is a container artefact, not a
+packaging defect: the same postinst starts them on a VM.
+
+The browser walked the front door on `https://127.0.0.1/carlos` — the **default
+port**, forwarded to the container, not a published high port. On a high port
+the application's own absolute URLs (`https://127.0.0.1/carlos/...`) point back
+at 443 and every subresource fails with `ERR_CONNECTION_REFUSED`, which looks
+like a broken page and is only the test setup.
+
+**Before and after, measured on the same install.** The pre-fix WAR (the commit
+before the change) and the fixed WAR were each exploded over
+`/usr/share/carlos-emr/webapp/carlos` and the service restarted, and the chart
+header was read with an `en-CA` browser and an `fr-CA` browser:
+
+| | pre-fix `en-CA` | pre-fix `fr-CA` | fixed `en-CA` | fixed `fr-CA` |
+|---|---|---|---|---|
+| identity labels | Sex, DOB, Age, Next Appt., MRP | **identical to English** | Sex, DOB, Age, Next Appt., MRP | Sexe, DDN, Âge, Prochain rendez-vous, MRP |
+| calculators controls | **2** | **2** | 1 | 1 |
+| calculators label | calculators | calculatrices | calculators | calculatrices |
+| template search legend | Template Search | **Template Search** | Template Search | Recherche de modèles |
+| template name placeholder | template name | **template name** | template name | nom du modèle |
+
+The pre-fix French column is the report: the JSP half of the header translated
+and the Java half did not.
+
+**Checks run against the fixed package** (`EXPECT_FRONT_DOOR=true`):
+`encounter-header-i18n` PASS, `clinical-calculators` PASS, `echart` PASS,
+`master-record-tabs` PASS (17 items opened, 1 skipped by policy).
+`encounter-header-i18n` was also run against the pre-fix package as a negative
+control and FAILED on the duplicate calculators control, so the check detects
+the defect rather than merely agreeing with the fix.
+`demographic-edit-update` was not run: it needs `MYSQL_PASSWORD` and a search
+term that lands on its configured demographic, neither of which this
+container's demo dataset provided, and it does not touch the changed code.
