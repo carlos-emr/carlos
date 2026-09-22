@@ -113,6 +113,11 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         public boolean isTerminal() {
             return TERMINAL.contains(this);
         }
+
+        /** @return the states of an attempt that has not finished */
+        public static Set<State> unfinished() {
+            return EnumSet.complementOf(EnumSet.copyOf(TERMINAL));
+        }
     }
 
     /**
@@ -140,7 +145,9 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         /** Staff confirmed the email did not arrive, and the code was revoked. */
         CONFIRMED_NOT_SENT,
         /** Staff stopped the attempt before its code was activated. */
-        ABANDONED_BY_STAFF
+        ABANDONED_BY_STAFF,
+        /** The email was sent, but the note recording it on the chart could not be written. */
+        CHART_NOTE_FAILED
     }
 
     @Id

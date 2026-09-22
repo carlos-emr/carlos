@@ -122,6 +122,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         when(emailConfigs.findActiveEmailConfig("clinic@example.invalid")).thenReturn(sender);
 
         backDeliveriesInMemory();
+        when(emailLogs.find(EMAIL_LOG)).thenReturn(emailLog());
         scriptPortal();
         scriptEmailManager();
 
@@ -290,7 +291,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse text message invitations until an SMS provider exists")
         void shouldRefuse_whenChannelIsSms() {
             assertRefusedBeforePortal(() -> service.invite(user, patient(), staff,
-                    new InviteRequest(Channel.SMS, false, false, null)), Reason.CHANNEL_UNAVAILABLE);
+                    new InviteRequest(Channel.SMS, false, false, null, false)), Reason.CHANNEL_UNAVAILABLE);
         }
 
         @Test
@@ -336,7 +337,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should resend the pending invitation when replacement is confirmed")
         void shouldResend_whenConfirmed() {
             PatientPortalInviteDelivery row = service.invite(user, patient(), staff,
-                    new InviteRequest(Channel.EMAIL, true, false, null));
+                    new InviteRequest(Channel.EMAIL, true, false, null, false));
 
             verify(portal).prepareInviteResend(eq(9L), eq(row.getDeliveryOperationId()), eq(staff));
             assertThat(row.getSupersededInviteId()).isEqualTo(9L);
@@ -633,18 +634,156 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             verifyNoInteractions(portal);
         }
 
-        private PatientPortalInviteDelivery storedRow(State state, Duration idle) {
-            PatientPortalInviteDelivery row = deliveries.claim(new PatientPortalInviteDelivery("inv-stored", PATIENT,
-                    "maplecreek", "https://portal-api.clinic.example", Channel.EMAIL, null, "999998"));
-            row.setState(state);
-            row.setPortalInviteId(INVITE);
-            row.setEmailLogId(EMAIL_LOG);
-            injectDependency(row, "updatedAt", Date.from(NOW.minus(idle)));
-            return row;
+    }
+
+    @Nested
+    @DisplayName("chart note")
+    class ChartNote {
+
+        @Test
+        @DisplayName("should record a sent invitation on the chart without its code")
+        void shouldRecordOnChart_withoutTheCode() {
+            service.invite(user, patient(), staff, emailRequest());
+
+            ArgumentCaptor<String> note = ArgumentCaptor.forClass(String.class);
+            verify(emailManager).addEmailNote(eq(user), any(EmailLog.class), note.capture());
+            assertThat(note.getValue())
+                    .contains("Patient portal invitation emailed to patient@example.com.")
+                    .contains("not recorded in CARLOS")
+                    .doesNotContain(CODE)
+                    .doesNotContain("replaced");
+        }
+
+        @Test
+        @DisplayName("should say on the chart that a resend replaced the earlier invitation")
+        void shouldNoteTheReplacement_forAResend() {
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "pending")));
+
+            service.resend(user, patient(), INVITE, staff, emailRequest());
+
+            ArgumentCaptor<String> note = ArgumentCaptor.forClass(String.class);
+            verify(emailManager).addEmailNote(eq(user), any(EmailLog.class), note.capture());
+            assertThat(note.getValue()).contains("replaced an earlier invitation").doesNotContain(CODE);
+        }
+
+        @Test
+        @DisplayName("should keep a sent invitation sent, and say so, when the chart note fails")
+        void shouldRecordChartNoteFailure_withoutUndoingTheSend() {
+            doThrow(new IllegalStateException("note store unavailable"))
+                    .when(emailManager).addEmailNote(any(), any(EmailLog.class), anyString());
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.SENT);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.CHART_NOTE_FAILED);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should write no chart note for an invitation that was not sent")
+        void shouldWriteNoNote_whenTheSendIsRefused() {
+            transport = EmailSendResult.TransportOutcome.FAILED;
+
+            service.invite(user, patient(), staff, emailRequest());
+
+            verify(emailManager, never()).addEmailNote(any(), any(EmailLog.class), anyString());
+        }
+
+        @Test
+        @DisplayName("should record the invitation on the chart when staff confirm it arrived")
+        void shouldRecordOnChart_whenStaffConfirmArrival() {
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+
+            service.recover(user, patient(), row.getId(), Decision.CONFIRM_SENT, staff);
+
+            ArgumentCaptor<String> note = ArgumentCaptor.forClass(String.class);
+            verify(emailManager).addEmailNote(eq(user), any(EmailLog.class), note.capture());
+            assertThat(note.getValue()).contains("Staff confirmed the email arrived.");
+        }
+    }
+
+    @Nested
+    @DisplayName("stuck earlier attempts")
+    class StuckAttempts {
+
+        @Test
+        @DisplayName("should refuse, before any portal call, while a stuck attempt is unconfirmed")
+        void shouldRefuse_whenAStuckAttemptExists() {
+            storedRow(State.PREPARED, Duration.ofMinutes(16));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.STALE_ATTEMPT_EXISTS));
+            verifyNoInteractions(portal);
+            assertThat(rows).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("should withdraw the stuck attempt, then invite, once staff confirm")
+        void shouldWithdrawThenInvite_whenConfirmed() {
+            PatientPortalInviteDelivery stuck = storedRow(State.QUEUED, Duration.ofMinutes(16));
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff,
+                    new InviteRequest(Channel.EMAIL, false, false, null, true));
+
+            assertThat(stuck.getState()).isEqualTo(State.ABANDONED);
+            assertThat(stuck.getOutcome()).isEqualTo(Outcome.ABANDONED_BY_STAFF);
+            verify(emailLogs).transitionEmailStatus(eq(EMAIL_LOG), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
+                    anyString(), any(Date.class));
+            InOrder order = inOrder(portal);
+            order.verify(portal).revokeInvite(PATIENT, INVITE, staff);
+            order.verify(portal).prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any());
+            assertThat(row.getState()).isEqualTo(State.SENT);
+        }
+
+        @Test
+        @DisplayName("should not hold up an invitation for an attempt that may still be running")
+        void shouldIgnoreAnAttempt_thatIsNotYetIdle() {
+            storedRow(State.PREPARED, Duration.ofMinutes(5));
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.SENT);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should not count an attempt whose code went live, which only staff can resolve")
+        void shouldIgnoreAnAttempt_afterItsCodeWentLive() {
+            storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.SENT);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should leave alone a stuck attempt made against a different portal connection")
+        void shouldIgnoreAnAttempt_onAnotherConnection() {
+            PatientPortalInviteDelivery elsewhere = deliveries.claim(new PatientPortalInviteDelivery("inv-other",
+                    PATIENT, "maplecreek", "https://other-portal.clinic.example", Channel.EMAIL, null, "999998"));
+            elsewhere.setState(State.PREPARED);
+            injectDependency(elsewhere, "updatedAt", Date.from(NOW.minus(Duration.ofMinutes(16))));
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.SENT);
+            assertThat(elsewhere.getState()).isEqualTo(State.PREPARED);
         }
     }
 
     // --- fixtures ----------------------------------------------------------------------------
+
+    private PatientPortalInviteDelivery storedRow(State state, Duration idle) {
+        PatientPortalInviteDelivery row = deliveries.claim(new PatientPortalInviteDelivery("inv-stored", PATIENT,
+                "maplecreek", "https://portal-api.clinic.example", Channel.EMAIL, null, "999998"));
+        row.setState(state);
+        row.setPortalInviteId(INVITE);
+        row.setEmailLogId(EMAIL_LOG);
+        injectDependency(row, "updatedAt", Date.from(NOW.minus(idle)));
+        return row;
+    }
 
     private void backDeliveriesInMemory() {
         when(deliveries.claim(any())).thenAnswer(invocation -> {
@@ -669,6 +808,10 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             touch(row);
             return row;
         });
+        when(deliveries.findUnfinishedByDemographic(anyInt())).thenAnswer(invocation -> rows.values().stream()
+                .filter(row -> row.getDemographicNo() == (int) invocation.getArgument(0))
+                .filter(row -> !row.getState().isTerminal())
+                .toList());
     }
 
     private void scriptPortal() {
@@ -730,6 +873,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         EmailLog log = new EmailLog();
         injectDependency(log, "id", EMAIL_LOG);
         log.setStatus(EmailStatus.PENDING);
+        log.setToEmail(new String[] {"patient@example.com"});
         return log;
     }
 
@@ -747,7 +891,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     private static InviteRequest emailRequest() {
-        return new InviteRequest(Channel.EMAIL, false, false, null);
+        return new InviteRequest(Channel.EMAIL, false, false, null, false);
     }
 
     private static Demographic patient() {

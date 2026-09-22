@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
@@ -922,15 +923,36 @@ public class EmailManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_email)");
         }
+        addEmailNote(loggedInInfo, emailLog, new EmailNoteUtil(loggedInInfo, emailLog).createNote());
+    }
 
-        EmailNoteUtil emailNoteUtil = new EmailNoteUtil(loggedInInfo, emailLog);
-        String emailNote = emailNoteUtil.createNote();
+    /**
+     * Records an email on the patient chart with caller-supplied text instead of the email's content.
+     *
+     * <p>For an email whose body must not reach the chart: a patient portal invitation carries an
+     * account credential, and a chart note is permanent. The note is signed, filed and linked to the
+     * email log exactly as {@link #addEmailNote(LoggedInInfo, EmailLog)} does.
+     *
+     * @param loggedInInfo the logged-in user, who signs the note
+     * @param emailLog the sent email the note documents
+     * @param emailNote the note text; it must not contain anything the chart may not hold
+     * @throws RuntimeException if user lacks _email READ privilege
+     * @since 2026-09-22
+     */
+    public void addEmailNote(LoggedInInfo loggedInInfo, EmailLog emailLog, String emailNote) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+            throw new RuntimeException("missing required sec object (_email)");
+        }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String programId = new EctProgram(loggedInInfo.getSession()).getProgram(providerNo);
         Date creationDate = new Date();
 
-        ProgramProvider programProvider = programManager.getProgramProvider(providerNo, programId);
+        // EctProgram answers "0" for a provider with no program, which the lookup rejects outright. Such a
+        // note takes the doctor role below, as a provider without a program-specific role already does.
+        ProgramProvider programProvider = NumberUtils.toLong(programId) > 0
+                ? programManager.getProgramProvider(providerNo, programId)
+                : null;
         SecRole doctorRole = caseManagementManager.getSecRoleByRoleName("doctor");
         String role = programProvider != null ? String.valueOf(programProvider.getRoleId()) : String.valueOf(doctorRole.getId());
 

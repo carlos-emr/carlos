@@ -168,9 +168,18 @@
             // An attempt that stopped short still answers 200: the request was handled, the invitation was
             // not necessarily delivered. Only a sent one is good news, and its state label alone does not
             // tell staff what to do, so the attempt's own explanation is shown with it.
+            // A sent invitation whose chart note failed still needs staff to act.
             var delivery = body.delivery;
-            var sent = !delivery || delivery.state === 'sent';
+            var sent = !delivery || (delivery.state === 'sent' && delivery.outcome !== 'chart_note_failed');
             showStatus(delivery ? describe(delivery) : text('done'), sent);
+        } else if (body && body.reason === 'stale_attempt_exists' && !params.withdrawStale) {
+            // An earlier attempt stopped before its code was activated and may be blocking this one.
+            // Nothing from it reached the patient, so withdrawing it is safe once staff agree.
+            if (window.confirm(text('invites.confirmWithdrawStale'))) {
+                await act(path, Object.assign({}, params, {withdrawStale: 'true'}));
+                return;
+            }
+            showStatus(refusal(body), false);
         } else {
             showStatus(refusal(body), false);
         }

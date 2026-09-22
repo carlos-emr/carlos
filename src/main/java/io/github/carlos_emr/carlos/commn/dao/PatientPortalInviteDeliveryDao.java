@@ -50,4 +50,7 @@ public interface PatientPortalInviteDeliveryDao extends AbstractDao<PatientPorta
 
     /** @return the most recent attempts for a patient, newest first */
     List<PatientPortalInviteDelivery> findRecentByDemographic(int demographicNo, int limit);
+
+    /** @return every attempt for a patient that has not finished, oldest first */
+    List<PatientPortalInviteDelivery> findUnfinishedByDemographic(int demographicNo);
 }

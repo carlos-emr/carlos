@@ -129,7 +129,7 @@ class PortalInvite2ActionDeliveryUnitTest {
         assertThat(body.get("delivery").get("decisions").size()).isZero();
         ArgumentCaptor<InviteRequest> invite = ArgumentCaptor.forClass(InviteRequest.class);
         verify(invites).invite(same(session), same(patient), same(staff), invite.capture());
-        assertThat(invite.getValue()).isEqualTo(new InviteRequest(Channel.EMAIL, false, false, null));
+        assertThat(invite.getValue()).isEqualTo(new InviteRequest(Channel.EMAIL, false, false, null, false));
     }
 
     @Test
@@ -146,7 +146,33 @@ class PortalInvite2ActionDeliveryUnitTest {
         ArgumentCaptor<InviteRequest> invite = ArgumentCaptor.forClass(InviteRequest.class);
         verify(invites).invite(any(), any(), any(), invite.capture());
         assertThat(invite.getValue()).isEqualTo(
-                new InviteRequest(Channel.EMAIL, true, true, "Verbal consent at the front desk"));
+                new InviteRequest(Channel.EMAIL, true, true, "Verbal consent at the front desk", false));
+    }
+
+    @Test
+    @DisplayName("should pass staff's confirmation to withdraw a stuck attempt through")
+    void shouldPassWithdrawStale_toTheWorkflow() throws Exception {
+        request.setParameter("method", "create");
+        request.setParameter("withdrawStale", "true");
+        when(invites.invite(any(), any(), any(), any())).thenReturn(delivery(State.SENT));
+
+        execute();
+
+        ArgumentCaptor<InviteRequest> invite = ArgumentCaptor.forClass(InviteRequest.class);
+        verify(invites).invite(any(), any(), any(), invite.capture());
+        assertThat(invite.getValue().withdrawStale()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should answer a stuck earlier attempt with a conflict the page can confirm")
+    void shouldAnswerStaleAttempt_withConflict() throws Exception {
+        request.setParameter("method", "create");
+        when(invites.invite(any(), any(), any(), any())).thenThrow(refusal("STALE_ATTEMPT_EXISTS"));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(payload().get("reason").asText()).isEqualTo("stale_attempt_exists");
     }
 
     @Test
