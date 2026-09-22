@@ -1028,7 +1028,8 @@ public class EmailManager {
         if (consentResult.getStatus() == EmailConsentStatus.NOT_CONFIGURED) {
             return "Email blocked: patient email consent is not configured.";
         }
-        return "Email blocked: patient email consent is unknown and no override reason was provided.";
+        // Covers both no consent record and an implied one: neither establishes explicit consent.
+        return "Email blocked: explicit email consent is not on record and no confirmation reason was provided.";
     }
 
     /**
