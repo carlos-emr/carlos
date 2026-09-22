@@ -772,6 +772,10 @@ public class EmailManager {
         if (emailLog == null) {
             return EmailResolutionResult.NOT_FOUND;
         }
+        // Portal recovery owns these whatever their age, so "too recent" would be the wrong reason.
+        if (emailLog.isPortalDeliveryUnresolved()) {
+            return EmailResolutionResult.NOT_RESOLVABLE;
+        }
         if (EmailStatus.PENDING.equals(emailLog.getStatus()) && !isManuallyResolvable(emailLog)) {
             return EmailResolutionResult.PENDING_TOO_RECENT;
         }
