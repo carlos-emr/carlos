@@ -34,6 +34,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountAcknowledgementDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
@@ -140,6 +143,10 @@ class PortalAccountAndPanelActionUnitTest {
 
     private PatientPortalAccountAcknowledgementDto acknowledgement() {
         return new PatientPortalAccountAcknowledgementDto(5L, "active", true, null);
+    }
+
+    private JsonNode payload() throws IOException {
+        return new ObjectMapper().readTree(response.getContentAsString());
     }
 
     @Nested
@@ -288,7 +295,7 @@ class PortalAccountAndPanelActionUnitTest {
             accountAction().execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-            var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+            JsonNode payload = payload();
             assertThat(payload.has("forcePasswordReset")).isTrue();
             assertThat(payload.get("forcePasswordReset").booleanValue()).isEqualTo(forcePasswordReset);
         }
@@ -320,7 +327,10 @@ class PortalAccountAndPanelActionUnitTest {
             panelAction().execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-            assertThat(response.getContentAsString()).contains("invites").contains("account");
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isTrue();
+            assertThat(payload.get("invites").size()).isEqualTo(1);
+            assertThat(payload.get("account").get("accountId").longValue()).isEqualTo(5L);
         }
 
         @Test
@@ -351,8 +361,10 @@ class PortalAccountAndPanelActionUnitTest {
 
             panelAction().execute();
 
-            assertThat(response.getContentAsString()).doesNotContain("invites");
-            assertThat(response.getContentAsString()).contains("account");
+            JsonNode payload = payload();
+            assertThat(payload.has("invites")).isFalse();
+            assertThat(payload.has("invitesError")).isFalse();
+            assertThat(payload.get("account").get("accountId").longValue()).isEqualTo(5L);
             verify(patientPortalService, never()).listInvites(anyInt(), any());
         }
 
@@ -431,9 +443,10 @@ class PortalAccountAndPanelActionUnitTest {
 
             panelAction().execute();
 
-            assertThat(response.getContentAsString())
-                    .contains("inviteId")
-                    .contains("accountError");
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isFalse();
+            assertThat(payload.get("invites").get(0).has("inviteId")).isTrue();
+            assertThat(payload.get("accountError").asText()).isEqualTo("unavailable");
         }
     }
 
@@ -460,11 +473,11 @@ class PortalAccountAndPanelActionUnitTest {
             when(patientPortalService.listInvites(anyInt(), any()))
                     .thenThrow(
                             PatientPortalException.ofTransportFailure(
-                                    "/x/{id}", new java.io.IOException("down")));
+                                    "/x/{id}", new IOException("down")));
             when(patientPortalService.findAccount(anyInt(), any()))
                     .thenThrow(
                             PatientPortalException.ofTransportFailure(
-                                    "/y/{id}", new java.io.IOException("down")));
+                                    "/y/{id}", new IOException("down")));
 
             panelAction().execute();
 
@@ -521,9 +534,7 @@ class PortalAccountAndPanelActionUnitTest {
 
             panelAction().execute();
 
-            com.fasterxml.jackson.databind.JsonNode payload =
-                    new com.fasterxml.jackson.databind.ObjectMapper()
-                            .readTree(response.getContentAsString());
+            JsonNode payload = payload();
             assertThat(payload.has("invites")).isTrue();
             assertThat(payload.has("account")).isFalse();
             assertThat(payload.has("accountError")).isFalse();
