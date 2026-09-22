@@ -34,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -180,7 +181,7 @@ class JpaSmsTransactionServiceUnitTest {
         recorder.markProviderResult(transaction, SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
 
         verify(smsTransactionDao).merge(transaction);
-        verify(eventPublisher, never()).publishEvent(any());
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
                 .containsExactly(SmsStatus.SENT, "provider-1");
@@ -352,6 +353,86 @@ class JpaSmsTransactionServiceUnitTest {
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
                 .containsExactly(SmsStatus.DELIVERED, "provider-1");
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent publishes a failure event when the carrier reports a failed delivery")
+    void shouldPublishFailedEvent_whenDeliveryWebhookReportsFailure() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction sent = acceptedOutboundRow();
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(sent));
+
+        SmsTransaction transaction = recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
+
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.FAILED);
+        ArgumentCaptor<SmsSendFailedEvent> captor = ArgumentCaptor.forClass(SmsSendFailedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue())
+                .extracting(SmsSendFailedEvent::demographicNo, SmsSendFailedEvent::errorCode)
+                .containsExactly(123, "CARRIER_REJECTED");
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent does not republish when a failed delivery callback is replayed")
+    void shouldNotRepublishFailedEvent_whenDeliveryCallbackIsReplayed() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction sent = acceptedOutboundRow();
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(sent));
+        SmsDeliveryWebhookDto callback = failedDelivery(Instant.parse("2026-09-22T10:00:00Z"));
+
+        recorder.recordDeliveryEvent(callback);
+        recorder.recordDeliveryEvent(callback);
+
+        assertThat(sent.getStatus()).isEqualTo(SmsStatus.FAILED);
+        verify(eventPublisher, times(1)).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent publishes nothing when the carrier confirms delivery")
+    void shouldNotPublishFailedEvent_whenDeliveryWebhookConfirmsDelivery() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction sent = acceptedOutboundRow();
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(sent));
+
+        recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-1", SmsStatus.DELIVERED,
+                Instant.parse("2026-09-22T10:00:00Z"), null, null, null));
+
+        assertThat(sent.getStatus()).isEqualTo(SmsStatus.DELIVERED);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent publishes nothing for a failed callback that matches no stored message")
+    void shouldNotPublishFailedEvent_whenFailedCallbackMatchesNoStoredMessage() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.empty());
+
+        SmsTransaction transaction = recorder.recordDeliveryEvent(
+                failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
+
+        // The row carries no patient, provider or appointment, so the event would say nothing useful.
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.FAILED);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    private static SmsTransaction acceptedOutboundRow() {
+        SmsTransaction sent = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        sent.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
+        return sent;
+    }
+
+    private static SmsDeliveryWebhookDto failedDelivery(Instant eventAt) {
+        return new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-1", SmsStatus.FAILED, eventAt,
+                "CARRIER_REJECTED", "Handset unreachable", null);
     }
 
     @Test
