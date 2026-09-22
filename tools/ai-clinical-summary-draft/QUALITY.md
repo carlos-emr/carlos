@@ -1032,3 +1032,38 @@ The clinical content of the 47 unlabelled drafts has not been checked against an
 ledger; "no residual host-detectable fault" says the host found nothing to flag,
 not that the drafts are right.
 
+## Re-running the ten rejections
+
+The host was then taught to settle the four formatting faults and a chart's passes
+were allowed to run three at a time. Re-running the ten rejected charts separately,
+with the same 27B/SiliconFlow settings, recovered four:
+
+| Chart | Result | Wall time | What happened |
+| --- | --- | --- | --- |
+| 015 | valid | 217 s | recovered from the earlier dropped response |
+| 017 | valid | 323 s | three parallel passes completed inside the 540-second chart budget; the earlier serial run exhausted it |
+| 019 | valid | 249 s | recovered from the earlier dropped response |
+| 049 | valid | 377 s | recovered from the earlier 420-second timeout |
+| 008, 010, 025 | rejected | 420 s each | SiliconFlow timed out, so the formatting tolerance was not exercised |
+| 018 | rejected | 420 s | the provider returned an incomplete or refused completion |
+| 024 | rejected | 221 s | the provider returned an incomplete or refused completion |
+| 044 | rejected | 231 s | the provider returned HTTP 503 |
+
+This is evidence that parallel passes fix the chart-budget failure mode, not a new
+50-chart pass rate: provider variance changed which charts completed, and six of
+the ten still did not return a usable completion.
+
+The four original formatting charts were tried once more. NHSSYN010 completed in
+132 seconds with 30 claims and NHSSYN024 in 378 seconds with 55 claims, but neither
+fresh completion reproduced its original fault. NHSSYN008 timed out again at 420
+seconds with no claims. NHSSYN025 completed in 237 seconds with 94 claims and did
+reproduce a duplicate identifier: two statements arrived as `c11`; the host renamed
+the second to `c11-2`, recorded the settled fault, and returned a structurally valid
+artifact. This is the first live model output to exercise the formatting tolerance.
+The four trials cost $0.058 in total; the timeout had no reported token cost.
+
+The result verifies duplicate-ID settlement in a live run. Stray-section placement
+and unsupported-statement removal remain covered by unit tests in both languages but
+have not yet been observed on fresh provider output. It also reinforces the larger
+operational finding: the default model/provider can produce good drafts, but its
+latency and dropped responses are too variable for dependable interactive use.
