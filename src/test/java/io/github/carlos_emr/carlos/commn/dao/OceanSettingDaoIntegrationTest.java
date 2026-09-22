@@ -50,7 +50,7 @@ class OceanSettingDaoIntegrationTest {
     }
 
     @Test
-    void shouldPersistUpdateAndClear_withActorAndTimestamp() {
+    void shouldPersistUpdateAndClear_withActorAndTimestamp() throws Exception {
         try (var em = factory.createEntityManager()) {
             em.getTransaction().begin();
             var dao = dao(em);
@@ -65,6 +65,11 @@ class OceanSettingDaoIntegrationTest {
             assertThat(updated.getLastUpdateUser()).isEqualTo("1002");
             assertThat(dao.saveSettings(null, "1003").getSettings()).isNull();
             em.getTransaction().commit();
+        }
+        // Recovery may replay a DDL migration: keep the audited singleton intact.
+        try (var connection = DriverManager.getConnection(url);
+             var reader = Files.newBufferedReader(Path.of("database/mysql/migration/common/V1.0.30__add_ocean_setting.sql"))) {
+            RunScript.execute(connection, reader);
         }
         try (var em = factory.createEntityManager()) {
             var stored = dao(em).getSettings();
