@@ -82,6 +82,10 @@ def build_artifact(bundle, generated, model, artifact_id, timestamp, allow_empty
         + [{"severity": "warning", "code": "statements_restate_each_other",
             "message": "Statement " + shorter + " restates statement " + longer + " in another section.",
             "source_ids": []} for longer, shorter, _j, _c in host_checks.near_duplicates(generated)]
+        + [{"severity": "warning", "code": "statements_repaired",
+            "message": f"{count} statement{'' if count == 1 else 's'} {'was' if count == 1 else 'were'} rewritten by the "
+                       "agent after host checks; their IDs begin with repaired-.", "source_ids": []}
+           for count in [sum(1 for claim in generated["claims"] if claim["id"].startswith("repaired-"))] if count]
         + [{"severity": "warning", "code": "sources_not_cited_without_reason",
             "message": "The draft neither cites nor explains setting aside these notes; read them directly.",
             "source_ids": unexplained} for unexplained in [pipeline.unexplained_sources(generated)] if unexplained]

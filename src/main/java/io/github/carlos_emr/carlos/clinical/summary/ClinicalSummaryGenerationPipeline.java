@@ -138,7 +138,8 @@ final class ClinicalSummaryGenerationPipeline {
             for (ObjectNode smaller : split(request)) run(snapshot, smaller, true, outputs);
             return;
         }
-        generated = completeCoverage(generated, part.get("sources"));
+        // Identical statements are folded, with every citation, rather than failing the draft.
+        generated = completeCoverage(ClinicalSummaryHostChecks.mergeIdenticalClaims(generated), part.get("sources"));
         ClinicalSummaryGenerationService.validateGenerated(generated, part.get("sources"), true);
         for (String field : List.of("sections", "claims", "coverage")) part.set(field, generated.get(field).deepCopy());
         ClinicalSummaryArtifact validated = new ClinicalSummaryArtifact(part);

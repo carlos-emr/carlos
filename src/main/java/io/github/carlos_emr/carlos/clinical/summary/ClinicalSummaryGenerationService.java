@@ -57,7 +57,16 @@ public final class ClinicalSummaryGenerationService {
 
     public ClinicalSummaryGenerationService(ClinicalSummaryAgent agent) { this(agent, CACHE); }
 
+    private final java.util.function.Supplier<Map<String, String>> drugClasses;
+
     ClinicalSummaryGenerationService(ClinicalSummaryAgent agent, ClinicalSummaryGenerationCache cache) {
+        this(agent, cache, ClinicalSummaryDrugClasses::configured);
+    }
+
+    /** The class table is injectable so tests need no site file; production reads the configured one. */
+    ClinicalSummaryGenerationService(ClinicalSummaryAgent agent, ClinicalSummaryGenerationCache cache,
+                                     java.util.function.Supplier<Map<String, String>> drugClasses) {
+        this.drugClasses = Objects.requireNonNull(drugClasses);
         this.agent = Objects.requireNonNull(agent);
         this.cache = cache;
     }
@@ -92,10 +101,16 @@ public final class ClinicalSummaryGenerationService {
             }
             JsonNode generated = new ClinicalSummaryGenerationPipeline(agent, cache, identity).generate(snapshot, request);
             // Host guarantees that hold whichever stack wrote the draft: restore omitted observations,
-            // then record citations, including of the restored statements.
-            generated = ClinicalSummaryGenerationPipeline.completeCoverage(
-                    ClinicalSummaryHostChecks.restoreObservations(generated, snapshot.get("sources")), snapshot.get("sources"));
-            validateGenerated(generated, snapshot.get("sources"), false);
+            // state unreported same-class drug conflicts, let the agent rewrite what the host can
+            // still fault, then record citations, including of the host's own statements.
+            JsonNode sources = snapshot.get("sources");
+            String patientLabel = snapshot.path("patient_context").path("label").asText(null);
+            Map<String, String> classes = drugClasses.get();
+            generated = ClinicalSummaryHostChecks.restoreObservations(generated, sources);
+            generated = ClinicalSummaryHostChecks.noteMedicationConflicts(generated, sources, classes);
+            generated = ClinicalSummaryRepair.apply(agent, generated, sources, patientLabel, classes);
+            generated = ClinicalSummaryGenerationPipeline.completeCoverage(generated, sources);
+            validateGenerated(generated, sources, false);
             for (String key : Set.of("sections", "claims", "coverage")) {
                 snapshot.set(key, generated.get(key).deepCopy());
             }
@@ -112,6 +127,29 @@ public final class ClinicalSummaryGenerationService {
                                 + ", which none of its cited notes carries (" + String.join(", ", finding.allowed()) + ").")
                         .putArray("source_ids");
                 finding.sourceIds().forEach(cited::add);
+            }
+            for (ClinicalSummaryHostChecks.NameFinding finding : ClinicalSummaryHostChecks.nameFindings(generated, sources, patientLabel)) {
+                findings.addObject().put("severity", "warning").put("code", "statement_names_person_or_identifier")
+                        .put("message", "Statement " + finding.claimId() + " names a person or carries a patient identifier ("
+                                + String.join(", ", finding.terms()) + ").").putArray("source_ids");
+            }
+            for (ClinicalSummaryHostChecks.Restatement pair : ClinicalSummaryHostChecks.nearDuplicates(generated)) {
+                findings.addObject().put("severity", "warning").put("code", "statements_restate_each_other")
+                        .put("message", "Statement " + pair.shorter() + " restates statement " + pair.longer() + " in another section.")
+                        .putArray("source_ids");
+            }
+            for (ClinicalSummaryHostChecks.ChangeFinding finding : ClinicalSummaryHostChecks.undocumentedChanges(generated, sources, classes)) {
+                ArrayNode cited = findings.addObject().put("severity", "warning").put("code", "undocumented_medication_change")
+                        .put("message", "Statement " + finding.claimId() + " describes a switch or change between "
+                                + String.join(" and ", finding.drugs()) + ", which no note records.").putArray("source_ids");
+                finding.sourceIds().forEach(cited::add);
+            }
+            int repaired = ClinicalSummaryRepair.repairedCount(generated);
+            if (repaired > 0) {
+                findings.addObject().put("severity", "warning").put("code", "statements_repaired")
+                        .put("message", repaired + (repaired == 1 ? " statement was" : " statements were")
+                                + " rewritten by the agent after host checks; their IDs begin with repaired-.")
+                        .putArray("source_ids");
             }
             List<String> unexplained = ClinicalSummaryGenerationPipeline.unexplainedSources(generated);
             if (!unexplained.isEmpty()) {

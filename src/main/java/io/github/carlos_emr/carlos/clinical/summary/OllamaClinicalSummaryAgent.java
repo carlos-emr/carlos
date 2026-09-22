@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.clinical.summary;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.util.Set;
@@ -93,6 +94,36 @@ public final class OllamaClinicalSummaryAgent implements ClinicalSummaryAgent {
                 || !response.path("done").booleanValue() || !"stop".equals(response.path("done_reason").asText())
                 || !model.equals(response.path("model").asText()) || !response.path("response").isTextual()) {
             throw new IOException("Incomplete Ollama response");
+        }
+        return JSON.readTree(response.get("response").asText());
+    }
+
+    @Override
+    public JsonNode repair(JsonNode request) throws IOException {
+        ObjectNode bundle = JSON.createObjectNode();
+        bundle.set("statements", request.get("statements").deepCopy());
+        bundle.set("sources", request.get("sources").deepCopy());
+        ObjectNode schema = JSON.createObjectNode().put("type", "object").put("additionalProperties", false);
+        schema.putArray("required").add("statements");
+        ObjectNode item = schema.putObject("properties").putObject("statements").put("type", "array").putObject("items")
+                .put("type", "object").put("additionalProperties", false);
+        item.putArray("required").add("id").add("text");
+        ArrayNode ids = item.putObject("properties").putObject("id").put("type", "string").putArray("enum");
+        request.get("statements").forEach(statement -> ids.add(statement.get("id").asText()));
+        ((ObjectNode) item.get("properties")).putObject("text").put("type", "string").put("minLength", 1);
+        ObjectNode payload = JSON.createObjectNode().put("model", model)
+                .put("system", request.get("instructions").asText())
+                .put("prompt", JSON.writeValueAsString(bundle)).put("stream", false).put("think", false)
+                .put("keep_alive", "5m");
+        payload.set("format", schema);
+        payload.putObject("options").put("temperature", 0).put("num_ctx", 16384).put("num_predict", 2048);
+        byte[] body = JSON.writeValueAsBytes(payload);
+        if (body.length > MAX_REQUEST_BYTES) return null;
+        verifyLocalModel();
+        JsonNode response = post(port, "/api/generate", body, timeoutMs);
+        if (response == null || !"stop".equals(response.path("done_reason").asText())
+                || !model.equals(response.path("model").asText()) || !response.path("response").isTextual()) {
+            throw new IOException("Incomplete Ollama repair response");
         }
         return JSON.readTree(response.get("response").asText());
     }

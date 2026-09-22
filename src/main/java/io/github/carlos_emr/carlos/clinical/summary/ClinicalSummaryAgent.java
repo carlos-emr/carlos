@@ -30,4 +30,13 @@ public interface ClinicalSummaryAgent {
     default int requestBytes() { return ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES; }
 
     JsonNode generate(JsonNode request) throws IOException;
+
+    /**
+     * Rewrite only the statements the host faulted, or return null when this agent cannot. The host
+     * decides what is faulted and whether a rewrite is accepted; see {@link ClinicalSummaryRepair}.
+     *
+     * @param request contract version 2: statements with their problems, and the notes they cite
+     * @return an object with {@code statements}, each with {@code id} and {@code text}, or null
+     */
+    default JsonNode repair(JsonNode request) throws IOException { return null; }
 }

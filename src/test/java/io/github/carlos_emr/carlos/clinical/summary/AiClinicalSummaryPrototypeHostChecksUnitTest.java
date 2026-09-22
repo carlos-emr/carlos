@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentProtocol.JSON;
@@ -156,6 +157,111 @@ class AiClinicalSummaryPrototypeHostChecksUnitTest {
         assertThat(restored.get("claims")).hasSize(2);
         assertThat(restored.get("claims").get(1).get("source_ids"))
                 .containsExactly(JSON.getNodeFactory().textNode("note-9"), JSON.getNodeFactory().textNode("note-10"));
+    }
+
+    private static final String NOTE = "Pt: Andrew Michael Edwards, 19M. NHS number 928876615. DOB: 18/03/04.\n"
+            + "Reviewed by Nurse Saoirse Keogh at 10:00 with Dr Cai Hopkins.\nSaoirse Keogh \nNMC 1234\nPlan: mobilise.";
+    private static final Map<String, String> CLASSES = Map.of("tinzaparin", "B01AB10", "enoxaparin", "B01AB05",
+            "paracetamol", "N02BE01", "codeine", "R05DA04");
+    private static final String TINZ = "Post-op plan: Tinzaparin 4,500 units SC once daily for thromboprophylaxis. Paracetamol 1g QDS PRN.";
+    private static final String ENOX = "Ward round. Plan: start enoxaparin 40 mg SC once daily for thromboprophylaxis; codeine 30 mg PRN.";
+
+    private static ObjectNode twoClaims(String first, String firstSource, String second, String secondSource,
+                                        String firstSection, String secondSection) {
+        ObjectNode output = draft(first, firstSource);
+        ((ArrayNode) output.get("claims")).addObject().put("id", "c2").put("text", second).putArray("source_ids").add(secondSource);
+        ArrayNode sections = output.putArray("sections");
+        sections.addObject().put("id", firstSection).put("title", firstSection).putArray("claim_ids").add("c1");
+        sections.addObject().put("id", secondSection).put("title", secondSection).putArray("claim_ids").add("c2");
+        return output;
+    }
+
+    @Test
+    void staffNamesComeFromTitlesInTheNotesAndIdentityFromTheNotesAndLabel() {
+        ArrayNode sources = sources("note-9", "2026-01-05", NOTE);
+        assertThat(ClinicalSummaryHostChecks.staffNames(sources)).containsExactlyInAnyOrder("Saoirse Keogh", "Cai Hopkins");
+        assertThat(ClinicalSummaryHostChecks.identityTerms(sources, "FAKE-NHS Edwards, Andrew Michael"))
+                .containsExactlyInAnyOrder("928876615", "18/03/04", "19-year-old", "19 year old",
+                        "Andrew Michael Edwards", "Edwards, Andrew Michael");
+    }
+
+    @Test
+    void aClaimNamingStaffOrThePatientIsReportedAndARoleOnlyClaimIsNot() {
+        ObjectNode output = twoClaims("Nurse Saoirse Keogh reviewed the patient, a 19-year-old.", "note-9",
+                "The nurse reviewed the patient and planned mobilisation.", "note-9", "plan_follow_up", "plan_follow_up");
+        var findings = ClinicalSummaryHostChecks.nameFindings(output, sources("note-9", "2026-01-05", NOTE), "FAKE-NHS Edwards, Andrew Michael");
+        assertThat(findings).hasSize(1);
+        assertThat(findings.get(0).claimId()).isEqualTo("c1");
+        assertThat(findings.get(0).terms()).containsExactly("19-year-old", "Saoirse Keogh");
+    }
+
+    @Test
+    void identicalStatementsAreMergedWithTheirCitationsInsteadOfFailingTheDraft() {
+        ObjectNode output = twoClaims("HR 2 was recorded.", "note-9", "HR 2 was recorded.", "note-10",
+                "results_observations", "plan_follow_up");
+        ObjectNode merged = ClinicalSummaryHostChecks.mergeIdenticalClaims(output);
+        assertThat(merged.get("claims")).hasSize(1);
+        assertThat(merged.get("claims").get(0).get("source_ids").toString()).isEqualTo("[\"note-9\",\"note-10\"]");
+        assertThat(merged.get("sections")).hasSize(1);
+        assertThat(ClinicalSummaryHostChecks.mergeIdenticalClaims(merged)).isEqualTo(merged);
+    }
+
+    @Test
+    void aNearDuplicateAcrossSectionsIsReportedButTheSameTemplateOnTwoDaysIsNot() {
+        ObjectNode restated = twoClaims("On 05/01/26 nimodipine 60 mg four-hourly was started for RCVS with dietary advice.", "note-9",
+                "Nimodipine 60 mg four-hourly was started for RCVS on the ward.", "note-9", "medications_allergies", "active_problems");
+        assertThat(ClinicalSummaryHostChecks.nearDuplicates(restated)).extracting(ClinicalSummaryHostChecks.Restatement::shorter)
+                .containsExactly("c2");
+        ObjectNode twoDays = twoClaims("Pre-operative vital signs on 20/12/25 were heart rate 72 bpm, blood pressure 124/78 mmHg, "
+                + "respiratory rate 16 br/min, temperature 36.8 and SpO2 98%.", "note-1",
+                "Observations on 2026-01-05 were heart rate 2 bpm, blood pressure 124/78 mmHg, respiratory rate 1 br/min, "
+                + "temperature 36.8 and SpO2 98%.", "note-9", "results_observations", "clinical_overview");
+        assertThat(ClinicalSummaryHostChecks.nearDuplicates(twoDays)).isEmpty();
+    }
+
+    @Test
+    void twoOrderedDrugsOfOneClassWithNoRecordedStopAreAConflictAndGetAHostStatement() {
+        ArrayNode sources = sources("note-7", "2026-01-05", TINZ, "note-9", "2026-01-06", ENOX);
+        var conflicts = ClinicalSummaryHostChecks.medicationConflicts(sources, CLASSES);
+        assertThat(conflicts).hasSize(1);
+        assertThat(conflicts.get(0).group()).isEqualTo("B01AB");
+        assertThat(conflicts.get(0).drugs().keySet()).containsExactly("tinzaparin", "enoxaparin");
+        ObjectNode output = twoClaims("Tinzaparin 4,500 units SC once daily was prescribed.", "note-7",
+                "Enoxaparin 40 mg SC once daily was started.", "note-9", "medications_allergies", "plan_follow_up");
+        ObjectNode noted = ClinicalSummaryHostChecks.noteMedicationConflicts(output, sources, CLASSES);
+        JsonNode claim = noted.get("claims").get(2);
+        assertThat(claim.get("id").asText()).isEqualTo("host-med-1");
+        assertThat(claim.get("text").asText()).isEqualTo("Medication records conflict, as found by the host: tinzaparin (05/01/26) "
+                + "and enoxaparin (06/01/26) belong to the same drug class (ATC B01AB) and no note records either being stopped, "
+                + "so the record does not show which is intended.");
+        assertThat(noted.get("sections").get(0).get("claim_ids").toString()).isEqualTo("[\"c1\",\"host-med-1\"]");
+        assertThat(ClinicalSummaryHostChecks.noteMedicationConflicts(noted, sources, CLASSES)).isEqualTo(noted);
+        assertThat(ClinicalSummaryHostChecks.noteMedicationConflicts(output, sources, null)).isEqualTo(output);
+    }
+
+    @Test
+    void aRecordedStopOrSwitchAMereMentionAndTheWordPostoperativeAreHandled() {
+        for (String later : List.of("Tinzaparin stopped. Start enoxaparin 40 mg SC once daily.",
+                "Switched from tinzaparin to enoxaparin 40 mg SC once daily.",
+                "Patient asked whether enoxaparin would be needed; not prescribed.")) {
+            assertThat(ClinicalSummaryHostChecks.medicationConflicts(
+                    sources("note-7", "2026-01-05", TINZ, "note-9", "2026-01-06", later), CLASSES)).as(later).isEmpty();
+        }
+        assertThat(ClinicalSummaryHostChecks.medicationConflicts(sources("note-7", "2026-01-05", TINZ, "note-9", "2026-01-06",
+                ENOX + " Ensure enoxaparin administration as per postoperative instructions."), CLASSES)).hasSize(1);
+    }
+
+    @Test
+    void aClaimedSwitchThatNoNoteRecordsIsReported() {
+        ArrayNode sources = sources("note-7", "2026-01-05", TINZ, "note-9", "2026-01-06", ENOX);
+        ObjectNode output = draft("The thromboprophylaxis regimen was changed to enoxaparin 40 mg once daily.", "note-9");
+        var findings = ClinicalSummaryHostChecks.undocumentedChanges(output, sources, CLASSES);
+        assertThat(findings).hasSize(1);
+        assertThat(findings.get(0).claimId()).isEqualTo("c1");
+        assertThat(findings.get(0).drugs()).containsExactly("enoxaparin", "tinzaparin");
+        ArrayNode documented = sources("note-7", "2026-01-05", TINZ, "note-9", "2026-01-06",
+                "Switched from tinzaparin to enoxaparin 40 mg SC once daily.");
+        assertThat(ClinicalSummaryHostChecks.undocumentedChanges(output, documented, CLASSES)).isEmpty();
     }
 
     @Test

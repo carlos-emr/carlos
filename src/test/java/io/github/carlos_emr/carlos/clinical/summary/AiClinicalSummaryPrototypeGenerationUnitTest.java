@@ -208,12 +208,14 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     }
 
     @Test
-    void rejectsDuplicateClaimsEvenWhenIdsAreUnique() {
+    void mergesDuplicateClaimsWithTheirCitationsInsteadOfRejectingTheDraft() throws Exception {
         ObjectNode duplicate = ((ObjectNode) generated.get("claims").get(0)).deepCopy();
         duplicate.put("id", "claim-duplicate");
         ((ArrayNode) generated.get("claims")).add(duplicate);
         ((ArrayNode) generated.get("sections").get(0).get("claim_ids")).add("claim-duplicate");
-        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
+        int before = generated.get("claims").size();
+        ClinicalSummaryArtifact draft = generator().generate(chart);
+        assertThat(draft.getClaimsById()).hasSize(before - 1).doesNotContainKey("claim-duplicate");
     }
 
     @Test

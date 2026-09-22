@@ -968,3 +968,24 @@ three seconds when it runs.** Both switches are now the gateway defaults. Repair
 statements are marked by ID but not yet badged on screen; the Java host has none
 of this, so the application gets it only through the gateway.
 
+# Everything in the host — 2026-09-22
+
+The gateway had guarantees the application did not, so a local deployment, which is
+the only path to real use, would have been worse than the test setup. The Java host
+now has all of them, for both adapters: identical statements are folded per pass
+instead of failing the draft; staff names, patient identifiers and restatements are
+detected; same-class drug conflicts are stated, with the class table read from the
+`clinical.ai_summary_generation.drugClasses` property; and the host asks the agent
+to rewrite what it can still fault through a new optional repair operation
+(contract version 2, `POST <path>/repair`). The Ollama adapter makes that call
+directly; the HTTP adapter posts it; the gateway serves it and no longer repairs
+inline on the host path, so a draft is repaired once, by the host's decision.
+`ClinicalSummaryRepair` holds the decision logic: what is faulted, what is accepted,
+what is dropped. Each piece is held to the same test cases as its Python original.
+
+A repaired statement keeps its `repaired-` ID for evaluation and audit and the
+artifact carries one `statements_repaired` warning with the count; it is not badged
+on screen, because it is validated like every other statement and the original was
+never shown. Restored observations and host conflict statements stay labelled in
+their text, because they are the host's words, not the model's.
+

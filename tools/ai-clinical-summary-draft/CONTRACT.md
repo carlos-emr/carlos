@@ -56,17 +56,22 @@ two drugs of one ATC chemical subgroup that are each ordered in the record with 
 note recording a stop or switch. If no claim reports that conflict, the host states it
 as a claim with ID `host-med-N` under Medications and allergies, and a claim that
 describes a switch no note records gets an `undocumented_medication_change` warning.
-With no table the check is skipped. The Java host does not apply this check yet.
+With no table the check is skipped. The Java host reads the table from the property
+`clinical.ai_summary_generation.drugClasses`, a path to the same JSON file.
 
 The gateway may also fold statements whose text is identical into one carrying every
 citation, and may make one small further model call to rewrite statements the host
 faulted (a date no cited note carries, a named person or patient identifier, an
 undocumented medication change, a restatement of another section's statement). A
 rewrite is kept only if the host can no longer fault it and the draft still
-validates; it keeps its citations and takes the ID prefix `repaired-`, so a viewer
-can mark it. A restatement the model omits in its answer is dropped. The host also
-records `statement_names_person_or_identifier` and `statements_restate_each_other`
-validation warnings. Neither the merge nor the repair rewrites anything silently.
+validates; it keeps its citations and takes the ID prefix `repaired-`, and the
+artifact carries one `statements_repaired` warning giving the count. The prefix is
+for evaluation and audit, not for display: a repaired statement is validated like
+every other and is not badged on screen. A restatement the model omits in its
+answer is dropped. The host also records `statement_names_person_or_identifier` and
+`statements_restate_each_other` validation warnings. Neither the merge nor the
+repair rewrites anything silently. The Java host applies all of this for both
+adapters, using the agent's optional repair operation (see AGENT_API.md).
 
 Validation severity is `pass`, `warning` or `error`. Source IDs may be empty
 for structural findings; any supplied IDs must resolve. Error findings suppress

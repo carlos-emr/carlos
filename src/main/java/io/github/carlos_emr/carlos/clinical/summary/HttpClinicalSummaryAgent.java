@@ -52,4 +52,17 @@ public final class HttpClinicalSummaryAgent implements ClinicalSummaryAgent {
         }
         return response.get("output");
     }
+
+    @Override
+    public JsonNode repair(JsonNode request) throws IOException {
+        JsonNode response = post(port, path + "/repair", JSON.writeValueAsBytes(request), timeoutMs);
+        if (response == null) return null;  // An agent without the repair operation answers nothing usable.
+        exactFields(response, Set.of("contract_version", "request_id", "status", "statements"));
+        if (!request.get("contract_version").equals(response.path("contract_version"))
+                || !request.get("request_id").equals(response.path("request_id"))
+                || !"completed".equals(response.path("status").asText())) {
+            throw new IOException("Mismatched or incomplete agent repair response");
+        }
+        return response;
+    }
 }
