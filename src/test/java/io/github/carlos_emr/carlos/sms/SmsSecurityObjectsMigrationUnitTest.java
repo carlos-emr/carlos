@@ -186,7 +186,12 @@ class SmsSecurityObjectsMigrationUnitTest {
         return values;
     }
 
-    /** Runs the file exactly as shipped, comments and all, through H2's own script parser. */
+    /**
+     * Runs the file exactly as shipped, comments and all, through H2's own script parser. H2 is more
+     * permissive than MariaDB (it accepts {@code --} with no following space, which MariaDB rejects), so
+     * this proves the statements run, not that MariaDB will accept every comment style; CI's
+     * flyway-baseline job covers that.
+     */
     private static void applyMigration(Connection connection) throws IOException, SQLException {
         try (var reader = Files.newBufferedReader(migrationPath(), StandardCharsets.UTF_8)) {
             RunScript.execute(connection, reader);
