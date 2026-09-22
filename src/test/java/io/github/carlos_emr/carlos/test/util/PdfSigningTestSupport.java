@@ -152,13 +152,17 @@ public final class PdfSigningTestSupport {
      * using a verifier independent of the code under test.
      *
      * @param password the PDF's password, or null when it opens without one
-     * @return true when the signature verifies over the signed byte range
+     * @return true when the signature verifies over the signed byte range; false when it does
+     *         not, or when the PDF carries no signature at all
      */
     public static boolean verifyDetachedSignature(Path signedPdf, String password) throws Exception {
         byte[] pdfBytes = Files.readAllBytes(signedPdf);
         try (PDDocument document = password == null
                 ? Loader.loadPDF(signedPdf.toFile())
                 : Loader.loadPDF(signedPdf.toFile(), password)) {
+            if (document.getSignatureDictionaries().isEmpty()) {
+                return false;
+            }
             PDSignature signature = document.getSignatureDictionaries().get(0);
             return verifyCms(signature.getContents(pdfBytes), signature.getSignedContent(pdfBytes));
         }

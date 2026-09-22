@@ -58,7 +58,7 @@ class PDFSigningUtilUnitTest {
 
     @Test
     @DisplayName("should refuse to sign when signing is disabled")
-    void shouldRefuseToSign_whenSigningDisabled() throws IOException {
+    void shouldRefuseToSign_whenSigningDisabled() throws Exception {
         // Whether to sign is the caller's decision. Handing the input back here would make a
         // returned path mean two different things, and only one of them is a file to own.
         Path source = writeSinglePagePdf();
@@ -71,6 +71,8 @@ class PDFSigningUtilUnitTest {
         try (PDDocument document = Loader.loadPDF(source.toFile())) {
             assertThat(document.getSignatureDictionaries()).isEmpty();
         }
+        // The shared verifier answers false for an unsigned file rather than throwing.
+        assertThat(PdfSigningTestSupport.verifyDetachedSignature(source, null)).isFalse();
     }
 
     @Test
@@ -101,9 +103,12 @@ class PDFSigningUtilUnitTest {
         try (PDDocument document = Loader.loadPDF(signed.toFile())) {
             signature = document.getSignatureDictionaries().get(0);
         }
-        // Flip one byte inside the signed range, on a copy the verifier will read back.
+        // Flip one byte inside the signed range, on a copy the verifier will read back. Past
+        // the header, so the document still parses and only the signature check can fail.
         int firstSignedByte = (int) signature.getByteRange()[0];
-        signedBytes[firstSignedByte] = (byte) (signedBytes[firstSignedByte] ^ 0x01);
+        int signedLength = (int) signature.getByteRange()[1];
+        int tamperIndex = firstSignedByte + Math.min(32, signedLength - 1);
+        signedBytes[tamperIndex] = (byte) (signedBytes[tamperIndex] ^ 0x01);
         Path tampered = tempDir.resolve("tampered.pdf");
         Files.write(tampered, signedBytes);
 
