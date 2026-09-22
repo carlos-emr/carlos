@@ -712,7 +712,10 @@ public final class IncomingDocUtil {
         } catch (IOException | RuntimeException ex) {
             if (destination != null) {
                 try {
-                    Files.deleteIfExists(destination);
+                    if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)
+                            && Files.isSameFile(destination, selected)) {
+                        Files.deleteIfExists(destination);
+                    }
                 } catch (IOException cleanupFailure) {
                     ex.addSuppressed(cleanupFailure);
                 }
