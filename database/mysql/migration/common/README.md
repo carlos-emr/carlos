@@ -51,6 +51,9 @@ must be rebuilt or explicitly reconciled before adopting this migration: Flyway
 [archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
 retirement semantics, and failure investigation.
 
+`V1.0.25__add_sms_system_of_record.sql` creates the SMS system-of-record tables and seeds the
+`_msgSMS` security object (read a stored message body).
+
 `V1.0.31__add_sms_security_objects.sql` seeds the `_sms` and `_admin.sms` security objects and
 their default grants (admin and doctor on `_sms`, admin on `_admin.sms`); existing clinic grants
 are preserved. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#security-objects).

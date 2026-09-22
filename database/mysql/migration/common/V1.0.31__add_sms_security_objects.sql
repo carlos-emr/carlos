@@ -23,8 +23,9 @@ SELECT '_admin.sms', 'Configure and manage SMS', 0
 
 -- Default grants mirror `_email` / `_admin.email` (and `_msgSMS` from V1.0.25): admin and
 -- doctor hold all rights on `_sms`; only admin may configure and operate SMS. No other role
--- gets anything until a clinic grants it. `_email`'s inert '-1' template row is deliberately
--- not copied: getPrivilegeProp only matches real role names and the provider number.
+-- gets anything until a clinic grants it. `_email`'s '-1' row is deliberately not copied:
+-- '-1' is the seeded system provider and hasPrivilege treats a provider number as a role, so
+-- that row would grant `_sms` to any future session built for the system provider.
 --
 -- A clinic wanting a role that can view SMS history but not send gives it 'r':
 -- SecurityInfoManager treats a grant as a ladder (x > w > u > r), and a history view asks
