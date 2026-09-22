@@ -387,6 +387,24 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
+    @DisplayName("should send a fresh pending portal email to recovery, which shows its own wait state")
+    void shouldRedirectToPortalRecovery_whenPortalEmailIsStillPending() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog pending = pendingEmailLog();
+        org.springframework.test.util.ReflectionTestUtils.setField(pending, "id", 42);
+        pending.setPortalDeliveryState(EmailLog.PortalDeliveryState.READY);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pending);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("none");
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/email/portalDelivery?emailLogId=42");
+    }
+
+    @Test
     @DisplayName("should not warn when resending an email already recorded as failed")
     void shouldNotWarn_whenResendingFailedEmail() {
         // The whole point of PENDING is that it is distinguishable from FAILED. A genuinely failed

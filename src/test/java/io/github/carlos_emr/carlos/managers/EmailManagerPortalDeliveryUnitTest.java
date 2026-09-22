@@ -209,6 +209,31 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(io.github.carlos_emr.carlos.utility.EmailSendingException.class);
     }
 
+    @Test
+    @DisplayName("should store the publish-pending note with SUCCESS when publication fails")
+    void shouldStorePublishPendingWithSuccess_whenPublicationFails() throws Exception {
+        givenConsent(EmailLog.EmailConsentStatus.OPT_IN);
+        when(portal.publishUnlockSecret(eq(SECRET_ID), any())).thenThrow(new IllegalStateException("portal outage"));
+
+        var result = manager.sendEmail(user, encryptedEmail());
+
+        assertThat(result.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        verify(logs).transitionEmailStatus(eq(LOG_ID), eq(EmailLog.EmailStatus.PENDING), eq(EmailLog.EmailStatus.SUCCESS),
+                eq(PortalEmailDeliveryService.PUBLISH_PENDING), any());
+        assertThat(result.isPortalDeliveryUnresolved()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should not offer manual resolution for an unresolved portal email")
+    void shouldNotOfferManualResolution_whenPortalDeliveryIsUnresolved() {
+        var log = new EmailLog();
+        log.setStatus(EmailLog.EmailStatus.FAILED);
+        log.setPortalDeliveryState(EmailLog.PortalDeliveryState.SENDING);
+        assertThat(manager.isManuallyResolvable(log)).isFalse();
+        log.setPortalDeliveryState(null);
+        assertThat(manager.isManuallyResolvable(log)).isTrue();
+    }
+
     private void givenConsent(EmailLog.EmailConsentStatus state) {
         when(consent.resolve(user, PATIENT)).thenReturn(new EmailConsentResult("Email", state, 1, new Date()));
     }

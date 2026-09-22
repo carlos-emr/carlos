@@ -4,6 +4,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService.RecoveryRefusedException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -31,6 +32,9 @@ public class PortalEmailDelivery2Action extends ActionSupport {
         this.delivery = delivery;
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: the target is this application's context path, a fixed
+    // route and a parsed integer id; no request text reaches the URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Fixed internal route with an integer id")
     @Override
     public String execute() throws Exception {
         var request = ServletActionContext.getRequest();
@@ -86,6 +90,12 @@ public class PortalEmailDelivery2Action extends ActionSupport {
         } catch (IllegalArgumentException notFound) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
+        } catch (RuntimeException unavailable) {
+            // For example a portal configuration fault while resolving the staff context.
+            logger.warn("Portal email recovery page could not be loaded; emailLogId={}; causeType={}",
+                    id, unavailable.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            request.setAttribute("portalRecoveryErrorKey", "email.portalDelivery.error.unavailable");
         }
         return SUCCESS;
     }

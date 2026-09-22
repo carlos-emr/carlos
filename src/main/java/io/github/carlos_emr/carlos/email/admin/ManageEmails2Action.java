@@ -318,6 +318,9 @@ public class ManageEmails2Action extends ActionSupport {
      * @see EmailLog
      * @see TransactionType#DIRECT
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: the target is this application's context path, a fixed
+    // route and a parsed integer id; no request text reaches the URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Fixed internal route with an integer id")
     public String resendEmail() {
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
@@ -342,15 +345,8 @@ public class ManageEmails2Action extends ActionSupport {
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
-        // A fresh PENDING record may still be in the synchronous transport call. Waiting before
-        // exposing recovery avoids opening a duplicate while the first request is still active,
-        // and keeps portal recovery from revoking a password the in-flight send is about to use.
-        if (emailLog != null && EmailStatus.PENDING.equals(emailLog.getStatus())
-                && !emailManager.isManuallyResolvable(emailLog)) {
-            return showEmailComposeError(getLocalizedMessage("admin.manageEmails.pendingTooRecent"));
-        }
-
-        // Recovery has one owner, which also handles its authorization and portal errors.
+        // Recovery has one owner, which also handles its authorization and portal errors, and
+        // shows its own "still sending" state for a fresh email.
         if (emailLog != null && emailLog.isPortalDeliveryUnresolved()) {
             try {
                 response.sendRedirect(request.getContextPath() + "/email/portalDelivery?emailLogId=" + emailLog.getId());
@@ -358,6 +354,13 @@ public class ManageEmails2Action extends ActionSupport {
                 throw new UncheckedIOException(redirectFailure);
             }
             return NONE;
+        }
+
+        // A fresh PENDING record may still be in the synchronous transport call. Waiting before
+        // exposing recovery avoids opening a duplicate while the first request is still active.
+        if (emailLog != null && EmailStatus.PENDING.equals(emailLog.getStatus())
+                && !emailManager.isManuallyResolvable(emailLog)) {
+            return showEmailComposeError(getLocalizedMessage("admin.manageEmails.pendingTooRecent"));
         }
 
         if (emailLog == null || emailLog.getDemographic() == null || emailLog.getDemographic().getDemographicNo() == null) {

@@ -750,7 +750,7 @@
                 <c:when test="${portalDeliveryNeedsRecovery}">
                     <div class="alert alert-warning" role="alert">
                         <p><fmt:message key="email.compose.portal.needsRecovery"/></p>
-                        <a href="${ctx}/email/portalDelivery?emailLogId=${carlos:forUriComponent(emailLog.id)}"><fmt:message key="email.compose.portal.checkDelivery"/></a>
+                        <a href="${carlos:forHtmlAttribute(ctx)}/email/portalDelivery?emailLogId=${carlos:forUriComponent(emailLog.id)}"><fmt:message key="email.compose.portal.checkDelivery"/></a>
                     </div>
                 </c:when>
                 <c:when test="${ isEmailSuccessful }">
@@ -834,19 +834,23 @@
 
         // A successful send is terminal for this composer. A failed send deliberately continues
         // through normal initialization below so the fully restored form remains usable for retry.
-        if (${portalDeliveryNeedsRecovery}) {
-            return; // Recovery never resends the email.
-        }
+        const portalDeliveryNeedsRecovery = ${portalDeliveryNeedsRecovery};
         if (document.getElementById('isEmailSuccessful').value === 'true') {
+            // The email was delivered even when its portal password still needs attention, so
+            // the eForm steps still run; only the auto-close waits for the recovery link.
             openEFormAfterSend();
 
             if (document.getElementById('isEmailStatusRecorded').value === 'true'
-                    && !document.getElementById('emailFollowUpWarning')) {
+                    && !document.getElementById('emailFollowUpWarning')
+                    && !portalDeliveryNeedsRecovery) {
                 // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
                 // window closed before anyone could, which made the notice decorative.
                 setTimeout(() => window.close(), 8000);
             }
             return;
+        }
+        if (portalDeliveryNeedsRecovery) {
+            return; // Recovery never resends the email.
         }
 
         if (document.getElementById('deliveryUnconfirmedWarning')) {

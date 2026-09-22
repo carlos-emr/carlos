@@ -190,7 +190,16 @@ public class PortalEmailDeliveryService {
             move(log, PortalDeliveryState.SENDING, log.getPortalSecretId());
             send.run();
             accepted = true;
-            move(log, PortalDeliveryState.SENT, log.getPortalSecretId());
+            try {
+                move(log, PortalDeliveryState.SENT, log.getPortalSecretId());
+            } catch (RecoveryRefusedException raced) {
+                // Recovery decided while this send was still running and the provider has now
+                // accepted it. Record that loudly: the stored state may contradict the delivery.
+                logger.error("Portal email accepted after its portal state was changed by recovery; "
+                        + "emailLogId={}; portalState={}", log.getId(), log.getPortalDeliveryState());
+                audit(user, log, "PortalEmailDeliveryService.send.acceptedAfterRecovery");
+                throw raced;
+            }
             publish(client, staff, log);
             audit(user, log, "PortalEmailDeliveryService.send.published");
             return EmailSendResult.accepted(log, false);
@@ -261,8 +270,12 @@ public class PortalEmailDeliveryService {
         }
         switch (state) {
             case PUBLISHED:
+                // FAILED here means staff confirmed acceptance while a definite failure was landing.
+                if (status == EmailStatus.FAILED) return RecoveryView.INCONSISTENT;
                 return status == EmailStatus.PENDING ? RecoveryView.UPDATE_RECORD : RecoveryView.PUBLISHED;
             case REVOKED:
+                // SUCCESS here means a slow send was accepted after staff confirmed it was not.
+                if (status == EmailStatus.SUCCESS) return RecoveryView.INCONSISTENT;
                 return status == EmailStatus.PENDING ? RecoveryView.UPDATE_RECORD : RecoveryView.REVOKED;
             case SENT:
                 return status == EmailStatus.FAILED ? RecoveryView.INCONSISTENT : RecoveryView.RETRY_PUBLISH;
@@ -320,6 +333,7 @@ public class PortalEmailDeliveryService {
                 }
                 publish(client, staff, log);
                 status(log, EmailStatus.SUCCESS, "");
+                clearPublishPendingNote(log);
             } else if (log.getPortalDeliveryState() == PortalDeliveryState.PUBLISHED) {
                 status(log, EmailStatus.SUCCESS, "");
             } else {
@@ -444,6 +458,15 @@ public class PortalEmailDeliveryService {
             // portal completion remains visible through portalDeliveryState.
             logger.warn("Portal email transport status left unchanged; emailLogId={}; status={}; wanted={}; portalState={}",
                     log.getId(), log.getStatus(), state, log.getPortalDeliveryState());
+        }
+    }
+
+    /** The accepted send stored PUBLISH_PENDING with SUCCESS; drop it once the password is out. */
+    private void clearPublishPendingNote(EmailLog log) {
+        if (log.getStatus() == EmailStatus.SUCCESS && PUBLISH_PENDING.equals(log.getErrorMessage())
+                && logs.transitionEmailStatus(log.getId(), EmailStatus.SUCCESS, EmailStatus.SUCCESS, "",
+                        log.getTimestamp()) == 1) {
+            log.setErrorMessage("");
         }
     }
 

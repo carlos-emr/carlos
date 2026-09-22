@@ -119,6 +119,14 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(404);
     }
 
+    @Test void shouldShowUnavailable_whenPortalConfigurationFailsOnGet() throws Exception {
+        when(delivery.findForRecovery(user, 45)).thenThrow(
+                new io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException("bad pin"));
+        execute("GET", "45");
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.unavailable");
+    }
+
     private static PortalEmailDeliveryService.RecoveryRefusedException refused(String key, boolean conflict) {
         return new PortalEmailDeliveryService.RecoveryRefusedException(key, conflict);
     }
