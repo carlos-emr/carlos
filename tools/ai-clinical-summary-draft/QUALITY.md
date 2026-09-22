@@ -994,7 +994,7 @@ their text, because they are the host's words, not the model's.
 `qwen/qwen3.5-27b` on SiliconFlow, temperature 0, one whole-record pass per
 50,000 bytes, every host guarantee on and inline repair, over every committed
 chart ([run records](quality/2026-09-22/exploratory-runs.json)). 47 of the charts
-had never been used to tune anything. Total cost $0.44; median $0.010 per chart.
+had never been used to tune anything. Total cost $0.54; median $0.010 per chart.
 
 **40 of 50 produced a valid draft. 10 were rejected.**
 
