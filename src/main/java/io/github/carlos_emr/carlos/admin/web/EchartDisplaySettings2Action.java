@@ -22,6 +22,10 @@
 package io.github.carlos_emr.carlos.admin.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.commn.dao.OceanSettingDao;
+import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
+import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -38,7 +42,7 @@ import org.apache.struts2.ServletActionContext;
  * referenced by the eChart nav section in {@code leftNav.jspf} has no grants in seed
  * security data (it gates nav visibility only, in an OR list with {@code _admin}), so
  * gating this action on it would lock out every role, admins included.
- * POST enforcement for save operations is handled by the JSP itself.</p>
+ * POST requires write access before changing the preference.</p>
  *
  * @since 2026-09-18
  */
@@ -47,6 +51,12 @@ public class EchartDisplaySettings2Action extends ActionSupport {
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
+        String method = request.getMethod();
+        if (!"GET".equals(method) && !"HEAD".equals(method) && !"POST".equals(method)) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            ServletActionContext.getResponse().setHeader("Allow", "GET, HEAD, POST");
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -55,6 +65,19 @@ public class EchartDisplaySettings2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
+        var key = SystemPreferences.ECHART_PREFERENCE_KEYS.echart_show_ocean;
+        boolean saved = "POST".equals(method) && "Save".equals(request.getParameter("dboperation"));
+        boolean displayOcean;
+        if (saved) {
+            displayOcean = "true".equals(request.getParameter(key.name()));
+            SpringUtils.getBean(OceanSettingDao.class).saveDisplayPreference(displayOcean,
+                    loggedInInfo.getLoggedInProviderNo());
+        } else {
+            var preference = SpringUtils.getBean(SystemPreferencesDao.class).findPreferenceByName(key);
+            displayOcean = preference == null || preference.getValueAsBoolean();
+        }
+        request.setAttribute("displayOceanUI", displayOcean);
+        request.setAttribute("saved", saved);
         return SUCCESS;
     }
 }

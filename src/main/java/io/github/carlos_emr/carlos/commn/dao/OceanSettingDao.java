@@ -45,4 +45,7 @@ public interface OceanSettingDao extends AbstractDao<OceanSetting> {
      * @return the persisted {@link OceanSetting}
      */
     OceanSetting saveSettings(String settings, String providerNo);
+
+    /** Persist the Ocean display preference while serializing concurrent first saves. */
+    void saveDisplayPreference(boolean enabled, String providerNo);
 }

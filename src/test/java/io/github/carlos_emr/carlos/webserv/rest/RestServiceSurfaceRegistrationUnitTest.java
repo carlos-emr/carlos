@@ -115,6 +115,19 @@ class RestServiceSurfaceRegistrationUnitTest {
                 .containsAll(session);
     }
 
+    @Test
+    @DisplayName("should exclude CXF payload logging from credential-bearing Ocean surfaces")
+    void shouldNotLogOceanPayloads_onEitherSurface() throws Exception {
+        for (String config : new String[] {SESSION_CONFIG, OAUTH_CONFIG}) {
+            Document doc = parse(config);
+            String address = config.equals(SESSION_CONFIG) ? SESSION_SERVER_ADDRESS : OAUTH_SERVER_ADDRESS;
+            Element server = serverByAddress(doc, address);
+            assertThat(server.getElementsByTagName("cxf:logging").getLength()).isZero();
+            // No logging feature/interceptor may be reintroduced under another bean name.
+            assertThat(server.getTextContent().toLowerCase(java.util.Locale.ROOT)).doesNotContain("logginginterceptor");
+        }
+    }
+
     /** Keep only beans in the rest data-service package (drops the OAuth-only status endpoint). */
     private static Set<String> restPackageServices(Set<String> all) {
         Set<String> out = new LinkedHashSet<>(all);

@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import io.github.carlos_emr.carlos.commn.dao.OceanSettingDao;
 import io.github.carlos_emr.carlos.commn.model.OceanSetting;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import jakarta.ws.rs.client.Entity;
@@ -22,6 +24,7 @@ class OceanServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
+        when(mockLoggedInInfo.getLoggedInProvider()).thenReturn(new Provider());
         return new OceanService(dao, security);
     }
 
@@ -96,6 +99,34 @@ class OceanServiceEndpointTest extends CarlosRestTestBase {
             assertThat(response.getStatus()).isEqualTo(405);
         }
         verifyNoInteractions(dao);
+    }
+
+    @Test
+    void shouldAcceptRequestOnlyAuthentication_withoutCreatingSession() {
+        mockServletRequest.getSession().invalidate();
+        try (var response = request().path("/ocean/getSettings").get()) {
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+        assertThat(mockServletRequest.getSession(false)).isNull();
+    }
+
+    @Test
+    void shouldAcceptSessionOnlyAuthentication_whenRequestPrincipalAbsent() {
+        mockServletRequest.removeAttribute(new LoggedInInfo().getLoggedInInfoKey());
+        try (var response = request().path("/ocean/getSettings").get()) {
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+    }
+
+    @Test
+    void shouldDenyUnauthenticatedRead_beforeDaoAccess() {
+        mockServletRequest.removeAttribute(new LoggedInInfo().getLoggedInInfoKey());
+        mockServletRequest.getSession().invalidate();
+        try (var response = request().path("/ocean/getSettings").get()) {
+            assertThat(response.getStatus()).isEqualTo(401);
+        }
+        verifyNoInteractions(dao);
+        assertThat(mockServletRequest.getSession(false)).isNull();
     }
 
     private void allowWrite() {

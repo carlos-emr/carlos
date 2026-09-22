@@ -155,6 +155,8 @@
 
         <jaxrs:serviceBeans>
             <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuthStatusService" autowire="byName"/>
+            <!-- Constructor injection requires both dependencies at startup; OceanSettingDaoImpl
+                 is discovered by spring_jpa.xml and spring_managers.xml component scans. -->
             <bean class="io.github.carlos_emr.carlos.webserv.rest.OceanService" autowire="constructor"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.PharmacyService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicService"  autowire="byName"/>

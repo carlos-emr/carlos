@@ -26,6 +26,10 @@ class OceanSettingDaoIntegrationTest {
         try (var connection = DriverManager.getConnection(url);
              var reader = Files.newBufferedReader(Path.of("database/mysql/migration/common/V1.0.30__add_ocean_setting.sql"))) {
             RunScript.execute(connection, reader);
+            try (var statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE IF NOT EXISTS SystemPreferences (id INT AUTO_INCREMENT PRIMARY KEY, "
+                        + "name VARCHAR(40), `value` VARCHAR(255), updateDate DATETIME)");
+            }
         }
         factory = new Configuration().addAnnotatedClass(OceanSetting.class)
                 .setProperty("hibernate.connection.url", url)
@@ -115,9 +119,55 @@ class OceanSettingDaoIntegrationTest {
     void shouldRejectOtherKeysAndMissingAuditFields_atDatabaseBoundary() throws Exception {
         try (var connection = DriverManager.getConnection(url); var statement = connection.createStatement()) {
             assertThatThrownBy(() -> statement.execute("INSERT INTO OceanSetting VALUES (2, 'synthetic', '1001', CURRENT_TIMESTAMP)"))
-                    .isInstanceOf(java.sql.SQLException.class);
+                    .isInstanceOf(java.sql.SQLException.class)
+                    .hasMessageContaining("CHK_OCEAN_SETTING_SINGLETON");
             assertThatThrownBy(() -> statement.execute("INSERT INTO OceanSetting(id,settings) VALUES (1,'synthetic')"))
-                    .isInstanceOf(java.sql.SQLException.class);
+                    .isInstanceOf(java.sql.SQLException.class)
+                    .hasMessageContaining("NULL not allowed");
+        }
+    }
+
+    @Test
+    void shouldSerializeFirstDisplaySaves_withoutReplacingExistingSettings() throws Exception {
+        try (var em = factory.createEntityManager()) {
+            em.getTransaction().begin();
+            dao(em).saveSettings("keep synthetic credentials", "initial-admin");
+            em.getTransaction().commit();
+        }
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(() -> saveDisplayConcurrently(true, ready, start));
+            var second = pool.submit(() -> saveDisplayConcurrently(false, ready, start));
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            first.get(10, TimeUnit.SECONDS);
+            second.get(10, TimeUnit.SECONDS);
+        } finally {
+            start.countDown();
+        }
+        try (var em = factory.createEntityManager()) {
+            em.getTransaction().begin();
+            dao(em).saveDisplayPreference(false, "admin");
+            dao(em).saveDisplayPreference(false, "admin");
+            assertThat(((Number) em.createNativeQuery("SELECT COUNT(*) FROM SystemPreferences WHERE name='echart_show_ocean'")
+                    .getSingleResult()).longValue()).isEqualTo(1);
+            assertThat(em.createNativeQuery("SELECT `value` FROM SystemPreferences WHERE name='echart_show_ocean'")
+                    .getSingleResult()).isEqualTo("false");
+            assertThat(dao(em).getSettings().getSettings()).isEqualTo("keep synthetic credentials");
+            assertThat(dao(em).getSettings().getLastUpdateUser()).isEqualTo("initial-admin");
+            em.getTransaction().commit();
+        }
+    }
+
+    private boolean saveDisplayConcurrently(boolean value, CountDownLatch ready, CountDownLatch start) throws Exception {
+        try (var em = factory.createEntityManager()) {
+            em.getTransaction().begin();
+            ready.countDown();
+            if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Timed out waiting for peer");
+            dao(em).saveDisplayPreference(value, "admin");
+            em.getTransaction().commit();
+            return value;
         }
     }
 

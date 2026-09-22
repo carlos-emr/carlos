@@ -29,6 +29,10 @@ import jakarta.ws.rs.core.MediaType;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.servlet.http.HttpServletRequest;
+import org.apache.cxf.phase.PhaseInterceptorChain;
+import org.apache.cxf.transport.http.AbstractHTTPDestination;
 import jakarta.ws.rs.ForbiddenException;
 
 import io.github.carlos_emr.carlos.commn.dao.OceanSettingDao;
@@ -67,6 +71,21 @@ public class OceanService extends AbstractServiceImpl {
     public OceanService(OceanSettingDao oceanSettingDao, SecurityInfoManager securityInfoManager) {
         this.oceanSettingDao = oceanSettingDao;
         this.securityInfoManager = securityInfoManager;
+    }
+
+    @Override
+    protected LoggedInInfo getLoggedInInfo() {
+        HttpServletRequest request = (HttpServletRequest) PhaseInterceptorChain.getCurrentMessage()
+                .get(AbstractHTTPDestination.HTTP_REQUEST);
+        // OAuth attaches its authenticated principal to the request, without a session.
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromRequest(request);
+        if ((info == null || info.getLoggedInProvider() == null) && request.getSession(false) != null) {
+            info = LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        }
+        if (info == null || info.getLoggedInProvider() == null) {
+            throw new WebApplicationException("Authentication required", 401);
+        }
+        return info;
     }
 
     @GET

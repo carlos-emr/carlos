@@ -39,10 +39,7 @@ public class OceanSettingDaoImpl extends AbstractDaoImpl<OceanSetting> implement
 
     @Override
     public OceanSetting saveSettings(String settings, String providerNo) {
-        Objects.requireNonNull(providerNo, "An authenticated provider is required");
-        if (providerNo.isBlank() || providerNo.length() > 100) {
-            throw new IllegalArgumentException("Invalid audit provider");
-        }
+        validateProvider(providerNo);
         // The PK conflict serializes concurrent first saves; no read-then-insert race.
         // This DAO transaction retains the row lock until the refreshed result is read.
         entityManager.createNativeQuery("INSERT INTO OceanSetting "
@@ -57,4 +54,37 @@ public class OceanSettingDaoImpl extends AbstractDaoImpl<OceanSetting> implement
         entityManager.refresh(saved);
         return saved;
     }
+    @Override
+    public void saveDisplayPreference(boolean enabled, String providerNo) {
+        validateProvider(providerNo);
+        // This upsert obtains the same singleton-row lock on every app instance.
+        // Existing settings/audit data are untouched when the row already exists.
+        entityManager.createNativeQuery("INSERT INTO OceanSetting "
+                + "(id, settings, lastUpdateUser, lastUpdateDate) VALUES (1, NULL, ?1, CURRENT_TIMESTAMP(6)) "
+                + "ON DUPLICATE KEY UPDATE id=VALUES(id)")
+                .setParameter(1, providerNo).executeUpdate();
+        // Update every matching row to also make pre-existing duplicate values consistent.
+        int count = entityManager.createNativeQuery("UPDATE SystemPreferences SET `value`=?1, "
+                + "updateDate=CURRENT_TIMESTAMP WHERE name='echart_show_ocean'")
+                .setParameter(1, Boolean.toString(enabled)).executeUpdate();
+        if (count == 0) {
+            // Some JDBC configurations report changed rows, not matched rows. Count
+            // explicitly before inserting so a repeated identical save stays a singleton.
+            Number rows = (Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM SystemPreferences "
+                    + "WHERE name='echart_show_ocean'").getSingleResult();
+            if (rows.longValue() == 0) {
+                entityManager.createNativeQuery("INSERT INTO SystemPreferences (name, `value`, updateDate) "
+                        + "VALUES ('echart_show_ocean', ?1, CURRENT_TIMESTAMP)")
+                        .setParameter(1, Boolean.toString(enabled)).executeUpdate();
+            }
+        }
+    }
+
+    private static void validateProvider(String providerNo) {
+        Objects.requireNonNull(providerNo, "An authenticated provider is required");
+        if (providerNo.isBlank() || providerNo.length() > 100) {
+            throw new IllegalArgumentException("Invalid audit provider");
+        }
+    }
+
 }

@@ -437,8 +437,10 @@ Properties oscarVariables = CarlosProperties.getInstance();
 			<ul>
 				<li><a href='javascript:void(0);'
 					class="xlink" rel="${ctx}/admin/ProviderTemplate"><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
-				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/EchartDisplaySettings"><fmt:message key="admin.admin.echartDisplaySettings"/></a></li>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+                <li><a href='javascript:void(0);'
+                    class="xlink" rel="${carlos:forHtmlAttribute(ctx)}/admin/EchartDisplaySettings"><fmt:message key="admin.admin.echartDisplaySettings"/></a></li>
+                </security:oscarSec>
 			</ul>
 			</div>
 			</div>

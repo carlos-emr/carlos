@@ -105,7 +105,6 @@
     boolean echartShowOcean = echartShowOceanPref == null || echartShowOceanPref.getValueAsBoolean();
     if (echartShowOcean) {
 %>
-<div id="ocean_placeholder">
-    <span style="visibility:hidden">test</span>
+<div id="ocean_placeholder" style="display:none">
 </div>
 <% } %>

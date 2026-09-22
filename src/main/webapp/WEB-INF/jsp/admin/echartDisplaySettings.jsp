@@ -60,43 +60,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
-<%@ page import="java.util.Date" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%!
-    SystemPreferencesDao systemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);
-%>
-<%
-    boolean saved = false;
-
-    if ("Save".equals(request.getParameter("dboperation")) && "POST".equals(request.getMethod())) {
-        // HTML checkboxes only submit a value when checked; an absent parameter means unchecked.
-        String submitted = request.getParameter(SystemPreferences.ECHART_PREFERENCE_KEYS.echart_show_ocean.name());
-        String newValue = "true".equals(submitted) ? "true" : "false";
-
-        SystemPreferences preference = systemPreferencesDao.findPreferenceByName(SystemPreferences.ECHART_PREFERENCE_KEYS.echart_show_ocean);
-        if (preference == null) {
-            preference = new SystemPreferences(SystemPreferences.ECHART_PREFERENCE_KEYS.echart_show_ocean.name(), newValue);
-            systemPreferencesDao.persist(preference);
-        } else {
-            preference.setValue(newValue);
-            preference.setUpdateDate(new Date());
-            systemPreferencesDao.merge(preference);
-        }
-        saved = true;
-    }
-
-    // OSCAR19 (newCaseManagementView.jsp) treats an unset preference as "on" via
-    // echartPreferencesMap.getOrDefault("echart_show_ocean", true); replicate that
-    // default here rather than isReadBooleanPreference()'s unconditional false-if-unset.
-    SystemPreferences echartShowOceanPref = systemPreferencesDao.findPreferenceByName(SystemPreferences.ECHART_PREFERENCE_KEYS.echart_show_ocean);
-    boolean displayOceanUI = echartShowOceanPref == null || echartShowOceanPref.getValueAsBoolean();
-    pageContext.setAttribute("displayOceanUI", displayOceanUI);
-    pageContext.setAttribute("saved", saved);
-%>
 
 <html lang="${pageContext.response.locale.language}">
     <head>
