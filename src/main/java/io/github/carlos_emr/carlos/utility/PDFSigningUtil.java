@@ -53,6 +53,7 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
  *
  * @since 2026-09-21
  */
+@SuppressWarnings("java:S2143") // PDFBox PDSignature.setSignDate takes java.util.Calendar; the boundary adapts from java.time.
 public final class PDFSigningUtil {
     private static final String PROVIDER_NAME = BouncyCastleProvider.PROVIDER_NAME;
     private static final int PREFERRED_SIGNATURE_SIZE = 32768;
@@ -116,7 +117,7 @@ public final class PDFSigningUtil {
             if (config.getContact() != null) {
                 signature.setContactInfo(config.getContact());
             }
-            signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now(ZoneId.systemDefault()))); // NOSONAR java:S2143 - PDSignature.setSignDate takes java.util.Calendar
+            signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now(ZoneId.systemDefault())));
 
             document.addSignature(signature, new CmsDetachedSignature(signingMaterial), signatureOptions);
             document.saveIncremental(output);
