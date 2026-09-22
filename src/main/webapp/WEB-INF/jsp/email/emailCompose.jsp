@@ -28,6 +28,9 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <fmt:message key="email.compose.title" var="emailComposeTitle"/>
+    <fmt:message key="email.compose.msg.sentTo" var="emailComposeSentTo"/>
+    <fmt:message key="email.compose.msg.acceptedForDelivery" var="emailComposeAcceptedForDelivery"/>
+    <fmt:message key="email.compose.msg.acceptedNotDelivered" var="emailComposeAcceptedNotDelivered"/>
     <fmt:message key="email.compose.label.sender" var="emailComposeSenderLabel"/>
     <fmt:message key="email.compose.label.patient" var="emailComposePatientLabel"/>
     <fmt:message key="email.compose.placeholder.searchPatient" var="emailComposeSearchPatientPlaceholder"/>
@@ -736,7 +739,11 @@
                 </c:when>
                 <c:when test="${ isEmailSuccessful }">
 					<div class="alert alert-success" role="alert" id="successMessage">
-						<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
+						<p>${carlos:forHtml(emailComposeSentTo)} <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> ${carlos:forHtml(emailComposeAcceptedForDelivery)}</p>
+						<%-- CARLOS observes the transport handing off, nothing beyond it: a provider can --%>
+						<%-- still bounce or discard the message afterwards without telling us. Saying    --%>
+						<%-- "sent" alone invites a clinician to treat unread lab results as received.    --%>
+						<p class="small text-muted mb-0" id="acceptedNotDeliveredNotice">${carlos:forHtml(emailComposeAcceptedNotDelivered)}</p>
                     </div>
 					<c:if test="${not isEmailStatusRecorded}">
 						<div class="alert alert-warning" role="alert" id="statusTrackingWarning">
@@ -819,7 +826,9 @@
 
             if (document.getElementById('isEmailStatusRecorded').value === 'true'
                     && !document.getElementById('emailFollowUpWarning')) {
-                setTimeout(() => window.close(), 3000);
+                // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
+                // window closed before anyone could, which made the notice decorative.
+                setTimeout(() => window.close(), 8000);
             }
             return;
         }
