@@ -90,7 +90,7 @@ test('pending Portal publication keeps accepted mail open without sending again'
   assert.equal(calls.submitted, 0);
 });
 
-test('Portal mode permits encrypted submission without exposing password fields', () => {
+test('Portal mode validates an encrypted email without requiring the password fields', () => {
   for (const portalEnabled of [true, false]) {
     const fields = {
       subjectEmail: { value: 'Test subject' }, message: { value: 'Test message' },

@@ -42,7 +42,9 @@ public class PortalEmailDelivery2Action extends ActionSupport {
                 delivery.recover(user, id, request.getParameter("operation"),
                         "true".equals(request.getParameter("confirmed")));
             }
-            request.setAttribute("emailLog", delivery.findForRecovery(user, id));
+            var emailLog = delivery.findForRecovery(user, id);
+            request.setAttribute("emailLog", emailLog);
+            request.setAttribute("portalRecoveryTooRecent", PortalEmailDelivery.mayStillBeSending(emailLog));
         } catch (SecurityException denied) {
             response.sendError(403);
             return NONE;

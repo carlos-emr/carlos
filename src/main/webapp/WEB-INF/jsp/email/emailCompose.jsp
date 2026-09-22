@@ -524,8 +524,9 @@
                     </div>
                     <div class="card-body" id="encryptionOptions">
                         <c:if test="${portalEmailEnabled}">
-                            <p>The patient will find the password in their Portal after signing in with MFA.
-                                Select one email address recorded for this patient. Their Portal account must be ready to use.</p>
+                            <p>When this email is sent encrypted, the patient finds its password in their Portal after signing in with MFA.
+                                Select one email address recorded for this patient. Their Portal account must be ready to use.
+                                An email with no message and no encrypted attachments is sent unencrypted, with no Portal password.</p>
                         </c:if>
                         <div class="container">
                             <%-- The message content itself now lives in the single "Message" field above;
