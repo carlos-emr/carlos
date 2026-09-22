@@ -10,7 +10,7 @@ The sender needs patient-specific `_email` write, `_demographic` read, `_portal.
 
 ## Durable lifecycle and recovery
 
-The `V1.0.30` migration adds lifecycle metadata to `emailLog`. It stores an opaque source reference, secret ID, original Portal origin/clinic and state, never the generated password. The generated password exists in the encryption step and is cleared before constructing the mail sender. It is not put in the email body, password clue, outbox password column or chart note.
+The `V1.0.32` migration adds lifecycle metadata to `emailLog`. It stores an opaque source reference, secret ID, original Portal origin/clinic and state, never the generated password. The generated password exists in the encryption step and is cleared before constructing the mail sender. It is not put in the email body, password clue, outbox password column or chart note.
 
 | State | Meaning | Recovery |
 | --- | --- | --- |

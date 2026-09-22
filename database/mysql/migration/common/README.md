@@ -55,9 +55,13 @@ retirement semantics, and failure investigation.
 security objects used by the patient portal client and grants them to `admin` only.
 `V1.0.29` is not skipped: `release/2026.08` holds it and it arrives with that forward-merge.
 
+`V1.0.32__portal_email_delivery.sql` adds the portal password lifecycle columns to `emailLog`
+(state, opaque source reference, secret ID, original portal origin and clinic). It never stores a
+password. `V1.0.31` is the portal invite delivery migration (#3856), which must merge first.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.30`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.32`
 (also the highest shared one) and `V1.0.29` is taken by `release/2026.08`, so the next free
-version for ANY location is `V1.0.31` (see `../README.md`).
+version for ANY location is `V1.0.33` (see `../README.md`).
