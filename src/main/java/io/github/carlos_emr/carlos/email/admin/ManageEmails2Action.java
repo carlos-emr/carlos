@@ -340,6 +340,14 @@ public class ManageEmails2Action extends ActionSupport {
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        // A fresh PENDING record may still be in the synchronous transport call. Waiting before
+        // exposing recovery avoids opening a duplicate while the first request is still active,
+        // and keeps portal recovery from revoking a password the in-flight send is about to use.
+        if (emailLog != null && EmailStatus.PENDING.equals(emailLog.getStatus())
+                && !emailManager.isManuallyResolvable(emailLog)) {
+            return showEmailComposeError(getLocalizedMessage("admin.manageEmails.pendingTooRecent"));
+        }
+
         if (emailLog != null) {
             var portalState = emailLog.getPortalDeliveryState();
             if (portalState != null && (emailLog.getStatus() == EmailStatus.PENDING
@@ -353,13 +361,6 @@ public class ManageEmails2Action extends ActionSupport {
 
         if (emailLog == null || emailLog.getDemographic() == null || emailLog.getDemographic().getDemographicNo() == null) {
             return showEmailComposeError(EMAIL_RESEND_MISSING_PATIENT_ERROR);
-        }
-
-        // A fresh PENDING record may still be in the synchronous transport call. Waiting before
-        // exposing recovery avoids opening a duplicate while the first request is still active.
-        if (EmailStatus.PENDING.equals(emailLog.getStatus())
-                && !emailManager.isManuallyResolvable(emailLog)) {
-            return showEmailComposeError(getLocalizedMessage("admin.manageEmails.pendingTooRecent"));
         }
 
         // A stale PENDING record has no conclusive outcome. Warn, but let the administrator decide

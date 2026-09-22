@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.PortalDeliveryState;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
+import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -113,6 +114,12 @@ public class PortalEmailDelivery {
                     || log.getPortalDeliveryState() == PortalDeliveryState.PUBLISHED) {
                 log.setErrorMessage(PUBLISH_PENDING);
                 return EmailSendResult.accepted(log, false, true);
+            } else if (failure instanceof SecurityException denied) {
+                // EmailSender raises this only from its privilege check, before the transport is
+                // reached, so the email was not sent. Withdraw the password and let the caller see
+                // the authorization failure, as a non-portal send does.
+                cancelBeforeSend(client, staff, log);
+                throw denied;
             } else if (log.getPortalDeliveryState() == PortalDeliveryState.SENDING
                     && !(failure instanceof EmailSendingException sendingFailure
                         && !sendingFailure.isDeliveryOutcomeUncertain())) {
@@ -138,12 +145,13 @@ public class PortalEmailDelivery {
                 || !configuration.clinicId().equals(log.getPortalClinicId())) {
             throw new IllegalStateException("Restore the original portal connection before recovering this email");
         }
+        if (mayStillBeSending(log)) {
+            throw new IllegalArgumentException("This email may still be sending; recover it after the waiting period");
+        }
         var client = portal.get();
         var state = log.getPortalDeliveryState();
         if ("confirmSent".equals(decision) || "confirmNotSent".equals(decision)) {
-            if (!confirmed || state != PortalDeliveryState.SENDING
-                    || log.getTimestamp() == null
-                    || log.getTimestamp().getTime() > System.currentTimeMillis() - 15L * 60L * 1000L) {
+            if (!confirmed || state != PortalDeliveryState.SENDING) {
                 throw new IllegalArgumentException("Check the mail provider delivery record and explicitly confirm its outcome");
             }
             move(log, "confirmSent".equals(decision) ? PortalDeliveryState.SENT
@@ -171,6 +179,17 @@ public class PortalEmailDelivery {
         return log;
     }
 
+    /**
+     * True while a PENDING send is recent enough that the request which started it may still be
+     * running. Recovery waits for the same window as manual resolution instead of racing that
+     * request, for example by revoking the password it is about to encrypt with.
+     */
+    public static boolean mayStillBeSending(EmailLog log) {
+        return EmailStatus.PENDING.equals(log.getStatus())
+                && (log.getTimestamp() == null || log.getTimestamp().getTime()
+                        > System.currentTimeMillis() - EmailManager.PENDING_RESOLUTION_MIN_AGE_MILLIS);
+    }
+
     public EmailLog findForRecovery(LoggedInInfo user, int emailLogId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("Portal email recovery cannot run inside a database transaction");
@@ -185,13 +204,14 @@ public class PortalEmailDelivery {
     }
 
     private PatientPortalStaffContext authorize(LoggedInInfo user, EmailLog log) {
-        if (log.getDemographic() == null || log.getDemographic().getDemographicNo() <= 0) {
+        Integer demographicNo = log.getDemographic() == null ? null : log.getDemographic().getDemographicNo();
+        if (demographicNo == null || demographicNo <= 0) {
             throw new IllegalArgumentException("A patient must be selected");
         }
-        if (user == null || !security.isAllowedAccessToPatientRecord(user, log.getDemographic().getDemographicNo())) {
+        if (user == null || !security.isAllowedAccessToPatientRecord(user, demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
-        String patient = String.valueOf(log.getDemographic().getDemographicNo());
+        String patient = String.valueOf(demographicNo);
         require(user, "_email", SecurityInfoManager.WRITE, patient);
         require(user, "_demographic", SecurityInfoManager.READ, patient);
         require(user, PortalStaffContextResolver.OBJECT_ACCOUNT, SecurityInfoManager.READ, patient);
@@ -199,7 +219,7 @@ public class PortalEmailDelivery {
         require(user, PortalStaffContextResolver.OBJECT_SECRET, SecurityInfoManager.WRITE, patient);
         return new PortalStaffContextResolver(security).resolveForPatient(user,
                 Set.of(PortalStaffContextResolver.OBJECT_ACCOUNT, PortalStaffContextResolver.OBJECT_SECRET),
-                log.getDemographic().getDemographicNo());
+                demographicNo);
     }
 
     private void require(LoggedInInfo user, String object, String privilege, String patient) {

@@ -118,21 +118,26 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
         assertThat(outcome.isTransportAccepted()).isTrue();
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.SENT);
         assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDelivery.PUBLISH_PENDING);
+        log.setStatus(EmailStatus.SUCCESS); // EmailManager records acceptance once send returns
         when(portal.publishUnlockSecret(eq(77L), any())).thenReturn(null);
         delivery.recover(user, 45, "retry", false);
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.PUBLISHED);
         assertThat(operations).containsExactly("create", "encrypt", "send");
         verify(portal, times(1)).createUnlockSecret(eq(123), anyString(), anyString(), any());
+        verify(logs).transitionEmailStatus(eq(45), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS), eq(""), any());
     }
 
     @Test void shouldRetainRecoverableRevokeIntentIfPortalIsDown() {
         when(portal.revokeUnlockSecret(anyLong(), anyString(), any())).thenThrow(new IllegalStateException("outage"));
         outcome = delivery.send(user, log, data, () -> { throw new EmailSendingException("render failed"); }, this::send);
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKE_PENDING);
+        log.setStatus(EmailStatus.FAILED); // EmailManager records the failure once send returns
         doReturn(null).when(portal).revokeUnlockSecret(anyLong(), anyString(), any());
         delivery.recover(user, 45, "retry", false);
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKED);
         assertThat(operations).doesNotContain("send", "publish");
+        verify(logs).transitionEmailStatus(eq(45), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
+                eq("Email was not sent. Its portal password has been revoked."), any());
     }
 
     @Test void shouldRecoverLostCreateResponseUsingSameStoredReference() {
@@ -142,6 +147,7 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
         String reference = log.getPortalSourceReference();
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKE_PENDING);
         assertThat(log.getPortalSecretId()).isNull();
+        log.setStatus(EmailStatus.FAILED); // EmailManager records the failure once send returns
         when(portal.createUnlockSecret(eq(123), eq(reference), eq("Email 45"), any()))
                 .thenReturn(new PatientPortalUnlockSecretDto(77, false, PortalSecret.of("existing-password"), reference, "pending"));
         delivery.recover(user, 45, "retry", false);
@@ -267,6 +273,37 @@ class PortalEmailDeliveryUnitTest extends CarlosUnitTestBase {
     @Test void shouldRejectRecoveryAgainstDifferentPortal() {
         stored(PortalDeliveryState.SENT); log.setPortalOrigin("https://old.example.org");
         assertThatThrownBy(() -> delivery.recover(user, 45, "retry", false)).isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(portal);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = PortalDeliveryState.class, names = {"PREPARING", "READY", "SENT"})
+    void shouldRefuseRecovery_whenPendingSendMayStillBeRunning(PortalDeliveryState state) {
+        stored(state); log.setTimestamp(new java.util.Date());
+        assertThatThrownBy(() -> delivery.recover(user, 45, "retry", false))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(portal);
+        verify(logs, never()).transitionPortalDelivery(any(), any(), any(), nullable(Long.class));
+    }
+
+    @Test void shouldAllowRecovery_whenRecentSendAlreadyHasAnOutcome() {
+        stored(PortalDeliveryState.SENT); log.setTimestamp(new java.util.Date()); log.setStatus(EmailStatus.SUCCESS);
+        delivery.recover(user, 45, "retry", false);
+        assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.PUBLISHED);
+    }
+
+    @Test void shouldRevokeAndRethrow_whenTransportStepIsRefused() {
+        var refused = new SecurityException("missing required sec object (_email)");
+        assertThatThrownBy(() -> delivery.send(user, log, data, this::encrypt, () -> { throw refused; }))
+                .isSameAs(refused);
+        assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKED);
+        assertThat(operations).containsExactly("create", "encrypt", "revoke");
+    }
+
+    @Test void shouldRejectMissingPatientNumber_beforeCallingPortal() {
+        log.getDemographic().setDemographicNo(null);
+        assertThatThrownBy(() -> delivery.send(user, log, data, this::encrypt, this::send))
+                .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(portal);
     }
 }

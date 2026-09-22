@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -107,7 +108,7 @@ public class EmailManager {
 
     private final Logger logger = MiscUtils.getLogger();
     /** Keep recovery controls away from sends that may still be executing in another request. */
-    static final long PENDING_RESOLUTION_MIN_AGE_MILLIS = 15L * 60L * 1000L;
+    public static final long PENDING_RESOLUTION_MIN_AGE_MILLIS = 15L * 60L * 1000L;
 
     public enum EmailResolutionResult {
         RESOLVED,
@@ -223,11 +224,27 @@ public class EmailManager {
             }
 
             if (portalPassword) {
-                var portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
-                        () -> encryptEmail(emailData),
-                        () -> emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData).send());
+                // The portal path archives and dispatches exactly like a normal send; only the
+                // password handling around the transport step differs.
+                AtomicReference<Integer> archiveId = new AtomicReference<>();
+                EmailSendResult portalResult;
+                try {
+                    portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
+                            () -> encryptEmail(emailData),
+                            () -> archiveId.set(sendWithArchive(loggedInInfo,
+                                    emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData),
+                                    emailLog)));
+                } catch (SecurityException e) {
+                    // sendWithArchive records a refusal it raises itself; a refusal before
+                    // transport (portal authorization) still leaves the row PENDING.
+                    if (EmailStatus.PENDING.equals(emailLog.getStatus())) {
+                        recordAuthorizationFailure(emailLog, e);
+                    }
+                    throw e;
+                }
                 if (portalResult.isTransportAccepted()) {
                     var completed = completeAcceptedSend(loggedInInfo, emailLog);
+                    recordArchiveSendOutcome(loggedInInfo, archiveId.get(), SendOutcome.ACCEPTED);
                     return EmailSendResult.accepted(completed.getEmailLog(), completed.isTransportOutcomeRecorded(),
                             completed.isFollowUpRequired() || portalResult.isFollowUpRequired());
                 }

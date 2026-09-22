@@ -13,9 +13,12 @@
         <c:choose>
             <c:when test="${emailLog.portalDeliveryState eq 'PUBLISHED'}"><p>The email was accepted by the mail provider and its password is available in the patient's Portal.</p></c:when>
             <c:when test="${emailLog.portalDeliveryState eq 'REVOKED'}"><p>The unsent email's password has been revoked. A new email can now be composed if needed.</p></c:when>
+            <c:when test="${portalRecoveryTooRecent}">
+                <p>This email may still be sending. Recovery is available 15 minutes after it was started. Reload this page then. Do not send it again in the meantime.</p>
+            </c:when>
             <c:when test="${emailLog.portalDeliveryState eq 'SENDING'}">
                 <p>Delivery is uncertain. Recovery is available after 15 minutes. Check the mail provider's record for this email before continuing. Do not send it again while its outcome is unknown.</p>
-                <form method="post" action="${pageContext.request.contextPath}/email/portalDelivery">
+                <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/email/portalDelivery">
                     <input type="hidden" name="emailLogId" value="${carlos:forHtmlAttribute(emailLog.id)}"/>
                     <label><input type="checkbox" name="confirmed" value="true" required/> I checked the mail provider's record and confirmed the outcome.</label>
                     <button name="operation" value="confirmSent">Provider accepted email: publish password</button>
@@ -25,15 +28,15 @@
             <c:otherwise>
                 <p><carlos:encode value="${emailLog.errorMessage}"/></p>
                 <p>This operation retries password publication for a sent email, or revokes the password for an unsent email. It never sends email.</p>
-                <form method="post" action="${pageContext.request.contextPath}/email/portalDelivery">
+                <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/email/portalDelivery">
                     <input type="hidden" name="emailLogId" value="${carlos:forHtmlAttribute(emailLog.id)}"/>
                     <button name="operation" value="retry">Retry password update</button>
                 </form>
             </c:otherwise>
         </c:choose>
-        <c:if test="${emailLog.status eq 'PENDING' and (emailLog.portalDeliveryState eq 'PUBLISHED' or emailLog.portalDeliveryState eq 'REVOKED')}">
+        <c:if test="${not portalRecoveryTooRecent and emailLog.status eq 'PENDING' and (emailLog.portalDeliveryState eq 'PUBLISHED' or emailLog.portalDeliveryState eq 'REVOKED')}">
             <p>The delivery record still needs to be updated. This will not send another email.</p>
-            <form method="post" action="${pageContext.request.contextPath}/email/portalDelivery">
+            <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/email/portalDelivery">
                 <input type="hidden" name="emailLogId" value="${carlos:forHtmlAttribute(emailLog.id)}"/>
                 <button name="operation" value="retry">Update delivery record</button>
             </form>
