@@ -51,9 +51,16 @@ must be rebuilt or explicitly reconciled before adopting this migration: Flyway
 [archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
 retirement semantics, and failure investigation.
 
+`V1.0.31__add_sms_security_objects.sql` seeds the `_sms` and `_admin.sms` security objects and
+their default grants (admin and doctor on `_sms`, admin on `_admin.sms`); existing clinic grants
+are preserved. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#security-objects).
+It took `V1.0.31` because `V1.0.29` and `V1.0.30` were held by open PRs (#3763, #3746, #3478,
+#3681) when it was written; whichever of those merges after it must renumber above the
+then-current high-water mark.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.28`
-(also the highest shared one), so the next free version for ANY location is `V1.0.29`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.31`
+(also the highest shared one), so the next free version for ANY location is `V1.0.32`
 (see `../README.md`).

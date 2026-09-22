@@ -40,7 +40,21 @@ A direct-send response reflects the persisted result, including a delivery webho
 
 Run `mvn '-Dtest=**/sms/**/*Test' test` for the module's unit, persistence and competing-transaction tests. Tests use synthetic data. There is no browser flow to validate until a UI/API entry point is implemented.
 
-Schema installation uses `V1.0.25__add_sms_system_of_record.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before this migration: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
+Schema installation uses `V1.0.25__add_sms_system_of_record.sql` and `V1.0.31__add_sms_security_objects.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before this migration: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
+
+## Security objects
+
+SMS has three security objects. `SecurityInfoManager.hasPrivilege` treats a role's grant as a ladder (`x` > `w` > `u` > `r`; `d` is separate and matched exactly), so a role granted `w` also satisfies an `r` check, and `(roleUserGroup, objectName)` is unique: one grant per role and object.
+
+| Object | Purpose | Ask for | Seeded default |
+| --- | --- | --- | --- |
+| `_sms` | Sending patient text messages and viewing SMS history | `w` to send, `r` to view history | `admin` and `doctor`: `x` |
+| `_admin.sms` | SMS configuration and the operational views (queue backlog, failures) | `w` to change, `r` to view | `admin`: `x` |
+| `_msgSMS` | Reading a stored message body through `SmsMessageBodyReadService` (audited) | `r`, together with `_demographic` `r` for the patient | `admin` and `doctor`: `x` |
+
+Only `_msgSMS` is enforced today, by `CarlosSmsMessageBodyAuthorizationService`. `_sms` and `_admin.sms` are seeded ahead of the code (`V1.0.31__add_sms_security_objects.sql`) so the grants exist before the first gate ships; nothing checks them yet. `_msgSMS` is seeded by `V1.0.25`. Both migrations leave an existing clinic row untouched, including an `o` (no-rights) row; note that `o` withholds the right for that role only, and a provider who also holds a role with a grant still passes. A clinic that wants a role to view history without sending grants it `r` on `_sms`. `_admin` = `x` confers nothing on `_admin.sms`; dotted objects need their own row.
+
+When the send and history actions land: a Struts action that fails a check throws the paren form, `throw new SecurityException("missing required sec object (_sms)");`, and must also require `_demographic` `r` for the patient. Service-layer checks throw `AccessDeniedException` instead, as the `_msgSMS` gate does.
 
 ## Required before real SMS traffic
 
