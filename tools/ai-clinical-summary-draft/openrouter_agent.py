@@ -678,8 +678,12 @@ def handler_for(gateway):
                 output = gateway.run_repair(loads(raw)) if self.path.endswith("/repair") else gateway.run(loads(raw))
                 require(len(json.dumps(output).encode("utf-8")) <= MAX_RESPONSE_BYTES, "Oversized output")
                 self.respond(200, output)
-                print(f"Completed pass in {time.monotonic() - started:.1f}s; "
-                      f"cache hits: {gateway.cache_hits - hits}", flush=True)
+                if self.path.endswith("/repair"):
+                    print(f"Completed repair of {len(output['statements'])} statement(s) in "
+                          f"{time.monotonic() - started:.1f}s", flush=True)
+                else:
+                    print(f"Completed pass in {time.monotonic() - started:.1f}s; "
+                          f"cache hits: {gateway.cache_hits - hits}", flush=True)
             except UpstreamError as error:
                 print(str(error), flush=True)  # Fixed diagnostics, never upstream body or credential.
                 self.respond(502, {"error": "OpenRouter unavailable; see local gateway status"})

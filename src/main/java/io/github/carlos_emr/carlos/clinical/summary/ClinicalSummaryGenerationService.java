@@ -108,7 +108,8 @@ public final class ClinicalSummaryGenerationService {
             Map<String, String> classes = drugClasses.get();
             generated = ClinicalSummaryHostChecks.restoreObservations(generated, sources);
             generated = ClinicalSummaryHostChecks.noteMedicationConflicts(generated, sources, classes);
-            generated = ClinicalSummaryRepair.apply(agent, generated, sources, patientLabel, classes);
+            generated = ClinicalSummaryRepair.apply(agent, generated, sources,
+                    ClinicalSummaryGenerationPipeline.clinicalSources(snapshot, sources), patientLabel, classes);
             generated = ClinicalSummaryGenerationPipeline.completeCoverage(generated, sources);
             validateGenerated(generated, sources, false);
             for (String key : Set.of("sections", "claims", "coverage")) {

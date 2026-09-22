@@ -48,24 +48,39 @@ final class ClinicalSummaryGenerationPipeline {
                         .put("status", "excluded").put("reason", "Host patient identity; no clinical content sent for generation.");
                 outputs.add(identity);
             } else {
-                ObjectNode clinicalSource = source.deepCopy();
-                String text = source.path("text").asText();
-                String boundary = "Source text below is preserved verbatim, including encoding and clinical inconsistencies.\n\n";
-                // The service has already checksum-verified every NHS fixture note. Its import
-                // preamble is host metadata, not clinical text; original evidence stays intact.
-                if (!snapshot.path("patient_context").path("generation_fixture").asText().isBlank()
-                        && source.path("id").asText().matches("note-[1-9][0-9]*")
-                        && text.startsWith("SYNTHETIC NHS TEST PATIENT - NOT FOR CLINICAL USE\nImported development fixture.")
-                        && text.contains(boundary)) {
-                    clinicalSource.put("text", text.substring(text.indexOf(boundary) + boundary.length()));
-                }
-                clinicalSources.add(clinicalSource);
+                clinicalSources.add(clinicalSource(snapshot, source));
             }
         }
         List<ObjectNode> requests = new ArrayList<>();
         if (!clinicalSources.isEmpty()) partition(clinicalRequest, requests);
         for (ObjectNode part : requests) run(snapshot, part, requests.size() > 1, outputs);
         return outputs.size() == 1 ? outputs.getFirst() : merge(outputs, snapshot.get("sources"));
+    }
+
+    /**
+     * The source as an agent sees it. The service has already checksum-verified every NHS fixture
+     * note; its import preamble is host metadata, not clinical text, and original evidence stays intact.
+     */
+    static ObjectNode clinicalSource(JsonNode snapshot, JsonNode source) {
+        ObjectNode clinicalSource = source.deepCopy();
+        String text = source.path("text").asText();
+        String boundary = "Source text below is preserved verbatim, including encoding and clinical inconsistencies.\n\n";
+        if (!snapshot.path("patient_context").path("generation_fixture").asText().isBlank()
+                && source.path("id").asText().matches("note-[1-9][0-9]*")
+                && text.startsWith("SYNTHETIC NHS TEST PATIENT - NOT FOR CLINICAL USE\nImported development fixture.")
+                && text.contains(boundary)) {
+            clinicalSource.put("text", text.substring(text.indexOf(boundary) + boundary.length()));
+        }
+        return clinicalSource;
+    }
+
+    /** The clinical sources an agent may be sent: every note as the agent sees it, never the host identity. */
+    static ArrayNode clinicalSources(JsonNode snapshot, JsonNode sources) {
+        ArrayNode result = JSON.createArrayNode();
+        for (JsonNode source : sources) {
+            if (!isHostIdentity((ObjectNode) snapshot, source)) result.add(clinicalSource(snapshot, source));
+        }
+        return result;
     }
 
     private static boolean isHostIdentity(ObjectNode snapshot, JsonNode source) {
