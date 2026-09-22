@@ -25,7 +25,8 @@
  *
  * Reads demographic/portalPanel and acts through demographic/portalInvite and demographic/portalAccount.
  * Every element is built with textContent, never innerHTML: invite and account fields come from the
- * portal, and delivery messages from CARLOS, and none of it may become markup. POSTs carry the
+ * portal, and a refusal the page has no translation for is shown as the server worded it, and none of
+ * it may become markup. Delivery outcomes and known refusals arrive as codes and are translated here. POSTs carry the
  * CSRF-TOKEN header from csrf-token.jspf, because fetch() is not wrapped by CSRFGuard's client script.
  *
  * @since 2026-09-22
@@ -48,9 +49,33 @@
     var statusBox = document.getElementById('portal-status');
     var lastInvites = [];
 
+    function message(key) {
+        return document.querySelector('#portal-messages [data-key="' + key + '"]');
+    }
+
     function text(key) {
-        var item = document.querySelector('#portal-messages [data-key="' + key + '"]');
+        var item = message(key);
         return item ? item.textContent : key;
+    }
+
+    /** Words a delivery attempt: its state, why it stands there, and whether a code was left live. */
+    function describe(delivery) {
+        var parts = [text('deliveries.state.' + delivery.state)];
+        if (delivery.outcome) {
+            parts.push(text('deliveries.outcome.' + delivery.outcome));
+        }
+        if (delivery.revokeFailed) {
+            parts.push(text('deliveries.revokeFailed'));
+        }
+        return parts;
+    }
+
+    /** A refusal the page knows by its code is shown translated; any other keeps the server's wording. */
+    function refusal(body) {
+        if (body && body.reason && message('refusal.' + body.reason)) {
+            return text('refusal.' + body.reason);
+        }
+        return body && body.message ? body.message : text('error.generic');
     }
 
     function element(tag, className, content) {
@@ -79,8 +104,13 @@
         return isNaN(date.getTime()) ? String(value) : date.toLocaleString();
     }
 
+    /** Shows a message; given several lines, the first is the headline and the rest explain it. */
     function showStatus(message, ok) {
-        statusBox.textContent = message;
+        var lines = Array.isArray(message) ? message : [message];
+        statusBox.replaceChildren(element(lines.length > 1 ? 'strong' : 'span', null, lines[0]));
+        lines.slice(1).forEach(function (line) {
+            statusBox.appendChild(element('div', null, line));
+        });
         statusBox.className = 'alert ' + (ok ? 'alert-success' : 'alert-warning');
     }
 
@@ -140,13 +170,9 @@
             // tell staff what to do, so the attempt's own explanation is shown with it.
             var delivery = body.delivery;
             var sent = !delivery || delivery.state === 'sent';
-            var message = delivery ? text('deliveries.state.' + delivery.state) : text('done');
-            if (delivery && delivery.message) {
-                message += ' ' + delivery.message;
-            }
-            showStatus(message, sent);
+            showStatus(delivery ? describe(delivery) : text('done'), sent);
         } else {
-            showStatus(body && body.message ? body.message : text('error.generic'), false);
+            showStatus(refusal(body), false);
         }
         await load();
     }
@@ -252,11 +278,12 @@
         var list = element('ul', 'list-group');
         deliveries.forEach(function (delivery) {
             var item = element('li', 'list-group-item');
-            item.appendChild(element('div', 'fw-semibold', text('deliveries.state.' + delivery.state)));
+            var description = describe(delivery);
+            item.appendChild(element('div', 'fw-semibold', description[0]));
             item.appendChild(element('div', 'small text-muted', text('deliveries.when') + ' ' + when(delivery.updatedAt)));
-            if (delivery.message) {
-                item.appendChild(element('div', 'small', delivery.message));
-            }
+            description.slice(1).forEach(function (line) {
+                item.appendChild(element('div', 'small', line));
+            });
             if (can.revoke) {
                 if (delivery.decisions && delivery.decisions.length) {
                     var actions = element('div', 'mt-1');
@@ -296,7 +323,7 @@
         }
         var payload = result.payload;
         if (!payload || result.status !== 200) {
-            showStatus(payload && payload.message ? payload.message : text('error.generic'), false);
+            showStatus(refusal(payload), false);
             ['portal-account', 'portal-invites', 'portal-deliveries'].forEach(function (id) {
                 document.getElementById(id).replaceChildren();
             });

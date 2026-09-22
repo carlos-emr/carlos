@@ -57,11 +57,13 @@ public class PortalInviteException extends RuntimeException {
         DELIVERY_NOT_FOUND("delivery_not_found",
                 "That invitation delivery was not found for this patient. Refresh the panel."),
         RECOVERY_TOO_EARLY("recovery_too_early",
-                "This delivery changed less than 15 minutes ago. Wait before resolving it, in case it is still in progress."),
+                "This delivery changed less than 15 minutes ago. Wait before resolving it, in case it is "
+                        + "still in progress."),
         RECOVERY_NOT_ALLOWED("recovery_not_allowed",
                 "That action does not apply to this delivery's current state. Refresh the panel."),
         PORTAL_CONNECTION_CHANGED("portal_connection_changed",
-                "This delivery was started against a different portal connection. Restore that connection to resolve it."),
+                "This delivery was started against a different portal connection. Restore that connection "
+                        + "to resolve it."),
         STATE_CHANGED("state_changed",
                 "This delivery changed while the request was running. Refresh the panel.");
 

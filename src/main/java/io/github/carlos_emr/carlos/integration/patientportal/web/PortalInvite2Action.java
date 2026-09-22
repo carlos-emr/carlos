@@ -201,10 +201,7 @@ public class PortalInvite2Action extends PortalJsonAction {
 
     /** Parses {@code channel}; absent means email. */
     private static Channel channel(String value) {
-        if (value == null || value.isEmpty() || "email".equals(value)) {
-            return Channel.EMAIL;
-        }
-        return "sms".equals(value) ? Channel.SMS : null;
+        return value == null || value.isEmpty() ? Channel.EMAIL : Channel.parse(value);
     }
 
     private boolean belongsToPatient(PatientPortalService portal, int patient, long id,

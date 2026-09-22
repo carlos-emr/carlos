@@ -27,9 +27,10 @@
     read access plus portal invite or account read rights, and sets which controls to render. The page
     holds no patient data itself: portal-manage.js loads demographic/portalPanel and performs every
     action through demographic/portalInvite and demographic/portalAccount, each of which checks its own
-    privileges. The page's own labels come from the message list below, so they are translated with the
-    rest of CARLOS; the server's refusal and delivery messages are English text from the Java layer and
-    are shown as received.
+    privileges. Everything the page says comes from the message list below, so it is translated with
+    the rest of CARLOS: delivery outcomes and invitation refusals arrive as codes and are looked up
+    there. Only a refusal the list does not know (a consent block, which carries the email layer's own
+    explanation, or a portal failure) is shown as the server worded it.
 
     Request attributes: portalDemographicNo, portalCanInvite, portalCanRevoke, portalCanSetAccess,
     portalCanUnlock.
@@ -100,7 +101,7 @@
 
     <ul id="portal-messages" hidden>
         <c:forTokens var="key" delims=","
-                     items="loading,done,error.generic,account.none,account.active,account.disabled,account.locked,account.resetRequired,account.unlock,account.disable,account.enable,account.disableReason,invites.none,invites.status,invites.issued,invites.expires,invites.by,invites.resend,invites.revoke,invites.confirmReplace,invites.confirmRevoke,invites.status.pending,invites.status.prepared,invites.status.accepted,invites.status.revoked,invites.status.superseded,deliveries.none,deliveries.when,deliveries.state.preparing,deliveries.state.prepared,deliveries.state.queued,deliveries.state.committed,deliveries.state.sent,deliveries.state.send_failed,deliveries.state.send_uncertain,deliveries.state.abandoned,deliveries.state.revoked,deliveries.decision.abandon,deliveries.decision.confirmSent,deliveries.decision.confirmNotSent,deliveries.waiting">
+                     items="loading,done,error.generic,account.none,account.active,account.disabled,account.locked,account.resetRequired,account.unlock,account.disable,account.enable,account.disableReason,invites.none,invites.status,invites.issued,invites.expires,invites.by,invites.resend,invites.revoke,invites.confirmReplace,invites.confirmRevoke,invites.status.pending,invites.status.prepared,invites.status.accepted,invites.status.revoked,invites.status.superseded,deliveries.none,deliveries.when,deliveries.state.preparing,deliveries.state.prepared,deliveries.state.queued,deliveries.state.committed,deliveries.state.sent,deliveries.state.send_failed,deliveries.state.send_uncertain,deliveries.state.abandoned,deliveries.state.revoked,deliveries.decision.abandon,deliveries.decision.confirmSent,deliveries.decision.confirmNotSent,deliveries.waiting,deliveries.outcome.prepare_refused,deliveries.outcome.prepare_unconfirmed,deliveries.outcome.commit_refused,deliveries.outcome.commit_unconfirmed,deliveries.outcome.send_blocked,deliveries.outcome.send_refused,deliveries.outcome.send_unconfirmed,deliveries.outcome.confirmed_sent,deliveries.outcome.confirmed_not_sent,deliveries.outcome.abandoned_by_staff,deliveries.revokeFailed,refusal.channel_unavailable,refusal.missing_email,refusal.invalid_email,refusal.incomplete_date_of_birth,refusal.missing_health_card,refusal.pending_invite_exists,refusal.invite_not_pending,refusal.invite_not_configured,refusal.delivery_not_found,refusal.recovery_too_early,refusal.recovery_not_allowed,refusal.portal_connection_changed,refusal.state_changed,refusal.patient_not_found">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
     </ul>

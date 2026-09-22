@@ -57,13 +57,33 @@ import java.util.Set;
 public class PatientPortalInviteDelivery extends AbstractModel<Long> {
 
     private static final long serialVersionUID = 1L;
-    private static final int MAX_ERROR_MESSAGE_LENGTH = 255;
 
     /** How the invitation reaches the patient. */
     public enum Channel {
-        EMAIL,
+        EMAIL("email"),
         /** Reserved until CARLOS has an SMS provider; requests for it are refused before any portal call. */
-        SMS
+        SMS("sms");
+
+        private final String requestValue;
+
+        Channel(String requestValue) {
+            this.requestValue = requestValue;
+        }
+
+        /** @return the {@code channel} request value that selects this channel */
+        public String requestValue() {
+            return requestValue;
+        }
+
+        /** Parses the {@code channel} request value, or returns {@code null} when it is not a channel. */
+        public static Channel parse(String value) {
+            for (Channel channel : values()) {
+                if (channel.requestValue.equals(value)) {
+                    return channel;
+                }
+            }
+            return null;
+        }
     }
 
     /** Where a delivery attempt stands. Each step is recorded before the next one starts. */
@@ -93,6 +113,34 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         public boolean isTerminal() {
             return TERMINAL.contains(this);
         }
+    }
+
+    /**
+     * Why an attempt stands where it does, recorded as a code rather than prose so the staff page can
+     * say it in the reader's language. {@code null} while nothing needs explaining, including a send
+     * that went through.
+     */
+    public enum Outcome {
+        /** The portal refused to prepare the invitation, so it prepared nothing. */
+        PREPARE_REFUSED,
+        /** The portal may have prepared a code whose id CARLOS never learned; staff must resolve it. */
+        PREPARE_UNCONFIRMED,
+        /** The portal refused to activate the code, so the email was never sent. */
+        COMMIT_REFUSED,
+        /** The portal did not confirm activating the code, so the email was never sent. */
+        COMMIT_UNCONFIRMED,
+        /** Consent or the email setup stopped the send before the portal was asked to activate the code. */
+        SEND_BLOCKED,
+        /** The mail server refused the email after the code went live. */
+        SEND_REFUSED,
+        /** The mail server did not say whether it accepted the email after the code went live. */
+        SEND_UNCONFIRMED,
+        /** Staff confirmed the email arrived. */
+        CONFIRMED_SENT,
+        /** Staff confirmed the email did not arrive, and the code was revoked. */
+        CONFIRMED_NOT_SENT,
+        /** Staff stopped the attempt before its code was activated. */
+        ABANDONED_BY_STAFF
     }
 
     @Id
@@ -132,8 +180,13 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
     @Column(name = "requested_by", nullable = false, length = 16, updatable = false)
     private String requestedBy;
 
-    @Column(name = "error_message", length = MAX_ERROR_MESSAGE_LENGTH)
-    private String errorMessage;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "outcome", length = 32)
+    private Outcome outcome;
+
+    /** Whether withdrawing an unused code on the portal failed; the code then expires on its own. */
+    @Column(name = "revoke_failed", nullable = false)
+    private boolean revokeFailed;
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "expires_at")
@@ -239,15 +292,20 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         return requestedBy;
     }
 
-    public String getErrorMessage() {
-        return errorMessage;
+    public Outcome getOutcome() {
+        return outcome;
     }
 
-    /** Records a fixed, credential-free explanation, truncated to the column width. */
-    public void setErrorMessage(String errorMessage) {
-        this.errorMessage = errorMessage == null || errorMessage.length() <= MAX_ERROR_MESSAGE_LENGTH
-                ? errorMessage
-                : errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH);
+    public void setOutcome(Outcome outcome) {
+        this.outcome = outcome;
+    }
+
+    public boolean isRevokeFailed() {
+        return revokeFailed;
+    }
+
+    public void setRevokeFailed(boolean revokeFailed) {
+        this.revokeFailed = revokeFailed;
     }
 
     public Date getExpiresAt() {

@@ -25,13 +25,11 @@ import io.github.carlos_emr.carlos.commn.dao.EmailConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientPortalInviteDeliveryDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
-import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
-import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Channel;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Outcome;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.State;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
@@ -41,17 +39,13 @@ import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.time.Clock;
-import java.time.DateTimeException;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
-import org.apache.commons.validator.routines.EmailValidator;
 import org.apache.logging.log4j.Logger;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -74,6 +68,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * account. The commit therefore runs inside {@link EmailManager.DispatchGate}, after the email row
  * exists and before any transport work, and a failed commit stops the send.
  *
+ * <p>Why an attempt stopped is recorded as an {@link Outcome} code. The chart checks live in
+ * {@link PortalInviteContact} and the email itself in {@link PortalInviteEmailComposer}.
+ *
  * <p>The invite code is never stored by CARLOS outside the email itself. A lost prepare response is
  * recovered by retrying with the same operation id, which the portal answers with the same token.
  *
@@ -92,33 +89,17 @@ public class PortalInviteDeliveryService {
 
     static final String OPERATION_PREFIX = "inv-";
     static final String REFERENCE_PREFIX = "emaillog:";
-    private static final int MIN_HEALTH_CARD_LENGTH = 4;
     private static final String STATUS_PENDING = "pending";
 
-    static final String SUBJECT = "Your patient portal invitation";
-    static final String PREPARE_FAILED = "The portal did not prepare the invitation. Nothing was sent.";
-    static final String PREPARE_UNKNOWN =
-            "The portal did not confirm preparing the invitation. Nothing was sent; resolve this delivery.";
-    static final String COMMIT_REFUSED = "The portal refused to activate the invitation. Nothing was sent.";
-    static final String COMMIT_UNKNOWN =
-            "The portal did not confirm activating the invitation. Nothing was sent.";
+    /** The email layer's reason for not sending, recorded on the outbox row when the gate stops a send. */
     static final String NOT_SENT_BEFORE_COMMIT = "The invitation email was not sent: the portal did not activate it.";
-    static final String CONSENT_OR_SETUP_BLOCKED = "The invitation email could not be sent. Nothing was delivered.";
-    static final String SEND_REFUSED = "The mail server refused the invitation email. Resend to issue a new code.";
-    static final String SEND_UNKNOWN =
-            "The mail server did not confirm sending the invitation email. Check whether it arrived.";
-    static final String REVOKE_FAILED =
-            "The unused invitation could not be withdrawn on the portal; it expires on its own.";
-    static final String CONFIRMED_SENT = "Staff confirmed the invitation email arrived.";
-    static final String CONFIRMED_NOT_SENT = "Staff confirmed the invitation email did not arrive; it was revoked.";
-    static final String ABANDONED_BY_STAFF = "Staff abandoned this delivery before the invitation was activated.";
-    /**
-     * Replaces the invitation code in the stored email once the send has resolved. CARLOS never re-sends
-     * that email - a replacement is a fresh code through resend - so keeping a live account credential in
-     * the outbox, where any reader of the patient's email history could reopen it, buys nothing.
-     */
-    static final String CODE_FORGOTTEN =
-            "This invitation's code is not kept by CARLOS. Resend the invitation to issue a new code.";
+
+    // What a staff resolution records on the email outbox row, in the outbox's own English convention.
+    static final String EMAIL_CONFIRMED_SENT = "Staff confirmed the invitation email arrived.";
+    static final String EMAIL_CONFIRMED_NOT_SENT =
+            "Staff confirmed the invitation email did not arrive; it was revoked.";
+    static final String EMAIL_ABANDONED_BY_STAFF =
+            "Staff stopped this delivery before the invitation was activated.";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -167,10 +148,9 @@ public class PortalInviteDeliveryService {
 
     private final PatientPortalService portal;
     private final PatientPortalSettings portalSettings;
-    private final PortalInviteSettings inviteSettings;
+    private final PortalInviteEmailComposer emails;
     private final EmailManager emailManager;
     private final PatientPortalInviteDeliveryDao deliveries;
-    private final EmailConfigDao emailConfigs;
     private final EmailLogDao emailLogs;
     private final Clock clock;
 
@@ -197,10 +177,9 @@ public class PortalInviteDeliveryService {
             Clock clock) {
         this.portal = portal;
         this.portalSettings = portalSettings;
-        this.inviteSettings = inviteSettings;
+        this.emails = new PortalInviteEmailComposer(inviteSettings, emailConfigs);
         this.emailManager = emailManager;
         this.deliveries = deliveries;
-        this.emailConfigs = emailConfigs;
         this.emailLogs = emailLogs;
         this.clock = clock;
     }
@@ -218,8 +197,8 @@ public class PortalInviteDeliveryService {
             PatientPortalStaffContext staff, InviteRequest request) {
         requireNoTransaction();
         requireEmailChannel(request);
-        Contact contact = contactFor(patient);
-        EmailData email = emailFor(user, patient.getDemographicNo(), contact.email(), request);
+        PortalInviteContact contact = PortalInviteContact.from(patient);
+        EmailData email = emails.request(user, patient.getDemographicNo(), contact.email(), request);
         requireConsent(user, email);
         Optional<PatientPortalInviteDto> pending = pendingInvite(patient.getDemographicNo(), staff);
         if (pending.isPresent()) {
@@ -239,8 +218,8 @@ public class PortalInviteDeliveryService {
             PatientPortalStaffContext staff, InviteRequest request) {
         requireNoTransaction();
         requireEmailChannel(request);
-        Contact contact = contactFor(patient);
-        EmailData email = emailFor(user, patient.getDemographicNo(), contact.email(), request);
+        PortalInviteContact contact = PortalInviteContact.from(patient);
+        EmailData email = emails.request(user, patient.getDemographicNo(), contact.email(), request);
         requireConsent(user, email);
         boolean pending = portal.listInvites(patient.getDemographicNo(), staff).stream()
                 .anyMatch(invite -> invite.id() == inviteId && STATUS_PENDING.equals(invite.status()));
@@ -274,7 +253,7 @@ public class PortalInviteDeliveryService {
         }
         return switch (decision) {
             case ABANDON -> abandonByStaff(row, patient, staff);
-            case CONFIRM_SENT -> confirm(row, State.SENT, CONFIRMED_SENT, EmailStatus.RESOLVED);
+            case CONFIRM_SENT -> confirm(row, State.SENT, Outcome.CONFIRMED_SENT, EMAIL_CONFIRMED_SENT);
             case CONFIRM_NOT_SENT -> confirmNotSent(row, staff);
         };
     }
@@ -306,8 +285,8 @@ public class PortalInviteDeliveryService {
 
     // --- delivery --------------------------------------------------------------------------------
 
-    private PatientPortalInviteDelivery deliver(LoggedInInfo user, int demographicNo, Contact contact,
-            PatientPortalStaffContext staff, EmailData email, Long supersededInviteId) {
+    private PatientPortalInviteDelivery deliver(LoggedInInfo user, int demographicNo,
+            PortalInviteContact contact, PatientPortalStaffContext staff, EmailData email, Long supersededInviteId) {
         String operationId = OPERATION_PREFIX + UUID.randomUUID();
         PatientPortalInviteDelivery row = deliveries.claim(new PatientPortalInviteDelivery(
                 operationId, demographicNo, portalSettings.clinicId(), portalSettings.baseUrl(),
@@ -323,17 +302,17 @@ public class PortalInviteDeliveryService {
                 // attempt unfinished so staff can resolve it: recovery asks the portal again with the
                 // same operation id, learns the id, and withdraws the code.
                 deliveries.advance(row.getId(), State.PREPARING, State.PREPARING,
-                        r -> r.setErrorMessage(PREPARE_UNKNOWN));
+                        r -> r.setOutcome(Outcome.PREPARE_UNCONFIRMED));
             } else {
                 // The portal refused outright, so it prepared nothing and there is nothing to withdraw.
-                abandon(row.getId(), State.PREPARING, PREPARE_FAILED, null, staff, demographicNo);
+                abandon(row.getId(), State.PREPARING, Outcome.PREPARE_REFUSED, null, staff, demographicNo);
             }
             throw exception;
         }
         long inviteId = issued.invite().id();
         row = advance(row.getId(), State.PREPARING, State.PREPARED, r -> r.setPortalInviteId(inviteId));
 
-        email.setBody(body(issued.inviteToken().expose()));
+        email.setBody(emails.body(issued.inviteToken().expose()));
         CommitGate gate = new CommitGate(row.getId(), inviteId, operationId, staff);
         EmailSendResult result;
         try {
@@ -347,8 +326,8 @@ public class PortalInviteDeliveryService {
         return settle(row.getId(), result, inviteId, staff, demographicNo);
     }
 
-    private PatientPortalPreparedInviteDto prepare(int demographicNo, Contact contact, Long supersededInviteId,
-            String operationId, PatientPortalStaffContext staff) {
+    private PatientPortalPreparedInviteDto prepare(int demographicNo, PortalInviteContact contact,
+            Long supersededInviteId, String operationId, PatientPortalStaffContext staff) {
         try {
             return prepareOnce(demographicNo, contact, supersededInviteId, operationId, staff);
         } catch (PatientPortalException exception) {
@@ -361,8 +340,8 @@ public class PortalInviteDeliveryService {
         }
     }
 
-    private PatientPortalPreparedInviteDto prepareOnce(int demographicNo, Contact contact, Long supersededInviteId,
-            String operationId, PatientPortalStaffContext staff) {
+    private PatientPortalPreparedInviteDto prepareOnce(int demographicNo, PortalInviteContact contact,
+            Long supersededInviteId, String operationId, PatientPortalStaffContext staff) {
         if (supersededInviteId != null) {
             return portal.prepareInviteResend(supersededInviteId, operationId, staff);
         }
@@ -403,14 +382,14 @@ public class PortalInviteDeliveryService {
                 } catch (PatientPortalException exception) {
                     // Commit retries are idempotent, but a retry here would hold the send open with no
                     // bound. Record whether the portal may have committed and stop.
-                    String message = outcomeUnknown(exception) ? COMMIT_UNKNOWN : COMMIT_REFUSED;
-                    deliveries.advance(deliveryId, State.QUEUED, State.QUEUED, r -> r.setErrorMessage(message));
+                    Outcome outcome = outcomeUnknown(exception) ? Outcome.COMMIT_UNCONFIRMED : Outcome.COMMIT_REFUSED;
+                    deliveries.advance(deliveryId, State.QUEUED, State.QUEUED, r -> r.setOutcome(outcome));
                     throw new EmailSendingException(NOT_SENT_BEFORE_COMMIT);
                 }
                 Date expiresAt = committed.expiresAt() == null ? null : Date.from(committed.expiresAt());
                 if (deliveries.advance(deliveryId, State.QUEUED, State.COMMITTED, r -> {
                     r.setExpiresAt(expiresAt);
-                    r.setErrorMessage(null);
+                    r.setOutcome(null);
                 }) == null) {
                     throw new EmailSendingException(NOT_SENT_BEFORE_COMMIT);
                 }
@@ -433,18 +412,19 @@ public class PortalInviteDeliveryService {
         return switch (row.getState()) {
             case COMMITTED -> {
                 if (result.isTransportAccepted()) {
-                    yield advance(deliveryId, State.COMMITTED, State.SENT, r -> r.setErrorMessage(null));
+                    yield advance(deliveryId, State.COMMITTED, State.SENT, r -> r.setOutcome(null));
                 }
                 if (result.isDeliveryUnconfirmed()) {
-                    yield advance(deliveryId, State.COMMITTED, State.SEND_UNCERTAIN, r -> r.setErrorMessage(SEND_UNKNOWN));
+                    yield advance(deliveryId, State.COMMITTED, State.SEND_UNCERTAIN,
+                            r -> r.setOutcome(Outcome.SEND_UNCONFIRMED));
                 }
-                yield advance(deliveryId, State.COMMITTED, State.SEND_FAILED, r -> r.setErrorMessage(SEND_REFUSED));
+                yield advance(deliveryId, State.COMMITTED, State.SEND_FAILED, r -> r.setOutcome(Outcome.SEND_REFUSED));
             }
             // The gate never ran: consent blocked the email or the sender could not be used.
-            case PREPARED -> abandon(deliveryId, State.PREPARED, CONSENT_OR_SETUP_BLOCKED, inviteId, staff, demographicNo);
+            case PREPARED -> abandon(deliveryId, State.PREPARED, Outcome.SEND_BLOCKED, inviteId, staff, demographicNo);
             // The gate stopped before or at the commit. Withdraw the token; nothing reached the patient.
-            case QUEUED -> abandon(deliveryId, State.QUEUED, row.getErrorMessage() == null
-                    ? COMMIT_REFUSED : row.getErrorMessage(), inviteId, staff, demographicNo);
+            case QUEUED -> abandon(deliveryId, State.QUEUED, row.getOutcome() == null
+                    ? Outcome.COMMIT_REFUSED : row.getOutcome(), inviteId, staff, demographicNo);
             default -> row;
         };
     }
@@ -457,10 +437,11 @@ public class PortalInviteDeliveryService {
         }
         forgetCode(row);
         if (row.getState() == State.PREPARED || row.getState() == State.QUEUED) {
-            abandon(deliveryId, row.getState(), CONSENT_OR_SETUP_BLOCKED, inviteId, staff, demographicNo);
+            abandon(deliveryId, row.getState(), Outcome.SEND_BLOCKED, inviteId, staff, demographicNo);
         } else if (row.getState() == State.COMMITTED) {
             // The token is live and the send's fate is unknown. Never revoke on uncertainty.
-            deliveries.advance(deliveryId, State.COMMITTED, State.SEND_UNCERTAIN, r -> r.setErrorMessage(SEND_UNKNOWN));
+            deliveries.advance(deliveryId, State.COMMITTED, State.SEND_UNCERTAIN,
+                    r -> r.setOutcome(Outcome.SEND_UNCONFIRMED));
         }
     }
 
@@ -473,35 +454,38 @@ public class PortalInviteDeliveryService {
             // The prepare response was lost. Asking again with the same operation id names the invitation
             // so it can be withdrawn; an answer that it no longer exists means there is nothing to withdraw.
             try {
-                Contact contact = row.getSupersededInviteId() == null ? contactFor(patient) : null;
+                PortalInviteContact contact =
+                        row.getSupersededInviteId() == null ? PortalInviteContact.from(patient) : null;
                 inviteId = prepareOnce(row.getDemographicNo(), contact, row.getSupersededInviteId(),
                         row.getDeliveryOperationId(), staff).issuedInvite().invite().id();
             } catch (PatientPortalException | PortalInviteException exception) {
                 inviteId = null;
             }
         }
-        PatientPortalInviteDelivery abandoned =
-                abandon(row.getId(), row.getState(), ABANDONED_BY_STAFF, inviteId, staff, row.getDemographicNo());
+        PatientPortalInviteDelivery abandoned = abandon(row.getId(), row.getState(), Outcome.ABANDONED_BY_STAFF,
+                inviteId, staff, row.getDemographicNo());
         if (abandoned.getEmailLogId() != null) {
             // In these states the send never started, so the email row can be closed as not sent.
             emailLogs.transitionEmailStatus(abandoned.getEmailLogId(), EmailStatus.PENDING, EmailStatus.FAILED,
-                    ABANDONED_BY_STAFF, Date.from(clock.instant()));
+                    EMAIL_ABANDONED_BY_STAFF, Date.from(clock.instant()));
         }
         return abandoned;
     }
 
-    private PatientPortalInviteDelivery confirmNotSent(PatientPortalInviteDelivery row, PatientPortalStaffContext staff) {
+    private PatientPortalInviteDelivery confirmNotSent(PatientPortalInviteDelivery row,
+            PatientPortalStaffContext staff) {
         // Revoke first: if the portal refuses, the row keeps its state and staff can try again.
         portal.revokeInvite(row.getDemographicNo(), row.getPortalInviteId(), staff);
-        return confirm(row, State.REVOKED, CONFIRMED_NOT_SENT, EmailStatus.RESOLVED);
+        return confirm(row, State.REVOKED, Outcome.CONFIRMED_NOT_SENT, EMAIL_CONFIRMED_NOT_SENT);
     }
 
-    private PatientPortalInviteDelivery confirm(PatientPortalInviteDelivery row, State next, String message,
-            EmailStatus emailStatus) {
-        PatientPortalInviteDelivery updated = advance(row.getId(), row.getState(), next, r -> r.setErrorMessage(message));
+    /** Records the staff confirmation and closes the email row, which a stuck send left pending. */
+    private PatientPortalInviteDelivery confirm(PatientPortalInviteDelivery row, State next, Outcome outcome,
+            String emailMessage) {
+        PatientPortalInviteDelivery updated = advance(row.getId(), row.getState(), next, r -> r.setOutcome(outcome));
         if (updated.getEmailLogId() != null) {
-            emailLogs.transitionEmailStatus(updated.getEmailLogId(), EmailStatus.PENDING, emailStatus, message,
-                    Date.from(clock.instant()));
+            emailLogs.transitionEmailStatus(updated.getEmailLogId(), EmailStatus.PENDING, EmailStatus.RESOLVED,
+                    emailMessage, Date.from(clock.instant()));
         }
         return updated;
     }
@@ -512,20 +496,29 @@ public class PortalInviteDeliveryService {
      * Marks an attempt abandoned and withdraws its prepared token. A live preparation blocks every new
      * invitation for the patient until it expires, so leaving one behind would lock staff out for days.
      */
-    private PatientPortalInviteDelivery abandon(Long deliveryId, State expected, String message, Long inviteId,
+    private PatientPortalInviteDelivery abandon(Long deliveryId, State expected, Outcome outcome, Long inviteId,
             PatientPortalStaffContext staff, int demographicNo) {
-        String recorded = message;
-        if (inviteId != null) {
-            try {
-                portal.revokeInvite(demographicNo, inviteId, staff);
-            } catch (PatientPortalException exception) {
-                recorded = message + " " + REVOKE_FAILED;
+        boolean revokeFailed = inviteId != null && !withdraw(demographicNo, inviteId, staff);
+        PatientPortalInviteDelivery row = deliveries.advance(deliveryId, expected, State.ABANDONED, r -> {
+            r.setOutcome(outcome);
+            r.setRevokeFailed(revokeFailed);
+            if (inviteId != null) {
+                // Recovery of a lost prepare response learns the id only here; record which invitation
+                // was withdrawn, so the attempt names it like every other.
+                r.setPortalInviteId(inviteId);
             }
-        }
-        String finalMessage = recorded;
-        PatientPortalInviteDelivery row = deliveries.advance(deliveryId, expected, State.ABANDONED,
-                r -> r.setErrorMessage(finalMessage));
+        });
         return row != null ? row : deliveries.find(deliveryId);
+    }
+
+    /** @return whether the portal withdrew the invitation; a failure leaves it to expire on its own */
+    private boolean withdraw(int demographicNo, long inviteId, PatientPortalStaffContext staff) {
+        try {
+            portal.revokeInvite(demographicNo, inviteId, staff);
+            return true;
+        } catch (PatientPortalException exception) {
+            return false;
+        }
     }
 
     /**
@@ -539,7 +532,7 @@ public class PortalInviteDeliveryService {
             return;
         }
         try {
-            emailLogs.replaceBody(row.getEmailLogId(), CODE_FORGOTTEN);
+            emailLogs.replaceBody(row.getEmailLogId(), PortalInviteEmailComposer.CODE_FORGOTTEN);
         } catch (RuntimeException exception) {
             logger.warn("patient portal invitation code could not be cleared from the outbox: {}",
                     exception.getClass().getSimpleName());
@@ -561,54 +554,12 @@ public class PortalInviteDeliveryService {
                 .findFirst();
     }
 
-    private EmailData emailFor(LoggedInInfo user, int demographicNo, String recipient, InviteRequest request) {
-        if (inviteSettings.activationUrl() == null || inviteSettings.senderEmail() == null) {
-            throw new PortalInviteException(Reason.NOT_CONFIGURED);
-        }
-        EmailConfig sender = emailConfigs.findActiveEmailConfig(inviteSettings.senderEmail());
-        if (sender == null) {
-            throw new PortalInviteException(Reason.NOT_CONFIGURED);
-        }
-        EmailData email = new EmailData();
-        email.setSenderConfigId(sender.getId());
-        email.setRecipients(new String[] {recipient});
-        email.setSubject(SUBJECT);
-        email.setBody("");
-        email.setEncryptedMessage("");
-        email.setPassword("");
-        email.setPasswordClue("");
-        email.setIsEncrypted(false);
-        email.setIsAttachmentEncrypted(false);
-        email.setChartDisplayOption(ChartDisplayOption.WITHOUT_NOTE);
-        email.setInternalComment("");
-        email.setTransactionType(TransactionType.PORTAL_INVITE);
-        email.setDemographicNo(demographicNo);
-        email.setProviderNo(user.getLoggedInProviderNo());
-        email.setAdditionalParams("");
-        email.setAttachments(Collections.emptyList());
-        email.setConsentOverride(request.consentOverride());
-        email.setConsentOverrideReason(request.consentOverrideReason());
-        return email;
-    }
-
     private void requireConsent(LoggedInInfo user, EmailData email) {
         // Checked before the portal is asked for anything: a blocked email must not leave a prepared token.
         String blocked = emailManager.consentBlockMessage(user, email);
         if (blocked != null) {
             throw new PortalInviteException(Reason.CONSENT_BLOCKED, blocked);
         }
-    }
-
-    String body(String inviteCode) {
-        return "Hello,\n\n"
-                + "You have been invited to create an account on your clinic's patient portal.\n\n"
-                + "1. Open " + inviteSettings.activationUrl() + "\n"
-                + "2. Enter this invitation code: " + inviteCode + "\n"
-                + "3. Confirm your email address, date of birth and health card number, then choose a "
-                + "username and password.\n\n"
-                + "The code works once and expires 7 days after this email was sent. If you did not expect "
-                + "this email, you can ignore it: no account is created unless the code is used.\n\n"
-                + "This message was sent by your clinic. Please do not reply to it.\n";
     }
 
     private static void requireEmailChannel(InviteRequest request) {
@@ -630,35 +581,5 @@ public class PortalInviteDeliveryService {
             case TRANSPORT_FAILURE, MALFORMED_RESPONSE, UNEXPECTED_STATUS -> true;
             default -> false;
         };
-    }
-
-    record Contact(String email, LocalDate dateOfBirth, String healthCardNumber) {
-    }
-
-    /** Reads and checks what the portal will ask the patient for, before any portal call. */
-    static Contact contactFor(Demographic patient) {
-        String email = patient.getEmail() == null ? "" : patient.getEmail().strip();
-        if (email.isEmpty()) {
-            throw new PortalInviteException(Reason.MISSING_EMAIL);
-        }
-        if (!EmailValidator.getInstance().isValid(email)) {
-            throw new PortalInviteException(Reason.INVALID_EMAIL);
-        }
-        LocalDate dateOfBirth;
-        try {
-            dateOfBirth = LocalDate.of(Integer.parseInt(strip(patient.getYearOfBirth())),
-                    Integer.parseInt(strip(patient.getMonthOfBirth())), Integer.parseInt(strip(patient.getDateOfBirth())));
-        } catch (NumberFormatException | DateTimeException exception) {
-            throw new PortalInviteException(Reason.INCOMPLETE_DATE_OF_BIRTH);
-        }
-        String healthCard = strip(patient.getHin()).replace(" ", "").replace("-", "").toUpperCase(Locale.ROOT);
-        if (healthCard.length() < MIN_HEALTH_CARD_LENGTH) {
-            throw new PortalInviteException(Reason.MISSING_HEALTH_CARD);
-        }
-        return new Contact(email, dateOfBirth, healthCard);
-    }
-
-    private static String strip(String value) {
-        return value == null ? "" : value.strip();
     }
 }
