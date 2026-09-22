@@ -230,6 +230,31 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should report a definite archive failure when archive creation throws an unchecked exception")
+    void shouldReportDefiniteArchiveFailure_whenArchiveCreationThrowsUnchecked() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(51);
+        doThrow(new IllegalStateException("archive store unavailable"))
+                .when(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            // Nothing was dispatched, so this must not fall through to sendWithArchive's
+            // catch-all and be reported as "the transport did not confirm". That wording is
+            // reserved for a fault inside sendPrepared(), where the outcome really is unknown.
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).startsWith("Failed to archive outbound email");
+            verify(smtpSenders.constructed().get(0), never()).sendPrepared();
+            verifyNoInteractions(javaMailSender);
+            verify(outboundEmailArchiveService, never()).recordSendOutcome(any(), any(), any());
+        }
+    }
+
+    @Test
     @DisplayName("should archive SMTP email before sending prepared message")
     void shouldArchiveSmtpEmail_beforeSendingPreparedMessage() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
@@ -256,6 +281,197 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             archiveBeforeSend.verify(smtpSender).sendPrepared();
             verify(emailLogDao).transitionEmailStatus(45, EmailLog.EmailStatus.PENDING, EmailLog.EmailStatus.SUCCESS, "", emailLog.getTimestamp());
         }
+    }
+
+    @Test
+    @DisplayName("should advance the archive to accepted when the transport takes the message")
+    void shouldAdvanceArchiveToAccepted_whenTransportTakesTheMessage() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(46);
+        stubArchiveWithId(91);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            emailManager.sendEmail(loggedInInfo, emailData());
+
+            // ATTEMPTED must be written before the transport runs, so a crash mid-dispatch leaves
+            // an unresolved attempt rather than a row that looks like it was never sent.
+            // EmailLog is authoritative, so its SUCCESS lands before the archive's ACCEPTED: the
+            // archive write takes a row lock and must not hold an accepted send at PENDING.
+            org.mockito.InOrder lifecycle = inOrder(outboundEmailArchiveService,
+                    smtpSenders.constructed().get(0), emailLogDao);
+            lifecycle.verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 91, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+            lifecycle.verify(smtpSenders.constructed().get(0)).sendPrepared();
+            lifecycle.verify(emailLogDao).transitionEmailStatus(eq(46), eq(EmailLog.EmailStatus.PENDING),
+                    eq(EmailLog.EmailStatus.SUCCESS), any(), any());
+            lifecycle.verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 91, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        }
+    }
+
+    @Test
+    @DisplayName("should still dispatch when the attempt marker cannot be written")
+    void shouldStillDispatch_whenAttemptMarkerCannotBeWritten() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(52);
+        stubArchiveWithId(95);
+        // Bookkeeping ahead of the transport must not become a reason the email never leaves.
+        doThrow(new IllegalStateException("archive row locked"))
+                .when(outboundEmailArchiveService)
+                .recordSendOutcome(loggedInInfo, 95, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            verify(smtpSenders.constructed().get(0)).sendPrepared();
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        }
+    }
+
+    @Test
+    @DisplayName("should record an archive send failure when the transport refuses on authorization")
+    void shouldRecordArchiveSendFailure_whenTransportRefusesOnAuthorization() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(53);
+        stubArchiveWithId(96);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new SecurityException("missing required sec object (_email)"))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            EmailData emailData = emailData();
+
+            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData))
+                    .isInstanceOf(SecurityException.class);
+
+            // The privilege check runs before hand-off, so this refusal is a definite failure.
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 96, OutboundEmailArchiveService.SendOutcome.FAILED);
+        }
+    }
+
+    @Test
+    @DisplayName("should leave the archive at attempted when the transport fails unchecked")
+    void shouldLeaveArchiveAtAttempted_whenTransportFailsUnchecked() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(54);
+        stubArchiveWithId(97);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new IllegalStateException("connection dropped mid-transfer"))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            emailManager.sendEmail(loggedInInfo, emailData());
+
+            // An unclassified fault inside the transport proves nothing either way, so neither
+            // outcome may be asserted: the row keeps ATTEMPTED, which reads as "not known".
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 97, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+            verify(outboundEmailArchiveService, never())
+                    .recordSendOutcome(loggedInInfo, 97, OutboundEmailArchiveService.SendOutcome.FAILED);
+            verify(outboundEmailArchiveService, never())
+                    .recordSendOutcome(loggedInInfo, 97, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        }
+    }
+
+    @Test
+    @DisplayName("should record an archive send failure when the transport refuses the message")
+    void shouldRecordArchiveSendFailure_whenTransportRefusesTheMessage() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(47);
+        stubArchiveWithId(92);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("relay refused the message"))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 92, OutboundEmailArchiveService.SendOutcome.FAILED);
+        }
+    }
+
+    @Test
+    @DisplayName("should leave the archive at attempted when the delivery outcome is uncertain")
+    void shouldLeaveArchiveAtAttempted_whenDeliveryOutcomeIsUncertain() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(48);
+        stubArchiveWithId(93);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("transport outcome unknown", null, true))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            emailManager.sendEmail(loggedInInfo, emailData());
+
+            // Recording FAILED here would assert the message never went out -- exactly what an
+            // uncertain outcome cannot establish. The row stays at ATTEMPTED, which reads as
+            // "not known" rather than "not sent".
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 93, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+            verify(outboundEmailArchiveService, never())
+                    .recordSendOutcome(loggedInInfo, 93, OutboundEmailArchiveService.SendOutcome.FAILED);
+        }
+    }
+
+    @Test
+    @DisplayName("should still report success when archive lifecycle bookkeeping fails")
+    void shouldStillReportSuccess_whenLifecycleBookkeepingFails() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(49);
+        stubArchiveWithId(94);
+        // The message is already with the transport by the time ACCEPTED is written. Turning a
+        // bookkeeping fault into a failed send would invite a clinician to send a duplicate.
+        doThrow(new IllegalStateException("archive row locked"))
+                .when(outboundEmailArchiveService)
+                .recordSendOutcome(loggedInInfo, 94, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        }
+    }
+
+    private void stubPersistedEmailLogId(int emailLogId) {
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", emailLogId);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+    }
+
+    private void stubArchiveWithId(int archiveId) throws Exception {
+        OutboundEmailArchive archive = new OutboundEmailArchive();
+        archive.setId(archiveId);
+        when(outboundEmailArchiveService.archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class)))
+                .thenReturn(archive);
     }
 
     @Test
