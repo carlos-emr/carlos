@@ -71,8 +71,9 @@ public final class LocaleUtils {
 
     /**
      * Resolves the locale a page should be rendered in from the browser's {@code Accept-Language}
-     * preferences, the same way the JSTL {@code fmt} taglib resolves {@code <fmt:message>}: the
-     * first preference that actually has a bundle wins, otherwise English.
+     * preferences: the first preference that has a bundle wins, otherwise English.
+     * The chart fragments also pass this locale to JSTL before loading their message bundle,
+     * so both rendering paths share the same fallback policy.
      *
      * <p>Java code that renders user-facing text must use this rather than the JVM default locale or
      * {@code LocaleContextHolder}. CARLOS has no Spring {@code LocaleResolver} in the Struts/JSP

@@ -158,6 +158,19 @@ class EncounterChartHeaderI18nTest {
                 .doesNotContain("getRosterStatusDisplay(request.getLocale())");
     }
 
+    @Test
+    @DisplayName("should set the negotiated JSTL locale before loading each translated fragment's bundle")
+    void shouldShareLocale_betweenJavaAndJstl() throws IOException {
+        for (Path jsp : List.of(HEADER_JSP, CHART_NOTES_JSP, LAYOUT_JS_JSP,
+                Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"))) {
+            String source = stripComments(read(jsp));
+            int locale = source.indexOf("<fmt:setLocale value=\"<%= LocaleUtils.resolveBundleLocale(request) %>\"/>");
+            int bundle = source.indexOf("<fmt:setBundle");
+            assertThat(locale).as("negotiated locale in %s", jsp).isGreaterThanOrEqualTo(0);
+            assertThat(bundle).as("bundle must load after the locale in %s", jsp).isGreaterThan(locale);
+        }
+    }
+
     private static List<String> fmtMessageKeys(Path jsp) throws IOException {
         assertThat(Files.exists(jsp)).as("%s should exist; update this test if it was renamed", jsp).isTrue();
         List<String> keys = new ArrayList<>();

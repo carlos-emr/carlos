@@ -1,3 +1,4 @@
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%--
 
 
@@ -31,7 +32,8 @@
     <%@ taglib uri="jakarta.tags.core" prefix="c"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt"%>
     <%@ taglib uri="carlos" prefix="carlos"%>
-    <fmt:setBundle basename="oscarResources"/>
+    <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
+<fmt:setBundle basename="oscarResources"/>
     <c:set var="ctx" value="${pageContext.request.contextPath}"	scope="request" />
     <%-- This file is served as text/javascript, but it is still a JSP, so its user-facing
          strings resolve from the browser locale through <fmt:message> like any other page.

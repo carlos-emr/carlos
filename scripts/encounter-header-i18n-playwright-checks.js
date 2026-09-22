@@ -25,16 +25,16 @@
  *      an inline script, so no translation could reach them.
  *
  *   2. THE WRONG LOCALE. The header is half JSP and half a Java-built HTML
- *      string (Demographic#getStandardIdentificationHTML). The JSP half resolves
+ *      string (Demographic#getStandardIdentificationHtml). The JSP half resolves
  *      <fmt:message> from the browser's Accept-Language; the Java half read
  *      LocaleContextHolder, and CARLOS installs no Spring LocaleResolver on the
  *      Struts/JSP request path, so that is the SERVER's locale. On an
  *      English-defaulted server the two halves disagreed and the header looked
  *      "not i18n" even though the page around it was translated.
  *
- * Defect 2 is why this check walks the chart TWICE against the same running
- * server -- once with a French browser, once with an English one -- and asserts
- * the two headers differ. A server-locale regression passes every
+ * Defect 2 is why this check walks the chart against the same running server
+ * with French, English, and unsupported-language preferences, and asserts
+ * the French and English headers differ. A server-locale regression passes every
  * single-language check ever written: one language is always right.
  *
  * WHAT IT ASSERTS, per language:
@@ -104,6 +104,14 @@ const LANGUAGES = [
     calculators: 'calculatrices',
     templateLegend: 'Recherche de modèles',
     templatePlaceholder: 'nom du modèle',
+  },
+  {
+    tag: 'de-AT',
+    acceptLanguage: 'de-AT,de;q=0.9',
+    javaLabels: ['Sex', 'Age'],
+    calculators: 'calculators',
+    templateLegend: 'Template Search',
+    templatePlaceholder: 'template name',
   },
   {
     tag: 'de-DE',
@@ -275,7 +283,7 @@ async function main() {
   assert(english.calculatorText !== french.calculatorText,
     'The calculators control reads the same in both languages, so the header labels are not being translated');
 
-  return `header localized for ${LANGUAGES.map((language) => language.tag).join(' and ')}; `
+  return `header locale negotiation verified for ${LANGUAGES.map((language) => language.tag).join(', ')}; `
     + 'one calculators control in each; template search legend and placeholder translated';
 }
 

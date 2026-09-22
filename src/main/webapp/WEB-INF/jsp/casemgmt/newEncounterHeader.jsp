@@ -37,15 +37,15 @@
   only in how it passed the patient's attributes, was reported as a duplicate control.
   Parameters: EctSessionBean and the authenticated session supply the encounter
   and provider context; there are no direct request parameters for this fragment.
-  i18n: every label here resolves against the BROWSER locale. The <fmt:message> tags
-  do that on their own; the Java-rendered identity block is handed the same locale
-  explicitly (see Demographic#getStandardIdentificationHtml) because the JVM default
+  i18n: every label here resolves against the BROWSER locale. JSTL and the Java-rendered
+  identity block both receive the negotiated bundle locale explicitly (see Demographic#getStandardIdentificationHtml) because the JVM default
   and LocaleContextHolder both report the server's language on this request path.
   @since 2026-09-17
 --%>
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
