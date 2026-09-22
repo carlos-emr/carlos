@@ -55,9 +55,13 @@ retirement semantics, and failure investigation.
 security objects used by the patient portal client and grants them to `admin` only.
 `V1.0.29` is not skipped: `release/2026.08` holds it and it arrives with that forward-merge.
 
+`V1.0.31__patient_portal_invite_delivery.sql` adds `patient_portal_invite_delivery`, one row per
+attempt to deliver a portal invitation, recording how far the prepare, store, commit and send
+sequence got. It never stores the invitation code.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.30`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.31`
 (also the highest shared one) and `V1.0.29` is taken by `release/2026.08`, so the next free
-version for ANY location is `V1.0.31` (see `../README.md`).
+version for ANY location is `V1.0.32` (see `../README.md`).
