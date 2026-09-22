@@ -166,7 +166,7 @@ public class EmailManager {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
-        return sendEmailInternal(loggedInInfo, emailData).getEmailLog();
+        return sendEmailInternal(loggedInInfo, emailData, null).getEmailLog();
     }
 
     /**
@@ -179,12 +179,48 @@ public class EmailManager {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailSendResult sendEmailWithResult(LoggedInInfo loggedInInfo, EmailData emailData) {
-        return sendEmailInternal(loggedInInfo, emailData);
+        return sendEmailInternal(loggedInInfo, emailData, null);
+    }
+
+    /**
+     * Runs after the outbox row is durable and consent allows the send, before any transport work.
+     *
+     * <p>A caller that must record something elsewhere between "the email job exists" and "the email
+     * leaves" does it here. The patient portal invite workflow commits the invitation inside the gate,
+     * because the portal may only activate a token once the email carrying it is durable, and the email
+     * must not leave if that commit fails. Throwing records a definite failure: nothing was archived or
+     * sent.
+     */
+    @FunctionalInterface
+    public interface DispatchGate {
+        void beforeDispatch(EmailLog emailLog) throws EmailSendingException;
+    }
+
+    /**
+     * Sends an email as {@link #sendEmailWithResult(LoggedInInfo, EmailData)} does, with a gate that runs
+     * between the durable outbox write and dispatch. The gate does not run when consent blocks the send.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public EmailSendResult sendEmailWithResult(LoggedInInfo loggedInInfo, EmailData emailData,
+            DispatchGate dispatchGate) {
+        return sendEmailInternal(loggedInInfo, emailData, dispatchGate);
+    }
+
+    /**
+     * Reports whether the consent gate a send applies would block this email, without persisting or
+     * sending anything.
+     *
+     * @return the message a blocked send would record, or {@code null} when the send is allowed
+     */
+    public String consentBlockMessage(LoggedInInfo loggedInInfo, EmailData emailData) {
+        EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
+        return isBlockedByConsent(consentResult, emailData) ? getConsentBlockMessage(consentResult) : null;
     }
 
     // FindSecBugs HARD_CODE_PASSWORD: empty values erase request credentials when the send attempt finishes.
     @SuppressFBWarnings(value = "HARD_CODE_PASSWORD", justification = "Empty strings clear secrets; they are not authentication credentials")
-    private EmailSendResult sendEmailInternal(LoggedInInfo loggedInInfo, EmailData emailData) {
+    private EmailSendResult sendEmailInternal(LoggedInInfo loggedInInfo, EmailData emailData,
+            DispatchGate dispatchGate) {
         boolean ownsWorkingDirectory = emailData.getWorkingDirectory() == null;
         try {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
@@ -213,6 +249,9 @@ public class EmailManager {
             }
 
             try {
+                if (dispatchGate != null) {
+                    dispatchGate.beforeDispatch(emailLog);
+                }
                 if (emailData.getIsEncrypted()) {
                     encryptEmail(emailData);
                 }

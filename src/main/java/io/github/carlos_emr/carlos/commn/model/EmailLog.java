@@ -141,7 +141,12 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         /** Email generated from a tickler or reminder notification */
         TICKLER,
         /** Direct email communication not tied to a specific transaction type */
-        DIRECT
+        DIRECT,
+        /**
+         * A patient portal invitation sent by the invite delivery workflow. Deliberately absent from
+         * {@code EmailData.parseTransactionType}, so a compose request cannot claim to be an invitation.
+         */
+        PORTAL_INVITE
     }
 
     @Id
