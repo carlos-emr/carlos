@@ -31,7 +31,7 @@ migration/
            V1.0.26__widen_email_config_for_encrypted_credentials.sql
            V1.0.27__prepare_outbound_email_archive_reference_engines.sql
            V1.0.28__outbound_email_archive.sql
-           V1.0.31__add_sms_security_objects.sql
+           V1.0.31__add_sms_security_objects.sql  # 29-30 held by open PRs; see common/README.md
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql

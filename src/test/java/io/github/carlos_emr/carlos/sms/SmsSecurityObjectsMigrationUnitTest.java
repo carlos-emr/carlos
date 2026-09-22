@@ -46,24 +46,26 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Pins the default grants seeded for the SMS security objects.
  * <p>
  * The seed is what every clinic gets on upgrade, so widening it (another role, or a grant on
- * {@code _admin.sms} beyond admin) is a privilege change that must be deliberate. The grants are
- * pinned by reading the file, and the guards by executing the file verbatim against H2 in MySQL mode,
- * because the H2 test schema is built from the entity mappings and never runs the Flyway files.
+ * {@code _admin.sms} beyond admin) is a privilege change that must be deliberate. The grants and their
+ * guards are pinned by reading the file, and their effect is checked by executing the file verbatim
+ * against H2 in MySQL mode, because the H2 test schema is built from the entity mappings and never runs
+ * the Flyway files.
  *
  * @since 2026-09-22
  */
 @DisplayName("SMS security objects migration")
 @Tag("unit")
 @Tag("security")
-@Tag("sms")
 class SmsSecurityObjectsMigrationUnitTest {
     private static final Path COMMON_MIGRATIONS = Path.of("database", "mysql", "migration", "common");
     private static final Pattern OBJECT_ROW = Pattern.compile(
             "SELECT\\s+'(_[A-Za-z.]+)'\\s*,\\s*'([^']*)'\\s*,\\s*0\\s+FROM\\s+DUAL", Pattern.CASE_INSENSITIVE);
     /** A grant statement together with the role and object its guard keys on. */
     private static final Pattern GUARDED_GRANT = Pattern.compile(
-            "SELECT\\s+'([a-z_]+)'\\s*,\\s*'(_[A-Za-z.]+)'\\s*,\\s*'[rwudx]'[^;]*?WHERE\\s+NOT\\s+EXISTS\\s*\\(\\s*SELECT\\s+1\\s+FROM\\s+`?secObjPrivilege`?"
-                    + "\\s+WHERE\\s+`?roleUserGroup`?\\s*=\\s*'([a-z_]+)'\\s+AND\\s+`?objectName`?\\s*=\\s*'(_[A-Za-z.]+)'\\s*\\)",
+            "SELECT\\s+'([a-z_]+)'\\s*,\\s*'(_[A-Za-z.]+)'\\s*,\\s*'[rwudx]'[^;]*?"
+                    + "WHERE\\s+NOT\\s+EXISTS\\s*\\(\\s*SELECT\\s+1\\s+FROM\\s+`?secObjPrivilege`?\\s+"
+                    + "WHERE\\s+`?roleUserGroup`?\\s*=\\s*'([a-z_]+)'\\s+"
+                    + "AND\\s+`?objectName`?\\s*=\\s*'(_[A-Za-z.]+)'\\s*\\)",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern GRANT_ROW = Pattern.compile(
             "SELECT\\s+'([a-z_]+)'\\s*,\\s*'(_[A-Za-z.]+)'\\s*,\\s*'([rwudx])'\\s*,\\s*0\\s*,\\s*'999998'\\s+FROM\\s+DUAL",
@@ -217,11 +219,11 @@ class SmsSecurityObjectsMigrationUnitTest {
 
     private static List<String> grants(String sql) {
         Matcher m = GRANT_ROW.matcher(sql);
-        List<String> rows = new ArrayList<>();
+        List<String> found = new ArrayList<>();
         while (m.find()) {
-            rows.add(m.group(1) + " " + m.group(2) + " " + m.group(3));
+            found.add(m.group(1) + " " + m.group(2) + " " + m.group(3));
         }
-        return rows;
+        return found;
     }
 
     private static List<String> matches(Pattern pattern, String sql, int group) {
@@ -232,5 +234,4 @@ class SmsSecurityObjectsMigrationUnitTest {
         }
         return found;
     }
-
 }

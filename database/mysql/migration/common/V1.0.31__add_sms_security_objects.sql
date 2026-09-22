@@ -28,8 +28,8 @@ SELECT '_admin.sms', 'Configure and manage SMS', 0
 -- that row would grant `_sms` to any future session built for the system provider.
 --
 -- A clinic wanting a role that can view SMS history but not send gives it 'r':
--- SecurityInfoManager treats a grant as a ladder (x > w > u > r), and a history view asks
--- for 'r' while sending asks for 'w'.
+-- SecurityInfoManager treats a grant as a ladder (x > w > u > r), and the history view will
+-- ask for 'r' while sending will ask for 'w'.
 --
 -- CARLOS does not infer dotted-object privileges: `admin` = 'x' on `_admin` confers nothing
 -- on `_admin.sms`, so the explicit row below is required (see V1.0.28 for the same trap).
