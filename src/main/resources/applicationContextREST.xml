@@ -155,6 +155,7 @@
 
         <jaxrs:serviceBeans>
             <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuthStatusService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.OceanService" autowire="constructor"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.PharmacyService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ScheduleService"  autowire="byName"/>

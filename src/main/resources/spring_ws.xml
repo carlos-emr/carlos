@@ -244,6 +244,7 @@
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.ReportByTemplateService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.ResourceService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.DiseaseRegistryService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.OceanService" autowire="constructor" />
 <!--			<bean class="org.oscarehr.webservbserv.rest.SystemInfoService" autowire="byName" /> -->
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
