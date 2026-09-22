@@ -13,6 +13,10 @@
 --
 -- portal_origin and clinic_id pin the row to the portal connection that created it; recovery is
 -- refused against a different one.
+--
+-- outcome is a code (PatientPortalInviteDelivery.Outcome), not prose, so the staff page can explain
+-- it in the reader's language. revoke_failed records that an unused code could not be withdrawn on
+-- the portal and will expire on its own.
 CREATE TABLE IF NOT EXISTS patient_portal_invite_delivery (
   id BIGINT NOT NULL AUTO_INCREMENT,
   delivery_operation_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
@@ -25,7 +29,8 @@ CREATE TABLE IF NOT EXISTS patient_portal_invite_delivery (
   superseded_invite_id BIGINT NULL,
   email_log_id INT NULL,
   requested_by VARCHAR(16) NOT NULL,
-  error_message VARCHAR(255) NULL,
+  outcome VARCHAR(32) NULL,
+  revoke_failed BOOLEAN NOT NULL DEFAULT FALSE,
   expires_at DATETIME NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,

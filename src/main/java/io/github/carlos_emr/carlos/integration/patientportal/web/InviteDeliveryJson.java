@@ -34,7 +34,9 @@ import java.util.Locale;
 /**
  * The JSON shape of an invitation delivery attempt, shared by the invite and panel actions.
  *
- * <p>{@code decisions} lists what staff may do now; it is empty until the attempt has been idle for
+ * <p>{@code outcome} is a stable code for why the attempt stands where it does, and {@code revokeFailed}
+ * says an unused code could not be withdrawn and will expire on its own.
+ * {@code decisions} lists what staff may do now; it is empty until the attempt has been idle for
  * {@link PortalInviteDeliveryService#RECOVERY_MIN_AGE}, so a UI never offers an action the server
  * would refuse as too early.
  *
@@ -53,7 +55,9 @@ final class InviteDeliveryJson {
         putNullable(node, "inviteId", row.getPortalInviteId());
         putNullable(node, "supersededInviteId", row.getSupersededInviteId());
         node.put("requestedBy", row.getRequestedBy());
-        node.put("message", row.getErrorMessage());
+        // A code, not prose: the staff page words it in the reader's language.
+        node.put("outcome", row.getOutcome() == null ? null : row.getOutcome().name().toLowerCase(Locale.ROOT));
+        node.put("revokeFailed", row.isRevokeFailed());
         putDate(node, "createdAt", row.getCreatedAt());
         putDate(node, "updatedAt", row.getUpdatedAt());
         putDate(node, "expiresAt", row.getExpiresAt());

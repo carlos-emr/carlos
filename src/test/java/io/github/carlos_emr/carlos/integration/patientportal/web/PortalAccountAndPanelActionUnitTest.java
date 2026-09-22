@@ -477,6 +477,7 @@ class PortalAccountAndPanelActionUnitTest {
             PatientPortalInviteDelivery row = new PatientPortalInviteDelivery("inv-1", DEMOGRAPHIC_NO, "clinic",
                     "https://portal-api.example", PatientPortalInviteDelivery.Channel.EMAIL, null, "999998");
             row.setState(PatientPortalInviteDelivery.State.SEND_UNCERTAIN);
+            row.setOutcome(PatientPortalInviteDelivery.Outcome.SEND_UNCONFIRMED);
             when(invites.recentFor(DEMOGRAPHIC_NO)).thenReturn(List.of(row));
             when(invites.isRecoverable(row)).thenReturn(true);
 
@@ -486,6 +487,10 @@ class PortalAccountAndPanelActionUnitTest {
             assertThat(payload.get("ok").booleanValue()).isTrue();
             assertThat(payload.get("deliveries").size()).isEqualTo(1);
             assertThat(payload.get("deliveries").get(0).get("state").asText()).isEqualTo("send_uncertain");
+            // Codes, not prose: the staff page translates them.
+            assertThat(payload.get("deliveries").get(0).get("outcome").asText()).isEqualTo("send_unconfirmed");
+            assertThat(payload.get("deliveries").get(0).get("revokeFailed").booleanValue()).isFalse();
+            assertThat(payload.get("deliveries").get(0).has("message")).isFalse();
             assertThat(payload.get("deliveries").get(0).get("decisions").get(0).asText()).isEqualTo("confirmSent");
         }
 

@@ -100,6 +100,10 @@ portal: a live preparation otherwise blocks every new invitation for the patient
 After the commit, CARLOS never revokes on uncertainty; a refused send is fixed by a resend, which
 issues a new code and keeps the old one valid until the replacement is committed.
 
+Why an attempt stands where it does is stored as an `outcome` code (`PatientPortalInviteDelivery.Outcome`),
+with a separate `revoke_failed` flag when an unused code could not be withdrawn and will expire on its
+own. The row holds no prose and nothing from a portal response; the staff page translates the codes.
+
 The email links to `<public_base_url>/auth/activate` and carries the code as text. The code is never
 placed in a URL, a log, or a browser-visible message.
 

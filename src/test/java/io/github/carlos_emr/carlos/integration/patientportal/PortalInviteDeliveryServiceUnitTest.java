@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Channel;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Outcome;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.State;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
@@ -139,6 +141,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(events).containsExactly("prepare", "stored", "commit", "send");
             assertThat(row.getState()).isEqualTo(State.SENT);
+            assertThat(row.getOutcome()).isNull();
             assertThat(row.getPortalInviteId()).isEqualTo(INVITE);
             assertThat(row.getEmailLogId()).isEqualTo(EMAIL_LOG);
             assertThat(row.getExpiresAt()).isEqualTo(Date.from(PATIENT_EXPIRY));
@@ -160,6 +163,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             assertThat(bodyAtSend)
                     .contains("https://portal.clinic.example/auth/activate\n")
                     .contains("invitation code: " + CODE)
+                    .contains("expires 7 days after this email was sent")
                     .doesNotContain("activate?")
                     .doesNotContain("/auth/activate/" + CODE);
         }
@@ -181,7 +185,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         void shouldForgetTheCode_afterTheSendResolves() {
             service.invite(user, patient(), staff, emailRequest());
 
-            verify(emailLogs).replaceBody(EMAIL_LOG, PortalInviteDeliveryService.CODE_FORGOTTEN);
+            verify(emailLogs).replaceBody(EMAIL_LOG, PortalInviteEmailComposer.CODE_FORGOTTEN);
         }
 
         @Test
@@ -363,8 +367,25 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(events).doesNotContain("send");
             assertThat(row.getState()).isEqualTo(State.ABANDONED);
-            assertThat(row.getErrorMessage()).startsWith(PortalInviteDeliveryService.COMMIT_REFUSED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.COMMIT_REFUSED);
+            assertThat(row.isRevokeFailed()).isFalse();
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
+        }
+
+        @Test
+        @DisplayName("should record that the unused token could not be withdrawn when the revoke fails")
+        void shouldRecordRevokeFailure_whenTheWithdrawalIsRefused() {
+            when(portal.commitInviteDelivery(anyLong(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(409, "/commit", "invite delivery conflicts"));
+            doThrow(PatientPortalException.ofTransportFailure("/revoke", null))
+                    .when(portal).revokeInvite(anyInt(), anyLong(), any());
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(events).doesNotContain("send");
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.COMMIT_REFUSED);
+            assertThat(row.isRevokeFailed()).isTrue();
         }
 
         @Test
@@ -377,7 +398,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(events).doesNotContain("send");
             assertThat(row.getState()).isEqualTo(State.ABANDONED);
-            assertThat(row.getErrorMessage()).startsWith(PortalInviteDeliveryService.COMMIT_UNKNOWN);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
         }
 
@@ -389,6 +410,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
 
             assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.SEND_UNCONFIRMED);
             verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
         }
 
@@ -400,7 +422,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
 
             assertThat(row.getState()).isEqualTo(State.SEND_FAILED);
-            assertThat(row.getErrorMessage()).isEqualTo(PortalInviteDeliveryService.SEND_REFUSED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.SEND_REFUSED);
             verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
         }
 
@@ -413,6 +435,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
 
             assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.SEND_BLOCKED);
             verify(portal, never()).commitInviteDelivery(anyLong(), anyString(), anyString(), any());
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
         }
@@ -435,7 +458,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             assertThat(row.getState()).isEqualTo(State.PREPARING);
             assertThat(row.getState().isTerminal()).isFalse();
             assertThat(PortalInviteDeliveryService.decisionsFor(row.getState())).contains(Decision.ABANDON);
-            assertThat(row.getErrorMessage()).isEqualTo(PortalInviteDeliveryService.PREPARE_UNKNOWN);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.PREPARE_UNCONFIRMED);
         }
 
         @Test
@@ -492,6 +515,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     service.recover(user, patient(), row.getId(), Decision.CONFIRM_SENT, staff);
 
             assertThat(resolved.getState()).isEqualTo(State.SENT);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.CONFIRMED_SENT);
             verify(emailLogs).transitionEmailStatus(eq(EMAIL_LOG), eq(EmailStatus.PENDING), eq(EmailStatus.RESOLVED),
                     anyString(), any(Date.class));
             verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
@@ -507,6 +531,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
             assertThat(resolved.getState()).isEqualTo(State.REVOKED);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.CONFIRMED_NOT_SENT);
         }
 
         @Test
@@ -518,6 +543,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
 
             assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.ABANDONED_BY_STAFF);
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
             verify(emailLogs).transitionEmailStatus(eq(EMAIL_LOG), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
                     anyString(), any(Date.class));
@@ -529,11 +555,13 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery row = storedRow(State.PREPARING, Duration.ofMinutes(16));
             injectDependency(row, "portalInviteId", null);
 
-            service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
 
             verify(portal).prepareInvite(eq(PATIENT), anyString(), any(), anyString(),
                     eq(row.getDeliveryOperationId()), eq(staff));
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
+            assertThat(resolved.getPortalInviteId()).isEqualTo(INVITE);
         }
 
         @ParameterizedTest
