@@ -45,8 +45,8 @@
  *   3. The header offers exactly ONE calculators control, and clicking it opens
  *      the calculators.
  *   4. The note-template search legend and its input placeholder are in the
- *      browser's language.
- * and across the two:
+ *      configured bundle (new translations remain marked English placeholders until verified).
+ * and across the supported languages:
  *   5. The French header is not the English header. This is the assertion that
  *      fails if the locale is ever taken from the JVM again.
  *
@@ -85,12 +85,26 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
  * French is the second language because it is the one CARLOS ships most
  * completely and the one the report came from.
  */
+const ENGLISH_LABELS = Object.freeze({
+  'patient-pronouns': 'Pronouns', 'patient-sex': 'Sex', 'patient-gender': 'Gender',
+  'patient-dob': 'DOB', 'patient-age': 'Age', 'patient-hin': 'HIN',
+  'patient-phone': 'Phone', 'patient-cell-phone': 'Cell Phone', 'patient-email': 'Email',
+  'patient-next-appointment': 'Next Appt.', 'patient-mrp': 'MRP',
+});
+const FRENCH_LABELS = Object.freeze({
+  ...ENGLISH_LABELS,
+  'patient-pronouns': 'Pronoms', 'patient-sex': 'Sexe', 'patient-gender': 'Genre',
+  'patient-dob': 'DDN', 'patient-age': 'Âge', 'patient-phone': 'Téléphone',
+  'patient-cell-phone': 'Tél. cellulaire', 'patient-email': 'Courriel',
+  'patient-next-appointment': 'Prochain rendez-vous',
+});
+
 const LANGUAGES = [
   {
     tag: 'en-CA',
     acceptLanguage: 'en-CA,en;q=0.9',
     // demographic.demographicaddrecordhtm.formSex / global.age  (Java-rendered)
-    javaLabels: ['Sex', 'Age'],
+    javaLabels: ENGLISH_LABELS,
     // encounter.Index.calculators  (JSP-rendered, same header)
     calculators: 'calculators',
     // encounter.templateSearch.legend / .namePlaceholder
@@ -100,15 +114,15 @@ const LANGUAGES = [
   {
     tag: 'fr-CA',
     acceptLanguage: 'fr-CA,fr;q=0.9',
-    javaLabels: ['Sexe', 'Âge'],
+    javaLabels: FRENCH_LABELS,
     calculators: 'calculatrices',
-    templateLegend: 'Recherche de modèles',
-    templatePlaceholder: 'nom du modèle',
+    templateLegend: 'Template Search',
+    templatePlaceholder: 'template name',
   },
   {
     tag: 'de-AT',
     acceptLanguage: 'de-AT,de;q=0.9',
-    javaLabels: ['Sex', 'Age'],
+    javaLabels: ENGLISH_LABELS,
     calculators: 'calculators',
     templateLegend: 'Template Search',
     templatePlaceholder: 'template name',
@@ -116,10 +130,10 @@ const LANGUAGES = [
   {
     tag: 'de-DE',
     acceptLanguage: 'de-DE,fr;q=0.9,en;q=0.8',
-    javaLabels: ['Sexe', 'Âge'],
+    javaLabels: FRENCH_LABELS,
     calculators: 'calculatrices',
-    templateLegend: 'Recherche de modèles',
-    templatePlaceholder: 'nom du modèle',
+    templateLegend: 'Template Search',
+    templatePlaceholder: 'template name',
   },
 ];
 
@@ -189,16 +203,21 @@ async function readHeader(chartPage, timeout) {
 
   return {
     identityLabels, calculatorCount, calculatorText, placeholder, legend,
+    identityLabelsById: await chartPage.locator(IDENTITY_LABELS).evaluateAll((labels) =>
+      Object.fromEntries(labels.map((label) => [label.parentElement.id, label.textContent.trim()]))),
   };
 }
 
 /** Everything one language has to satisfy on its own. */
 function assertLanguage(language, header) {
-  for (const label of language.javaLabels) {
-    assert(header.identityLabels.includes(label),
-      `The ${language.tag} chart header has no "${label}" label. The identity block is built in Java; if it takes `
-      + 'its locale from the JVM instead of the request, it stays in the server\'s language while the rest of the '
-      + `header is translated. Labels found: ${JSON.stringify(header.identityLabels)}`);
+  for (const id of ['patient-sex', 'patient-dob', 'patient-age', 'patient-next-appointment', 'patient-mrp']) {
+    assert(Object.hasOwn(header.identityLabelsById, id), `The ${language.tag} chart omitted identity label ${id}`);
+  }
+  for (const [id, text] of Object.entries(header.identityLabelsById)) {
+    const label = id === 'patient-hin' ? text.split(' (')[0] : text;
+    assert(label === language.javaLabels[id],
+      `The ${language.tag} chart has an unexpected ${id} label: ${JSON.stringify(label)}; `
+      + `expected ${JSON.stringify(language.javaLabels[id])}`);
   }
 
   assert(header.calculatorCount === 1,
@@ -225,9 +244,14 @@ async function walkInLanguage(browser, config, language, options) {
   const recorder = createRecorder();
   const context = await newContext(browser, config, {
     locale: language.tag,
-    extraHTTPHeaders: { 'Accept-Language': language.acceptLanguage },
   });
   try {
+    // Chromium's locale emulation overrides extraHTTPHeaders for Accept-Language,
+    // reducing a weighted preference list to the single emulated locale. Apply
+    // the intended browser preferences at request dispatch so fallback is tested.
+    await context.route('**/*', (route) => route.continue({
+      headers: { ...route.request().headers(), 'accept-language': language.acceptLanguage },
+    }));
     const schedulePage = await login(context, config, recorder);
     const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
       searchTerm, preferredDemographicNo, timeout,
@@ -284,7 +308,7 @@ async function main() {
     'The calculators control reads the same in both languages, so the header labels are not being translated');
 
   return `header locale negotiation verified for ${LANGUAGES.map((language) => language.tag).join(', ')}; `
-    + 'one calculators control in each; template search legend and placeholder translated';
+    + 'one calculators control in each; template search legend and placeholder match configured bundle values';
 }
 
 if (require.main === module) {

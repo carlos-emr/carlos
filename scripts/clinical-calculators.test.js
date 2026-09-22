@@ -317,6 +317,8 @@ test('the calculators are reached by clicking, never by their URL', () => {
     'the calculators control must open a popup, which is what the opener above clicks');
   assert.match(openers[0], /ViewCalculators\?demo=/,
     'the calculators control must resolve the patient from the record, not from sex/age in the URL');
+  assert.doesNotMatch(openers[0], /(?:[?&]|&amp;)(?:sex|age)=/,
+    'the calculator opener must not append patient sex or age to the record reference');
   assert.ok(!/page\.goto\(/.test(SOURCE),
     'entering by address would skip the chart header opener this check exists to exercise');
   assert.ok(!/ViewOsteoporoticFracture|ViewSimpleCalculator/.test(SOURCE),

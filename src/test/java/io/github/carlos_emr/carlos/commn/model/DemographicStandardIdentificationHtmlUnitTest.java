@@ -134,14 +134,22 @@ class DemographicStandardIdentificationHtmlUnitTest {
         demographic.setDemographicNo(42);
         demographic.setSex("F");
 
+        demographic.setPronoun("she/her");
+        demographic.setGender("woman");
+        demographic.setPhone("250-555-0100");
+        demographic.setCellPhone("250-555-0101");
+        demographic.setEmail("synthetic@example.invalid");
+
         // "Sex" and "Age" are rendered here in Java while the rest of the header comes from
         // <fmt:message>. Reading the locale from the JVM/LocaleContextHolder instead of the
         // request is what left a French chart half-translated.
         String french = demographic.getStandardIdentificationHtml("/ctx", Locale.FRENCH);
         String english = demographic.getStandardIdentificationHtml("/ctx", Locale.ENGLISH);
 
-        assertThat(french).contains("Sexe").doesNotContain(">Sex<");
-        assertThat(english).contains("Sex");
+        assertThat(french).contains(">Sexe<", ">DDN<", ">Âge<", ">Prochain rendez-vous<", ">MRP<")
+                .contains(">Pronoms<", ">Genre<", ">Téléphone<", ">Tél. cellulaire<", ">Courriel<")
+                .doesNotContain(">Sex<", ">Age<", ">DOB<", ">Next Appt.<");
+        assertThat(english).contains(">Sex<", ">DOB<", ">Age<", ">Next Appt.<", ">MRP<");
         assertThat(french).isNotEqualTo(english);
     }
 
@@ -173,9 +181,8 @@ class DemographicStandardIdentificationHtmlUnitTest {
         Demographic demographic = new Demographic();
         demographic.setRosterStatus("RO");
 
-        assertThat(demographic.getRosterStatusDisplay(Locale.ENGLISH)).isNotBlank();
-        assertThat(demographic.getRosterStatusDisplay(Locale.FRENCH))
-                .isNotEqualTo(demographic.getRosterStatusDisplay(Locale.ENGLISH));
+        assertThat(demographic.getRosterStatusDisplay(Locale.ENGLISH)).isEqualTo("Rostered");
+        assertThat(demographic.getRosterStatusDisplay(Locale.FRENCH)).isEqualTo("Inscrit");
     }
 
     private static Demographic demographicWithHostileDisplayFields() {

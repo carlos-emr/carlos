@@ -62,12 +62,14 @@ class EncounterChartHeaderI18nTest {
 
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
 
+    private static final Path MODULE_ROOT = Path.of(System.getProperty("basedir", "")).toAbsolutePath();
+
     private static final Path HEADER_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp");
+            MODULE_ROOT.resolve("src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp");
     private static final Path CHART_NOTES_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotes.jsp");
+            MODULE_ROOT.resolve("src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotes.jsp");
     private static final Path LAYOUT_JS_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.js.jsp");
+            MODULE_ROOT.resolve("src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.js.jsp");
 
     private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
     private static final Pattern JSP_COMMENT = Pattern.compile("<%--.*?--%>", Pattern.DOTALL);
@@ -109,8 +111,8 @@ class EncounterChartHeaderI18nTest {
     }
 
     @Test
-    @DisplayName("should translate the reported keys rather than repeat the English text")
-    void shouldTranslateReportedKeys_forEveryNonEnglishLocale() throws IOException {
+    @DisplayName("should translate or explicitly mark every reported key in each non-English bundle")
+    void shouldTranslateOrMarkReportedKeys_forEveryNonEnglishLocale() throws IOException {
         Properties english = loadBundle("en");
         for (String locale : new String[] {"fr", "es", "pt_BR", "pl"}) {
             Properties bundle = loadBundle(locale);
@@ -118,8 +120,15 @@ class EncounterChartHeaderI18nTest {
                 assertThat(bundle.getProperty(key))
                         .as("oscarResources_%s.properties should translate %s", locale, key)
                         .isNotBlank()
-                        .isNotEqualTo(english.getProperty(key))
                         .doesNotStartWith("[EN] ");
+                if (bundle.getProperty(key).equals(english.getProperty(key))) {
+                    String source = Files.readString(MODULE_ROOT.resolve(
+                            "src/main/resources/oscarResources_" + locale + ".properties"));
+                    assertThat(Pattern.compile("(?m)^# TODO: translate\\R" + Pattern.quote(key) + "=")
+                            .matcher(source).find())
+                            .as("English placeholder %s in %s needs an immediate translation marker", key, locale)
+                            .isTrue();
+                }
             }
         }
     }
@@ -153,7 +162,7 @@ class EncounterChartHeaderI18nTest {
                 .contains("LocaleUtils.resolveBundleLocale(request)")
                 .contains("getStandardIdentificationHtml(request.getContextPath(), browserLocale)")
                 .doesNotContain("LocaleContextHolder");
-        assertThat(stripComments(read(Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"))))
+        assertThat(stripComments(read(MODULE_ROOT.resolve("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"))))
                 .contains("getRosterStatusDisplay(LocaleUtils.resolveBundleLocale(request))")
                 .doesNotContain("getRosterStatusDisplay(request.getLocale())");
     }
@@ -162,7 +171,7 @@ class EncounterChartHeaderI18nTest {
     @DisplayName("should set the negotiated JSTL locale before loading each translated fragment's bundle")
     void shouldShareLocale_betweenJavaAndJstl() throws IOException {
         for (Path jsp : List.of(HEADER_JSP, CHART_NOTES_JSP, LAYOUT_JS_JSP,
-                Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"))) {
+                MODULE_ROOT.resolve("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"))) {
             String source = stripComments(read(jsp));
             int locale = source.indexOf("<fmt:setLocale value=\"<%= LocaleUtils.resolveBundleLocale(request) %>\"/>");
             int bundle = source.indexOf("<fmt:setBundle");
@@ -182,7 +191,8 @@ class EncounterChartHeaderI18nTest {
     }
 
     private static String read(Path path) throws IOException {
-        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+        assertThat(Files.isRegularFile(path)).as("JSP source %s must exist", path).isTrue();
+        return Files.readString(path, StandardCharsets.UTF_8);
     }
 
     private static String stripComments(String content) {

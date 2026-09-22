@@ -825,7 +825,7 @@ async function launchBrowser(config) {
  * that pass nothing get exactly the previous behaviour.
  */
 async function newContext(browser, config, options = {}) {
-  return browser.newContext({ ignoreHTTPSErrors: config.ignoreHTTPSErrors === true, ...options });
+  return browser.newContext({ ...options, ignoreHTTPSErrors: config.ignoreHTTPSErrors === true });
 }
 
 async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {

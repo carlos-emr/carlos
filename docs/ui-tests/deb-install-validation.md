@@ -1380,3 +1380,11 @@ the defect rather than merely agreeing with the fix.
 `demographic-edit-update` was not run: it needs `MYSQL_PASSWORD` and a search
 term that lands on its configured demographic, neither of which this
 container's demo dataset provided, and it does not touch the changed code.
+
+
+**2026-09-22 review follow-up:** The table above records the original container run.
+The revised release PR follows `I18N-CONVERSION-CHECKLIST.md`: its four new
+non-English keys now carry English values and immediate `# TODO: translate`
+markers pending verified translations. Existing localized identity and roster
+labels are retained. The browser check verifies the configured placeholders
+alongside the localized identity labels, including unsupported-language fallback.

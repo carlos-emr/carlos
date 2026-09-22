@@ -148,9 +148,10 @@ function fallbackCopy(text) {
          middle-click or keyboard follow still reaches the page (and the anchor is a link, not a
          button dressed as one -- Sonar S6844). --%>
     <div>
+        <fmt:message key="encounter.Index.calculators" var="calculatorsTitle"/>
         <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}"
            id="chartCalculatorsLink"
-           title="<fmt:message key="encounter.Index.calculators"/>"
+           title="${carlos:forHtmlAttribute(calculatorsTitle)}"
            onclick="window.open('${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}', 'ClinicalCalculators', 'width=800,height=650,scrollbars=yes,resizable=yes'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
     </div>
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>

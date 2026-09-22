@@ -2083,7 +2083,7 @@
         "HEADER_I18N_DEMOGRAPHIC_NO",
         "HEADER_I18N_TIMEOUT_MS"
       ],
-      "notes": "Walks the chart twice against one server, with a French browser and an English one, and asserts the two headers differ. A single-language check cannot see a header that answers in the server's locale."
+      "notes": "Walks the chart four times sequentially on one server: English, French, unsupported-only German (English fallback), and German followed by French. Checks all rendered identity labels, calculator uniqueness, and configured template-search bundle values."
     },
     {
       "name": "echart-note-editor",
