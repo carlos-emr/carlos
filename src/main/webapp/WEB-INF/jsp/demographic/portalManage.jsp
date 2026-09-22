@@ -27,8 +27,9 @@
     read access plus portal invite or account read rights, and sets which controls to render. The page
     holds no patient data itself: portal-manage.js loads demographic/portalPanel and performs every
     action through demographic/portalInvite and demographic/portalAccount, each of which checks its own
-    privileges. All text the script shows comes from the message list below, so it is translated with
-    the rest of CARLOS.
+    privileges. The page's own labels come from the message list below, so they are translated with the
+    rest of CARLOS; the server's refusal and delivery messages are English text from the Java layer and
+    are shown as received.
 
     Request attributes: portalDemographicNo, portalCanInvite, portalCanRevoke, portalCanSetAccess,
     portalCanUnlock.
@@ -41,7 +42,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
     <title><fmt:message key="demographic.portal.title"/></title>

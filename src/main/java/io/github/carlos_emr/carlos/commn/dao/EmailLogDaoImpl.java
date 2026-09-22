@@ -7,6 +7,8 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 
@@ -179,5 +181,18 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
             entityManager.refresh(current);
         }
         return updatedRows;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int replaceBody(Integer id, String replacement) {
+        // Written through the entity so the body is encoded exactly as a send would encode it.
+        EmailLog emailLog = entityManager.find(EmailLog.class, id);
+        if (emailLog == null) {
+            return 0;
+        }
+        emailLog.setBody(replacement);
+        entityManager.flush();
+        return 1;
     }
 }
