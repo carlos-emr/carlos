@@ -234,6 +234,19 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         assertThat(manager.isManuallyResolvable(log)).isTrue();
     }
 
+    @Test
+    @DisplayName("should refuse manual resolution of an unresolved portal email as not resolvable")
+    void shouldRefuseResolution_whenPortalDeliveryIsUnresolved() {
+        var log = new EmailLog();
+        log.setStatus(EmailLog.EmailStatus.PENDING);
+        log.setTimestamp(new Date(System.currentTimeMillis() - EmailManager.PENDING_RESOLUTION_MIN_AGE_MILLIS - 60_000));
+        log.setPortalDeliveryState(EmailLog.PortalDeliveryState.SENDING);
+        when(logs.find((Object) Integer.valueOf(LOG_ID))).thenReturn(log);
+
+        assertThat(manager.resolveEmailStatus(user, Integer.valueOf(LOG_ID))).isEqualTo(EmailManager.EmailResolutionResult.NOT_RESOLVABLE);
+        verify(logs, never()).transitionEmailStatus(any(), any(), eq(EmailLog.EmailStatus.RESOLVED), any(), any());
+    }
+
     private void givenConsent(EmailLog.EmailConsentStatus state) {
         when(consent.resolve(user, PATIENT)).thenReturn(new EmailConsentResult("Email", state, 1, new Date()));
     }
