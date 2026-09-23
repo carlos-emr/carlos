@@ -91,6 +91,8 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
 
     private static final int READ_BUFFER_CHARS = 8192;
     static final int MAX_CONCURRENT_REQUESTS = 4;
+    /** Distinguishes the whole-call deadline from a read-inactivity timeout in the logs. */
+    static final String DEADLINE_EXCEEDED = "portal request deadline exceeded";
     /**
      * A pooled connection idle longer than this is checked before reuse. The portal (uvicorn, or
      * a proxy in front of it) closes idle keep-alive connections, and automatic retries are off,
@@ -188,7 +190,7 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
         try {
             cancellable = new HttpUriRequestBase(request.getMethod(), request.getUri());
         } catch (URISyntaxException exception) {
-            throw new IOException("portal request URI is invalid");
+            throw new PortalRequestNotSentException("portal request URI is invalid");
         }
         cancellable.setHeaders(request.getHeaders());
         cancellable.setEntity(request.getEntity());
@@ -204,14 +206,15 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                 }
             });
         } catch (RejectedExecutionException exception) {
-            throw new IOException("portal transport is busy or closed");
+            // Nothing reached the wire, so the caller can say so rather than "may have been applied".
+            throw new PortalRequestNotSentException("portal transport is busy or closed");
         }
         try {
             long remaining = TimeUnit.MILLISECONDS.toNanos(requestTimeout.toMillis())
                     - (System.nanoTime() - started);
             return pending.get(Math.max(0, remaining), TimeUnit.NANOSECONDS);
         } catch (TimeoutException exception) {
-            throw new SocketTimeoutException("portal request deadline exceeded");
+            throw new SocketTimeoutException(DEADLINE_EXCEEDED);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new InterruptedIOException("portal request interrupted");

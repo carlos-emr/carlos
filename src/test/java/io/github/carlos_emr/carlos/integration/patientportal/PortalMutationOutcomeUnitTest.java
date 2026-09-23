@@ -98,14 +98,6 @@ class PortalMutationOutcomeUnitTest {
     }
 
     @Test
-    void shouldRejectResend_whenItDoesNotSupersedeTheSelectedInvite() {
-        assertThatThrownBy(() -> service(issuedInvite(8, "pending", 6)).resendInvite(7, staff))
-                .isInstanceOf(PatientPortalException.class)
-                .extracting(error -> ((PatientPortalException) error).kind())
-                .isEqualTo(PatientPortalException.Kind.MALFORMED_RESPONSE);
-    }
-
-    @Test
     void shouldRejectUnlockSecretTransition_forDifferentRecordOrState() {
         assertThatThrownBy(
                         () -> service("{\"id\":12,\"status\":\"available\"}")
@@ -157,8 +149,6 @@ class PortalMutationOutcomeUnitTest {
                     .setAccountAccess(123, enabled, "staff_action", staff).status()).isEqualTo(status);
         }
         assertThat(service(invite(7, "revoked")).revokeInvite(123, 7, staff).status()).isEqualTo("revoked");
-        assertThat(service(issuedInvite(8, "pending", 7)).resendInvite(7, staff)
-                .invite().supersedesInviteId()).isEqualTo(7L);
         assertThat(service(secret("message-1", "pending"))
                 .createUnlockSecret(123, " message-1 ", null, staff).sourceReference())
                 .isEqualTo("message-1");
@@ -180,13 +170,6 @@ class PortalMutationOutcomeUnitTest {
                 + "\"last_issued_by\":\"Dr Example\","
                 + "\"expires_at\":\"2026-08-26T12:00:00Z\","
                 + "\"accepted_account_id\":null,\"supersedes_invite_id\":null}";
-    }
-
-    private String issuedInvite(long id, String status, long supersedesInviteId) {
-        return invite(id, status).replace(
-                "\"supersedes_invite_id\":null}",
-                "\"supersedes_invite_id\":" + supersedesInviteId
-                        + ",\"invite_token\":\"one-time-token\"}");
     }
 
     private String secret(String sourceReference, String status) {

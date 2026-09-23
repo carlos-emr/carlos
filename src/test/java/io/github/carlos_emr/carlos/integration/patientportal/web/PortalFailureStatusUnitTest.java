@@ -130,6 +130,42 @@ class PortalFailureStatusUnitTest {
     }
 
     @Test
+    @DisplayName("should say nothing was sent when the request never left CARLOS")
+    void shouldAnswerServiceUnavailable_whenTheRequestWasNeverSent() throws IOException {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        new TestAction().portalFailure(response, PatientPortalException.ofTransportFailure("/x/{id}",
+                new io.github.carlos_emr.carlos.integration.patientportal.PortalRequestNotSentException(
+                        "portal transport is busy or closed")));
+
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).contains("portal_busy", "Nothing was sent")
+                .doesNotContain("may have been applied");
+    }
+
+    @Test
+    @DisplayName("should answer JSON, not an HTML error page, when a request cannot be prepared")
+    void shouldAnswerJson_whenPreparingTheRequestFails() throws IOException {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        PortalJsonAction action = new PortalJsonAction() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected String handleRequest() {
+                throw new IllegalArgumentException("provider name contains a control character");
+            }
+        };
+        try (var servlet = org.mockito.Mockito.mockStatic(org.apache.struts2.ServletActionContext.class)) {
+            servlet.when(org.apache.struts2.ServletActionContext::getResponse).thenReturn(response);
+            action.execute();
+        }
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).contains("request_not_prepared")
+                .doesNotContain("control character");
+    }
+
+    @Test
     void shouldPreserveMutationUncertainty_whenTransportDoesNotComplete() throws IOException {
         MockHttpServletResponse response = new MockHttpServletResponse();
         new TestAction().portalFailure(response, PatientPortalException.ofTransportFailure(

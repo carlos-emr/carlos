@@ -93,7 +93,17 @@ class PatientPortalHttpClientExchangeUnitTest {
                 .build();
     }
 
+    /**
+     * For tests about behaviour, not timing. Their timeouts are generous so a loaded build host
+     * cannot turn a slow first request into a false failure.
+     */
     private PatientPortalHttpClientExchange exchange() {
+        return new PatientPortalHttpClientExchange(
+                Duration.ofSeconds(5), Duration.ofSeconds(10), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN));
+    }
+
+    /** For tests that assert a timeout fires; {@link #QUICK} keeps them short. */
+    private PatientPortalHttpClientExchange quickExchange() {
         return new PatientPortalHttpClientExchange(QUICK, QUICK, java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN));
     }
 
@@ -192,7 +202,7 @@ class PatientPortalHttpClientExchangeUnitTest {
                     httpExchange.close();
                 });
 
-        try (PatientPortalHttpClientExchange transport = exchange()) {
+        try (PatientPortalHttpClientExchange transport = quickExchange()) {
             long startedAt = System.nanoTime();
 
             assertThatThrownBy(() -> transport.send(get("/slow"))).isInstanceOf(IOException.class);
@@ -275,6 +285,51 @@ class PatientPortalHttpClientExchangeUnitTest {
             assertThat(ports).hasSize(1);
         }
     }
+    @Test
+    @DisplayName("should refuse a call beyond the concurrency limit without sending it")
+    void shouldRefuseWithoutSending_whenEveryTransportSlotIsBusy() throws Exception {
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        AtomicInteger received = new AtomicInteger();
+        // Its own server: holding several requests open at once needs a handler thread pool.
+        HttpServer holding = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        var handlers = java.util.concurrent.Executors.newCachedThreadPool();
+        holding.setExecutor(handlers);
+        holding.start();
+        String holdingOrigin = "http://127.0.0.1:" + holding.getAddress().getPort();
+        holding.createContext("/held", exchange -> {
+            received.incrementAndGet();
+            try {
+                release.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        int slots = PatientPortalHttpClientExchange.MAX_CONCURRENT_REQUESTS;
+        var callers = java.util.concurrent.Executors.newFixedThreadPool(slots);
+        try (PatientPortalHttpClientExchange transport = new PatientPortalHttpClientExchange(
+                Duration.ofSeconds(10), Duration.ofSeconds(10), java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN))) {
+            for (int slot = 0; slot < slots; slot++) {
+                callers.submit(() -> transport.send(get(holdingOrigin, "/held")));
+            }
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+            while (received.get() < slots && System.nanoTime() < deadline) {
+                Thread.sleep(20);
+            }
+            assertThat(received.get()).isEqualTo(slots);
+
+            assertThatThrownBy(() -> transport.send(get(holdingOrigin, "/held")))
+                    .isInstanceOf(PortalRequestNotSentException.class);
+            assertThat(received.get()).isEqualTo(slots);
+        } finally {
+            release.countDown();
+            callers.shutdownNow();
+            holding.stop(0);
+            handlers.shutdownNow();
+        }
+    }
+
     /**
      * The portal (uvicorn, or a proxy in front of it) closes a kept-alive connection once it has
      * been idle briefly. Retries are disabled on purpose, so reusing that closed connection would

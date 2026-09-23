@@ -105,12 +105,14 @@ public class PatientPortalException extends RuntimeException {
     private final Kind kind;
     private final int statusCode;
     private final String detail;
+    private final boolean requestNotSent;
 
     private PatientPortalException(String message, Kind kind, int statusCode, String detail) {
         super(message);
         this.kind = kind;
         this.statusCode = statusCode;
         this.detail = detail;
+        this.requestNotSent = false;
     }
 
     private PatientPortalException(String message, Kind kind, int statusCode, Throwable cause) {
@@ -118,6 +120,7 @@ public class PatientPortalException extends RuntimeException {
         this.kind = kind;
         this.statusCode = statusCode;
         this.detail = null;
+        this.requestNotSent = cause instanceof PortalRequestNotSentException;
     }
 
     /**
@@ -155,10 +158,35 @@ public class PatientPortalException extends RuntimeException {
         if (cause == null) {
             return null;
         }
-        // HTTP parser exceptions can embed raw status lines/headers just as JSON errors embed values.
-        String category = cause instanceof java.net.SocketTimeoutException ? "timeout"
-                : cause instanceof javax.net.ssl.SSLException ? "TLS handshake" : "HTTP exchange";
-        return new java.io.IOException("portal transport failed: " + category);
+        if (cause instanceof PortalRequestNotSentException notSent) {
+            // Its messages are fixed; keeping the type lets isRequestNotSent() survive logging.
+            return new PortalRequestNotSentException(notSent.getMessage());
+        }
+        // HTTP parser exceptions can embed raw status lines/headers just as JSON errors embed values,
+        // so the cause is replaced by a fixed category. The categories keep an outage, a local
+        // capacity limit and a misconfiguration distinguishable in the logs.
+        return new java.io.IOException("portal transport failed: " + transportCategory(cause));
+    }
+
+    private static String transportCategory(Throwable cause) {
+        if (cause instanceof java.net.SocketTimeoutException) {
+            return PatientPortalHttpClientExchange.DEADLINE_EXCEEDED.equals(cause.getMessage())
+                    ? "request deadline exceeded" : "read timeout";
+        }
+        if (cause instanceof javax.net.ssl.SSLException) return "TLS handshake";
+        if (cause instanceof java.net.UnknownHostException) return "host lookup";
+        if (cause instanceof java.net.ConnectException) return "connection refused";
+        if (cause instanceof org.apache.hc.core5.http.NoHttpResponseException) return "connection closed without a response";
+        if (cause instanceof java.io.InterruptedIOException) return "interrupted";
+        return "HTTP exchange (" + cause.getClass().getSimpleName() + ")";
+    }
+
+    /**
+     * True when the request never left CARLOS (transport busy, shut down, or an invalid URI).
+     * Always a {@link Kind#TRANSPORT_FAILURE}, but one that cannot have changed anything.
+     */
+    public boolean isRequestNotSent() {
+        return requestNotSent;
     }
 
     /** Builds the failure for a success status whose body CARLOS could not read. */
