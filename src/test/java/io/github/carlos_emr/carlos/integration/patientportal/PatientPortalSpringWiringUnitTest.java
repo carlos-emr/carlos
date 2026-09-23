@@ -228,6 +228,12 @@ class PatientPortalSpringWiringUnitTest {
     @Test
     @DisplayName("should fail closed when the settings bean is created on an unconfigured server")
     void shouldThrow_whenTheSettingsBeanIsCreatedWithoutConfiguration() {
+        // The premise is JVM-wide state this test does not own: the CarlosProperties singleton. If
+        // another test or a carlos.properties on the classpath configured the portal, say so plainly
+        // rather than fail below with a confusing "nothing was thrown".
+        assertThat(PatientPortalSettings.isConfigured())
+                .as("this test needs a JVM with no patient_portal.* settings; one was configured elsewhere")
+                .isFalse();
         try (GenericApplicationContext context = contextWithSecurityManager()) {
             context.refresh();
 

@@ -53,8 +53,8 @@ forward-merge, so the next free number for ANY location — shared or province �
 The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.28` today on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.28`) but would silently
+run — `common/V1.0.30` on both provinces once this line is merged. A hypothetical new `bc/V1.0.11`
+would apply fine on a fresh install (version order places it before `common/V1.0.30`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province.

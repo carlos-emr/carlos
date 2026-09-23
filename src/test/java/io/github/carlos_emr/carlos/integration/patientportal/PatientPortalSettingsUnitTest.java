@@ -57,6 +57,27 @@ class PatientPortalSettingsUnitTest {
     private static final String TOKEN = "portal-service-token-value-000001";
     private static final String ASSERTION_PRIVATE_KEY = PortalTestKeys.PRIVATE_KEY;
 
+    /** Valid constructor arguments; a test changes only the one it exercises. */
+    private static final class ConstructorArgs {
+        String baseUrl = "https://portal.clinic.example";
+        String clinicId = "maplecreek";
+        PortalSecret serviceToken = PortalSecret.of(TOKEN);
+        PortalSecret assertionKey = PortalSecret.of(ASSERTION_PRIVATE_KEY);
+        String keyId = "primary";
+        Duration connect = Duration.ofSeconds(5);
+        Duration read = Duration.ofSeconds(15);
+        Duration request = Duration.ofSeconds(20);
+        Set<String> pins = Set.of(PortalTestKeys.UNUSED_TLS_PIN);
+    }
+
+    /** Calls the canonical constructor with valid arguments, after {@code change} adjusts them. */
+    private static PatientPortalSettings construct(java.util.function.Consumer<ConstructorArgs> change) {
+        ConstructorArgs args = new ConstructorArgs();
+        change.accept(args);
+        return new PatientPortalSettings(args.baseUrl, args.clinicId, args.serviceToken, args.assertionKey,
+                args.keyId, args.connect, args.read, args.request, args.pins);
+    }
+
     private Map<String, String> validProperties() {
         Map<String, String> properties = new HashMap<>();
         properties.put(BASE_URL_KEY, "https://portal.clinic.example");
@@ -81,7 +102,7 @@ class PatientPortalSettingsUnitTest {
 
     @Test
     void shouldBoundRequestDeadline_withinAssertionLifetime() {
-        for (String timeout : new String[] {"0", "-1", "60000", "60001", "9223372036854775807"}) {
+        for (String timeout : new String[] {"0", "-1", "59001", "59999", "60000", "9223372036854775807"}) {
             Map<String, String> properties = validProperties();
             properties.put(PatientPortalSettings.REQUEST_TIMEOUT_KEY, timeout);
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
@@ -92,6 +113,10 @@ class PatientPortalSettingsUnitTest {
         properties.put(PatientPortalSettings.REQUEST_TIMEOUT_KEY, "1234");
         assertThat(PatientPortalSettings.fromProperties(properties).requestTimeout())
                 .isEqualTo(Duration.ofMillis(1234));
+        // The assertion's whole-second times can cost up to a second, so 59 s is the most allowed.
+        properties.put(PatientPortalSettings.REQUEST_TIMEOUT_KEY, "59000");
+        assertThat(PatientPortalSettings.fromProperties(properties).requestTimeout())
+                .isEqualTo(Duration.ofSeconds(59));
     }
 
     @Nested
@@ -176,25 +201,16 @@ class PatientPortalSettingsUnitTest {
         @DisplayName("should accept the portal's full clinic id length")
         void shouldAccept_whenClinicIdUsesPortalMaximumLength() {
             Map<String, String> properties = validProperties();
-            properties.put(CLINIC_ID_KEY, "c".repeat(64));
+            properties.put(CLINIC_ID_KEY, "c".repeat(20));
 
-            assertThat(PatientPortalSettings.fromProperties(properties).clinicId()).hasSize(64);
+            assertThat(PatientPortalSettings.fromProperties(properties).clinicId()).hasSize(20);
         }
 
         @Test
         @DisplayName("should normalize the service token through direct construction too")
         void shouldTrimServiceToken_whenCanonicalConstructorReceivesPadding() {
             PatientPortalSettings settings =
-                    new PatientPortalSettings(
-                            "https://portal.clinic.example",
-                            "maplecreek",
-                            PortalSecret.of("  " + TOKEN + "  "),
-                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
-                            "primary",
-                            Duration.ofSeconds(5),
-                            Duration.ofSeconds(15),
-                            Duration.ofSeconds(20),
-                            java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN));
+                    construct(args -> args.serviceToken = PortalSecret.of("  " + TOKEN + "  "));
 
             assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
         }
@@ -259,16 +275,7 @@ class PatientPortalSettingsUnitTest {
         void shouldReject_whenPlaintextIsPassedToTheCanonicalConstructor() {
             assertThatThrownBy(
                             () ->
-                                    new PatientPortalSettings(
-                                            "http://evil.example",
-                                            "maplecreek",
-                                            PortalSecret.of(TOKEN),
-                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
-                                            "primary",
-                                            Duration.ofSeconds(5),
-                                            Duration.ofSeconds(15),
-                                            Duration.ofSeconds(20),
-                                            java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
+                                    construct(args -> args.baseUrl = "http://evil.example"))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
@@ -277,16 +284,7 @@ class PatientPortalSettingsUnitTest {
         void shouldReject_whenTimeoutIsNonPositiveInTheConstructor() {
             assertThatThrownBy(
                             () ->
-                                    new PatientPortalSettings(
-                                            "https://portal.clinic.example",
-                                            "maplecreek",
-                                            PortalSecret.of(TOKEN),
-                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
-                                            "primary",
-                                            Duration.ZERO,
-                                            Duration.ofSeconds(15),
-                                            Duration.ofSeconds(20),
-                                            java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
+                                    construct(args -> args.connect = Duration.ZERO))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
@@ -295,16 +293,7 @@ class PatientPortalSettingsUnitTest {
         void shouldReject_whenTimeoutIsBelowTransportPrecision() {
             assertThatThrownBy(
                             () ->
-                                    new PatientPortalSettings(
-                                            "https://portal.clinic.example",
-                                            "maplecreek",
-                                            PortalSecret.of(TOKEN),
-                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
-                                            "primary",
-                                            Duration.ofNanos(1),
-                                            Duration.ofSeconds(15),
-                                            Duration.ofSeconds(20),
-                                            Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
+                                    construct(args -> args.connect = Duration.ofNanos(1)))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(CONNECT_TIMEOUT_KEY);
         }
@@ -314,16 +303,7 @@ class PatientPortalSettingsUnitTest {
         void shouldReject_whenTimeoutOverflowsTransportPrecision() {
             assertThatThrownBy(
                             () ->
-                                    new PatientPortalSettings(
-                                            "https://portal.clinic.example",
-                                            "maplecreek",
-                                            PortalSecret.of(TOKEN),
-                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
-                                            "primary",
-                                            Duration.ofSeconds(Long.MAX_VALUE),
-                                            Duration.ofSeconds(15),
-                                            Duration.ofSeconds(20),
-                                            Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
+                                    construct(args -> args.connect = Duration.ofSeconds(Long.MAX_VALUE)))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(CONNECT_TIMEOUT_KEY);
         }
@@ -333,16 +313,7 @@ class PatientPortalSettingsUnitTest {
         void shouldReject_whenServiceTokenIsNullInTheConstructor() {
             assertThatThrownBy(
                             () ->
-                                    new PatientPortalSettings(
-                                            "https://portal.clinic.example",
-                                            "maplecreek",
-                                            null,
-                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
-                                            "primary",
-                                            Duration.ofSeconds(5),
-                                            Duration.ofSeconds(15),
-                                            Duration.ofSeconds(20),
-                                            java.util.Set.of(PortalTestKeys.UNUSED_TLS_PIN)))
+                                    construct(args -> args.serviceToken = null))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
@@ -504,7 +475,7 @@ class PatientPortalSettingsUnitTest {
         @DisplayName("should reject a clinic id outside the portal contract")
         void shouldThrow_whenClinicIdExceedsPortalLimitOrContainsUnsupportedCharacters() {
             Map<String, String> tooLong = validProperties();
-            tooLong.put(CLINIC_ID_KEY, "c".repeat(65));
+            tooLong.put(CLINIC_ID_KEY, "c".repeat(21));
             Map<String, String> unsupported = validProperties();
             unsupported.put(CLINIC_ID_KEY, "clinic/other");
 
@@ -591,16 +562,7 @@ class PatientPortalSettingsUnitTest {
 
             assertThatThrownBy(
                             () ->
-                                    new PatientPortalSettings(
-                                            "https://portal.clinic.example",
-                                            "maplecreek",
-                                            PortalSecret.of(TOKEN),
-                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
-                                            "primary",
-                                            Duration.ofSeconds(5),
-                                            Duration.ofSeconds(15),
-                                            Duration.ofSeconds(20),
-                                            pins))
+                                    construct(args -> args.pins = pins))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);
         }
@@ -654,11 +616,8 @@ class PatientPortalSettingsUnitTest {
         @Test
         @DisplayName("should reject null and empty pins through the public settings constructor")
         void shouldRejectMissingPins_whenConstructedDirectly() {
-            PatientPortalSettings valid = PatientPortalSettings.fromProperties(validProperties());
             for (Set<String> pins : java.util.Arrays.<Set<String>>asList(null, Set.of())) {
-                assertThatThrownBy(() -> new PatientPortalSettings(valid.baseUrl(), valid.clinicId(),
-                        valid.serviceToken(), valid.staffAssertionPrivateKey(), valid.staffAssertionKeyId(),
-                        valid.connectTimeout(), valid.readTimeout(), valid.requestTimeout(), pins))
+                assertThatThrownBy(() -> construct(args -> args.pins = pins))
                         .isInstanceOf(PatientPortalConfigurationException.class)
                         .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);
             }

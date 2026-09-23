@@ -27,7 +27,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -126,10 +125,14 @@ class PortalInvite2ActionUnitTest {
         verifyNoInteractions(portal, resolver);
     }
 
+    /**
+     * Every check is patient-scoped: the action never asks for a general grant, so a denial for this
+     * patient is final. {@code _demographic} is refused at the patient-record gate and
+     * {@code _portal.invite} at the invite gate; each case leaves every other object granted.
+     */
     @ParameterizedTest
     @ValueSource(strings = {"_demographic", "_portal.invite"})
     void shouldRejectScopedDenial_despiteGlobalPrivilege(String object) throws Exception {
-        when(security.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         when(security.hasPrivilege(any(), eq(object), anyString(), eq("123"))).thenReturn(false);
         execute();
         assertThat(response.getStatus()).isEqualTo(403);
