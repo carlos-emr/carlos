@@ -22,7 +22,9 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Outcome;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.State;
+import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -50,6 +52,18 @@ public interface PatientPortalInviteDeliveryDao extends AbstractDao<PatientPorta
 
     /** @return the most recent attempts for a patient, newest first */
     List<PatientPortalInviteDelivery> findRecentByDemographic(int demographicNo, int limit);
+
+    /**
+     * Undoes a claim: moves an attempt from {@code claimed} back to {@code previous}, restoring its
+     * outcome and its last-changed time, in its own transaction.
+     *
+     * <p>A claim that is released changed nothing, so the attempt must look exactly as it did before;
+     * in particular its idle time must not restart, or staff would wait again before they could act.
+     * Written as an update statement because the entity stamps {@code updatedAt} on every change.
+     *
+     * @return whether the attempt was still claimed and has been released
+     */
+    boolean release(Long id, State claimed, State previous, Outcome outcome, Date updatedAt);
 
     /** @return every attempt for a patient that has not finished, oldest first */
     List<PatientPortalInviteDelivery> findUnfinishedByDemographic(int demographicNo);

@@ -63,6 +63,16 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
     public List<EmailLog> getEmailStatusByDateDemographicSenderStatus(Date dateBegin, Date dateEnd, String demographicNo, String senderEmailAddress, String emailStatus);
 
     /**
+     * Replaces the stored body of one email, in its own transaction.
+     *
+     * <p>Used to drop a one-time credential from the outbox once it can no longer be needed: the row
+     * stays as the record that the email existed, without keeping what it carried.
+     *
+     * @return the number of rows changed
+     */
+    public int replaceBody(Integer id, String replacement);
+
+    /**
      * Atomically changes an email status only when the persisted row is still in the expected
      * state. Callers must check the returned row count: zero means the record was removed or a
      * concurrent request won the transition.
@@ -74,16 +84,6 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
      * @param timestamp the timestamp to persist
      * @return one when the transition was applied, otherwise zero
      */
-    /**
-     * Replaces the stored body of one email, in its own transaction.
-     *
-     * <p>Used to drop a one-time credential from the outbox once it can no longer be needed: the row
-     * stays as the record that the email existed, without keeping what it carried.
-     *
-     * @return the number of rows changed
-     */
-    public int replaceBody(Integer id, String replacement);
-
     public int transitionEmailStatus(Integer id, EmailLog.EmailStatus expectedStatus,
             EmailLog.EmailStatus newStatus, String errorMessage, Date timestamp);
 }

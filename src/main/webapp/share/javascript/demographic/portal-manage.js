@@ -42,20 +42,30 @@
     var demographicNo = root.dataset.demographicNo;
     var can = {
         invite: root.dataset.canInvite === 'true',
+        recover: root.dataset.canRecover === 'true',
         revoke: root.dataset.canRevoke === 'true',
         setAccess: root.dataset.canSetAccess === 'true',
         unlock: root.dataset.canUnlock === 'true'
     };
     var statusBox = document.getElementById('portal-status');
     var lastInvites = [];
+    var busy = false;
+    var loadSequence = 0;
+
+    // Read once into a map: keys include values from the portal (an invitation's status), which must
+    // never be spliced into a CSS selector.
+    var messages = new Map();
+    document.querySelectorAll('#portal-messages [data-key]').forEach(function (item) {
+        messages.set(item.dataset.key, item.textContent);
+    });
 
     function message(key) {
-        return document.querySelector('#portal-messages [data-key="' + key + '"]');
+        return messages.has(key) ? messages.get(key) : null;
     }
 
     function text(key) {
         var item = message(key);
-        return item ? item.textContent : key;
+        return item !== null ? item : key;
     }
 
     /** Words a delivery attempt: its state, why it stands there, and whether a code was left live. */
@@ -66,6 +76,11 @@
         }
         if (delivery.revokeFailed) {
             parts.push(text('deliveries.revokeFailed'));
+        }
+        if (delivery.outcome === 'commit_unconfirmed' && delivery.supersededInviteId) {
+            // The portal retires the old code as it activates a replacement, so an unconfirmed
+            // replacement may have taken the old code with it.
+            parts.push(text('deliveries.replacementMayBeLost'));
         }
         return parts;
     }
@@ -152,10 +167,29 @@
         return {status: response.status, payload: payload};
     }
 
+    /** Disables every control while a request runs, so a double click cannot start a second delivery. */
+    function setBusy(value) {
+        busy = value;
+        root.setAttribute('aria-busy', value ? 'true' : 'false');
+        root.querySelectorAll('button').forEach(function (control) {
+            control.disabled = value;
+        });
+    }
+
     async function act(path, params, confirmation) {
-        if (confirmation && !window.confirm(confirmation)) {
+        if (busy || (confirmation && !window.confirm(confirmation))) {
             return;
         }
+        setBusy(true);
+        try {
+            await perform(path, params);
+            await load();
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function perform(path, params) {
         var result;
         try {
             result = await call('POST', path, params);
@@ -176,14 +210,13 @@
             // An earlier attempt stopped before its code was activated and may be blocking this one.
             // Nothing from it reached the patient, so withdrawing it is safe once staff agree.
             if (window.confirm(text('invites.confirmWithdrawStale'))) {
-                await act(path, Object.assign({}, params, {withdrawStale: 'true'}));
+                await perform(path, Object.assign({}, params, {withdrawStale: 'true'}));
                 return;
             }
             showStatus(refusal(body), false);
         } else {
             showStatus(refusal(body), false);
         }
-        await load();
     }
 
     function renderAccount(payload) {
@@ -195,7 +228,6 @@
         }
         var account = payload.account;
         if (account === undefined) {
-            box.replaceChildren();
             return;
         }
         // A patient with an account has nothing to be invited to; the server refuses it too.
@@ -293,13 +325,16 @@
             description.slice(1).forEach(function (line) {
                 item.appendChild(element('div', 'small', line));
             });
-            if (can.revoke) {
+            if (can.recover) {
                 if (delivery.decisions && delivery.decisions.length) {
                     var actions = element('div', 'mt-1');
                     delivery.decisions.forEach(function (decision) {
                         actions.appendChild(button(text('deliveries.decision.' + decision), 'btn-outline-secondary', function () {
+                            // None of these can be undone: each withdraws or revokes a code, or signs a chart
+                            // note, so each is confirmed first.
                             act('/demographic/portalInvite',
-                                {method: 'recover', deliveryId: delivery.deliveryId, decision: decision});
+                                {method: 'recover', deliveryId: delivery.deliveryId, decision: decision},
+                                message('deliveries.confirm.' + decision));
                         }));
                     });
                     item.appendChild(actions);
@@ -323,11 +358,18 @@
     }
 
     async function load() {
+        // Only the newest read may render: an older one finishing late would show a stale panel.
+        var sequence = ++loadSequence;
         var result;
         try {
             result = await call('GET', '/demographic/portalPanel');
         } catch (failure) {
-            showStatus(text('error.generic'), false);
+            if (sequence === loadSequence) {
+                showStatus(text('error.generic'), false);
+            }
+            return;
+        }
+        if (sequence !== loadSequence) {
             return;
         }
         var payload = result.payload;

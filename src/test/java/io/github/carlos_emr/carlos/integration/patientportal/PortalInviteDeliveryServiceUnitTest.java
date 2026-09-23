@@ -85,7 +85,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     private static final int PATIENT = 1234;
     private static final long INVITE = 41L;
     private static final int EMAIL_LOG = 77;
-    private static final String CODE = "invite-code-Xy7";
+    private static final String CODE = "Xy7kQ2mN9pR4tV8wZ1bC5dF0gH3jK6lM-_aBcDeFgHi";
     private static final Instant NOW = Instant.parse("2026-09-22T15:00:00Z");
     private static final Instant PATIENT_EXPIRY = Instant.parse("2026-09-29T15:00:00Z");
 
@@ -103,6 +103,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     /** What the scripted transport does once the gate has passed. */
     private EmailSendResult.TransportOutcome transport = EmailSendResult.TransportOutcome.ACCEPTED;
     private String bodyAtSend;
+    private List<String> redactionsAtSend;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -773,6 +774,276 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Nested
+    @DisplayName("the code outside the email")
+    class CodeOutsideTheEmail {
+
+        @Test
+        @DisplayName("should ask the archive to keep the email without the code, and forget that afterwards")
+        void shouldRedactTheCode_fromTheArchivedCopy() {
+            service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(redactionsAtSend).containsExactly(CODE);
+            ArgumentCaptor<EmailData> email = ArgumentCaptor.forClass(EmailData.class);
+            verify(emailManager).sendEmailWithResult(eq(user), email.capture(), any(EmailManager.DispatchGate.class));
+            assertThat(email.getValue().getArchiveRedactions()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should refuse and withdraw a code that is not in the portal's token format")
+        void shouldWithdraw_whenTheCodeCouldCarryText() {
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenAnswer(invocation -> preparedWithCode(invocation.getArgument(4),
+                            "click https://evil.example/claim to finish"));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(PatientPortalException.class);
+
+            PatientPortalInviteDelivery row = onlyRow();
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+            verify(emailManager, never()).sendEmailWithResult(any(), any(), any(EmailManager.DispatchGate.class));
+        }
+
+        @Test
+        @DisplayName("should drop the code from the stored email when staff resolve a stuck delivery")
+        void shouldForgetTheCode_whenStaffResolve() {
+            for (Decision decision : List.of(Decision.CONFIRM_SENT, Decision.CONFIRM_NOT_SENT)) {
+                PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+                service.recover(user, patient(), row.getId(), decision, staff);
+            }
+            PatientPortalInviteDelivery queued = storedRow(State.QUEUED, Duration.ofMinutes(16));
+            service.recover(user, patient(), queued.getId(), Decision.ABANDON, staff);
+
+            verify(emailLogs, org.mockito.Mockito.times(3)).replaceBody(EMAIL_LOG,
+                    PortalInviteEmailComposer.CODE_FORGOTTEN);
+        }
+    }
+
+    @Nested
+    @DisplayName("answers that went missing")
+    class LostAnswers {
+
+        @Test
+        @DisplayName("should keep a prepare open when the retry is refused after a lost first answer")
+        void shouldLeaveAttemptOpen_whenTheRetryIsRefusedAfterALostAnswer() {
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/prepare", null))
+                    .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "invite delivery conflicts"));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(PatientPortalException.class);
+
+            PatientPortalInviteDelivery row = onlyRow();
+            assertThat(row.getState()).isEqualTo(State.PREPARING);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.PREPARE_UNCONFIRMED);
+        }
+
+        @Test
+        @DisplayName("should retry a commit whose answer was lost, and send once it is confirmed")
+        void shouldSend_whenTheCommitRetrySucceeds() {
+            when(portal.commitInviteDelivery(anyLong(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/commit", null))
+                    .thenAnswer(invocation -> new PatientPortalInviteDto(INVITE, "maplecreek", PATIENT, "pending",
+                            "999998", "Dr Example", 1, NOW, "Dr Example", PATIENT_EXPIRY, null, null));
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.SENT);
+            verify(portal, org.mockito.Mockito.times(2))
+                    .commitInviteDelivery(INVITE, row.getDeliveryOperationId(), "emaillog:" + EMAIL_LOG, staff);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should not report a failure for an email the transport accepted")
+        void shouldAnswerWithTheAttempt_whenRecordingTheSendFails() {
+            when(deliveries.advance(anyLong(), eq(State.COMMITTED), eq(State.SENT), any()))
+                    .thenThrow(new IllegalStateException("database unavailable"));
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            // Left activated and awaiting confirmation, for staff to resolve; never reported as failed.
+            assertThat(row.getState()).isEqualTo(State.COMMITTED);
+            assertThat(events).contains("send");
+        }
+    }
+
+    @Nested
+    @DisplayName("withdrawing a lost preparation")
+    class LostPreparation {
+
+        private PatientPortalInviteDelivery lostPreparation() {
+            PatientPortalInviteDelivery row = storedRow(State.PREPARING, Duration.ofMinutes(16));
+            injectDependency(row, "portalInviteId", null);
+            injectDependency(row, "emailLogId", null);
+            return row;
+        }
+
+        @Test
+        @DisplayName("should find and revoke it when the portal will not disclose it to this staff member")
+        void shouldFindAndRevoke_whenTheRepeatIsRefused() {
+            PatientPortalInviteDelivery row = lostPreparation();
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "another staff member"));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(88L, "prepared")));
+
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+
+            verify(portal).revokeInvite(PATIENT, 88L, staff);
+            assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
+            assertThat(resolved.getPortalInviteId()).isEqualTo(88L);
+            assertThat(resolved.isRevokeFailed()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should leave the attempt open when the portal cannot be asked")
+        void shouldStayOpen_whenThePortalCannotBeReached() {
+            PatientPortalInviteDelivery row = lostPreparation();
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/prepare", null));
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.ABANDON, staff))
+                    .isInstanceOf(PatientPortalException.class);
+
+            assertThat(row.getState()).isEqualTo(State.PREPARING);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse to guess while another attempt for the patient is still running")
+        void shouldRefuse_whenAnotherAttemptIsInFlight() {
+            PatientPortalInviteDelivery row = lostPreparation();
+            PatientPortalInviteDelivery running = storedRow(State.PREPARING, Duration.ofSeconds(5));
+            injectDependency(running, "portalInviteId", null);
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "another delivery is being prepared"));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(88L, "prepared")));
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.ABANDON, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.STATE_CHANGED));
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+            assertThat(row.getState()).isEqualTo(State.PREPARING);
+        }
+
+        @Test
+        @DisplayName("should report a lost race when a colleague withdrew the attempt first")
+        void shouldReportStateChanged_whenAColleagueWithdrewItFirst() {
+            PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
+            // The colleague's withdrawal lands between this request's read and its claim.
+            when(deliveries.advance(eq(row.getId()), eq(State.QUEUED), eq(State.ABANDONED), any()))
+                    .thenAnswer(invocation -> {
+                        row.setState(State.ABANDONED);
+                        return null;
+                    });
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.ABANDON, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.STATE_CHANGED));
+            verify(emailLogs, never()).transitionEmailStatus(anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should not revoke a preparation that another unfinished attempt owns")
+        void shouldLeaveAnotherAttemptsPreparation_alone() {
+            PatientPortalInviteDelivery row = lostPreparation();
+            // Stuck too, not running: it has recorded the preparation as its own.
+            PatientPortalInviteDelivery other = storedRow(State.PREPARED, Duration.ofMinutes(16));
+            injectDependency(other, "portalInviteId", 88L);
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "another staff member"));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(88L, "prepared")));
+
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+
+            assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("confirming an email never arrived")
+    class ConfirmNotSent {
+
+        @Test
+        @DisplayName("should close the attempt when its invitation was already replaced on the portal")
+        void shouldClose_whenTheInvitationWasAlreadyReplaced() {
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+            doThrow(PatientPortalException.ofStatus(409, "/revoke", "invite is superseded"))
+                    .when(portal).revokeInvite(anyInt(), anyLong(), any());
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "superseded")));
+
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff);
+
+            assertThat(resolved.getState()).isEqualTo(State.REVOKED);
+        }
+
+        @Test
+        @DisplayName("should refuse, and leave the attempt as it was, when the patient already used the code")
+        void shouldRefuse_whenThePatientAlreadyUsedIt() {
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+            doThrow(PatientPortalException.ofStatus(409, "/revoke", "invite is accepted"))
+                    .when(portal).revokeInvite(anyInt(), anyLong(), any());
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "accepted")));
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.INVITE_ALREADY_USED));
+            assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+        }
+
+        @Test
+        @DisplayName("should claim the attempt before revoking, so an opposite answer cannot win afterwards")
+        void shouldClaimTheAttempt_beforeRevoking() {
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+            List<State> stateAtRevoke = new java.util.ArrayList<>();
+            org.mockito.Mockito.doAnswer(invocation -> {
+                stateAtRevoke.add(row.getState());
+                return null;
+            }).when(portal).revokeInvite(anyInt(), anyLong(), any());
+
+            service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff);
+
+            assertThat(stateAtRevoke).containsExactly(State.REVOKED);
+        }
+
+        @Test
+        @DisplayName("should release the claim when the portal cannot revoke, so staff can try again at once")
+        void shouldReleaseTheClaim_whenTheRevokeFails() {
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+            Date idleSince = row.getUpdatedAt();
+            doThrow(PatientPortalException.ofTransportFailure("/revoke", null))
+                    .when(portal).revokeInvite(anyInt(), anyLong(), any());
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
+                    .isInstanceOf(PatientPortalException.class);
+
+            assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+            // The release changes nothing, so the 15-minute wait does not start again.
+            assertThat(row.getUpdatedAt()).isEqualTo(idleSince);
+            assertThat(service.isRecoverable(row)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should release the claim when the portal refuses and then cannot say why")
+        void shouldReleaseTheClaim_whenTheStatusLookupFails() {
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+            doThrow(PatientPortalException.ofStatus(409, "/revoke", "invite is accepted"))
+                    .when(portal).revokeInvite(anyInt(), anyLong(), any());
+            when(portal.listInvites(anyInt(), any())).thenThrow(PatientPortalException.ofTransportFailure("/x", null));
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
+                    .isInstanceOf(PatientPortalException.class);
+
+            assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+            verify(emailLogs, never()).transitionEmailStatus(anyInt(), any(), any(), any(), any());
+        }
+    }
+
     // --- fixtures ----------------------------------------------------------------------------
 
     private PatientPortalInviteDelivery storedRow(State state, Duration idle) {
@@ -807,6 +1078,16 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             row.setState(invocation.getArgument(2));
             touch(row);
             return row;
+        });
+        when(deliveries.release(anyLong(), any(State.class), any(State.class), any(), any())).thenAnswer(invocation -> {
+            PatientPortalInviteDelivery row = rows.get((Long) invocation.getArgument(0));
+            if (row == null || row.getState() != invocation.getArgument(1)) {
+                return false;
+            }
+            row.setState(invocation.getArgument(2));
+            row.setOutcome(invocation.getArgument(3));
+            injectDependency(row, "updatedAt", invocation.getArgument(4));
+            return true;
         });
         when(deliveries.findUnfinishedByDemographic(anyInt())).thenAnswer(invocation -> rows.values().stream()
                 .filter(row -> row.getDemographicNo() == (int) invocation.getArgument(0))
@@ -848,6 +1129,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                         return EmailSendResult.failed(log, true);
                     }
                     bodyAtSend = email.getBody();
+                    redactionsAtSend = email.getArchiveRedactions();
                     events.add("send");
                     return switch (transport) {
                         case ACCEPTED -> EmailSendResult.accepted(log, true);
@@ -862,6 +1144,13 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                 "999998", "Dr Example", 1, NOW, "Dr Example", NOW.plus(Duration.ofDays(7)), null, supersedes);
         return new PatientPortalPreparedInviteDto(
                 new PatientPortalIssuedInviteDto(invite, PortalSecret.of(CODE)), operationId);
+    }
+
+    private PatientPortalPreparedInviteDto preparedWithCode(String operationId, String code) {
+        PatientPortalInviteDto invite = new PatientPortalInviteDto(INVITE, "maplecreek", PATIENT, "prepared",
+                "999998", "Dr Example", 1, NOW, "Dr Example", NOW.plus(Duration.ofDays(7)), null, null);
+        return new PatientPortalPreparedInviteDto(
+                new PatientPortalIssuedInviteDto(invite, PortalSecret.of(code)), operationId);
     }
 
     private PatientPortalInviteDto invite(long id, String status) {
