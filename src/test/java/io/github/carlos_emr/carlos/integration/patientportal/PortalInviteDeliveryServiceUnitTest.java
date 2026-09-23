@@ -840,6 +840,23 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should finish, not leave open, a prepare that never left CARLOS")
+        void shouldFinishTheAttempt_whenThePrepareWasNeverSent() {
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/prepare",
+                            new PortalRequestNotSentException("portal transport is busy or closed")));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(PatientPortalException.class);
+
+            PatientPortalInviteDelivery row = onlyRow();
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.PREPARE_REFUSED);
+            verify(portal, org.mockito.Mockito.times(1))
+                    .prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any());
+        }
+
+        @Test
         @DisplayName("should retry a commit whose answer was lost, and send once it is confirmed")
         void shouldSend_whenTheCommitRetrySucceeds() {
             when(portal.commitInviteDelivery(anyLong(), anyString(), anyString(), any()))

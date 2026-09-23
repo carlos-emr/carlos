@@ -835,6 +835,10 @@ public class PortalInviteDeliveryService {
     }
 
     private static boolean outcomeUnknown(PatientPortalException exception) {
+        if (exception.isRequestNotSent()) {
+            // Never left CARLOS (transport busy or shut down): the portal cannot have acted on it.
+            return false;
+        }
         return switch (exception.kind()) {
             case TRANSPORT_FAILURE, MALFORMED_RESPONSE, UNEXPECTED_STATUS -> true;
             default -> false;
