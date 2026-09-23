@@ -54,10 +54,13 @@ const path = require('node:path');
         assert.equal(await page.locator('.alert-danger').count(), 0,
             'Generation was rejected; inspect the isolated gateway and application logs');
         assert.equal(await page.locator('#overview-heading').count(), 1);
+        assert.equal(await page.locator('#document-summary-overview').getAttribute('open'), null,
+            'The repeated overview is collapsed so the initial view shows the summary only once');
         const points = await page.locator('article.card').count();
         assert(points > 0);
         assert(await page.locator('.alert-info').isVisible(), 'Extraction limits remain visible');
-        await page.locator('details summary').first().click();
+        assert(await page.locator('article.card').first().isVisible());
+        await page.locator('article details summary').first().click();
         assert(await page.locator('blockquote').first().isVisible());
         assert(await page.locator('.document-summary-text').evaluateAll(elements =>
             elements.length > 0 && elements.every(element => getComputedStyle(element).whiteSpace === 'pre-wrap')),
@@ -65,7 +68,7 @@ const path = require('node:path');
         assert.deepEqual(errors, []);
         await page.screenshot({ path: path.join(output, 'after.png'), fullPage: true });
         const result = { passed: true, points, milliseconds: Date.now() - start,
-            checks: ['preview', 'POST only', 'invalid ID', 'CSRF rejection', 'no-store', 'live generation', 'visible evidence', 'extraction warning', 'no page errors'] };
+            checks: ['preview', 'POST only', 'invalid ID', 'CSRF rejection', 'no-store', 'live generation', 'visible evidence', 'overview collapsed', 'extraction warning', 'no page errors'] };
         fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(result, null, 2));
         console.log(JSON.stringify(result));
     } finally {

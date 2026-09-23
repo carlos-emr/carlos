@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later.
-"""Paid synthetic-only comparison of copied quotations and resolved passage IDs on Parasail."""
+"""Paid synthetic-only comparison of document summary modes and reading volume on Parasail."""
 import argparse
 from datetime import datetime, timezone
 import hashlib
@@ -34,7 +34,7 @@ def main():
                            help='Longest complete note from each of NHSSYN004–NHSSYN013')
     parser.add_argument('--case', choices=[c[2] for c in CASES + HOLDOUT]
                         + [f'NHSSYN{n:03d}' for n in range(1, 51)])
-    parser.add_argument('--modes', nargs='+', choices=('baseline', 'references', 'fidelity'), default=['baseline', 'references'])
+    parser.add_argument('--modes', nargs='+', choices=('baseline', 'references', 'fidelity', 'brief'), default=['baseline', 'references'])
     parser.add_argument('--reasoning-tokens', type=int, choices=(0, 512, 1024), default=0)
     parser.add_argument('--repeats', type=int, choices=(1, 2, 3), default=2)
     args = parser.parse_args()
@@ -49,7 +49,7 @@ def main():
               'reference_reasoning_tokens': args.reasoning_tokens,
               'settings': {k: config[k] for k in ('temperature', 'max_tokens', 'timeout_seconds', 'cache_seconds')},
               'prompts': {'baseline': document.PROMPT, 'references': document.REFERENCE_PROMPT,
-                          'fidelity': fidelity.PROMPT},
+                          'fidelity': fidelity.EXTRACTIVE_PROMPT, 'brief': fidelity.PROMPT},
               'cases': [], 'runs': []}
     selected = HOLDOUT if args.holdout else CASES
     if args.new_patients or args.next_patients or args.patient_range:
@@ -88,7 +88,7 @@ def main():
                 # Same disclosure boundary as run_document, before any request construction or network access.
                 document.validate_request(request, notes, config['request_bytes'])
                 refs = mode != 'baseline'
-                payload, passages = (fidelity.completion_payload(config, body) if mode == 'fidelity'
+                payload, passages = (fidelity.completion_payload(config, body, compact=mode == 'brief') if mode in ('fidelity', 'brief')
                                      else document.completion_payload(config, body, references=refs))
                 if refs and args.reasoning_tokens:
                     payload['reasoning'] = {'enabled': True, 'exclude': True,
@@ -109,11 +109,15 @@ def main():
                 try:
                     raw = gateway.complete(payload)
                     row['raw_output'] = raw
-                    output = (fidelity.resolve(raw, passages) if mode == 'fidelity'
+                    output = (fidelity.resolve(raw, passages) if mode in ('fidelity', 'brief')
                               else document.resolve_references(raw, passages) if refs else raw)
                     row['output'] = output
                     document.validate_output(output, body)
                     row['accepted'] = True
+                    row['source_words'] = len(body.split())
+                    row['point_words'] = sum(len(p['text'].split()) for p in output['points'])
+                    row['point_characters'] = sum(len(p['text']) for p in output['points'])
+                    row['word_ratio'] = round(row['point_words'] / row['source_words'], 4)
                 except agent.pipeline.OutputLimitError:
                     row.update(accepted=False, error='Document completion exceeded output limit')
                 except (ValueError, OSError, agent.UpstreamError) as error:
@@ -128,6 +132,7 @@ def main():
         rows = [r for r in report['runs'] if r['mode'] == mode]
         report['summary'][mode] = {
             'accepted': sum(r['accepted'] for r in rows), 'runs': len(rows),
+            'median_word_ratio': statistics.median(r['word_ratio'] for r in rows if r['accepted']) if any(r['accepted'] for r in rows) else None,
             'median_seconds': round(statistics.median(r['seconds'] for r in rows), 3),
             'completion_tokens': sum(c['usage']['completion_tokens'] for r in rows for c in r['calls']),
             'cost_usd': sum(c['usage']['cost'] for r in rows for c in r['calls'])}

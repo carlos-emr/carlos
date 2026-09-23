@@ -29,10 +29,10 @@
 </c:if>
 <c:choose>
     <c:when test="${documentSummaryGenerated}">
-        <section aria-labelledby="overview-heading">
-            <h2 id="overview-heading" class="h4"><fmt:message key="documentSummary.overview"/></h2>
+        <details id="document-summary-overview" class="mb-3">
+            <summary id="overview-heading"><fmt:message key="documentSummary.overview"/></summary>
             <p class="document-summary-text"><carlos:encode value="${documentSummaryOverview}"/></p>
-        </section>
+        </details>
         <section aria-labelledby="points-heading">
             <h2 id="points-heading" class="h4"><fmt:message key="documentSummary.points"/></h2>
             <c:forEach items="${documentSummaryPoints}" var="point">
