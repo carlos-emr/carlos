@@ -132,6 +132,23 @@ class PortalFailureLoggingUnitTest {
     }
 
     @Test
+    @DisplayName("should log an error when the portal rejects CARLOS's own credentials")
+    void shouldLogAnError_whenThePortalRejectsCarlosItself() throws IOException {
+        // No detail, or the bare "not found" the portal's authentication dependency sends.
+        assertThat(levelOf(PatientPortalException.ofStatus(404, "/x/{id}", null))).isEqualTo(Level.ERROR);
+        assertThat(levelOf(PatientPortalException.ofStatus(404, "/x/{id}", "not found"))).isEqualTo(Level.ERROR);
+        assertThat(logOf(PatientPortalException.ofStatus(404, "/x/{id}", null)))
+                .contains("rejected CARLOS itself");
+    }
+
+    @Test
+    @DisplayName("should only warn when a record is genuinely missing")
+    void shouldWarn_whenTheRecordIsGenuinelyMissing() throws IOException {
+        assertThat(levelOf(PatientPortalException.ofStatus(404, "/x/{id}", "invite not found")))
+                .isEqualTo(Level.WARN);
+    }
+
+    @Test
     @DisplayName("should log transport failures as errors")
     void shouldLogAnError_whenThePortalDidNotCompleteTheExchange() throws IOException {
         assertThat(levelOf(PatientPortalException.ofTransportFailure("/x/{id}", null)))

@@ -37,6 +37,7 @@ import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Locale;
@@ -94,7 +95,7 @@ final class PortalStaffAssertionSigner {
             Supplier<UUID> assertionIds,
             ObjectMapper objectMapper) {
         if (privateKey == null || clock == null || assertionIds == null || objectMapper == null) {
-            throw new IllegalArgumentException("portal assertion signer dependencies are required");
+            throw new PortalRequestPreparationException("portal assertion signer dependencies are required");
         }
         this.privateKey = privateKey;
         this.clock = clock;
@@ -105,7 +106,7 @@ final class PortalStaffAssertionSigner {
     String sign(PatientPortalStaffContext staff, String clinicId, String keyId,
             String method, URI uri, byte[] body) {
         if (staff == null) {
-            throw new IllegalArgumentException("portal staff context is required");
+            throw new PortalRequestPreparationException("portal staff context is required");
         }
         long issuedAt = clock.instant().getEpochSecond();
         ObjectNode payload = objectMapper.createObjectNode();
@@ -169,14 +170,17 @@ final class PortalStaffAssertionSigner {
         } catch (IllegalArgumentException exception) {
             throw invalidKey(exception);
         }
-        if (!ENCODER.encodeToString(decoded).equals(encoded)) {
-            throw invalidKey(null);
-        }
         try {
+            if (!ENCODER.encodeToString(decoded).equals(encoded)) {
+                throw invalidKey(null);
+            }
             return KeyFactory.getInstance(ALGORITHM)
                     .generatePrivate(new PKCS8EncodedKeySpec(decoded));
         } catch (GeneralSecurityException exception) {
             throw invalidKey(exception);
+        } finally {
+            // PKCS8EncodedKeySpec keeps its own copy, so the raw key bytes need not outlive this call.
+            Arrays.fill(decoded, (byte) 0);
         }
     }
 

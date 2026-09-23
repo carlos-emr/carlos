@@ -98,19 +98,25 @@ public class PatientPortalException extends RuntimeException {
          * <p>A mutating call that fails this way may already have taken effect.
          */
         MALFORMED_RESPONSE,
-        /** No complete response: connection failure, timeout, TLS failure, or interrupted body. */
+        /**
+         * No complete response: connection failure, timeout, TLS failure, or interrupted body. A
+         * mutation may have taken effect, unless {@link #isRequestNotSent()} says the request never
+         * left CARLOS.
+         */
         TRANSPORT_FAILURE
     }
 
     private final Kind kind;
     private final int statusCode;
     private final String detail;
+    private final boolean requestNotSent;
 
     private PatientPortalException(String message, Kind kind, int statusCode, String detail) {
         super(message);
         this.kind = kind;
         this.statusCode = statusCode;
         this.detail = detail;
+        this.requestNotSent = false;
     }
 
     private PatientPortalException(String message, Kind kind, int statusCode, Throwable cause) {
@@ -118,6 +124,7 @@ public class PatientPortalException extends RuntimeException {
         this.kind = kind;
         this.statusCode = statusCode;
         this.detail = null;
+        this.requestNotSent = cause instanceof PortalRequestNotSentException;
     }
 
     /**
@@ -142,7 +149,10 @@ public class PatientPortalException extends RuntimeException {
         return new PatientPortalException(message, kind, statusCode, detail);
     }
 
-    /** The transport did not complete; a mutation may already have taken effect. */
+    /**
+     * The transport did not complete; a mutation may already have taken effect, unless the cause
+     * shows the request never left CARLOS ({@link #isRequestNotSent()}).
+     */
     public static PatientPortalException ofTransportFailure(String endpointTemplate, Throwable cause) {
         return new PatientPortalException(
                 String.format(Locale.ROOT, TRANSPORT_MESSAGE, endpointTemplate),
@@ -155,10 +165,39 @@ public class PatientPortalException extends RuntimeException {
         if (cause == null) {
             return null;
         }
-        // HTTP parser exceptions can embed raw status lines/headers just as JSON errors embed values.
-        String category = cause instanceof java.net.SocketTimeoutException ? "timeout"
-                : cause instanceof javax.net.ssl.SSLException ? "TLS handshake" : "HTTP exchange";
-        return new java.io.IOException("portal transport failed: " + category);
+        if (cause instanceof PortalRequestNotSentException notSent) {
+            // Its messages are fixed; keeping the type lets isRequestNotSent() survive logging.
+            return new PortalRequestNotSentException(notSent.getMessage());
+        }
+        // HTTP parser exceptions can embed raw status lines/headers just as JSON errors embed values,
+        // so the cause is replaced by a fixed category. The categories keep an outage, a local
+        // capacity limit and a misconfiguration distinguishable in the logs.
+        return new java.io.IOException("portal transport failed: " + transportCategory(cause));
+    }
+
+    private static String transportCategory(Throwable cause) {
+        // Subclasses first: httpclient5's connect and pool-lease timeouts extend the JDK types below.
+        if (cause instanceof org.apache.hc.client5.http.ConnectTimeoutException) return "connect timeout";
+        if (cause instanceof org.apache.hc.client5.http.impl.classic.RequestFailedException) return "request cancelled";
+        if (cause instanceof org.apache.hc.core5.util.DeadlineTimeoutException) return "connection pool lease timeout";
+        if (cause instanceof java.net.SocketTimeoutException) {
+            return PatientPortalHttpClientExchange.DEADLINE_EXCEEDED.equals(cause.getMessage())
+                    ? "request deadline exceeded" : "read timeout";
+        }
+        if (cause instanceof javax.net.ssl.SSLException) return "TLS handshake";
+        if (cause instanceof java.net.UnknownHostException) return "host lookup";
+        if (cause instanceof java.net.ConnectException) return "connection refused";
+        if (cause instanceof org.apache.hc.core5.http.NoHttpResponseException) return "connection closed without a response";
+        if (cause instanceof java.io.InterruptedIOException) return "interrupted";
+        return "HTTP exchange (" + cause.getClass().getSimpleName() + ")";
+    }
+
+    /**
+     * True when the request never left CARLOS (transport busy, shut down, or an invalid URI).
+     * Always a {@link Kind#TRANSPORT_FAILURE}, but one that cannot have changed anything.
+     */
+    public boolean isRequestNotSent() {
+        return requestNotSent;
     }
 
     /** Builds the failure for a success status whose body CARLOS could not read. */
