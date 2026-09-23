@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Date;
 import java.util.Objects;
+import java.util.Optional;
 
 @Primary
 @Service
@@ -48,10 +49,15 @@ public class JpaSmsSendRateLimitService implements SmsSendRateLimitService {
     public boolean tryAcquire(SmsProviderType providerType) {
         SmsProviderType safeProviderType = providerType == null ? SmsProviderType.STUB : providerType;
         Date now = Date.from(clock.instant());
-        rateLimitDao.insertIfMissing(safeProviderType, now);
-        SmsProviderRateLimit rateLimit = rateLimitDao
-                .findByProviderTypeForUpdate(safeProviderType)
-                .orElse(null);
+        // Lock the row V1.0.25 seeds; insert only for a provider type added without a seed row. Inserting
+        // first on every send is worse than wasted: INSERT IGNORE on an existing row takes a shared lock,
+        // and two senders upgrading theirs to FOR UPDATE deadlock.
+        Optional<SmsProviderRateLimit> lockedRow = rateLimitDao.findByProviderTypeForUpdate(safeProviderType);
+        if (lockedRow.isEmpty()) {
+            rateLimitDao.insertIfMissing(safeProviderType, now);
+            lockedRow = rateLimitDao.findByProviderTypeForUpdate(safeProviderType);
+        }
+        SmsProviderRateLimit rateLimit = lockedRow.orElse(null);
         if (rateLimit == null) {
             return false;
         }

@@ -62,15 +62,17 @@ public class SmsSendService {
             return SmsSendResultDto.consentBlocked(consentDecision);
         }
 
-        if (!rateLimiter.tryAcquire(providerType)) {
-            // The row is already persisted as QUEUED (due now), so leave it for the queue
-            // scheduler/worker to drain rather than exceeding the SMS provider rate limit here.
-            return SmsSendResultDto.queued();
-        }
-
         try {
             transaction = transactionRecorder.markSending(transaction, new Date());
         } catch (SmsTransactionClaimConflictException e) {
+            return SmsSendResultDto.queued();
+        }
+
+        // Claim before taking a permit, as the queue worker does, so a claim conflict never burns one.
+        if (!rateLimiter.tryAcquire(providerType)) {
+            // Hand the row back as QUEUED (due now) for the queue scheduler/worker to drain rather than
+            // exceeding the SMS provider rate limit here.
+            transactionRecorder.releaseClaim(transaction, new Date());
             return SmsSendResultDto.queued();
         }
 
