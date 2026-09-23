@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -68,8 +69,10 @@ class PortalSecretUnitTest {
     @Test
     @DisplayName("should refuse to serialize rather than publish the credential")
     void shouldFailSerialization_ratherThanEmitTheValue() {
+        // InvalidDefinitionException: the type exposes nothing Jackson can serialize. Any other
+        // failure would mean the type changed shape, and the credential may be one step from leaking.
         assertThatThrownBy(() -> new ObjectMapper().writeValueAsString(PortalSecret.of(VALUE)))
-                .isInstanceOf(Exception.class)
+                .isInstanceOf(InvalidDefinitionException.class)
                 .hasMessageNotContaining(VALUE);
     }
 

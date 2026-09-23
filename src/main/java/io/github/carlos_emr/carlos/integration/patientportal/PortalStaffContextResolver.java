@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.LinkedHashSet;
@@ -100,7 +101,7 @@ public class PortalStaffContextResolver {
 
     public PortalStaffContextResolver(SecurityInfoManager securityInfoManager) {
         if (securityInfoManager == null) {
-            throw new IllegalArgumentException(MISSING_SECURITY_MANAGER);
+            throw new PortalRequestPreparationException(MISSING_SECURITY_MANAGER);
         }
         this.securityInfoManager = securityInfoManager;
     }
@@ -132,7 +133,7 @@ public class PortalStaffContextResolver {
     public PatientPortalStaffContext resolveForPatient(
             LoggedInInfo loggedInInfo, Set<String> objects, int demographicNo) {
         if (demographicNo <= 0) {
-            throw new IllegalArgumentException("a patient must be selected");
+            throw new PortalRequestPreparationException("a patient must be selected");
         }
         return resolve(loggedInInfo, objects, String.valueOf(demographicNo));
     }
@@ -140,7 +141,7 @@ public class PortalStaffContextResolver {
     private PatientPortalStaffContext resolve(
             LoggedInInfo loggedInInfo, Set<String> objects, String demographicNo) {
         if (loggedInInfo == null) {
-            throw new IllegalArgumentException("an authenticated session is required");
+            throw new PortalRequestPreparationException("an authenticated session is required");
         }
         validateScope(objects);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -160,11 +161,11 @@ public class PortalStaffContextResolver {
     /** A typo must fail locally rather than silently narrowing the signed assertion. */
     private static void validateScope(Set<String> objects) {
         if (objects == null || objects.isEmpty()) {
-            throw new IllegalArgumentException(NO_SCOPE);
+            throw new PortalRequestPreparationException(NO_SCOPE);
         }
         for (String object : objects) {
             if (object == null || !PERMISSION_BY_OBJECT.containsKey(object)) {
-                throw new IllegalArgumentException(UNSUPPORTED_OBJECT);
+                throw new PortalRequestPreparationException(UNSUPPORTED_OBJECT);
             }
         }
     }
@@ -180,9 +181,15 @@ public class PortalStaffContextResolver {
         if (loggedInInfo.getLoggedInProvider() == null) {
             return loggedInInfo.getLoggedInProviderNo();
         }
-        String formatted = loggedInInfo.getLoggedInProvider().getFormattedName();
-        return formatted == null || formatted.isBlank()
-                ? loggedInInfo.getLoggedInProviderNo()
-                : formatted;
+        // getFormattedName() prints missing names as "null", so check the parts, not its result.
+        Provider provider = loggedInInfo.getLoggedInProvider();
+        if (isBlank(provider.getLastName()) || isBlank(provider.getFirstName())) {
+            return loggedInInfo.getLoggedInProviderNo();
+        }
+        return provider.getFormattedName();
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

@@ -75,6 +75,10 @@ public class PortalAccount2Action extends PortalJsonAction {
     private static final String UNKNOWN_METHOD = "unsupported portal account action";
     private static final String REASON_REQUIRED =
             "a reason is required when disabling a portal account";
+    /** The portal's limit on the stored reason (InternalAccountAccessRequest.reason). */
+    static final int MAX_REASON_LENGTH = 64;
+    private static final String REASON_TOO_LONG =
+            "the reason must be at most " + MAX_REASON_LENGTH + " characters";
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient PortalStaffContextResolver staffContextResolver;
@@ -198,6 +202,11 @@ public class PortalAccount2Action extends PortalJsonAction {
         boolean reasonMissing = reason == null || reason.isBlank();
         if (!enabledValue && reasonMissing) {
             return badRequest(response, REASON_REQUIRED);
+        }
+        // Checked here so an over-long reason is reported as such; the portal's 422 would be
+        // relayed as a generic "check the patient record".
+        if (!reasonMissing && reason.strip().codePointCount(0, reason.strip().length()) > MAX_REASON_LENGTH) {
+            return badRequest(response, REASON_TOO_LONG);
         }
         PatientPortalAccountAcknowledgementDto account =
                 portal.setAccountAccess(

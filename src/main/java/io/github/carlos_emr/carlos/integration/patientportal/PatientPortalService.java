@@ -99,7 +99,6 @@ public class PatientPortalService implements Closeable {
     private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
     private static final String INVITE_PREPARE_PATH =
             "/internal/carlos/patients/%d/invites/prepare";
-    private static final String INVITE_RESEND_PATH = "/internal/carlos/invites/%d/resend";
     private static final String INVITE_RESEND_PREPARE_PATH =
             "/internal/carlos/invites/%d/resend/prepare";
     private static final String INVITE_DELIVERY_COMMIT_PATH =
@@ -181,50 +180,6 @@ public class PatientPortalService implements Closeable {
         if (exchange instanceof Closeable closeable) {
             closeable.close();
         }
-    }
-
-    /**
-     * Creates a portal invite and returns the one-time activation token.
-     *
-     * <p>The identity proof must come from the CARLOS demographic record. The portal keeps only
-     * salted keyed hashes of these values and requires the patient to reproduce them at activation,
-     * so staff-entered values would produce invites nobody can activate.
-     *
-     * <p>The returned token is issued once. CARLOS owns delivery and must record the delivery
-     * outcome in its own durable messaging workflow.
-     *
-     * <p>Issuance is disabled at the staff action boundary until durable delivery and atomic
-     * replacement exist. Reading a list and confirming in CARLOS cannot make replacement atomic
-     * across concurrent callers; that guarantee must be enforced by the portal.
-     *
-     * @param demographicNo CARLOS demographic number
-     * @param email patient email from the demographic record
-     * @param dateOfBirth patient date of birth from the demographic record
-     * @param healthCardNumber patient HIN/HCN from the demographic record
-     * @param staff the authenticated provider, holding {@code portal.invite.manage}
-     * @return the invite and its one-time token
-     * @throws PatientPortalException with {@link PatientPortalException.Kind#CONFLICT} if the
-     *     patient already has a portal account
-     */
-    public PatientPortalIssuedInviteDto createInvite(
-            int demographicNo,
-            String email,
-            LocalDate dateOfBirth,
-            String healthCardNumber,
-            PatientPortalStaffContext staff) {
-        ObjectNode body = objectMapper.createObjectNode();
-        body.put("demographic_no", demographicNo);
-        body.put("email", email);
-        body.put("date_of_birth", dateOfBirth == null ? null : dateOfBirth.toString());
-        body.put("health_card_number", healthCardNumber);
-        return fetch(
-                POST,
-                INVITES_PATH,
-                body.toString(),
-                CREATED,
-                staff,
-                node -> confirmedCreatedInvite(PatientPortalIssuedInviteDto.fromJson(node)),
-                demographicNo);
     }
 
     /**
@@ -324,21 +279,6 @@ public class PatientPortalService implements Closeable {
                 staff,
                 PatientPortalService::inviteList,
                 demographicNo);
-    }
-
-    /**
-     * Reissues an invite, returning a fresh one-time token.
-     *
-     * <p><b>The previous token stops working immediately.</b> A resend whose delivery then fails
-     * leaves the patient with no usable token, so callers must treat delivery failure as an error
-     * worth surfacing rather than a retry that can be dropped.
-     */
-    public PatientPortalIssuedInviteDto resendInvite(long inviteId, PatientPortalStaffContext staff) {
-        return fetch(
-                POST, INVITE_RESEND_PATH, null, OK, staff,
-                node -> confirmedResentInvite(
-                        PatientPortalIssuedInviteDto.fromJson(node), inviteId),
-                inviteId);
     }
 
     /**
@@ -644,15 +584,6 @@ public class PatientPortalService implements Closeable {
                 PortalJson.nullableText(payload, "decision"));
     }
 
-    private static PatientPortalIssuedInviteDto confirmedCreatedInvite(
-            PatientPortalIssuedInviteDto issued) {
-        if (!"pending".equals(issued.invite().status())) {
-            throw new PortalContractException(
-                    "portal did not confirm the new invitation is pending");
-        }
-        return issued;
-    }
-
     private static PatientPortalInviteDto confirmedCommittedInvite(
             JsonNode payload, long inviteId, String operationId, String deliveryReference) {
         PatientPortalInviteDto invite = PatientPortalInviteDto.fromJson(payload);
@@ -676,7 +607,7 @@ public class PatientPortalService implements Closeable {
                         .anyMatch(
                                 character ->
                                         !isDeliveryIdentifierCharacter(character, allowSlash))) {
-            throw new IllegalArgumentException(label + " is invalid");
+            throw new PortalRequestPreparationException(label + " is invalid");
         }
         return value;
     }
@@ -690,17 +621,6 @@ public class PatientPortalService implements Closeable {
                 || character == ':'
                 || character == '-'
                 || allowSlash && character == '/';
-    }
-
-    private static PatientPortalIssuedInviteDto confirmedResentInvite(
-            PatientPortalIssuedInviteDto issued, long supersededInviteId) {
-        PatientPortalInviteDto invite = issued.invite();
-        if (!"pending".equals(invite.status())
-                || !Objects.equals(invite.supersedesInviteId(), supersededInviteId)) {
-            throw new PortalContractException(
-                    "portal did not confirm the replacement invitation");
-        }
-        return issued;
     }
 
     private static PatientPortalUnlockSecretDto confirmedCreatedSecret(
@@ -783,11 +703,11 @@ public class PatientPortalService implements Closeable {
         try {
             response = exchange.send(buildRequest(method, path, jsonBody, staff));
         } catch (PortalResponseTooLargeException exception) {
-            throw PatientPortalException.ofMalformedResponse(
-                    exception.statusCode(), template, new PortalContractException("portal response exceeds size limit"));
+            throw PatientPortalException.ofMalformedResponse(exception.statusCode(), template,
+                    new PortalContractException("portal response exceeds size limit", exception));
         } catch (PortalResponseDecodingException exception) {
-            throw PatientPortalException.ofMalformedResponse(
-                    exception.statusCode(), template, new PortalContractException("portal response is not valid UTF-8"));
+            throw PatientPortalException.ofMalformedResponse(exception.statusCode(), template,
+                    new PortalContractException("portal response is not valid UTF-8", exception));
         } catch (IOException exception) {
             throw PatientPortalException.ofTransportFailure(template, exception);
         }

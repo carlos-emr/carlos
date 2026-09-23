@@ -21,34 +21,21 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+
+import java.io.IOException;
 import java.io.Serial;
 
 /**
- * The portal answered with a body that does not match the contract CARLOS was built against.
+ * The request never left CARLOS: the transport was busy or shut down, or the URI was invalid.
  *
- * <p>Package-private by intent: {@link PatientPortalService} catches this and re-raises it as a
- * {@link PatientPortalException} with {@link PatientPortalException.Kind#MALFORMED_RESPONSE}, so
- * callers branch on one exception type. Letting a raw parse failure escape — which an earlier
- * revision did for a malformed timestamp — bypasses the {@code Kind} contract the package is built
- * around and surfaces as a generic CARLOS error page.
- *
- * <p>Messages name the offending field only, never its value, because portal payloads carry patient
- * contact details.
- *
- * @since 2026-08-19
+ * <p>Unlike other transport failures, this one guarantees the portal saw nothing, so a mutation
+ * cannot have taken effect and the caller may safely try again.
  */
-class PortalContractException extends RuntimeException {
-
+public final class PortalRequestNotSentException extends IOException {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    PortalContractException(String message) {
+    public PortalRequestNotSentException(String message) {
         super(message);
     }
-
-    /** Keeps the transport failure that detected the violation; its message names no portal data. */
-    PortalContractException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
 }

@@ -74,6 +74,11 @@ public record PatientPortalContactReviewPageDto(
                     "portal review page contains more items than its declared limit");
         }
         long consumed = (long) page.offset() + page.items().size();
+        // An empty page past the end is normal (the queue shrank between reads); items beyond the
+        // declared total are not, and would show reviews beside an impossible pending count.
+        if (!page.items().isEmpty() && consumed > page.total()) {
+            throw new PortalContractException("portal review page contains more items than its declared total");
+        }
         boolean hasMore = consumed < page.total();
         if (hasMore != (next != null)) {
             throw new PortalContractException(

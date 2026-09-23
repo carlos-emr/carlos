@@ -294,12 +294,13 @@ class PortalJsonUnitTest {
 
         Throwable thrown =
                 catchThrowable(() -> PortalJson.timestamp(payload, "expires_at"));
+        // Checked first: if parsing stopped failing, thrown is null and the trace below would hide it.
+        assertThat(thrown).isInstanceOf(PortalContractException.class);
 
         StringWriter rendered = new StringWriter();
         thrown.printStackTrace(new PrintWriter(rendered));
         assertThat(rendered.toString())
                 .withFailMessage("the parsed value survives in the cause chain and would be logged")
                 .doesNotContain(patientEmail);
-        assertThat(thrown).isInstanceOf(PortalContractException.class);
     }
 }
