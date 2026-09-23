@@ -1,5 +1,8 @@
 # Parasail document summarizer optimization — 2026-09-23
 
+This records the earlier passage-cited paraphraser. The current gateway uses the subsequent
+[extractive fidelity design](DOCUMENT_FIDELITY.md), which also supplies summary wording from the source.
+
 The bundled CARLOS EMR gateway now asks Qwen3.5-35B-A3B on Parasail to select numbered source
 passages instead of generating quotations. The gateway inserts the exact original passages
 into the existing response contract. This removes a copying task that caused frequent rejections
