@@ -14,6 +14,7 @@ import document_summary as document
 import document_fidelity as fidelity
 import document_distill as distill
 import document_facts as facts
+import document_hybrid as hybrid
 import openrouter_agent as agent
 from compare_document_models import CASES
 
@@ -38,11 +39,11 @@ def main():
                         help='Use the longest or second-longest note per patient in a range')
     parser.add_argument('--case', choices=[c[2] for c in CASES + HOLDOUT]
                         + [f'NHSSYN{n:03d}' for n in range(1, 51)])
-    parser.add_argument('--modes', nargs='+', choices=('baseline', 'references', 'fidelity', 'brief', 'distill', 'balanced', 'facts'), default=['baseline', 'references'])
+    parser.add_argument('--modes', nargs='+', choices=('baseline', 'references', 'fidelity', 'brief', 'distill', 'balanced', 'facts', 'hybrid'), default=['baseline', 'references'])
     parser.add_argument('--reasoning-tokens', type=int, choices=(0, 512, 1024), default=0)
     parser.add_argument('--repeats', type=int, choices=(1, 2, 3), default=2)
     args = parser.parse_args()
-    if args.reasoning_tokens and any(mode in ('distill', 'balanced', 'facts') for mode in args.modes):
+    if args.reasoning_tokens and any(mode in ('distill', 'balanced', 'facts', 'hybrid') for mode in args.modes):
         parser.error('--reasoning-tokens is only supported by the historical single-pass modes')
     if args.patient_range and not 1 <= args.patient_range[0] <= args.patient_range[1] <= 50:
         parser.error('--patient-range must be ordered within 1–50')
@@ -56,7 +57,7 @@ def main():
               'note_rank': args.note_rank,
               'settings': {k: config[k] for k in ('temperature', 'max_tokens', 'timeout_seconds', 'cache_seconds')},
               'prompts': {'baseline': document.PROMPT, 'references': document.REFERENCE_PROMPT,
-                          'fidelity': fidelity.EXTRACTIVE_PROMPT, 'brief': fidelity.PROMPT, 'distill': distill.PROMPT, 'distill_review': distill.REVIEW_PROMPT, 'balanced': distill.CONTEXT_PROMPT, 'facts': facts.PROMPT},
+                          'fidelity': fidelity.EXTRACTIVE_PROMPT, 'brief': fidelity.PROMPT, 'distill': distill.PROMPT, 'distill_review': distill.REVIEW_PROMPT, 'balanced': distill.CONTEXT_PROMPT, 'facts': facts.PROMPT, 'hybrid': hybrid.PROMPT},
               'cases': [], 'runs': []}
     selected = HOLDOUT if args.holdout else CASES
     if args.new_patients or args.next_patients or args.patient_range:
@@ -95,7 +96,7 @@ def main():
                 # Same disclosure boundary as run_document, before any request construction or network access.
                 document.validate_request(request, notes, config['request_bytes'])
                 refs = mode != 'baseline'
-                payload, passages = ((None, None) if mode in ('distill', 'balanced', 'facts') else
+                payload, passages = ((None, None) if mode in ('distill', 'balanced', 'facts', 'hybrid') else
                                      fidelity.completion_payload(config, body, compact=mode == 'brief') if mode in ('fidelity', 'brief')
                                      else document.completion_payload(config, body, references=refs))
                 if refs and args.reasoning_tokens:
@@ -115,9 +116,10 @@ def main():
                 row = {'mode': mode, 'case': case['case'], 'repeat': repeat + 1, 'calls': calls}
                 started = time.monotonic()
                 try:
-                    if mode in ('distill', 'balanced', 'facts'):
+                    if mode in ('distill', 'balanced', 'facts', 'hybrid'):
                         row['review_trace'] = []
-                        output = (facts.run(config, body, gateway.complete, row['review_trace']) if mode == 'facts'
+                        output = (hybrid.run(config, body, gateway.complete, row['review_trace']) if mode == 'hybrid'
+                                  else facts.run(config, body, gateway.complete, row['review_trace']) if mode == 'facts'
                                   else distill.run(config, body, gateway.complete, row['review_trace'], protect=mode == 'balanced'))
                     else:
                         raw = gateway.complete(payload)

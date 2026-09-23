@@ -41,14 +41,14 @@ def panel(row, source):
     points = row['output']['points']
     words = sum(len(p['text'].split()) for p in points)
     html = f'<p class="meta">{words} words · {row["seconds"]:.2f} seconds · {len(row["calls"])} successful model calls</p>'
-    if row['mode'] != 'facts':
+    if row['mode'] not in ('facts', 'hybrid'):
         return html + ''.join('<div class="point"><div class="text">' + escape(p['text']) + '</div>' + evidence(p) + '</div>' for p in points)
     if points[0]['text'].startswith('Summary: '):
         p, points = points[0], points[1:]
         html += '<div class="synopsis"><div class="text">' + escape(p['text'][9:]) + '</div>' + evidence(p) + '</div>'
     html += '<table aria-label="Clinical facts"><tbody>'
-    order = ['Impression', 'Procedure', 'History', 'Medical history', 'Family history', 'Findings',
-             'Observations', 'Results', 'Medications', 'Allergies', 'Treatment', 'Plan', 'Follow-up', 'Disposition', 'Context']
+    order = ['Presentation', 'Impression', 'Procedure', 'History', 'Medical history', 'Family history', 'Systems review', 'Findings',
+             'Observations', 'Results', 'Medications', 'Allergies', 'Treatment', 'Plan', 'Follow-up', 'Disposition', 'Social history', 'Context']
     def label(point):
         return point['text'].split(': ', 1)[0]
     points = sorted(points, key=lambda p: order.index(label(p)) if label(p) in order else len(order))
@@ -60,7 +60,9 @@ def panel(row, source):
     return html + '</tbody></table>'
 
 
-def render(report, reviews=None):
+def render(report, reviews=None, candidate='facts'):
+    if candidate not in ('facts', 'hybrid'):
+        raise ValueError('Unknown comparison candidate')
     reviews = reviews or {}
     allowed = {body for _, _, body in agent.committed_notes()[0]}
     cases = report['cases']
@@ -77,8 +79,8 @@ def render(report, reviews=None):
         if case['case'] in reviews:
             html += '<div class="issues"><strong>Manual source comparison</strong><ul>' + ''.join('<li>' + escape(s) + '</li>' for s in reviews[case['case']]) + '</ul></div>'
         html += '<div class="columns">'
-        for mode, title in [('balanced', 'Current summary'), ('facts', 'Overview + facts trial')]:
-            html += '<article class="panel ' + mode + '"><h3>' + title + '</h3>' + panel(rows.get(mode), case['text']) + '</article>'
+        for mode, title in [('balanced', 'Current summary'), (candidate, 'Source-derived facts + AI-selected opening' if candidate == 'hybrid' else 'Overview + facts trial')]:
+            html += '<article class="panel ' + mode + (' candidate' if mode == candidate else '') + '"><h3>' + title + '</h3>' + panel(rows.get(mode), case['text']) + '</article>'
         html += '</div><details class="source"><summary>Full synthetic source · ' + str(len(case['text'].split())) + ' words</summary><blockquote>' + escape(case['text']) + '</blockquote></details></section>'
     return html + '</body></html>'
 
@@ -87,12 +89,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--reviews', type=Path)
+    parser.add_argument('--candidate', choices=('facts', 'hybrid'), default='facts')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     report = json.loads(args.report.read_text())
     reviews = json.loads(args.reviews.read_text()) if args.reviews else None
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(render(report, reviews))
+    args.output.write_text(render(report, reviews, args.candidate))
     print(args.output)
 
 

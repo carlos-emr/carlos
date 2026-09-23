@@ -130,7 +130,8 @@ protected-passage and model-review checks, with a median point length of 72% of 
 15.76-second median generation time. This is a reading-volume proxy, not clinical validation or
 measured reading time. See [the full results](DOCUMENT_BALANCED.md). A subsequent
 [overview-and-facts experiment](DOCUMENT_FACTS.md) adds a local table preview and comparison mode;
-it is not adopted by the gateway. The expanded Python suite has 171 passing tests.
+it is not adopted by the gateway. A subsequent [source-derived hybrid](DOCUMENT_HYBRID.md) tests deterministic fact extraction and
+AI-selected emphasis; it also remains experimental. The expanded Python suite has 182 passing tests.
 
 ### Historical exploratory live results, 2026-09-23
 
