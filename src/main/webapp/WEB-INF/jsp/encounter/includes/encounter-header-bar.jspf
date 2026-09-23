@@ -11,7 +11,7 @@
             <carlos:encode value='${famDocName}' context="html"/>&nbsp;<carlos:encode value='${famDocSurname}' context="html"/>
         </span>
         <a href="#"
-           onclick="popupPage(150,200,'calculatorWin','${ctx}/encounter/ViewCalculators?sex='+encodeURIComponent(encounterConfig.patientSex)+'&amp;age='+encodeURIComponent(encounterConfig.pAge)); return false;"
+           onclick="popupPage(150,200,'calculatorWin','${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(bean.demographicNo)}'); return false;"
            title="<fmt:message key="encounter.Index.calculators"/>">
             <img alt="<fmt:message key="encounter.Index.calculators"/>" src="graphics/calculator.gif">
         </a>

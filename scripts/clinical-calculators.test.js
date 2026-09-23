@@ -325,6 +325,16 @@ test('the calculators are reached by clicking, never by their URL', () => {
     'the check must name the link a clinician clicks, not the route behind it');
 });
 
+test('legacy chart calculator launchers also use record references without sex or age', () => {
+  for (const relative of ['casemgmt/navigation.jsp', 'encounter/includes/encounter-header-bar.jspf']) {
+    const markup = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp', relative), 'utf8');
+    const launches = markup.split('\n').filter((line) => line.includes('/encounter/ViewCalculators?'));
+    assert.equal(launches.length, 1, `${relative} must retain one calculator launcher`);
+    assert.match(launches[0], /ViewCalculators\?demo=/);
+    assert.doesNotMatch(launches[0], /(?:[?&]|&amp;)(?:sex|age)=/);
+  }
+});
+
 test('the run refuses to report success having computed nothing', () => {
   // Every assertion in this check lives inside a loop over a table. An empty
   // table would leave them all unexecuted, and the check would pass. The floors
